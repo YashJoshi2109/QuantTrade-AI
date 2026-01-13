@@ -1,0 +1,229 @@
+"""
+Service for fetching market data from various sources
+Uses Alpha Vantage as primary source, yfinance as fallback
+"""
+import yfinance as yf
+import pandas as pd
+import requests
+from datetime import datetime, timedelta
+from typing import List, Optional
+from app.models.symbol import Symbol
+from app.models.price import PriceBar
+from app.config import settings
+from sqlalchemy.orm import Session
+
+
+class DataFetcher:
+    """Fetches market data using Alpha Vantage (primary) and yfinance (fallback)"""
+    
+    @staticmethod
+    def fetch_symbol_info(symbol: str) -> dict:
+        """Fetch basic symbol information"""
+        # Try Alpha Vantage first
+        if settings.ALPHA_VANTAGE_API_KEY:
+            try:
+                url = "https://www.alphavantage.co/query"
+                params = {
+                    "function": "OVERVIEW",
+                    "symbol": symbol,
+                    "apikey": settings.ALPHA_VANTAGE_API_KEY
+                }
+                response = requests.get(url, params=params, timeout=10)
+                data = response.json()
+                
+                if data and "Symbol" in data:
+                    return {
+                        "symbol": symbol,
+                        "name": data.get("Name", symbol),
+                        "sector": data.get("Sector"),
+                        "industry": data.get("Industry"),
+                        "market_cap": int(data.get("MarketCapitalization", 0)) if data.get("MarketCapitalization") else None,
+                    }
+            except Exception as e:
+                print(f"Alpha Vantage overview failed for {symbol}: {e}")
+        
+        # Fallback to yfinance
+        try:
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
+            return {
+                "symbol": symbol,
+                "name": info.get("longName") or info.get("shortName", ""),
+                "sector": info.get("sector", ""),
+                "industry": info.get("industry", ""),
+                "market_cap": info.get("marketCap"),
+            }
+        except Exception as e:
+            print(f"yfinance info failed for {symbol}: {e}")
+            return {
+                "symbol": symbol,
+                "name": symbol,
+                "sector": None,
+                "industry": None,
+                "market_cap": None,
+            }
+    
+    @staticmethod
+    def fetch_historical_data_alpha_vantage(symbol: str, outputsize: str = "full") -> pd.DataFrame:
+        """Fetch historical data from Alpha Vantage"""
+        if not settings.ALPHA_VANTAGE_API_KEY:
+            return pd.DataFrame()
+        
+        try:
+            url = "https://www.alphavantage.co/query"
+            params = {
+                "function": "TIME_SERIES_DAILY",
+                "symbol": symbol,
+                "outputsize": outputsize,  # "compact" = 100 days, "full" = 20+ years
+                "apikey": settings.ALPHA_VANTAGE_API_KEY
+            }
+            
+            response = requests.get(url, params=params, timeout=30)
+            data = response.json()
+            
+            if "Time Series (Daily)" not in data:
+                print(f"Alpha Vantage: No daily data for {symbol}")
+                if "Note" in data:
+                    print(f"Alpha Vantage rate limit: {data['Note']}")
+                return pd.DataFrame()
+            
+            time_series = data["Time Series (Daily)"]
+            
+            rows = []
+            for date_str, values in time_series.items():
+                rows.append({
+                    "timestamp": pd.to_datetime(date_str),
+                    "open": float(values["1. open"]),
+                    "high": float(values["2. high"]),
+                    "low": float(values["3. low"]),
+                    "close": float(values["4. close"]),
+                    "volume": int(values["5. volume"])
+                })
+            
+            df = pd.DataFrame(rows)
+            df.sort_values("timestamp", inplace=True)
+            df.reset_index(drop=True, inplace=True)
+            
+            print(f"Alpha Vantage: Fetched {len(df)} bars for {symbol}")
+            return df
+            
+        except Exception as e:
+            print(f"Alpha Vantage historical data failed for {symbol}: {e}")
+            return pd.DataFrame()
+    
+    @staticmethod
+    def fetch_historical_data(
+        symbol: str,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        period: str = "1y"
+    ) -> pd.DataFrame:
+        """Fetch historical OHLCV data - tries Alpha Vantage first, then yfinance"""
+        
+        # Try Alpha Vantage first (more reliable)
+        df = DataFetcher.fetch_historical_data_alpha_vantage(symbol, "compact")
+        
+        if not df.empty:
+            # Filter by date range if specified
+            if start_date:
+                df = df[df["timestamp"] >= pd.to_datetime(start_date)]
+            if end_date:
+                df = df[df["timestamp"] <= pd.to_datetime(end_date)]
+            return df
+        
+        # Fallback to yfinance
+        print(f"Trying yfinance for {symbol}...")
+        try:
+            ticker = yf.Ticker(symbol)
+            
+            if start_date and end_date:
+                df = ticker.history(start=start_date, end=end_date)
+            else:
+                df = ticker.history(period=period)
+            
+            if df.empty:
+                print(f"{symbol}: No price data found, symbol may be delisted (period={period})")
+                return pd.DataFrame()
+            
+            # Reset index to make Date a column
+            df.reset_index(inplace=True)
+            df.rename(columns={
+                "Date": "timestamp",
+                "Open": "open",
+                "High": "high",
+                "Low": "low",
+                "Close": "close",
+                "Volume": "volume"
+            }, inplace=True)
+            
+            return df
+        except Exception as e:
+            print(f"yfinance historical data failed for {symbol}: {e}")
+            return pd.DataFrame()
+    
+    @staticmethod
+    def sync_symbol_to_db(db: Session, symbol: str) -> Symbol:
+        """Sync symbol information to database"""
+        db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol).first()
+        
+        if not db_symbol:
+            info = DataFetcher.fetch_symbol_info(symbol)
+            db_symbol = Symbol(**info)
+            db.add(db_symbol)
+            db.commit()
+            db.refresh(db_symbol)
+        
+        return db_symbol
+    
+    @staticmethod
+    def sync_price_data_to_db(
+        db: Session,
+        symbol: str,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> int:
+        """Sync price data to database, returns number of bars inserted"""
+        # Get or create symbol
+        db_symbol = DataFetcher.sync_symbol_to_db(db, symbol)
+        
+        # Fetch data
+        df = DataFetcher.fetch_historical_data(symbol, start_date, end_date)
+        
+        if df.empty:
+            return 0
+        
+        # Check what data we already have
+        if start_date:
+            existing = db.query(PriceBar).filter(
+                PriceBar.symbol_id == db_symbol.id,
+                PriceBar.timestamp >= start_date
+            ).first()
+        else:
+            existing = db.query(PriceBar).filter(
+                PriceBar.symbol_id == db_symbol.id
+            ).first()
+        
+        # Insert new bars
+        count = 0
+        for _, row in df.iterrows():
+            # Check if bar already exists
+            existing_bar = db.query(PriceBar).filter(
+                PriceBar.symbol_id == db_symbol.id,
+                PriceBar.timestamp == row["timestamp"]
+            ).first()
+            
+            if not existing_bar:
+                bar = PriceBar(
+                    symbol_id=db_symbol.id,
+                    timestamp=row["timestamp"],
+                    open=float(row["open"]),
+                    high=float(row["high"]),
+                    low=float(row["low"]),
+                    close=float(row["close"]),
+                    volume=int(row["volume"])
+                )
+                db.add(bar)
+                count += 1
+        
+        db.commit()
+        return count

@@ -1,0 +1,35 @@
+# Core requirements for Phase 1 - install these first
+# FastAPI and server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic>=2.7.4,<3.0.0
+pydantic-settings>=2.1.0,<3.0.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# Database
+sqlalchemy>=2.0.45  # Updated for Python 3.14 compatibility
+psycopg[binary]>=3.1.0  # Use psycopg3 for Python 3.14 compatibility
+alembic==1.12.1
+pgvector==0.2.4
+
+# Background jobs
+celery==5.3.4
+redis==5.0.1
+
+# Data fetching
+yfinance==0.2.32
+pandas>=2.2.0,<3.0.0
+numpy>=1.26.2,<2.0.0
+requests==2.31.0
+beautifulsoup4==4.12.2
+httpx==0.25.2
+
+# Technical analysis
+ta==0.11.0
+
+# Utilities
+python-dotenv==1.0.0
+python-dateutil==2.8.2
+pytz==2023.3

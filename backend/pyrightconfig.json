@@ -1,0 +1,10 @@
+{
+  "include": ["app"],
+  "exclude": ["**/__pycache__", "venv", ".venv"],
+  "venvPath": ".",
+  "venv": "venv",
+  "pythonVersion": "3.14",
+  "pythonPlatform": "Darwin",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning"
+}

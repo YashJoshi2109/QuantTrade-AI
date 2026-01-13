@@ -1,0 +1,66 @@
+# FastAPI and server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic>=2.7.4
+pydantic-settings>=2.1.0
+python-jose[cryptography]==3.3.0  # JWT auth
+passlib[bcrypt]==1.7.4  # Password hashing
+python-multipart==0.0.6
+
+# Database
+sqlalchemy>=2.0.45  # Updated for Python 3.14 compatibility
+psycopg[binary]>=3.1.0  # Use psycopg3 for Python 3.14 compatibility
+alembic==1.12.1
+pgvector==0.2.4  # Vector extension for PostgreSQL
+
+# Background jobs
+celery==5.3.4
+redis==5.0.1
+
+# Data fetching
+yfinance==0.2.32
+pandas>=2.2.0
+numpy>=1.26.2
+requests==2.31.0
+beautifulsoup4==4.12.2
+httpx==0.25.2
+
+# Technical analysis & feature engineering
+ta==0.11.0
+# pandas-ta>=0.3.14b0  # Optional: Requires Python < 3.14 (numba dependency)
+# statsmodels==0.14.0  # Optional: May have Python 3.14 compatibility issues
+
+# ML models
+scikit-learn>=1.5.0,<2.0.0  # Updated for Python 3.14 compatibility
+xgboost>=2.0.3,<3.0.0
+lightgbm>=4.1.0,<5.0.0
+shap>=0.43.0,<0.44.0  # Model explainability
+
+# LLM + RAG
+openai>=1.12.0,<2.0.0
+langchain>=0.3.0,<0.4.0
+langchain-openai>=0.2.0,<0.3.0
+langchain-anthropic>=0.3.0
+langchain-community>=0.3.0,<0.4.0
+sentence-transformers>=2.2.2,<3.0.0
+
+# Vector databases (choose one or both)
+# Option A: pgvector (already included above)
+# Option B: Dedicated vector DB
+qdrant-client>=1.16.0,<2.0.0  # Qdrant client
+# weaviate-client==3.25.3  # Weaviate client (uncomment if using)
+
+# Object storage
+boto3==1.34.0  # AWS S3 compatible storage
+minio==7.2.0  # Local S3-compatible storage option
+
+# Utilities
+python-dotenv==1.0.0
+python-dateutil==2.8.2
+pytz==2023.3
+bcrypt>=4.0.0
+feedparser>=6.0.0
+PyJWT>=2.8.0
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.1
