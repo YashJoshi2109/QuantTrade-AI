@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+  
+  [build.environment]
+    NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Redirect API calls to backend (if backend is on separate domain)
+[[redirects]]
+  from = "/api/*"
+  to = "$NETLIFY_API_URL/api/:splat"
+  status = 200
+  force = true
+  headers = { X-From = "Netlify" }

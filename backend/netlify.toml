@@ -1,0 +1,13 @@
+# Netlify configuration for backend (if using Netlify Functions)
+# Note: This is optional - you may prefer to deploy backend separately
+
+[build]
+  command = "pip install -r requirements.txt"
+  functions = "netlify/functions"
+  publish = "."
+
+[functions]
+  node_bundler = "esbuild"
+
+# Example: Convert FastAPI to Netlify Function
+# This would require additional setup with Mangum or similar

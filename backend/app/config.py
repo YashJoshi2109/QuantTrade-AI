@@ -1,13 +1,23 @@
 """
 Application configuration
 """
+import os
 from pydantic_settings import BaseSettings
 from typing import Optional
 
 
 class Settings(BaseSettings):
     # Database (use postgresql+psycopg:// for psycopg3)
-    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/trading_copilot"
+    # Priority: NETLIFY_DATABASE_URL (from Netlify Neon) > DATABASE_URL > default
+    # Note: Convert postgresql:// to postgresql+psycopg:// if needed for psycopg3
+    _db_url = os.getenv("NETLIFY_DATABASE_URL", "") or os.getenv("DATABASE_URL", "")
+    
+    if _db_url and not _db_url.startswith("postgresql+psycopg://"):
+        # Convert postgresql:// to postgresql+psycopg:// for psycopg3
+        if _db_url.startswith("postgresql://"):
+            _db_url = _db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    
+    DATABASE_URL: str = _db_url or "postgresql+psycopg://postgres:postgres@localhost:5432/trading_copilot"
     
     # JWT Auth
     SECRET_KEY: str = "your-secret-key-change-in-production-use-env-var"

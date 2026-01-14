@@ -1,0 +1,12 @@
+{
+  "build": {
+    "command": "cd frontend && npm install && npm run build",
+    "publish": "frontend/.next"
+  },
+  "functions": {
+    "directory": "netlify/functions"
+  },
+  "env": {
+    "NODE_VERSION": "20"
+  }
+}
