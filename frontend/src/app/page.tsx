@@ -21,7 +21,50 @@ import {
   RefreshCw,
   Loader2
 } from 'lucide-react'
-import { fetchMarketMovers, fetchSectorPerformance, fetchLiveMarketNews, StockPerformance, SectorPerformance } from '@/lib/api'
+import { fetchMarketMovers, fetchSectorPerformance, fetchLiveMarketNews, StockPerformance, SectorPerformance, fetchMarketStatus, MarketStatus } from '@/lib/api'
+
+// Market Status Component
+function MarketStatusCard() {
+  const { data: marketStatus, isLoading } = useQuery<MarketStatus>({
+    queryKey: ['marketStatus'],
+    queryFn: fetchMarketStatus,
+    refetchInterval: 60000, // Refresh every minute
+  })
+
+  const isOpen = marketStatus?.is_open ?? false
+  const status = marketStatus?.status ?? 'CLOSED'
+
+  return (
+    <div className="bento-sm">
+      <div className="hud-panel h-full p-5 flex flex-col justify-between">
+        <div>
+          <div className="hud-label mb-2">MARKET STATUS</div>
+          {isLoading ? (
+            <div className="flex items-center gap-2 mt-2">
+              <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+              <span className="text-sm text-slate-400">Loading...</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 mt-2">
+                <div className={`w-2 h-2 rounded-full ${isOpen ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
+                <span className={`text-lg font-bold ${isOpen ? 'text-green-400' : 'text-red-400'}`}>
+                  {status}
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-500 font-mono mt-2">
+                {marketStatus?.exchanges.NYSE ? 'NYSE' : 'NYSE'} · {marketStatus?.exchanges.NASDAQ ? 'NASDAQ' : 'NASDAQ'}
+              </div>
+              <div className="text-[9px] text-slate-600 font-mono mt-1">
+                {marketStatus?.current_time_et?.split(' ')[1] || ''} ET
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function Home() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -432,18 +475,7 @@ export default function Home() {
             </div>
           )}
 
-          <div className="bento-sm">
-            <div className="hud-panel h-full p-5 flex flex-col justify-between">
-              <div>
-                <div className="hud-label mb-2">MARKET STATUS</div>
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="live-pulse" />
-                  <span className="text-lg font-bold text-green-400 ml-3">OPEN</span>
-                </div>
-                <div className="text-[10px] text-slate-500 font-mono mt-2">NYSE · NASDAQ · ACTIVE</div>
-              </div>
-            </div>
-          </div>
+          <MarketStatusCard />
 
           <div className="bento-sm">
             <div className="hud-panel h-full p-5 flex flex-col justify-between">

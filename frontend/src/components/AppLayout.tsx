@@ -21,12 +21,41 @@ import {
   LogOut
 } from 'lucide-react'
 import CopilotPanel from './CopilotPanel'
-import { fetchSymbols, Symbol, syncSymbol } from '@/lib/api'
+import { fetchSymbols, Symbol, syncSymbol, fetchMarketStatus, MarketStatus } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
+import { useQuery } from '@tanstack/react-query'
 
 interface AppLayoutProps {
   children: ReactNode
   symbol?: string
+}
+
+// Market Status Indicator Component
+function MarketStatusIndicator() {
+  const { data: marketStatus, isLoading } = useQuery<MarketStatus>({
+    queryKey: ['marketStatus'],
+    queryFn: fetchMarketStatus,
+    refetchInterval: 60000, // Refresh every minute
+  })
+
+  const isOpen = marketStatus?.is_open ?? false
+  const statusText = marketStatus?.status ?? 'CLOSED'
+
+  return (
+    <div className="p-4 border-t border-slate-800/50">
+      <div className="hud-stat p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <div className={`w-2 h-2 rounded-full ${isOpen ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
+          <span className={`text-xs font-bold ml-3 ${isOpen ? 'text-green-400' : 'text-red-400'}`}>
+            {isLoading ? 'LOADING...' : statusText}
+          </span>
+        </div>
+        <div className="text-[10px] text-slate-500 font-mono">
+          {isLoading ? 'Checking...' : `Market: ${statusText} · NYSE · NASDAQ`}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function AppLayout({ children, symbol }: AppLayoutProps) {
@@ -256,17 +285,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
           </nav>
 
           {/* Status Indicator */}
-          <div className="p-4 border-t border-slate-800/50">
-            <div className="hud-stat p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="live-pulse" />
-                <span className="text-xs text-green-400 font-bold ml-3">LIVE</span>
-              </div>
-              <div className="text-[10px] text-slate-500 font-mono">
-                Market: Open · NYSE · NASDAQ
-              </div>
-            </div>
-          </div>
+          <MarketStatusIndicator />
 
           {/* User Profile */}
           <div className="p-4 border-t border-slate-800/50">

@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     
     DATABASE_URL: str = _db_url or "postgresql+psycopg://postgres:postgres@localhost:5432/trading_copilot"
     
-    # JWT Auth
-    SECRET_KEY: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzc4NzI2MDk4LCJpYXQiOjE3NjgzNTgwOTh9.o121WEvI4Y_AwFwJJ1k73H5wmmUAZrwkhBZWbYw0nps"
+    # JWT Auth (should be set via environment variable in production)
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production-use-env-var")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     

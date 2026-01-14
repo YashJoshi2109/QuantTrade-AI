@@ -265,33 +265,101 @@ async def fetch_quote_from_api(symbol: str) -> Optional[dict]:
     return None
 
 
+async def fetch_real_stock_data(symbol: str) -> Optional[StockPerformance]:
+    """Fetch real stock data from Alpha Vantage"""
+    quote = await fetch_quote_from_api(symbol)
+    if not quote:
+        return None
+    
+    # Try to get symbol info from database or API
+    try:
+        # Use Alpha Vantage OVERVIEW for company name
+        if settings.ALPHA_VANTAGE_API_KEY:
+            url = "https://www.alphavantage.co/query"
+            params = {
+                "function": "OVERVIEW",
+                "symbol": symbol,
+                "apikey": settings.ALPHA_VANTAGE_API_KEY
+            }
+            
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url, params=params)
+                overview = response.json()
+            
+            name = overview.get("Name", symbol)
+            sector = overview.get("Sector")
+            market_cap = float(overview.get("MarketCapitalization", 0)) if overview.get("MarketCapitalization") else None
+        else:
+            name = symbol
+            sector = None
+            market_cap = None
+        
+        return StockPerformance(
+            symbol=symbol,
+            name=name,
+            price=quote["price"],
+            change=quote["change"],
+            change_percent=quote["change_percent"],
+            volume=quote["volume"],
+            market_cap=market_cap,
+            sector=sector
+        )
+    except Exception as e:
+        print(f"Error fetching stock data for {symbol}: {e}")
+        return None
+
+
 @router.get("/market/stocks")
 async def get_all_stocks(
     sector: Optional[str] = Query(None, description="Filter by sector"),
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db)
 ) -> List[StockPerformance]:
-    """Get all stocks with performance data"""
+    """Get all stocks with performance data - tries real data first, falls back to mock"""
     stocks = []
+    
+    # Limit concurrent API calls to avoid rate limits
+    max_concurrent = 5
+    symbols_to_fetch = []
     
     for sec, stock_list in SP500_STOCKS.items():
         if sector and sec.lower() != sector.lower():
             continue
             
         for symbol, name in stock_list[:limit]:
-            stocks.append(generate_mock_performance(symbol, name, sec))
+            symbols_to_fetch.append((symbol, name, sec))
+    
+    # Try to fetch real data for first few symbols, then use mock for rest
+    real_data_count = min(max_concurrent, len(symbols_to_fetch))
+    
+    for i, (symbol, name, sec) in enumerate(symbols_to_fetch[:limit]):
+        if i < real_data_count and settings.ALPHA_VANTAGE_API_KEY:
+            # Try real data
+            real_data = await fetch_real_stock_data(symbol)
+            if real_data:
+                stocks.append(real_data)
+                continue
+        
+        # Fallback to mock
+        stocks.append(generate_mock_performance(symbol, name, sec))
     
     return stocks[:limit]
 
 
 @router.get("/market/sectors")
 async def get_sector_performance() -> List[SectorPerformance]:
-    """Get sector performance with stocks"""
+    """Get sector performance with stocks - uses real data when available"""
     sectors = []
     
     for sector_name, stock_list in SP500_STOCKS.items():
         stocks = []
-        for symbol, name in stock_list:
+        # Fetch real data for first 3 stocks per sector, mock for rest
+        for i, (symbol, name) in enumerate(stock_list):
+            if i < 3 and settings.ALPHA_VANTAGE_API_KEY:
+                real_data = await fetch_real_stock_data(symbol)
+                if real_data:
+                    stocks.append(real_data)
+                    continue
             stocks.append(generate_mock_performance(symbol, name, sector_name))
         
         # Calculate sector average

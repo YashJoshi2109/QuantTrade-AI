@@ -377,11 +377,18 @@ export async function fetchMarketStocks(
 }
 
 export async function fetchSectorPerformance(): Promise<SectorPerformance[]> {
-  const response = await fetch(`${API_URL}/api/v1/market/sectors`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch sector performance')
+  try {
+    const response = await fetch(`${API_URL}/api/v1/market/sectors`)
+    if (!response.ok) {
+      console.error('Failed to fetch sector performance:', response.status, response.statusText)
+      // Return empty array on error instead of throwing
+      return []
+    }
+    return response.json()
+  } catch (error) {
+    console.error('Error fetching sector performance:', error)
+    return []
   }
-  return response.json()
 }
 
 export async function fetchHeatmapData(): Promise<HeatmapData> {
@@ -393,11 +400,26 @@ export async function fetchHeatmapData(): Promise<HeatmapData> {
 }
 
 export async function fetchMarketMovers(): Promise<MarketMovers> {
-  const response = await fetch(`${API_URL}/api/v1/market/movers`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch market movers')
+  try {
+    const response = await fetch(`${API_URL}/api/v1/market/movers`)
+    if (!response.ok) {
+      console.error('Failed to fetch market movers:', response.status, response.statusText)
+      // Return empty movers on error
+      return {
+        gainers: [],
+        losers: [],
+        updated_at: new Date().toISOString()
+      }
+    }
+    return response.json()
+  } catch (error) {
+    console.error('Error fetching market movers:', error)
+    return {
+      gainers: [],
+      losers: [],
+      updated_at: new Date().toISOString()
+    }
   }
-  return response.json()
 }
 
 export async function fetchTopGainers(limit: number = 10): Promise<StockPerformance[]> {
@@ -418,6 +440,37 @@ export async function fetchTopLosers(limit: number = 10): Promise<StockPerforman
   const response = await fetch(url.toString())
   if (!response.ok) {
     throw new Error('Failed to fetch top losers')
+  }
+  return response.json()
+}
+
+// Market Status API
+export interface MarketStatus {
+  is_open: boolean
+  status: 'OPEN' | 'CLOSED'
+  current_time_et: string
+  market_open: string
+  market_close: string
+  is_weekday: boolean
+  exchanges: {
+    NYSE: boolean
+    NASDAQ: boolean
+  }
+}
+
+export async function fetchMarketStatus(): Promise<MarketStatus> {
+  const response = await fetch(`${API_URL}/api/v1/market/status`)
+  if (!response.ok) {
+    // Return default closed status on error
+    return {
+      is_open: false,
+      status: 'CLOSED',
+      current_time_et: new Date().toISOString(),
+      market_open: '09:30 ET',
+      market_close: '16:00 ET',
+      is_weekday: false,
+      exchanges: { NYSE: false, NASDAQ: false }
+    }
   }
   return response.json()
 }

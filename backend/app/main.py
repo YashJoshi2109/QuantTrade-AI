@@ -3,7 +3,7 @@ Main FastAPI application entry point
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import symbols, prices, indicators, chat, news, filings, risk, watchlist, backtest, auth, market
+from app.api import symbols, prices, indicators, chat, news, filings, risk, watchlist, backtest, auth, market, market_status
 from app.db.database import engine, Base
 
 # Create database tables
@@ -16,9 +16,16 @@ app = FastAPI(
 )
 
 # CORS middleware
+# Get allowed origins from environment or use defaults
+import os
+allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://localhost:3001,https://sunny-hamster-0012a0.netlify.app"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,6 +43,7 @@ app.include_router(risk.router, prefix="/api/v1", tags=["risk"])
 app.include_router(watchlist.router, prefix="/api/v1", tags=["watchlist"])
 app.include_router(backtest.router, prefix="/api/v1", tags=["backtest"])
 app.include_router(market.router, prefix="/api/v1", tags=["market"])
+app.include_router(market_status.router, prefix="/api/v1", tags=["market-status"])
 
 
 @app.get("/")
