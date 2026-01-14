@@ -15,7 +15,7 @@
 3. Connect GitHub repo
 4. Settings:
    - **Root Directory**: `backend`
-   - **Build**: `pip install -r requirements.txt`
+   - **Build**: `pip install -r requirements-production.txt`
    - **Start**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 
 ### Step 2: Environment Variables

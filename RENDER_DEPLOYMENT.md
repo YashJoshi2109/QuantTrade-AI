@@ -22,7 +22,7 @@ Your Render PostgreSQL database is **ready**:
    - **Branch**: `main` (or your branch)
    - **Root Directory**: `backend`
    - **Runtime**: `Python 3`
-   - **Build Command**: `pip install -r requirements.txt`
+   - **Build Command**: `pip install -r requirements-production.txt`
    - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 
 ### Step 2: Set Environment Variables
