@@ -73,9 +73,9 @@ Finance/
 ## Images / Prototype
 
 Home Page
-```
+
 <img width="3024" height="1742" alt="image" src="https://github.com/user-attachments/assets/dab22b31-d1dd-48bf-bf64-8dfca00a5e58" />
-```
+
 Research Page
 ```
 <img width="1512" height="949" alt="image" src="https://github.com/user-attachments/assets/036e1389-bd50-4ee8-80d3-33b497b0d8a9" />
