@@ -45,6 +45,11 @@ email-validator>=2.1.0
 # Optional: Basic technical analysis (lightweight)
 ta>=0.11.0
 
+# Data fetching
+yfinance==0.2.32
+pandas>=2.2.0
+numpy>=1.26.0
+
 # Note: Heavy ML dependencies (torch, xgboost, sentence-transformers, etc.) 
 # are excluded for production deployment. They're only needed for:
 # - Advanced ML models (not used in API)
