@@ -1,6 +1,9 @@
 # AI Trading & Research Copilot
 
 A comprehensive AI-powered trading and research platform with TradingView-style UI, featuring real-time market data, AI copilot, RAG-powered insights, and backtesting capabilities.
+```
+Live app:- https://sunny-hamster-0012a0.netlify.app/
+```
 
 ## 🎯 Core Features
 
