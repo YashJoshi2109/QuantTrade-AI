@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import AppLayout from '@/components/AppLayout'
-import { TrendingUp, TrendingDown, Plus, Trash2, Star, Loader2, RefreshCw, X } from 'lucide-react'
+import { TrendingUp, TrendingDown, Plus, Trash2, Star, Loader2, RefreshCw, X, LogIn } from 'lucide-react'
 import { getWatchlist, addToWatchlist, removeFromWatchlist, fetchPrices, syncSymbol } from '@/lib/api'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface WatchlistItem {
   id: number
@@ -20,6 +22,8 @@ interface WatchlistItem {
 }
 
 export default function WatchlistPage() {
+  const router = useRouter()
+  const { isAuthenticated, user, isLoading: authLoading } = useAuth()
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
@@ -28,8 +32,10 @@ export default function WatchlistPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadWatchlist()
-  }, [])
+    if (!authLoading) {
+      loadWatchlist()
+    }
+  }, [authLoading, isAuthenticated])
 
   const loadWatchlist = async () => {
     setLoading(true)
@@ -122,6 +128,31 @@ export default function WatchlistPage() {
   const avgChange = watchlist.length > 0 
     ? watchlist.reduce((sum, item) => sum + (item.percent || 0), 0) / watchlist.length 
     : 0
+
+  // Show auth gate if not authenticated
+  if (!authLoading && !isAuthenticated) {
+    return (
+      <AppLayout>
+        <div className="p-6 flex items-center justify-center min-h-[80vh]">
+          <div className="text-center max-w-md">
+            <div className="hud-panel p-8">
+              <LogIn className="w-16 h-16 text-blue-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-white mb-2">Sign In Required</h2>
+              <p className="text-slate-400 mb-6">
+                Create an account to save and track your favorite stocks in your personalized watchlist.
+              </p>
+              <Link 
+                href="/auth"
+                className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
+              >
+                Sign In / Register
+              </Link>
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
 
   return (
     <AppLayout>

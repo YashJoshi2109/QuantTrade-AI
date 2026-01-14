@@ -1,16 +1,71 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import Link from 'next/link'
 import AppLayout from '@/components/AppLayout'
-import { User, Brain, CreditCard, Key, Bell, CheckCircle } from 'lucide-react'
+import { User, Brain, Bell, CheckCircle, LogIn, Upload, Camera } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function SettingsPage() {
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const [analystPersonality, setAnalystPersonality] = useState('conservative')
   const [notifications, setNotifications] = useState({
     volatility: true,
     earnings: true,
     updates: false
   })
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    setUploadingPhoto(true)
+    try {
+      // TODO: Implement photo upload to backend
+      // For now, just show a preview
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        // In production, upload to backend/S3 and update user profile
+        console.log('Photo selected:', file.name)
+      }
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error('Photo upload error:', error)
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+  
+  const displayName = user?.full_name || user?.username || 'Trader'
+  const email = user?.email || '—'
+  const avatarUrl = user?.avatar_url
+  
+  // Show auth gate if not authenticated
+  if (!authLoading && !isAuthenticated) {
+    return (
+      <AppLayout>
+        <div className="p-6 flex items-center justify-center min-h-[80vh]">
+          <div className="text-center max-w-md">
+            <div className="hud-panel p-8">
+              <LogIn className="w-16 h-16 text-blue-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-white mb-2">Sign In Required</h2>
+              <p className="text-slate-400 mb-6">
+                Create an account to access settings and personalize your experience.
+              </p>
+              <Link 
+                href="/auth"
+                className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
+              >
+                Sign In / Register
+              </Link>
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
 
   return (
     <AppLayout>
@@ -27,29 +82,63 @@ export default function SettingsPage() {
               </div>
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="flex items-center space-x-4">
-                  <div className="relative">
-                    <div className="h-16 w-16 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xl border-2 border-slate-600">AT</div>
-                    <button className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-1 shadow-sm hover:bg-blue-700">
-                      <User className="w-3 h-3" />
+                  <div className="relative group">
+                    {avatarUrl ? (
+                      <img 
+                        src={avatarUrl} 
+                        alt={displayName}
+                        className="h-16 w-16 rounded-full object-cover border-2 border-slate-600"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl border-2 border-slate-600">
+                        {displayName.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 shadow-lg hover:bg-blue-700 transition-all opacity-0 group-hover:opacity-100"
+                      disabled={uploadingPhoto}
+                    >
+                      {uploadingPhoto ? (
+                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Camera className="w-3 h-3" />
+                      )}
                     </button>
+                    <input 
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
                   </div>
                   <div>
-                    <h4 className="text-base font-medium text-white">Alex Trader</h4>
-                    <p className="text-sm text-gray-400">alex.trader@example.com</p>
+                    <h4 className="text-base font-medium text-white">{displayName}</h4>
+                    <p className="text-sm text-gray-400">{email}</p>
                   </div>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">Display Name</label>
-                    <input type="text" defaultValue="Alex Trader" className="w-full px-3 py-2 bg-[#131722] border border-slate-700 rounded-md text-sm text-white focus:ring-blue-500 focus:border-blue-500" />
+                    <label className="block text-sm font-medium text-gray-400 mb-1">Username</label>
+                    <input 
+                      type="text" 
+                      value={user?.username || ''} 
+                      readOnly
+                      className="w-full px-3 py-2 bg-[#131722] border border-slate-700 rounded-md text-sm text-white cursor-not-allowed opacity-75"
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">Timezone</label>
-                    <select className="w-full px-3 py-2 bg-[#131722] border border-slate-700 rounded-md text-sm text-white focus:ring-blue-500 focus:border-blue-500">
-                      <option>Eastern Time (US & Canada)</option>
-                      <option>Pacific Time (US & Canada)</option>
-                      <option>UTC</option>
-                    </select>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
+                    <input 
+                      type="text" 
+                      value={email} 
+                      readOnly
+                      className="w-full px-3 py-2 bg-[#131722] border border-slate-700 rounded-md text-sm text-white cursor-not-allowed opacity-75"
+                    />
+                  </div>
+                  <div className="text-xs text-slate-500 mt-2">
+                    Account created: {user?.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}
                   </div>
                 </div>
               </div>
@@ -105,70 +194,44 @@ export default function SettingsPage() {
               </div>
             </section>
 
-            {/* Subscription & API */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <section className="bg-[#1e293b] border border-slate-700 rounded-lg overflow-hidden flex flex-col">
-                <div className="px-6 py-4 border-b border-slate-700 flex justify-between items-center">
-                  <h3 className="text-lg font-medium text-white">Subscription</h3>
-                  <span className="px-2 py-1 text-xs font-semibold rounded bg-green-900 text-green-200 border border-green-700">ACTIVE</span>
-                </div>
-                <div className="p-6 flex-1 flex flex-col">
-                  <div className="mb-4">
-                    <h4 className="text-2xl font-bold text-white">Pro Plan</h4>
-                    <p className="text-sm text-gray-400 mt-1">$49.00 / month • Renews on Feb 12, 2026</p>
-                  </div>
-                  <ul className="space-y-3 mb-6 flex-1">
-                    {['Real-time Market Data', 'Unlimited AI Queries', 'Advanced Portfolio Analytics'].map((feature) => (
-                      <li key={feature} className="flex items-start text-sm text-gray-300">
-                        <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="flex space-x-3 mt-auto">
-                    <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">Manage Subscription</button>
-                    <button className="flex-1 bg-transparent border border-slate-700 text-white hover:bg-slate-800 px-4 py-2 rounded-md text-sm font-medium transition-colors">View Invoices</button>
-                  </div>
-                </div>
-              </section>
-
-              <section className="bg-[#1e293b] border border-slate-700 rounded-lg overflow-hidden flex flex-col">
-                <div className="px-6 py-4 border-b border-slate-700">
-                  <h3 className="text-lg font-medium flex items-center text-white">
-                    <Key className="w-5 h-5 mr-2" />
-                    API & Integrations
-                  </h3>
-                </div>
-                <div className="p-6 flex-1 flex flex-col space-y-6">
+            {/* Account Info */}
+            <section className="bg-[#1e293b] border border-slate-700 rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-700">
+                <h3 className="text-lg font-medium text-white">Account Information</h3>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">Personal API Key</label>
-                    <div className="flex rounded-md shadow-sm">
-                      <input type="text" disabled value="sk_live_51M..." className="flex-1 px-3 py-2 rounded-l-md text-sm bg-[#131722] border border-slate-700 text-gray-500" />
-                      <button className="px-4 py-2 border border-l-0 border-slate-700 rounded-r-md bg-[#131722] text-sm font-medium text-gray-300 hover:bg-slate-800">Copy</button>
-                    </div>
-                    <p className="mt-2 text-xs text-gray-400">Use this key to access market data via our REST API. Never share your key.</p>
+                    <span className="text-slate-400">Account Type:</span>
+                    <span className="text-white font-medium ml-2">Free Plan</span>
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium mb-3 text-white">Connected Accounts</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 border border-slate-700 rounded-md bg-[#131722]">
-                        <div className="flex items-center">
-                          <CreditCard className="w-5 h-5 text-gray-400 mr-3" />
-                          <div>
-                            <p className="text-sm font-medium text-white">Robinhood</p>
-                            <p className="text-xs text-gray-400">Last synced: 2 mins ago</p>
-                          </div>
-                        </div>
-                        <button className="text-xs text-red-400 hover:text-red-300">Disconnect</button>
-                      </div>
-                      <button className="w-full flex justify-center items-center px-4 py-2 border border-dashed border-slate-600 rounded-md text-sm font-medium text-gray-400 hover:bg-slate-800 transition-colors">
-                        + Connect Brokerage Account
-                      </button>
-                    </div>
+                    <span className="text-slate-400">Member Since:</span>
+                    <span className="text-white font-medium ml-2">
+                      {user?.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Last Login:</span>
+                    <span className="text-white font-medium ml-2">
+                      {user?.last_login ? new Date(user.last_login).toLocaleDateString() : '—'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Status:</span>
+                    <span className="text-green-400 font-medium ml-2 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Active
+                    </span>
                   </div>
                 </div>
-              </section>
-            </div>
+                <div className="pt-4 border-t border-slate-700">
+                  <p className="text-xs text-slate-400">
+                    All features are currently free. Enjoy unlimited access to real-time market data, AI analysis, and portfolio tracking.
+                  </p>
+                </div>
+              </div>
+            </section>
 
             {/* Notifications */}
             <section className="bg-[#1e293b] border border-slate-700 rounded-lg overflow-hidden">

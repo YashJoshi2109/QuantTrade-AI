@@ -8,6 +8,8 @@ from datetime import datetime
 from app.db.database import get_db
 from app.models.symbol import Symbol
 from app.models.watchlist import Watchlist
+from app.models.user import User
+from app.api.auth import get_current_user, require_auth
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -29,14 +31,18 @@ class AddToWatchlistRequest(BaseModel):
 
 @router.get("/watchlist", response_model=List[WatchlistItemResponse])
 async def get_watchlist(
-    user_id: str = Query("default", description="User ID"),  # TODO: Get from auth
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user)
 ):
-    """Get user's watchlist"""
+    """Get user's watchlist (requires authentication)"""
+    if not current_user:
+        # Return empty watchlist for unauthenticated users
+        return []
+    
     from sqlalchemy.orm import joinedload
     items = db.query(Watchlist).options(
         joinedload(Watchlist.symbol)
-    ).filter(Watchlist.user_id == user_id).all()
+    ).filter(Watchlist.user_id == current_user.id).all()
     
     result = []
     for item in items:
@@ -54,10 +60,10 @@ async def get_watchlist(
 @router.post("/watchlist")
 async def add_to_watchlist(
     request: AddToWatchlistRequest,
-    user_id: str = "default",  # TODO: Get from auth
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth)
 ):
-    """Add symbol to watchlist"""
+    """Add symbol to watchlist (requires authentication)"""
     db_symbol = db.query(Symbol).filter(Symbol.symbol == request.symbol.upper()).first()
     
     if not db_symbol:
@@ -65,7 +71,7 @@ async def add_to_watchlist(
     
     # Check if already in watchlist
     existing = db.query(Watchlist).filter(
-        Watchlist.user_id == user_id,
+        Watchlist.user_id == user.id,
         Watchlist.symbol_id == db_symbol.id
     ).first()
     
@@ -73,7 +79,7 @@ async def add_to_watchlist(
         raise HTTPException(status_code=400, detail="Symbol already in watchlist")
     
     watchlist_item = Watchlist(
-        user_id=user_id,
+        user_id=user.id,
         symbol_id=db_symbol.id
     )
     db.add(watchlist_item)
@@ -90,17 +96,17 @@ async def add_to_watchlist(
 @router.delete("/watchlist/{symbol}")
 async def remove_from_watchlist(
     symbol: str,
-    user_id: str = "default",  # TODO: Get from auth
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth)
 ):
-    """Remove symbol from watchlist"""
+    """Remove symbol from watchlist (requires authentication)"""
     db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol.upper()).first()
     
     if not db_symbol:
         raise HTTPException(status_code=404, detail="Symbol not found")
     
     item = db.query(Watchlist).filter(
-        Watchlist.user_id == user_id,
+        Watchlist.user_id == user.id,
         Watchlist.symbol_id == db_symbol.id
     ).first()
     

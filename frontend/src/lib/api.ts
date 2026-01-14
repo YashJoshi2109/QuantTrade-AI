@@ -184,31 +184,43 @@ export async function fetchRiskMetrics(symbol: string): Promise<RiskMetrics> {
   return response.json()
 }
 
-export async function getWatchlist(userId: string = 'default'): Promise<any[]> {
-  const response = await fetch(`${API_URL}/api/v1/watchlist?user_id=${userId}`)
+export async function getWatchlist(): Promise<any[]> {
+  const { getAuthHeaders } = await import('./auth')
+  const response = await fetch(`${API_URL}/api/v1/watchlist`, {
+    headers: getAuthHeaders()
+  })
   if (!response.ok) {
+    if (response.status === 401) {
+      // Not authenticated - return empty array
+      return []
+    }
     throw new Error('Failed to fetch watchlist')
   }
   return response.json()
 }
 
-export async function addToWatchlist(symbol: string, userId: string = 'default'): Promise<any> {
-  const response = await fetch(`${API_URL}/api/v1/watchlist?user_id=${userId}`, {
+export async function addToWatchlist(symbol: string): Promise<any> {
+  const { getAuthHeaders } = await import('./auth')
+  const response = await fetch(`${API_URL}/api/v1/watchlist`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders()
     },
     body: JSON.stringify({ symbol }),
   })
   if (!response.ok) {
-    throw new Error('Failed to add to watchlist')
+    const error = await response.json().catch(() => ({ detail: 'Failed to add to watchlist' }))
+    throw new Error(error.detail || 'Failed to add to watchlist')
   }
   return response.json()
 }
 
-export async function removeFromWatchlist(symbol: string, userId: string = 'default'): Promise<any> {
-  const response = await fetch(`${API_URL}/api/v1/watchlist/${symbol}?user_id=${userId}`, {
+export async function removeFromWatchlist(symbol: string): Promise<any> {
+  const { getAuthHeaders } = await import('./auth')
+  const response = await fetch(`${API_URL}/api/v1/watchlist/${symbol}`, {
     method: 'DELETE',
+    headers: getAuthHeaders()
   })
   if (!response.ok) {
     throw new Error('Failed to remove from watchlist')

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { SectorPerformance, StockPerformance } from '@/lib/api'
 
 interface MarketHeatmapProps {
-  sectors: SectorPerformance[]
+  sectors?: SectorPerformance[] | null
   className?: string
 }
 
@@ -48,10 +48,19 @@ function StockTile({ stock }: { stock: StockPerformance }) {
 export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmapProps) {
   const [selectedSector, setSelectedSector] = useState<string | null>(null)
   
+  // Safety check for sectors
+  if (!sectors || !Array.isArray(sectors) || sectors.length === 0) {
+    return (
+      <div className={`${className} text-center py-12`}>
+        <p className="text-slate-400 text-sm">No market data available</p>
+      </div>
+    )
+  }
+  
   // Filter sectors based on selection
   const displaySectors = useMemo(() => {
     if (selectedSector) {
-      return sectors.filter(s => s.sector === selectedSector)
+      return sectors.filter(s => s && s.sector === selectedSector)
     }
     return sectors
   }, [sectors, selectedSector])
@@ -63,7 +72,11 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
     let unchanged = 0
     
     sectors.forEach(sector => {
+      if (!sector || !sector.stocks || !Array.isArray(sector.stocks)) {
+        return
+      }
       sector.stocks.forEach(stock => {
+        if (!stock) return
         if (stock.change_percent > 0.1) gainers++
         else if (stock.change_percent < -0.1) losers++
         else unchanged++

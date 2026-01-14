@@ -110,8 +110,8 @@ export default function LiveNews({ symbol, limit = 10, showTitle = true, classNa
     queryFn: () => symbol 
       ? fetchLiveSymbolNews(symbol, limit)
       : fetchLiveMarketNews('technology,earnings,finance', limit),
-    refetchInterval: 60000, // Refetch every minute
-    staleTime: 30000, // Consider data stale after 30 seconds
+    refetchInterval: 1200000, // Refetch every 20 minutes (1200000ms) to preserve API quota
+    staleTime: 600000, // Consider data stale after 10 minutes
   })
   
   if (isLoading) {

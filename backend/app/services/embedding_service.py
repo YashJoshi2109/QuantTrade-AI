@@ -37,6 +37,10 @@ class EmbeddingService:
         if not texts:
             return []
         
+        if self.model is None:
+            # Return zero vectors if model not available
+            return [[0.0] * self.embedding_dim for _ in texts]
+        
         # Filter empty texts
         valid_texts = [t if t and t.strip() else " " for t in texts]
         

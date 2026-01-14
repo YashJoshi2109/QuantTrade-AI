@@ -21,7 +21,8 @@ import {
   RefreshCw,
   Loader2
 } from 'lucide-react'
-import { fetchMarketMovers, fetchSectorPerformance, fetchLiveMarketNews, StockPerformance, SectorPerformance, fetchMarketStatus, MarketStatus } from '@/lib/api'
+import { fetchMarketMovers, fetchSectorPerformance, fetchLiveMarketNews, StockPerformance, SectorPerformance, fetchMarketStatus, MarketStatus, fetchHeatmapData, HeatmapData } from '@/lib/api'
+import MarketHeatmap from '@/components/MarketHeatmap'
 
 // Market Status Component
 function MarketStatusCard() {
@@ -85,12 +86,20 @@ export default function Home() {
     staleTime: 30000,
   })
 
-  // Fetch live news
+  // Fetch heatmap data for homepage
+  const { data: heatmapData, isLoading: heatmapLoading } = useQuery<HeatmapData>({
+    queryKey: ['heatmapData'],
+    queryFn: fetchHeatmapData,
+    refetchInterval: 300000, // Refetch every 5 minutes
+    staleTime: 120000,
+  })
+
+  // Fetch live news (throttled to 20 minutes)
   const { data: liveNews, isLoading: newsLoading } = useQuery({
     queryKey: ['liveNews'],
     queryFn: () => fetchLiveMarketNews('technology,earnings', 5),
-    refetchInterval: 120000, // Refresh every 2 minutes
-    staleTime: 60000,
+    refetchInterval: 1200000, // Refresh every 20 minutes
+    staleTime: 600000,
   })
 
   const topGainers = movers?.gainers?.slice(0, 5) || []
@@ -465,7 +474,13 @@ export default function Home() {
             <div className="hud-panel h-full p-5 flex flex-col justify-between">
               <div>
                 <div className="hud-label mb-2">S&P 500 STOCKS</div>
-                <div className="text-2xl font-bold text-white hud-value">170+</div>
+                <div className="text-2xl font-bold text-white hud-value">
+                  {heatmapLoading ? (
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                  ) : (
+                    heatmapData?.total_stocks || '170+'
+                  )}
+                </div>
                 <div className="text-xs text-slate-500 mt-1">Available to analyze</div>
               </div>
               <Link href="/markets" className="text-[10px] text-blue-400 hover:text-white transition-colors mt-2">
@@ -474,6 +489,60 @@ export default function Home() {
             </div>
           </div>
 
+        </div>
+        
+        {/* Market Heatmap Section */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-blue-400" />
+                Market Performance Map
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">S&P 500 real-time heatmap by sector</p>
+            </div>
+            <Link 
+              href="/markets"
+              className="text-sm text-blue-400 hover:text-white flex items-center gap-1 transition-colors"
+            >
+              View Full Map <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+          
+          <div className="hud-panel p-6">
+            {heatmapLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+                <span className="ml-3 text-slate-400">Loading market data...</span>
+              </div>
+            ) : heatmapData ? (
+              <div className="space-y-4">
+                {/* Stats Bar */}
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="hud-stat p-3">
+                    <div className="text-xs text-slate-500 mb-1">GAINERS</div>
+                    <div className="text-lg font-bold text-green-400">{heatmapData.gainers}</div>
+                  </div>
+                  <div className="hud-stat p-3">
+                    <div className="text-xs text-slate-500 mb-1">LOSERS</div>
+                    <div className="text-lg font-bold text-red-400">{heatmapData.losers}</div>
+                  </div>
+                  <div className="hud-stat p-3">
+                    <div className="text-xs text-slate-500 mb-1">UNCHANGED</div>
+                    <div className="text-lg font-bold text-slate-400">{heatmapData.unchanged}</div>
+                  </div>
+                </div>
+                
+                {/* Heatmap Component */}
+                <MarketHeatmap sectors={heatmapData.sectors} />
+              </div>
+            ) : (
+              <div className="text-center py-20 text-slate-400">
+                <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>No market data available</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </AppLayout>

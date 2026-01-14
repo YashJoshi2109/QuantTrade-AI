@@ -51,7 +51,7 @@ ta>=0.11.0
 yfinance==0.2.32
 pandas>=2.2.0,<3.0.0
 numpy>=1.26.2,<2.0.0
-beautifulsoup4==4.12.2
+
 
 
 # Note: Heavy ML dependencies (torch, xgboost, sentence-transformers, etc.) 
