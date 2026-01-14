@@ -24,9 +24,11 @@ requests>=2.32.0
 pandas>=2.2.0
 numpy>=1.26.0
 
-# AI/LLM (Claude only - lightweight)
+# AI/LLM (Claude + embeddings)
 langchain-anthropic>=0.3.0
 anthropic>=0.75.0
+# Local embeddings for RAG (uses sentence-transformers)
+sentence-transformers>=2.2.2,<3.0.0
 
 # Configuration
 pydantic>=2.9.0
@@ -47,8 +49,11 @@ ta>=0.11.0
 
 # Data fetching
 yfinance==0.2.32
-pandas>=2.2.0
-numpy>=1.26.0
+pandas>=2.2.0,<3.0.0
+numpy>=1.26.2,<2.0.0
+requests==2.31.0
+beautifulsoup4==4.12.2
+httpx==0.25.2
 
 # Note: Heavy ML dependencies (torch, xgboost, sentence-transformers, etc.) 
 # are excluded for production deployment. They're only needed for:

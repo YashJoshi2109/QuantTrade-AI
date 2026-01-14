@@ -410,7 +410,7 @@ export default function Home() {
                       <span className="text-xs font-bold text-white">Quick Action</span>
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed mb-2">
-                      Ask the AI Copilot for deeper analysis on any stock or sector.
+                      Ask the QuantTrade AI for deeper analysis on any stock or sector.
                     </p>
                     <button 
                       className="text-[10px] text-blue-400 hover:text-white transition-colors"
@@ -429,7 +429,7 @@ export default function Home() {
           </div>
 
           {/* Quick Stats - User Dependent */}
-          {isAuthenticated ? (
+          {isAuthenticated && (
             <>
               <div className="bento-sm">
                 <div className="hud-panel h-full p-5 flex flex-col justify-between">
@@ -457,22 +457,6 @@ export default function Home() {
                 </div>
               </div>
             </>
-          ) : (
-            <div className="bento-md">
-              <div className="hud-panel h-full p-5 flex flex-col items-center justify-center text-center">
-                <LogIn className="w-8 h-8 text-blue-400 mb-3" />
-                <h4 className="font-bold text-white mb-2">Sign In</h4>
-                <p className="text-xs text-slate-400 mb-4">
-                  Create an account to track your watchlist and portfolio
-                </p>
-                <Link 
-                  href="/auth"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
-                >
-                  Sign In / Register
-                </Link>
-              </div>
-            </div>
           )}
 
           <MarketStatusCard />

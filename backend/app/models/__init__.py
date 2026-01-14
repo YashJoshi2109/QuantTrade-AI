@@ -3,5 +3,6 @@ from app.models.price import PriceBar
 from app.models.watchlist import Watchlist
 from app.models.news import NewsArticle
 from app.models.filing import Filing, FilingChunk
+from app.models.chat_history import ChatHistory
 
-__all__ = ["Symbol", "PriceBar", "Watchlist", "NewsArticle", "Filing", "FilingChunk"]
+__all__ = ["Symbol", "PriceBar", "Watchlist", "NewsArticle", "Filing", "FilingChunk", "ChatHistory"]

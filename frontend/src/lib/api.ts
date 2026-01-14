@@ -133,6 +133,7 @@ export interface ChatMessage {
   include_news?: boolean
   include_filings?: boolean
   top_k?: number
+  session_id?: string
 }
 
 export interface ChatResponse {
@@ -140,14 +141,20 @@ export interface ChatResponse {
   sources: string[]
   context_docs: number
   symbol?: string
+  session_id?: string
 }
 
 export async function sendChatMessage(message: ChatMessage): Promise<ChatResponse> {
+  // Attach auth headers if user is logged in so chat history can be tied to user
+  const { getAuthHeaders } = await import('./auth')
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...getAuthHeaders(),
+  }
+
   const response = await fetch(`${API_URL}/api/v1/chat`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(message),
   })
   if (!response.ok) {

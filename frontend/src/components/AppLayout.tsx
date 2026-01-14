@@ -62,13 +62,11 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { user, isAuthenticated, logout, isLoading: authLoading } = useAuth()
-  const [copilotOpen, setCopilotOpen] = useState(true)
+  const [copilotOpen, setCopilotOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Symbol[]>([])
   const [showResults, setShowResults] = useState(false)
   const [searching, setSearching] = useState(false)
-  const [selectedTimeframe, setSelectedTimeframe] = useState('1M')
-  const timeframes = ['1D', '5D', '1M', '6M', 'YTD', '1Y']
 
   // Determine page context for copilot
   const pageContext = useMemo(() => {
@@ -159,7 +157,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
               <div className="absolute inset-0 blur-lg bg-blue-400/30" />
             </div>
             <Link href="/" className="text-xl font-bold">
-              <span className="gradient-text">AI Copilot</span>
+              <span className="gradient-text">QuantTrade AI</span>
             </Link>
           </div>
           
@@ -208,37 +206,6 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
                 ))}
               </div>
             )}
-          </div>
-          
-          {/* Right Controls */}
-          <div className="flex items-center gap-4">
-            {/* Timeframe Selector */}
-            <div className="hud-card flex p-1 gap-1">
-              {timeframes.map((tf) => (
-                <button
-                  key={tf}
-                  onClick={() => setSelectedTimeframe(tf)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    selectedTimeframe === tf
-                      ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                  }`}
-                >
-                  {tf}
-                </button>
-              ))}
-            </div>
-            
-            {/* Notification & Help */}
-            <div className="flex gap-2">
-              <button className="hud-card p-2.5 text-slate-400 hover:text-blue-400 transition-colors relative group">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full" />
-              </button>
-              <button className="hud-card p-2.5 text-slate-400 hover:text-blue-400 transition-colors">
-                <HelpCircle className="w-5 h-5" />
-              </button>
-            </div>
           </div>
         </div>
       </header>
