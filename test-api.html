@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test Tool</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0a0f1a;
+            color: #e2e8f0;
+        }
+        h1 {
+            color: #60a5fa;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 10px;
+        }
+        .input-group {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+        input {
+            width: 100%;
+            max-width: 600px;
+            padding: 12px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-size: 14px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        button {
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button:disabled {
+            background: #475569;
+            cursor: not-allowed;
+        }
+        #results {
+            margin-top: 20px;
+            padding: 20px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .test-item {
+            margin: 15px 0;
+            padding: 15px;
+            background: #0f172a;
+            border-radius: 6px;
+            border-left: 4px solid #334155;
+        }
+        .test-item.success {
+            border-left-color: #10b981;
+        }
+        .test-item.error {
+            border-left-color: #ef4444;
+        }
+        .test-name {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #60a5fa;
+        }
+        .test-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .status-success {
+            background: #10b981;
+            color: white;
+        }
+        .status-error {
+            background: #ef4444;
+            color: white;
+        }
+        .test-data {
+            color: #94a3b8;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        .loading {
+            color: #fbbf24;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 API Test Tool</h1>
+    <p style="color: #94a3b8;">Test your backend API endpoints from your live website</p>
+    
+    <div class="input-group">
+        <label for="apiUrl">Backend API URL:</label>
+        <input 
+            type="text" 
+            id="apiUrl" 
+            placeholder="https://your-backend.railway.app" 
+            value=""
+        >
+        <small style="color: #64748b; display: block; margin-top: 5px;">
+            Enter your backend URL (from Railway/Render). Should NOT have trailing slash.
+        </small>
+    </div>
+    
+    <button onclick="testAPI()" id="testBtn">Test All Endpoints</button>
+    
+    <div id="results"></div>
+
+    <script>
+        async function testAPI() {
+            const url = document.getElementById('apiUrl').value.trim();
+            const results = document.getElementById('results');
+            const testBtn = document.getElementById('testBtn');
+            
+            if (!url) {
+                alert('Please enter your backend API URL');
+                return;
+            }
+            
+            // Remove trailing slash
+            const baseUrl = url.replace(/\/$/, '');
+            
+            testBtn.disabled = true;
+            testBtn.textContent = 'Testing...';
+            results.innerHTML = '<div class="loading">🔄 Testing API endpoints...</div>';
+
+            const tests = [
+                { name: 'Health Check', endpoint: '/health', description: 'Basic API health' },
+                { name: 'Market Status', endpoint: '/api/v1/market/status', description: 'NYSE/NASDAQ market status' },
+                { name: 'Market Sectors', endpoint: '/api/v1/market/sectors', description: 'Sector performance data' },
+                { name: 'Market Movers', endpoint: '/api/v1/market/movers', description: 'Top gainers and losers' },
+            ];
+
+            let html = '';
+            
+            for (const test of tests) {
+                html += `<div class="test-item">
+                    <div class="test-name">${test.name}</div>
+                    <div class="test-status loading">Testing...</div>
+                    <div class="test-data">Endpoint: <code>${baseUrl}${test.endpoint}</code><br>${test.description}</div>
+                </div>`;
+            }
+            
+            results.innerHTML = html;
+
+            // Run tests
+            for (let i = 0; i < tests.length; i++) {
+                const test = tests[i];
+                const testElement = results.children[i];
+                const statusElement = testElement.querySelector('.test-status');
+                
+                try {
+                    const startTime = Date.now();
+                    const response = await fetch(baseUrl + test.endpoint, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                        }
+                    });
+                    const endTime = Date.now();
+                    const duration = endTime - startTime;
+                    
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        data = await response.text();
+                    }
+                    
+                    if (response.ok) {
+                        testElement.classList.add('success');
+                        statusElement.className = 'test-status status-success';
+                        statusElement.textContent = `✅ SUCCESS (${response.status}) - ${duration}ms`;
+                        
+                        const dataPreview = typeof data === 'string' 
+                            ? data.substring(0, 200)
+                            : JSON.stringify(data, null, 2).substring(0, 500);
+                        
+                        testElement.querySelector('.test-data').innerHTML += 
+                            `<br><br><strong>Response:</strong><br><pre style="background: #0f172a; padding: 10px; border-radius: 4px; overflow-x: auto;">${escapeHtml(dataPreview)}</pre>`;
+                    } else {
+                        testElement.classList.add('error');
+                        statusElement.className = 'test-status status-error';
+                        statusElement.textContent = `❌ ERROR (${response.status})`;
+                        testElement.querySelector('.test-data').innerHTML += 
+                            `<br><br><strong>Error:</strong> ${response.status} ${response.statusText}`;
+                    }
+                } catch (error) {
+                    testElement.classList.add('error');
+                    statusElement.className = 'test-status status-error';
+                    statusElement.textContent = `❌ FAILED`;
+                    testElement.querySelector('.test-data').innerHTML += 
+                        `<br><br><strong>Error:</strong> ${error.message}<br>This usually means:<br>• Backend is not deployed<br>• Wrong URL<br>• CORS issue<br>• Network error`;
+                }
+            }
+            
+            testBtn.disabled = false;
+            testBtn.textContent = 'Test All Endpoints';
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Allow Enter key to trigger test
+        document.getElementById('apiUrl').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                testAPI();
+            }
+        });
+    </script>
+</body>
+</html>

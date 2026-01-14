@@ -14,17 +14,20 @@
 
 ## 📋 Quick Deployment Steps
 
-### 1. Deploy Backend (Railway - 5 minutes)
+### 1. Deploy Backend (Render - Recommended)
 
-1. Go to https://railway.app → Sign up/login
-2. Click **"New Project"** → **"Deploy from GitHub"**
-3. Select your repository
-4. Click **"Settings"** → Set **Root Directory**: `backend`
-5. Go to **"Variables"** tab → Add these:
+1. Go to https://render.com → Sign up/login
+2. Click **"New +"** → **"Web Service"**
+3. Connect your GitHub repository
+4. Configure:
+   - **Root Directory**: `backend`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+5. Go to **"Environment"** tab → Add these:
 
 ```env
-DATABASE_URL=postgresql+psycopg://neondb_owner:npg_XfjiwxFS27dT@ep-empty-feather-aekdevk0-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require
-SECRET_KEY=<generate-with-python-secrets-token_urlsafe-32>
+DATABASE_URL=postgresql+psycopg://finance_r6b5_user:DNNUZZVUJlIgWkSeRNJouFNt6Jo4boGX@dpg-d5jgvsvfte5s738ljoig-a/finance_r6b5
+SECRET_KEY=7730eae563847420772c890ecb062bb7
 ANTHROPIC_API_KEY=your-key
 ALPHA_VANTAGE_API_KEY=your-key
 GOOGLE_CLIENT_ID=your-client-id
@@ -32,7 +35,7 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 ALLOWED_ORIGINS=https://sunny-hamster-0012a0.netlify.app,http://localhost:3000
 ```
 
-6. Railway will auto-deploy! Copy the URL (e.g., `https://your-app.railway.app`)
+6. Click **"Create Web Service"** → Render will auto-deploy! Copy the URL (e.g., `https://your-app.onrender.com`)
 
 ### 2. Update Netlify Environment Variables
 
@@ -40,7 +43,7 @@ ALLOWED_ORIGINS=https://sunny-hamster-0012a0.netlify.app,http://localhost:3000
 2. Add/Update:
 
 ```env
-NEXT_PUBLIC_API_URL=https://your-app.railway.app
+NEXT_PUBLIC_API_URL=https://your-app.onrender.com
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
 ```
 
@@ -69,7 +72,7 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
 ## ✅ Verification Checklist
 
 - [ ] Backend deployed and running
-- [ ] Backend health check works: `curl https://your-backend.railway.app/health`
+- [ ] Backend health check works: `curl https://your-backend.onrender.com/health`
 - [ ] Netlify environment variables set
 - [ ] Frontend deployed successfully
 - [ ] Can register new user
