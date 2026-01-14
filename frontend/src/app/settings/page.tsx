@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import Link from 'next/link'
 import AppLayout from '@/components/AppLayout'
-import { User, Brain, Bell, CheckCircle, LogIn, Upload, Camera } from 'lucide-react'
+import { Brain, Bell, CheckCircle, LogIn, Camera } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function SettingsPage() {
@@ -212,9 +212,9 @@ export default function SettingsPage() {
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-400">Last Login:</span>
+                    <span className="text-slate-400">Verified:</span>
                     <span className="text-white font-medium ml-2">
-                      {user?.last_login ? new Date(user.last_login).toLocaleDateString() : '—'}
+                      {user?.is_verified ? 'Yes' : 'No'}
                     </span>
                   </div>
                   <div>

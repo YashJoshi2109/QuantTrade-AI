@@ -12,6 +12,7 @@ export interface User {
   avatar_url: string | null
   is_verified: boolean
   created_at: string
+  last_login?: string | null
 }
 
 export interface AuthResponse {
