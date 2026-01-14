@@ -395,7 +395,9 @@ export function GlowEffect({ children, color = 'rgba(59, 130, 246, 0.5)', classN
       ease: 'sine.inOut',
     })
 
-    return () => animation.kill()
+    return () => {
+      animation.kill()
+    }
   }, [color])
 
   return (
@@ -454,7 +456,9 @@ export function Floating({ children, amplitude = 10, duration = 3, className = '
       ease: 'sine.inOut',
     })
 
-    return () => animation.kill()
+    return () => {
+      animation.kill()
+    }
   }, [amplitude, duration])
 
   return (
