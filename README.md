@@ -1,4 +1,4 @@
-# AI Trading & Research Copilot
+# Quants AI Trading
 
 A comprehensive AI-powered trading and research platform with TradingView-style UI, featuring real-time market data, AI copilot, RAG-powered insights, and backtesting capabilities.
 ```
