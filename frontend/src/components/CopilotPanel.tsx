@@ -139,18 +139,33 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
     return (
       <button
         onClick={onToggle}
-        className="fixed right-6 bottom-6 group"
+        className="fixed right-6 bottom-6 group z-50"
       >
         <div className="relative">
-          {/* Glow effect */}
-          <div className="absolute inset-0 bg-blue-500 rounded-2xl blur-xl opacity-50 group-hover:opacity-75 transition-opacity" />
+          {/* Animated glow rings */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur-xl opacity-40 group-hover:opacity-60 transition-opacity animate-pulse" />
+          <div className="absolute -inset-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur-2xl opacity-20 group-hover:opacity-30 transition-opacity" />
+          
           {/* Button */}
-          <div className="relative w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/30 group-hover:scale-110 transition-transform">
-            <Sparkles className="w-6 h-6 text-white" />
+          <div className="relative w-16 h-16 bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/40 group-hover:scale-110 group-hover:shadow-blue-500/60 transition-all duration-300">
+            <div className="absolute inset-[2px] bg-gradient-to-br from-blue-400/20 to-transparent rounded-2xl" />
+            <div className="relative flex flex-col items-center gap-0.5">
+              <Sparkles className="w-6 h-6 text-white" />
+              <span className="text-[8px] font-bold text-white/90 tracking-wider">AI</span>
+            </div>
+            {/* Active indicator */}
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#0d1321] animate-pulse" />
           </div>
-          {/* Tooltip */}
-          <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-4 py-2 hud-panel opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity pointer-events-none">
-            <span className="text-sm font-medium text-white">Open AI Copilot</span>
+          
+          {/* Enhanced Tooltip */}
+          <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none">
+            <div className="hud-panel px-4 py-2.5 shadow-xl">
+              <div className="flex items-center gap-2">
+                <Bot className="w-4 h-4 text-cyan-400" />
+                <span className="text-sm font-bold text-white">Open AI Copilot</span>
+              </div>
+              <div className="text-[10px] text-slate-400 mt-0.5 font-mono">Ask me anything</div>
+            </div>
           </div>
         </div>
       </button>

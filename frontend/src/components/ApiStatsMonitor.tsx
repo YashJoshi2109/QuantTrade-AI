@@ -28,7 +28,11 @@ interface ApiStats {
   }
 }
 
-export default function ApiStatsMonitor() {
+interface ApiStatsMonitorProps {
+  isInSidebar?: boolean
+}
+
+export default function ApiStatsMonitor({ isInSidebar = false }: ApiStatsMonitorProps) {
   const [stats, setStats] = useState<ApiStats | null>(null)
   const [isExpanded, setIsExpanded] = useState(false)
 
@@ -60,6 +64,47 @@ export default function ApiStatsMonitor() {
   const usagePercent = maxCalls > 0 ? ((maxCalls - remainingCalls) / maxCalls) * 100 : 0
   const isRateLimited = rate_limit.status === 'rate_limited'
 
+  // Sidebar compact view
+  if (isInSidebar) {
+    return (
+      <div className="hud-stat p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Activity className={`w-4 h-4 ${isRateLimited ? 'text-red-400 animate-pulse' : 'text-blue-400'}`} />
+            <span className="text-xs font-bold text-white">API STATUS</span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-400">Rate Limit</span>
+            <span className={`font-mono font-bold ${
+              isRateLimited ? 'text-red-400' : 
+              usagePercent > 80 ? 'text-yellow-400' : 'text-green-400'
+            }`}>
+              {formatNumber(rate_limit.remaining_calls, 0)}/{formatNumber(rate_limit.max_calls_per_minute, 0)}
+            </span>
+          </div>
+          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div 
+              className={`h-full transition-all duration-500 ${
+                isRateLimited ? 'bg-red-400' : 
+                usagePercent > 80 ? 'bg-yellow-400' : 'bg-blue-400'
+              }`}
+              style={{ width: `${usagePercent}%` }}
+            />
+          </div>
+          {isRateLimited && (
+            <div className="text-[10px] text-red-400 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              Wait {formatNumber(rate_limit.wait_time_seconds, 0)}s
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Original floating widget
   return (
     <div className="fixed bottom-4 right-4 z-50">
       {!isExpanded ? (

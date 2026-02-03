@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
-import ApiStatsMonitor from '@/components/ApiStatsMonitor'
 import { useBreakingNews } from '@/hooks/useRealtimeNews'
 import { useAuth } from '@/contexts/AuthContext'
 import { 
@@ -22,9 +21,8 @@ import {
   RefreshCw,
   Loader2
 } from 'lucide-react'
-import { fetchMarketMovers, fetchSectorPerformance, StockPerformance, SectorPerformance, fetchMarketStatus, MarketStatus, fetchHeatmapData, HeatmapData } from '@/lib/api'
+import { fetchMarketMovers, fetchSectorPerformance, StockPerformance, SectorPerformance, fetchMarketStatus, MarketStatus } from '@/lib/api'
 import { useRealtimeQuotes } from '@/hooks/useRealtimeQuote'
-import MarketHeatmap from '@/components/MarketHeatmap'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 
 // Market Status Component
@@ -89,14 +87,6 @@ export default function Home() {
     staleTime: 30000,
   })
 
-  // Fetch heatmap data for homepage
-  const { data: heatmapData, isLoading: heatmapLoading } = useQuery<HeatmapData>({
-    queryKey: ['heatmapData'],
-    queryFn: fetchHeatmapData,
-    refetchInterval: 300000, // Refetch every 5 minutes
-    staleTime: 120000,
-  })
-
   // Fetch breaking real-time news
   const { data: liveNews, isLoading: newsLoading } = useBreakingNews(5, 60000)
 
@@ -106,13 +96,13 @@ export default function Home() {
 
   return (
     <AppLayout>
-      <div className="p-6 min-h-full">
+      <div className="min-h-full">
         {/* Bento Grid Layout */}
-        <div className="bento-grid">
+        <div className="bento-grid gap-4 sm:gap-6">
           
           {/* Hero Card - Live Market News */}
           <div className="bento-xl bento-tall">
-            <div className="hud-panel h-full p-6 relative overflow-hidden group">
+            <div className="hud-panel h-full p-4 sm:p-6 relative overflow-hidden group">
               {/* Animated background */}
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-cyan-500/10" />
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
@@ -120,23 +110,23 @@ export default function Home() {
               {/* Content */}
               <div className="relative h-full flex flex-col">
                 {/* Badge */}
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-white bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg uppercase tracking-wider shadow-lg shadow-blue-500/30">
+                <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                  <span className="inline-flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-bold text-white bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg uppercase tracking-wider shadow-lg shadow-blue-500/30">
                     <Zap className="w-3 h-3" />
                     Live News
                   </span>
                   <div className="live-pulse" />
-                  <span className="text-[10px] text-slate-500 font-mono ml-2">REAL-TIME</span>
+                  <span className="hidden sm:inline text-[10px] text-slate-500 font-mono ml-2">REAL-TIME</span>
                 </div>
                 
                 {/* Live News Feed */}
                 <div className="flex-1 overflow-hidden">
                   {newsLoading ? (
                     <div className="flex items-center justify-center h-full">
-                      <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                      <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin text-blue-400" />
                     </div>
                   ) : liveNews && liveNews.length > 0 ? (
-                    <div className="space-y-3 h-full overflow-y-auto pr-2">
+                    <div className="space-y-2 sm:space-y-3 h-full overflow-y-auto pr-1 sm:pr-2">
                       {liveNews.slice(0, 4).map((news, idx) => {
                         const newsKey = news.id ?? news.url ?? `${news.title}-${idx}`
                         return news.url ? (
@@ -145,19 +135,19 @@ export default function Home() {
                             href={news.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block p-3 hud-card hover:border-blue-500/30 transition-all group/item"
+                            className="block p-2 sm:p-3 hud-card hover:border-blue-500/30 transition-all group/item"
                           >
-                          <div className="flex items-start gap-3">
-                            <div className={`p-1.5 rounded ${
+                          <div className="flex items-start gap-2 sm:gap-3">
+                            <div className={`p-1 sm:p-1.5 rounded ${
                               news.sentiment === 'Bullish' ? 'bg-green-500/20' :
                               news.sentiment === 'Bearish' ? 'bg-red-500/20' : 'bg-slate-700/50'
                             }`}>
                               {news.sentiment === 'Bullish' ? (
-                                <TrendingUp className="w-3 h-3 text-green-400" />
+                                <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-400" />
                               ) : news.sentiment === 'Bearish' ? (
-                                <TrendingDown className="w-3 h-3 text-red-400" />
+                                <TrendingDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-400" />
                               ) : (
-                                <Activity className="w-3 h-3 text-slate-400" />
+                                <Activity className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400" />
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -512,84 +502,8 @@ export default function Home() {
 
           <MarketStatusCard />
 
-          <div className="bento-sm">
-            <div className="hud-panel h-full p-5 flex flex-col justify-between">
-              <div>
-                <div className="hud-label mb-2">S&P 500 STOCKS</div>
-                <div className="text-2xl font-bold text-white hud-value">
-                  {heatmapLoading ? (
-                    <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-                  ) : (
-                    heatmapData?.total_stocks || '170+'
-                  )}
-                </div>
-                <div className="text-xs text-slate-500 mt-1">Available to analyze</div>
-              </div>
-              <Link href="/markets" className="text-[10px] text-blue-400 hover:text-white transition-colors mt-2">
-                Explore →
-              </Link>
-            </div>
-          </div>
-
-        </div>
-        
-        {/* Market Heatmap Section */}
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-blue-400" />
-                Market Performance Map
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">S&P 500 real-time heatmap by sector</p>
-            </div>
-            <Link 
-              href="/markets"
-              className="text-sm text-blue-400 hover:text-white flex items-center gap-1 transition-colors"
-            >
-              View Full Map <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-          
-          <div className="hud-panel p-6">
-            {heatmapLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
-                <span className="ml-3 text-slate-400">Loading market data...</span>
-              </div>
-            ) : heatmapData ? (
-              <div className="space-y-4">
-                {/* Stats Bar */}
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="hud-stat p-3">
-                    <div className="text-xs text-slate-500 mb-1">GAINERS</div>
-                    <div className="text-lg font-bold text-green-400">{heatmapData.gainers}</div>
-                  </div>
-                  <div className="hud-stat p-3">
-                    <div className="text-xs text-slate-500 mb-1">LOSERS</div>
-                    <div className="text-lg font-bold text-red-400">{heatmapData.losers}</div>
-                  </div>
-                  <div className="hud-stat p-3">
-                    <div className="text-xs text-slate-500 mb-1">UNCHANGED</div>
-                    <div className="text-lg font-bold text-slate-400">{heatmapData.unchanged}</div>
-                  </div>
-                </div>
-                
-                {/* Heatmap Component */}
-                <MarketHeatmap sectors={heatmapData.sectors} />
-              </div>
-            ) : (
-              <div className="text-center py-20 text-slate-400">
-                <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>No market data available</p>
-              </div>
-            )}
-          </div>
         </div>
       </div>
-      
-      {/* API Stats Monitor - shows rate limit status */}
-      <ApiStatsMonitor />
     </AppLayout>
   )
 }

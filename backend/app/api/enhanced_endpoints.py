@@ -142,8 +142,9 @@ async def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
 
 @router.get("/market-indices", response_model=List[dict])
 async def get_market_indices(db: Session = Depends(get_db)):
-    """Get major market indices (S&P 500, NASDAQ, DOW) from Finnhub"""
-    from app.services.finnhub_fetcher import FinnhubFetcher
+    """Get major market indices using yfinance with fallback to database cache"""
+    import yfinance as yf
+    from app.models.realtime_quote import MarketIndex
     
     indices_config = [
         {"symbol": "^GSPC", "name": "S&P 500"},
@@ -155,30 +156,95 @@ async def get_market_indices(db: Session = Depends(get_db)):
     results = []
     for config in indices_config:
         try:
-            quote = FinnhubFetcher.get_quote(config["symbol"])
-            if quote and 'c' in quote:
-                change = quote.get('c', 0) - quote.get('pc', 0)
-                change_percent = (change / quote.get('pc', 1)) * 100 if quote.get('pc') else 0
+            # Try yfinance download method (more reliable than .info)
+            ticker = yf.Ticker(config["symbol"])
+            hist = ticker.history(period="2d")
+            
+            if not hist.empty and len(hist) >= 2:
+                current_price = float(hist['Close'].iloc[-1])
+                prev_close = float(hist['Close'].iloc[-2])
+                change = current_price - prev_close
+                change_percent = (change / prev_close * 100) if prev_close else 0
+                
+                # Cache to database
+                try:
+                    db_index = db.query(MarketIndex).filter(
+                        MarketIndex.index_symbol == config["symbol"]
+                    ).first()
+                    
+                    if db_index:
+                        db_index.last_price = current_price
+                        db_index.previous_close = prev_close
+                        db_index.change = change
+                        db_index.change_percent = change_percent
+                        db_index.quote_timestamp = datetime.utcnow()
+                    else:
+                        db_index = MarketIndex(
+                            index_symbol=config["symbol"],
+                            index_name=config["name"],
+                            last_price=current_price,
+                            previous_close=prev_close,
+                            change=change,
+                            change_percent=change_percent,
+                            quote_timestamp=datetime.utcnow()
+                        )
+                        db.add(db_index)
+                    db.commit()
+                except Exception as db_error:
+                    print(f"DB cache error for {config['symbol']}: {db_error}")
+                    db.rollback()
                 
                 results.append({
                     "symbol": config["symbol"],
                     "name": config["name"],
-                    "price": quote.get('c', 0),
-                    "change": change,
-                    "change_percent": change_percent,
+                    "price": round(current_price, 2),
+                    "change": round(change, 2),
+                    "change_percent": round(change_percent, 2),
                     "timestamp": datetime.utcnow()
                 })
+                print(f"✓ Fetched {config['name']}: ${current_price:.2f} ({change_percent:+.2f}%)")
+            else:
+                raise ValueError("Insufficient historical data")
+                
         except Exception as e:
-            print(f"Error fetching {config['symbol']}: {e}")
-            # Return N/A data
-            results.append({
-                "symbol": config["symbol"],
-                "name": config["name"],
-                "price": 0,
-                "change": 0,
-                "change_percent": 0,
-                "timestamp": datetime.utcnow()
-            })
+            print(f"yfinance error for {config['symbol']}: {e}")
+            # Fallback to database cache
+            try:
+                db_index = db.query(MarketIndex).filter(
+                    MarketIndex.index_symbol == config["symbol"]
+                ).first()
+                
+                if db_index and db_index.last_price:
+                    results.append({
+                        "symbol": config["symbol"],
+                        "name": config["name"],
+                        "price": round(db_index.last_price, 2),
+                        "change": round(db_index.change or 0, 2),
+                        "change_percent": round(db_index.change_percent or 0, 2),
+                        "timestamp": db_index.quote_timestamp or datetime.utcnow()
+                    })
+                    print(f"✓ Using cached data for {config['name']}")
+                else:
+                    # Final fallback - return N/A
+                    results.append({
+                        "symbol": config["symbol"],
+                        "name": config["name"],
+                        "price": 0,
+                        "change": 0,
+                        "change_percent": 0,
+                        "timestamp": datetime.utcnow()
+                    })
+                    print(f"⚠ No data available for {config['name']}")
+            except Exception as fallback_error:
+                print(f"Fallback error for {config['symbol']}: {fallback_error}")
+                results.append({
+                    "symbol": config["symbol"],
+                    "name": config["name"],
+                    "price": 0,
+                    "change": 0,
+                    "change_percent": 0,
+                    "timestamp": datetime.utcnow()
+                })
     
     return results
 
@@ -322,6 +388,11 @@ async def get_breaking_market_news(limit: int = Query(10, ge=1, le=50)):
     except Exception as e:
         print(f"Error fetching breaking news: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/fundamentals/{symbol}")
+async def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
+    """Get fundamental data for a symbol"""
     db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol.upper()).first()
     
     if not db_symbol:

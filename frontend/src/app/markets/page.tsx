@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
-import ApiStatsMonitor from '@/components/ApiStatsMonitor'
 import LiveNews from '@/components/LiveNews'
 import MarketHeatmap from '@/components/MarketHeatmap'
 import { 
@@ -18,23 +17,20 @@ import {
   Grid3X3,
   List
 } from 'lucide-react'
-import { fetchSectorPerformance, fetchMarketMovers, SectorPerformance, StockPerformance } from '@/lib/api'
-import { useRealtimeQuotes } from '@/hooks/useRealtimeQuote'
+import { fetchSectorPerformance, fetchMarketMovers, fetchMarketIndices, SectorPerformance, StockPerformance, MarketIndex } from '@/lib/api'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import Link from 'next/link'
-
-// Major indices to track in real-time
-const INDEX_SYMBOLS = ['^GSPC', '^IXIC', '^DJI', '^RUT'] // S&P 500, NASDAQ, DOW, Russell 2000
 
 export default function MarketsPage() {
   const [view, setView] = useState<'heatmap' | 'list'>('heatmap')
   
-  // Real-time index quotes with HIGH PRIORITY for markets page
-  const { data: indexQuotes, isLoading: indicesLoading } = useRealtimeQuotes(
-    INDEX_SYMBOLS,
-    10000, // Update every 10 seconds
-    'high' // High priority - critical market data
-  )
+  // Fetch market indices from dedicated endpoint
+  const { data: indexData, isLoading: indicesLoading } = useQuery({
+    queryKey: ['marketIndices'],
+    queryFn: fetchMarketIndices,
+    refetchInterval: 30000, // Update every 30 seconds
+    staleTime: 15000,
+  })
   
   // Fetch sector data with stocks
   const { data: sectors, isLoading: sectorsLoading, refetch: refetchSectors } = useQuery({
@@ -61,19 +57,19 @@ export default function MarketsPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 min-h-full">
+      <div className="min-h-full">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-              <Globe className="w-7 h-7 text-blue-400" />
+            <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2 sm:gap-3">
+              <Globe className="w-6 h-6 sm:w-7 sm:h-7 text-blue-400" />
               Markets Overview
             </h1>
-            <p className="text-slate-400 text-sm mt-1">
+            <p className="text-slate-400 text-xs sm:text-sm mt-1">
               Real-time market data • {marketStats.totalStocks} stocks tracked
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* View Toggle */}
             <div className="flex items-center gap-1 p-1 bg-slate-800/50 rounded-lg">
               <button
@@ -81,6 +77,7 @@ export default function MarketsPage() {
                 className={`p-2 rounded-md transition-all ${
                   view === 'heatmap' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-white'
                 }`}
+                aria-label="Heatmap view"
               >
                 <Grid3X3 className="w-4 h-4" />
               </button>
@@ -89,16 +86,18 @@ export default function MarketsPage() {
                 className={`p-2 rounded-md transition-all ${
                   view === 'list' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-white'
                 }`}
+                aria-label="List view"
               >
                 <List className="w-4 h-4" />
               </button>
             </div>
             <button 
               onClick={() => refetchSectors()}
-              className="hud-card px-4 py-2 text-sm text-blue-400 hover:text-white flex items-center gap-2 transition-all"
+              className="hud-card px-3 sm:px-4 py-2 text-xs sm:text-sm text-blue-400 hover:text-white flex items-center gap-2 transition-all"
+              aria-label="Refresh data"
             >
               <RefreshCw className="w-4 h-4" />
-              Refresh
+              <span className="hidden sm:inline">Refresh</span>
             </button>
           </div>
         </div>
@@ -110,34 +109,25 @@ export default function MarketsPage() {
               <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
               <span className="ml-3 text-slate-400">Loading market indices...</span>
             </div>
-          ) : indexQuotes && indexQuotes.length > 0 ? (
-            indexQuotes.map((quote, idx) => {
-              const indexNames = ['S&P 500', 'NASDAQ', 'DOW JONES', 'RUSSELL 2000']
-              const displayName = indexNames[idx] || quote.symbol
-              const changePositive = isNumber(quote.change_percent) ? quote.change_percent >= 0 : false
+          ) : indexData && indexData.length > 0 ? (
+            indexData.map((index, idx) => {
+              const changePositive = isNumber(index.change_percent) ? index.change_percent >= 0 : false
               return (
-                <div key={quote.symbol || displayName || `index-${idx}`} className="hud-panel p-4 relative group">
-                  {quote.data_source && (
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-xs text-emerald-400 font-mono px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
-                        {quote.data_source}
-                      </span>
-                    </div>
-                  )}
+                <div key={index.symbol || `index-${idx}`} className="hud-panel p-4 relative group">
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="text-xs text-slate-500">{displayName}</div>
+                    <div className="text-xs text-slate-500">{index.name}</div>
                     <div className="live-pulse scale-75" />
                   </div>
                   <div className="text-xl font-bold text-white font-mono">
-                    {isNumber(quote.price)
-                      ? Number(quote.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    {isNumber(index.price)
+                      ? Number(index.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                       : 'N/A'}
                   </div>
                   <div className={`text-sm font-mono flex items-center gap-1 ${
                     changePositive ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {changePositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                    {changePositive ? '+' : ''}{formatPercent(quote.change_percent, 2)}
+                    {changePositive ? '+' : ''}{formatPercent(index.change_percent, 2)}
                   </div>
                 </div>
               )
@@ -167,54 +157,55 @@ export default function MarketsPage() {
         </div>
 
         {/* Market Stats Bar */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <div className="hud-panel p-4 flex items-center gap-3">
             <div className="p-2 bg-blue-500/10 rounded-lg">
-              <Activity className="w-5 h-5 text-blue-400" />
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
             </div>
             <div>
-              <div className="text-xl font-bold text-white">{marketStats.totalStocks}</div>
+              <div className="text-lg sm:text-xl font-bold text-white">{marketStats.totalStocks}</div>
               <div className="text-xs text-slate-500">Total Stocks</div>
             </div>
           </div>
           <div className="hud-panel p-4 flex items-center gap-3">
             <div className="p-2 bg-green-500/10 rounded-lg">
-              <TrendingUp className="w-5 h-5 text-green-400" />
+              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
             </div>
             <div>
-              <div className="text-xl font-bold text-green-400">{marketStats.gainers}</div>
+              <div className="text-lg sm:text-xl font-bold text-green-400">{marketStats.gainers}</div>
               <div className="text-xs text-slate-500">Gainers</div>
             </div>
           </div>
           <div className="hud-panel p-4 flex items-center gap-3">
             <div className="p-2 bg-red-500/10 rounded-lg">
-              <TrendingDown className="w-5 h-5 text-red-400" />
+              <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
             </div>
             <div>
-              <div className="text-xl font-bold text-red-400">{marketStats.losers}</div>
+              <div className="text-lg sm:text-xl font-bold text-red-400">{marketStats.losers}</div>
               <div className="text-xs text-slate-500">Losers</div>
             </div>
           </div>
           <div className="hud-panel p-4 flex items-center gap-3">
             <div className="p-2 bg-cyan-500/10 rounded-lg">
-              <Zap className="w-5 h-5 text-cyan-400" />
+              <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
             </div>
             <div>
-              <div className="text-xl font-bold text-white">{sectors?.length || 0}</div>
+              <div className="text-lg sm:text-xl font-bold text-white">{sectors?.length || 0}</div>
               <div className="text-xs text-slate-500">Sectors</div>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
           {/* Heatmap / List Section */}
-          <div className="col-span-12 lg:col-span-9">
-            <div className="hud-panel p-6">
+          <div className="lg:col-span-9">
+            <div className="hud-panel p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-blue-400" />
-                  1-Day Performance Map
+                  <span className="hidden sm:inline">1-Day Performance Map</span>
+                  <span className="sm:hidden">Performance</span>
                 </h2>
                 <div className="flex items-center gap-2">
                   <div className="live-pulse" />
@@ -236,8 +227,8 @@ export default function MarketsPage() {
                       <div className={`px-4 py-3 flex items-center justify-between ${
                         sector.change_percent >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
                       }`}>
-                        <span className="font-bold text-white">{sector.sector}</span>
-                        <span className={`font-mono font-bold ${
+                          <span className="font-bold text-sm sm:text-base text-white">{sector.sector}</span>
+                          <span className={`font-mono font-bold text-sm sm:text-base ${
                           sector.change_percent >= 0 ? 'text-green-400' : 'text-red-400'
                         }`}>
                           {sector.change_percent >= 0 ? '+' : ''}{formatPercent(sector.change_percent, 2)}
@@ -248,14 +239,14 @@ export default function MarketsPage() {
                           <Link
                             key={stock.symbol || `${sector.sector}-${stock.name || stockIdx}`}
                             href={`/research?symbol=${stock.symbol}`}
-                            className="flex items-center justify-between p-3 hover:bg-slate-800/30 transition-colors"
+                              className="flex items-center justify-between p-2 sm:p-3 hover:bg-slate-800/30 transition-colors"
                           >
-                            <div className="flex items-center gap-3">
-                              <span className="font-bold text-white w-16">{stock.symbol}</span>
-                              <span className="text-sm text-slate-400 truncate max-w-[200px]">{stock.name}</span>
+                              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                <span className="font-bold text-white text-sm sm:text-base w-12 sm:w-16">{stock.symbol}</span>
+                                <span className="text-xs sm:text-sm text-slate-400 truncate">{stock.name}</span>
                             </div>
-                            <div className="flex items-center gap-6">
-                              <span className="text-white font-mono">
+                              <div className="flex items-center gap-2 sm:gap-6">
+                                <span className="text-white font-mono text-sm sm:text-base">
                                 {isNumber(stock.price) ? `$${formatNumber(stock.price, 2)}` : 'N/A'}
                               </span>
                               <span className={`font-mono w-20 text-right ${
@@ -279,23 +270,23 @@ export default function MarketsPage() {
           </div>
 
           {/* Sidebar - Top Movers & News */}
-          <div className="col-span-12 lg:col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-4 sm:space-y-6">
             {/* Top Gainers */}
             <div className="hud-panel">
-              <div className="p-4 border-b border-slate-700/30 flex items-center gap-2">
+              <div className="p-3 sm:p-4 border-b border-slate-700/30 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-green-400" />
                 <h3 className="font-bold text-white text-sm">Top Gainers</h3>
               </div>
               <div className="divide-y divide-slate-700/20">
                 {moversLoading ? (
-                  <div className="p-8 flex justify-center">
+                  <div className="p-6 sm:p-8 flex justify-center">
                     <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
                   </div>
                 ) : movers?.gainers?.slice(0, 5).map((stock: StockPerformance, idx: number) => (
                   <Link
                     key={stock.symbol || `gainer-${idx}`}
                     href={`/research?symbol=${stock.symbol}`}
-                    className="flex items-center justify-between p-3 hover:bg-green-500/5 transition-colors"
+                    className="flex items-center justify-between p-2 sm:p-3 hover:bg-green-500/5 transition-colors"
                   >
                     <span className="font-bold text-white text-sm">{stock.symbol}</span>
                     <span className="text-green-400 font-mono text-sm">
@@ -308,13 +299,13 @@ export default function MarketsPage() {
 
             {/* Top Losers */}
             <div className="hud-panel">
-              <div className="p-4 border-b border-slate-700/30 flex items-center gap-2">
+              <div className="p-3 sm:p-4 border-b border-slate-700/30 flex items-center gap-2">
                 <TrendingDown className="w-4 h-4 text-red-400" />
                 <h3 className="font-bold text-white text-sm">Top Losers</h3>
               </div>
               <div className="divide-y divide-slate-700/20">
                 {moversLoading ? (
-                  <div className="p-8 flex justify-center">
+                  <div className="p-6 sm:p-8 flex justify-center">
                     <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
                   </div>
                 ) : movers?.losers?.slice(0, 5).map((stock: StockPerformance, idx: number) => (
@@ -345,9 +336,6 @@ export default function MarketsPage() {
           </div>
         </div>
       </div>
-      
-      {/* API Stats Monitor - shows rate limit status */}
-      <ApiStatsMonitor />
     </AppLayout>
   )
 }

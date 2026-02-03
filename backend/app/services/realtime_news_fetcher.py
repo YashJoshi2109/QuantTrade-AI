@@ -130,7 +130,9 @@ class RealtimeNewsFetcher:
         """
         try:
             # Google News RSS feed for stock symbol
-            url = f"https://news.google.com/rss/search?q={symbol}+stock&hl=en-US&gl=US&ceid=US:en"
+            from urllib.parse import quote_plus
+            encoded_symbol = quote_plus(symbol)
+            url = f"https://news.google.com/rss/search?q={encoded_symbol}+stock&hl=en-US&gl=US&ceid=US:en"
             
             feed = feedparser.parse(url)
             

@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation'
 import AppLayout from '@/components/AppLayout'
 import Chart from '@/components/Chart'
 import LiveNews from '@/components/LiveNews'
-import ApiStatsMonitor from '@/components/ApiStatsMonitor'
 import { Sparkles, TrendingUp, TrendingDown, Loader2, RefreshCw, Activity, Target, AlertTriangle, Zap, BarChart3, Newspaper } from 'lucide-react'
 import { fetchPrices, fetchIndicators, syncSymbol, PriceBar, Indicators } from '@/lib/api'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
@@ -418,9 +417,6 @@ function ResearchContent() {
 
         </div>
       </div>
-      
-      {/* API Stats Monitor - shows rate limit status */}
-      <ApiStatsMonitor />
     </AppLayout>
   )
 }

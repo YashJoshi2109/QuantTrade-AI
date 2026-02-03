@@ -167,89 +167,75 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
     }
   }
 
+  const sidebarWidth = 224 // w-56 = 14rem = 224px
+  const copilotWidth = copilotOpen ? 320 : 0 // w-80 = 20rem = 320px
+
   return (
-    <div className="min-h-screen bg-[#0a0e1a]">
+    <div className="min-h-screen bg-[#0a0f1a] text-white overflow-hidden">
+      {/* Background Effects */}
+      <div className="fixed inset-0 bg-mesh pointer-events-none" />
+      <div className="fixed inset-0 data-stream pointer-events-none opacity-30" />
+      
       {/* Fixed Header */}
       <header className="fixed top-0 left-0 right-0 h-14 z-50">
-        <div className="absolute inset-0 bg-[#0d1321]/90 backdrop-blur-xl border-b border-blue-500/10" />
-        <div className="relative h-full flex items-center px-4 md:px-6 gap-2 md:gap-4">
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded-lg hover:bg-slate-800/50 text-slate-400 hover:text-white transition-colors"
-            aria-label="Toggle mobile menu"
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-
+        <div className="absolute inset-0 bg-[#0d1321]/80 backdrop-blur-xl border-b border-blue-500/10" />
+        <div className="relative h-full flex items-center justify-between px-6">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
+          <div className="flex items-center gap-3 w-56">
+            <div className="relative">
+              <Sparkles className="w-8 h-8 text-blue-400" />
+              <div className="absolute inset-0 blur-lg bg-blue-400/30" />
             </div>
-            <span className="hidden sm:block text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-              QuantTrade AI
-            </span>
-          </Link>
-
-          {/* Desktop Sidebar Toggle */}
-          <button
-            onClick={toggleSidebar}
-            className="hidden lg:flex p-2 rounded-lg hover:bg-slate-800/50 text-slate-400 hover:text-white transition-colors"
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {sidebarCollapsed ? <Menu className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-          </button>
-
-          {/* Search Bar - Hidden on mobile */}
-          <div className="flex-1 max-w-xl relative hidden md:block">
+            <Link href="/" className="text-xl font-bold">
+              <span className="gradient-text">QuantTrade AI</span>
+            </Link>
+          </div>
+          
+          {/* Search */}
+          <div className="flex-1 max-w-2xl px-4 relative">
             <form onSubmit={handleSearchSubmit} className="relative">
-              <div className="hud-card flex items-center gap-2 pr-2">
-                <Search className="w-4 h-4 text-blue-400 ml-3" />
-                {searching && <Loader2 className="w-4 h-4 text-blue-400 animate-spin absolute right-3" />}
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/20 to-cyan-500/20 blur-sm" />
+              <div className="relative hud-card overflow-hidden">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400" />
+                {searching && (
+                  <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400 animate-spin" />
+                )}
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search symbols, companies..."
-                  className="flex-1 bg-transparent border-none outline-none text-sm py-2 text-white placeholder-slate-500"
+                  onFocus={() => searchResults.length > 0 && setShowResults(true)}
+                  placeholder="Search Ticker (e.g., NVDA, AAPL)..."
+                  className="block w-full pl-12 pr-12 py-2.5 bg-transparent text-sm placeholder-slate-500 focus:outline-none text-white"
                 />
               </div>
-
-              {/* Search Results Dropdown */}
-              {showResults && searchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 hud-card max-h-96 overflow-y-auto z-50">
-                  {searchResults.slice(0, 10).map((sym) => (
-                    <button
-                      key={sym.symbol}
-                      onClick={() => handleSymbolSelect(sym)}
-                      className="w-full flex items-center gap-3 p-3 hover:bg-slate-800/50 transition-colors text-left"
-                    >
-                      <div className="flex-1">
-                        <div className="font-bold text-white">{sym.symbol}</div>
-                        <div className="text-xs text-slate-400 truncate">{sym.name}</div>
-                      </div>
+            </form>
+            
+            {/* Search Results */}
+            {showResults && searchResults.length > 0 && (
+              <div className="absolute top-full left-4 right-4 mt-2 hud-panel max-h-80 overflow-y-auto z-50">
+                {searchResults.map((sym) => (
+                  <button
+                    key={sym.id}
+                    onClick={() => handleSymbolSelect(sym)}
+                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-blue-500/10 transition-all border-b border-slate-700/50 last:border-b-0 group"
+                  >
+                    <div className="text-left">
+                      <div className="font-bold text-white group-hover:text-blue-400 transition-colors">{sym.symbol}</div>
+                      <div className="text-xs text-slate-400 truncate max-w-xs">{sym.name}</div>
+                    </div>
+                    <div className="text-right text-xs">
+                      <div className="text-slate-500">{sym.sector || 'N/A'}</div>
                       {sym.market_cap && (
-                        <div className="text-blue-400 font-mono text-sm">
+                        <div className="text-blue-400 font-mono">
                           ${(sym.market_cap / 1e9).toFixed(1)}B
                         </div>
                       )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </form>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            <button className="hud-button p-2 hidden sm:flex" aria-label="Notifications">
-              <Bell className="w-5 h-5" />
-            </button>
-            <button className="hud-button p-2 hidden sm:flex" aria-label="Help">
-              <HelpCircle className="w-5 h-5" />
-            </button>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -324,7 +310,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
           {!sidebarCollapsed && <MarketStatusIndicator />}
 
           {/* User Profile */}
-          <div className={`p-4 border-t border-slate-800/50 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
+          <div className={`p-4 border-t border-slate-800/50 ${sidebarCollapsed ? 'flex justify-center' : ''}`}">
             {isAuthenticated && user ? (
               <div className={`hud-card p-3 flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
                 <div className="relative" title={sidebarCollapsed ? user.username || user.full_name : undefined}>
@@ -373,17 +359,17 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
       <main 
         className="pt-14 min-h-screen transition-all duration-300"
         style={{ 
-          marginLeft: `calc(${sidebarWidth})`,
+          marginLeft: sidebarWidth,
           marginRight: copilotWidth 
         }}
       >
-        <div className="h-full overflow-y-auto px-4 md:px-6 py-4 md:py-6">
+        <div className="h-full overflow-y-auto">
           {children}
         </div>
       </main>
 
       {/* Fixed AI Copilot Panel */}
-      <div className="fixed right-0 top-14 bottom-0 z-40 hidden lg:block">
+      <div className="fixed right-0 top-14 bottom-0 z-40">
         <CopilotPanel 
           symbol={symbol || 'NVDA'} 
           context={pageContext}

@@ -606,6 +606,28 @@ export interface MarketMovers {
   updated_at: string
 }
 
+export interface MarketIndex {
+  symbol: string
+  name: string
+  price: number
+  change: number
+  change_percent: number
+  timestamp: string
+}
+
+export async function fetchMarketIndices(): Promise<MarketIndex[]> {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/enhanced/market-indices`)
+    const data = await parseJsonSafe<MarketIndex[]>(response)
+    if (data) return data
+    console.error('Failed to fetch market indices:', response.status)
+    return []
+  } catch (error) {
+    console.error('Error fetching market indices:', error)
+    return []
+  }
+}
+
 export async function fetchMarketStocks(
   sector?: string,
   limit: number = 100
