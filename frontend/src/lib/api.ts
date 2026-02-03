@@ -269,6 +269,9 @@ export async function getWatchlist(): Promise<any[]> {
     
     const { getAuthHeaders } = await import('./auth')
     const headers = getAuthHeaders()
+    if (!headers.Authorization) {
+      return []
+    }
     
     const response = await fetch(`${API_URL}/api/v1/watchlist`, {
       headers

@@ -33,6 +33,11 @@ export default function WatchlistPage() {
 
   useEffect(() => {
     if (!authLoading) {
+      if (!isAuthenticated) {
+        setWatchlist([])
+        setLoading(false)
+        return
+      }
       loadWatchlist()
     }
   }, [authLoading, isAuthenticated])
