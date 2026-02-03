@@ -286,7 +286,10 @@ export async function getWatchlist(): Promise<any[]> {
     }
     return response.json()
   } catch (error) {
-    console.error('Error fetching watchlist:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    if (!message.includes('Failed to fetch')) {
+      console.error('Error fetching watchlist:', error)
+    }
     return []
   }
 }
