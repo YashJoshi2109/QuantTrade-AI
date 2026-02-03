@@ -137,13 +137,14 @@ export default function Home() {
                   ) : liveNews && liveNews.length > 0 ? (
                     <div className="space-y-3 h-full overflow-y-auto pr-2">
                       {liveNews.slice(0, 4).map((news, idx) => (
-                        <a
-                          key={idx}
-                          href={news.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block p-3 hud-card hover:border-blue-500/30 transition-all group/item"
-                        >
+                        news.url ? (
+                          <a
+                            key={idx}
+                            href={news.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block p-3 hud-card hover:border-blue-500/30 transition-all group/item"
+                          >
                           <div className="flex items-start gap-3">
                             <div className={`p-1.5 rounded ${
                               news.sentiment === 'Bullish' ? 'bg-green-500/20' :
@@ -175,7 +176,45 @@ export default function Home() {
                               </div>
                             </div>
                           </div>
-                        </a>
+                          </a>
+                        ) : (
+                          <div
+                            key={idx}
+                            className="block p-3 hud-card"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`p-1.5 rounded ${
+                                news.sentiment === 'Bullish' ? 'bg-green-500/20' :
+                                news.sentiment === 'Bearish' ? 'bg-red-500/20' : 'bg-slate-700/50'
+                              }`}>
+                                {news.sentiment === 'Bullish' ? (
+                                  <TrendingUp className="w-3 h-3 text-green-400" />
+                                ) : news.sentiment === 'Bearish' ? (
+                                  <TrendingDown className="w-3 h-3 text-red-400" />
+                                ) : (
+                                  <Activity className="w-3 h-3 text-slate-400" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-white font-medium line-clamp-2">
+                                  {news.title}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-[10px] text-slate-500">{news.source}</span>
+                                  {news.related_tickers && news.related_tickers.length > 0 && (
+                                    <div className="flex gap-1">
+                                      {news.related_tickers.slice(0, 3).map(t => (
+                                        <span key={t} className="px-1.5 py-0.5 text-[9px] bg-blue-500/20 text-blue-400 rounded">
+                                          {t}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
                       ))}
                     </div>
                   ) : (
