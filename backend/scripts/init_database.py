@@ -11,7 +11,13 @@ backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
 from app.db.database import engine, Base
-from app.models import symbol, price, news, filing, user, watchlist
+# Import ALL models to ensure they're registered with SQLAlchemy
+from app.models import (
+    Symbol, PriceBar, Watchlist, NewsArticle, Filing, FilingChunk, ChatHistory,
+    Fundamentals, Portfolio, Position, Transaction, TransactionType, 
+    PortfolioSnapshot, RealtimeQuote, MarketIndex, QuoteHistory
+)
+from app.models.user import User
 from sqlalchemy import text
 
 def init_database():

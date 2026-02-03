@@ -98,8 +98,74 @@ export interface NewsArticle {
   url: string | null
   published_at: string
   sentiment: string | null
+  thumbnail?: string | null
+  related_tickers?: string[]
 }
 
+// Real-time news from enhanced endpoint
+export async function fetchRealtimeNews(
+  symbol: string,
+  limit: number = 20,
+  sources?: string
+): Promise<NewsArticle[]> {
+  try {
+    const url = new URL(`${API_URL}/api/v1/enhanced/news/${symbol}/realtime`)
+    url.searchParams.append('limit', limit.toString())
+    if (sources) {
+      url.searchParams.append('sources', sources)
+    }
+    
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      throw new Error('Failed to fetch real-time news')
+    }
+    return response.json()
+  } catch (error) {
+    console.error('Error fetching real-time news:', error)
+    return []
+  }
+}
+
+// yfinance news only (fastest)
+export async function fetchYFinanceNews(
+  symbol: string,
+  limit: number = 20
+): Promise<NewsArticle[]> {
+  try {
+    const url = new URL(`${API_URL}/api/v1/enhanced/news/${symbol}/yfinance`)
+    url.searchParams.append('limit', limit.toString())
+    
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      throw new Error('Failed to fetch yfinance news')
+    }
+    return response.json()
+  } catch (error) {
+    console.error('Error fetching yfinance news:', error)
+    return []
+  }
+}
+
+// Breaking market news
+export async function fetchBreakingMarketNews(
+  limit: number = 10
+): Promise<NewsArticle[]> {
+  try {
+    const url = new URL(`${API_URL}/api/v1/enhanced/news/market/breaking`)
+    url.searchParams.append('limit', limit.toString())
+    
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      throw new Error('Failed to fetch breaking news')
+    }
+    return response.json()
+  } catch (error) {
+    console.error('Error fetching breaking news:', error)
+    return []
+  }
+}
+
+// Legacy news endpoint (database)
 export async function fetchNews(
   symbol: string,
   limit?: number,
@@ -145,22 +211,32 @@ export interface ChatResponse {
 }
 
 export async function sendChatMessage(message: ChatMessage): Promise<ChatResponse> {
-  // Attach auth headers if user is logged in so chat history can be tied to user
-  const { getAuthHeaders } = await import('./auth')
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...getAuthHeaders(),
-  }
+  try {
+    // Attach auth headers if user is logged in so chat history can be tied to user
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    // Only get auth headers on client side
+    if (typeof window !== 'undefined') {
+      const { getAuthHeaders } = await import('./auth')
+      Object.assign(headers, getAuthHeaders())
+    }
 
-  const response = await fetch(`${API_URL}/api/v1/chat`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(message),
-  })
-  if (!response.ok) {
-    throw new Error('Failed to send chat message')
+    const response = await fetch(`${API_URL}/api/v1/chat`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(message),
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to send chat message')
+    }
+    return response.json()
+  } catch (error) {
+    console.error('Error sending chat message:', error)
+    throw error
   }
-  return response.json()
 }
 
 // Phase 3: Risk & Watchlist
@@ -185,47 +261,86 @@ export async function fetchRiskMetrics(symbol: string): Promise<RiskMetrics> {
 }
 
 export async function getWatchlist(): Promise<any[]> {
-  const { getAuthHeaders } = await import('./auth')
-  const response = await fetch(`${API_URL}/api/v1/watchlist`, {
-    headers: getAuthHeaders()
-  })
-  if (!response.ok) {
-    if (response.status === 401) {
-      // Not authenticated - return empty array
+  try {
+    // Only get auth headers on client side
+    if (typeof window === 'undefined') {
       return []
     }
-    throw new Error('Failed to fetch watchlist')
+    
+    const { getAuthHeaders } = await import('./auth')
+    const headers = getAuthHeaders()
+    
+    const response = await fetch(`${API_URL}/api/v1/watchlist`, {
+      headers
+    })
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Not authenticated - return empty array
+        return []
+      }
+      throw new Error('Failed to fetch watchlist')
+    }
+    return response.json()
+  } catch (error) {
+    console.error('Error fetching watchlist:', error)
+    return []
   }
-  return response.json()
 }
 
 export async function addToWatchlist(symbol: string): Promise<any> {
-  const { getAuthHeaders } = await import('./auth')
-  const response = await fetch(`${API_URL}/api/v1/watchlist`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...getAuthHeaders()
-    },
-    body: JSON.stringify({ symbol }),
-  })
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to add to watchlist' }))
-    throw new Error(error.detail || 'Failed to add to watchlist')
+  try {
+    // Only on client side
+    if (typeof window === 'undefined') {
+      throw new Error('Client-side only')
+    }
+    
+    const { getAuthHeaders } = await import('./auth')
+    const headers = getAuthHeaders()
+    
+    const response = await fetch(`${API_URL}/api/v1/watchlist`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers
+      },
+      body: JSON.stringify({ symbol }),
+    })
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Failed to add to watchlist' }))
+      throw new Error(error.detail || 'Failed to add to watchlist')
+    }
+    return response.json()
+  } catch (error) {
+    console.error('Error adding to watchlist:', error)
+    throw error
   }
-  return response.json()
 }
 
 export async function removeFromWatchlist(symbol: string): Promise<any> {
-  const { getAuthHeaders } = await import('./auth')
-  const response = await fetch(`${API_URL}/api/v1/watchlist/${symbol}`, {
-    method: 'DELETE',
-    headers: getAuthHeaders()
-  })
-  if (!response.ok) {
-    throw new Error('Failed to remove from watchlist')
+  try {
+    // Only on client side
+    if (typeof window === 'undefined') {
+      throw new Error('Client-side only')
+    }
+    
+    const { getAuthHeaders } = await import('./auth')
+    const headers = getAuthHeaders()
+    
+    const response = await fetch(`${API_URL}/api/v1/watchlist/${symbol}`, {
+      method: 'DELETE',
+      headers
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to remove from watchlist')
+    }
+    return response.json()
+  } catch (error) {
+    console.error('Error removing from watchlist:', error)
+    throw error
   }
-  return response.json()
 }
 
 // Phase 4: Backtesting
@@ -314,7 +429,7 @@ export async function fetchLiveSymbolNews(
   return response.json()
 }
 
-// Quote API for live prices
+// Quote API for live prices - Enhanced with Finviz real-time data
 export interface QuoteData {
   symbol: string
   price: number
@@ -326,12 +441,49 @@ export interface QuoteData {
   open: number
   previous_close: number
   timestamp: string
+  bid_price?: number
+  ask_price?: number
+  market_status?: string
+  data_source?: string
+  latency_ms?: number
 }
 
-export async function fetchQuote(symbol: string): Promise<QuoteData> {
-  const response = await fetch(`${API_URL}/api/v1/prices/${symbol}/quote`)
-  if (!response.ok) {
-    // Return mock data if API fails
+// Use enhanced endpoint with Finviz for sub-second real-time data
+export async function fetchQuote(symbol: string, priority: 'high' | 'normal' = 'normal'): Promise<QuoteData> {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/enhanced/quote/${symbol}?priority=${priority}`)
+    if (response.ok) {
+      const data = await response.json()
+      return {
+      symbol: data.symbol || symbol.toUpperCase(),
+      price: data.last_price || data.price || 0,
+      change: data.change || 0,
+      change_percent: data.change_percent || 0,
+      volume: data.volume || 0,
+      high: data.high_price || data.high || 0,
+      low: data.low_price || data.low || 0,
+      open: data.open_price || data.open || 0,
+      previous_close: data.previous_close || 0,
+      timestamp: data.quote_timestamp || data.updated_at || new Date().toISOString(),
+      bid_price: data.bid_price,
+      ask_price: data.ask_price,
+      market_status: data.market_status,
+      data_source: data.data_source,
+      latency_ms: data.latency_ms
+      }
+    }
+
+    // Fallback to legacy endpoint before throwing
+    const fallbackResponse = await fetch(`${API_URL}/api/v1/prices/${symbol}/quote`)
+    if (fallbackResponse.ok) {
+      return fallbackResponse.json()
+    }
+
+    throw new Error(`Failed to fetch quote: ${response.status}`)
+  } catch (error) {
+    console.error('Error fetching enhanced quote:', error)
+    
+    // Return mock data if all fails
     return {
       symbol: symbol.toUpperCase(),
       price: 0,
@@ -345,7 +497,63 @@ export async function fetchQuote(symbol: string): Promise<QuoteData> {
       timestamp: new Date().toISOString()
     }
   }
-  return response.json()
+}
+
+// Fetch fundamentals from enhanced endpoint
+export interface FundamentalsData {
+  symbol: string
+  company_name?: string
+  sector?: string
+  industry?: string
+  market_cap?: number
+  pe_ratio?: number
+  eps?: number
+  dividend_yield?: number
+  beta?: number
+  week_52_high?: number
+  week_52_low?: number
+}
+
+// Fetch quote from Finnhub with priority parameter
+export async function fetchFinnhubQuote(symbol: string, priority: 'high' | 'normal' = 'high'): Promise<QuoteData> {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/enhanced/quote/${symbol}/finnhub?priority=${priority}`)
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        symbol: data.symbol || symbol.toUpperCase(),
+        price: data.current_price || 0,
+        change: data.change || 0,
+        change_percent: data.change_percent || 0,
+        volume: data.volume || 0,
+        high: data.high || 0,
+        low: data.low || 0,
+        open: data.open || 0,
+        previous_close: data.previous_close || 0,
+        timestamp: data.timestamp || new Date().toISOString(),
+        data_source: 'finnhub',
+        latency_ms: 50
+      }
+    }
+    throw new Error('Failed to fetch Finnhub quote')
+  } catch (error) {
+    console.error('Error fetching Finnhub quote:', error)
+    // Fallback to regular quote
+    return fetchQuote(symbol, priority)
+  }
+}
+
+export async function fetchFundamentals(symbol: string): Promise<FundamentalsData> {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/enhanced/fundamentals/${symbol}`)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch fundamentals: ${response.status}`)
+    }
+    return response.json()
+  } catch (error) {
+    console.error('Error fetching fundamentals:', error)
+    return { symbol: symbol.toUpperCase() }
+  }
 }
 
 // Market Data API
@@ -420,6 +628,7 @@ export async function fetchHeatmapData(): Promise<HeatmapData> {
 
 export async function fetchMarketMovers(): Promise<MarketMovers> {
   try {
+    // Try enhanced endpoint first for faster real-time data
     const response = await fetch(`${API_URL}/api/v1/market/movers`)
     if (!response.ok) {
       console.error('Failed to fetch market movers:', response.status, response.statusText)
@@ -438,6 +647,20 @@ export async function fetchMarketMovers(): Promise<MarketMovers> {
       losers: [],
       updated_at: new Date().toISOString()
     }
+  }
+}
+
+// Fetch multiple quotes in batch for market overview with priority support
+export async function fetchBatchQuotes(
+  symbols: string[], 
+  priority: 'high' | 'normal' = 'normal'
+): Promise<QuoteData[]> {
+  try {
+    const promises = symbols.map(symbol => fetchQuote(symbol, priority))
+    return await Promise.all(promises)
+  } catch (error) {
+    console.error('Error fetching batch quotes:', error)
+    return []
   }
 }
 

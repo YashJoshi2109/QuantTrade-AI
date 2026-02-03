@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { fetchLiveMarketNews, fetchLiveSymbolNews, LiveNewsItem } from '@/lib/api'
+import { NewsArticle } from '@/lib/api'
+import { useRealtimeNews, useBreakingNews } from '@/hooks/useRealtimeNews'
 import { 
   Newspaper, 
   TrendingUp, 
@@ -10,7 +10,9 @@ import {
   Minus, 
   ExternalLink,
   RefreshCw,
-  Clock
+  Clock,
+  Image as ImageIcon,
+  Zap
 } from 'lucide-react'
 
 interface LiveNewsProps {
@@ -18,36 +20,28 @@ interface LiveNewsProps {
   limit?: number
   showTitle?: boolean
   className?: string
+  sources?: string // 'yfinance', 'google', 'newsapi', 'marketwatch' or 'all'
 }
 
 function formatTimeAgo(dateString: string): string {
   if (!dateString) return ''
   
-  // Parse Alpha Vantage date format (YYYYMMDDTHHmmss)
-  let date: Date
-  if (dateString.includes('T') && !dateString.includes('-')) {
-    const year = dateString.slice(0, 4)
-    const month = dateString.slice(4, 6)
-    const day = dateString.slice(6, 8)
-    const hour = dateString.slice(9, 11)
-    const minute = dateString.slice(11, 13)
-    date = new Date(`${year}-${month}-${day}T${hour}:${minute}:00`)
-  } else {
-    date = new Date(dateString)
-  }
-  
+  const date = new Date(dateString)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
   const diffHours = Math.floor(diffMins / 60)
   const diffDays = Math.floor(diffHours / 24)
   
+  if (diffMins < 1) return 'Just now'
   if (diffMins < 60) return `${diffMins}m ago`
   if (diffHours < 24) return `${diffHours}h ago`
   return `${diffDays}d ago`
 }
 
-function SentimentBadge({ sentiment }: { sentiment: string }) {
+function SentimentBadge({ sentiment }: { sentiment: string | null }) {
+  if (!sentiment) return null
+  
   const config = {
     Bullish: { icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-500/20', border: 'border-green-500/30' },
     Bearish: { icon: TrendingDown, color: 'text-red-400', bg: 'bg-red-500/20', border: 'border-red-500/30' },
@@ -64,7 +58,29 @@ function SentimentBadge({ sentiment }: { sentiment: string }) {
   )
 }
 
-function NewsCard({ item }: { item: LiveNewsItem }) {
+function SourceBadge({ source }: { source: string }) {
+  const sourceConfig: Record<string, { color: string; bg: string; label: string }> = {
+    yfinance: { color: 'text-purple-400', bg: 'bg-purple-500/20', label: 'Yahoo' },
+    google: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Google' },
+    newsapi: { color: 'text-orange-400', bg: 'bg-orange-500/20', label: 'NewsAPI' },
+    marketwatch: { color: 'text-emerald-400', bg: 'bg-emerald-500/20', label: 'MW' },
+  }
+  
+  const config = sourceConfig[source.toLowerCase()] || { 
+    color: 'text-gray-400', 
+    bg: 'bg-gray-500/20', 
+    label: source 
+  }
+  
+  return (
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs ${config.bg} ${config.color}`}>
+      <Zap className="w-3 h-3" />
+      {config.label}
+    </span>
+  )
+}
+
+function NewsCard({ item }: { item: NewsArticle }) {
   return (
     <a
       href={item.url}
@@ -72,25 +88,40 @@ function NewsCard({ item }: { item: LiveNewsItem }) {
       rel="noopener noreferrer"
       className="block p-4 glass rounded-lg hover:bg-slate-700/50 transition-all group"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
+        {item.thumbnail && (
+          <div className="shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-slate-700/50 flex items-center justify-center">
+            <img 
+              src={item.thumbnail} 
+              alt="" 
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+                e.currentTarget.parentElement!.innerHTML = '<div class="text-gray-600"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>'
+              }}
+            />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <h4 className="font-medium text-sm text-white group-hover:text-blue-400 transition-colors line-clamp-2">
             {item.title}
           </h4>
-          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
-            {item.summary}
-          </p>
-          <div className="flex items-center gap-3 mt-2">
-            <span className="text-xs text-gray-500">{item.source}</span>
+          {item.summary && (
+            <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+              {item.summary}
+            </p>
+          )}
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <SourceBadge source={item.source} />
             <span className="text-xs text-gray-600 flex items-center gap-1">
               <Clock className="w-3 h-3" />
               {formatTimeAgo(item.published_at)}
             </span>
-            <SentimentBadge sentiment={item.sentiment} />
+            {item.sentiment && <SentimentBadge sentiment={item.sentiment} />}
           </div>
-          {item.tickers && item.tickers.length > 0 && (
+          {item.related_tickers && item.related_tickers.length > 0 && (
             <div className="flex gap-1 mt-2 flex-wrap">
-              {item.tickers.slice(0, 4).map((ticker) => (
+              {item.related_tickers.slice(0, 5).map((ticker) => (
                 <span key={ticker} className="text-xs px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded">
                   ${ticker}
                 </span>
@@ -104,15 +135,26 @@ function NewsCard({ item }: { item: LiveNewsItem }) {
   )
 }
 
-export default function LiveNews({ symbol, limit = 10, showTitle = true, className = '' }: LiveNewsProps) {
-  const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['liveNews', symbol, limit],
-    queryFn: () => symbol 
-      ? fetchLiveSymbolNews(symbol, limit)
-      : fetchLiveMarketNews('technology,earnings,finance', limit),
-    refetchInterval: 60000, // Refetch every 1 minute (60000ms)
-    staleTime: 60000, // Consider data stale after 1 minute
+export default function LiveNews({ 
+  symbol, 
+  limit = 20, 
+  showTitle = true, 
+  className = '',
+  sources = 'all' 
+}: LiveNewsProps) {
+  // Use breaking news if no symbol provided, otherwise use symbol news
+  const symbolNewsQuery = useRealtimeNews({ 
+    symbol, 
+    enabled: !!symbol,
+    refetchInterval: 30000, // 30 seconds
+    limit,
+    sources: sources === 'all' ? undefined : sources
   })
+  
+  const breakingNewsQuery = useBreakingNews(limit, 60000) // 1 minute
+  
+  // Choose the appropriate query based on whether symbol is provided
+  const { data, isLoading, error, refetch, isFetching } = symbol ? symbolNewsQuery : breakingNewsQuery
   
   if (isLoading) {
     return (
@@ -145,7 +187,7 @@ export default function LiveNews({ symbol, limit = 10, showTitle = true, classNa
             <h3 className="font-semibold">Live News</h3>
           </div>
         )}
-        <p className="text-red-400 text-sm">Failed to load news. API rate limit may be reached.</p>
+        <p className="text-red-400 text-sm">Failed to load real-time news</p>
         <button 
           onClick={() => refetch()}
           className="mt-2 text-sm text-blue-400 hover:text-blue-300"
@@ -156,27 +198,37 @@ export default function LiveNews({ symbol, limit = 10, showTitle = true, classNa
     )
   }
   
-  const news = data?.news || []
+  const news = data || []
   
   return (
     <div className={`glass rounded-xl overflow-hidden ${className}`}>
       {showTitle && (
         <div className="flex items-center justify-between p-4 border-b border-slate-700/50">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-blue-500/20 rounded-lg">
+            <div className="p-2 bg-blue-500/20 rounded-lg relative">
               <Newspaper className="w-5 h-5 text-blue-400" />
+              {isFetching && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+              )}
             </div>
             <div>
-              <h3 className="font-semibold text-white">
-                {symbol ? `${symbol} News` : 'Live Market News'}
+              <h3 className="font-semibold text-white flex items-center gap-2">
+                {symbol ? `${symbol} News` : 'Breaking Market News'}
+                <span className="text-xs text-green-400 flex items-center gap-1">
+                  <Zap className="w-3 h-3" />
+                  LIVE
+                </span>
               </h3>
-              <p className="text-xs text-gray-400">{news.length} articles</p>
+              <p className="text-xs text-gray-400">
+                {news.length} articles • Updates every {symbol ? '30s' : '60s'}
+              </p>
             </div>
           </div>
           <button
             onClick={() => refetch()}
             disabled={isFetching}
             className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
+            title="Refresh news"
           >
             <RefreshCw className={`w-4 h-4 text-gray-400 ${isFetching ? 'animate-spin' : ''}`} />
           </button>
@@ -189,9 +241,10 @@ export default function LiveNews({ symbol, limit = 10, showTitle = true, classNa
             <NewsCard key={`${item.url}-${index}`} item={item} />
           ))
         ) : (
-          <div className="p-4 text-center text-gray-400">
-            <p>No news available</p>
-            <p className="text-xs mt-1">API rate limit may have been reached</p>
+          <div className="p-8 text-center text-gray-400">
+            <Newspaper className="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <p className="font-medium">No news available</p>
+            <p className="text-xs mt-1">Try refreshing or check back later</p>
           </div>
         )}
       </div>

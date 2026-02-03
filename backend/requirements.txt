@@ -24,6 +24,7 @@ numpy>=1.26.2
 requests==2.31.0
 beautifulsoup4==4.12.2
 httpx==0.25.2
+lxml>=4.9.3  # For Finviz HTML parsing
 
 # Technical analysis & feature engineering
 ta==0.11.0

@@ -118,21 +118,10 @@ class DataFetcher:
         end_date: Optional[datetime] = None,
         period: str = "1y"
     ) -> pd.DataFrame:
-        """Fetch historical OHLCV data - tries Alpha Vantage first, then yfinance"""
+        """Fetch historical OHLCV data - uses yfinance (primary), Alpha Vantage (secondary)"""
         
-        # Try Alpha Vantage first (more reliable)
-        df = DataFetcher.fetch_historical_data_alpha_vantage(symbol, "compact")
-        
-        if not df.empty:
-            # Filter by date range if specified
-            if start_date:
-                df = df[df["timestamp"] >= pd.to_datetime(start_date)]
-            if end_date:
-                df = df[df["timestamp"] <= pd.to_datetime(end_date)]
-            return df
-        
-        # Fallback to yfinance
-        print(f"Trying yfinance for {symbol}...")
+        # Try yfinance first (works without API key)
+        print(f"Fetching data for {symbol} via yfinance...")
         try:
             ticker = yf.Ticker(symbol)
             
@@ -142,7 +131,17 @@ class DataFetcher:
                 df = ticker.history(period=period)
             
             if df.empty:
-                print(f"{symbol}: No price data found, symbol may be delisted (period={period})")
+                print(f"{symbol}: yfinance returned no data, trying Alpha Vantage...")
+                # Fallback to Alpha Vantage
+                df = DataFetcher.fetch_historical_data_alpha_vantage(symbol, "compact")
+                if not df.empty:
+                    if start_date:
+                        df = df[df["timestamp"] >= pd.to_datetime(start_date)]
+                    if end_date:
+                        df = df[df["timestamp"] <= pd.to_datetime(end_date)]
+                    return df
+                
+                print(f"{symbol}: No price data found from any source")
                 return pd.DataFrame()
             
             # Reset index to make Date a column
@@ -156,10 +155,15 @@ class DataFetcher:
                 "Volume": "volume"
             }, inplace=True)
             
+            print(f"Fetched {len(df)} bars for {symbol} via yfinance")
             return df
         except Exception as e:
-            print(f"yfinance historical data failed for {symbol}: {e}")
-            return pd.DataFrame()
+            print(f"yfinance failed for {symbol}: {e}")
+            # Try Alpha Vantage as last resort
+            df = DataFetcher.fetch_historical_data_alpha_vantage(symbol, "compact")
+            if not df.empty:
+                print(f"Fetched {len(df)} bars for {symbol} via Alpha Vantage")
+            return df
     
     @staticmethod
     def sync_symbol_to_db(db: Session, symbol: str) -> Symbol:

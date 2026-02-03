@@ -3,16 +3,28 @@ Main FastAPI application entry point
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import symbols, prices, indicators, chat, news, filings, risk, watchlist, backtest, auth, market, market_status, chat_history
+from app.api import symbols, prices, indicators, chat, news, filings, risk, watchlist, backtest, auth, market, market_status, chat_history, enhanced_endpoints
 from app.db.database import engine, Base
+
+# Import all models to ensure they're registered with SQLAlchemy
+from app.models import (
+    Symbol, PriceBar, Watchlist, NewsArticle, Filing, FilingChunk, ChatHistory,
+    Fundamentals, Portfolio, Position, Transaction, TransactionType, 
+    PortfolioSnapshot, RealtimeQuote, MarketIndex, QuoteHistory
+)
+from app.models.user import User
 
 # Create database tables (with error handling for production)
 try:
-    Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created/verified")
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+    print("✅ Database tables created/verified successfully")
 except Exception as e:
-    print(f"⚠️ Database table creation skipped: {e}")
-    print("   App will continue but database features may not work")
+    error_msg = str(e)
+    if "already exists" in error_msg or "DuplicateTable" in error_msg:
+        print("✅ Database tables already exist - skipping creation")
+    else:
+        print(f"⚠️ Database table creation error: {e}")
+        print("   App will continue but some database features may not work")
 
 app = FastAPI(
     title="AI Trading & Research Copilot API",
@@ -50,6 +62,7 @@ app.include_router(backtest.router, prefix="/api/v1", tags=["backtest"])
 app.include_router(market.router, prefix="/api/v1", tags=["market"])
 app.include_router(market_status.router, prefix="/api/v1", tags=["market-status"])
 app.include_router(chat_history.router, prefix="/api/v1", tags=["chat-history"])
+app.include_router(enhanced_endpoints.router, prefix="/api/v1/enhanced", tags=["enhanced"])
 
 
 @app.get("/")

@@ -5,8 +5,10 @@ import { useSearchParams } from 'next/navigation'
 import AppLayout from '@/components/AppLayout'
 import Chart from '@/components/Chart'
 import LiveNews from '@/components/LiveNews'
+import ApiStatsMonitor from '@/components/ApiStatsMonitor'
 import { Sparkles, TrendingUp, TrendingDown, Loader2, RefreshCw, Activity, Target, AlertTriangle, Zap, BarChart3, Newspaper } from 'lucide-react'
 import { fetchPrices, fetchIndicators, syncSymbol, PriceBar, Indicators } from '@/lib/api'
+import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
 
 function ResearchContent() {
   const searchParams = useSearchParams()
@@ -18,6 +20,14 @@ function ResearchContent() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Real-time quote with HIGH PRIORITY for research page and 5-second updates
+  const { data: realtimeQuote, isLoading: quoteLoading } = useRealtimeQuote({ 
+    symbol: selectedSymbol,
+    refetchInterval: 5000, // Update every 5 seconds
+    priority: 'high', // High priority - will wait if rate limited
+    useFinnhub: true // Use Finnhub for real-time data
+  })
 
   useEffect(() => {
     if (symbolParam && symbolParam !== selectedSymbol) {
@@ -67,12 +77,26 @@ function ResearchContent() {
   }
 
   const getPriceInfo = () => {
+    // Use real-time quote if available (most current)
+    if (realtimeQuote && realtimeQuote.price > 0) {
+      return { 
+        price: realtimeQuote.price, 
+        change: realtimeQuote.change, 
+        percent: realtimeQuote.change_percent,
+        volume: realtimeQuote.volume,
+        high: realtimeQuote.high,
+        low: realtimeQuote.low,
+        dataSource: realtimeQuote.data_source,
+        latency: realtimeQuote.latency_ms
+      }
+    }
+    // Fallback to historical price data
     if (priceData.length < 2) return { price: 0, change: 0, percent: 0 }
     const latest = priceData[priceData.length - 1]
     const previous = priceData[priceData.length - 2]
     const change = latest.close - previous.close
     const percent = (change / previous.close) * 100
-    return { price: latest.close, change, percent }
+    return { price: latest.close, change, percent, volume: latest.volume }
   }
 
   const priceInfo = getPriceInfo()
@@ -114,11 +138,28 @@ function ResearchContent() {
                     <div className="flex items-center gap-3">
                       <h2 className="text-xl font-bold text-white">{selectedSymbol}</h2>
                       <span className="text-xs text-slate-500 font-mono px-2 py-0.5 bg-slate-800/50 rounded">NASDAQ</span>
-                      <div className="live-pulse ml-2" />
+                      {realtimeQuote && !quoteLoading && (
+                        <div className="flex items-center gap-2">
+                          <div className="live-pulse" />
+                          {priceInfo.dataSource && (
+                            <span className="text-xs text-emerald-400 font-mono px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
+                              {priceInfo.dataSource}
+                            </span>
+                          )}
+                          {priceInfo.latency && priceInfo.latency < 500 && (
+                            <span className="text-xs text-blue-400 font-mono px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded">
+                              {priceInfo.latency}ms
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {priceData.length > 0 && (
+                    {(realtimeQuote || priceData.length > 0) && (
                       <div className="flex items-center gap-3 mt-1">
-                        <span className="text-2xl font-bold text-white hud-value">${priceInfo.price.toFixed(2)}</span>
+                        <span className="text-2xl font-bold text-white hud-value">
+                          ${priceInfo.price.toFixed(2)}
+                          {quoteLoading && <Loader2 className="inline w-4 h-4 ml-2 animate-spin text-blue-400" />}
+                        </span>
                         <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold ${
                           isPositive 
                             ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
@@ -127,6 +168,11 @@ function ResearchContent() {
                           {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
                           {isPositive ? '+' : ''}{priceInfo.percent.toFixed(2)}%
                         </span>
+                        {priceInfo.volume && (
+                          <span className="text-xs text-slate-400 font-mono">
+                            Vol: {(priceInfo.volume / 1000000).toFixed(2)}M
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -373,6 +419,9 @@ function ResearchContent() {
 
         </div>
       </div>
+      
+      {/* API Stats Monitor - shows rate limit status */}
+      <ApiStatsMonitor />
     </AppLayout>
   )
 }

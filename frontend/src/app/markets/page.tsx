@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
+import ApiStatsMonitor from '@/components/ApiStatsMonitor'
 import LiveNews from '@/components/LiveNews'
 import MarketHeatmap from '@/components/MarketHeatmap'
 import { 
@@ -18,33 +19,36 @@ import {
   List
 } from 'lucide-react'
 import { fetchSectorPerformance, fetchMarketMovers, SectorPerformance, StockPerformance } from '@/lib/api'
+import { useRealtimeQuotes } from '@/hooks/useRealtimeQuote'
 import Link from 'next/link'
 
-// Index data (would be from API in production)
-const INDICES = [
-  { name: 'S&P 500', symbol: 'SPX', value: 4783.45, change: 0.42 },
-  { name: 'NASDAQ', symbol: 'NDX', value: 15234.12, change: 0.87 },
-  { name: 'DOW JONES', symbol: 'DJI', value: 37892.67, change: 0.15 },
-  { name: 'RUSSELL 2000', symbol: 'RUT', value: 2012.34, change: -0.23 },
-]
+// Major indices to track in real-time
+const INDEX_SYMBOLS = ['^GSPC', '^IXIC', '^DJI', '^RUT'] // S&P 500, NASDAQ, DOW, Russell 2000
 
 export default function MarketsPage() {
   const [view, setView] = useState<'heatmap' | 'list'>('heatmap')
+  
+  // Real-time index quotes with HIGH PRIORITY for markets page
+  const { data: indexQuotes, isLoading: indicesLoading } = useRealtimeQuotes(
+    INDEX_SYMBOLS,
+    10000, // Update every 10 seconds
+    'high' // High priority - critical market data
+  )
   
   // Fetch sector data with stocks
   const { data: sectors, isLoading: sectorsLoading, refetch: refetchSectors } = useQuery({
     queryKey: ['sectorPerformance'],
     queryFn: fetchSectorPerformance,
-    refetchInterval: 60000,
-    staleTime: 30000,
+    refetchInterval: 30000, // Update every 30 seconds for real-time feel
+    staleTime: 15000,
   })
 
   // Fetch movers
   const { data: movers, isLoading: moversLoading } = useQuery({
     queryKey: ['marketMovers'],
     queryFn: fetchMarketMovers,
-    refetchInterval: 60000,
-    staleTime: 30000,
+    refetchInterval: 30000, // Update every 30 seconds
+    staleTime: 15000,
   })
 
   // Calculate market stats
@@ -98,22 +102,63 @@ export default function MarketsPage() {
           </div>
         </div>
 
-        {/* Index Cards */}
+        {/* Index Cards - Real-time */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {INDICES.map(index => (
-            <div key={index.symbol} className="hud-panel p-4">
-              <div className="text-xs text-slate-500 mb-1">{index.name}</div>
-              <div className="text-xl font-bold text-white font-mono">
-                {index.value.toLocaleString()}
-              </div>
-              <div className={`text-sm font-mono flex items-center gap-1 ${
-                index.change >= 0 ? 'text-green-400' : 'text-red-400'
-              }`}>
-                {index.change >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                {index.change >= 0 ? '+' : ''}{index.change}%
-              </div>
+          {indicesLoading ? (
+            <div className="col-span-4 flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+              <span className="ml-3 text-slate-400">Loading market indices...</span>
             </div>
-          ))}
+          ) : indexQuotes && indexQuotes.length > 0 ? (
+            indexQuotes.map((quote, idx) => {
+              const indexNames = ['S&P 500', 'NASDAQ', 'DOW JONES', 'RUSSELL 2000']
+              return (
+                <div key={quote.symbol || idx} className="hud-panel p-4 relative group">
+                  {quote.data_source && (
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-xs text-emerald-400 font-mono px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
+                        {quote.data_source}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="text-xs text-slate-500">{indexNames[idx] || quote.symbol}</div>
+                    <div className="live-pulse scale-75" />
+                  </div>
+                  <div className="text-xl font-bold text-white font-mono">
+                    {quote.price > 0 ? quote.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}
+                  </div>
+                  <div className={`text-sm font-mono flex items-center gap-1 ${
+                    quote.change_percent >= 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {quote.change_percent >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                    {quote.change_percent >= 0 ? '+' : ''}{quote.change_percent.toFixed(2)}%
+                  </div>
+                </div>
+              )
+            })
+          ) : (
+            // Fallback to static data if real-time fails
+            [
+              { name: 'S&P 500', value: 4783.45, change: 0.42 },
+              { name: 'NASDAQ', value: 15234.12, change: 0.87 },
+              { name: 'DOW JONES', value: 37892.67, change: 0.15 },
+              { name: 'RUSSELL 2000', value: 2012.34, change: -0.23 },
+            ].map((index, idx) => (
+              <div key={idx} className="hud-panel p-4">
+                <div className="text-xs text-slate-500 mb-1">{index.name}</div>
+                <div className="text-xl font-bold text-white font-mono">
+                  {index.value.toLocaleString()}
+                </div>
+                <div className={`text-sm font-mono flex items-center gap-1 ${
+                  index.change >= 0 ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {index.change >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                  {index.change >= 0 ? '+' : ''}{index.change}%
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Market Stats Bar */}
@@ -293,6 +338,9 @@ export default function MarketsPage() {
           </div>
         </div>
       </div>
+      
+      {/* API Stats Monitor - shows rate limit status */}
+      <ApiStatsMonitor />
     </AppLayout>
   )
 }

@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
-import LiveNews from '@/components/LiveNews'
+import ApiStatsMonitor from '@/components/ApiStatsMonitor'
+import { useBreakingNews } from '@/hooks/useRealtimeNews'
 import { useAuth } from '@/contexts/AuthContext'
 import { 
   TrendingUp, 
@@ -21,7 +22,8 @@ import {
   RefreshCw,
   Loader2
 } from 'lucide-react'
-import { fetchMarketMovers, fetchSectorPerformance, fetchLiveMarketNews, StockPerformance, SectorPerformance, fetchMarketStatus, MarketStatus, fetchHeatmapData, HeatmapData } from '@/lib/api'
+import { fetchMarketMovers, fetchSectorPerformance, StockPerformance, SectorPerformance, fetchMarketStatus, MarketStatus, fetchHeatmapData, HeatmapData } from '@/lib/api'
+import { useRealtimeQuotes } from '@/hooks/useRealtimeQuote'
 import MarketHeatmap from '@/components/MarketHeatmap'
 
 // Market Status Component
@@ -94,13 +96,8 @@ export default function Home() {
     staleTime: 120000,
   })
 
-  // Fetch live news (throttled to 20 minutes)
-  const { data: liveNews, isLoading: newsLoading } = useQuery({
-    queryKey: ['liveNews'],
-    queryFn: () => fetchLiveMarketNews('technology,earnings', 5),
-    refetchInterval: 1200000, // Refresh every 20 minutes
-    staleTime: 600000,
-  })
+  // Fetch breaking real-time news
+  const { data: liveNews, isLoading: newsLoading } = useBreakingNews(5, 60000)
 
   const topGainers = movers?.gainers?.slice(0, 5) || []
   const topLosers = movers?.losers?.slice(0, 5) || []
@@ -137,9 +134,9 @@ export default function Home() {
                     <div className="flex items-center justify-center h-full">
                       <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
                     </div>
-                  ) : liveNews?.news && liveNews.news.length > 0 ? (
+                  ) : liveNews && liveNews.length > 0 ? (
                     <div className="space-y-3 h-full overflow-y-auto pr-2">
-                      {liveNews.news.slice(0, 4).map((news, idx) => (
+                      {liveNews.slice(0, 4).map((news, idx) => (
                         <a
                           key={idx}
                           href={news.url}
@@ -166,9 +163,9 @@ export default function Home() {
                               </p>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-[10px] text-slate-500">{news.source}</span>
-                                {news.tickers && news.tickers.length > 0 && (
+                                {news.related_tickers && news.related_tickers.length > 0 && (
                                   <div className="flex gap-1">
-                                    {news.tickers.slice(0, 3).map(t => (
+                                    {news.related_tickers.slice(0, 3).map(t => (
                                       <span key={t} className="px-1.5 py-0.5 text-[9px] bg-blue-500/20 text-blue-400 rounded">
                                         {t}
                                       </span>
@@ -545,6 +542,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+      
+      {/* API Stats Monitor - shows rate limit status */}
+      <ApiStatsMonitor />
     </AppLayout>
   )
 }
