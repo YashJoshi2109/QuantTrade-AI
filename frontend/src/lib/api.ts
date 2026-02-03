@@ -541,9 +541,12 @@ export async function fetchFinnhubQuote(symbol: string, priority: 'high' | 'norm
         latency_ms: 50
       }
     }
-    throw new Error('Failed to fetch Finnhub quote')
+    return fetchQuote(symbol, priority)
   } catch (error) {
-    console.error('Error fetching Finnhub quote:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    if (!message.includes('Failed to fetch Finnhub quote')) {
+      console.error('Error fetching Finnhub quote:', error)
+    }
     // Fallback to regular quote
     return fetchQuote(symbol, priority)
   }
