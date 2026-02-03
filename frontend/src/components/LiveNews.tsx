@@ -111,9 +111,9 @@ function NewsCard({ item }: { item: NewsArticle }) {
           <h4 className="font-medium text-sm text-white group-hover:text-blue-400 transition-colors line-clamp-2">
             {item.title}
           </h4>
-          {item.summary && (
+          {(item as any).summary && (
             <p className="text-xs text-gray-400 mt-1 line-clamp-2">
-              {item.summary}
+              {(item as any).summary}
             </p>
           )}
           <div className="flex items-center gap-2 mt-2 flex-wrap">

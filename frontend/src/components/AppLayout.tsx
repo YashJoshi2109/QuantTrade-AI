@@ -327,7 +327,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
           <div className={`p-4 border-t border-slate-800/50 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
             {isAuthenticated && user ? (
               <div className={`hud-card p-3 flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
-                <div className="relative" title={sidebarCollapsed ? user.username || user.full_name : undefined}>
+                <div className="relative" title={sidebarCollapsed ? (user.username || user.full_name || undefined) : undefined}>
                   {user.avatar_url ? (
                     <img src={user.avatar_url} alt={user.username} className="w-10 h-10 rounded-xl object-cover" />
                   ) : (

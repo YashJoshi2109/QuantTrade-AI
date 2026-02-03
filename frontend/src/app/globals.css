@@ -586,11 +586,6 @@ body {
   .grid-cols-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  
-  /* Hide copilot on mobile */
-  .fixed.right-0.lg\\:block {
-    display: none;
-  }
 }
 
 @media (max-width: 640px) {
@@ -602,8 +597,7 @@ body {
   /* Single column grids on mobile */
   .grid-cols-2,
   .grid-cols-3,
-  .grid-cols-4,
-  .md\\:grid-cols-4 {
+  .grid-cols-4 {
     grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
   }
   

@@ -299,7 +299,7 @@ function ResearchContent() {
                 Based on technical analysis of <span className="text-blue-400 font-bold">{selectedSymbol}</span>, 
                 the current RSI is <span className="text-white font-mono">{formatNumber(indicators?.indicators?.rsi, 1)}</span> and 
                 the stock is trading {priceInfo.price > (indicators?.indicators?.sma_50 || 0) ? 'above' : 'below'} its 50-day moving average.
-                {priceInfo.percent > 0 ? ' Positive momentum detected.' : ' Caution advised on entry.'}
+                {(priceInfo.percent ?? 0) > 0 ? ' Positive momentum detected.' : ' Caution advised on entry.'}
               </p>
               
               {priceData.length > 0 && (

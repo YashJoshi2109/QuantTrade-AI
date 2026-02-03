@@ -30,7 +30,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   ]
 
   // Determine active tab from pathname
-  const currentTab = activeTab || (pathname === '/' ? 'dashboard' : pathname.slice(1))
+  const currentTab = activeTab || (pathname === '/' ? 'dashboard' : (pathname || '').slice(1))
 
   return (
     <aside className="w-64 bg-[#1e222d] border-r border-gray-700 flex flex-col h-full">
