@@ -133,7 +133,7 @@ export default function AuthPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2">
             <Sparkles className="w-8 h-8 text-blue-400" />
-            <span className="text-2xl font-bold text-white">AI Copilot</span>
+            <span className="text-2xl font-bold text-white">QuantTrade AI</span>
           </Link>
           <p className="text-gray-400 mt-2">Your AI-Powered Trading Assistant</p>
         </div>
