@@ -8,12 +8,11 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database (use postgresql+psycopg:// for psycopg3)
-    # Priority: DATABASE_URL (from environment) > RENDER_DATABASE_URL > NETLIFY_DATABASE_URL > default
+    # Priority: DATABASE_URL (from environment) > NEON_DATABASE_URL > default
     # Note: Convert postgresql:// to postgresql+psycopg:// if needed for psycopg3
     _db_url = (
         os.getenv("DATABASE_URL", "") or 
-        os.getenv("RENDER_DATABASE_URL", "") or 
-        os.getenv("NETLIFY_DATABASE_URL", "")
+        os.getenv("NEON_DATABASE_URL", "")
     )
     
     if _db_url and not _db_url.startswith("postgresql+psycopg://"):
@@ -21,10 +20,16 @@ class Settings(BaseSettings):
         if _db_url.startswith("postgresql://"):
             _db_url = _db_url.replace("postgresql://", "postgresql+psycopg://", 1)
     
-    # Default: Render database (external for local, internal for Render deployment)
+    # Default: Neon database for local development
     if not _db_url:
-        # Use external URL for local development
-        _db_url = "postgresql+psycopg://finance_r6b5_user:DNNUZZVUJlIgWkSeRNJouFNt6Jo4boGX@dpg-d5jgvsvfte5s738ljoig-a.oregon-postgres.render.com/finance_r6b5"
+        # Use Neon database URL for local development (set via environment variable for security)
+        _db_url = os.getenv("NEON_DATABASE_URL", "")
+        if not _db_url:
+            # Fallback if no environment variable is set
+            raise ValueError(
+                "DATABASE_URL or NEON_DATABASE_URL environment variable must be set. "
+                "Get your Neon connection string from https://console.neon.tech"
+            )
     
     DATABASE_URL: str = _db_url
     
