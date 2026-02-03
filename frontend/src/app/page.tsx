@@ -137,7 +137,7 @@ export default function Home() {
                             rel="noopener noreferrer"
                             className="block p-2 sm:p-3 hud-card hover:border-blue-500/30 transition-all group/item"
                           >
-                          <div className="flex items-start gap-2 sm:gap-3">
+                            <div className="flex items-start gap-2 sm:gap-3">
                             <div className={`p-1 sm:p-1.5 rounded ${
                               news.sentiment === 'Bullish' ? 'bg-green-500/20' :
                               news.sentiment === 'Bearish' ? 'bg-red-500/20' : 'bg-slate-700/50'
