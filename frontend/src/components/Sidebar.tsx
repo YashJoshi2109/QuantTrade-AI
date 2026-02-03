@@ -36,7 +36,12 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     <aside className="w-64 bg-[#1e222d] border-r border-gray-700 flex flex-col h-full">
       {/* Logo */}
       <div className="p-6 border-b border-gray-700">
-        <h1 className="text-xl font-bold text-blue-400">AI Copilot</h1>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-slate-900/60 border border-cyan-500/20 flex items-center justify-center overflow-hidden">
+            <img src="/logo.png" alt="QuantTrade AI" className="w-8 h-8 object-contain" />
+          </div>
+          <h1 className="text-xl font-bold text-blue-400">QuantTrade AI</h1>
+        </div>
       </div>
 
       {/* Navigation */}

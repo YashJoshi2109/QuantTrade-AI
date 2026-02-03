@@ -15,7 +15,6 @@ import {
   HelpCircle,
   Loader2,
   Activity,
-  Sparkles,
   Zap,
   LogIn,
   LogOut,
@@ -184,8 +183,8 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-xl bg-slate-900/60 border border-cyan-500/20 flex items-center justify-center overflow-hidden">
+              <img src="/logo.png" alt="QuantTrade AI" className="w-7 h-7 object-contain" />
             </div>
             <span className="hidden sm:block text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
               QuantTrade AI
