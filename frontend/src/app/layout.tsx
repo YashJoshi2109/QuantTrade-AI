@@ -5,8 +5,12 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AuthProvider } from '@/contexts/AuthContext'
 
 export const metadata: Metadata = {
-  title: 'AI Trading & Research Copilot',
+  title: 'QuantTrade AI',
   description: 'AI-powered trading and research platform',
+  icons: {
+    icon: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
