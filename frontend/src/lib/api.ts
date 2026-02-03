@@ -4,6 +4,34 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
+async function parseJsonSafe<T>(response: Response): Promise<T | null> {
+  try {
+    return (await response.json()) as T
+  } catch {
+    return null
+  }
+}
+
+function normalizeQuoteData(data: Record<string, unknown>, symbol: string): QuoteData {
+  return {
+    symbol: (data.symbol as string) || symbol.toUpperCase(),
+    price: (data.last_price as number) || (data.price as number) || (data.current_price as number) || 0,
+    change: (data.change as number) || 0,
+    change_percent: (data.change_percent as number) || 0,
+    volume: (data.volume as number) || 0,
+    high: (data.high_price as number) || (data.high as number) || 0,
+    low: (data.low_price as number) || (data.low as number) || 0,
+    open: (data.open_price as number) || (data.open as number) || 0,
+    previous_close: (data.previous_close as number) || 0,
+    timestamp: (data.quote_timestamp as string) || (data.updated_at as string) || (data.timestamp as string) || new Date().toISOString(),
+    bid_price: data.bid_price as number | undefined,
+    ask_price: data.ask_price as number | undefined,
+    market_status: data.market_status as string | undefined,
+    data_source: data.data_source as string | undefined,
+    latency_ms: data.latency_ms as number | undefined,
+  }
+}
+
 export interface Symbol {
   id: number
   symbol: string
@@ -116,10 +144,12 @@ export async function fetchRealtimeNews(
     }
     
     const response = await fetch(url.toString())
+    const data = await parseJsonSafe<NewsArticle[]>(response)
+    if (data) return data
     if (!response.ok) {
       throw new Error('Failed to fetch real-time news')
     }
-    return response.json()
+    return []
   } catch (error) {
     console.error('Error fetching real-time news:', error)
     return []
@@ -136,10 +166,12 @@ export async function fetchYFinanceNews(
     url.searchParams.append('limit', limit.toString())
     
     const response = await fetch(url.toString())
+    const data = await parseJsonSafe<NewsArticle[]>(response)
+    if (data) return data
     if (!response.ok) {
       throw new Error('Failed to fetch yfinance news')
     }
-    return response.json()
+    return []
   } catch (error) {
     console.error('Error fetching yfinance news:', error)
     return []
@@ -155,10 +187,12 @@ export async function fetchBreakingMarketNews(
     url.searchParams.append('limit', limit.toString())
     
     const response = await fetch(url.toString())
+    const data = await parseJsonSafe<NewsArticle[]>(response)
+    if (data) return data
     if (!response.ok) {
       throw new Error('Failed to fetch breaking news')
     }
-    return response.json()
+    return []
   } catch (error) {
     console.error('Error fetching breaking news:', error)
     return []
@@ -458,25 +492,9 @@ export interface QuoteData {
 export async function fetchQuote(symbol: string, priority: 'high' | 'normal' = 'normal'): Promise<QuoteData> {
   try {
     const response = await fetch(`${API_URL}/api/v1/enhanced/quote/${symbol}?priority=${priority}`)
-    if (response.ok) {
-      const data = await response.json()
-      return {
-      symbol: data.symbol || symbol.toUpperCase(),
-      price: data.last_price || data.price || 0,
-      change: data.change || 0,
-      change_percent: data.change_percent || 0,
-      volume: data.volume || 0,
-      high: data.high_price || data.high || 0,
-      low: data.low_price || data.low || 0,
-      open: data.open_price || data.open || 0,
-      previous_close: data.previous_close || 0,
-      timestamp: data.quote_timestamp || data.updated_at || new Date().toISOString(),
-      bid_price: data.bid_price,
-      ask_price: data.ask_price,
-      market_status: data.market_status,
-      data_source: data.data_source,
-      latency_ms: data.latency_ms
-      }
+    const data = await parseJsonSafe<Record<string, unknown>>(response)
+    if (data) {
+      return normalizeQuoteData(data, symbol)
     }
 
     // Fallback to legacy endpoint before throwing
@@ -524,21 +542,12 @@ export interface FundamentalsData {
 export async function fetchFinnhubQuote(symbol: string, priority: 'high' | 'normal' = 'high'): Promise<QuoteData> {
   try {
     const response = await fetch(`${API_URL}/api/v1/enhanced/quote/${symbol}/finnhub?priority=${priority}`)
-    if (response.ok) {
-      const data = await response.json()
+    const data = await parseJsonSafe<Record<string, unknown>>(response)
+    if (data) {
       return {
-        symbol: data.symbol || symbol.toUpperCase(),
-        price: data.current_price || 0,
-        change: data.change || 0,
-        change_percent: data.change_percent || 0,
-        volume: data.volume || 0,
-        high: data.high || 0,
-        low: data.low || 0,
-        open: data.open || 0,
-        previous_close: data.previous_close || 0,
-        timestamp: data.timestamp || new Date().toISOString(),
+        ...normalizeQuoteData(data, symbol),
         data_source: 'finnhub',
-        latency_ms: 50
+        latency_ms: 50,
       }
     }
     return fetchQuote(symbol, priority)
@@ -615,12 +624,13 @@ export async function fetchMarketStocks(
 export async function fetchSectorPerformance(): Promise<SectorPerformance[]> {
   try {
     const response = await fetch(`${API_URL}/api/v1/market/sectors`)
+    const data = await parseJsonSafe<SectorPerformance[]>(response)
+    if (data) return data
     if (!response.ok) {
       console.error('Failed to fetch sector performance:', response.status, response.statusText)
-      // Return empty array on error instead of throwing
       return []
     }
-    return response.json()
+    return []
   } catch (error) {
     console.error('Error fetching sector performance:', error)
     return []
@@ -629,26 +639,39 @@ export async function fetchSectorPerformance(): Promise<SectorPerformance[]> {
 
 export async function fetchHeatmapData(): Promise<HeatmapData> {
   const response = await fetch(`${API_URL}/api/v1/market/heatmap`)
+  const data = await parseJsonSafe<HeatmapData>(response)
+  if (data) return data
   if (!response.ok) {
     throw new Error('Failed to fetch heatmap data')
   }
-  return response.json()
+  return {
+    sectors: [],
+    total_stocks: 0,
+    gainers: 0,
+    losers: 0,
+    unchanged: 0,
+  }
 }
 
 export async function fetchMarketMovers(): Promise<MarketMovers> {
   try {
     // Try enhanced endpoint first for faster real-time data
     const response = await fetch(`${API_URL}/api/v1/market/movers`)
+    const data = await parseJsonSafe<MarketMovers>(response)
+    if (data) return data
     if (!response.ok) {
       console.error('Failed to fetch market movers:', response.status, response.statusText)
-      // Return empty movers on error
       return {
         gainers: [],
         losers: [],
         updated_at: new Date().toISOString()
       }
     }
-    return response.json()
+    return {
+      gainers: [],
+      losers: [],
+      updated_at: new Date().toISOString()
+    }
   } catch (error) {
     console.error('Error fetching market movers:', error)
     return {
@@ -711,8 +734,9 @@ export interface MarketStatus {
 
 export async function fetchMarketStatus(): Promise<MarketStatus> {
   const response = await fetch(`${API_URL}/api/v1/market/status`)
+  const data = await parseJsonSafe<MarketStatus>(response)
+  if (data) return data
   if (!response.ok) {
-    // Return default closed status on error
     return {
       is_open: false,
       status: 'CLOSED',
@@ -723,5 +747,13 @@ export async function fetchMarketStatus(): Promise<MarketStatus> {
       exchanges: { NYSE: false, NASDAQ: false }
     }
   }
-  return response.json()
+  return {
+    is_open: false,
+    status: 'CLOSED',
+    current_time_et: new Date().toISOString(),
+    market_open: '09:30 ET',
+    market_close: '16:00 ET',
+    is_weekday: false,
+    exchanges: { NYSE: false, NASDAQ: false }
+  }
 }

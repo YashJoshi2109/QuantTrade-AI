@@ -25,6 +25,7 @@ import {
 import { fetchMarketMovers, fetchSectorPerformance, StockPerformance, SectorPerformance, fetchMarketStatus, MarketStatus, fetchHeatmapData, HeatmapData } from '@/lib/api'
 import { useRealtimeQuotes } from '@/hooks/useRealtimeQuote'
 import MarketHeatmap from '@/components/MarketHeatmap'
+import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 
 // Market Status Component
 function MarketStatusCard() {
@@ -136,10 +137,11 @@ export default function Home() {
                     </div>
                   ) : liveNews && liveNews.length > 0 ? (
                     <div className="space-y-3 h-full overflow-y-auto pr-2">
-                      {liveNews.slice(0, 4).map((news, idx) => (
-                        news.url ? (
+                      {liveNews.slice(0, 4).map((news, idx) => {
+                        const newsKey = news.id ?? news.url ?? `${news.title}-${idx}`
+                        return news.url ? (
                           <a
-                            key={idx}
+                            key={newsKey}
                             href={news.url}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -179,7 +181,7 @@ export default function Home() {
                           </a>
                         ) : (
                           <div
-                            key={idx}
+                            key={newsKey}
                             className="block p-3 hud-card"
                           >
                             <div className="flex items-start gap-3">
@@ -215,7 +217,7 @@ export default function Home() {
                             </div>
                           </div>
                         )
-                      ))}
+                      })}
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-center">
@@ -255,7 +257,7 @@ export default function Home() {
                 ) : topGainers.length > 0 ? (
                   topGainers.map((stock: StockPerformance, idx: number) => (
                     <Link
-                      key={stock.symbol}
+                      key={stock.symbol || `gainer-${idx}`}
                       href={`/research?symbol=${stock.symbol}`}
                       className="p-3 flex items-center justify-between hover:bg-green-500/5 border-b border-slate-700/20 transition-all group"
                     >
@@ -269,9 +271,11 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-mono text-sm text-white">${stock.price.toFixed(2)}</div>
+                        <div className="font-mono text-sm text-white">
+                          {isNumber(stock.price) ? `$${formatNumber(stock.price, 2)}` : 'N/A'}
+                        </div>
                         <div className="font-mono text-xs text-green-400 flex items-center justify-end gap-0.5">
-                          +{stock.change_percent.toFixed(2)}%
+                          {(isNumber(stock.change_percent) && stock.change_percent >= 0) ? '+' : ''}{formatPercent(stock.change_percent, 2)}
                           <TrendingUp className="w-3 h-3" />
                         </div>
                       </div>
@@ -317,7 +321,7 @@ export default function Home() {
                 ) : topLosers.length > 0 ? (
                   topLosers.map((stock: StockPerformance, idx: number) => (
                     <Link
-                      key={stock.symbol}
+                      key={stock.symbol || `loser-${idx}`}
                       href={`/research?symbol=${stock.symbol}`}
                       className="p-3 flex items-center justify-between hover:bg-red-500/5 border-b border-slate-700/20 transition-all group"
                     >
@@ -331,9 +335,11 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-mono text-sm text-white">${stock.price.toFixed(2)}</div>
+                        <div className="font-mono text-sm text-white">
+                          {isNumber(stock.price) ? `$${formatNumber(stock.price, 2)}` : 'N/A'}
+                        </div>
                         <div className="font-mono text-xs text-red-400 flex items-center justify-end gap-0.5">
-                          {stock.change_percent.toFixed(2)}%
+                          {(isNumber(stock.change_percent) && stock.change_percent >= 0) ? '+' : ''}{formatPercent(stock.change_percent, 2)}
                           <TrendingDown className="w-3 h-3" />
                         </div>
                       </div>
@@ -377,12 +383,12 @@ export default function Home() {
                     <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
                   </div>
                 ) : topSectors.length > 0 ? (
-                  topSectors.map((sector: SectorPerformance) => (
-                    <div key={sector.sector} className="group">
+                  topSectors.map((sector: SectorPerformance, idx: number) => (
+                    <div key={sector.sector || `sector-${idx}`} className="group">
                       <div className="flex items-center justify-between text-xs mb-1.5">
                         <span className="text-slate-400 group-hover:text-white transition-colors">{sector.sector}</span>
                         <span className={`font-mono font-bold ${sector.change_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {sector.change_percent >= 0 ? '+' : ''}{sector.change_percent.toFixed(2)}%
+                          {sector.change_percent >= 0 ? '+' : ''}{formatPercent(sector.change_percent, 2)}
                         </span>
                       </div>
                       <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
@@ -392,7 +398,7 @@ export default function Home() {
                               ? 'bg-gradient-to-r from-green-500 to-emerald-400' 
                               : 'bg-gradient-to-r from-red-500 to-rose-400'
                           }`}
-                          style={{ width: `${Math.min(Math.abs(sector.change_percent) * 10, 100)}%` }}
+                          style={{ width: `${Math.min((isNumber(sector.change_percent) ? Math.abs(sector.change_percent) : 0) * 10, 100)}%` }}
                         />
                       </div>
                     </div>
@@ -431,7 +437,7 @@ export default function Home() {
                     <p className="text-[11px] text-slate-400 leading-relaxed">
                       {moversLoading ? 'Loading market data...' : 
                         `Today's market shows ${movers?.gainers?.length || 0} stocks gaining and ${movers?.losers?.length || 0} stocks declining. 
-                        Top performer: ${movers?.gainers?.[0]?.symbol || 'N/A'} (+${movers?.gainers?.[0]?.change_percent?.toFixed(2) || 0}%)`
+                        Top performer: ${movers?.gainers?.[0]?.symbol || 'N/A'} (+${formatPercent(movers?.gainers?.[0]?.change_percent, 2, '0%')})`
                       }
                     </p>
                   </div>
@@ -444,7 +450,7 @@ export default function Home() {
                     <p className="text-[11px] text-slate-400 leading-relaxed">
                       {sectorsLoading ? 'Loading sector data...' :
                         `${topSectors.filter(s => s.change_percent > 0).length} sectors in green. 
-                        Leading: ${topSectors[0]?.sector || 'N/A'} (${topSectors[0]?.change_percent?.toFixed(2) || 0}%)`
+                        Leading: ${topSectors[0]?.sector || 'N/A'} (${formatPercent(topSectors[0]?.change_percent, 2, '0%')})`
                       }
                     </p>
                   </div>

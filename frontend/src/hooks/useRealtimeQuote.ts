@@ -1,5 +1,24 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchQuote, fetchFinnhubQuote, QuoteData } from '@/lib/api'
+import { fetchQuote, fetchFinnhubQuote } from '@/lib/api'
+
+export interface Quote {
+  symbol: string
+  price: number | null
+  change: number | null
+  change_percent: number | null
+  volume: number | null
+  high?: number | null
+  low?: number | null
+  open?: number | null
+  previous_close?: number | null
+  timestamp?: string | null
+  data_source?: string
+  latency_ms?: number
+}
+
+export interface IndexQuote extends Quote {
+  indexName?: string
+}
 
 interface UseRealtimeQuoteOptions {
   symbol: string
@@ -20,7 +39,7 @@ export function useRealtimeQuote({
   priority = 'normal',
   useFinnhub = false
 }: UseRealtimeQuoteOptions) {
-  return useQuery<QuoteData>({
+  return useQuery<Quote>({
     queryKey: ['realtimeQuote', symbol, priority],
     queryFn: () => useFinnhub ? fetchFinnhubQuote(symbol, priority) : fetchQuote(symbol, priority),
     enabled: enabled && !!symbol,
@@ -39,7 +58,7 @@ export function useRealtimeQuotes(
   refetchInterval = 10000,
   priority: 'high' | 'normal' = 'normal'
 ) {
-  return useQuery({
+  return useQuery<IndexQuote[]>({
     queryKey: ['realtimeQuotes', symbols, priority],
     queryFn: async () => {
       const promises = symbols.map(symbol => fetchQuote(symbol, priority))

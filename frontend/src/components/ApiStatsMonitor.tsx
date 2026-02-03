@@ -2,23 +2,28 @@
 
 import { useState, useEffect } from 'react'
 import { Activity, Zap, Database, AlertTriangle } from 'lucide-react'
+import { formatNumber, isNumber } from '@/lib/format'
+
+export interface RateLimitStats {
+  max_calls_per_minute: number | null
+  remaining_calls: number | null
+  wait_time_seconds: number | null
+  status: 'available' | 'rate_limited'
+}
+
+export interface CacheStats {
+  entries: number | null
+  hit_ratio?: string | null
+}
 
 interface ApiStats {
   finnhub: {
-    rate_limit: {
-      max_calls_per_minute: number
-      remaining_calls: number
-      wait_time_seconds: number
-      status: 'available' | 'rate_limited'
-    }
-    cache: {
-      entries: number
-      hit_ratio: string
-    }
-    recommendations: {
-      use_priority_high: string
-      use_priority_normal: string
-      cache_enabled: boolean
+    rate_limit: RateLimitStats
+    cache: CacheStats
+    recommendations?: {
+      use_priority_high?: string
+      use_priority_normal?: string
+      cache_enabled?: boolean
     }
   }
 }
@@ -50,7 +55,9 @@ export default function ApiStatsMonitor() {
   if (!stats) return null
 
   const { rate_limit, cache } = stats.finnhub
-  const usagePercent = ((rate_limit.max_calls_per_minute - rate_limit.remaining_calls) / rate_limit.max_calls_per_minute) * 100
+  const maxCalls = isNumber(rate_limit.max_calls_per_minute) ? rate_limit.max_calls_per_minute : 0
+  const remainingCalls = isNumber(rate_limit.remaining_calls) ? rate_limit.remaining_calls : 0
+  const usagePercent = maxCalls > 0 ? ((maxCalls - remainingCalls) / maxCalls) * 100 : 0
   const isRateLimited = rate_limit.status === 'rate_limited'
 
   return (
@@ -70,7 +77,7 @@ export default function ApiStatsMonitor() {
           <div className="flex items-center gap-2">
             <Activity className={`w-4 h-4 ${isRateLimited ? 'text-red-400 animate-pulse' : 'text-blue-400'}`} />
             <span className="text-sm font-mono text-slate-300">
-              API: {rate_limit.remaining_calls}/{rate_limit.max_calls_per_minute}
+              API: {formatNumber(rate_limit.remaining_calls, 0)} / {formatNumber(rate_limit.max_calls_per_minute, 0)}
             </span>
             {isRateLimited && (
               <AlertTriangle className="w-4 h-4 text-red-400 animate-pulse" />
@@ -115,7 +122,7 @@ export default function ApiStatsMonitor() {
                   isRateLimited ? 'text-red-400' : 
                   usagePercent > 80 ? 'text-yellow-400' : 'text-green-400'
                 }`}>
-                  {rate_limit.remaining_calls} / {rate_limit.max_calls_per_minute}
+                  {formatNumber(rate_limit.remaining_calls, 0)} / {formatNumber(rate_limit.max_calls_per_minute, 0)}
                 </span>
               </div>
               <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
@@ -134,7 +141,7 @@ export default function ApiStatsMonitor() {
                     <span className="font-semibold">Rate Limited</span>
                   </div>
                   <span className="text-[10px]">
-                    Wait {rate_limit.wait_time_seconds.toFixed(1)}s for next call
+                    Wait {formatNumber(rate_limit.wait_time_seconds, 1)}s for next call
                   </span>
                 </div>
               )}
@@ -148,7 +155,7 @@ export default function ApiStatsMonitor() {
                   Cache
                 </span>
                 <span className="text-xs font-mono text-slate-300">
-                  {cache.entries} entries
+                  {formatNumber(cache.entries, 0)} entries
                 </span>
               </div>
               <div className="text-[10px] text-slate-500 mt-1">

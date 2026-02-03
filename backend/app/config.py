@@ -8,30 +8,9 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database (use postgresql+psycopg:// for psycopg3)
-    # Priority: DATABASE_URL (from environment) > NEON_DATABASE_URL > default
-    # Note: Convert postgresql:// to postgresql+psycopg:// if needed for psycopg3
-    _db_url = (
-        os.getenv("DATABASE_URL", "") or 
-        os.getenv("NEON_DATABASE_URL", "")
-    )
-    
-    if _db_url and not _db_url.startswith("postgresql+psycopg://"):
-        # Convert postgresql:// to postgresql+psycopg:// for psycopg3
-        if _db_url.startswith("postgresql://"):
-            _db_url = _db_url.replace("postgresql://", "postgresql+psycopg://", 1)
-    
-    # Default: Neon database for local development
-    if not _db_url:
-        # Use Neon database URL for local development (set via environment variable for security)
-        _db_url = os.getenv("NEON_DATABASE_URL", "")
-        if not _db_url:
-            # Fallback if no environment variable is set
-            raise ValueError(
-                "DATABASE_URL or NEON_DATABASE_URL environment variable must be set. "
-                "Get your Neon connection string from https://console.neon.tech"
-            )
-    
-    DATABASE_URL: str = _db_url
+    # Priority: DATABASE_URL (from environment) > NEON_DATABASE_URL
+    DATABASE_URL: Optional[str] = None
+    NEON_DATABASE_URL: Optional[str] = None
     
     # JWT Auth (should be set via environment variable in production)
     # Default secret key (override with SECRET_KEY env var for production)
@@ -72,6 +51,22 @@ class Settings(BaseSettings):
     # App settings
     DEBUG: bool = True
     LOG_LEVEL: str = "INFO"
+
+    def __init__(self, **values):
+        super().__init__(**values)
+        db_url = self.DATABASE_URL or self.NEON_DATABASE_URL or ""
+
+        if db_url and not db_url.startswith("postgresql+psycopg://"):
+            if db_url.startswith("postgresql://"):
+                db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+        if not db_url:
+            raise ValueError(
+                "DATABASE_URL or NEON_DATABASE_URL environment variable must be set. "
+                "Get your Neon connection string from https://console.neon.tech"
+            )
+
+        self.DATABASE_URL = db_url
     
     class Config:
         env_file = ".env"

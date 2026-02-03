@@ -9,6 +9,7 @@ import ApiStatsMonitor from '@/components/ApiStatsMonitor'
 import { Sparkles, TrendingUp, TrendingDown, Loader2, RefreshCw, Activity, Target, AlertTriangle, Zap, BarChart3, Newspaper } from 'lucide-react'
 import { fetchPrices, fetchIndicators, syncSymbol, PriceBar, Indicators } from '@/lib/api'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
+import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 
 function ResearchContent() {
   const searchParams = useSearchParams()
@@ -78,7 +79,7 @@ function ResearchContent() {
 
   const getPriceInfo = () => {
     // Use real-time quote if available (most current)
-    if (realtimeQuote && realtimeQuote.price > 0) {
+    if (realtimeQuote && isNumber(realtimeQuote.price)) {
       return { 
         price: realtimeQuote.price, 
         change: realtimeQuote.change, 
@@ -95,12 +96,12 @@ function ResearchContent() {
     const latest = priceData[priceData.length - 1]
     const previous = priceData[priceData.length - 2]
     const change = latest.close - previous.close
-    const percent = (change / previous.close) * 100
+    const percent = previous.close !== 0 ? (change / previous.close) * 100 : 0
     return { price: latest.close, change, percent, volume: latest.volume }
   }
 
   const priceInfo = getPriceInfo()
-  const isPositive = priceInfo.percent >= 0
+  const isPositive = isNumber(priceInfo.percent) ? priceInfo.percent >= 0 : false
 
   const aiReport = {
     sentiment: indicators?.indicators?.rsi && indicators.indicators.rsi > 50 ? 'Bullish' : 'Neutral',
@@ -157,7 +158,7 @@ function ResearchContent() {
                     {(realtimeQuote || priceData.length > 0) && (
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-2xl font-bold text-white hud-value">
-                          ${priceInfo.price.toFixed(2)}
+                          ${formatNumber(priceInfo.price, 2)}
                           {quoteLoading && <Loader2 className="inline w-4 h-4 ml-2 animate-spin text-blue-400" />}
                         </span>
                         <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold ${
@@ -166,11 +167,11 @@ function ResearchContent() {
                             : 'bg-red-500/10 text-red-400 border border-red-500/20'
                         }`}>
                           {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                          {isPositive ? '+' : ''}{priceInfo.percent.toFixed(2)}%
+                          {isPositive ? '+' : ''}{formatPercent(priceInfo.percent, 2)}
                         </span>
-                        {priceInfo.volume && (
+                        {isNumber(priceInfo.volume) && (
                           <span className="text-xs text-slate-400 font-mono">
-                            Vol: {(priceInfo.volume / 1000000).toFixed(2)}M
+                            Vol: {formatNumber(priceInfo.volume / 1000000, 2)}M
                           </span>
                         )}
                       </div>
@@ -238,15 +239,13 @@ function ResearchContent() {
                   </div>
                 ) : (
                   <div className="p-3 space-y-2">
-                    {technicalData.map((item, i) => (
-                      <div key={i} className="hud-stat p-3 flex items-center justify-between">
+                    {technicalData.map((item) => (
+                      <div key={item.label} className="hud-stat p-3 flex items-center justify-between">
                         <span className="text-xs text-slate-400">{item.label}</span>
                         <span className="text-sm font-mono text-white hud-value">
-                          {item.value !== undefined && item.value !== null
-                            ? item.format === 'price' 
-                              ? `$${item.value.toFixed(2)}`
-                              : item.value.toFixed(2)
-                            : 'N/A'
+                          {item.format === 'price'
+                            ? (isNumber(item.value) ? `$${formatNumber(item.value, 2)}` : 'N/A')
+                            : formatNumber(item.value, 2)
                           }
                         </span>
                       </div>
@@ -299,7 +298,7 @@ function ResearchContent() {
               
               <p className="text-sm text-slate-400 leading-relaxed mb-4">
                 Based on technical analysis of <span className="text-blue-400 font-bold">{selectedSymbol}</span>, 
-                the current RSI is <span className="text-white font-mono">{indicators?.indicators?.rsi?.toFixed(1) || 'N/A'}</span> and 
+                the current RSI is <span className="text-white font-mono">{formatNumber(indicators?.indicators?.rsi, 1)}</span> and 
                 the stock is trading {priceInfo.price > (indicators?.indicators?.sma_50 || 0) ? 'above' : 'below'} its 50-day moving average.
                 {priceInfo.percent > 0 ? ' Positive momentum detected.' : ' Caution advised on entry.'}
               </p>
@@ -307,18 +306,18 @@ function ResearchContent() {
               {priceData.length > 0 && (
                 <div className="grid grid-cols-3 gap-3">
                   <div className="hud-stat p-3 text-center">
-                    <div className="text-lg font-bold text-white hud-value">${priceInfo.price.toFixed(2)}</div>
+                    <div className="text-lg font-bold text-white hud-value">${formatNumber(priceInfo.price, 2)}</div>
                     <div className="text-[10px] text-slate-500">CURRENT</div>
                   </div>
                   <div className="hud-stat p-3 text-center">
                     <div className={`text-lg font-bold hud-value ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-                      {isPositive ? '+' : ''}{priceInfo.change.toFixed(2)}
+                      {isPositive ? '+' : ''}{formatNumber(priceInfo.change, 2)}
                     </div>
                     <div className="text-[10px] text-slate-500">CHANGE</div>
                   </div>
                   <div className="hud-stat p-3 text-center">
                     <div className={`text-lg font-bold hud-value ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-                      {isPositive ? '+' : ''}{priceInfo.percent.toFixed(2)}%
+                      {isPositive ? '+' : ''}{formatPercent(priceInfo.percent, 2)}
                     </div>
                     <div className="text-[10px] text-slate-500">PERCENT</div>
                   </div>
@@ -385,7 +384,7 @@ function ResearchContent() {
                   </div>
                   <div className="text-center">
                     <div className="text-lg font-bold text-cyan-400 hud-value">
-                      {indicators?.indicators?.rsi?.toFixed(0) || '--'}
+                      {formatNumber(indicators?.indicators?.rsi, 0, '--')}
                     </div>
                     <div className="text-[10px] text-slate-500">RSI</div>
                   </div>

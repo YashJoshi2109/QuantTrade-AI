@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { NewsArticle } from '@/lib/api'
 import { useRealtimeNews, useBreakingNews } from '@/hooks/useRealtimeNews'
 import { 
@@ -27,6 +27,7 @@ function formatTimeAgo(dateString: string): string {
   if (!dateString) return ''
   
   const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return ''
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
@@ -58,7 +59,15 @@ function SentimentBadge({ sentiment }: { sentiment: string | null }) {
   )
 }
 
-function SourceBadge({ source }: { source: string }) {
+function SourceBadge({ source }: { source: string | null }) {
+  if (!source) {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-gray-500/20 text-gray-400">
+        <Zap className="w-3 h-3" />
+        Unknown
+      </span>
+    )
+  }
   const sourceConfig: Record<string, { color: string; bg: string; label: string }> = {
     yfinance: { color: 'text-purple-400', bg: 'bg-purple-500/20', label: 'Yahoo' },
     google: { color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Google' },
@@ -81,27 +90,23 @@ function SourceBadge({ source }: { source: string }) {
 }
 
 function NewsCard({ item }: { item: NewsArticle }) {
-  return (
-    <a
-      href={item.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block p-4 glass rounded-lg hover:bg-slate-700/50 transition-all group"
-    >
+  const [imgFailed, setImgFailed] = useState(false)
+  const showImage = Boolean(item.thumbnail) && !imgFailed
+
+  const content = (
       <div className="flex items-start gap-3">
-        {item.thumbnail && (
-          <div className="shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-slate-700/50 flex items-center justify-center">
+        <div className="shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-slate-700/50 flex items-center justify-center">
+          {showImage ? (
             <img 
-              src={item.thumbnail} 
+              src={item.thumbnail || ''} 
               alt="" 
               className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-                e.currentTarget.parentElement!.innerHTML = '<div class="text-gray-600"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>'
-              }}
+              onError={() => setImgFailed(true)}
             />
-          </div>
-        )}
+          ) : (
+            <ImageIcon className="w-6 h-6 text-gray-600" />
+          )}
+        </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-medium text-sm text-white group-hover:text-blue-400 transition-colors line-clamp-2">
             {item.title}
@@ -129,8 +134,28 @@ function NewsCard({ item }: { item: NewsArticle }) {
             </div>
           )}
         </div>
-        <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-blue-400 transition-colors shrink-0" />
+        {item.url && (
+          <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-blue-400 transition-colors shrink-0" />
+        )}
       </div>
+  )
+
+  if (!item.url) {
+    return (
+      <div className="block p-4 glass rounded-lg">
+        {content}
+      </div>
+    )
+  }
+
+  return (
+    <a
+      href={item.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block p-4 glass rounded-lg hover:bg-slate-700/50 transition-all group"
+    >
+      {content}
     </a>
   )
 }
@@ -156,6 +181,8 @@ export default function LiveNews({
   // Choose the appropriate query based on whether symbol is provided
   const { data, isLoading, error, refetch, isFetching } = symbol ? symbolNewsQuery : breakingNewsQuery
   
+  const news = useMemo(() => normalizeNewsData(data), [data])
+
   if (isLoading) {
     return (
       <div className={`glass rounded-xl p-4 ${className}`}>
@@ -187,7 +214,9 @@ export default function LiveNews({
             <h3 className="font-semibold">Live News</h3>
           </div>
         )}
-        <p className="text-red-400 text-sm">Failed to load real-time news</p>
+        <p className="text-red-400 text-sm">
+          {error instanceof Error ? error.message : 'Failed to load real-time news'}
+        </p>
         <button 
           onClick={() => refetch()}
           className="mt-2 text-sm text-blue-400 hover:text-blue-300"
@@ -197,8 +226,6 @@ export default function LiveNews({
       </div>
     )
   }
-  
-  const news = data || []
   
   return (
     <div className={`glass rounded-xl overflow-hidden ${className}`}>
@@ -237,9 +264,10 @@ export default function LiveNews({
       
       <div className="divide-y divide-slate-700/30 max-h-[600px] overflow-y-auto">
         {news.length > 0 ? (
-          news.map((item, index) => (
-            <NewsCard key={`${item.url}-${index}`} item={item} />
-          ))
+          news.map((item, index) => {
+            const key = item.id ?? item.url ?? `${item.title}-${index}`
+            return <NewsCard key={key} item={item} />
+          })
         ) : (
           <div className="p-8 text-center text-gray-400">
             <Newspaper className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -250,4 +278,12 @@ export default function LiveNews({
       </div>
     </div>
   )
+}
+
+function normalizeNewsData(data: unknown): NewsArticle[] {
+  if (Array.isArray(data)) return data as NewsArticle[]
+  if (data && typeof data === 'object' && Array.isArray((data as { articles?: unknown }).articles)) {
+    return (data as { articles: NewsArticle[] }).articles
+  }
+  return []
 }

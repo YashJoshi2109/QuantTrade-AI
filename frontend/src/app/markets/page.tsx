@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { fetchSectorPerformance, fetchMarketMovers, SectorPerformance, StockPerformance } from '@/lib/api'
 import { useRealtimeQuotes } from '@/hooks/useRealtimeQuote'
+import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import Link from 'next/link'
 
 // Major indices to track in real-time
@@ -112,8 +113,10 @@ export default function MarketsPage() {
           ) : indexQuotes && indexQuotes.length > 0 ? (
             indexQuotes.map((quote, idx) => {
               const indexNames = ['S&P 500', 'NASDAQ', 'DOW JONES', 'RUSSELL 2000']
+              const displayName = indexNames[idx] || quote.symbol
+              const changePositive = isNumber(quote.change_percent) ? quote.change_percent >= 0 : false
               return (
-                <div key={quote.symbol || idx} className="hud-panel p-4 relative group">
+                <div key={quote.symbol || displayName || `index-${idx}`} className="hud-panel p-4 relative group">
                   {quote.data_source && (
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <span className="text-xs text-emerald-400 font-mono px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
@@ -122,17 +125,19 @@ export default function MarketsPage() {
                     </div>
                   )}
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="text-xs text-slate-500">{indexNames[idx] || quote.symbol}</div>
+                    <div className="text-xs text-slate-500">{displayName}</div>
                     <div className="live-pulse scale-75" />
                   </div>
                   <div className="text-xl font-bold text-white font-mono">
-                    {quote.price > 0 ? quote.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}
+                    {isNumber(quote.price)
+                      ? Number(quote.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                      : 'N/A'}
                   </div>
                   <div className={`text-sm font-mono flex items-center gap-1 ${
-                    quote.change_percent >= 0 ? 'text-green-400' : 'text-red-400'
+                    changePositive ? 'text-green-400' : 'text-red-400'
                   }`}>
-                    {quote.change_percent >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                    {quote.change_percent >= 0 ? '+' : ''}{quote.change_percent.toFixed(2)}%
+                    {changePositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                    {changePositive ? '+' : ''}{formatPercent(quote.change_percent, 2)}
                   </div>
                 </div>
               )
@@ -226,8 +231,8 @@ export default function MarketsPage() {
               ) : sectors ? (
                 /* List View */
                 <div className="space-y-4">
-                  {sectors.map(sector => (
-                    <div key={sector.sector} className="border border-slate-700/50 rounded-lg overflow-hidden">
+                  {sectors.map((sector, sectorIdx) => (
+                    <div key={sector.sector || `sector-${sectorIdx}`} className="border border-slate-700/50 rounded-lg overflow-hidden">
                       <div className={`px-4 py-3 flex items-center justify-between ${
                         sector.change_percent >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
                       }`}>
@@ -235,13 +240,13 @@ export default function MarketsPage() {
                         <span className={`font-mono font-bold ${
                           sector.change_percent >= 0 ? 'text-green-400' : 'text-red-400'
                         }`}>
-                          {sector.change_percent >= 0 ? '+' : ''}{sector.change_percent.toFixed(2)}%
+                          {sector.change_percent >= 0 ? '+' : ''}{formatPercent(sector.change_percent, 2)}
                         </span>
                       </div>
                       <div className="divide-y divide-slate-700/30">
-                        {sector.stocks.slice(0, 10).map(stock => (
+                        {sector.stocks.slice(0, 10).map((stock, stockIdx) => (
                           <Link
-                            key={stock.symbol}
+                            key={stock.symbol || `${sector.sector}-${stock.name || stockIdx}`}
                             href={`/research?symbol=${stock.symbol}`}
                             className="flex items-center justify-between p-3 hover:bg-slate-800/30 transition-colors"
                           >
@@ -250,11 +255,13 @@ export default function MarketsPage() {
                               <span className="text-sm text-slate-400 truncate max-w-[200px]">{stock.name}</span>
                             </div>
                             <div className="flex items-center gap-6">
-                              <span className="text-white font-mono">${stock.price.toFixed(2)}</span>
+                              <span className="text-white font-mono">
+                                {isNumber(stock.price) ? `$${formatNumber(stock.price, 2)}` : 'N/A'}
+                              </span>
                               <span className={`font-mono w-20 text-right ${
                                 stock.change_percent >= 0 ? 'text-green-400' : 'text-red-400'
                               }`}>
-                                {stock.change_percent >= 0 ? '+' : ''}{stock.change_percent.toFixed(2)}%
+                                {stock.change_percent >= 0 ? '+' : ''}{formatPercent(stock.change_percent, 2)}
                               </span>
                             </div>
                           </Link>
@@ -284,15 +291,15 @@ export default function MarketsPage() {
                   <div className="p-8 flex justify-center">
                     <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
                   </div>
-                ) : movers?.gainers?.slice(0, 5).map((stock: StockPerformance) => (
+                ) : movers?.gainers?.slice(0, 5).map((stock: StockPerformance, idx: number) => (
                   <Link
-                    key={stock.symbol}
+                    key={stock.symbol || `gainer-${idx}`}
                     href={`/research?symbol=${stock.symbol}`}
                     className="flex items-center justify-between p-3 hover:bg-green-500/5 transition-colors"
                   >
                     <span className="font-bold text-white text-sm">{stock.symbol}</span>
                     <span className="text-green-400 font-mono text-sm">
-                      +{stock.change_percent.toFixed(2)}%
+                      {(isNumber(stock.change_percent) && stock.change_percent >= 0) ? '+' : ''}{formatPercent(stock.change_percent, 2)}
                     </span>
                   </Link>
                 ))}
@@ -310,15 +317,15 @@ export default function MarketsPage() {
                   <div className="p-8 flex justify-center">
                     <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
                   </div>
-                ) : movers?.losers?.slice(0, 5).map((stock: StockPerformance) => (
+                ) : movers?.losers?.slice(0, 5).map((stock: StockPerformance, idx: number) => (
                   <Link
-                    key={stock.symbol}
+                    key={stock.symbol || `loser-${idx}`}
                     href={`/research?symbol=${stock.symbol}`}
                     className="flex items-center justify-between p-3 hover:bg-red-500/5 transition-colors"
                   >
                     <span className="font-bold text-white text-sm">{stock.symbol}</span>
                     <span className="text-red-400 font-mono text-sm">
-                      {stock.change_percent.toFixed(2)}%
+                      {(isNumber(stock.change_percent) && stock.change_percent >= 0) ? '+' : ''}{formatPercent(stock.change_percent, 2)}
                     </span>
                   </Link>
                 ))}
