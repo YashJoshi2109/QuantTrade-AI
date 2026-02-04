@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
-import { Sparkles, Mail, Lock, User, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
+import { useAuth, AuthMethod } from '@/contexts/AuthContext'
+import { isNeonAuthConfigured } from '@/lib/neon-auth'
+import { Sparkles, Mail, Lock, User, Eye, EyeOff, Loader2, AlertCircle, Database, Key } from 'lucide-react'
 import Link from 'next/link'
 
 declare global {
@@ -21,14 +22,16 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [authProvider, setAuthProvider] = useState<'jwt' | 'neon'>('jwt')
   
-  const { login, register, googleVerify } = useAuth()
+  const { login, register, googleVerify, neonLogin, neonRegister } = useAuth()
   const router = useRouter()
   const googleButtonRef = useRef<HTMLDivElement>(null)
   const [googleLoading, setGoogleLoading] = useState(false)
   
   // Google OAuth Client ID from environment
   const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
+  const neonAuthAvailable = isNeonAuthConfigured()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,10 +39,20 @@ export default function AuthPage() {
     setIsLoading(true)
     
     try {
-      if (isLogin) {
-        await login(email, password)
+      if (authProvider === 'neon') {
+        // Use Neon Auth
+        if (isLogin) {
+          await neonLogin(email, password)
+        } else {
+          await neonRegister(email, password, fullName || username)
+        }
       } else {
-        await register(email, username, password, fullName)
+        // Use JWT Auth
+        if (isLogin) {
+          await login(email, password)
+        } else {
+          await register(email, username, password, fullName)
+        }
       }
       router.push('/')
     } catch (err: any) {
@@ -141,7 +154,7 @@ export default function AuthPage() {
         {/* Auth Card */}
         <div className="glass rounded-2xl p-8 border border-slate-700/50">
           {/* Tab Switcher */}
-          <div className="flex gap-2 mb-6">
+          <div className="flex gap-2 mb-4">
             <button
               onClick={() => setIsLogin(true)}
               className={`flex-1 py-3 rounded-lg font-medium transition-all ${
@@ -163,6 +176,44 @@ export default function AuthPage() {
               Sign Up
             </button>
           </div>
+
+          {/* Auth Provider Toggle */}
+          {neonAuthAvailable && (
+            <div className="mb-6">
+              <label className="block text-xs text-gray-500 mb-2 text-center">Authentication Method</label>
+              <div className="flex gap-2 p-1 bg-slate-800/50 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setAuthProvider('jwt')}
+                  className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                    authProvider === 'jwt'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Key className="w-4 h-4" />
+                  JWT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthProvider('neon')}
+                  className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                    authProvider === 'neon'
+                      ? 'bg-green-600 text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Database className="w-4 h-4" />
+                  Neon Auth
+                </button>
+              </div>
+              <p className="text-[10px] text-gray-600 text-center mt-1">
+                {authProvider === 'jwt' 
+                  ? 'Standard JWT auth stored in localStorage'
+                  : 'Neon managed auth (branches with database)'}
+              </p>
+            </div>
+          )}
           
           {/* Error Message */}
           {error && (
@@ -189,20 +240,23 @@ export default function AuthPage() {
                   </div>
                 </div>
                 
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">Username</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">@</span>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="johndoe"
-                      required={!isLogin}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500/50 transition-colors"
-                    />
+                {/* Username only for JWT auth */}
+                {authProvider === 'jwt' && (
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Username</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">@</span>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="johndoe"
+                        required={!isLogin && authProvider === 'jwt'}
+                        className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500/50 transition-colors"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </>
             )}
             

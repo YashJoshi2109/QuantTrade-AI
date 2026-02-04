@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     
+    # Neon Auth
+    NEON_AUTH_URL: Optional[str] = None
+    NEON_AUTH_JWKS_URL: Optional[str] = None
+    NEON_AUTH_AUDIENCE: Optional[str] = None
+    
     # Data sources
     DEFAULT_SYMBOLS: str = "AAPL,MSFT,GOOGL,AMZN,TSLA,META,NVDA,JPM,V,JNJ"
     
