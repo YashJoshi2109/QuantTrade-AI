@@ -187,6 +187,8 @@ class DataFetcher:
         end_date: Optional[datetime] = None
     ) -> int:
         """Sync price data to database, returns number of bars inserted"""
+        from sqlalchemy import text
+        
         # Get or create symbol
         db_symbol = DataFetcher.sync_symbol_to_db(db, symbol)
         
@@ -194,40 +196,52 @@ class DataFetcher:
         df = DataFetcher.fetch_historical_data(symbol, start_date, end_date)
         
         if df.empty:
+            print(f"No data returned for {symbol}")
             return 0
         
-        # Check what data we already have
-        if start_date:
-            existing = db.query(PriceBar).filter(
-                PriceBar.symbol_id == db_symbol.id,
-                PriceBar.timestamp >= start_date
-            ).first()
-        else:
-            existing = db.query(PriceBar).filter(
-                PriceBar.symbol_id == db_symbol.id
-            ).first()
+        print(f"Got {len(df)} bars for {symbol}, inserting to DB...")
         
-        # Insert new bars
+        # Get existing timestamps for this symbol to avoid duplicates
+        existing_result = db.execute(
+            text("SELECT timestamp FROM price_bars WHERE symbol_id = :sid"),
+            {"sid": db_symbol.id}
+        )
+        existing_timestamps = {row[0].date() if hasattr(row[0], 'date') else row[0] for row in existing_result}
+        
+        # Insert new bars using bulk insert for speed
         count = 0
-        for _, row in df.iterrows():
-            # Check if bar already exists
-            existing_bar = db.query(PriceBar).filter(
-                PriceBar.symbol_id == db_symbol.id,
-                PriceBar.timestamp == row["timestamp"]
-            ).first()
-            
-            if not existing_bar:
-                bar = PriceBar(
-                    symbol_id=db_symbol.id,
-                    timestamp=row["timestamp"],
-                    open=float(row["open"]),
-                    high=float(row["high"]),
-                    low=float(row["low"]),
-                    close=float(row["close"]),
-                    volume=int(row["volume"])
-                )
-                db.add(bar)
-                count += 1
+        bars_to_insert = []
         
-        db.commit()
+        for _, row in df.iterrows():
+            # Convert timestamp to datetime
+            ts = row["timestamp"]
+            if hasattr(ts, 'to_pydatetime'):
+                ts = ts.to_pydatetime()
+            
+            # Make timezone-naive for comparison
+            ts_date = ts.date() if hasattr(ts, 'date') else ts
+            
+            # Skip if already exists
+            if ts_date in existing_timestamps:
+                continue
+            
+            bar = PriceBar(
+                symbol_id=db_symbol.id,
+                timestamp=ts,
+                open=float(row["open"]),
+                high=float(row["high"]),
+                low=float(row["low"]),
+                close=float(row["close"]),
+                volume=int(row["volume"])
+            )
+            bars_to_insert.append(bar)
+            count += 1
+        
+        if bars_to_insert:
+            db.bulk_save_objects(bars_to_insert)
+            db.commit()
+            print(f"Inserted {count} new bars for {symbol}")
+        else:
+            print(f"All {len(df)} bars already exist for {symbol}")
+        
         return count
