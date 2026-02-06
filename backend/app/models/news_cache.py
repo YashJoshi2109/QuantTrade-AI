@@ -28,13 +28,13 @@ class NewsCache(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     
-    # Article identification
-    url = Column(String(2000), unique=True, nullable=False, index=True)
+    # Article identification (unique constraint handles indexing)
+    url = Column(String(2000), unique=True, nullable=False)
     
     # Core article data
     title = Column(String(500), nullable=False)
     source = Column(String(100))
-    published_at = Column(DateTime(timezone=True), index=True)
+    published_at = Column(DateTime(timezone=True))
     summary = Column(Text)
     
     # Image (extracted from OG or article body)
@@ -54,7 +54,6 @@ class NewsCache(Base):
     image_extracted = Column(DateTime(timezone=True))  # When image was extracted
     
     __table_args__ = (
-        Index('ix_news_cache_url', 'url'),
         Index('ix_news_cache_published', 'published_at'),
         Index('ix_news_cache_fetched', 'fetched_at'),
     )
