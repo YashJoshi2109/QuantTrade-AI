@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     BYTEZ_API_KEY: Optional[str] = None
     FINNHUB_API_KEY: Optional[str] = None
     NEWSAPI_KEY: Optional[str] = None  # NewsAPI.org for real-time news
+    TWELVEDATA_API_KEY: Optional[str] = None  # Twelve Data for real-time quotes (800 credits/day free)
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     
