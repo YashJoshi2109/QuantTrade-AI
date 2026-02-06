@@ -3,6 +3,7 @@ import './globals.css'
 import { ReactQueryProvider } from '@/lib/react-query'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { ToastProvider } from '@/components/Toast'
 
 export const metadata: Metadata = {
   title: 'QuantTrade AI',
@@ -23,7 +24,9 @@ export default function RootLayout({
       <body>
         <ErrorBoundary>
           <AuthProvider>
-            <ReactQueryProvider>{children}</ReactQueryProvider>
+            <ReactQueryProvider>
+              <ToastProvider>{children}</ToastProvider>
+            </ReactQueryProvider>
           </AuthProvider>
         </ErrorBoundary>
       </body>

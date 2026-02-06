@@ -111,24 +111,29 @@ export default function MarketsPage() {
             </div>
           ) : indexData && indexData.length > 0 ? (
             indexData.map((index, idx) => {
+              const hasValidPrice = isNumber(index.price) && index.price > 0
               const changePositive = isNumber(index.change_percent) ? index.change_percent >= 0 : false
               return (
                 <div key={index.symbol || `index-${idx}`} className="hud-panel p-4 relative group">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="text-xs text-slate-500">{index.name}</div>
-                    <div className="live-pulse scale-75" />
+                    {hasValidPrice && <div className="live-pulse scale-75" />}
                   </div>
                   <div className="text-xl font-bold text-white font-mono">
-                    {isNumber(index.price)
+                    {hasValidPrice
                       ? Number(index.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                      : 'N/A'}
+                      : '—'}
                   </div>
-                  <div className={`text-sm font-mono flex items-center gap-1 ${
-                    changePositive ? 'text-green-400' : 'text-red-400'
-                  }`}>
-                    {changePositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                    {changePositive ? '+' : ''}{formatPercent(index.change_percent, 2)}
-                  </div>
+                  {hasValidPrice ? (
+                    <div className={`text-sm font-mono flex items-center gap-1 ${
+                      changePositive ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      {changePositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                      {changePositive ? '+' : ''}{formatPercent(index.change_percent, 2)}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-slate-500">Market closed</div>
+                  )}
                 </div>
               )
             })

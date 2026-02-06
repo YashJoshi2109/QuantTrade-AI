@@ -41,6 +41,19 @@ export interface Symbol {
   market_cap: number | null
 }
 
+// Rich search result from universal search endpoint
+export interface SearchResult {
+  symbol: string
+  name: string | null
+  exchange: string | null
+  asset_type: string | null
+  currency: string | null
+  country: string | null
+  sector: string | null
+  market_cap: number | null
+  match_type: 'exact' | 'prefix' | 'contains'
+}
+
 export interface PriceBar {
   timestamp: string
   open: number
@@ -79,6 +92,31 @@ export async function fetchSymbols(search?: string): Promise<Symbol[]> {
   const response = await fetch(url.toString())
   if (!response.ok) {
     throw new Error('Failed to fetch symbols')
+  }
+  return response.json()
+}
+
+/**
+ * Universal symbol search with ranked results
+ * Returns symbols matching by ticker, company name, with ranking:
+ * 1. Exact symbol match
+ * 2. Symbol prefix match  
+ * 3. Name prefix match
+ * 4. Contains match
+ */
+export async function searchSymbols(
+  query: string,
+  limit: number = 10
+): Promise<SearchResult[]> {
+  if (!query.trim()) return []
+  
+  const url = new URL(`${API_URL}/api/v1/symbols/search`)
+  url.searchParams.append('q', query.trim())
+  url.searchParams.append('limit', limit.toString())
+  
+  const response = await fetch(url.toString())
+  if (!response.ok) {
+    throw new Error('Failed to search symbols')
   }
   return response.json()
 }
@@ -294,9 +332,37 @@ export async function fetchRiskMetrics(symbol: string): Promise<RiskMetrics> {
   return response.json()
 }
 
-export async function getWatchlist(): Promise<any[]> {
+// ========================================
+// Watchlist API
+// ========================================
+
+export interface WatchlistItem {
+  id: number
+  symbol: string
+  name: string | null
+  note: string | null
+  source: string | null
+  added_at: string
+  updated_at: string | null
+}
+
+export interface AddWatchlistParams {
+  symbol: string
+  note?: string
+  source?: string
+}
+
+export interface WatchlistError {
+  detail: string
+  code?: string
+}
+
+/**
+ * Get user's watchlist items
+ * @returns Array of watchlist items or empty array if not authenticated
+ */
+export async function getWatchlist(): Promise<WatchlistItem[]> {
   try {
-    // Only get auth headers on client side
     if (typeof window === 'undefined') {
       return []
     }
@@ -313,74 +379,140 @@ export async function getWatchlist(): Promise<any[]> {
     
     if (!response.ok) {
       if (response.status === 401) {
-        // Not authenticated - return empty array
         return []
       }
-      throw new Error('Failed to fetch watchlist')
+      const error = await response.json().catch(() => ({ detail: 'Failed to fetch watchlist' }))
+      throw new Error(error.detail)
     }
     return response.json()
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (!message.includes('Failed to fetch')) {
-      console.error('Error fetching watchlist:', error)
-    }
+    console.error('Error fetching watchlist:', error)
     return []
   }
 }
 
-export async function addToWatchlist(symbol: string): Promise<any> {
-  try {
-    // Only on client side
-    if (typeof window === 'undefined') {
-      throw new Error('Client-side only')
-    }
-    
-    const { getAuthHeaders } = await import('./auth')
-    const headers = getAuthHeaders()
-    
-    const response = await fetch(`${API_URL}/api/v1/watchlist`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers
-      },
-      body: JSON.stringify({ symbol }),
-    })
-    
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to add to watchlist' }))
-      throw new Error(error.detail || 'Failed to add to watchlist')
-    }
-    return response.json()
-  } catch (error) {
-    console.error('Error adding to watchlist:', error)
-    throw error
+/**
+ * Add a symbol to user's watchlist
+ * @throws Error with message for UI display
+ */
+export async function addToWatchlist(params: AddWatchlistParams): Promise<WatchlistItem> {
+  if (typeof window === 'undefined') {
+    throw new Error('Client-side only')
   }
+  
+  const { getAuthHeaders } = await import('./auth')
+  const headers = getAuthHeaders()
+  
+  if (!headers.Authorization) {
+    throw new Error('Please sign in to add items to your watchlist')
+  }
+  
+  const response = await fetch(`${API_URL}/api/v1/watchlist`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers
+    },
+    body: JSON.stringify({
+      symbol: params.symbol.trim().toUpperCase(),
+      note: params.note,
+      source: params.source
+    }),
+  })
+  
+  if (!response.ok) {
+    const error: WatchlistError = await response.json().catch(() => ({ detail: 'Failed to add to watchlist' }))
+    
+    // Provide user-friendly error messages
+    if (response.status === 409) {
+      throw new Error(`${params.symbol.toUpperCase()} is already in your watchlist`)
+    }
+    if (response.status === 404) {
+      throw new Error(`Symbol ${params.symbol.toUpperCase()} not found. Try syncing it first.`)
+    }
+    if (response.status === 400) {
+      throw new Error(error.detail || 'Invalid symbol format')
+    }
+    if (response.status === 401) {
+      throw new Error('Please sign in to add items to your watchlist')
+    }
+    throw new Error(error.detail || 'Failed to add to watchlist')
+  }
+  
+  return response.json()
 }
 
-export async function removeFromWatchlist(symbol: string): Promise<any> {
-  try {
-    // Only on client side
-    if (typeof window === 'undefined') {
-      throw new Error('Client-side only')
-    }
-    
-    const { getAuthHeaders } = await import('./auth')
-    const headers = getAuthHeaders()
-    
-    const response = await fetch(`${API_URL}/api/v1/watchlist/${symbol}`, {
-      method: 'DELETE',
-      headers
-    })
-    
-    if (!response.ok) {
-      throw new Error('Failed to remove from watchlist')
-    }
-    return response.json()
-  } catch (error) {
-    console.error('Error removing from watchlist:', error)
-    throw error
+/**
+ * Remove a symbol from user's watchlist
+ * @throws Error with message for UI display
+ */
+export async function removeFromWatchlist(symbol: string): Promise<void> {
+  if (typeof window === 'undefined') {
+    throw new Error('Client-side only')
   }
+  
+  const { getAuthHeaders } = await import('./auth')
+  const headers = getAuthHeaders()
+  
+  if (!headers.Authorization) {
+    throw new Error('Please sign in to manage your watchlist')
+  }
+  
+  const response = await fetch(`${API_URL}/api/v1/watchlist/${encodeURIComponent(symbol.toUpperCase())}`, {
+    method: 'DELETE',
+    headers
+  })
+  
+  if (!response.ok) {
+    const error: WatchlistError = await response.json().catch(() => ({ detail: 'Failed to remove from watchlist' }))
+    
+    if (response.status === 404) {
+      throw new Error(`${symbol.toUpperCase()} is not in your watchlist`)
+    }
+    if (response.status === 401) {
+      throw new Error('Please sign in to manage your watchlist')
+    }
+    throw new Error(error.detail || 'Failed to remove from watchlist')
+  }
+  
+  // 204 No Content - no body to parse
+}
+
+/**
+ * Update note for a watchlist item
+ * @throws Error with message for UI display
+ */
+export async function updateWatchlistNote(symbol: string, note: string | null): Promise<WatchlistItem> {
+  if (typeof window === 'undefined') {
+    throw new Error('Client-side only')
+  }
+  
+  const { getAuthHeaders } = await import('./auth')
+  const headers = getAuthHeaders()
+  
+  if (!headers.Authorization) {
+    throw new Error('Please sign in to manage your watchlist')
+  }
+  
+  const response = await fetch(`${API_URL}/api/v1/watchlist/${encodeURIComponent(symbol.toUpperCase())}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers
+    },
+    body: JSON.stringify({ note })
+  })
+  
+  if (!response.ok) {
+    const error: WatchlistError = await response.json().catch(() => ({ detail: 'Failed to update note' }))
+    
+    if (response.status === 404) {
+      throw new Error(`${symbol.toUpperCase()} is not in your watchlist`)
+    }
+    throw new Error(error.detail || 'Failed to update note')
+  }
+  
+  return response.json()
 }
 
 // Phase 4: Backtesting

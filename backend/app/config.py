@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = None
     ALPHA_VANTAGE_API_KEY: Optional[str] = None
     BYTEZ_API_KEY: Optional[str] = None
+    FINNHUB_API_KEY: Optional[str] = None
     
     # Google OAuth
     GOOGLE_CLIENT_ID: Optional[str] = None
