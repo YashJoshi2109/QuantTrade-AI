@@ -99,19 +99,27 @@ class QuoteCacheService:
             return None
     
     def _fetch_yfinance_sync(self, symbol: str) -> Optional[Dict[str, Any]]:
-        """Synchronous yfinance fetch (runs in thread pool)"""
+        """Synchronous yfinance fetch using history() method - more reliable"""
         try:
             import yfinance as yf
             ticker = yf.Ticker(symbol)
-            info = ticker.fast_info
             
-            # Get basic quote data
-            price = getattr(info, 'last_price', None) or getattr(info, 'previous_close', None)
-            if not price:
+            # Method 1: Try getting 2 days of history (more reliable than fast_info)
+            hist = ticker.history(period="2d")
+            if hist.empty or len(hist) == 0:
                 return None
             
-            previous_close = getattr(info, 'previous_close', price)
-            change = price - previous_close if previous_close else 0
+            # Get latest row
+            latest = hist.iloc[-1]
+            price = float(latest['Close'])
+            
+            # Get previous close (either from yesterday's data or first row)
+            if len(hist) > 1:
+                previous_close = float(hist.iloc[-2]['Close'])
+            else:
+                previous_close = float(latest.get('Open', price))
+            
+            change = price - previous_close
             change_percent = (change / previous_close * 100) if previous_close else 0
             
             return {
@@ -119,17 +127,84 @@ class QuoteCacheService:
                 "price": round(price, 2),
                 "change": round(change, 2),
                 "change_percent": round(change_percent, 4),
-                "volume": getattr(info, 'last_volume', 0) or 0,
-                "high": getattr(info, 'day_high', 0) or 0,
-                "low": getattr(info, 'day_low', 0) or 0,
-                "open": getattr(info, 'open', 0) or 0,
+                "volume": int(latest.get('Volume', 0) or 0),
+                "high": round(float(latest.get('High', 0) or 0), 2),
+                "low": round(float(latest.get('Low', 0) or 0), 2),
+                "open": round(float(latest.get('Open', 0) or 0), 2),
                 "previous_close": round(previous_close, 2) if previous_close else 0,
-                "market_cap": getattr(info, 'market_cap', None),
+                "market_cap": None,  # Not available in history
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "data_source": "yfinance"
             }
         except Exception as e:
             print(f"yfinance sync error for {symbol}: {e}")
+            return None
+    
+    async def _fetch_from_yahoo_direct(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Fetch quote directly from Yahoo Finance API (no library dependency)"""
+        try:
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+            params = {
+                "interval": "1d",
+                "range": "2d"
+            }
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+            
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url, params=params, headers=headers)
+                data = response.json()
+            
+            result = data.get("chart", {}).get("result", [])
+            if not result:
+                return None
+            
+            chart = result[0]
+            meta = chart.get("meta", {})
+            
+            price = meta.get("regularMarketPrice") or meta.get("previousClose")
+            previous_close = meta.get("previousClose") or meta.get("chartPreviousClose")
+            
+            if not price:
+                return None
+            
+            change = price - previous_close if previous_close else 0
+            change_percent = (change / previous_close * 100) if previous_close else 0
+            
+            # Get open/high/low from indicators (more reliable)
+            indicators = chart.get("indicators", {}).get("quote", [{}])
+            if indicators and len(indicators) > 0:
+                quote_data = indicators[0]
+                open_prices = quote_data.get("open", [])
+                high_prices = quote_data.get("high", [])
+                low_prices = quote_data.get("low", [])
+                
+                # Get latest values (today's data)
+                open_price = open_prices[-1] if open_prices else 0
+                high_price = high_prices[-1] if high_prices else meta.get("regularMarketDayHigh", 0)
+                low_price = low_prices[-1] if low_prices else meta.get("regularMarketDayLow", 0)
+            else:
+                open_price = 0
+                high_price = meta.get("regularMarketDayHigh", 0) or 0
+                low_price = meta.get("regularMarketDayLow", 0) or 0
+            
+            return {
+                "symbol": symbol.upper(),
+                "price": round(price, 2),
+                "change": round(change, 2),
+                "change_percent": round(change_percent, 4),
+                "volume": meta.get("regularMarketVolume", 0) or 0,
+                "high": round(float(high_price or 0), 2),
+                "low": round(float(low_price or 0), 2),
+                "open": round(float(open_price or 0), 2),
+                "previous_close": round(previous_close, 2) if previous_close else 0,
+                "market_cap": meta.get("marketCap"),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "data_source": "yahoo_direct"
+            }
+        except Exception as e:
+            print(f"Yahoo direct error for {symbol}: {e}")
             return None
     
     async def _fetch_from_finnhub(self, symbol: str) -> Optional[Dict[str, Any]]:
@@ -169,8 +244,13 @@ class QuoteCacheService:
         return None
     
     async def _fetch_quote(self, symbol: str) -> Optional[Dict[str, Any]]:
-        """Fetch quote from providers (yfinance first, then Finnhub)"""
-        # Try yfinance first
+        """Fetch quote from providers with multiple fallbacks"""
+        # Try Yahoo Finance direct API first (most reliable)
+        quote = await self._fetch_from_yahoo_direct(symbol)
+        if quote and quote.get('price'):
+            return quote
+        
+        # Try yfinance library
         quote = await self._fetch_from_yfinance(symbol)
         if quote and quote.get('price'):
             return quote
