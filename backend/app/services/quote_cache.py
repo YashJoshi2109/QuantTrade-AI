@@ -5,7 +5,7 @@ Implementation Notes:
 - Fetches quotes from yfinance (primary) or Finnhub (backup)
 - Caches results in Neon PostgreSQL (quote_snapshots table)
 - TTL-based expiration: 60s market hours, 300s after hours, 600s weekends
-- Returns cached data if fresh, otherwise fetches and updates
+- PARALLEL fetching for bulk operations (critical for performance)
 
 TTL Strategy:
 - Market hours (9:30 AM - 4:00 PM ET weekdays): 60 seconds
@@ -17,13 +17,16 @@ Usage:
     
     service = QuoteCacheService(db)
     quote = await service.get_quote("AAPL")  # Returns cached or fresh
-    quotes = await service.get_quotes(["AAPL", "MSFT", "GOOGL"])  # Batch
+    quotes = await service.get_quotes(["AAPL", "MSFT", "GOOGL"])  # Parallel batch
 """
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
+from sqlalchemy import text
+import asyncio
 import pytz
 import httpx
+import concurrent.futures
 
 from app.models.quote_snapshot import QuoteSnapshot
 from app.config import settings
@@ -32,13 +35,17 @@ from app.config import settings
 class QuoteCacheService:
     """
     Service for fetching and caching real-time quotes.
-    Uses Neon PostgreSQL as the cache store.
+    Uses Neon PostgreSQL as the cache store with PARALLEL fetching.
     """
     
     # TTL settings (in seconds)
     TTL_MARKET_OPEN = 60      # 1 minute during market hours
     TTL_EXTENDED_HOURS = 300  # 5 minutes pre/after market
     TTL_MARKET_CLOSED = 600   # 10 minutes when market closed
+    
+    # Parallel fetch settings
+    MAX_CONCURRENT_FETCHES = 20  # Max parallel API calls
+    BATCH_SIZE = 50  # Process in batches
     
     def __init__(self, db: Session):
         self.db = db
@@ -82,7 +89,17 @@ class QuoteCacheService:
         return age_seconds < snapshot.ttl_seconds
     
     async def _fetch_from_yfinance(self, symbol: str) -> Optional[Dict[str, Any]]:
-        """Fetch quote from yfinance"""
+        """Fetch quote from yfinance - runs in thread pool to avoid blocking"""
+        try:
+            # Run yfinance in thread pool since it's sync
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, self._fetch_yfinance_sync, symbol)
+        except Exception as e:
+            print(f"yfinance error for {symbol}: {e}")
+            return None
+    
+    def _fetch_yfinance_sync(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Synchronous yfinance fetch (runs in thread pool)"""
         try:
             import yfinance as yf
             ticker = yf.Ticker(symbol)
@@ -112,7 +129,7 @@ class QuoteCacheService:
                 "data_source": "yfinance"
             }
         except Exception as e:
-            print(f"yfinance error for {symbol}: {e}")
+            print(f"yfinance sync error for {symbol}: {e}")
             return None
     
     async def _fetch_from_finnhub(self, symbol: str) -> Optional[Dict[str, Any]]:
@@ -232,15 +249,118 @@ class QuoteCacheService:
     
     async def get_quotes(self, symbols: List[str], force_refresh: bool = False) -> Dict[str, Dict[str, Any]]:
         """
-        Get quotes for multiple symbols.
+        Get quotes for multiple symbols with PARALLEL fetching.
+        Much faster than sequential fetching!
         
         Returns:
             Dict mapping symbol to quote data
         """
+        if not symbols:
+            return {}
+        
+        results = {}
+        symbols_to_fetch = []
+        
+        # First, check cache for all symbols (fast database query)
+        if not force_refresh:
+            cached = self._get_cached_quotes_bulk(symbols)
+            for symbol, data in cached.items():
+                if data:
+                    results[symbol] = data
+                else:
+                    symbols_to_fetch.append(symbol)
+        else:
+            symbols_to_fetch = [s.upper() for s in symbols]
+        
+        # Fetch missing quotes in parallel
+        if symbols_to_fetch:
+            fresh_quotes = await self._fetch_quotes_parallel(symbols_to_fetch)
+            
+            # Update cache with fresh data
+            ttl = self._get_current_ttl()
+            for symbol, quote in fresh_quotes.items():
+                if quote and not quote.get("unavailable"):
+                    self._update_cache(symbol, quote, ttl)
+                    quote['cached'] = False
+                results[symbol] = quote
+        
+        # Return unavailable for any remaining symbols
+        for symbol in symbols:
+            symbol_upper = symbol.upper()
+            if symbol_upper not in results:
+                results[symbol_upper] = {
+                    "symbol": symbol_upper,
+                    "unavailable": True,
+                    "message": "Quote temporarily unavailable",
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+        
+        return results
+    
+    def _get_cached_quotes_bulk(self, symbols: List[str]) -> Dict[str, Optional[Dict[str, Any]]]:
+        """
+        Get multiple cached quotes in a single database query.
+        Returns dict with symbol -> quote_data (or None if not cached/expired)
+        """
+        results = {}
+        upper_symbols = [s.upper() for s in symbols]
+        
+        snapshots = self.db.query(QuoteSnapshot).filter(
+            QuoteSnapshot.symbol.in_(upper_symbols)
+        ).all()
+        
+        snapshot_map = {s.symbol: s for s in snapshots}
+        
+        for symbol in upper_symbols:
+            snapshot = snapshot_map.get(symbol)
+            if snapshot and self._is_cache_fresh(snapshot):
+                data = snapshot.payload.copy()
+                data['cached'] = True
+                data['cache_age_seconds'] = (
+                    datetime.now(timezone.utc) - snapshot.fetched_at.replace(tzinfo=timezone.utc)
+                ).total_seconds()
+                results[symbol] = data
+            else:
+                results[symbol] = None
+        
+        return results
+    
+    async def _fetch_quotes_parallel(self, symbols: List[str]) -> Dict[str, Dict[str, Any]]:
+        """
+        Fetch quotes for multiple symbols in PARALLEL using asyncio.
+        This is the key performance optimization!
+        """
         results = {}
         
-        for symbol in symbols:
-            results[symbol.upper()] = await self.get_quote(symbol, force_refresh)
+        # Use semaphore to limit concurrent requests
+        semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_FETCHES)
+        
+        async def fetch_with_semaphore(symbol: str) -> tuple:
+            async with semaphore:
+                quote = await self._fetch_quote(symbol)
+                return (symbol, quote)
+        
+        # Process in batches to avoid overwhelming the API
+        for i in range(0, len(symbols), self.BATCH_SIZE):
+            batch = symbols[i:i + self.BATCH_SIZE]
+            tasks = [fetch_with_semaphore(s) for s in batch]
+            
+            # Gather all results in parallel
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            for result in batch_results:
+                if isinstance(result, Exception):
+                    continue
+                symbol, quote = result
+                if quote:
+                    results[symbol.upper()] = quote
+                else:
+                    results[symbol.upper()] = {
+                        "symbol": symbol.upper(),
+                        "unavailable": True,
+                        "message": "Quote temporarily unavailable",
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    }
         
         return results
     

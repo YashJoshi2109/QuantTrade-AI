@@ -1,8 +1,9 @@
 """
 Main FastAPI application entry point
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from app.api import (
     symbols,
     prices,
@@ -64,6 +65,32 @@ app = FastAPI(
     description="Backend API for AI-powered trading and research platform",
     version="0.1.0"
 )
+
+
+# Cache control middleware for market data endpoints
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    """Add cache headers for specific endpoints to improve performance"""
+    
+    CACHE_PATHS = {
+        "/api/v1/market/": 30,  # 30 second cache for market data
+        "/api/v1/enhanced/market-indices": 30,  # 30 second cache for indices
+        "/api/v1/market/sectors": 60,  # 60 second cache for sectors
+        "/api/v1/market/movers": 60,  # 60 second cache for movers
+    }
+    
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        
+        path = request.url.path
+        for cache_path, max_age in self.CACHE_PATHS.items():
+            if path.startswith(cache_path):
+                response.headers["Cache-Control"] = f"public, max-age={max_age}"
+                break
+        
+        return response
+
+
+app.add_middleware(CacheControlMiddleware)
 
 # CORS middleware
 # Get allowed origins from environment or use defaults

@@ -142,8 +142,10 @@ async def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
 
 @router.get("/market-indices", response_model=List[dict])
 async def get_market_indices(db: Session = Depends(get_db)):
-    """Get major market indices using yfinance with fallback to database cache"""
+    """Get major market indices using yfinance with PARALLEL fetching and database cache"""
     import yfinance as yf
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
     from app.models.realtime_quote import MarketIndex
     
     indices_config = [
@@ -153,10 +155,9 @@ async def get_market_indices(db: Session = Depends(get_db)):
         {"symbol": "^RUT", "name": "Russell 2000"},
     ]
     
-    results = []
-    for config in indices_config:
+    def fetch_index_sync(config: dict) -> dict:
+        """Synchronous index fetch for thread pool"""
         try:
-            # Try yfinance download method (more reliable than .info)
             ticker = yf.Ticker(config["symbol"])
             hist = ticker.history(period="2d")
             
@@ -166,80 +167,98 @@ async def get_market_indices(db: Session = Depends(get_db)):
                 change = current_price - prev_close
                 change_percent = (change / prev_close * 100) if prev_close else 0
                 
-                # Cache to database
-                try:
-                    db_index = db.query(MarketIndex).filter(
-                        MarketIndex.index_symbol == config["symbol"]
-                    ).first()
-                    
-                    if db_index:
-                        db_index.last_price = current_price
-                        db_index.previous_close = prev_close
-                        db_index.change = change
-                        db_index.change_percent = change_percent
-                        db_index.quote_timestamp = datetime.utcnow()
-                    else:
-                        db_index = MarketIndex(
-                            index_symbol=config["symbol"],
-                            index_name=config["name"],
-                            last_price=current_price,
-                            previous_close=prev_close,
-                            change=change,
-                            change_percent=change_percent,
-                            quote_timestamp=datetime.utcnow()
-                        )
-                        db.add(db_index)
-                    db.commit()
-                except Exception as db_error:
-                    print(f"DB cache error for {config['symbol']}: {db_error}")
-                    db.rollback()
-                
-                results.append({
+                return {
                     "symbol": config["symbol"],
                     "name": config["name"],
                     "price": round(current_price, 2),
                     "change": round(change, 2),
                     "change_percent": round(change_percent, 2),
-                    "timestamp": datetime.utcnow()
-                })
-                print(f"✓ Fetched {config['name']}: ${current_price:.2f} ({change_percent:+.2f}%)")
-            else:
-                raise ValueError("Insufficient historical data")
-                
+                    "timestamp": datetime.utcnow(),
+                    "success": True
+                }
         except Exception as e:
             print(f"yfinance error for {config['symbol']}: {e}")
-            # Fallback to database cache
+        
+        return {
+            "symbol": config["symbol"],
+            "name": config["name"],
+            "success": False
+        }
+    
+    results = []
+    loop = asyncio.get_event_loop()
+    
+    # Fetch all indices in PARALLEL using thread pool
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [loop.run_in_executor(executor, fetch_index_sync, config) for config in indices_config]
+        fetched = await asyncio.gather(*futures)
+    
+    # Process results and handle fallbacks
+    for result in fetched:
+        if result.get("success"):
+            # Cache to database (async-safe)
             try:
                 db_index = db.query(MarketIndex).filter(
-                    MarketIndex.index_symbol == config["symbol"]
+                    MarketIndex.index_symbol == result["symbol"]
+                ).first()
+                
+                if db_index:
+                    db_index.last_price = result["price"]
+                    db_index.change = result["change"]
+                    db_index.change_percent = result["change_percent"]
+                    db_index.quote_timestamp = result["timestamp"]
+                else:
+                    db_index = MarketIndex(
+                        index_symbol=result["symbol"],
+                        index_name=result["name"],
+                        last_price=result["price"],
+                        change=result["change"],
+                        change_percent=result["change_percent"],
+                        quote_timestamp=result["timestamp"]
+                    )
+                    db.add(db_index)
+                db.commit()
+            except Exception as db_error:
+                print(f"DB cache error for {result['symbol']}: {db_error}")
+                db.rollback()
+            
+            results.append({
+                "symbol": result["symbol"],
+                "name": result["name"],
+                "price": result["price"],
+                "change": result["change"],
+                "change_percent": result["change_percent"],
+                "timestamp": result["timestamp"]
+            })
+        else:
+            # Use database cache as fallback
+            try:
+                db_index = db.query(MarketIndex).filter(
+                    MarketIndex.index_symbol == result["symbol"]
                 ).first()
                 
                 if db_index and db_index.last_price:
                     results.append({
-                        "symbol": config["symbol"],
-                        "name": config["name"],
+                        "symbol": result["symbol"],
+                        "name": result["name"],
                         "price": round(db_index.last_price, 2),
                         "change": round(db_index.change or 0, 2),
                         "change_percent": round(db_index.change_percent or 0, 2),
                         "timestamp": db_index.quote_timestamp or datetime.utcnow()
                     })
-                    print(f"✓ Using cached data for {config['name']}")
                 else:
-                    # Final fallback - return N/A
                     results.append({
-                        "symbol": config["symbol"],
-                        "name": config["name"],
+                        "symbol": result["symbol"],
+                        "name": result["name"],
                         "price": 0,
                         "change": 0,
                         "change_percent": 0,
                         "timestamp": datetime.utcnow()
                     })
-                    print(f"⚠ No data available for {config['name']}")
-            except Exception as fallback_error:
-                print(f"Fallback error for {config['symbol']}: {fallback_error}")
+            except Exception:
                 results.append({
-                    "symbol": config["symbol"],
-                    "name": config["name"],
+                    "symbol": result["symbol"],
+                    "name": result["name"],
                     "price": 0,
                     "change": 0,
                     "change_percent": 0,

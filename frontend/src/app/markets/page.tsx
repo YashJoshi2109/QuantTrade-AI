@@ -30,28 +30,31 @@ import Link from 'next/link'
 export default function MarketsPage() {
   const [view, setView] = useState<'heatmap' | 'list'>('heatmap')
   
-  // Fetch market indices from dedicated endpoint
+  // Fetch market indices from dedicated endpoint - cached aggressively
   const { data: indexData, isLoading: indicesLoading } = useQuery({
     queryKey: ['marketIndices'],
     queryFn: fetchMarketIndices,
-    refetchInterval: 30000, // Update every 30 seconds
-    staleTime: 15000,
+    refetchInterval: 60000, // Update every minute (backend caches)
+    staleTime: 30000, // Fresh for 30 seconds
+    gcTime: 300000, // Keep in cache for 5 minutes
   })
   
-  // Fetch sector data with stocks
+  // Fetch sector data with stocks - shared cache with home page
   const { data: sectors, isLoading: sectorsLoading, refetch: refetchSectors } = useQuery({
     queryKey: ['sectorPerformance'],
     queryFn: fetchSectorPerformance,
-    refetchInterval: 30000, // Update every 30 seconds for real-time feel
-    staleTime: 15000,
+    refetchInterval: 120000, // Update every 2 minutes
+    staleTime: 60000, // Fresh for 1 minute
+    gcTime: 300000, // Keep in cache for 5 minutes
   })
 
-  // Fetch movers
+  // Fetch movers - shared cache with home page
   const { data: movers, isLoading: moversLoading } = useQuery({
     queryKey: ['marketMovers'],
     queryFn: fetchMarketMovers,
-    refetchInterval: 30000, // Update every 30 seconds
-    staleTime: 15000,
+    refetchInterval: 120000, // Update every 2 minutes
+    staleTime: 60000, // Fresh for 1 minute
+    gcTime: 300000, // Keep in cache for 5 minutes
   })
 
   // Calculate market stats
