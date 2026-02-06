@@ -37,7 +37,7 @@ app = FastAPI(
 import os
 allowed_origins = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://localhost:3001,https://sunny-hamster-0012a0.netlify.app"
+    "http://localhost:3000,http://localhost:3001,https://quanttrade.us,https://www.quanttrade.us"
 ).split(",")
 
 app.add_middleware(
