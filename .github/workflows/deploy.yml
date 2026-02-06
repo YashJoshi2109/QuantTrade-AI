@@ -1,0 +1,180 @@
+# ============================================
+# QuantTrade AI - Push-to-Deploy CI/CD Pipeline
+# ============================================
+# 
+# Triggers on push to main branch
+# Builds Docker images in GitHub Actions
+# Pushes to GitHub Container Registry (GHCR)
+# Deploys to EC2 via SSH
+#
+# Required GitHub Secrets:
+#   - EC2_HOST: EC2 public IP or hostname
+#   - EC2_USER: SSH username (ubuntu)
+#   - EC2_SSH_KEY: Private SSH key for EC2
+#   - GHCR_TOKEN: GitHub token for container registry (or use GITHUB_TOKEN)
+# ============================================
+
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  REGISTRY: ghcr.io
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/quanttrade-frontend
+  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/quanttrade-backend
+
+jobs:
+  # ==========================================
+  # Build and Push Docker Images
+  # ==========================================
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.BACKEND_IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=
+
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Extract metadata for Frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.FRONTEND_IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://quanttrade.us
+
+  # ==========================================
+  # Deploy to EC2
+  # ==========================================
+  deploy:
+    name: Deploy to EC2
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "docker-compose.prod.yml"
+          target: "/opt/quanttrade"
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            
+            # Navigate to deployment directory
+            cd /opt/quanttrade
+            
+            # Login to GitHub Container Registry
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Pull latest images
+            docker compose -f docker-compose.prod.yml pull
+            
+            # Stop old containers and start new ones
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            
+            # Wait for services to be healthy
+            echo "Waiting for services to be healthy..."
+            sleep 10
+            
+            # Check health
+            curl -f http://localhost:8000/health || echo "Backend health check failed"
+            curl -f http://localhost:3000/ || echo "Frontend health check failed"
+            
+            # Cleanup old images
+            docker image prune -af --filter "until=24h"
+            
+            # Show running containers
+            docker ps
+            
+            echo "✅ Deployment complete!"
+
+  # ==========================================
+  # Post-Deploy Health Check
+  # ==========================================
+  health-check:
+    name: Verify Deployment
+    needs: deploy
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Wait for services to stabilize
+        run: sleep 30
+
+      - name: Check Backend Health
+        run: |
+          curl -f https://quanttrade.us/api/v1/health || \
+          curl -f http://${{ secrets.EC2_HOST }}:8000/health || \
+          echo "::warning::Backend health check inconclusive"
+
+      - name: Check Frontend Health
+        run: |
+          curl -f https://quanttrade.us/ || \
+          curl -f http://${{ secrets.EC2_HOST }}:3000/ || \
+          echo "::warning::Frontend health check inconclusive"

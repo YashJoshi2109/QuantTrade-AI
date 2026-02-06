@@ -1,0 +1,78 @@
+# ============================================
+# QuantTrade AI - Production Docker Compose
+# For EC2 deployment via GitHub Actions
+# ============================================
+# 
+# Usage:
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Required environment variables in .env:
+#   - DATABASE_URL (Neon Postgres connection string)
+#   - REDIS_URL (optional, for caching)
+#   - STRIPE_SECRET_KEY
+#   - STRIPE_WEBHOOK_SECRET
+#   - STRIPE_PRICE_PLUS_MONTHLY
+#   - STRIPE_PRICE_PLUS_YEARLY
+#   - OPENAI_API_KEY
+#   - FINNHUB_API_KEY
+#   - NEWSAPI_KEY
+#   - JWT_SECRET_KEY
+#   - NEXT_PUBLIC_API_URL
+# ============================================
+
+services:
+  frontend:
+    image: ghcr.io/yashjoshi2109/quanttrade-frontend:latest
+    container_name: quanttrade-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    networks:
+      - quanttrade-network
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  backend:
+    image: ghcr.io/yashjoshi2109/quanttrade-backend:latest
+    container_name: quanttrade-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL:-}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - STRIPE_PRICE_PLUS_MONTHLY=${STRIPE_PRICE_PLUS_MONTHLY}
+      - STRIPE_PRICE_PLUS_YEARLY=${STRIPE_PRICE_PLUS_YEARLY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - NEWSAPI_KEY=${NEWSAPI_KEY}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    networks:
+      - quanttrade-network
+
+networks:
+  quanttrade-network:
+    driver: bridge
