@@ -5,10 +5,17 @@ from app.models.watchlist import Watchlist
 from app.models.news import NewsArticle
 from app.models.filing import Filing, FilingChunk
 from app.models.chat_history import ChatHistory
+from app.models.billing import BillingCustomer, Subscription, BillingEvent
 
 # Enhanced models
 from app.models.fundamentals import Fundamentals
-from app.models.portfolio import Portfolio, Position, Transaction, TransactionType, PortfolioSnapshot
+from app.models.portfolio import (
+    Portfolio,
+    Position,
+    Transaction,
+    TransactionType,
+    PortfolioSnapshot,
+)
 from app.models.realtime_quote import RealtimeQuote, MarketIndex, QuoteHistory
 
 # MVP Lean models (Neon-backed caches)
@@ -17,9 +24,28 @@ from app.models.news_cache import NewsCache
 from app.models.symbols_master import SymbolsMaster
 
 __all__ = [
-    "User", "Symbol", "PriceBar", "Watchlist", "NewsArticle", "Filing", "FilingChunk", "ChatHistory",
-    "Fundamentals", "Portfolio", "Position", "Transaction", "TransactionType", 
-    "PortfolioSnapshot", "RealtimeQuote", "MarketIndex", "QuoteHistory",
+    "User",
+    "Symbol",
+    "PriceBar",
+    "Watchlist",
+    "NewsArticle",
+    "Filing",
+    "FilingChunk",
+    "ChatHistory",
+    "BillingCustomer",
+    "Subscription",
+    "BillingEvent",
+    "Fundamentals",
+    "Portfolio",
+    "Position",
+    "Transaction",
+    "TransactionType",
+    "PortfolioSnapshot",
+    "RealtimeQuote",
+    "MarketIndex",
+    "QuoteHistory",
     # MVP Lean
-    "QuoteSnapshot", "NewsCache", "SymbolsMaster"
+    "QuoteSnapshot",
+    "NewsCache",
+    "SymbolsMaster",
 ]

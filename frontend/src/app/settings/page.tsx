@@ -3,8 +3,9 @@
 import { useState, useRef } from 'react'
 import Link from 'next/link'
 import AppLayout from '@/components/AppLayout'
-import { Brain, Bell, CheckCircle, LogIn, Camera } from 'lucide-react'
+import { Brain, Bell, CheckCircle, LogIn, Camera, CreditCard } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { createBillingPortalSession } from '@/lib/api'
 
 export default function SettingsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -16,6 +17,8 @@ export default function SettingsPage() {
   })
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [billingLoading, setBillingLoading] = useState(false)
+  const [billingError, setBillingError] = useState<string | null>(null)
   
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -41,6 +44,20 @@ export default function SettingsPage() {
   const displayName = user?.full_name || user?.username || 'Trader'
   const email = user?.email || '—'
   const avatarUrl = user?.avatar_url
+
+  const handleManageBilling = async () => {
+    setBillingError(null)
+    try {
+      setBillingLoading(true)
+      const { url } = await createBillingPortalSession()
+      window.location.href = url
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to open billing portal'
+      setBillingError(message)
+    } finally {
+      setBillingLoading(false)
+    }
+  }
   
   // Show auth gate if not authenticated
   if (!authLoading && !isAuthenticated) {
@@ -203,7 +220,10 @@ export default function SettingsPage() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-slate-400">Account Type:</span>
-                    <span className="text-white font-medium ml-2">Free Plan</span>
+                    <span className="text-white font-medium ml-2">
+                      {/* TODO: Wire to real subscription status */}
+                      Free Plan
+                    </span>
                   </div>
                   <div>
                     <span className="text-slate-400">Member Since:</span>
@@ -225,10 +245,23 @@ export default function SettingsPage() {
                     </span>
                   </div>
                 </div>
-                <div className="pt-4 border-t border-slate-700">
+                <div className="pt-4 border-t border-slate-700 space-y-3">
                   <p className="text-xs text-slate-400">
-                    All features are currently free. Enjoy unlimited access to real-time market data, AI analysis, and portfolio tracking.
+                    Billing is handled securely by Stripe. You can update your payment method,
+                    change plans, or cancel anytime from the billing portal.
                   </p>
+                  {billingError && (
+                    <p className="text-[11px] text-amber-300">{billingError}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleManageBilling}
+                    disabled={billingLoading}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    {billingLoading ? 'Opening billing portal...' : 'Manage billing'}
+                  </button>
                 </div>
               </div>
             </section>

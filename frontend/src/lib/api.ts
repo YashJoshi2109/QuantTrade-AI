@@ -911,3 +911,91 @@ export async function fetchMarketStatus(): Promise<MarketStatus> {
     exchanges: { NYSE: false, NASDAQ: false }
   }
 }
+
+// ========================================
+// Billing API (Stripe Checkout)
+// ========================================
+
+export type BillingPlan = 'plus_monthly' | 'plus_yearly'
+
+export interface CheckoutSessionResponse {
+  url: string
+}
+
+export interface BillingPortalResponse {
+  url: string
+}
+
+export interface BillingSessionStatus {
+  id: string
+  status?: string
+  customer_id?: string
+  subscription_id?: string
+  price_id?: string
+}
+
+async function getAuthJsonHeaders() {
+  if (typeof window === 'undefined') {
+    return { 'Content-Type': 'application/json' }
+  }
+  const { getAuthHeaders } = await import('./auth')
+  return {
+    'Content-Type': 'application/json',
+    ...getAuthHeaders()
+  }
+}
+
+export async function createCheckoutSession(
+  params: { plan?: BillingPlan; price_id?: string }
+): Promise<CheckoutSessionResponse> {
+  const headers = await getAuthJsonHeaders()
+
+  const response = await fetch(`${API_URL}/api/v1/billing/checkout-session`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(params),
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}))
+    const message =
+      (errorBody && (errorBody.detail || errorBody.message)) ||
+      'Failed to start checkout session'
+    throw new Error(message)
+  }
+
+  return response.json()
+}
+
+export async function createBillingPortalSession(): Promise<BillingPortalResponse> {
+  const headers = await getAuthJsonHeaders()
+
+  const response = await fetch(`${API_URL}/api/v1/billing/portal`, {
+    method: 'POST',
+    headers,
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}))
+    const message =
+      (errorBody && (errorBody.detail || errorBody.message)) ||
+      'Failed to open billing portal'
+    throw new Error(message)
+  }
+
+  return response.json()
+}
+
+export async function getBillingSessionStatus(
+  sessionId: string
+): Promise<BillingSessionStatus> {
+  const url = new URL(`${API_URL}/api/v1/billing/session-status`)
+  url.searchParams.append('session_id', sessionId)
+
+  const response = await fetch(url.toString())
+  if (!response.ok) {
+    throw new Error('Failed to fetch session status')
+  }
+
+  return response.json()
+}

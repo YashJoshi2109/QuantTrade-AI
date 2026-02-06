@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     ALPHA_VANTAGE_API_KEY: Optional[str] = None
     BYTEZ_API_KEY: Optional[str] = None
     FINNHUB_API_KEY: Optional[str] = None
+    STRIPE_SECRET_KEY: Optional[str] = None
+    STRIPE_WEBHOOK_SECRET: Optional[str] = None
     
     # Google OAuth
     GOOGLE_CLIENT_ID: Optional[str] = None
@@ -36,6 +38,11 @@ class Settings(BaseSettings):
     
     # Data sources
     DEFAULT_SYMBOLS: str = "AAPL,MSFT,GOOGL,AMZN,TSLA,META,NVDA,JPM,V,JNJ"
+
+    # Billing / Pricing
+    APP_URL: str = os.getenv("APP_URL", "http://localhost:3000, https://quanttrade.us, https://www.quanttrade.us")
+    STRIPE_PRICE_PLUS_MONTHLY: Optional[str] = None
+    STRIPE_PRICE_PLUS_YEARLY: Optional[str] = None
     
     # Vector DB
     VECTOR_STORE_BACKEND: str = "pgvector"  # or "qdrant"

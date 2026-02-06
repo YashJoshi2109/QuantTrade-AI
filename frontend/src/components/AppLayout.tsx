@@ -114,6 +114,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
     { id: 'research', label: 'Research', icon: FileText, href: '/research' },
     { id: 'backtest', label: 'Backtest', icon: Activity, href: '/backtest' },
     { id: 'ideas', label: 'Ideas Lab', icon: Lightbulb, href: '/ideas-lab' },
+    { id: 'pricing', label: 'Pricing', icon: Zap, href: '/pricing' },
     { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
   ]
 

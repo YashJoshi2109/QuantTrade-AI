@@ -45,6 +45,9 @@ langchain-anthropic>=0.3.0
 langchain-community>=0.3.0,<0.4.0
 sentence-transformers>=2.2.2,<3.0.0
 
+# Payments / Billing
+stripe>=11.0.0,<12.0.0
+
 # Vector databases (choose one or both)
 # Option A: pgvector (already included above)
 # Option B: Dedicated vector DB

@@ -3,14 +3,47 @@ Main FastAPI application entry point
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import symbols, prices, indicators, chat, news, filings, risk, watchlist, backtest, auth, market, market_status, chat_history, enhanced_endpoints, quotes
+from app.api import (
+    symbols,
+    prices,
+    indicators,
+    chat,
+    news,
+    filings,
+    risk,
+    watchlist,
+    backtest,
+    auth,
+    market,
+    market_status,
+    chat_history,
+    enhanced_endpoints,
+    quotes,
+    billing,
+)
 from app.db.database import engine, Base
 
 # Import all models to ensure they're registered with SQLAlchemy
 from app.models import (
-    Symbol, PriceBar, Watchlist, NewsArticle, Filing, FilingChunk, ChatHistory,
-    Fundamentals, Portfolio, Position, Transaction, TransactionType, 
-    PortfolioSnapshot, RealtimeQuote, MarketIndex, QuoteHistory
+    Symbol,
+    PriceBar,
+    Watchlist,
+    NewsArticle,
+    Filing,
+    FilingChunk,
+    ChatHistory,
+    BillingCustomer,
+    Subscription,
+    BillingEvent,
+    Fundamentals,
+    Portfolio,
+    Position,
+    Transaction,
+    TransactionType,
+    PortfolioSnapshot,
+    RealtimeQuote,
+    MarketIndex,
+    QuoteHistory,
 )
 from app.models.user import User
 
@@ -64,6 +97,7 @@ app.include_router(market_status.router, prefix="/api/v1", tags=["market-status"
 app.include_router(chat_history.router, prefix="/api/v1", tags=["chat-history"])
 app.include_router(enhanced_endpoints.router, prefix="/api/v1/enhanced", tags=["enhanced"])
 app.include_router(quotes.router, prefix="/api/v1", tags=["quotes"])
+app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
 
 
 @app.get("/")
