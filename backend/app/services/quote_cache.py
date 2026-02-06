@@ -42,10 +42,9 @@ class QuoteCacheService:
     Uses Neon PostgreSQL as the cache store with PARALLEL fetching.
     
     Data Provider Priority:
-    1. Twelve Data API (primary - real-time, 800 free credits/day)
-    2. Yahoo Finance Direct API (fallback - free, no key needed)
-    3. yfinance library (fallback - uses Yahoo's data)
-    4. Finnhub API (tertiary - requires API key)
+    1. Yahoo Finance Direct API (primary - free, unlimited, real-time)
+    2. yfinance library (fallback - uses Yahoo's data)
+    3. Finnhub API (tertiary - requires API key)
     """
     
     # TTL settings (in seconds)
@@ -97,62 +96,6 @@ class QuoteCacheService:
         
         age_seconds = (now - fetched_at).total_seconds()
         return age_seconds < snapshot.ttl_seconds
-    
-    async def _fetch_from_twelvedata(self, symbol: str) -> Optional[Dict[str, Any]]:
-        """
-        Fetch quote from Twelve Data API (PRIMARY SOURCE)
-        
-        API: https://api.twelvedata.com/quote
-        Cost: 1 credit per symbol (800 free credits/day)
-        Returns: Real-time quote with OHLCV data
-        """
-        if not settings.TWELVEDATA_API_KEY:
-            return None
-        
-        try:
-            url = "https://api.twelvedata.com/quote"
-            params = {
-                "symbol": symbol.upper(),
-                "apikey": settings.TWELVEDATA_API_KEY
-            }
-            
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(url, params=params)
-                data = response.json()
-            
-            # Check for errors
-            if data.get("status") == "error" or data.get("code"):
-                print(f"Twelve Data error for {symbol}: {data.get('message', 'Unknown error')}")
-                return None
-            
-            # Extract price data
-            price = float(data.get("close", 0))
-            if not price:
-                return None
-            
-            previous_close = float(data.get("previous_close", price))
-            change = float(data.get("change", 0))
-            change_percent = float(data.get("percent_change", 0))
-            
-            return {
-                "symbol": symbol.upper(),
-                "price": round(price, 2),
-                "change": round(change, 2),
-                "change_percent": round(change_percent, 4),
-                "volume": int(data.get("volume", 0) or 0),
-                "high": round(float(data.get("high", 0) or 0), 2),
-                "low": round(float(data.get("low", 0) or 0), 2),
-                "open": round(float(data.get("open", 0) or 0), 2),
-                "previous_close": round(previous_close, 2),
-                "market_cap": None,  # Not in quote endpoint
-                "fifty_two_week_high": float(data.get("fifty_two_week", {}).get("high", 0) or 0) if isinstance(data.get("fifty_two_week"), dict) else 0,
-                "fifty_two_week_low": float(data.get("fifty_two_week", {}).get("low", 0) or 0) if isinstance(data.get("fifty_two_week"), dict) else 0,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "data_source": "twelvedata"
-            }
-        except Exception as e:
-            print(f"Twelve Data error for {symbol}: {e}")
-            return None
     
     async def _fetch_from_yfinance(self, symbol: str) -> Optional[Dict[str, Any]]:
         """Fetch quote from yfinance - runs in thread pool to avoid blocking"""
@@ -314,17 +257,11 @@ class QuoteCacheService:
         Fetch quote from providers with multiple fallbacks
         
         Priority Order:
-        1. Twelve Data API (800 free credits/day, real-time)
-        2. Yahoo Finance direct API (unlimited, reliable)
-        3. yfinance library (fallback)
-        4. Finnhub API (if configured)
+        1. Yahoo Finance direct API (primary - free, unlimited, real-time)
+        2. yfinance library (fallback)
+        3. Finnhub API (if configured)
         """
-        # Try Twelve Data first (primary source)
-        quote = await self._fetch_from_twelvedata(symbol)
-        if quote and quote.get('price'):
-            return quote
-        
-        # Fallback to Yahoo Finance direct API
+        # Try Yahoo Finance direct API first (primary source - free & unlimited)
         quote = await self._fetch_from_yahoo_direct(symbol)
         if quote and quote.get('price'):
             return quote
