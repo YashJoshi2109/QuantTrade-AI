@@ -1,5 +1,10 @@
 """
 Market data API - All stocks, indices, heatmap data
+
+MVP Lean Implementation:
+- Uses quote_snapshots cache for real data
+- NO fake data - returns unavailable indicator if provider fails
+- Tracks SP500 universe for gainers/losers
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -8,9 +13,9 @@ from datetime import datetime, timedelta
 from app.db.database import get_db
 from app.models.symbol import Symbol
 from app.config import settings
+from app.services.quote_cache import QuoteCacheService
 from pydantic import BaseModel
 import httpx
-import random
 
 router = APIRouter()
 
@@ -212,101 +217,74 @@ SP500_STOCKS = {
 }
 
 
-def generate_mock_performance(symbol: str, name: str, sector: str) -> StockPerformance:
-    """Generate mock performance data (in production, fetch from API)"""
-    base_prices = {
-        "AAPL": 261, "MSFT": 420, "NVDA": 185, "GOOGL": 175, "META": 640,
-        "AMZN": 242, "TSLA": 448, "AMD": 207, "JPM": 195, "V": 280,
-    }
-    base_price = base_prices.get(symbol, random.uniform(50, 500))
-    change_pct = random.uniform(-5, 5)
-    change = base_price * (change_pct / 100)
-    
-    return StockPerformance(
-        symbol=symbol,
-        name=name,
-        price=round(base_price, 2),
-        change=round(change, 2),
-        change_percent=round(change_pct, 2),
-        volume=random.randint(1000000, 50000000),
-        market_cap=random.uniform(10e9, 3e12),
-        sector=sector
-    )
-
-
-async def fetch_quote_from_api(symbol: str) -> Optional[dict]:
-    """Fetch real quote from Alpha Vantage"""
-    if not settings.ALPHA_VANTAGE_API_KEY:
-        return None
+async def fetch_stock_performance(
+    symbol: str, 
+    name: str, 
+    sector: str, 
+    db: Session
+) -> Optional[StockPerformance]:
+    """
+    Fetch real stock performance using QuoteCacheService.
+    Returns None if quote is unavailable (NO FAKE DATA).
+    """
+    cache_service = QuoteCacheService(db)
     
     try:
-        url = "https://www.alphavantage.co/query"
-        params = {
-            "function": "GLOBAL_QUOTE",
-            "symbol": symbol,
-            "apikey": settings.ALPHA_VANTAGE_API_KEY
-        }
+        quote = await cache_service.get_quote(symbol)
         
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(url, params=params)
-            data = response.json()
-        
-        if "Global Quote" in data and data["Global Quote"]:
-            quote = data["Global Quote"]
-            return {
-                "price": float(quote.get("05. price", 0)),
-                "change": float(quote.get("09. change", 0)),
-                "change_percent": float(quote.get("10. change percent", "0%").rstrip('%')),
-                "volume": int(quote.get("06. volume", 0))
-            }
-    except Exception as e:
-        print(f"Error fetching quote for {symbol}: {e}")
-    
-    return None
-
-
-async def fetch_real_stock_data(symbol: str) -> Optional[StockPerformance]:
-    """Fetch real stock data from Alpha Vantage"""
-    quote = await fetch_quote_from_api(symbol)
-    if not quote:
-        return None
-    
-    # Try to get symbol info from database or API
-    try:
-        # Use Alpha Vantage OVERVIEW for company name
-        if settings.ALPHA_VANTAGE_API_KEY:
-            url = "https://www.alphavantage.co/query"
-            params = {
-                "function": "OVERVIEW",
-                "symbol": symbol,
-                "apikey": settings.ALPHA_VANTAGE_API_KEY
-            }
-            
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(url, params=params)
-                overview = response.json()
-            
-            name = overview.get("Name", symbol)
-            sector = overview.get("Sector")
-            market_cap = float(overview.get("MarketCapitalization", 0)) if overview.get("MarketCapitalization") else None
-        else:
-            name = symbol
-            sector = None
-            market_cap = None
+        if not quote or quote.get("unavailable"):
+            return None
         
         return StockPerformance(
             symbol=symbol,
             name=name,
-            price=quote["price"],
-            change=quote["change"],
-            change_percent=quote["change_percent"],
-            volume=quote["volume"],
-            market_cap=market_cap,
+            price=round(quote.get("price", 0), 2),
+            change=round(quote.get("change", 0), 2),
+            change_percent=round(quote.get("change_percent", 0), 2),
+            volume=int(quote.get("volume", 0)),
+            market_cap=quote.get("market_cap"),
             sector=sector
         )
     except Exception as e:
-        print(f"Error fetching stock data for {symbol}: {e}")
+        print(f"Error fetching quote for {symbol}: {e}")
         return None
+
+
+async def fetch_bulk_quotes(
+    symbols_info: List[tuple], 
+    db: Session
+) -> List[StockPerformance]:
+    """
+    Fetch quotes for multiple symbols using cache service.
+    Returns list of StockPerformance (only available quotes).
+    """
+    cache_service = QuoteCacheService(db)
+    results = []
+    
+    # Extract just symbols for bulk fetch
+    symbols = [s[0] for s in symbols_info]
+    symbol_map = {s[0]: (s[1], s[2]) for s in symbols_info}  # symbol -> (name, sector)
+    
+    try:
+        quotes = await cache_service.get_quotes(symbols)
+        
+        for symbol, quote in quotes.items():
+            if quote and not quote.get("unavailable"):
+                name, sector = symbol_map.get(symbol, (symbol, None))
+                results.append(StockPerformance(
+                    symbol=symbol,
+                    name=name,
+                    price=round(quote.get("price", 0), 2),
+                    change=round(quote.get("change", 0), 2),
+                    change_percent=round(quote.get("change_percent", 0), 2),
+                    volume=int(quote.get("volume", 0)),
+                    market_cap=quote.get("market_cap"),
+                    sector=sector
+                ))
+    except Exception as e:
+        print(f"Error fetching bulk quotes: {e}")
+    
+    return results
 
 
 @router.get("/market/stocks")
@@ -315,55 +293,47 @@ async def get_all_stocks(
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db)
 ) -> List[StockPerformance]:
-    """Get all stocks with performance data - tries real data first, falls back to mock"""
-    stocks = []
-    
-    # Limit concurrent API calls to avoid rate limits
-    max_concurrent = 5
+    """
+    Get all stocks with real performance data from QuoteCacheService.
+    NO FAKE DATA - only returns stocks with available quotes.
+    """
+    # Build list of symbols to fetch
     symbols_to_fetch = []
     
     for sec, stock_list in SP500_STOCKS.items():
         if sector and sec.lower() != sector.lower():
             continue
             
-        for symbol, name in stock_list[:limit]:
+        for symbol, name in stock_list:
             symbols_to_fetch.append((symbol, name, sec))
     
-    # Try to fetch real data for first few symbols, then use mock for rest
-    real_data_count = min(max_concurrent, len(symbols_to_fetch))
-    
-    for i, (symbol, name, sec) in enumerate(symbols_to_fetch[:limit]):
-        if i < real_data_count and settings.ALPHA_VANTAGE_API_KEY:
-            # Try real data
-            real_data = await fetch_real_stock_data(symbol)
-            if real_data:
-                stocks.append(real_data)
-                continue
-        
-        # Fallback to mock
-        stocks.append(generate_mock_performance(symbol, name, sec))
+    # Fetch real quotes using cache service
+    stocks = await fetch_bulk_quotes(symbols_to_fetch[:limit], db)
     
     return stocks[:limit]
 
 
 @router.get("/market/sectors")
-async def get_sector_performance() -> List[SectorPerformance]:
-    """Get sector performance with stocks - uses real data when available"""
+async def get_sector_performance(db: Session = Depends(get_db)) -> List[SectorPerformance]:
+    """
+    Get sector performance with real stock data.
+    NO FAKE DATA - only includes stocks with available quotes.
+    """
     sectors = []
     
     for sector_name, stock_list in SP500_STOCKS.items():
-        stocks = []
-        # Fetch real data for first 3 stocks per sector, mock for rest
-        for i, (symbol, name) in enumerate(stock_list):
-            if i < 3 and settings.ALPHA_VANTAGE_API_KEY:
-                real_data = await fetch_real_stock_data(symbol)
-                if real_data:
-                    stocks.append(real_data)
-                    continue
-            stocks.append(generate_mock_performance(symbol, name, sector_name))
+        # Prepare symbols for this sector
+        symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
         
-        # Calculate sector average
-        avg_change = sum(s.change_percent for s in stocks) / len(stocks) if stocks else 0
+        # Fetch real quotes
+        stocks = await fetch_bulk_quotes(symbols_info, db)
+        
+        if not stocks:
+            # Skip sectors with no available data
+            continue
+        
+        # Calculate sector average from real data
+        avg_change = sum(s.change_percent for s in stocks) / len(stocks)
         
         sectors.append(SectorPerformance(
             sector=sector_name,
@@ -377,19 +347,21 @@ async def get_sector_performance() -> List[SectorPerformance]:
 
 
 @router.get("/market/heatmap")
-async def get_heatmap_data() -> HeatmapData:
-    """Get market heatmap data for visualization"""
+async def get_heatmap_data(db: Session = Depends(get_db)) -> HeatmapData:
+    """
+    Get market heatmap data with real quotes.
+    NO FAKE DATA - only includes stocks with available quotes.
+    """
     sectors = []
     total_gainers = 0
     total_losers = 0
     total_unchanged = 0
     
     for sector_name, stock_list in SP500_STOCKS.items():
-        stocks = []
-        for symbol, name in stock_list:
-            perf = generate_mock_performance(symbol, name, sector_name)
-            stocks.append(perf)
-            
+        symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
+        stocks = await fetch_bulk_quotes(symbols_info, db)
+        
+        for perf in stocks:
             if perf.change_percent > 0.1:
                 total_gainers += 1
             elif perf.change_percent < -0.1:
@@ -397,13 +369,13 @@ async def get_heatmap_data() -> HeatmapData:
             else:
                 total_unchanged += 1
         
-        avg_change = sum(s.change_percent for s in stocks) / len(stocks) if stocks else 0
-        
-        sectors.append(SectorPerformance(
-            sector=sector_name,
-            change_percent=round(avg_change, 2),
-            stocks=stocks
-        ))
+        if stocks:
+            avg_change = sum(s.change_percent for s in stocks) / len(stocks)
+            sectors.append(SectorPerformance(
+                sector=sector_name,
+                change_percent=round(avg_change, 2),
+                stocks=stocks
+            ))
     
     return HeatmapData(
         sectors=sectors,
@@ -415,46 +387,60 @@ async def get_heatmap_data() -> HeatmapData:
 
 
 @router.get("/market/gainers")
-async def get_top_gainers(limit: int = Query(10, ge=1, le=50)) -> List[StockPerformance]:
-    """Get top gaining stocks"""
+async def get_top_gainers(
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db)
+) -> List[StockPerformance]:
+    """
+    Get top gaining stocks with real data.
+    NO FAKE DATA - returns only stocks with available quotes.
+    """
     all_stocks = []
     
     for sector_name, stock_list in SP500_STOCKS.items():
-        for symbol, name in stock_list:
-            perf = generate_mock_performance(symbol, name, sector_name)
-            # Bias toward positive for gainers
-            perf.change_percent = abs(perf.change_percent) + random.uniform(0, 3)
-            perf.change = perf.price * (perf.change_percent / 100)
-            all_stocks.append(perf)
+        symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
+        stocks = await fetch_bulk_quotes(symbols_info, db)
+        all_stocks.extend(stocks)
     
-    # Sort by gain and return top
+    # Sort by gain (highest positive change first)
     all_stocks.sort(key=lambda x: x.change_percent, reverse=True)
-    return all_stocks[:limit]
+    
+    # Return only positive gainers
+    gainers = [s for s in all_stocks if s.change_percent > 0]
+    return gainers[:limit]
 
 
 @router.get("/market/losers")
-async def get_top_losers(limit: int = Query(10, ge=1, le=50)) -> List[StockPerformance]:
-    """Get top losing stocks"""
+async def get_top_losers(
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db)
+) -> List[StockPerformance]:
+    """
+    Get top losing stocks with real data.
+    NO FAKE DATA - returns only stocks with available quotes.
+    """
     all_stocks = []
     
     for sector_name, stock_list in SP500_STOCKS.items():
-        for symbol, name in stock_list:
-            perf = generate_mock_performance(symbol, name, sector_name)
-            # Bias toward negative for losers
-            perf.change_percent = -abs(perf.change_percent) - random.uniform(0, 3)
-            perf.change = perf.price * (perf.change_percent / 100)
-            all_stocks.append(perf)
+        symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
+        stocks = await fetch_bulk_quotes(symbols_info, db)
+        all_stocks.extend(stocks)
     
     # Sort by loss (most negative first)
     all_stocks.sort(key=lambda x: x.change_percent)
-    return all_stocks[:limit]
+    
+    # Return only negative losers
+    losers = [s for s in all_stocks if s.change_percent < 0]
+    return losers[:limit]
 
 
 @router.get("/market/movers")
-async def get_market_movers() -> dict:
-    """Get market movers (gainers and losers combined)"""
-    gainers = await get_top_gainers(10)
-    losers = await get_top_losers(10)
+async def get_market_movers(db: Session = Depends(get_db)) -> dict:
+    """
+    Get market movers (gainers and losers combined) with real data.
+    """
+    gainers = await get_top_gainers(10, db)
+    losers = await get_top_losers(10, db)
     
     return {
         "gainers": gainers,

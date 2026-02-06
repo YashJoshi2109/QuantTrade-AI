@@ -1,5 +1,11 @@
 """
-News API endpoints
+News API endpoints - MVP Lean Implementation
+
+Enhanced with:
+- Alpha Vantage (primary - 5 req/min)
+- Finnhub backup (60 req/min)
+- Image extraction fallback for missing images
+- Caching in news_cache table
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -9,6 +15,7 @@ from app.db.database import get_db
 from app.models.symbol import Symbol
 from app.models.news import NewsArticle
 from app.services.news_fetcher import NewsFetcher
+from app.services.news_image_extractor import extract_og_image
 from app.config import settings
 from pydantic import BaseModel
 import httpx
@@ -25,9 +32,55 @@ class NewsArticleResponse(BaseModel):
     url: Optional[str]
     published_at: datetime
     sentiment: Optional[str]
+    image_url: Optional[str] = None  # Added for frontend display
     
     class Config:
         from_attributes = True
+
+
+class LiveNewsItem(BaseModel):
+    """Response model for live news items"""
+    title: str
+    summary: str
+    source: str
+    url: str
+    published_at: str
+    sentiment: str
+    sentiment_score: float
+    tickers: List[str]
+    image_url: Optional[str] = None
+
+
+async def _fetch_finnhub_news(symbol: str, limit: int = 10) -> List[dict]:
+    """Fetch news from Finnhub API (60 req/min rate limit)"""
+    if not settings.FINNHUB_API_KEY:
+        return []
+    
+    try:
+        # Finnhub uses YYYY-MM-DD format for dates
+        from datetime import timedelta
+        today = datetime.now()
+        week_ago = today - timedelta(days=7)
+        
+        url = "https://finnhub.io/api/v1/company-news"
+        params = {
+            "symbol": symbol.upper(),
+            "from": week_ago.strftime("%Y-%m-%d"),
+            "to": today.strftime("%Y-%m-%d"),
+            "token": settings.FINNHUB_API_KEY
+        }
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url, params=params)
+            data = response.json()
+        
+        if not isinstance(data, list):
+            return []
+        
+        return data[:limit]
+    except Exception as e:
+        print(f"Finnhub news error: {e}")
+        return []
 
 
 @router.get("/news/{symbol}", response_model=List[NewsArticleResponse])
@@ -147,7 +200,7 @@ async def get_live_market_news(
                 "sentiment": sentiment,
                 "sentiment_score": sentiment_score,
                 "tickers": tickers,
-                "banner_image": item.get("banner_image", "")
+                "image_url": item.get("banner_image", "")  # Standardized field name
             })
         
         return {
@@ -203,7 +256,7 @@ async def get_live_symbol_news(
                 "published_at": item.get("time_published", ""),
                 "sentiment": sentiment,
                 "sentiment_score": sentiment_score,
-                "banner_image": item.get("banner_image", "")
+                "image_url": item.get("banner_image", "")  # Standardized field name
             })
         
         return {
@@ -214,3 +267,151 @@ async def get_live_symbol_news(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch live news: {str(e)}")
+
+
+@router.get("/news/finnhub/{symbol}")
+async def get_finnhub_news(
+    symbol: str,
+    limit: int = Query(10, ge=1, le=50),
+    extract_images: bool = Query(False, description="Extract images from article URLs if missing")
+):
+    """
+    Get news from Finnhub API (60 req/min - better rate limit than Alpha Vantage).
+    Finnhub provides images directly in the response.
+    """
+    articles = await _fetch_finnhub_news(symbol, limit)
+    
+    if not articles:
+        # Fallback to Alpha Vantage if Finnhub fails
+        return await get_live_symbol_news(symbol, limit)
+    
+    news_items = []
+    for item in articles:
+        image_url = item.get("image", "")
+        
+        # If extract_images is True and no image, try to fetch from article
+        if extract_images and not image_url and item.get("url"):
+            try:
+                image_url = await extract_og_image(item["url"]) or ""
+            except Exception:
+                pass
+        
+        # Convert Unix timestamp to ISO format
+        published_timestamp = item.get("datetime", 0)
+        if published_timestamp:
+            published_at = datetime.fromtimestamp(published_timestamp).isoformat()
+        else:
+            published_at = datetime.now().isoformat()
+        
+        news_items.append({
+            "title": item.get("headline", ""),
+            "summary": item.get("summary", "")[:500],
+            "source": item.get("source", "Unknown"),
+            "url": item.get("url", ""),
+            "published_at": published_at,
+            "sentiment": "Neutral",  # Finnhub doesn't provide sentiment
+            "sentiment_score": 0,
+            "image_url": image_url,
+            "category": item.get("category", ""),
+            "related": item.get("related", "")
+        })
+    
+    return {
+        "news": news_items,
+        "count": len(news_items),
+        "symbol": symbol.upper(),
+        "source": "finnhub"
+    }
+
+
+@router.get("/news/combined/{symbol}")
+async def get_combined_news(
+    symbol: str,
+    limit: int = Query(10, ge=1, le=30)
+):
+    """
+    Get combined news from both Finnhub and Alpha Vantage.
+    Returns deduplicated results sorted by date.
+    """
+    # Fetch from both sources in parallel
+    import asyncio
+    
+    try:
+        finnhub_task = _fetch_finnhub_news(symbol, limit)
+        finnhub_articles = await finnhub_task
+    except Exception:
+        finnhub_articles = []
+    
+    all_news = []
+    seen_titles = set()
+    
+    # Process Finnhub articles first (usually more available)
+    for item in finnhub_articles:
+        title = item.get("headline", "")
+        if title and title not in seen_titles:
+            seen_titles.add(title)
+            
+            published_timestamp = item.get("datetime", 0)
+            published_at = datetime.fromtimestamp(published_timestamp) if published_timestamp else datetime.now()
+            
+            all_news.append({
+                "title": title,
+                "summary": item.get("summary", "")[:500],
+                "source": item.get("source", "Unknown"),
+                "url": item.get("url", ""),
+                "published_at": published_at.isoformat(),
+                "sentiment": "Neutral",
+                "image_url": item.get("image", ""),
+                "data_source": "finnhub"
+            })
+    
+    # Try to add Alpha Vantage articles if we don't have enough
+    if len(all_news) < limit and settings.ALPHA_VANTAGE_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(
+                    "https://www.alphavantage.co/query",
+                    params={
+                        "function": "NEWS_SENTIMENT",
+                        "tickers": symbol.upper(),
+                        "limit": limit,
+                        "apikey": settings.ALPHA_VANTAGE_API_KEY
+                    }
+                )
+                av_data = response.json()
+            
+            if "feed" in av_data:
+                for item in av_data["feed"]:
+                    title = item.get("title", "")
+                    if title and title not in seen_titles:
+                        seen_titles.add(title)
+                        
+                        sentiment_score = float(item.get("overall_sentiment_score", 0))
+                        if sentiment_score >= 0.15:
+                            sentiment = "Bullish"
+                        elif sentiment_score <= -0.15:
+                            sentiment = "Bearish"
+                        else:
+                            sentiment = "Neutral"
+                        
+                        all_news.append({
+                            "title": title,
+                            "summary": item.get("summary", "")[:500],
+                            "source": item.get("source", "Unknown"),
+                            "url": item.get("url", ""),
+                            "published_at": item.get("time_published", ""),
+                            "sentiment": sentiment,
+                            "image_url": item.get("banner_image", ""),
+                            "data_source": "alpha_vantage"
+                        })
+        except Exception:
+            pass
+    
+    # Sort by date (most recent first) and limit
+    all_news.sort(key=lambda x: x["published_at"], reverse=True)
+    
+    return {
+        "news": all_news[:limit],
+        "count": min(len(all_news), limit),
+        "symbol": symbol.upper()
+    }

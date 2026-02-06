@@ -11,8 +11,15 @@ from app.models.fundamentals import Fundamentals
 from app.models.portfolio import Portfolio, Position, Transaction, TransactionType, PortfolioSnapshot
 from app.models.realtime_quote import RealtimeQuote, MarketIndex, QuoteHistory
 
+# MVP Lean models (Neon-backed caches)
+from app.models.quote_snapshot import QuoteSnapshot
+from app.models.news_cache import NewsCache
+from app.models.symbols_master import SymbolsMaster
+
 __all__ = [
     "User", "Symbol", "PriceBar", "Watchlist", "NewsArticle", "Filing", "FilingChunk", "ChatHistory",
     "Fundamentals", "Portfolio", "Position", "Transaction", "TransactionType", 
-    "PortfolioSnapshot", "RealtimeQuote", "MarketIndex", "QuoteHistory"
+    "PortfolioSnapshot", "RealtimeQuote", "MarketIndex", "QuoteHistory",
+    # MVP Lean
+    "QuoteSnapshot", "NewsCache", "SymbolsMaster"
 ]
