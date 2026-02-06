@@ -1,8 +1,10 @@
 """
 News fetching service
-Supports multiple sources: NewsAPI, Alpha Vantage, RSS feeds, or mock data
+Supports multiple sources: NewsAPI, Alpha Vantage, Finnhub, or fallback data
 """
 import requests
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from app.models.symbol import Symbol
@@ -12,11 +14,230 @@ from app.config import settings
 
 
 class NewsFetcher:
-    """Fetches news articles from various sources"""
+    """Fetches news articles from various sources with real-time data"""
+    
+    # Company name mapping for better NewsAPI search
+    COMPANY_NAMES = {
+        "AAPL": "Apple",
+        "MSFT": "Microsoft", 
+        "GOOGL": "Google Alphabet",
+        "AMZN": "Amazon",
+        "TSLA": "Tesla",
+        "META": "Meta Facebook",
+        "NVDA": "NVIDIA",
+        "JPM": "JPMorgan",
+        "V": "Visa",
+        "JNJ": "Johnson Johnson",
+        "WMT": "Walmart",
+        "PG": "Procter Gamble",
+        "UNH": "UnitedHealth",
+        "HD": "Home Depot",
+        "MA": "Mastercard",
+        "DIS": "Disney",
+        "PYPL": "PayPal",
+        "NFLX": "Netflix",
+        "INTC": "Intel",
+        "AMD": "AMD",
+        "CRM": "Salesforce",
+        "ADBE": "Adobe",
+        "CSCO": "Cisco",
+        "PEP": "PepsiCo",
+        "KO": "Coca-Cola",
+        "NKE": "Nike",
+        "MRK": "Merck",
+        "PFE": "Pfizer",
+        "TMO": "Thermo Fisher",
+        "ABBV": "AbbVie",
+        "COST": "Costco",
+        "AVGO": "Broadcom",
+        "ACN": "Accenture",
+        "MCD": "McDonalds",
+        "DHR": "Danaher",
+        "TXN": "Texas Instruments",
+        "NEE": "NextEra Energy",
+        "LIN": "Linde",
+        "BMY": "Bristol-Myers",
+        "UPS": "UPS",
+        "QCOM": "Qualcomm",
+        "LOW": "Lowes",
+        "HON": "Honeywell",
+        "SBUX": "Starbucks",
+        "IBM": "IBM",
+        "GE": "General Electric",
+        "BA": "Boeing",
+        "CAT": "Caterpillar",
+        "GS": "Goldman Sachs",
+        "MMM": "3M",
+        "AXP": "American Express",
+    }
     
     def __init__(self):
         self.alpha_vantage_key = settings.ALPHA_VANTAGE_API_KEY
-        self.newsapi_key = getattr(settings, 'NEWSAPI_KEY', None)
+        self.newsapi_key = settings.NEWSAPI_KEY
+        self.finnhub_key = getattr(settings, 'FINNHUB_API_KEY', None)
+    
+    def fetch_newsapi_news(
+        self,
+        symbol: str,
+        limit: int = 20
+    ) -> List[Dict]:
+        """Fetch real-time news from NewsAPI.org"""
+        if not self.newsapi_key:
+            print("NewsAPI key not configured")
+            return []
+        
+        try:
+            # Get company name for better search results
+            company_name = self.COMPANY_NAMES.get(symbol.upper(), symbol)
+            
+            url = "https://newsapi.org/v2/everything"
+            params = {
+                "q": f'"{company_name}" OR "{symbol}" stock',
+                "language": "en",
+                "sortBy": "publishedAt",
+                "pageSize": min(limit, 100),  # NewsAPI max is 100
+                "apiKey": self.newsapi_key
+            }
+            
+            print(f"Fetching news from NewsAPI for {symbol} ({company_name})...")
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("status") != "ok":
+                print(f"NewsAPI error: {data.get('message', 'Unknown error')}")
+                return []
+            
+            articles = []
+            for item in data.get("articles", [])[:limit]:
+                try:
+                    # Parse ISO date format
+                    published_str = item.get("publishedAt", "")
+                    if published_str:
+                        try:
+                            published_at = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
+                            published_at = published_at.replace(tzinfo=None)  # Remove timezone for consistency
+                        except ValueError:
+                            published_at = datetime.now()
+                    else:
+                        published_at = datetime.now()
+                    
+                    # Analyze sentiment from title and description
+                    title = item.get("title", "")
+                    description = item.get("description", "") or ""
+                    sentiment = self._analyze_text_sentiment(f"{title} {description}")
+                    
+                    articles.append({
+                        "title": title,
+                        "content": description,
+                        "source": item.get("source", {}).get("name", "NewsAPI"),
+                        "url": item.get("url", ""),
+                        "published_at": published_at,
+                        "sentiment": sentiment,
+                        "image_url": item.get("urlToImage", "")
+                    })
+                except Exception as e:
+                    print(f"Error parsing NewsAPI article: {e}")
+                    continue
+            
+            print(f"✓ Fetched {len(articles)} articles from NewsAPI")
+            return articles
+            
+        except requests.exceptions.Timeout:
+            print("NewsAPI request timed out")
+            return []
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching NewsAPI news: {e}")
+            return []
+        except Exception as e:
+            print(f"Unexpected error fetching NewsAPI news: {e}")
+            return []
+
+    def fetch_market_news(self, limit: int = 30) -> List[Dict]:
+        """Fetch general market/finance news from NewsAPI"""
+        if not self.newsapi_key:
+            print("NewsAPI key not configured")
+            return []
+        
+        try:
+            url = "https://newsapi.org/v2/top-headlines"
+            params = {
+                "category": "business",
+                "language": "en",
+                "pageSize": min(limit, 100),
+                "apiKey": self.newsapi_key
+            }
+            
+            print("Fetching market news from NewsAPI...")
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("status") != "ok":
+                print(f"NewsAPI error: {data.get('message', 'Unknown error')}")
+                return []
+            
+            articles = []
+            for item in data.get("articles", [])[:limit]:
+                try:
+                    published_str = item.get("publishedAt", "")
+                    if published_str:
+                        try:
+                            published_at = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
+                            published_at = published_at.replace(tzinfo=None)
+                        except ValueError:
+                            published_at = datetime.now()
+                    else:
+                        published_at = datetime.now()
+                    
+                    title = item.get("title", "")
+                    description = item.get("description", "") or ""
+                    sentiment = self._analyze_text_sentiment(f"{title} {description}")
+                    
+                    articles.append({
+                        "title": title,
+                        "content": description,
+                        "source": item.get("source", {}).get("name", "NewsAPI"),
+                        "url": item.get("url", ""),
+                        "published_at": published_at,
+                        "sentiment": sentiment,
+                        "image_url": item.get("urlToImage", "")
+                    })
+                except Exception as e:
+                    continue
+            
+            print(f"✓ Fetched {len(articles)} market news articles")
+            return articles
+            
+        except Exception as e:
+            print(f"Error fetching market news: {e}")
+            return []
+    
+    def _analyze_text_sentiment(self, text: str) -> str:
+        """Simple keyword-based sentiment analysis"""
+        text_lower = text.lower()
+        
+        bullish_words = [
+            'surge', 'soar', 'jump', 'rally', 'gain', 'rise', 'up', 'high', 'record',
+            'beat', 'exceed', 'strong', 'growth', 'profit', 'boost', 'bullish', 'buy',
+            'upgrade', 'outperform', 'positive', 'optimistic', 'breakout', 'momentum'
+        ]
+        
+        bearish_words = [
+            'fall', 'drop', 'plunge', 'crash', 'decline', 'down', 'low', 'loss',
+            'miss', 'weak', 'bearish', 'sell', 'downgrade', 'underperform', 'negative',
+            'pessimistic', 'warning', 'risk', 'concern', 'fear', 'crisis', 'cut'
+        ]
+        
+        bullish_count = sum(1 for word in bullish_words if word in text_lower)
+        bearish_count = sum(1 for word in bearish_words if word in text_lower)
+        
+        if bullish_count > bearish_count + 1:
+            return "Bullish"
+        elif bearish_count > bullish_count + 1:
+            return "Bearish"
+        else:
+            return "Neutral"
     
     def fetch_alpha_vantage_news(
         self,
@@ -191,19 +412,64 @@ class NewsFetcher:
         symbol: str,
         use_mock: bool = False  # Default to real data now
     ) -> int:
-        """Sync news for a symbol"""
+        """Sync news for a symbol - tries NewsAPI first, then Alpha Vantage"""
         db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol.upper()).first()
         if not db_symbol:
             # Create the symbol if it doesn't exist
             from app.services.data_fetcher import DataFetcher
             db_symbol = DataFetcher.sync_symbol_to_db(db, symbol.upper())
         
-        # Try Alpha Vantage first (if API key is set)
+        # Try NewsAPI first (primary source for real-time news)
+        if not use_mock and self.newsapi_key:
+            articles = self.fetch_newsapi_news(symbol)
+            if articles:
+                return self.save_articles_to_db(db, db_symbol, articles)
+        
+        # Fallback to Alpha Vantage (if API key is set)
         if not use_mock and self.alpha_vantage_key:
             articles = self.fetch_alpha_vantage_news(symbol)
             if articles:
                 return self.save_articles_to_db(db, db_symbol, articles)
         
-        # Fallback to mock data
-        articles = self.fetch_mock_news(symbol)
-        return self.save_articles_to_db(db, db_symbol, articles)
+        # Final fallback to mock data (only if both APIs fail)
+        if use_mock:
+            articles = self.fetch_mock_news(symbol)
+            return self.save_articles_to_db(db, db_symbol, articles)
+        
+        return 0
+
+    async def fetch_news_parallel(
+        self,
+        symbols: List[str],
+        limit_per_symbol: int = 10
+    ) -> Dict[str, List[Dict]]:
+        """Fetch news for multiple symbols in parallel"""
+        results = {}
+        
+        def fetch_for_symbol(symbol: str) -> tuple:
+            # Try NewsAPI first
+            if self.newsapi_key:
+                articles = self.fetch_newsapi_news(symbol, limit_per_symbol)
+                if articles:
+                    return (symbol, articles)
+            
+            # Fallback to Alpha Vantage
+            if self.alpha_vantage_key:
+                articles = self.fetch_alpha_vantage_news(symbol, limit_per_symbol)
+                if articles:
+                    return (symbol, articles)
+            
+            return (symbol, [])
+        
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            tasks = [
+                loop.run_in_executor(executor, fetch_for_symbol, symbol)
+                for symbol in symbols
+            ]
+            completed = await asyncio.gather(*tasks)
+        
+        for symbol, articles in completed:
+            results[symbol] = articles
+        
+        return results

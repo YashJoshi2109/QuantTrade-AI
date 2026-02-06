@@ -415,3 +415,171 @@ async def get_combined_news(
         "count": min(len(all_news), limit),
         "symbol": symbol.upper()
     }
+
+
+@router.get("/news/realtime/market")
+async def get_realtime_market_news(
+    limit: int = Query(20, ge=1, le=50)
+):
+    """
+    Get real-time market/business news from NewsAPI (primary source).
+    Returns top business headlines with sentiment analysis.
+    """
+    articles = news_fetcher.fetch_market_news(limit)
+    
+    if not articles:
+        # Fallback to Alpha Vantage if NewsAPI fails
+        return await get_live_market_news(topics="technology,earnings", limit=limit)
+    
+    return {
+        "news": [
+            {
+                "title": a["title"],
+                "summary": a["content"],
+                "source": a["source"],
+                "url": a["url"],
+                "published_at": a["published_at"].isoformat() if hasattr(a["published_at"], 'isoformat') else str(a["published_at"]),
+                "sentiment": a["sentiment"],
+                "sentiment_score": 0.2 if a["sentiment"] == "Bullish" else (-0.2 if a["sentiment"] == "Bearish" else 0),
+                "image_url": a.get("image_url", ""),
+                "tickers": []
+            }
+            for a in articles
+        ],
+        "count": len(articles),
+        "source": "newsapi"
+    }
+
+
+@router.get("/news/realtime/{symbol}")
+async def get_realtime_symbol_news(
+    symbol: str,
+    limit: int = Query(15, ge=1, le=50)
+):
+    """
+    Get real-time news for a specific symbol from NewsAPI (primary).
+    Falls back to Finnhub and Alpha Vantage if NewsAPI fails.
+    """
+    # Try NewsAPI first
+    articles = news_fetcher.fetch_newsapi_news(symbol, limit)
+    
+    if articles:
+        return {
+            "news": [
+                {
+                    "title": a["title"],
+                    "summary": a["content"],
+                    "source": a["source"],
+                    "url": a["url"],
+                    "published_at": a["published_at"].isoformat() if hasattr(a["published_at"], 'isoformat') else str(a["published_at"]),
+                    "sentiment": a["sentiment"],
+                    "sentiment_score": 0.2 if a["sentiment"] == "Bullish" else (-0.2 if a["sentiment"] == "Bearish" else 0),
+                    "image_url": a.get("image_url", "")
+                }
+                for a in articles
+            ],
+            "count": len(articles),
+            "symbol": symbol.upper(),
+            "source": "newsapi"
+        }
+    
+    # Fallback to Finnhub
+    return await get_finnhub_news(symbol, limit)
+
+
+@router.get("/news/all/{symbol}")
+async def get_all_news_sources(
+    symbol: str,
+    limit: int = Query(20, ge=1, le=50)
+):
+    """
+    Get news from ALL available sources (NewsAPI, Finnhub, Alpha Vantage).
+    Returns deduplicated, sorted results with source attribution.
+    """
+    import asyncio
+    
+    all_news = []
+    seen_urls = set()
+    
+    # 1. Try NewsAPI first (real-time)
+    newsapi_articles = news_fetcher.fetch_newsapi_news(symbol, limit)
+    for a in newsapi_articles:
+        if a["url"] and a["url"] not in seen_urls:
+            seen_urls.add(a["url"])
+            all_news.append({
+                "title": a["title"],
+                "summary": a["content"],
+                "source": a["source"],
+                "url": a["url"],
+                "published_at": a["published_at"].isoformat() if hasattr(a["published_at"], 'isoformat') else str(a["published_at"]),
+                "sentiment": a["sentiment"],
+                "image_url": a.get("image_url", ""),
+                "data_source": "newsapi"
+            })
+    
+    # 2. Add Finnhub articles
+    finnhub_articles = await _fetch_finnhub_news(symbol, limit)
+    for item in finnhub_articles:
+        url = item.get("url", "")
+        if url and url not in seen_urls:
+            seen_urls.add(url)
+            published_timestamp = item.get("datetime", 0)
+            published_at = datetime.fromtimestamp(published_timestamp).isoformat() if published_timestamp else datetime.now().isoformat()
+            
+            all_news.append({
+                "title": item.get("headline", ""),
+                "summary": item.get("summary", "")[:500],
+                "source": item.get("source", "Unknown"),
+                "url": url,
+                "published_at": published_at,
+                "sentiment": "Neutral",
+                "image_url": item.get("image", ""),
+                "data_source": "finnhub"
+            })
+    
+    # 3. Add Alpha Vantage articles
+    if settings.ALPHA_VANTAGE_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(
+                    "https://www.alphavantage.co/query",
+                    params={
+                        "function": "NEWS_SENTIMENT",
+                        "tickers": symbol.upper(),
+                        "limit": limit,
+                        "apikey": settings.ALPHA_VANTAGE_API_KEY
+                    }
+                )
+                av_data = response.json()
+            
+            if "feed" in av_data:
+                for item in av_data["feed"]:
+                    url = item.get("url", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        
+                        sentiment_score = float(item.get("overall_sentiment_score", 0))
+                        sentiment = "Bullish" if sentiment_score >= 0.15 else ("Bearish" if sentiment_score <= -0.15 else "Neutral")
+                        
+                        all_news.append({
+                            "title": item.get("title", ""),
+                            "summary": item.get("summary", "")[:500],
+                            "source": item.get("source", "Unknown"),
+                            "url": url,
+                            "published_at": item.get("time_published", ""),
+                            "sentiment": sentiment,
+                            "image_url": item.get("banner_image", ""),
+                            "data_source": "alpha_vantage"
+                        })
+        except Exception as e:
+            print(f"Alpha Vantage error in combined news: {e}")
+    
+    # Sort by date (most recent first)
+    all_news.sort(key=lambda x: x["published_at"], reverse=True)
+    
+    return {
+        "news": all_news[:limit],
+        "count": min(len(all_news), limit),
+        "symbol": symbol.upper(),
+        "sources_used": list(set(item["data_source"] for item in all_news[:limit]))
+    }

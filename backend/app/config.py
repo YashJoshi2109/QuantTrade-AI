@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     ALPHA_VANTAGE_API_KEY: Optional[str] = None
     BYTEZ_API_KEY: Optional[str] = None
     FINNHUB_API_KEY: Optional[str] = None
+    NEWSAPI_KEY: Optional[str] = None  # NewsAPI.org for real-time news
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     
