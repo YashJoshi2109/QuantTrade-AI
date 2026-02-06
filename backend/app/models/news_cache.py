@@ -11,7 +11,7 @@ Implementation Notes:
 Image Extraction:
 - If upstream has no image_url, server-side fetches article HTML
 - Extracts og:image meta tag and stores
-- Fallback to first <img> in article body
+- Fallback to first <img> in article body as secondary sourceßß
 """
 from sqlalchemy import Column, String, DateTime, Integer, Index, Text
 from sqlalchemy.dialects.postgresql import JSONB
