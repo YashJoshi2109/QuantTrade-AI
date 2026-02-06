@@ -4,14 +4,10 @@ const nextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://quanttrade.us',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://www.quanttrade.us',
   },
   images: {
     unoptimized: false,
-  },
-  // Optimize build for lower memory usage
-  experimental: {
-    optimizePackageImports: ['lucide-react', 'date-fns'],
   },
 }
 

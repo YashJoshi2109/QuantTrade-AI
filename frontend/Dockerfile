@@ -34,6 +34,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
+# Increase Node.js memory limit for build and disable experimental features
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # Build the application
 RUN npm run build
 
