@@ -4,11 +4,21 @@ Supports: yfinance, Alpha Vantage, NewsAPI, and web scraping
 """
 import yfinance as yf
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
 import feedparser
 from app.config import settings
+
+
+def ensure_naive_datetime(dt: datetime) -> datetime:
+    """Convert any datetime to naive UTC datetime for consistent comparison"""
+    if dt is None:
+        return datetime.utcnow()
+    if dt.tzinfo is not None:
+        # Convert to UTC and remove timezone info
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 class RealtimeNewsFetcher:
@@ -38,9 +48,9 @@ class RealtimeNewsFetcher:
                     # Parse timestamp
                     timestamp = item.get('providerPublishTime')
                     if timestamp:
-                        published_at = datetime.fromtimestamp(timestamp)
+                        published_at = ensure_naive_datetime(datetime.fromtimestamp(timestamp))
                     else:
-                        published_at = datetime.now()
+                        published_at = datetime.utcnow()
                     
                     articles.append({
                         "title": item.get('title', ''),
@@ -99,9 +109,11 @@ class RealtimeNewsFetcher:
                 try:
                     published_str = item.get('publishedAt', '')
                     if published_str:
-                        published_at = datetime.fromisoformat(published_str.replace('Z', '+00:00'))
+                        # Parse ISO format and ensure naive datetime
+                        dt = datetime.fromisoformat(published_str.replace('Z', '+00:00'))
+                        published_at = ensure_naive_datetime(dt)
                     else:
-                        published_at = datetime.now()
+                        published_at = datetime.utcnow()
                     
                     articles.append({
                         "title": item.get('title', ''),
@@ -140,10 +152,10 @@ class RealtimeNewsFetcher:
             for entry in feed.entries[:limit]:
                 try:
                     # Parse published date
-                    if hasattr(entry, 'published_parsed'):
-                        published_at = datetime(*entry.published_parsed[:6])
+                    if hasattr(entry, 'published_parsed') and entry.published_parsed:
+                        published_at = ensure_naive_datetime(datetime(*entry.published_parsed[:6]))
                     else:
-                        published_at = datetime.now()
+                        published_at = datetime.utcnow()
                     
                     articles.append({
                         "title": entry.get('title', ''),
@@ -191,7 +203,7 @@ class RealtimeNewsFetcher:
                         continue
                     
                     timestamp_elem = item.find('span', class_='article__timestamp')
-                    published_at = datetime.now()  # Default to now if can't parse
+                    published_at = datetime.utcnow()  # Default to now if can't parse
                     
                     articles.append({
                         "title": headline.get_text(strip=True),
@@ -257,8 +269,8 @@ class RealtimeNewsFetcher:
                 seen_titles.add(title)
                 unique_articles.append(article)
         
-        # Sort by published date (newest first)
-        unique_articles.sort(key=lambda x: x.get('published_at', datetime.now()), reverse=True)
+        # Sort by published date (newest first) - all datetimes are now naive UTC
+        unique_articles.sort(key=lambda x: x.get('published_at', datetime.utcnow()), reverse=True)
         
         print(f"✓ Total unique articles: {len(unique_articles)}")
         return unique_articles

@@ -5,12 +5,22 @@ Supports multiple sources: NewsAPI, Alpha Vantage, Finnhub, or fallback data
 import requests
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional
 from app.models.symbol import Symbol
 from app.models.news import NewsArticle
 from sqlalchemy.orm import Session
 from app.config import settings
+
+
+def ensure_naive_datetime(dt: datetime) -> datetime:
+    """Convert any datetime to naive UTC datetime for consistent comparison"""
+    if dt is None:
+        return datetime.utcnow()
+    if dt.tzinfo is not None:
+        # Convert to UTC and remove timezone info
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 class NewsFetcher:
@@ -115,12 +125,12 @@ class NewsFetcher:
                     published_str = item.get("publishedAt", "")
                     if published_str:
                         try:
-                            published_at = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
-                            published_at = published_at.replace(tzinfo=None)  # Remove timezone for consistency
+                            dt = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
+                            published_at = ensure_naive_datetime(dt)
                         except ValueError:
-                            published_at = datetime.now()
+                            published_at = datetime.utcnow()
                     else:
-                        published_at = datetime.now()
+                        published_at = datetime.utcnow()
                     
                     # Analyze sentiment from title and description
                     title = item.get("title", "")
@@ -183,12 +193,12 @@ class NewsFetcher:
                     published_str = item.get("publishedAt", "")
                     if published_str:
                         try:
-                            published_at = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
-                            published_at = published_at.replace(tzinfo=None)
+                            dt = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
+                            published_at = ensure_naive_datetime(dt)
                         except ValueError:
-                            published_at = datetime.now()
+                            published_at = datetime.utcnow()
                     else:
-                        published_at = datetime.now()
+                        published_at = datetime.utcnow()
                     
                     title = item.get("title", "")
                     description = item.get("description", "") or ""
