@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Sparkles, ChevronRight, Loader2, AlertCircle, Bot, Cpu, Zap } from 'lucide-react'
+import { Send, Sparkles, ChevronRight, AlertCircle, Bot, Cpu, Zap } from 'lucide-react'
 import { sendChatMessage, ChatResponse } from '@/lib/api'
+import { SkeletonText } from '@/components/Skeleton'
 
 interface Message {
   id: string
@@ -272,16 +273,12 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
           {isLoading && (
             <div className="mr-auto max-w-[90%] animate-in fade-in duration-300">
               <div className="hud-panel p-4">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
-                    <div className="absolute inset-0 blur-md bg-blue-400/50" />
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-400 font-medium">Processing query...</span>
-                    <div className="text-[10px] text-slate-600 font-mono">ANALYZING DATA</div>
-                  </div>
+                <div className="space-y-2">
+                  <SkeletonText className="h-4 w-3/4" />
+                  <SkeletonText className="h-4 w-1/2" />
+                  <SkeletonText className="h-4 w-2/3" />
                 </div>
+                <div className="text-[10px] text-slate-600 font-mono mt-2">ANALYZING DATA...</div>
               </div>
             </div>
           )}

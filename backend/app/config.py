@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     DEFAULT_SYMBOLS: str = "AAPL,MSFT,GOOGL,AMZN,TSLA,META,NVDA,JPM,V,JNJ"
 
     # Billing / Pricing
-    APP_URL: str = os.getenv("APP_URL", "http://localhost:3000, https://quanttrade.us, https://www.quanttrade.us")
+    APP_URL: str = os.getenv("APP_URL", "https://quanttrade.us")
     STRIPE_PRICE_PLUS_MONTHLY: Optional[str] = None
     STRIPE_PRICE_PLUS_YEARLY: Optional[str] = None
     

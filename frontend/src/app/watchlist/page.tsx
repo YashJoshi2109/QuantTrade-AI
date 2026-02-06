@@ -24,7 +24,7 @@ import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
 import { 
-  TrendingUp, TrendingDown, Plus, Trash2, Star, Loader2, 
+  TrendingUp, TrendingDown, Plus, Trash2, Star, Loader2,
   RefreshCw, X, LogIn, Edit2, Check, AlertCircle, Search, 
   Building2, Globe
 } from 'lucide-react'
@@ -36,6 +36,7 @@ import {
 } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/components/Toast'
+import { SkeletonWatchlistTable, SkeletonText } from '@/components/Skeleton'
 
 interface WatchlistItemWithPrice extends WatchlistItem {
   price?: number
@@ -492,10 +493,7 @@ export default function WatchlistPage() {
           {/* Watchlist Table */}
           <div className="bg-[#1e293b] border border-slate-700 rounded-lg overflow-hidden">
             {isLoading || authLoading ? (
-              <div className="flex items-center justify-center py-20" role="status" aria-label="Loading watchlist">
-                <Loader2 className="w-8 h-8 text-blue-400 animate-spin" aria-hidden="true" />
-                <span className="sr-only">Loading watchlist...</span>
-              </div>
+              <SkeletonWatchlistTable rows={5} />
             ) : watchlist.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-gray-400">
                 <p className="text-lg mb-2">Your watchlist is empty</p>

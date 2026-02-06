@@ -5,10 +5,11 @@ import { useSearchParams } from 'next/navigation'
 import AppLayout from '@/components/AppLayout'
 import Chart from '@/components/Chart'
 import LiveNews from '@/components/LiveNews'
-import { Sparkles, TrendingUp, TrendingDown, Loader2, RefreshCw, Activity, Target, AlertTriangle, Zap, BarChart3, Newspaper } from 'lucide-react'
+import { Sparkles, TrendingUp, TrendingDown, RefreshCw, Activity, Target, AlertTriangle, Zap, BarChart3, Newspaper, Loader2 } from 'lucide-react'
 import { fetchPrices, fetchIndicators, syncSymbol, PriceBar, Indicators } from '@/lib/api'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
+import { SkeletonChart, SkeletonIndicators, SkeletonText, Skeleton } from '@/components/Skeleton'
 
 function ResearchContent() {
   const searchParams = useSearchParams()
@@ -197,12 +198,7 @@ function ResearchContent() {
               {/* Chart Area */}
               <div className="flex-1 relative min-h-[300px]">
                 {loading ? (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
-                      <span className="text-sm text-slate-500 font-mono">LOADING DATA...</span>
-                    </div>
-                  </div>
+                  <SkeletonChart />
                 ) : error ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <AlertTriangle className="w-12 h-12 text-yellow-500 mb-4" />
@@ -233,9 +229,7 @@ function ResearchContent() {
               
               <div className="flex-1 overflow-y-auto">
                 {loading ? (
-                  <div className="flex items-center justify-center h-full">
-                    <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
-                  </div>
+                  <SkeletonIndicators />
                 ) : (
                   <div className="p-3 space-y-2">
                     {technicalData.map((item) => (
@@ -425,9 +419,9 @@ export default function ResearchPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
-          <span className="text-sm text-slate-500 font-mono">LOADING...</span>
+        <div className="flex flex-col items-center gap-4">
+          <Skeleton className="w-12 h-12 rounded-full" />
+          <SkeletonText className="h-4 w-32" />
         </div>
       </div>
     }>

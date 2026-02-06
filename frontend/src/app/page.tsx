@@ -18,12 +18,17 @@ import {
   BarChart3,
   Cpu,
   LogIn,
-  RefreshCw,
-  Loader2
+  RefreshCw
 } from 'lucide-react'
 import { fetchMarketMovers, fetchSectorPerformance, StockPerformance, SectorPerformance, fetchMarketStatus, MarketStatus } from '@/lib/api'
 import { useRealtimeQuotes } from '@/hooks/useRealtimeQuote'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
+import {
+  SkeletonText,
+  SkeletonMoversSection,
+  SkeletonNewsFeed,
+  SkeletonSectorPerformance
+} from '@/components/Skeleton'
 
 // Market Status Component
 function MarketStatusCard() {
@@ -42,9 +47,10 @@ function MarketStatusCard() {
         <div>
           <div className="hud-label mb-2">MARKET STATUS</div>
           {isLoading ? (
-            <div className="flex items-center gap-2 mt-2">
-              <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
-              <span className="text-sm text-slate-400">Loading...</span>
+            <div className="space-y-2 mt-2">
+              <SkeletonText className="h-5 w-20" />
+              <SkeletonText className="h-3 w-16" />
+              <SkeletonText className="h-2 w-12" />
             </div>
           ) : (
             <>
@@ -122,9 +128,7 @@ export default function Home() {
                 {/* Live News Feed */}
                 <div className="flex-1 overflow-hidden">
                   {newsLoading ? (
-                    <div className="flex items-center justify-center h-full">
-                      <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin text-blue-400" />
-                    </div>
+                    <SkeletonNewsFeed count={4} />
                   ) : liveNews && liveNews.length > 0 ? (
                     <div className="space-y-2 sm:space-y-3 h-full overflow-y-auto pr-1 sm:pr-2">
                       {liveNews.slice(0, 4).map((news, idx) => {
@@ -241,9 +245,7 @@ export default function Home() {
               {/* Items */}
               <div className="flex-1 overflow-y-auto">
                 {moversLoading ? (
-                  <div className="flex items-center justify-center h-full">
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
-                  </div>
+                  <SkeletonMoversSection count={10} />
                 ) : topGainers.length > 0 ? (
                   topGainers.map((stock: StockPerformance, idx: number) => (
                     <Link
@@ -305,9 +307,7 @@ export default function Home() {
               {/* Items */}
               <div className="flex-1 overflow-y-auto">
                 {moversLoading ? (
-                  <div className="flex items-center justify-center h-full">
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
-                  </div>
+                  <SkeletonMoversSection count={10} />
                 ) : topLosers.length > 0 ? (
                   topLosers.map((stock: StockPerformance, idx: number) => (
                     <Link
@@ -369,9 +369,7 @@ export default function Home() {
               </div>
               <div className="space-y-3">
                 {sectorsLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
-                  </div>
+                  <SkeletonSectorPerformance count={4} />
                 ) : topSectors.length > 0 ? (
                   topSectors.map((sector: SectorPerformance, idx: number) => (
                     <div key={sector.sector || `sector-${idx}`} className="group">

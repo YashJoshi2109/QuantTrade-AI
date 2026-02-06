@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import AppLayout from '@/components/AppLayout'
-import { CheckCircle2, Loader2 } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import { getBillingSessionStatus } from '@/lib/api'
+import { Skeleton, SkeletonText } from '@/components/Skeleton'
 
-export default function BillingSuccessPage() {
+function BillingSuccessContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const sessionId = searchParams.get('session_id')
+  const sessionId = searchParams?.get('session_id') ?? null
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +26,7 @@ export default function BillingSuccessPage() {
 
     async function fetchStatus() {
       try {
-        const status = await getBillingSessionStatus(sessionId)
+        const status = await getBillingSessionStatus(sessionId!)
         if (cancelled) return
         // We don&apos;t need to show all details here; just let user continue.
         setLoading(false)
@@ -56,13 +57,9 @@ export default function BillingSuccessPage() {
         <div className="hud-panel max-w-md w-full p-8 text-center">
           {loading ? (
             <>
-              <Loader2 className="w-10 h-10 text-blue-400 mx-auto mb-4 animate-spin" />
-              <h1 className="text-xl font-semibold text-white mb-2">
-                Activating your subscription
-              </h1>
-              <p className="text-sm text-slate-400">
-                We&apos;re confirming your payment with Stripe. This usually only takes a few seconds.
-              </p>
+              <Skeleton className="w-10 h-10 rounded-full mx-auto mb-4" />
+              <SkeletonText className="h-6 w-48 mx-auto mb-2" />
+              <SkeletonText className="h-4 w-64 mx-auto" />
             </>
           ) : error ? (
             <>
@@ -89,6 +86,24 @@ export default function BillingSuccessPage() {
         </div>
       </div>
     </AppLayout>
+  )
+}
+
+export default function BillingSuccessPage() {
+  return (
+    <Suspense fallback={
+      <AppLayout>
+        <div className="min-h-[70vh] flex items-center justify-center p-6">
+          <div className="hud-panel max-w-md w-full p-8 text-center">
+            <Skeleton className="w-10 h-10 rounded-full mx-auto mb-4" />
+            <SkeletonText className="h-6 w-48 mx-auto mb-2" />
+            <SkeletonText className="h-4 w-64 mx-auto" />
+          </div>
+        </div>
+      </AppLayout>
+    }>
+      <BillingSuccessContent />
+    </Suspense>
   )
 }
 

@@ -6,6 +6,13 @@ import AppLayout from '@/components/AppLayout'
 import LiveNews from '@/components/LiveNews'
 import MarketHeatmap from '@/components/MarketHeatmap'
 import { 
+  SkeletonMarketIndices, 
+  SkeletonMarketStats, 
+  SkeletonHeatmap, 
+  SkeletonMoversSection,
+  SkeletonNewsFeed 
+} from '@/components/Skeleton'
+import { 
   TrendingUp, 
   TrendingDown, 
   RefreshCw, 
@@ -13,7 +20,6 @@ import {
   BarChart3,
   Activity,
   Zap,
-  Loader2,
   Grid3X3,
   List
 } from 'lucide-react'
@@ -105,10 +111,7 @@ export default function MarketsPage() {
         {/* Index Cards - Real-time */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {indicesLoading ? (
-            <div className="col-span-4 flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-              <span className="ml-3 text-slate-400">Loading market indices...</span>
-            </div>
+            <SkeletonMarketIndices />
           ) : indexData && indexData.length > 0 ? (
             indexData.map((index, idx) => {
               const hasValidPrice = isNumber(index.price) && index.price > 0
@@ -219,9 +222,7 @@ export default function MarketsPage() {
               </div>
               
               {sectorsLoading ? (
-                <div className="flex items-center justify-center py-20">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-                </div>
+                <SkeletonHeatmap />
               ) : view === 'heatmap' && sectors ? (
                 <MarketHeatmap sectors={sectors} />
               ) : sectors ? (
@@ -284,9 +285,7 @@ export default function MarketsPage() {
               </div>
               <div className="divide-y divide-slate-700/20">
                 {moversLoading ? (
-                  <div className="p-6 sm:p-8 flex justify-center">
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
-                  </div>
+                  <SkeletonMoversSection />
                 ) : movers?.gainers?.slice(0, 5).map((stock: StockPerformance, idx: number) => (
                   <Link
                     key={stock.symbol || `gainer-${idx}`}
@@ -310,9 +309,7 @@ export default function MarketsPage() {
               </div>
               <div className="divide-y divide-slate-700/20">
                 {moversLoading ? (
-                  <div className="p-6 sm:p-8 flex justify-center">
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
-                  </div>
+                  <SkeletonMoversSection />
                 ) : movers?.losers?.slice(0, 5).map((stock: StockPerformance, idx: number) => (
                   <Link
                     key={stock.symbol || `loser-${idx}`}
