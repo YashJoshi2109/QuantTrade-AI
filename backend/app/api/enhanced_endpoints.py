@@ -367,13 +367,14 @@ async def get_realtime_news(
             if 'newsapi' in source_list:
                 articles.extend(RealtimeNewsFetcher.fetch_newsapi_news(symbol, company_name, limit))
             if 'marketwatch' in source_list:
-                articles.extend(RealtimeNewsFetcher.fetch_marketwatch_news(symbol, limit // 2))
+                articles.extend(RealtimeNewsFetcher.fetch_marketwatch_news(symbol, max(limit // 2, 5)))
         else:
-            # Fetch from all sources
+            # Fetch from all sources - ensure minimum per source
+            limit_per_source = max(limit // 4, 5)  # At least 5 per source
             articles = RealtimeNewsFetcher.fetch_combined_realtime_news(
                 symbol,
                 company_name,
-                limit_per_source=limit // 4
+                limit_per_source=limit_per_source
             )
         
         # Limit total results
