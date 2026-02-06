@@ -1,0 +1,72 @@
+# ============================================
+# QuantTrade AI - Local Development Docker Compose
+# ============================================
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up --build
+#   docker compose -f docker-compose.dev.yml down
+#
+# Prerequisites:
+#   - Copy .env.development.template to .env.development
+#   - Fill in your Neon database URL and API keys
+# ============================================
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: quanttrade-backend-dev
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.development
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    networks:
+      - quanttrade-dev-network
+    volumes:
+      # Mount source code for hot reload (optional - remove for production-like testing)
+      # - ./backend/app:/app/app:ro
+      - backend-storage:/app/storage
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:8000
+    container_name: quanttrade-frontend-dev
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.development
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"const http = require('http'); http.get('http://localhost:3000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+    networks:
+      - quanttrade-dev-network
+    depends_on:
+      backend:
+        condition: service_healthy
+
+networks:
+  quanttrade-dev-network:
+    driver: bridge
+
+volumes:
+  backend-storage:

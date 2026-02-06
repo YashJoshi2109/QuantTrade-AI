@@ -108,13 +108,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Copy docker-compose to EC2
+      - name: Copy deployment files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "docker-compose.prod.yml"
+          source: "docker-compose.prod.yml,nginx/"
           target: "/opt/quanttrade"
 
       - name: Deploy to EC2
@@ -141,11 +141,10 @@ jobs:
             
             # Wait for services to be healthy
             echo "Waiting for services to be healthy..."
-            sleep 10
+            sleep 15
             
-            # Check health
-            curl -f http://localhost:8000/health || echo "Backend health check failed"
-            curl -f http://localhost:3000/ || echo "Frontend health check failed"
+            # Check health (via nginx now)
+            curl -f http://localhost/health || echo "Health check failed (nginx may still be starting)"
             
             # Cleanup old images
             docker image prune -af --filter "until=24h"

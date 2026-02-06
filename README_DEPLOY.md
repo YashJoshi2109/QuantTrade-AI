@@ -2,15 +2,24 @@
 
 ## Overview
 
-This project uses **Docker + GitHub Actions** for automated push-to-deploy CI/CD. Every push to `main` triggers:
+This project uses **Docker + GitHub Actions** for automated push-to-deploy CI/CD with Nginx reverse proxy.
 
-1. **Build** Docker images in GitHub Actions (not on EC2)
-2. **Push** images to GitHub Container Registry (GHCR)
-3. **Deploy** to EC2 via SSH + docker compose
-
-## Architecture
+### Architecture
 
 ```
+                    PRODUCTION (EC2)
+┌─────────────────────────────────────────────────────┐
+│                                                     │
+│   ┌─────────┐    ┌──────────┐    ┌──────────┐     │
+│   │  Nginx  │───▶│ Frontend │    │ Backend  │     │
+│   │  :80    │    │  :3000   │    │  :8000   │     │
+│   │  :443   │───▶│ (Next.js)│    │ (FastAPI)│     │
+│   └─────────┘    └──────────┘    └──────────┘     │
+│        │                              ▲           │
+│        └───── /api/* ─────────────────┘           │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
 │   Git Push      │────▶│  GitHub Actions  │────▶│     EC2         │
 │   to main       │     │  Build & Push    │     │  Docker Pull    │
@@ -23,21 +32,90 @@ This project uses **Docker + GitHub Actions** for automated push-to-deploy CI/CD
                         └──────────────────┘
 ```
 
-## Required GitHub Secrets
+---
+
+## 🏠 Local Development with Docker
+
+### Quick Start
+
+1. **Copy environment template:**
+   ```bash
+   cp .env.development.template .env.development
+   ```
+
+2. **Edit `.env.development`** with your actual values (API keys, database URL, etc.)
+
+3. **Start services:**
+   ```bash
+   docker compose -f docker-compose.dev.yml up --build
+   ```
+
+4. **Access the app:**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
+   - API Docs: http://localhost:8000/docs
+
+### Development Commands
+
+```bash
+# Start in background
+docker compose -f docker-compose.dev.yml up -d
+
+# View logs
+docker compose -f docker-compose.dev.yml logs -f
+
+# View specific service logs
+docker compose -f docker-compose.dev.yml logs -f backend
+
+# Restart a service
+docker compose -f docker-compose.dev.yml restart backend
+
+# Stop all
+docker compose -f docker-compose.dev.yml down
+
+# Rebuild after code changes
+docker compose -f docker-compose.dev.yml up --build
+```
+
+### Without Docker (Native)
+
+```bash
+# Backend
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+
+# Frontend (separate terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## 🚀 Production Deployment
+
+### Required GitHub Secrets
 
 Go to **Repository Settings → Secrets and variables → Actions** and add:
 
-| Secret Name | Description | Example |
-|-------------|-------------|---------|
-| `EC2_HOST` | EC2 public IP or hostname | `3.19.207.79` |
+| Secret Name | Description | Value |
+|-------------|-------------|-------|
+| `EC2_HOST` | EC2 Elastic IP | `3.19.207.79` |
 | `EC2_USER` | SSH username | `ubuntu` |
-| `EC2_SSH_KEY` | Private SSH key (entire content) | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
+| `EC2_SSH_KEY` | Private SSH key content | (full key file content) |
 
-> **Note:** `GITHUB_TOKEN` is automatically provided and has permissions to push to GHCR.
+### EC2 Initial Setup (One-Time)
 
-## EC2 Server Setup (One-Time)
+SSH into your EC2 instance:
 
-SSH into your EC2 instance and run:
+```bash
+ssh -i your-key.pem ubuntu@3.19.207.79
+```
+
+#### 1. Install Docker
 
 ```bash
 # Update system
@@ -50,27 +128,42 @@ sudo usermod -aG docker ubuntu
 # Install Docker Compose plugin
 sudo apt install docker-compose-plugin -y
 
-# Create deployment directory
-sudo mkdir -p /opt/quanttrade
-sudo chown ubuntu:ubuntu /opt/quanttrade
-
-# Create environment file
-sudo nano /opt/quanttrade/.env
+# Logout and login again for docker group
+exit
 ```
 
-Add your environment variables to `/opt/quanttrade/.env`:
+#### 2. Create Deployment Directory
+
+```bash
+ssh -i your-key.pem ubuntu@3.19.207.79
+
+sudo mkdir -p /opt/quanttrade/nginx
+sudo chown -R ubuntu:ubuntu /opt/quanttrade
+```
+
+#### 3. Create Environment File
+
+```bash
+nano /opt/quanttrade/.env
+```
+
+Add your production secrets:
 
 ```env
 # Database (Neon Postgres)
 DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
 
 # JWT Authentication
-JWT_SECRET_KEY=your-super-secret-jwt-key
+JWT_SECRET_KEY=your-production-jwt-secret
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
+# Application URL (for Stripe redirects)
+APP_URL=https://www.quanttrade.us
+ALLOWED_ORIGINS=https://www.quanttrade.us,https://quanttrade.us
+
 # Stripe
-STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_SECRET_KEY=sk_live_xxx
 STRIPE_WEBHOOK_SECRET=whsec_xxx
 STRIPE_PRICE_PLUS_MONTHLY=price_xxx
 STRIPE_PRICE_PLUS_YEARLY=price_xxx
@@ -81,22 +174,70 @@ FINNHUB_API_KEY=xxx
 NEWSAPI_KEY=xxx
 
 # Frontend
-NEXT_PUBLIC_API_URL=https://quanttrade.us
+NEXT_PUBLIC_API_URL=https://www.quanttrade.us
 ```
 
-Secure the env file:
+Secure the file:
 ```bash
 chmod 600 /opt/quanttrade/.env
 ```
 
-Log out and back in for Docker group permissions to take effect.
+#### 4. Setup SSL Certificates (Let's Encrypt)
 
-## Manual Deployment
+**Before first Docker deployment**, get SSL certs:
 
-If you need to deploy manually:
+```bash
+# Install certbot
+sudo apt install certbot -y
+
+# Stop any services using port 80
+sudo systemctl stop nginx 2>/dev/null || true
+
+# Get certificates (standalone mode)
+sudo certbot certonly --standalone \
+  -d quanttrade.us \
+  -d www.quanttrade.us \
+  --email your@email.com \
+  --agree-tos \
+  --no-eff-email
+
+# Verify certs exist
+ls -la /etc/letsencrypt/live/quanttrade.us/
+```
+
+#### 5. Setup Certificate Auto-Renewal
+
+```bash
+# Create renewal script
+sudo nano /opt/quanttrade/renew-certs.sh
+```
+
+Add:
+```bash
+#!/bin/bash
+cd /opt/quanttrade
+docker compose -f docker-compose.prod.yml stop nginx
+certbot renew --quiet
+docker compose -f docker-compose.prod.yml start nginx
+```
+
+```bash
+# Make executable
+sudo chmod +x /opt/quanttrade/renew-certs.sh
+
+# Add cron job (runs twice daily)
+(crontab -l 2>/dev/null; echo "0 0,12 * * * /opt/quanttrade/renew-certs.sh") | crontab -
+```
+
+### Manual Deployment
+
+If you need to deploy without GitHub Actions:
 
 ```bash
 cd /opt/quanttrade
+
+# Login to GHCR
+echo YOUR_GITHUB_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
 
 # Pull latest images
 docker compose -f docker-compose.prod.yml pull
@@ -111,104 +252,96 @@ docker compose -f docker-compose.prod.yml logs -f
 docker ps
 ```
 
-## Ports
+---
 
-| Service | Port | Description |
-|---------|------|-------------|
-| Frontend | 3000 | Next.js server |
-| Backend | 8000 | FastAPI server |
+## 📊 Service Ports
 
-## Adding Nginx + SSL (Optional)
+| Service | Internal Port | External Access |
+|---------|---------------|-----------------|
+| Nginx | 80, 443 | Public (via EC2 security group) |
+| Frontend | 3000 | Via Nginx only |
+| Backend | 8000 | Via Nginx only (/api/*) |
 
-To add Nginx as a reverse proxy with SSL:
+---
 
+## 🔧 Troubleshooting
+
+### View Container Logs
 ```bash
-# Install Nginx and Certbot
-sudo apt install nginx certbot python3-certbot-nginx -y
-
-# Create Nginx config
-sudo nano /etc/nginx/sites-available/quanttrade
-```
-
-```nginx
-server {
-    listen 80;
-    server_name quanttrade.us www.quanttrade.us;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location /api/ {
-        proxy_pass http://localhost:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-```bash
-# Enable site
-sudo ln -s /etc/nginx/sites-available/quanttrade /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-
-# Get SSL certificate
-sudo certbot --nginx -d quanttrade.us -d www.quanttrade.us
-```
-
-## Troubleshooting
-
-### View container logs
-```bash
+docker compose -f docker-compose.prod.yml logs nginx
 docker compose -f docker-compose.prod.yml logs backend
 docker compose -f docker-compose.prod.yml logs frontend
 ```
 
-### Restart services
+### Restart Services
 ```bash
 docker compose -f docker-compose.prod.yml restart
 ```
 
-### Check disk space
+### Check Disk Space
 ```bash
 df -h
 docker system df
 ```
 
-### Clean up old images
+### Clean Up Old Images
 ```bash
 docker image prune -af
+docker volume prune -f
 ```
 
-### Force rebuild
+### SSL Certificate Issues
+
+If Nginx fails to start due to SSL:
+
 ```bash
-# In GitHub: Actions → Deploy to Production → Run workflow
-# Or locally push a commit to main
+# Check if certs exist
+ls -la /etc/letsencrypt/live/quanttrade.us/
+
+# Regenerate if needed
+sudo certbot certonly --standalone \
+  -d quanttrade.us \
+  -d www.quanttrade.us
 ```
 
-## Rolling Back
+### Container Health Check
+```bash
+# Check if services are healthy
+docker inspect --format='{{.State.Health.Status}}' quanttrade-backend
+docker inspect --format='{{.State.Health.Status}}' quanttrade-frontend
+```
+
+### Force Rebuild
+```bash
+# Pull fresh images
+docker compose -f docker-compose.prod.yml pull
+
+# Force recreate containers
+docker compose -f docker-compose.prod.yml up -d --force-recreate
+```
+
+---
+
+## 🔙 Rolling Back
 
 To rollback to a previous version:
 
 ```bash
-# Find previous image tag (SHA)
+# List available image tags
 docker images ghcr.io/yashjoshi2109/quanttrade-backend
 
-# Update docker-compose.prod.yml to use specific SHA tag
+# Edit docker-compose.prod.yml to use specific SHA tag instead of :latest
 # Then:
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-## Security Notes
+---
+
+## 🔒 Security Notes
 
 - Never commit `.env` files to git
-- EC2 security group should only expose ports 80, 443, and 22
-- Use IAM roles for AWS services when possible
-- Rotate secrets periodically
+- EC2 security group should only expose ports **22, 80, 443**
+- SSL certificates auto-renew via certbot cron
+- JWT secrets should be strong (32+ characters)
+- Use Stripe webhook signature verification
+- Keep Docker images updated
