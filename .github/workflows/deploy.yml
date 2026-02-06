@@ -94,6 +94,8 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64
           build-args: |
+            NEXT_PUBLIC_API_URL=https://www.quanttrade.us
+          build-args: |
             NEXT_PUBLIC_API_URL=https://quanttrade.us
 
   # ==========================================
