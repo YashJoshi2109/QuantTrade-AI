@@ -40,6 +40,9 @@ ENV NODE_OPTIONS="--max-old-space-size=4096"
 # Build the application
 RUN npm run build
 
+# Verify build output exists
+RUN ls -la .next/ && ls -la .next/standalone/ || echo "Build output check"
+
 # Stage 3: Production Runner
 FROM node:18-alpine AS runner
 
@@ -48,6 +51,9 @@ WORKDIR /app
 # Set environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Install wget for healthcheck
+RUN apk add --no-cache wget
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \
