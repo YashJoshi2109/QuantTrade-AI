@@ -1,19 +1,4 @@
-# ============================================
-# QuantTrade AI - Production Docker Compose
-# For EC2 deployment with Nginx reverse proxy
-# ============================================
-#
-# Usage:
-#   docker compose -f docker-compose.prod.yml pull
-#   docker compose -f docker-compose.prod.yml up -d
-#
-# Prerequisites:
-#   - SSL certificates from Let's Encrypt in /etc/letsencrypt
-#   - .env file with all secrets in /opt/quanttrade
-#   - nginx/nginx.conf in /opt/quanttrade/nginx/
-# ============================================
 
-name: quanttrade
 
 services:
   nginx:
