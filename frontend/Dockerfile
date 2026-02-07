@@ -4,7 +4,7 @@
 # ============================================
 
 # Stage 1: Dependencies
-FROM node:18-alpine AS deps
+FROM node:20-alpine AS deps
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci --legacy-peer-deps
 
 # Stage 2: Builder
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -38,13 +38,13 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 # Build the application
-RUN npm run build
+RUN npm run build || (cat /root/.npm/_logs/*.log 2>/dev/null && exit 1)
 
 # Verify build output exists
 RUN ls -la .next/ && ls -la .next/standalone/ || echo "Build output check"
 
 # Stage 3: Production Runner
-FROM node:18-alpine AS runner
+FROM node:20-alpine AS runner
 
 WORKDIR /app
 
