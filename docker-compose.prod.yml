@@ -13,6 +13,8 @@
 #   - nginx/nginx.conf in /opt/quanttrade/nginx/
 # ============================================
 
+name: quanttrade
+
 services:
   nginx:
     image: nginx:stable-alpine

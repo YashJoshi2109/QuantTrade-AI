@@ -142,35 +142,81 @@ jobs:
             # Navigate to deployment directory
             cd /opt/quanttrade
             
-            # ===== CLEANUP DISK SPACE FIRST =====
+            # ===== STOP SYSTEM SERVICES THAT MAY USE PORT 80/443 =====
+            echo "🛑 Stopping any system nginx/apache..."
+            sudo systemctl stop nginx 2>/dev/null || true
+            sudo systemctl disable nginx 2>/dev/null || true
+            sudo systemctl stop apache2 2>/dev/null || true
+            sudo systemctl disable apache2 2>/dev/null || true
+            
+            # ===== CLEANUP DISK SPACE =====
             echo "🧹 Cleaning up disk space..."
             docker system prune -af --volumes || true
             sudo rm -rf /var/lib/containerd/io.containerd.content.v1.content/ingest/* || true
-            sudo apt-get clean || true
-            sudo rm -rf /var/lib/apt/lists/* /tmp/* || true
             echo "Disk space available:"
             df -h /
             
-            # Login to GitHub Container Registry
+            # ===== STOP EXISTING DOCKER STACK =====
+            echo "🔻 Stopping existing containers..."
+            docker compose -f docker-compose.prod.yml down --remove-orphans || true
+            
+            # ===== KILL ANY CONTAINER USING PORT 80/443 =====
+            echo "🔍 Checking for containers using port 80/443..."
+            docker ps -q --filter "publish=80" | xargs -r docker stop || true
+            docker ps -q --filter "publish=443" | xargs -r docker stop || true
+            
+            # ===== VERIFY PORTS ARE FREE =====
+            echo "✅ Verifying ports 80/443 are free..."
+            if sudo ss -lntp | grep -E ':80\s|:443\s' | grep -v docker; then
+              echo "❌ ERROR: Port 80 or 443 still in use by non-Docker process!"
+              sudo ss -lntp | grep -E ':80\s|:443\s'
+              exit 1
+            fi
+            echo "Ports 80/443 are free."
+            
+            # ===== LOGIN TO GHCR =====
+            echo "🔐 Logging into GitHub Container Registry..."
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # Pull latest images
+            # ===== PULL LATEST IMAGES =====
+            echo "📥 Pulling latest images..."
             docker compose -f docker-compose.prod.yml pull
             
-            # Stop old containers and start new ones
+            # ===== START CONTAINERS =====
+            echo "🚀 Starting containers..."
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
             
-            # Wait for services to be healthy
-            echo "Waiting for services to be healthy..."
+            # ===== WAIT AND HEALTH CHECK =====
+            echo "⏳ Waiting for services to be healthy..."
             sleep 15
             
-            # Check health (via nginx now)
-            curl -f http://localhost/health || echo "Health check failed (nginx may still be starting)"
+            # Health check with retries
+            for i in 1 2 3 4 5; do
+              if curl -sf http://localhost/health; then
+                echo "✅ Health check passed!"
+                break
+              else
+                echo "Waiting for nginx... (attempt $i/5)"
+                sleep 5
+              fi
+            done
             
-            # Cleanup old images
-            docker image prune -af --filter "until=24h"
+            # Final verification
+            if ! curl -sf http://localhost/health; then
+              echo "❌ Health check failed! Showing logs..."
+              docker compose -f docker-compose.prod.yml ps
+              docker logs --tail=50 quanttrade-nginx
+              docker logs --tail=50 quanttrade-backend
+              exit 1
+            fi
+            
+            # ===== POST-DEPLOY CLEANUP =====
+            echo "🧹 Post-deploy cleanup..."
+            docker image prune -af || true
+            docker builder prune -af || true
             
             # Show running containers
+            echo "📊 Running containers:"
             docker ps
             
             echo "✅ Deployment complete!"
