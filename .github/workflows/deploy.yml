@@ -48,7 +48,10 @@ jobs:
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /opt/ghc
           sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /opt/hostedtoolcache
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           sudo docker system prune -af
+          sudo apt-get clean
           echo "After cleanup:"
           df -h
 
@@ -82,8 +85,6 @@ jobs:
           push: true
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=min
           platforms: linux/amd64
 
       - name: Extract metadata for Frontend
@@ -103,8 +104,6 @@ jobs:
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=min
           platforms: linux/amd64
           build-args: |
             NEXT_PUBLIC_API_URL=https://www.quanttrade.us
@@ -142,6 +141,15 @@ jobs:
             
             # Navigate to deployment directory
             cd /opt/quanttrade
+            
+            # ===== CLEANUP DISK SPACE FIRST =====
+            echo "🧹 Cleaning up disk space..."
+            docker system prune -af --volumes || true
+            sudo rm -rf /var/lib/containerd/io.containerd.content.v1.content/ingest/* || true
+            sudo apt-get clean || true
+            sudo rm -rf /var/lib/apt/lists/* /tmp/* || true
+            echo "Disk space available:"
+            df -h /
             
             # Login to GitHub Container Registry
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
