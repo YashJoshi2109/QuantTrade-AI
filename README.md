@@ -93,7 +93,7 @@ Finance/
 | **Frontend** | Next.js 16, React 18, TypeScript, Tailwind CSS, TradingView Lightweight Charts, Zustand, TanStack Query |
 | **AI/ML**    | OpenAI/Anthropic API, LangChain, Chroma/Pinecone (vector store) |
 | **Data**     | yfinance, Finnhub, Finviz, SEC EDGAR API |
-| **DevOps**   | Docker, GitHub Actions, Netlify, Neon (PostgreSQL) |
+| **DevOps**   | Docker, GitHub Actions, Neon (PostgreSQL) |
 
 ---
 
@@ -106,16 +106,6 @@ Finance/
 - PostgreSQL (or use [Neon](https://neon.tech) for hosted Postgres)
 - Redis (for Celery background jobs)
 
-### Backend
-
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-Set environment variables (see `backend/app/config.py` or use a `.env` file). Then:
 
 ```bash
 # Optional: run enhanced setup (sync symbols, etc.)
@@ -124,18 +114,6 @@ Set environment variables (see `backend/app/config.py` or use a `.env` file). Th
 # Start API server
 uvicorn app.main:app --reload
 ```
-
-API runs at `http://localhost:8000`. Docs at `http://localhost:8000/docs`.
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-App runs at `http://localhost:3000`. Configure `NEXT_PUBLIC_API_URL` (e.g. `http://localhost:8000`) in `.env.local` (see `frontend/.env.example`).
 
 ### Quick local stack (backend only)
 
