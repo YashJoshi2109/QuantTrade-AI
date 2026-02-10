@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
+import MobileLayout from '@/components/layout/MobileLayout'
+import MobileDashboard from '@/components/layout/MobileDashboard'
 import { useBreakingNews } from '@/hooks/useRealtimeNews'
 import { useAuth } from '@/contexts/AuthContext'
 import { 
@@ -74,7 +76,7 @@ function MarketStatusCard() {
   )
 }
 
-export default function Home() {
+function DesktopHome() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
 
   // Fetch live market movers (gainers/losers) - cached aggressively
@@ -505,5 +507,20 @@ export default function Home() {
         </div>
       </div>
     </AppLayout>
+  )
+}
+
+export default function Home() {
+  return (
+    <>
+      <div className="hidden md:block">
+        <DesktopHome />
+      </div>
+      <div className="md:hidden">
+        <MobileLayout>
+          <MobileDashboard />
+        </MobileLayout>
+      </div>
+    </>
   )
 }

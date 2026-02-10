@@ -21,6 +21,7 @@ from app.api import (
     enhanced_endpoints,
     quotes,
     billing,
+    finviz,
 )
 from app.db.database import engine, Base
 
@@ -125,6 +126,9 @@ app.include_router(chat_history.router, prefix="/api/v1", tags=["chat-history"])
 app.include_router(enhanced_endpoints.router, prefix="/api/v1/enhanced", tags=["enhanced"])
 app.include_router(quotes.router, prefix="/api/v1", tags=["quotes"])
 app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
+
+# Finviz stock data endpoint
+app.include_router(finviz.router, prefix="/api/v1", tags=["finviz"])
 
 
 @app.get("/")

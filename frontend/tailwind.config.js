@@ -9,6 +9,9 @@ module.exports = {
     extend: {
       colors: {
         primary: {
+          bg: '#0A0E1A',
+          secondary: '#141B2D',
+          card: '#1A2332',
           50: '#f0f9ff',
           100: '#e0f2fe',
           200: '#bae6fd',
@@ -20,6 +23,12 @@ module.exports = {
           800: '#075985',
           900: '#0c4a6e',
         },
+        accent: '#00D9FF',
+        success: '#00FF88',
+        error: '#FF4757',
+      },
+      spacing: {
+        safe: 'env(safe-area-inset-bottom)',
       },
     },
   },

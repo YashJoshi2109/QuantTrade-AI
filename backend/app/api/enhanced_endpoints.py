@@ -291,37 +291,6 @@ class FundamentalsResponse(BaseModel):
         from_attributes = True
 
 
-@router.get("/fundamentals/{symbol}", response_model=dict)
-async def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
-    """Get comprehensive fundamentals from Finviz"""
-    try:
-        fundamentals = EnhancedDataFetcher.sync_fundamentals(db, symbol.upper())
-        
-        if not fundamentals:
-            raise HTTPException(status_code=404, detail=f"No fundamentals found for {symbol}")
-        
-        return {
-            "symbol": fundamentals.symbol_id,
-            "company_name": fundamentals.company_name,
-            "sector": fundamentals.sector,
-            "industry": fundamentals.industry,
-            "market_cap": fundamentals.market_cap,
-            "pe_ratio": fundamentals.pe_ratio,
-            "price_to_book": fundamentals.price_to_book,
-            "dividend_yield": fundamentals.dividend_yield,
-            "profit_margin": fundamentals.profit_margin,
-            "roe": fundamentals.roe,
-            "debt_to_equity": fundamentals.debt_to_equity,
-            "beta": fundamentals.beta,
-            "target_price": fundamentals.target_price,
-            "recommendation": fundamentals.recommendation,
-            "fetched_at": fundamentals.fetched_at
-        }
-    except Exception as e:
-        print(f"Error fetching fundamentals: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 # ============= REAL-TIME NEWS =============
 
 class NewsArticleResponse(BaseModel):
@@ -426,7 +395,17 @@ async def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
     ).first()
     
     # Refresh if older than 1 hour or doesn't exist
-    if not fundamentals or (datetime.utcnow() - fundamentals.fetched_at).seconds > 3600:
+    needs_refresh = False
+    if fundamentals is None or fundamentals.fetched_at is None:
+        needs_refresh = True
+    else:
+        # Handle timezone-aware vs naive datetimes safely
+        from datetime import timezone
+        now = datetime.now(tz=fundamentals.fetched_at.tzinfo or timezone.utc)
+        age_seconds = (now - fundamentals.fetched_at).total_seconds()
+        needs_refresh = age_seconds > 3600
+
+    if needs_refresh:
         fundamentals = EnhancedDataFetcher.sync_fundamentals(symbol.upper(), db)
     
     return {
@@ -460,8 +439,9 @@ async def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
         # Performance
         "beta": fundamentals.beta,
         "rsi": fundamentals.rsi,
-        "52w_high": fundamentals.week_52_high,
-        "52w_low": fundamentals.week_52_low,
+        # Use week_52_* naming to match frontend expectations
+        "week_52_high": fundamentals.week_52_high,
+        "week_52_low": fundamentals.week_52_low,
         
         # Earnings
         "eps": fundamentals.eps,

@@ -3,8 +3,10 @@
 import { useState } from 'react'
 import AppLayout from '@/components/AppLayout'
 import { Lightbulb, Plus, Sparkles, ArrowRight, Clock, ThumbsUp, MessageSquare } from 'lucide-react'
+import MobileLayout from '@/components/layout/MobileLayout'
+import MobileIdeasLab from '@/components/layout/MobileIdeasLab'
 
-export default function IdeasLabPage() {
+function DesktopIdeasLabPage() {
   const ideas = [
     {
       id: 1,
@@ -146,5 +148,20 @@ export default function IdeasLabPage() {
         </div>
       </div>
     </AppLayout>
+  )
+}
+
+export default function IdeasLabPage() {
+  return (
+    <>
+      <div className="hidden md:block">
+        <DesktopIdeasLabPage />
+      </div>
+      <div className="md:hidden">
+        <MobileLayout>
+          <MobileIdeasLab />
+        </MobileLayout>
+      </div>
+    </>
   )
 }

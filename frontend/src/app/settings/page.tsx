@@ -6,8 +6,10 @@ import AppLayout from '@/components/AppLayout'
 import { Brain, Bell, CheckCircle, LogIn, Camera, CreditCard } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createBillingPortalSession } from '@/lib/api'
+import MobileLayout from '@/components/layout/MobileLayout'
+import MobileSettings from '@/components/layout/MobileSettings'
 
-export default function SettingsPage() {
+function DesktopSettingsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const [analystPersonality, setAnalystPersonality] = useState('conservative')
   const [notifications, setNotifications] = useState({
@@ -317,5 +319,20 @@ export default function SettingsPage() {
         </div>
       </div>
     </AppLayout>
+  )
+}
+
+export default function SettingsPage() {
+  return (
+    <>
+      <div className="hidden md:block">
+        <DesktopSettingsPage />
+      </div>
+      <div className="md:hidden">
+        <MobileLayout>
+          <MobileSettings />
+        </MobileLayout>
+      </div>
+    </>
   )
 }

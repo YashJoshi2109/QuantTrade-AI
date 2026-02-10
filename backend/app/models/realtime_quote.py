@@ -102,10 +102,5 @@ class QuoteHistory(Base):
     bid = Column(Float)
     ask = Column(Float)
     
-    # Indexes for fast queries
-    __table_args__ = (
-        Index('idx_symbol_timestamp', 'symbol_id', 'timestamp'),
-    )
-    
     # Relationship
     symbol = relationship("Symbol", backref="quote_history")

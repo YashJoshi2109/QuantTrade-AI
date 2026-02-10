@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import AppLayout from '@/components/AppLayout'
+import MobileLayout from '@/components/layout/MobileLayout'
+import MobileBacktest from '@/components/layout/MobileBacktest'
 import { runBacktest, BacktestResult, BacktestRequest } from '@/lib/api'
 import { Play, TrendingUp, TrendingDown, Activity, Target, AlertTriangle, Loader2 } from 'lucide-react'
 
-export default function BacktestPage() {
+function DesktopBacktestPage() {
   const [symbol, setSymbol] = useState('NVDA')
   const [strategy, setStrategy] = useState('rsi_ma_crossover')
   const [startDate, setStartDate] = useState('2023-01-01')
@@ -280,5 +282,20 @@ export default function BacktestPage() {
         </div>
       </div>
     </AppLayout>
+  )
+}
+
+export default function BacktestPage() {
+  return (
+    <>
+      <div className="hidden md:block">
+        <DesktopBacktestPage />
+      </div>
+      <div className="md:hidden">
+        <MobileLayout>
+          <MobileBacktest />
+        </MobileLayout>
+      </div>
+    </>
   )
 }

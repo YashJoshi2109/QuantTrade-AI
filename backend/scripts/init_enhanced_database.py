@@ -58,7 +58,7 @@ def init_database():
         
         print(f"\n✅ Total tables in database: {len(tables)}")
         
-        # Create indexes for performance
+        # Create indexes for performance (idempotent)
         print("\n🔧 Creating additional indexes...")
         db = SessionLocal()
         try:
@@ -66,6 +66,8 @@ def init_database():
             db.execute("CREATE INDEX IF NOT EXISTS idx_fundamentals_symbol ON fundamentals(symbol_id)")
             db.execute("CREATE INDEX IF NOT EXISTS idx_realtime_quote_symbol ON realtime_quotes(symbol_id)")
             db.execute("CREATE INDEX IF NOT EXISTS idx_position_portfolio ON positions(portfolio_id)")
+            # Historical quote index for fast lookups
+            db.execute("CREATE INDEX IF NOT EXISTS idx_symbol_timestamp ON quote_history(symbol_id, timestamp)")
             db.commit()
             print("✅ Indexes created successfully!")
         except Exception as e:

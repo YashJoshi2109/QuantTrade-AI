@@ -47,23 +47,16 @@ function StockTile({ stock }: { stock: StockPerformance }) {
 
 export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmapProps) {
   const [selectedSector, setSelectedSector] = useState<string | null>(null)
-  
-  // Safety check for sectors
-  if (!sectors || !Array.isArray(sectors) || sectors.length === 0) {
-    return (
-      <div className={`${className} text-center py-12`}>
-        <p className="text-slate-400 text-sm">No market data available</p>
-      </div>
-    )
-  }
+  const safeSectors = Array.isArray(sectors) ? sectors : []
+  const hasData = safeSectors.length > 0
   
   // Filter sectors based on selection
   const displaySectors = useMemo(() => {
     if (selectedSector) {
-      return sectors.filter(s => s && s.sector === selectedSector)
+      return safeSectors.filter(s => s && s.sector === selectedSector)
     }
-    return sectors
-  }, [sectors, selectedSector])
+    return safeSectors
+  }, [safeSectors, selectedSector])
   
   // Calculate total market stats
   const marketStats = useMemo(() => {
@@ -71,7 +64,7 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
     let losers = 0
     let unchanged = 0
     
-    sectors.forEach(sector => {
+    safeSectors.forEach(sector => {
       if (!sector || !sector.stocks || !Array.isArray(sector.stocks)) {
         return
       }
@@ -84,10 +77,15 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
     })
     
     return { gainers, losers, unchanged, total: gainers + losers + unchanged }
-  }, [sectors])
+  }, [safeSectors])
 
   return (
     <div className={`${className}`}>
+      {!hasData && (
+        <div className="text-center py-12">
+          <p className="text-slate-400 text-sm">No market data available</p>
+        </div>
+      )}
       {/* Legend & Stats */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
         {/* Sector Filter */}
@@ -102,7 +100,7 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
           >
             All Sectors
           </button>
-          {sectors.slice(0, 6).map(sector => (
+          {sectors?.slice(0, 6).map(sector => (
             <button
               key={sector.sector}
               onClick={() => setSelectedSector(selectedSector === sector.sector ? null : sector.sector)}

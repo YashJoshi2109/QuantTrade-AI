@@ -4,7 +4,6 @@ import { ReactQueryProvider } from '@/lib/react-query'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ToastProvider } from '@/components/Toast'
-import MobileBlocker from '@/components/MobileBlocker'
 
 export const metadata: Metadata = {
   title: 'QuantTrade AI',
@@ -23,7 +22,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <MobileBlocker />
         <ErrorBoundary>
           <AuthProvider>
             <ReactQueryProvider>

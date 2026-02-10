@@ -3,10 +3,12 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import AppLayout from '@/components/AppLayout'
+import MobileLayout from '@/components/layout/MobileLayout'
+import MobileResearch from '@/components/layout/MobileResearch'
 import Chart from '@/components/Chart'
 import LiveNews from '@/components/LiveNews'
 import { Sparkles, TrendingUp, TrendingDown, RefreshCw, Activity, Target, AlertTriangle, Zap, BarChart3, Newspaper, Loader2 } from 'lucide-react'
-import { fetchPrices, fetchIndicators, syncSymbol, PriceBar, Indicators } from '@/lib/api'
+import { fetchPrices, fetchIndicators, fetchFundamentals, syncSymbol, PriceBar, Indicators, FundamentalsData } from '@/lib/api'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { SkeletonChart, SkeletonIndicators, SkeletonText, Skeleton } from '@/components/Skeleton'
@@ -18,6 +20,7 @@ function ResearchContent() {
   const [selectedSymbol, setSelectedSymbol] = useState(symbolParam || 'NVDA')
   const [priceData, setPriceData] = useState<PriceBar[]>([])
   const [indicators, setIndicators] = useState<Indicators | null>(null)
+  const [fundamentals, setFundamentals] = useState<FundamentalsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,13 +48,15 @@ function ResearchContent() {
     setError(null)
     
     try {
-      const [prices, ind] = await Promise.all([
+      const [prices, ind, fund] = await Promise.all([
         fetchPrices(selectedSymbol).catch(() => []),
-        fetchIndicators(selectedSymbol).catch(() => null)
+        fetchIndicators(selectedSymbol).catch(() => null),
+        fetchFundamentals(selectedSymbol).catch(() => null)
       ])
       
       setPriceData(prices)
       setIndicators(ind)
+      setFundamentals(fund)
       
       if (prices.length === 0) {
         setError('No price data available. Click "Sync Data" to fetch.')
@@ -102,6 +107,29 @@ function ResearchContent() {
 
   const priceInfo = getPriceInfo()
   const isPositive = isNumber(priceInfo.percent) ? priceInfo.percent >= 0 : false
+
+  const marketCap = fundamentals?.market_cap
+  const pe = fundamentals?.pe_ratio
+  const forwardPe = fundamentals?.forward_pe
+  const peg = fundamentals?.peg_ratio
+  const priceToSales = fundamentals?.price_to_sales
+  const priceToBook = fundamentals?.price_to_book
+  const profitMargin = fundamentals?.profit_margin
+  const operatingMargin = fundamentals?.operating_margin
+  const grossMargin = fundamentals?.gross_margin
+  const roe = fundamentals?.roe
+  const roa = fundamentals?.roa
+  const roi = (fundamentals as any)?.roi as number | undefined
+  const debtToEquity = fundamentals?.debt_to_equity
+  const currentRatio = fundamentals?.current_ratio
+  const quickRatio = fundamentals?.quick_ratio
+  const beta = fundamentals?.beta
+  const rsi = fundamentals?.rsi
+  const eps = fundamentals?.eps
+  const epsNextQuarter = fundamentals?.eps_next_quarter
+  const earningsDate = fundamentals?.earnings_date
+  const targetPrice = fundamentals?.target_price
+  const recommendation = fundamentals?.recommendation
 
   const aiReport = {
     sentiment: indicators?.indicators?.rsi && indicators.indicators.rsi > 50 ? 'Bullish' : 'Neutral',
@@ -361,25 +389,174 @@ function ResearchContent() {
             </div>
           </div>
 
-          {/* Quick Stats */}
+          {/* Fundamentals Snapshot */}
           <div className="col-span-12 lg:col-span-3">
             <div className="hud-panel p-5 h-full flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Zap className="w-4 h-4 text-cyan-400" />
-                  <h3 className="font-bold text-sm text-white">Quick Stats</h3>
+                  <h3 className="font-bold text-sm text-white">Fundamentals</h3>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-white hud-value">{priceData.length}</div>
-                    <div className="text-[10px] text-slate-500">DATA POINTS</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-cyan-400 hud-value">
-                      {formatNumber(indicators?.indicators?.rsi, 0, '--')}
+
+                <div className="space-y-4 text-xs text-slate-300">
+                  {/* Valuation */}
+                  <div>
+                    <p className="hud-label mb-1">VALUATION</p>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Market Cap</span>
+                        <span className="font-mono text-white">
+                          {isNumber(marketCap)
+                            ? (() => {
+                                const mc = marketCap as number
+                                const [val, suffix] =
+                                  mc >= 1e12
+                                    ? [mc / 1e12, 'T']
+                                    : mc >= 1e9
+                                      ? [mc / 1e9, 'B']
+                                      : mc >= 1e6
+                                        ? [mc / 1e6, 'M']
+                                        : [mc, '']
+                                return `${formatNumber(val, 2)}${suffix}`
+                              })()
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">P/E · Fwd P/E</span>
+                        <span className="font-mono text-white">
+                          {isNumber(pe) ? formatNumber(pe, 2) : '—'}{' '}
+                          <span className="text-slate-600">/</span>{' '}
+                          {isNumber(forwardPe) ? formatNumber(forwardPe, 2) : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">PEG</span>
+                        <span className="font-mono text-white">
+                          {isNumber(peg) ? formatNumber(peg, 2) : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">P/S · P/B</span>
+                        <span className="font-mono text-white">
+                          {isNumber(priceToSales) ? formatNumber(priceToSales, 2) : '—'}{' '}
+                          <span className="text-slate-600">/</span>{' '}
+                          {isNumber(priceToBook) ? formatNumber(priceToBook, 2) : '—'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-[10px] text-slate-500">RSI</div>
+                  </div>
+
+                  {/* Profitability */}
+                  <div>
+                    <p className="hud-label mb-1">PROFITABILITY</p>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Profit Margin</span>
+                        <span className="font-mono text-white">
+                          {isNumber(profitMargin) ? `${formatNumber(profitMargin, 1)}%` : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Operating Margin</span>
+                        <span className="font-mono text-white">
+                          {isNumber(operatingMargin) ? `${formatNumber(operatingMargin, 1)}%` : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Gross Margin</span>
+                        <span className="font-mono text-white">
+                          {isNumber(grossMargin) ? `${formatNumber(grossMargin, 1)}%` : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Returns */}
+                  <div>
+                    <p className="hud-label mb-1">RETURNS</p>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">ROE</span>
+                        <span className="font-mono text-white">
+                          {isNumber(roe) ? `${formatNumber(roe, 1)}%` : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">ROA</span>
+                        <span className="font-mono text-white">
+                          {isNumber(roa) ? `${formatNumber(roa, 1)}%` : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">ROI</span>
+                        <span className="font-mono text-white">
+                          {isNumber(roi) ? `${formatNumber(roi, 1)}%` : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Risk & Liquidity */}
+                  <div>
+                    <p className="hud-label mb-1">RISK & LIQUIDITY</p>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Beta</span>
+                        <span className="font-mono text-white">
+                          {isNumber(beta) ? formatNumber(beta, 2) : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Debt/Equity</span>
+                        <span className="font-mono text-white">
+                          {isNumber(debtToEquity) ? formatNumber(debtToEquity, 2) : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Current · Quick</span>
+                        <span className="font-mono text-white">
+                          {isNumber(currentRatio) ? formatNumber(currentRatio, 2) : '—'}{' '}
+                          <span className="text-slate-600">/</span>{' '}
+                          {isNumber(quickRatio) ? formatNumber(quickRatio, 2) : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Earnings & Momentum */}
+                  <div>
+                    <p className="hud-label mb-1">EARNINGS & MOMENTUM</p>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">EPS · Next Q</span>
+                        <span className="font-mono text-white">
+                          {isNumber(eps) ? formatNumber(eps, 2) : '—'}{' '}
+                          <span className="text-slate-600">/</span>{' '}
+                          {isNumber(epsNextQuarter) ? formatNumber(epsNextQuarter, 2) : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Target · Rec</span>
+                        <span className="font-mono text-white">
+                          {isNumber(targetPrice) ? `$${formatNumber(targetPrice, 2)}` : '—'}{' '}
+                          <span className="text-slate-600">/</span>{' '}
+                          {recommendation ?? '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Earnings Date</span>
+                        <span className="font-mono text-white">
+                          {earningsDate || '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">RSI (14)</span>
+                        <span className="font-mono text-white">
+                          {isNumber(rsi) ? formatNumber(rsi, 1) : '—'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -415,17 +592,47 @@ function ResearchContent() {
   )
 }
 
-export default function ResearchPage() {
+function DesktopResearchPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Skeleton className="w-12 h-12 rounded-full" />
-          <SkeletonText className="h-4 w-32" />
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Skeleton className="w-12 h-12 rounded-full" />
+            <SkeletonText className="h-4 w-32" />
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <ResearchContent />
     </Suspense>
+  )
+}
+
+export default function ResearchPage() {
+  return (
+    <>
+      <div className="hidden md:block">
+        <DesktopResearchPage />
+      </div>
+      <div className="md:hidden">
+        <Suspense
+          fallback={
+            <MobileLayout>
+              <div className="min-h-[60vh] flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                  <Skeleton className="w-12 h-12 rounded-full" />
+                  <SkeletonText className="h-4 w-32" />
+                </div>
+              </div>
+            </MobileLayout>
+          }
+        >
+          <MobileLayout>
+            <MobileResearch />
+          </MobileLayout>
+        </Suspense>
+      </div>
+    </>
   )
 }

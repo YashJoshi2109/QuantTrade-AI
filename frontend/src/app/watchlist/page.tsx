@@ -23,6 +23,8 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
+import MobileLayout from '@/components/layout/MobileLayout'
+import MobileWatchlist from '@/components/layout/MobileWatchlist'
 import { 
   TrendingUp, TrendingDown, Plus, Trash2, Star, Loader2,
   RefreshCw, X, LogIn, Edit2, Check, AlertCircle, Search, 
@@ -49,7 +51,7 @@ interface WatchlistItemWithPrice extends WatchlistItem {
 // Query key for cache management
 const WATCHLIST_QUERY_KEY = ['watchlist']
 
-export default function WatchlistPage() {
+function DesktopWatchlistPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const queryClient = useQueryClient()
   const toast = useToast()
@@ -782,5 +784,20 @@ export default function WatchlistPage() {
         </div>
       )}
     </AppLayout>
+  )
+}
+
+export default function WatchlistPage() {
+  return (
+    <>
+      <div className="hidden md:block">
+        <DesktopWatchlistPage />
+      </div>
+      <div className="md:hidden">
+        <MobileLayout>
+          <MobileWatchlist />
+        </MobileLayout>
+      </div>
+    </>
   )
 }

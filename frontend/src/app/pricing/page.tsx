@@ -6,6 +6,8 @@ import AppLayout from '@/components/AppLayout'
 import { Check, Zap, ShieldCheck, CreditCard, AlertCircle } from 'lucide-react'
 import { createCheckoutSession, BillingPlan } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
+import MobileLayout from '@/components/layout/MobileLayout'
+import MobilePricing from '@/components/layout/MobilePricing'
 
 const features = [
   'AI copilot for symbol research',
@@ -16,6 +18,21 @@ const features = [
 ]
 
 export default function PricingPage() {
+  return (
+    <>
+      <div className="hidden md:block">
+        <DesktopPricingPage />
+      </div>
+      <div className="md:hidden">
+        <MobileLayout>
+          <MobilePricing />
+        </MobileLayout>
+      </div>
+    </>
+  )
+}
+
+function DesktopPricingPage() {
   const router = useRouter()
   const { isAuthenticated } = useAuth()
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly')

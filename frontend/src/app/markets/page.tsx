@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
+import MobileLayout from '@/components/layout/MobileLayout'
+import MobileMarkets from '@/components/layout/MobileMarkets'
 import LiveNews from '@/components/LiveNews'
 import MarketHeatmap from '@/components/MarketHeatmap'
 import { 
@@ -27,7 +29,7 @@ import { fetchSectorPerformance, fetchMarketMovers, fetchMarketIndices, SectorPe
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import Link from 'next/link'
 
-export default function MarketsPage() {
+function DesktopMarketsPage() {
   const [view, setView] = useState<'heatmap' | 'list'>('heatmap')
   
   // Fetch market indices from dedicated endpoint - cached aggressively
@@ -342,5 +344,20 @@ export default function MarketsPage() {
         </div>
       </div>
     </AppLayout>
+  )
+}
+
+export default function MarketsPage() {
+  return (
+    <>
+      <div className="hidden md:block">
+        <DesktopMarketsPage />
+      </div>
+      <div className="md:hidden">
+        <MobileLayout>
+          <MobileMarkets />
+        </MobileLayout>
+      </div>
+    </>
   )
 }

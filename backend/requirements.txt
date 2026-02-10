@@ -26,6 +26,9 @@ beautifulsoup4==4.12.2
 httpx==0.25.2
 lxml>=4.9.3  # For Finviz HTML parsing
 
+# Finviz stock data
+finviz
+
 # Technical analysis & feature engineering
 ta==0.11.0
 # pandas-ta>=0.3.14b0  # Optional: Requires Python < 3.14 (numba dependency)

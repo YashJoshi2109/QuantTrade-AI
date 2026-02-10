@@ -4,6 +4,10 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
 async function parseJsonSafe<T>(response: Response): Promise<T | null> {
   try {
     return (await response.json()) as T
@@ -663,11 +667,27 @@ export interface FundamentalsData {
   industry?: string
   market_cap?: number
   pe_ratio?: number
-  eps?: number
-  dividend_yield?: number
+  forward_pe?: number
+  peg_ratio?: number
+  price_to_sales?: number
+  price_to_book?: number
+  profit_margin?: number
+  operating_margin?: number
+  gross_margin?: number
+  roe?: number
+  roa?: number
+  debt_to_equity?: number
+  current_ratio?: number
+  quick_ratio?: number
   beta?: number
+  rsi?: number
   week_52_high?: number
   week_52_low?: number
+  eps?: number
+  eps_next_quarter?: number
+  earnings_date?: string
+  target_price?: number
+  recommendation?: string
 }
 
 // Fetch quote from Finnhub with priority parameter
@@ -751,12 +771,86 @@ export async function fetchMarketIndices(): Promise<MarketIndex[]> {
   try {
     const response = await fetch(`${API_URL}/api/v1/enhanced/market-indices`)
     const data = await parseJsonSafe<MarketIndex[]>(response)
-    if (data) return data
+    if (data && Array.isArray(data) && data.length > 0) {
+      // If upstream returns zeros (common when yfinance blocks), fallback to liquid ETFs via quote endpoint
+      const allZero = data.every((i) => !isFiniteNumber(i.price) || i.price === 0)
+      if (!allZero) return data
+    }
     console.error('Failed to fetch market indices:', response.status)
-    return []
+    // Fallback to ETFs that track indices (uses enhanced quote endpoint)
+    try {
+      const [spy, qqq, dia] = await Promise.all([
+        fetchQuote('SPY', 'normal'),
+        fetchQuote('QQQ', 'normal'),
+        fetchQuote('DIA', 'normal'),
+      ])
+      return [
+        {
+          symbol: '^GSPC',
+          name: 'S&P 500',
+          price: spy.price,
+          change: spy.change,
+          change_percent: spy.change_percent,
+          timestamp: spy.timestamp,
+        },
+        {
+          symbol: '^IXIC',
+          name: 'NASDAQ',
+          price: qqq.price,
+          change: qqq.change,
+          change_percent: qqq.change_percent,
+          timestamp: qqq.timestamp,
+        },
+        {
+          symbol: '^DJI',
+          name: 'Dow Jones',
+          price: dia.price,
+          change: dia.change,
+          change_percent: dia.change_percent,
+          timestamp: dia.timestamp,
+        },
+      ]
+    } catch {
+      return []
+    }
   } catch (error) {
     console.error('Error fetching market indices:', error)
-    return []
+    // Fallback to ETFs that track indices (uses enhanced quote endpoint)
+    try {
+      const [spy, qqq, dia] = await Promise.all([
+        fetchQuote('SPY', 'normal'),
+        fetchQuote('QQQ', 'normal'),
+        fetchQuote('DIA', 'normal'),
+      ])
+      return [
+        {
+          symbol: '^GSPC',
+          name: 'S&P 500',
+          price: spy.price,
+          change: spy.change,
+          change_percent: spy.change_percent,
+          timestamp: spy.timestamp,
+        },
+        {
+          symbol: '^IXIC',
+          name: 'NASDAQ',
+          price: qqq.price,
+          change: qqq.change,
+          change_percent: qqq.change_percent,
+          timestamp: qqq.timestamp,
+        },
+        {
+          symbol: '^DJI',
+          name: 'Dow Jones',
+          price: dia.price,
+          change: dia.change,
+          change_percent: dia.change_percent,
+          timestamp: dia.timestamp,
+        },
+      ]
+    } catch {
+      return []
+    }
   }
 }
 
