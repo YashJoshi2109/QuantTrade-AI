@@ -54,7 +54,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import get_current_user
 from app.config import settings
 from app.db.database import get_db
-from app.models.billing import BillingCustomer
+from app.models.billing import BillingCustomer, Subscription
 from app.models.user import User
 from app.services.billing_service import (
     get_or_create_billing_customer,
@@ -97,6 +97,14 @@ class SessionStatusResponse(BaseModel):
     customer_id: Optional[str] = None
     subscription_id: Optional[str] = None
     price_id: Optional[str] = None
+
+
+class SubscriptionStatusResponse(BaseModel):
+    has_active: bool
+    status: Optional[str] = None
+    price_id: Optional[str] = None
+    current_period_end: Optional[datetime] = None
+    cancel_at_period_end: Optional[bool] = None
 
 
 def _resolve_price_id(body: CheckoutSessionRequest) -> str:
@@ -239,6 +247,34 @@ async def get_session_status(session_id: str):
         customer_id=session.get("customer"),
         subscription_id=subscription_id,
         price_id=price_id,
+    )
+
+
+@router.get(
+    "/subscription",
+    response_model=SubscriptionStatusResponse,
+)
+async def get_subscription_status(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get current user's subscription status from the local subscriptions table.
+    """
+    user_id = int(current_user["user_id"])
+    sub = db.query(Subscription).filter(Subscription.user_id == user_id).first()
+
+    if not sub:
+        return SubscriptionStatusResponse(has_active=False)
+
+    is_active = sub.status in ("active", "trialing", "past_due")
+
+    return SubscriptionStatusResponse(
+        has_active=is_active,
+        status=sub.status,
+        price_id=sub.price_id,
+        current_period_end=sub.current_period_end,
+        cancel_at_period_end=sub.cancel_at_period_end,
     )
 
 

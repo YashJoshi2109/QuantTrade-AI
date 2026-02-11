@@ -16,6 +16,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { useEffect, useState } from 'react'
+import { getSubscriptionStatus, SubscriptionStatus } from '@/lib/api'
 
 interface MoreMenuProps {
   open: boolean
@@ -107,6 +109,28 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
 
   const { isAuthenticated, logout } = useAuth()
   const router = useRouter()
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setSubscription(null)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const status = await getSubscriptionStatus()
+        if (!cancelled) setSubscription(status)
+      } catch {
+        if (!cancelled) setSubscription(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isAuthenticated])
+
+  const hasActiveSubscription = !!subscription?.has_active
 
   return (
     <div className="md:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
@@ -161,11 +185,19 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
             />
             <MenuItem
               icon={<DollarSign className="w-4 h-4 text-green-400" />}
-              title="Pricing"
-              description="Change or upgrade your subscription."
-              href="/pricing"
-              badge="Pro"
-              badgeColor="text-emerald-300 bg-emerald-500/10 border-emerald-400/40"
+              title={hasActiveSubscription ? 'Subscription' : 'Pricing'}
+              description={
+                hasActiveSubscription
+                  ? 'View your current plan and manage billing.'
+                  : 'Change or upgrade your subscription.'
+              }
+              href={hasActiveSubscription ? '/settings' : '/pricing'}
+              badge={hasActiveSubscription ? undefined : 'Pro'}
+              badgeColor={
+                hasActiveSubscription
+                  ? undefined
+                  : 'text-emerald-300 bg-emerald-500/10 border-emerald-400/40'
+              }
             />
             <MenuItem
               icon={<Bell className="w-4 h-4 text-orange-400" />}

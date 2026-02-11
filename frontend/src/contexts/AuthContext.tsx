@@ -15,7 +15,13 @@ interface AuthContextType {
   
   // JWT auth methods
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, username: string, password: string, fullName?: string) => Promise<void>
+  register: (
+    email: string,
+    username: string,
+    password: string,
+    fullName?: string,
+    options?: { countryCode?: string; phoneNumber?: string; otp?: string }
+  ) => Promise<void>
   googleLogin: (googleId: string, email: string, name: string, avatarUrl?: string) => Promise<void>
   googleVerify: (credential: string) => Promise<void>
   
@@ -85,8 +91,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthMethod('jwt')
   }
 
-  const register = async (email: string, username: string, password: string, fullName?: string) => {
-    const result = await authRegister(email, username, password, fullName)
+  const register = async (
+    email: string,
+    username: string,
+    password: string,
+    fullName?: string,
+    options?: { countryCode?: string; phoneNumber?: string; otp?: string }
+  ) => {
+    const result = await authRegister(email, username, password, fullName, options)
     setUser(result.user)
     setNeonUser(null)
     setAuthMethod('jwt')

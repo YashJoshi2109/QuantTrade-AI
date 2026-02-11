@@ -19,7 +19,15 @@ class User(Base):
     # OAuth fields
     google_id = Column(String(255), unique=True, nullable=True)
     avatar_url = Column(Text, nullable=True)
-    
+
+    # Phone number (country code + phone)
+    country_code = Column(String(10), nullable=True)
+    phone_number = Column(String(20), nullable=True)
+
+    # Email verification
+    email_verified_at = Column(DateTime, nullable=True)
+    otp_verified = Column(Boolean, default=False)
+
     # Account status
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)

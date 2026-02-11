@@ -22,7 +22,6 @@ import {
   ChevronLeft,
   X
 } from 'lucide-react'
-import CopilotPanel from './CopilotPanel'
 import ApiStatsMonitor from './ApiStatsMonitor'
 import { fetchSymbols, Symbol, syncSymbol, fetchMarketStatus, MarketStatus } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
@@ -65,7 +64,6 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { user, isAuthenticated, logout, isLoading: authLoading } = useAuth()
-  const [copilotOpen, setCopilotOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Symbol[]>([])
   const [showResults, setShowResults] = useState(false)
@@ -93,19 +91,8 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
     setMobileMenuOpen(false)
   }, [pathname])
 
-  // Determine page context for copilot
-  const pageContext = useMemo(() => {
-    if (pathname === '/') return 'Dashboard'
-    if (pathname === '/markets') return 'Markets'
-    if (pathname === '/research') return 'Research'
-    if (pathname === '/watchlist') return 'Watchlist'
-    if (pathname === '/backtest') return 'Backtest'
-    return 'General'
-  }, [pathname])
-
   // Dynamic widths for responsive layout
   const sidebarWidth = sidebarCollapsed ? '5rem' : '14rem'
-  const copilotWidth = copilotOpen ? '28rem' : '3rem'
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/' },
@@ -374,7 +361,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
         className="pt-14 min-h-screen transition-all duration-300"
         style={{ 
           marginLeft: `calc(${sidebarWidth})`,
-          marginRight: copilotWidth 
+          marginRight: 0 
         }}
       >
         <div className="h-full overflow-y-auto px-4 md:px-6 py-4 md:py-6">
@@ -382,15 +369,6 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
         </div>
       </main>
 
-      {/* Fixed AI Copilot Panel */}
-      <div className="fixed right-0 top-14 bottom-0 z-40 hidden lg:block">
-        <CopilotPanel 
-          symbol={symbol || 'NVDA'} 
-          context={pageContext}
-          isOpen={copilotOpen} 
-          onToggle={() => setCopilotOpen(!copilotOpen)} 
-        />
-      </div>
     </div>
   )
 }

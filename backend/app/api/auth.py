@@ -1,7 +1,8 @@
 """
 Authentication API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
+import asyncio
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
@@ -12,6 +13,15 @@ import bcrypt
 from app.db.database import get_db
 from app.models.user import User
 from app.config import settings
+from app.services.email_verifier_service import validate_email
+from app.services.otp_service import (
+    generate_otp,
+    store_otp,
+    verify_otp,
+    check_rate_limit,
+    set_rate_limit,
+    send_otp_email,
+)
 
 # Google OAuth
 try:
@@ -36,6 +46,9 @@ class UserRegister(BaseModel):
     username: str
     password: str
     full_name: Optional[str] = None
+    country_code: Optional[str] = None
+    phone_number: Optional[str] = None
+    otp: Optional[str] = None  # Optional code for email verification
 
 
 class UserLogin(BaseModel):
@@ -150,14 +163,109 @@ def user_to_dict(user: User) -> dict:
         "full_name": user.full_name,
         "avatar_url": user.avatar_url,
         "is_verified": user.is_verified,
+        "country_code": getattr(user, "country_code", None),
+        "phone_number": getattr(user, "phone_number", None),
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
+
+
+# --- Email Validation & OTP Endpoints ---
+class ValidateEmailRequest(BaseModel):
+    email: str
+
+
+@router.get("/validate-email")
+async def validate_email_endpoint(email: str):
+    """Validate email format and deliverability via Rapid Email Verifier API."""
+    result = await validate_email(email)
+    return {
+        "valid": result.valid,
+        "status": result.status,
+        "syntax_valid": result.syntax_valid,
+        "domain_exists": result.domain_exists,
+        "is_disposable": result.is_disposable,
+        "message": result.message,
+        "typo_suggestion": result.typo_suggestion,
+        "alias_of": result.alias_of,
+    }
+
+
+class SendOtpRequest(BaseModel):
+    email: EmailStr
+
+
+@router.post("/send-otp")
+async def send_otp_endpoint(req: SendOtpRequest, db: Session = Depends(get_db)):
+    """Send OTP to email for verification. Rate limited to 1 per minute."""
+    # Validate email first
+    validation = await validate_email(req.email)
+    if not validation.valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=validation.message
+        )
+    if not check_rate_limit(req.email):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Please wait a minute before requesting another code"
+        )
+    otp = generate_otp()
+    if not store_otp(req.email, otp):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OTP service temporarily unavailable"
+        )
+    sent = await asyncio.to_thread(send_otp_email, req.email, otp)
+    set_rate_limit(req.email)
+    if not sent:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to send verification email. Please check RESEND_API_KEY and domain configuration."
+        )
+    return {"message": "Verification code sent to your email"}
+
+
+class VerifyOtpRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
+
+@router.post("/verify-otp")
+async def verify_otp_endpoint(req: VerifyOtpRequest):
+    """Verify OTP code."""
+    if verify_otp(req.email, req.otp):
+        return {"verified": True, "message": "Email verified successfully"}
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invalid or expired verification code"
+    )
 
 
 # Endpoints
 @router.post("/register", response_model=TokenResponse)
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
-    """Register a new user"""
+    """Register a new user with optional email verification and phone"""
+    # Validate email format and deliverability
+    validation = await validate_email(user_data.email)
+    if not validation.valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=validation.message
+        )
+    if validation.is_disposable:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Disposable email addresses are not allowed"
+        )
+
+    # Optional: require OTP verification if OTP provided
+    if user_data.otp:
+        if not verify_otp(user_data.email, user_data.otp):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired verification code. Please request a new one."
+            )
+
     # Check if email exists
     if db.query(User).filter(User.email == user_data.email).first():
         raise HTTPException(
@@ -178,7 +286,11 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
         username=user_data.username,
         hashed_password=hash_password(user_data.password),
         full_name=user_data.full_name,
-        is_verified=True  # Auto-verify for now (no email verification)
+        country_code=user_data.country_code,
+        phone_number=user_data.phone_number,
+        is_verified=True,
+        otp_verified=bool(user_data.otp),
+        email_verified_at=datetime.utcnow() if user_data.otp else None,
     )
     
     db.add(user)

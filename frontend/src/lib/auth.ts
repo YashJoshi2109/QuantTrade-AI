@@ -59,12 +59,19 @@ export async function register(
   email: string,
   username: string,
   password: string,
-  fullName?: string
+  fullName?: string,
+  options?: { countryCode?: string; phoneNumber?: string; otp?: string }
 ): Promise<AuthResponse> {
+  const body: Record<string, unknown> = { email, username, password, full_name: fullName }
+  if (options) {
+    if (options.countryCode) body.country_code = options.countryCode
+    if (options.phoneNumber) body.phone_number = options.phoneNumber
+    if (options.otp) body.otp = options.otp
+  }
   const response = await fetch(`${API_URL}/api/v1/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, username, password, full_name: fullName })
+    body: JSON.stringify(body)
   })
   
   if (!response.ok) {
@@ -165,6 +172,35 @@ export async function checkSession(): Promise<{ authenticated: boolean; user: Us
   } catch {
     return { authenticated: false, user: null }
   }
+}
+
+export async function validateEmail(email: string): Promise<{ valid: boolean; message: string; status: string }> {
+  const response = await fetch(`${API_URL}/api/v1/auth/validate-email?email=${encodeURIComponent(email)}`)
+  const data = await response.json()
+  return { valid: data.valid, message: data.message || '', status: data.status || 'UNKNOWN' }
+}
+
+export async function sendOtp(email: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/v1/auth/send-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email })
+  })
+  if (!response.ok) {
+    const err = await response.json()
+    throw new Error(err.detail || 'Failed to send verification code')
+  }
+}
+
+export async function verifyOtp(email: string, otp: string): Promise<boolean> {
+  const response = await fetch(`${API_URL}/api/v1/auth/verify-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, otp })
+  })
+  if (!response.ok) return false
+  const data = await response.json()
+  return data.verified === true
 }
 
 export function logout(): void {

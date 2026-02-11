@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
+
+    # Email OTP (Resend - https://resend.com)
+    RESEND_API_KEY: Optional[str] = None
+    RESEND_FROM_EMAIL: str = "QuantTrade <onboarding@resend.dev>"  # Replace with verified domain
     
     # Neon Auth
     NEON_AUTH_URL: Optional[str] = None

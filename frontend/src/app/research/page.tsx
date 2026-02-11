@@ -131,6 +131,12 @@ function ResearchContent() {
   const targetPrice = fundamentals?.target_price
   const recommendation = fundamentals?.recommendation
 
+  const percentWidth = (value?: number) => {
+    if (!isNumber(value)) return '0%'
+    const clamped = Math.max(Math.min(value, 100), -100)
+    return `${Math.abs(clamped)}%`
+  }
+
   const aiReport = {
     sentiment: indicators?.indicators?.rsi && indicators.indicators.rsi > 50 ? 'Bullish' : 'Neutral',
     rsiSignal: indicators?.indicators?.rsi ? (
@@ -395,7 +401,7 @@ function ResearchContent() {
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Zap className="w-4 h-4 text-cyan-400" />
-                  <h3 className="font-bold text-sm text-white">Fundamentals</h3>
+                  <h3 className="font-bold text-sm text-white">Fundamentals Overview</h3>
                 </div>
 
                 <div className="space-y-4 text-xs text-slate-300">
@@ -444,30 +450,61 @@ function ResearchContent() {
                           {isNumber(priceToBook) ? formatNumber(priceToBook, 2) : '—'}
                         </span>
                       </div>
+                      {/* Visual: valuation bar (P/E vs 40x cap) */}
+                      <div className="mt-2 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500"
+                          style={{ width: percentWidth(pe ? (Math.min(pe, 40) / 40) * 100 : undefined) }}
+                        />
+                      </div>
                     </div>
                   </div>
 
                   {/* Profitability */}
                   <div>
                     <p className="hud-label mb-1">PROFITABILITY</p>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Profit Margin</span>
-                        <span className="font-mono text-white">
-                          {isNumber(profitMargin) ? `${formatNumber(profitMargin, 1)}%` : '—'}
-                        </span>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Profit Margin</span>
+                          <span className="font-mono text-white">
+                            {isNumber(profitMargin) ? `${formatNumber(profitMargin, 1)}%` : '—'}
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500"
+                            style={{ width: percentWidth(profitMargin) }}
+                          />
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Operating Margin</span>
-                        <span className="font-mono text-white">
-                          {isNumber(operatingMargin) ? `${formatNumber(operatingMargin, 1)}%` : '—'}
-                        </span>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Operating Margin</span>
+                          <span className="font-mono text-white">
+                            {isNumber(operatingMargin) ? `${formatNumber(operatingMargin, 1)}%` : '—'}
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-sky-400 to-sky-500"
+                            style={{ width: percentWidth(operatingMargin) }}
+                          />
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Gross Margin</span>
-                        <span className="font-mono text-white">
-                          {isNumber(grossMargin) ? `${formatNumber(grossMargin, 1)}%` : '—'}
-                        </span>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Gross Margin</span>
+                          <span className="font-mono text-white">
+                            {isNumber(grossMargin) ? `${formatNumber(grossMargin, 1)}%` : '—'}
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-violet-400 to-violet-500"
+                            style={{ width: percentWidth(grossMargin) }}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -475,24 +512,48 @@ function ResearchContent() {
                   {/* Returns */}
                   <div>
                     <p className="hud-label mb-1">RETURNS</p>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">ROE</span>
-                        <span className="font-mono text-white">
-                          {isNumber(roe) ? `${formatNumber(roe, 1)}%` : '—'}
-                        </span>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">ROE</span>
+                          <span className="font-mono text-white">
+                            {isNumber(roe) ? `${formatNumber(roe, 1)}%` : '—'}
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-amber-400 to-amber-500"
+                            style={{ width: percentWidth(roe) }}
+                          />
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">ROA</span>
-                        <span className="font-mono text-white">
-                          {isNumber(roa) ? `${formatNumber(roa, 1)}%` : '—'}
-                        </span>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">ROA</span>
+                          <span className="font-mono text-white">
+                            {isNumber(roa) ? `${formatNumber(roa, 1)}%` : '—'}
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-lime-400 to-lime-500"
+                            style={{ width: percentWidth(roa) }}
+                          />
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">ROI</span>
-                        <span className="font-mono text-white">
-                          {isNumber(roi) ? `${formatNumber(roi, 1)}%` : '—'}
-                        </span>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">ROI</span>
+                          <span className="font-mono text-white">
+                            {isNumber(roi) ? `${formatNumber(roi, 1)}%` : '—'}
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-fuchsia-400 to-fuchsia-500"
+                            style={{ width: percentWidth(roi) }}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -520,6 +581,37 @@ function ResearchContent() {
                           <span className="text-slate-600">/</span>{' '}
                           {isNumber(quickRatio) ? formatNumber(quickRatio, 2) : '—'}
                         </span>
+                      </div>
+                      {/* Liquidity visualization */}
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div>
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-500">Current</span>
+                            <span className="font-mono text-white">
+                              {isNumber(currentRatio) ? formatNumber(currentRatio, 2) : '—'}
+                            </span>
+                          </div>
+                          <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-cyan-400 to-cyan-500"
+                              style={{ width: percentWidth(currentRatio ? (Math.min(currentRatio, 3) / 3) * 100 : undefined) }}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-500">Quick</span>
+                            <span className="font-mono text-white">
+                              {isNumber(quickRatio) ? formatNumber(quickRatio, 2) : '—'}
+                            </span>
+                          </div>
+                          <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-indigo-400 to-indigo-500"
+                              style={{ width: percentWidth(quickRatio ? (Math.min(quickRatio, 3) / 3) * 100 : undefined) }}
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>

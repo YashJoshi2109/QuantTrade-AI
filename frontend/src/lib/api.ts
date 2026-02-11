@@ -1028,6 +1028,14 @@ export interface BillingSessionStatus {
   price_id?: string
 }
 
+export interface SubscriptionStatus {
+  has_active: boolean
+  status?: string
+  price_id?: string
+  current_period_end?: string | null
+  cancel_at_period_end?: boolean | null
+}
+
 async function getAuthJsonHeaders() {
   if (typeof window === 'undefined') {
     return { 'Content-Type': 'application/json' }
@@ -1089,6 +1097,24 @@ export async function getBillingSessionStatus(
   const response = await fetch(url.toString())
   if (!response.ok) {
     throw new Error('Failed to fetch session status')
+  }
+
+  return response.json()
+}
+
+export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
+  const headers = await getAuthJsonHeaders()
+
+  const response = await fetch(`${API_URL}/api/v1/billing/subscription`, {
+    headers,
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}))
+    const message =
+      (errorBody && (errorBody.detail || errorBody.message)) ||
+      'Failed to fetch subscription status'
+    throw new Error(message)
   }
 
   return response.json()

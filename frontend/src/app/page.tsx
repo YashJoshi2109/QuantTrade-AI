@@ -453,7 +453,7 @@ function DesktopHome() {
                       <span className="text-xs font-bold text-white">Quick Action</span>
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed mb-2">
-                      Ask the QuantTrade AI for deeper analysis on any stock or sector.
+                      Ask Quant AI for deeper analysis on any stock or sector.
                     </p>
                     <button 
                       className="text-[10px] text-blue-400 hover:text-white transition-colors"

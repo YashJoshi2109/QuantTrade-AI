@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth, AuthMethod } from '@/contexts/AuthContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { isNeonAuthConfigured } from '@/lib/neon-auth'
-import { Sparkles, Mail, Lock, User, Eye, EyeOff, Loader2, AlertCircle, Database, Key } from 'lucide-react'
+import { validateEmail, sendOtp } from '@/lib/auth'
+import { Sparkles, Mail, Lock, User, Eye, EyeOff, Loader2, AlertCircle, Database, Key, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
+
 
 declare global {
   interface Window {
@@ -23,7 +25,13 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [authProvider, setAuthProvider] = useState<'jwt' | 'neon'>('jwt')
-  
+  const [emailValidation, setEmailValidation] = useState<{ valid: boolean; message: string } | null>(null)
+  const [otp, setOtp] = useState('')
+  const [otpSent, setOtpSent] = useState(false)
+  const [sendingOtp, setSendingOtp] = useState(false)
+  const [countryCode, setCountryCode] = useState('+1')
+  const [phoneNumber, setPhoneNumber] = useState('')
+
   const { login, register, googleVerify, neonLogin, neonRegister } = useAuth()
   const router = useRouter()
   const googleButtonRef = useRef<HTMLDivElement>(null)
@@ -33,25 +41,60 @@ export default function AuthPage() {
   const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
   const neonAuthAvailable = isNeonAuthConfigured()
 
+  const handleEmailBlur = useCallback(async () => {
+    if (!email || authProvider === 'neon') return
+    setEmailValidation(null)
+    const res = await validateEmail(email)
+    setEmailValidation({ valid: res.valid, message: res.message })
+  }, [email, authProvider])
+
+  const handleSendOtp = async () => {
+    if (!email) return
+    setError('')
+    const validation = await validateEmail(email)
+    if (!validation.valid) {
+      setError(validation.message)
+      return
+    }
+    setSendingOtp(true)
+    try {
+      await sendOtp(email)
+      setOtpSent(true)
+      setError('')
+    } catch (err: any) {
+      setError(err.message || 'Failed to send code')
+    } finally {
+      setSendingOtp(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setIsLoading(true)
-    
+
+    if (!isLogin && authProvider === 'jwt' && emailValidation && !emailValidation.valid) {
+      setError(emailValidation.message)
+      setIsLoading(false)
+      return
+    }
+
     try {
       if (authProvider === 'neon') {
-        // Use Neon Auth
         if (isLogin) {
           await neonLogin(email, password)
         } else {
           await neonRegister(email, password, fullName || username)
         }
       } else {
-        // Use JWT Auth
         if (isLogin) {
           await login(email, password)
         } else {
-          await register(email, username, password, fullName)
+          await register(email, username, password, fullName, {
+            countryCode: countryCode || undefined,
+            phoneNumber: phoneNumber || undefined,
+            otp: otp || undefined,
+          })
         }
       }
       router.push('/')
@@ -259,7 +302,7 @@ export default function AuthPage() {
                 )}
               </>
             )}
-            
+
             <div>
               <label className="block text-sm text-gray-400 mb-2">Email</label>
               <div className="relative">
@@ -267,13 +310,69 @@ export default function AuthPage() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); setEmailValidation(null); setOtpSent(false); }}
+                  onBlur={handleEmailBlur}
                   placeholder="john@example.com"
                   required
-                  className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500/50 transition-colors"
+                  className={`w-full pl-10 pr-4 py-3 bg-slate-800/50 border rounded-lg text-white placeholder:text-gray-500 focus:outline-none transition-colors ${
+                    emailValidation?.valid ? 'border-green-500/50' : emailValidation ? 'border-red-500/50' : 'border-slate-700 focus:border-blue-500/50'
+                  }`}
                 />
+                {emailValidation?.valid && <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-green-500" />}
               </div>
+              {emailValidation && !emailValidation.valid && <p className="text-red-400 text-xs mt-1">{emailValidation.message}</p>}
+              {!isLogin && authProvider === 'jwt' && (
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={sendingOtp || !email || (emailValidation && !emailValidation.valid)}
+                    className="text-sm text-blue-400 hover:text-blue-300 disabled:opacity-50"
+                  >
+                    {sendingOtp ? 'Sending...' : otpSent ? 'Resend code' : 'Send verification code'}
+                  </button>
+                  {otpSent && (
+                    <input
+                      type="text"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="Enter 6-digit code"
+                      maxLength={6}
+                      className="flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm"
+                    />
+                  )}
+                </div>
+              )}
             </div>
+
+            {!isLogin && authProvider === 'jwt' && (
+              <div className="space-y-2">
+                <label className="block text-sm text-gray-400">Phone (optional)</label>
+                <div className="flex gap-2">
+                  <select
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    className="w-24 px-2 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm"
+                  >
+                    <option value="+1">+1 (US)</option>
+                    <option value="+44">+44 (UK)</option>
+                    <option value="+91">+91 (IN)</option>
+                    <option value="+81">+81 (JP)</option>
+                    <option value="+86">+86 (CN)</option>
+                    <option value="+49">+49 (DE)</option>
+                    <option value="+33">+33 (FR)</option>
+                    <option value="+61">+61 (AU)</option>
+                  </select>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 20))}
+                    placeholder="Phone number"
+                    className="flex-1 px-3 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm"
+                  />
+                </div>
+              </div>
+            )}
             
             <div>
               <label className="block text-sm text-gray-400 mb-2">Password</label>
