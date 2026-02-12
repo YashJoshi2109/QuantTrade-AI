@@ -25,6 +25,20 @@ services:
       timeout: 10s
       retries: 3
 
+  redis:
+    image: redis:7-alpine
+    container_name: quanttrade-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - quanttrade-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   frontend:
     image: ghcr.io/yashjoshi2109/quanttrade-frontend:latest
     container_name: quanttrade-frontend
