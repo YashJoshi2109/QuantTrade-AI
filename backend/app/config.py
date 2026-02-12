@@ -91,6 +91,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # Ignore frontend-only vars (e.g. NEXT_PUBLIC_*) when loading .env
 
 
 settings = Settings()
