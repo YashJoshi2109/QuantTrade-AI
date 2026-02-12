@@ -6,6 +6,15 @@
 
 set -e
 
+# ===== VERIFY PORT 6379 IS FREE =====
+echo "🟢 Verifying port 6379 is free..."
+if sudo ss -lntp | grep ':6379' | grep -v docker; then
+  echo "❌ ERROR: Port 6379 still in use by non-Docker process!"
+  sudo ss -lntp | grep ':6379'
+  fuser -k 6379/tcp
+fi
+docker ps -q --filter "publish=6379" | xargs -r docker stop || true
+
 APP_DIR="/var/www/quanttrade"
 
 echo "🚀 Quick Deploy - QuantTrade AI"
