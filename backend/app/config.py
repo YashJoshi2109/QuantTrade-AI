@@ -81,12 +81,11 @@ class Settings(BaseSettings):
                 db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
         if not db_url:
-            raise ValueError(
-                "DATABASE_URL or NEON_DATABASE_URL environment variable must be set. "
-                "Get your Neon connection string from https://console.neon.tech"
-            )
+            # Don't crash at startup - allow /health to respond for container probes.
+            # DB-dependent routes will fail with a clear error when first used.
+            print("⚠️ WARNING: DATABASE_URL/NEON_DATABASE_URL not set - DB features will fail. Set in .env on EC2.")
 
-        self.DATABASE_URL = db_url
+        self.DATABASE_URL = db_url or ""
     
     class Config:
         env_file = ".env"

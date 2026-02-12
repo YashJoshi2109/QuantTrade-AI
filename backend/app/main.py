@@ -54,6 +54,9 @@ from app.models.user import User
 
 def _create_db_tables():
     """Run DB table creation in background so app can serve /health immediately."""
+    if engine is None:
+        print("⚠️ Skipping table creation - no database configured")
+        return
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
         print("✅ Database tables created/verified successfully")
@@ -158,4 +161,4 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {"status": "healthy chal raha hai sab kuch"}

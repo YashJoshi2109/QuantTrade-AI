@@ -105,8 +105,6 @@ function MenuItem({
 }
 
 export default function MoreMenu({ open, onClose }: MoreMenuProps) {
-  if (!open) return null
-
   const { isAuthenticated, logout } = useAuth()
   const router = useRouter()
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
@@ -131,6 +129,8 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
   }, [isAuthenticated])
 
   const hasActiveSubscription = !!subscription?.has_active
+
+  if (!open) return null
 
   return (
     <div className="md:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in">

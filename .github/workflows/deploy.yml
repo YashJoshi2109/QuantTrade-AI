@@ -182,23 +182,28 @@ jobs:
             echo "📥 Pulling latest images..."
             docker compose -f docker-compose.prod.yml pull
             
+            # ===== ENSURE .env EXISTS (backend needs DATABASE_URL) =====
+            if [ ! -f .env ]; then
+              echo "⚠️ WARNING: .env not found in /opt/quanttrade - creating minimal .env. Add DATABASE_URL and other vars!"
+              touch .env
+            fi
+            
             # ===== START CONTAINERS =====
             echo "🚀 Starting containers..."
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
             
             # ===== WAIT AND HEALTH CHECK =====
-            echo "⏳ Waiting for services to be healthy..."
-            sleep 15
+            echo "⏳ Waiting for backend/frontend to become healthy (start_period=60s)..."
+            sleep 25
             
-            # Health check with retries
-            for i in 1 2 3 4 5; do
+            # Health check with retries (backend has 60s start_period)
+            for i in 1 2 3 4 5 6 7 8 9 10; do
               if curl -sf http://localhost/health; then
                 echo "✅ Health check passed!"
                 break
-              else
-                echo "Waiting for nginx... (attempt $i/5)"
-                sleep 5
               fi
+              echo "Waiting for services... (attempt $i/10)"
+              sleep 10
             done
             
             # Final verification
@@ -219,7 +224,7 @@ jobs:
             echo "📊 Running containers:"
             docker ps
             
-            echo "✅ Deployment complete!"
+            echo "✅ Deployment complete hogaya hai bhai !!"
 
   # ==========================================
   # Post-Deploy Health Check
