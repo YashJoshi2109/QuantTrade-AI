@@ -25,7 +25,7 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [authProvider, setAuthProvider] = useState<'jwt' | 'neon'>('jwt')
-  const [emailValidation, setEmailValidation] = useState<{ valid: boolean; message: string } | null>(null)
+  const [emailValidation, setEmailValidation] = useState<{ valid: boolean; message: string } | undefined>(undefined)
   const [otp, setOtp] = useState('')
   const [otpSent, setOtpSent] = useState(false)
   const [sendingOtp, setSendingOtp] = useState(false)
@@ -43,7 +43,7 @@ export default function AuthPage() {
 
   const handleEmailBlur = useCallback(async () => {
     if (!email || authProvider === 'neon') return
-    setEmailValidation(null)
+    setEmailValidation(undefined)
     const res = await validateEmail(email)
     setEmailValidation({ valid: res.valid, message: res.message })
   }, [email, authProvider])
@@ -310,7 +310,7 @@ export default function AuthPage() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => { setEmail(e.target.value); setEmailValidation(null); setOtpSent(false); }}
+                  onChange={(e) => { setEmail(e.target.value); setEmailValidation(undefined); setOtpSent(false); }}
                   onBlur={handleEmailBlur}
                   placeholder="john@example.com"
                   required
