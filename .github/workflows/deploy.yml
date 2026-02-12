@@ -165,6 +165,15 @@ jobs:
             docker ps -q --filter "publish=80" | xargs -r docker stop || true
             docker ps -q --filter "publish=443" | xargs -r docker stop || true
             
+            # ===== ENSURE REDIS PORT 6379 IS FREE =====
+            echo "🟢 Verifying port 6379 is free..."
+            if sudo ss -lntp | grep ':6379' | grep -v docker; then
+              echo "❌ ERROR: Port 6379 still in use by non-Docker process! Killing process on 6379..."
+              sudo ss -lntp | grep ':6379'
+              sudo fuser -k 6379/tcp || true
+            fi
+            docker ps -q --filter "publish=6379" | xargs -r docker stop || true
+            
             # ===== VERIFY PORTS ARE FREE =====
             echo "✅ Verifying ports 80/443 are free..."
             if sudo ss -lntp | grep -E ':80\s|:443\s' | grep -v docker; then
