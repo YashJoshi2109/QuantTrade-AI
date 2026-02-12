@@ -29,8 +29,6 @@ services:
     image: redis:7-alpine
     container_name: quanttrade-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     networks:
       - quanttrade-network
     healthcheck:
@@ -72,6 +70,8 @@ services:
       - LOG_LEVEL=INFO
       - APP_URL=https://www.quanttrade.us
       - ALLOWED_ORIGINS=https://www.quanttrade.us,https://quanttrade.us
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
