@@ -1,6 +1,8 @@
 """
 Main FastAPI application entry point
 """
+import threading
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -49,22 +51,36 @@ from app.models import (
 )
 from app.models.user import User
 
-# Create database tables (with error handling for production)
-try:
-    Base.metadata.create_all(bind=engine, checkfirst=True)
-    print("✅ Database tables created/verified successfully")
-except Exception as e:
-    error_msg = str(e)
-    if "already exists" in error_msg or "DuplicateTable" in error_msg:
-        print("✅ Database tables already exist - skipping creation")
-    else:
-        print(f"⚠️ Database table creation error: {e}")
-        print("   App will continue but some database features may not work")
+
+def _create_db_tables():
+    """Run DB table creation in background so app can serve /health immediately."""
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+        print("✅ Database tables created/verified successfully")
+    except Exception as e:
+        error_msg = str(e)
+        if "already exists" in error_msg or "DuplicateTable" in error_msg:
+            print("✅ Database tables already exist - skipping creation")
+        else:
+            print(f"⚠️ Database table creation error: {e}")
+            print("   App will continue but some database features may not work")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Run table creation in a thread so /health is available immediately
+    t = threading.Thread(target=_create_db_tables, daemon=True)
+    t.start()
+    yield
+    # shutdown if needed
+    t.join(timeout=1.0)
+
 
 app = FastAPI(
     title="AI Trading & Research Copilot API",
     description="Backend API for AI-powered trading and research platform",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan,
 )
 
 
