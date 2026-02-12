@@ -199,7 +199,13 @@ jobs:
             
             # ===== START CONTAINERS =====
             echo "🚀 Starting containers..."
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            if ! docker compose -f docker-compose.prod.yml up -d --remove-orphans; then
+              echo "❌ docker compose up failed! Showing container status and logs..."
+              docker compose -f docker-compose.prod.yml ps || true
+              docker logs --tail=100 quanttrade-backend || true
+              docker logs --tail=100 quanttrade-nginx || true
+              exit 1
+            fi
             
             # ===== WAIT AND HEALTH CHECK =====
             echo "⏳ Waiting for backend/frontend to become healthy (start_period=60s)..."
