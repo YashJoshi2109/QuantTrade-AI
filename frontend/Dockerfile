@@ -24,6 +24,8 @@ WORKDIR /app
 
 # Accept build arguments
 ARG NEXT_PUBLIC_API_URL=https://www.quanttrade.us
+ARG NEXT_PUBLIC_GTM_ID
+ARG NEXT_PUBLIC_GA_MEASUREMENT_ID
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -33,6 +35,8 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_GTM_ID=$NEXT_PUBLIC_GTM_ID
+ENV NEXT_PUBLIC_GA_MEASUREMENT_ID=$NEXT_PUBLIC_GA_MEASUREMENT_ID
 
 # Increase Node.js memory limit for build and disable experimental features
 ENV NODE_OPTIONS="--max-old-space-size=4096"

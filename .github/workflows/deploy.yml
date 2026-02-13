@@ -107,6 +107,8 @@ jobs:
           platforms: linux/amd64
           build-args: |
             NEXT_PUBLIC_API_URL=https://www.quanttrade.us
+            NEXT_PUBLIC_GTM_ID=GTM-KWMSXH37
+            NEXT_PUBLIC_GA_MEASUREMENT_ID=G-7X19HSHVQD
 
   # ==========================================
   # Deploy to EC2
