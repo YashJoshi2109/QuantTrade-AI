@@ -1,0 +1,23 @@
+# QuantTrade AI - Ingestion Worker Dockerfile
+#
+# Container image for running the data ingestion worker as a batch job
+# or long-lived worker process.
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# Default command ingests a small blue-chip universe.
+# In production, override with explicit symbols via args.
+CMD ["python", "ingest_worker.py", "--symbols", "AAPL", "MSFT", "GOOGL"]
+

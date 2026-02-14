@@ -45,22 +45,41 @@ class RealtimeNewsFetcher:
             articles = []
             for item in news_items[:limit]:
                 try:
-                    # Parse timestamp
-                    timestamp = item.get('providerPublishTime')
-                    if timestamp:
-                        published_at = ensure_naive_datetime(datetime.fromtimestamp(timestamp))
-                    else:
-                        published_at = datetime.utcnow()
+                    # Parse timestamp - handle int, float, or string
+                    published_at = datetime.utcnow()
+                    timestamp = item.get('providerPublishTime') or item.get('publish_time') or item.get('publishedAt')
+                    if timestamp is not None:
+                        try:
+                            if isinstance(timestamp, (int, float)):
+                                published_at = ensure_naive_datetime(datetime.fromtimestamp(timestamp))
+                            elif isinstance(timestamp, str):
+                                # Try ISO format
+                                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                                published_at = ensure_naive_datetime(dt)
+                            elif isinstance(timestamp, datetime):
+                                published_at = ensure_naive_datetime(timestamp)
+                        except Exception:
+                            published_at = datetime.utcnow()
+                    
+                    # Extract thumbnail safely
+                    thumbnail = None
+                    thumb_data = item.get('thumbnail')
+                    if isinstance(thumb_data, dict):
+                        resolutions = thumb_data.get('resolutions', [])
+                        if resolutions and isinstance(resolutions, list) and len(resolutions) > 0:
+                            thumbnail = resolutions[0].get('url')
+                    elif isinstance(thumb_data, str):
+                        thumbnail = thumb_data
                     
                     articles.append({
                         "title": item.get('title', ''),
-                        "content": item.get('summary', ''),
+                        "content": item.get('summary', '') or item.get('description', ''),
                         "source": item.get('publisher', 'Yahoo Finance'),
-                        "url": item.get('link', ''),
+                        "url": item.get('link', '') or item.get('url', ''),
                         "published_at": published_at,
-                        "sentiment": "Neutral",  # yfinance doesn't provide sentiment
-                        "thumbnail": item.get('thumbnail', {}).get('resolutions', [{}])[0].get('url'),
-                        "related_tickers": item.get('relatedTickers', [])
+                        "sentiment": "Neutral",
+                        "thumbnail": thumbnail,
+                        "related_tickers": item.get('relatedTickers', []) or item.get('related_tickers', [])
                     })
                 except Exception as e:
                     print(f"Error parsing yfinance article: {e}")
@@ -69,8 +88,9 @@ class RealtimeNewsFetcher:
             print(f"✓ Fetched {len(articles)} articles from yfinance")
             return articles
             
-        except Exception as e:
-            print(f"Error fetching yfinance news: {e}")
+        except Exception:
+            # yfinance can fail due to rate limits, cookie issues, or API changes
+            # Silently return empty - other sources will provide coverage
             return []
     
     @staticmethod
@@ -157,13 +177,32 @@ class RealtimeNewsFetcher:
                     else:
                         published_at = datetime.utcnow()
                     
+                    # Try to extract thumbnail from RSS media extensions
+                    thumbnail = None
+                    # feedparser parses media:content as media_content
+                    media_content = getattr(entry, 'media_content', None)
+                    if media_content and isinstance(media_content, list) and len(media_content) > 0:
+                        thumbnail = media_content[0].get('url')
+                    # feedparser parses media:thumbnail as media_thumbnail
+                    if not thumbnail:
+                        media_thumb = getattr(entry, 'media_thumbnail', None)
+                        if media_thumb and isinstance(media_thumb, list) and len(media_thumb) > 0:
+                            thumbnail = media_thumb[0].get('url')
+                    # Check for enclosure (some RSS feeds provide images this way)
+                    if not thumbnail and hasattr(entry, 'enclosures') and entry.enclosures:
+                        for enc in entry.enclosures:
+                            if enc.get('type', '').startswith('image/'):
+                                thumbnail = enc.get('href') or enc.get('url')
+                                break
+
                     articles.append({
                         "title": entry.get('title', ''),
                         "content": entry.get('summary', ''),
                         "source": entry.get('source', {}).get('title', 'Google News'),
                         "url": entry.get('link', ''),
                         "published_at": published_at,
-                        "sentiment": "Neutral"
+                        "sentiment": "Neutral",
+                        "thumbnail": thumbnail
                     })
                 except Exception as e:
                     print(f"Error parsing Google News article: {e}")

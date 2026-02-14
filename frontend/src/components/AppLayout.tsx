@@ -23,6 +23,7 @@ import {
   X
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
+import MarketTicker from './MarketTicker'
 import { fetchSymbols, Symbol, syncSymbol, fetchMarketStatus, MarketStatus } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { useQuery } from '@tanstack/react-query'
@@ -156,8 +157,13 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
 
   return (
     <div className="min-h-screen bg-[#0a0e1a]">
+      {/* Market Ticker Bar */}
+      <div className="fixed top-0 left-0 right-0 z-[51] hidden md:block">
+        <MarketTicker />
+      </div>
+
       {/* Fixed Header */}
-      <header className="fixed top-0 left-0 right-0 h-14 z-50">
+      <header className="fixed top-0 md:top-9 left-0 right-0 h-14 z-50">
         <div className="absolute inset-0 bg-[#0d1321]/90 backdrop-blur-xl border-b border-blue-500/10" />
         <div className="relative h-full flex items-center px-4 md:px-6 gap-2 md:gap-4">
           {/* Mobile Menu Button */}
@@ -256,7 +262,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
 
       {/* Fixed Sidebar */}
       <aside 
-        className={`fixed left-0 top-14 bottom-0 z-40 transition-all duration-300 ${
+        className={`fixed left-0 top-14 md:top-[5.75rem] bottom-0 z-40 transition-all duration-300 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0`}
         style={{ width: sidebarWidth }}
@@ -358,7 +364,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
 
       {/* Main Content Area */}
       <main 
-        className="pt-14 min-h-screen transition-all duration-300"
+        className="pt-14 md:pt-[5.75rem] min-h-screen transition-all duration-300"
         style={{ 
           marginLeft: `calc(${sidebarWidth})`,
           marginRight: 0 

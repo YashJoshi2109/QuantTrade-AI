@@ -13,6 +13,7 @@ export interface Message {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
+  analysisSummary?: string
 }
 
 export default function ChatWindow({ onClose }: { onClose: () => void }) {
@@ -48,6 +49,7 @@ export default function ChatWindow({ onClose }: { onClose: () => void }) {
         role: 'assistant',
         content: response.response,
         timestamp: new Date(),
+        analysisSummary: response.analysis_summary,
       }
       setMessages((prev) => [...prev, aiMessage])
     } catch (error) {

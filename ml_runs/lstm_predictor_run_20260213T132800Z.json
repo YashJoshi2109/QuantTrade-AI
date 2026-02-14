@@ -1,0 +1,138 @@
+{
+  "model_name": "lstm_predictor",
+  "results": {
+    "AAPL": {
+      "evaluated_at": "2026-02-13T13:28:00.120150",
+      "expected_return_mean": null,
+      "expected_return_std": null,
+      "horizons": [
+        1,
+        7,
+        30
+      ],
+      "predictions": [
+        {
+          "error": "No price data available for AAPL from yfinance; cannot generate predictive features.",
+          "timeframe": "1_day"
+        },
+        {
+          "error": "No price data available for AAPL from yfinance; cannot generate predictive features.",
+          "timeframe": "7_day"
+        },
+        {
+          "error": "No price data available for AAPL from yfinance; cannot generate predictive features.",
+          "timeframe": "30_day"
+        }
+      ],
+      "symbol": "AAPL"
+    },
+    "AMZN": {
+      "evaluated_at": "2026-02-13T13:28:00.130704",
+      "expected_return_mean": null,
+      "expected_return_std": null,
+      "horizons": [
+        1,
+        7,
+        30
+      ],
+      "predictions": [
+        {
+          "error": "No price data available for AMZN from yfinance; cannot generate predictive features.",
+          "timeframe": "1_day"
+        },
+        {
+          "error": "No price data available for AMZN from yfinance; cannot generate predictive features.",
+          "timeframe": "7_day"
+        },
+        {
+          "error": "No price data available for AMZN from yfinance; cannot generate predictive features.",
+          "timeframe": "30_day"
+        }
+      ],
+      "symbol": "AMZN"
+    },
+    "GOOGL": {
+      "evaluated_at": "2026-02-13T13:28:00.128033",
+      "expected_return_mean": null,
+      "expected_return_std": null,
+      "horizons": [
+        1,
+        7,
+        30
+      ],
+      "predictions": [
+        {
+          "error": "No price data available for GOOGL from yfinance; cannot generate predictive features.",
+          "timeframe": "1_day"
+        },
+        {
+          "error": "No price data available for GOOGL from yfinance; cannot generate predictive features.",
+          "timeframe": "7_day"
+        },
+        {
+          "error": "No price data available for GOOGL from yfinance; cannot generate predictive features.",
+          "timeframe": "30_day"
+        }
+      ],
+      "symbol": "GOOGL"
+    },
+    "MSFT": {
+      "evaluated_at": "2026-02-13T13:28:00.125380",
+      "expected_return_mean": null,
+      "expected_return_std": null,
+      "horizons": [
+        1,
+        7,
+        30
+      ],
+      "predictions": [
+        {
+          "error": "No price data available for MSFT from yfinance; cannot generate predictive features.",
+          "timeframe": "1_day"
+        },
+        {
+          "error": "No price data available for MSFT from yfinance; cannot generate predictive features.",
+          "timeframe": "7_day"
+        },
+        {
+          "error": "No price data available for MSFT from yfinance; cannot generate predictive features.",
+          "timeframe": "30_day"
+        }
+      ],
+      "symbol": "MSFT"
+    },
+    "NVDA": {
+      "evaluated_at": "2026-02-13T13:28:00.133524",
+      "expected_return_mean": null,
+      "expected_return_std": null,
+      "horizons": [
+        1,
+        7,
+        30
+      ],
+      "predictions": [
+        {
+          "error": "No price data available for NVDA from yfinance; cannot generate predictive features.",
+          "timeframe": "1_day"
+        },
+        {
+          "error": "No price data available for NVDA from yfinance; cannot generate predictive features.",
+          "timeframe": "7_day"
+        },
+        {
+          "error": "No price data available for NVDA from yfinance; cannot generate predictive features.",
+          "timeframe": "30_day"
+        }
+      ],
+      "symbol": "NVDA"
+    }
+  },
+  "run_started_at": "2026-02-13T13:28:00.120143",
+  "symbols": [
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "AMZN",
+    "NVDA"
+  ]
+}

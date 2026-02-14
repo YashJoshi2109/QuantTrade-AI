@@ -101,7 +101,7 @@ Finance/
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.11 (project is tested and deployed with 3.11.x; newer Python versions like 3.14 often lack compatible wheels for key deps such as psycopg2, pandas, and torch)
 - Node.js 18+
 - PostgreSQL (or use [Neon](https://neon.tech) for hosted Postgres)
 - Redis (for Celery background jobs)

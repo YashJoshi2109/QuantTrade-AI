@@ -1,0 +1,40 @@
+name: ML Train Nightly
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # 03:00 UTC nightly
+  workflow_dispatch:
+
+jobs:
+  train-models:
+    name: Train predictive models
+    runs-on: ubuntu-latest
+
+    env:
+      # Optional: wire secrets if you want DB writes
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install rag/ML dependencies
+        working-directory: ./rag
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Train models
+        working-directory: ./rag
+        run: |
+          if [ -f "train.py" ]; then
+            python train.py --config configs/train_default.yaml
+          else
+            echo "rag/train.py not present yet. Nightly training is a no-op."
+          fi
+

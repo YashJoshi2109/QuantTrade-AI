@@ -12,6 +12,7 @@ interface Message {
   timestamp: string
   sources?: string[]
   error?: boolean
+  analysisSummary?: string
 }
 
 interface CopilotPanelProps {
@@ -84,6 +85,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
         content: response.response,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         sources: response.sources || [],
+        analysisSummary: response.analysis_summary,
       }
       setMessages((prev) => [...prev, assistantMessage])
     } catch (error) {
@@ -234,7 +236,18 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
                 </div>
               ) : (
                 // Assistant message
-                <div className="mr-auto max-w-[90%]">
+                <div className="mr-auto max-w-[90%] space-y-2">
+                  {message.analysisSummary && (
+                    <div className="bg-gradient-to-br from-[#0B1728] to-[#07101E] rounded-2xl px-3 py-2 border border-cyan-500/40 shadow-[0_0_18px_rgba(0,217,255,0.25)]">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300 font-semibold mb-1">
+                        QuantTrade Stock Analysis
+                      </p>
+                      <p className="text-[11px] text-slate-100 whitespace-pre-wrap leading-relaxed">
+                        {message.analysisSummary}
+                      </p>
+                    </div>
+                  )}
+
                   <div className={`hud-panel p-3 ${message.error ? 'border-red-500/30' : ''}`}>
                     {message.error && (
                       <div className="flex items-center gap-1.5 mb-2 text-red-400 text-xs font-medium">

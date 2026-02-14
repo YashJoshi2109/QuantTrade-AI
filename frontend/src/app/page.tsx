@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { fetchMarketMovers, fetchSectorPerformance, StockPerformance, SectorPerformance, fetchMarketStatus, MarketStatus } from '@/lib/api'
 import { useRealtimeQuotes } from '@/hooks/useRealtimeQuote'
+import MarketNewsGrid from '@/components/MarketNewsGrid'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import {
   SkeletonText,
@@ -504,6 +505,11 @@ function DesktopHome() {
 
           <MarketStatusCard />
 
+        </div>
+
+        {/* WSJ-Style News Grid */}
+        <div className="mt-6">
+          <MarketNewsGrid />
         </div>
       </div>
     </AppLayout>

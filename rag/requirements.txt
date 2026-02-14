@@ -1,0 +1,31 @@
+# Core Dependencies
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.0
+python-dotenv==1.0.0
+
+# AI & ML
+anthropic==0.18.0
+chromadb==0.4.22
+openai==1.12.0  # For embeddings
+# voyageai is optional and currently unused; keep commented to avoid
+# strict Python version constraints on local dev.
+# voyageai==0.2.0  # Alternative embedding provider
+
+# Let pip pick a torch version compatible with the current Python.
+torch
+scikit-learn==1.4.0
+yfinance==0.2.37
+websocket-client==1.7.0 
+
+# Data Processing
+# Use unpinned pandas so pip can choose a build compatible with the active Python.
+pandas
+numpy==1.26.3
+requests==2.31.0
+
+# Optional: Advanced features
+redis==5.0.1  # For caching
+psycopg2-binary==2.9.9  # For PostgreSQL
+sqlalchemy==2.0.25  # For database ORM
+PyYAML==6.0.2

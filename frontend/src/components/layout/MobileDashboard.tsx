@@ -28,6 +28,7 @@ import {
 } from '@/lib/api'
 import { useBreakingNews } from '@/hooks/useRealtimeNews'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
+import MarketNewsGrid from '@/components/MarketNewsGrid'
 
 function useGreeting(name?: string | null) {
   const now = new Date()
@@ -523,6 +524,11 @@ export default function MobileDashboard() {
               )
             })}
         </div>
+      </section>
+
+      {/* Market Intelligence & News – full editorial grid */}
+      <section className="px-1 pb-4">
+        <MarketNewsGrid />
       </section>
     </div>
   )

@@ -19,6 +19,7 @@ from app.services.finnhub_fetcher import FinnhubFetcher
 from app.services.rate_limiter import get_api_stats
 from app.api.auth import get_current_user
 from app.models.user import User
+from app.config import settings
 
 router = APIRouter()
 
@@ -369,11 +370,147 @@ async def get_yfinance_news(symbol: str, limit: int = Query(20, ge=1, le=50)):
 
 @router.get("/news/market/breaking")
 async def get_breaking_market_news(limit: int = Query(10, ge=1, le=50)):
-    """Get breaking market news from Google News RSS"""
+    """
+    Get breaking market news from multiple sources.
+    Combines Google News RSS (multiple queries), yfinance (market ETFs),
+    and NewsAPI when available for comprehensive daily coverage.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import re
+
+    BULLISH_KEYWORDS = [
+        'surge', 'surges', 'soar', 'soars', 'rally', 'rallies', 'gain', 'gains',
+        'jump', 'jumps', 'rise', 'rises', 'climb', 'climbs', 'record high',
+        'all-time high', 'bull', 'bullish', 'upgrade', 'upgrades', 'beat',
+        'beats', 'outperform', 'boom', 'recover', 'recovery', 'breakout',
+        'positive', 'strong', 'growth', 'profit', 'profits', 'up %',
+    ]
+    BEARISH_KEYWORDS = [
+        'crash', 'crashes', 'plunge', 'plunges', 'tumble', 'tumbles', 'drop',
+        'drops', 'fall', 'falls', 'decline', 'declines', 'slump', 'slumps',
+        'sell-off', 'selloff', 'bear', 'bearish', 'downgrade', 'downgrades',
+        'miss', 'misses', 'underperform', 'recession', 'fear', 'fears',
+        'warning', 'risk', 'loss', 'losses', 'negative', 'weak', 'cut',
+        'layoff', 'layoffs', 'down %', 'inflation',
+    ]
+
+    def classify_sentiment(title: str, content: str = "") -> str:
+        text = (title + " " + (content or "")).lower()
+        bull_score = sum(1 for kw in BULLISH_KEYWORDS if kw in text)
+        bear_score = sum(1 for kw in BEARISH_KEYWORDS if kw in text)
+        if bull_score > bear_score and bull_score >= 1:
+            return "Bullish"
+        if bear_score > bull_score and bear_score >= 1:
+            return "Bearish"
+        return "Neutral"
+
+    def extract_tickers(title: str) -> list:
+        """Extract stock tickers from title (uppercase 1-5 letter words preceded by $ or in parentheses)."""
+        tickers = re.findall(r'\$([A-Z]{1,5})\b', title)
+        tickers += re.findall(r'\(([A-Z]{1,5})\)', title)
+        # Filter common false positives
+        noise = {'CEO', 'IPO', 'GDP', 'ETF', 'SEC', 'FDA', 'NYSE', 'AI', 'US', 'UK', 'EU', 'FED', 'CPI', 'AND', 'THE', 'FOR', 'ARE', 'BUT'}
+        return [t for t in set(tickers) if t not in noise][:5]
+
     try:
-        # Fetch general market news
-        articles = RealtimeNewsFetcher.fetch_google_news_rss("stock market", limit)
-        return [NewsArticleResponse(**article) for article in articles]
+        all_articles = []
+
+        # ── 1. Google News RSS – multiple market queries in parallel ──
+        rss_queries = [
+            "stock market today",
+            "Wall Street finance",
+            "S&P 500 Nasdaq Dow Jones",
+            "economy finance breaking news",
+            "earnings report stocks",
+        ]
+
+        per_query_limit = max(limit // 3, 5)
+
+        def _fetch_rss(q):
+            return RealtimeNewsFetcher.fetch_google_news_rss(q, per_query_limit)
+
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            rss_futures = {pool.submit(_fetch_rss, q): q for q in rss_queries}
+
+            # ── 2. yfinance – broad market ETFs for real financial-grade news ──
+            yf_symbols = ["SPY", "QQQ", "DIA"]
+            yf_futures = {}
+            for sym in yf_symbols:
+                yf_futures[pool.submit(RealtimeNewsFetcher.fetch_yfinance_news, sym, per_query_limit)] = sym
+
+            # ── 3. NewsAPI (if key configured) ──
+            newsapi_future = None
+            if getattr(settings, 'NEWSAPI_KEY', None):
+                newsapi_future = pool.submit(
+                    RealtimeNewsFetcher.fetch_newsapi_news,
+                    "stock market",
+                    "stock market Wall Street finance",
+                    per_query_limit
+                )
+
+            # Collect RSS results
+            for future in as_completed(rss_futures):
+                try:
+                    all_articles.extend(future.result())
+                except Exception as e:
+                    print(f"RSS query error: {e}")
+
+            # Collect yfinance results
+            for future in as_completed(yf_futures):
+                try:
+                    all_articles.extend(future.result())
+                except Exception as e:
+                    print(f"yfinance error: {e}")
+
+            # Collect NewsAPI results
+            if newsapi_future:
+                try:
+                    all_articles.extend(newsapi_future.result())
+                except Exception as e:
+                    print(f"NewsAPI error: {e}")
+
+        # ── Deduplicate by URL + title ──
+        seen_urls = set()
+        seen_titles = set()
+        unique = []
+        for article in all_articles:
+            url = (article.get('url') or '').strip()
+            title = (article.get('title') or '').strip()
+            title_key = title.lower()[:80]  # normalize for comparison
+            if url and url in seen_urls:
+                continue
+            if title_key and title_key in seen_titles:
+                continue
+            if url:
+                seen_urls.add(url)
+            if title_key:
+                seen_titles.add(title_key)
+
+            # Apply sentiment classification if not already set
+            if article.get('sentiment') in (None, 'Neutral', ''):
+                article['sentiment'] = classify_sentiment(
+                    article.get('title', ''),
+                    article.get('content', ''),
+                )
+
+            # Extract tickers from title if not provided
+            if not article.get('related_tickers'):
+                tickers = extract_tickers(article.get('title', ''))
+                if tickers:
+                    article['related_tickers'] = tickers
+
+            unique.append(article)
+
+        # ── Sort by recency ──
+        unique.sort(
+            key=lambda x: x.get('published_at', datetime.utcnow()),
+            reverse=True,
+        )
+
+        final = unique[:limit]
+        print(f"✓ Breaking news: {len(final)} articles (from {len(all_articles)} raw, {len(unique)} unique)")
+        return [NewsArticleResponse(**a) for a in final]
+
     except Exception as e:
         print(f"Error fetching breaking news: {e}")
         raise HTTPException(status_code=500, detail=str(e))

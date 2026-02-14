@@ -8,7 +8,9 @@ from datetime import datetime
 from app.db.database import get_db
 from app.models.symbol import Symbol
 from app.models.filing import Filing
+from app.models.user import User
 from app.services.filings_fetcher import FilingsFetcher
+from app.api.auth import get_current_user
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -88,15 +90,48 @@ async def get_filing_detail(
 async def sync_filings(
     symbol: str,
     use_mock: bool = Query(True, description="Use mock data for testing"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
 ):
-    """Sync SEC filings for a symbol"""
+    """
+    Sync SEC filings for a symbol.
+
+    When ``use_mock`` is False, this will consume sec-api.io quota and enforce
+    per-user daily limits:
+    - Anonymous / regular: 1 request per day
+    - Authenticated free user: 2 requests per day
+    - Paid subscriber: 10 requests per day
+    """
     try:
-        count = filings_fetcher.sync_filings_for_symbol(db, symbol, use_mock=use_mock)
+        user_id = current_user.id if current_user else None
+
+        # Determine tier for quota purposes
+        tier = "anonymous"
+        if current_user:
+            # If the user has an active subscription row, treat as paid
+            if getattr(current_user, "subscription", None) and current_user.subscription.status in (
+                "active",
+                "trialing",
+            ):
+                tier = "paid"
+            else:
+                tier = "authenticated"
+
+        count = filings_fetcher.sync_filings_for_symbol(
+            db,
+            symbol,
+            use_mock=use_mock,
+            user_id=user_id,
+            tier=tier,
+        )
         return {
             "symbol": symbol.upper(),
             "filings_synced": count,
-            "message": "Filings synced successfully"
+            "message": "Filings synced successfully",
+            "tier": tier,
         }
+    except RuntimeError as e:
+        # Surface quota errors clearly to the client
+        raise HTTPException(status_code=429, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

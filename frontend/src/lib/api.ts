@@ -284,6 +284,7 @@ export interface ChatResponse {
   context_docs: number
   symbol?: string
   session_id?: string
+  analysis_summary?: string
 }
 
 export async function sendChatMessage(message: ChatMessage): Promise<ChatResponse> {

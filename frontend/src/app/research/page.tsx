@@ -7,8 +7,11 @@ import MobileLayout from '@/components/layout/MobileLayout'
 import MobileResearch from '@/components/layout/MobileResearch'
 import Chart from '@/components/Chart'
 import LiveNews from '@/components/LiveNews'
-import { Sparkles, TrendingUp, TrendingDown, RefreshCw, Activity, Target, AlertTriangle, Zap, BarChart3, Newspaper, Loader2 } from 'lucide-react'
+import { Sparkles, TrendingUp, TrendingDown, RefreshCw, Activity, AlertTriangle, BarChart3, Newspaper, Loader2 } from 'lucide-react'
 import { fetchPrices, fetchIndicators, fetchFundamentals, syncSymbol, PriceBar, Indicators, FundamentalsData } from '@/lib/api'
+import TechnicalAnalysisGauge from '@/components/TechnicalAnalysisGauge'
+import KeyFactorsPanel from '@/components/KeyFactorsPanel'
+import FundamentalsPanel from '@/components/FundamentalsPanel'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { SkeletonChart, SkeletonIndicators, SkeletonText, Skeleton } from '@/components/Skeleton'
@@ -107,35 +110,6 @@ function ResearchContent() {
 
   const priceInfo = getPriceInfo()
   const isPositive = isNumber(priceInfo.percent) ? priceInfo.percent >= 0 : false
-
-  const marketCap = fundamentals?.market_cap
-  const pe = fundamentals?.pe_ratio
-  const forwardPe = fundamentals?.forward_pe
-  const peg = fundamentals?.peg_ratio
-  const priceToSales = fundamentals?.price_to_sales
-  const priceToBook = fundamentals?.price_to_book
-  const profitMargin = fundamentals?.profit_margin
-  const operatingMargin = fundamentals?.operating_margin
-  const grossMargin = fundamentals?.gross_margin
-  const roe = fundamentals?.roe
-  const roa = fundamentals?.roa
-  const roi = (fundamentals as any)?.roi as number | undefined
-  const debtToEquity = fundamentals?.debt_to_equity
-  const currentRatio = fundamentals?.current_ratio
-  const quickRatio = fundamentals?.quick_ratio
-  const beta = fundamentals?.beta
-  const rsi = fundamentals?.rsi
-  const eps = fundamentals?.eps
-  const epsNextQuarter = fundamentals?.eps_next_quarter
-  const earningsDate = fundamentals?.earnings_date
-  const targetPrice = fundamentals?.target_price
-  const recommendation = fundamentals?.recommendation
-
-  const percentWidth = (value?: number) => {
-    if (!isNumber(value)) return '0%'
-    const clamped = Math.max(Math.min(value, 100), -100)
-    return `${Math.abs(clamped)}%`
-  }
 
   const aiReport = {
     sentiment: indicators?.indicators?.rsi && indicators.indicators.rsi > 50 ? 'Bullish' : 'Neutral',
@@ -308,7 +282,7 @@ function ResearchContent() {
 
           {/* AI Analysis Panel */}
           <div className="col-span-12 lg:col-span-6">
-            <div className="hud-panel p-5">
+            <div className="hud-panel p-5 h-full">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-blue-400" />
@@ -353,314 +327,34 @@ function ResearchContent() {
             </div>
           </div>
 
-          {/* Risk & Catalysts */}
-          <div className="col-span-12 lg:col-span-3">
-            <div className="hud-panel p-5 h-full">
-              <div className="flex items-center gap-2 mb-4">
-                <Target className="w-4 h-4 text-orange-400" />
-                <h3 className="font-bold text-sm text-white">Key Factors</h3>
-              </div>
-              
-              <div className="space-y-3">
-                <div>
-                  <div className="hud-label mb-2">RISKS</div>
-                  <ul className="space-y-1.5">
-                    <li className="text-xs text-slate-400 flex items-start gap-2">
-                      <span className="w-1 h-1 bg-red-400 rounded-full mt-1.5 flex-shrink-0" />
-                      Market volatility impact
-                    </li>
-                    <li className="text-xs text-slate-400 flex items-start gap-2">
-                      <span className="w-1 h-1 bg-red-400 rounded-full mt-1.5 flex-shrink-0" />
-                      Sector headwinds possible
-                    </li>
-                  </ul>
-                </div>
-                
-                <div className="hud-glow-line" />
-                
-                <div>
-                  <div className="hud-label mb-2">CATALYSTS</div>
-                  <ul className="space-y-1.5">
-                    <li className="text-xs text-slate-400 flex items-start gap-2">
-                      <span className="w-1 h-1 bg-green-400 rounded-full mt-1.5 flex-shrink-0" />
-                      Upcoming earnings
-                    </li>
-                    <li className="text-xs text-slate-400 flex items-start gap-2">
-                      <span className="w-1 h-1 bg-green-400 rounded-full mt-1.5 flex-shrink-0" />
-                      Industry trends favorable
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+          {/* Technical Analysis Gauges – below AI Analysis */}
+          <div className="col-span-12 lg:col-span-6">
+            <TechnicalAnalysisGauge
+              indicators={indicators}
+              price={priceInfo.price}
+              loading={loading}
+            />
           </div>
 
-          {/* Fundamentals Snapshot */}
-          <div className="col-span-12 lg:col-span-3">
-            <div className="hud-panel p-5 h-full flex flex-col justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Zap className="w-4 h-4 text-cyan-400" />
-                  <h3 className="font-bold text-sm text-white">Fundamentals Overview</h3>
-                </div>
+          {/* Key Factors Panel */}
+          <div className="col-span-12 lg:col-span-6">
+            <KeyFactorsPanel
+              indicators={indicators}
+              fundamentals={fundamentals}
+              price={priceInfo.price}
+              loading={loading}
+            />
+          </div>
 
-                <div className="space-y-4 text-xs text-slate-300">
-                  {/* Valuation */}
-                  <div>
-                    <p className="hud-label mb-1">VALUATION</p>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Market Cap</span>
-                        <span className="font-mono text-white">
-                          {isNumber(marketCap)
-                            ? (() => {
-                                const mc = marketCap as number
-                                const [val, suffix] =
-                                  mc >= 1e12
-                                    ? [mc / 1e12, 'T']
-                                    : mc >= 1e9
-                                      ? [mc / 1e9, 'B']
-                                      : mc >= 1e6
-                                        ? [mc / 1e6, 'M']
-                                        : [mc, '']
-                                return `${formatNumber(val, 2)}${suffix}`
-                              })()
-                            : '—'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">P/E · Fwd P/E</span>
-                        <span className="font-mono text-white">
-                          {isNumber(pe) ? formatNumber(pe, 2) : '—'}{' '}
-                          <span className="text-slate-600">/</span>{' '}
-                          {isNumber(forwardPe) ? formatNumber(forwardPe, 2) : '—'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">PEG</span>
-                        <span className="font-mono text-white">
-                          {isNumber(peg) ? formatNumber(peg, 2) : '—'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">P/S · P/B</span>
-                        <span className="font-mono text-white">
-                          {isNumber(priceToSales) ? formatNumber(priceToSales, 2) : '—'}{' '}
-                          <span className="text-slate-600">/</span>{' '}
-                          {isNumber(priceToBook) ? formatNumber(priceToBook, 2) : '—'}
-                        </span>
-                      </div>
-                      {/* Visual: valuation bar (P/E vs 40x cap) */}
-                      <div className="mt-2 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500"
-                          style={{ width: percentWidth(pe ? (Math.min(pe, 40) / 40) * 100 : undefined) }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Profitability */}
-                  <div>
-                    <p className="hud-label mb-1">PROFITABILITY</p>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Profit Margin</span>
-                          <span className="font-mono text-white">
-                            {isNumber(profitMargin) ? `${formatNumber(profitMargin, 1)}%` : '—'}
-                          </span>
-                        </div>
-                        <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500"
-                            style={{ width: percentWidth(profitMargin) }}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Operating Margin</span>
-                          <span className="font-mono text-white">
-                            {isNumber(operatingMargin) ? `${formatNumber(operatingMargin, 1)}%` : '—'}
-                          </span>
-                        </div>
-                        <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-sky-400 to-sky-500"
-                            style={{ width: percentWidth(operatingMargin) }}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Gross Margin</span>
-                          <span className="font-mono text-white">
-                            {isNumber(grossMargin) ? `${formatNumber(grossMargin, 1)}%` : '—'}
-                          </span>
-                        </div>
-                        <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-violet-400 to-violet-500"
-                            style={{ width: percentWidth(grossMargin) }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Returns */}
-                  <div>
-                    <p className="hud-label mb-1">RETURNS</p>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">ROE</span>
-                          <span className="font-mono text-white">
-                            {isNumber(roe) ? `${formatNumber(roe, 1)}%` : '—'}
-                          </span>
-                        </div>
-                        <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-amber-400 to-amber-500"
-                            style={{ width: percentWidth(roe) }}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">ROA</span>
-                          <span className="font-mono text-white">
-                            {isNumber(roa) ? `${formatNumber(roa, 1)}%` : '—'}
-                          </span>
-                        </div>
-                        <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-lime-400 to-lime-500"
-                            style={{ width: percentWidth(roa) }}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">ROI</span>
-                          <span className="font-mono text-white">
-                            {isNumber(roi) ? `${formatNumber(roi, 1)}%` : '—'}
-                          </span>
-                        </div>
-                        <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-fuchsia-400 to-fuchsia-500"
-                            style={{ width: percentWidth(roi) }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Risk & Liquidity */}
-                  <div>
-                    <p className="hud-label mb-1">RISK & LIQUIDITY</p>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Beta</span>
-                        <span className="font-mono text-white">
-                          {isNumber(beta) ? formatNumber(beta, 2) : '—'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Debt/Equity</span>
-                        <span className="font-mono text-white">
-                          {isNumber(debtToEquity) ? formatNumber(debtToEquity, 2) : '—'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Current · Quick</span>
-                        <span className="font-mono text-white">
-                          {isNumber(currentRatio) ? formatNumber(currentRatio, 2) : '—'}{' '}
-                          <span className="text-slate-600">/</span>{' '}
-                          {isNumber(quickRatio) ? formatNumber(quickRatio, 2) : '—'}
-                        </span>
-                      </div>
-                      {/* Liquidity visualization */}
-                      <div className="mt-2 grid grid-cols-2 gap-2">
-                        <div>
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-500">Current</span>
-                            <span className="font-mono text-white">
-                              {isNumber(currentRatio) ? formatNumber(currentRatio, 2) : '—'}
-                            </span>
-                          </div>
-                          <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-cyan-400 to-cyan-500"
-                              style={{ width: percentWidth(currentRatio ? (Math.min(currentRatio, 3) / 3) * 100 : undefined) }}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-500">Quick</span>
-                            <span className="font-mono text-white">
-                              {isNumber(quickRatio) ? formatNumber(quickRatio, 2) : '—'}
-                            </span>
-                          </div>
-                          <div className="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-indigo-400 to-indigo-500"
-                              style={{ width: percentWidth(quickRatio ? (Math.min(quickRatio, 3) / 3) * 100 : undefined) }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Earnings & Momentum */}
-                  <div>
-                    <p className="hud-label mb-1">EARNINGS & MOMENTUM</p>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">EPS · Next Q</span>
-                        <span className="font-mono text-white">
-                          {isNumber(eps) ? formatNumber(eps, 2) : '—'}{' '}
-                          <span className="text-slate-600">/</span>{' '}
-                          {isNumber(epsNextQuarter) ? formatNumber(epsNextQuarter, 2) : '—'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Target · Rec</span>
-                        <span className="font-mono text-white">
-                          {isNumber(targetPrice) ? `$${formatNumber(targetPrice, 2)}` : '—'}{' '}
-                          <span className="text-slate-600">/</span>{' '}
-                          {recommendation ?? '—'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Earnings Date</span>
-                        <span className="font-mono text-white">
-                          {earningsDate || '—'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">RSI (14)</span>
-                        <span className="font-mono text-white">
-                          {isNumber(rsi) ? formatNumber(rsi, 1) : '—'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <button 
-                onClick={handleSyncData}
-                disabled={syncing}
-                className="w-full mt-4 hud-card py-2.5 text-sm font-medium text-blue-400 hover:text-white hover:border-blue-500/30 transition-all disabled:opacity-50"
-              >
-                {syncing ? 'Syncing...' : 'Refresh All Data'}
-              </button>
-            </div>
+          {/* Fundamentals Panel */}
+          <div className="col-span-12 lg:col-span-6">
+            <FundamentalsPanel
+              fundamentals={fundamentals}
+              price={priceInfo.price}
+              loading={loading}
+              onSync={handleSyncData}
+              syncing={syncing}
+            />
           </div>
 
           {/* Live News Section */}

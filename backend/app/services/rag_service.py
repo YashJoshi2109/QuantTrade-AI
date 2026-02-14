@@ -135,11 +135,18 @@ class RAGService:
                 NewsArticle.symbol_id == symbol_id
             ).order_by(NewsArticle.published_at.desc()).limit(top_k).all()
         
-        # If still nothing, get any recent news
+        # If still nothing and we were querying for a specific symbol, avoid
+        # falling back to generic world news (which can be off-topic for the
+        # user's stock question). In that case, just return no news so the LLM
+        # can explicitly say that symbol-specific headlines are unavailable.
         if not keyword_articles:
-            keyword_articles = db.query(NewsArticle).order_by(
-                NewsArticle.published_at.desc()
-            ).limit(top_k).all()
+            if symbol_id is None:
+                # Only for symbol-agnostic questions, fall back to general news
+                keyword_articles = db.query(NewsArticle).order_by(
+                    NewsArticle.published_at.desc()
+                ).limit(top_k).all()
+            else:
+                keyword_articles = []
         
         # Deduplicate by id
         seen_ids = set()
@@ -349,10 +356,6 @@ Your response:"""
         symbol_text = f" for {symbol}" if symbol else ""
         
         return f"""I don't have specific data loaded{symbol_text} yet.
-
-To get detailed analysis, you can:
-1. **Sync News**: Visit `/api/v1/news/{symbol or 'SYMBOL'}/sync` to fetch latest news
-2. **Check Prices**: The system will fetch real-time prices from Alpha Vantage
 
 I'm your AI Trading Copilot - ask me about:
 • Market sentiment and news analysis

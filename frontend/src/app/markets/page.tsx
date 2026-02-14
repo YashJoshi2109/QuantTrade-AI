@@ -5,14 +5,12 @@ import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileMarkets from '@/components/layout/MobileMarkets'
-import LiveNews from '@/components/LiveNews'
+import MarketMoversPanel from '@/components/MarketMoversPanel'
 import MarketHeatmap from '@/components/MarketHeatmap'
 import { 
   SkeletonMarketIndices, 
   SkeletonMarketStats, 
   SkeletonHeatmap, 
-  SkeletonMoversSection,
-  SkeletonNewsFeed 
 } from '@/components/Skeleton'
 import { 
   TrendingUp, 
@@ -25,7 +23,7 @@ import {
   Grid3X3,
   List
 } from 'lucide-react'
-import { fetchSectorPerformance, fetchMarketMovers, fetchMarketIndices, SectorPerformance, StockPerformance, MarketIndex } from '@/lib/api'
+import { fetchSectorPerformance, fetchMarketMovers, fetchMarketIndices, SectorPerformance, MarketIndex } from '@/lib/api'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import Link from 'next/link'
 
@@ -51,7 +49,7 @@ function DesktopMarketsPage() {
   })
 
   // Fetch movers - shared cache with home page
-  const { data: movers, isLoading: moversLoading } = useQuery({
+  const { data: movers, isLoading: moversLoading, refetch: refetchMovers } = useQuery({
     queryKey: ['marketMovers'],
     queryFn: fetchMarketMovers,
     refetchInterval: 120000, // Update every 2 minutes
@@ -280,65 +278,15 @@ function DesktopMarketsPage() {
             </div>
           </div>
 
-          {/* Sidebar - Top Movers & News */}
-          <div className="lg:col-span-3 space-y-4 sm:space-y-6">
-            {/* Top Gainers */}
-            <div className="hud-panel">
-              <div className="p-3 sm:p-4 border-b border-slate-700/30 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-green-400" />
-                <h3 className="font-bold text-white text-sm">Top Gainers</h3>
-              </div>
-              <div className="divide-y divide-slate-700/20">
-                {moversLoading ? (
-                  <SkeletonMoversSection />
-                ) : movers?.gainers?.slice(0, 5).map((stock: StockPerformance, idx: number) => (
-                  <Link
-                    key={stock.symbol || `gainer-${idx}`}
-                    href={`/research?symbol=${stock.symbol}`}
-                    className="flex items-center justify-between p-2 sm:p-3 hover:bg-green-500/5 transition-colors"
-                  >
-                    <span className="font-bold text-white text-sm">{stock.symbol}</span>
-                    <span className="text-green-400 font-mono text-sm">
-                      {(isNumber(stock.change_percent) && stock.change_percent >= 0) ? '+' : ''}{formatPercent(stock.change_percent, 2)}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Top Losers */}
-            <div className="hud-panel">
-              <div className="p-3 sm:p-4 border-b border-slate-700/30 flex items-center gap-2">
-                <TrendingDown className="w-4 h-4 text-red-400" />
-                <h3 className="font-bold text-white text-sm">Top Losers</h3>
-              </div>
-              <div className="divide-y divide-slate-700/20">
-                {moversLoading ? (
-                  <SkeletonMoversSection />
-                ) : movers?.losers?.slice(0, 5).map((stock: StockPerformance, idx: number) => (
-                  <Link
-                    key={stock.symbol || `loser-${idx}`}
-                    href={`/research?symbol=${stock.symbol}`}
-                    className="flex items-center justify-between p-3 hover:bg-red-500/5 transition-colors"
-                  >
-                    <span className="font-bold text-white text-sm">{stock.symbol}</span>
-                    <span className="text-red-400 font-mono text-sm">
-                      {(isNumber(stock.change_percent) && stock.change_percent >= 0) ? '+' : ''}{formatPercent(stock.change_percent, 2)}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Live News */}
-            <div className="hud-panel">
-              <div className="p-4 border-b border-slate-700/30 flex items-center gap-2">
-                <div className="live-pulse" />
-                <h3 className="font-bold text-white text-sm ml-2">Live Market News</h3>
-              </div>
-              <div className="p-4">
-                <LiveNews limit={5} showTitle={false} />
-              </div>
+          {/* Sidebar - Enhanced Market Movers */}
+          <div className="lg:col-span-3">
+            <div className="sticky top-24" style={{ maxHeight: 'calc(100vh - 7rem)' }}>
+              <MarketMoversPanel
+                gainers={movers?.gainers?.slice(0, 10) || []}
+                losers={movers?.losers?.slice(0, 10) || []}
+                loading={moversLoading}
+                onRefresh={() => refetchMovers()}
+              />
             </div>
           </div>
         </div>

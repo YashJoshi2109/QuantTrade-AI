@@ -1,0 +1,18 @@
+symbols:
+  - AAPL
+  - MSFT
+  - GOOGL
+  - AMZN
+  - NVDA
+
+lookback_days: 120
+
+evaluation_horizons:
+  - 1
+  - 7
+  - 30
+
+output_dir: "ml_runs"
+
+model_name: "lstm_predictor"
+

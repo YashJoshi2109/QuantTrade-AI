@@ -33,6 +33,16 @@ export default function ChatMessage({ message }: { message: Message }) {
         <Bot className="w-5 h-5 text-white" />
       </div>
       <div className="flex-1 space-y-2 max-w-[85%]">
+        {message.analysisSummary && (
+          <div className="bg-gradient-to-br from-[#0B1728] to-[#07101E] rounded-2xl px-4 py-3 border border-cyan-500/40 shadow-[0_0_24px_rgba(0,217,255,0.25)]">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-300 font-semibold mb-1">
+              QuantTrade Stock Analysis
+            </p>
+            <p className="text-gray-100 text-xs leading-relaxed whitespace-pre-wrap">
+              {message.analysisSummary}
+            </p>
+          </div>
+        )}
         <div className="bg-[#1A2332] rounded-2xl rounded-tl-md px-4 py-3 border border-white/5">
           <p className="text-gray-100 text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
         </div>
