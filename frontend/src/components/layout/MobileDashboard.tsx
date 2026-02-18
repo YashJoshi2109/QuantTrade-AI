@@ -336,9 +336,9 @@ export default function MobileDashboard() {
                   <p className="text-[13px] font-semibold text-white">{result.symbol}</p>
                   <p className="text-[11px] text-slate-500 truncate">{result.name}</p>
                 </div>
-                {result.type && (
+                {result.asset_type && (
                   <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400 uppercase">
-                    {result.type}
+                    {result.asset_type}
                   </span>
                 )}
               </button>
