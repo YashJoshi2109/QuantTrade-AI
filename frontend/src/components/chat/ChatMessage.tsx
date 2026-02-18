@@ -1,4 +1,4 @@
-import { Bot, Copy } from 'lucide-react'
+import { Zap, Copy, Check, ThumbsUp, ThumbsDown, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
 import type { Message } from './ChatWindow'
 
@@ -17,44 +17,67 @@ export default function ChatMessage({ message }: { message: Message }) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end animate-fade-in">
-        <div className="max-w-[85%]">
-          <div className="bg-gradient-to-br from-[#00D9FF] to-[#0066FF] rounded-2xl rounded-br-md px-4 py-3 shadow-lg">
-            <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+        <div className="max-w-[80%]">
+          <div className="bg-gradient-to-br from-[#00D9FF] to-[#0066FF] rounded-2xl rounded-br-sm px-4 py-2.5 shadow-lg shadow-cyan-500/10">
+            <p className="text-white text-[13px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
           </div>
-          <p className="text-xs text-gray-500 mt-1 text-right">{formatTime(message.timestamp)}</p>
+          <p className="text-[10px] text-slate-600 mt-1 text-right pr-1">{formatTime(message.timestamp)}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex gap-3 animate-fade-in">
-      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#00D9FF] to-[#0066FF] flex items-center justify-center flex-shrink-0">
-        <Bot className="w-5 h-5 text-white" />
+    <div className="flex gap-2.5 animate-fade-in">
+      {/* AI avatar */}
+      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00D9FF]/20 to-[#7C3AED]/20 flex items-center justify-center flex-shrink-0 border border-white/[0.06] mt-0.5">
+        <Zap className="w-4 h-4 text-cyan-400" />
       </div>
+
       <div className="flex-1 space-y-2 max-w-[85%]">
         {message.analysisSummary && (
-          <div className="bg-gradient-to-br from-[#0B1728] to-[#07101E] rounded-2xl px-4 py-3 border border-cyan-500/40 shadow-[0_0_24px_rgba(0,217,255,0.25)]">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-300 font-semibold mb-1">
-              QuantTrade Stock Analysis
-            </p>
-            <p className="text-gray-100 text-xs leading-relaxed whitespace-pre-wrap">
+          <div className="rounded-2xl rounded-tl-sm px-4 py-3 bg-gradient-to-br from-cyan-500/[0.08] to-blue-500/[0.05] backdrop-blur-sm border border-cyan-500/[0.15] shadow-lg shadow-cyan-500/5">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="w-4 h-4 rounded bg-cyan-500/20 flex items-center justify-center">
+                <Zap className="w-2.5 h-2.5 text-cyan-400" />
+              </div>
+              <p className="text-[10px] uppercase tracking-wider text-cyan-400/80 font-semibold">
+                Stock Analysis
+              </p>
+            </div>
+            <p className="text-slate-200 text-[12px] leading-relaxed whitespace-pre-wrap">
               {message.analysisSummary}
             </p>
           </div>
         )}
-        <div className="bg-[#1A2332] rounded-2xl rounded-tl-md px-4 py-3 border border-white/5">
-          <p className="text-gray-100 text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+
+        <div className="bg-white/[0.04] backdrop-blur-sm rounded-2xl rounded-tl-sm px-4 py-2.5 border border-white/[0.06]">
+          <p className="text-slate-200 text-[13px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
         </div>
-        <div className="flex items-center gap-3 px-2">
+
+        {/* Action bar */}
+        <div className="flex items-center gap-1 px-1">
           <button
             onClick={handleCopy}
-            className="text-gray-500 hover:text-white transition-colors p-1"
+            className="p-1.5 rounded-md hover:bg-white/[0.06] transition-colors group"
             title="Copy"
           >
-            <Copy className="w-3.5 h-3.5" />
+            {copied ? (
+              <Check className="w-3 h-3 text-emerald-400" />
+            ) : (
+              <Copy className="w-3 h-3 text-slate-600 group-hover:text-slate-400" />
+            )}
           </button>
-          <span className="text-xs text-gray-500">{formatTime(message.timestamp)}</span>
+          <button className="p-1.5 rounded-md hover:bg-white/[0.06] transition-colors group" title="Helpful">
+            <ThumbsUp className="w-3 h-3 text-slate-600 group-hover:text-slate-400" />
+          </button>
+          <button className="p-1.5 rounded-md hover:bg-white/[0.06] transition-colors group" title="Not helpful">
+            <ThumbsDown className="w-3 h-3 text-slate-600 group-hover:text-slate-400" />
+          </button>
+          <button className="p-1.5 rounded-md hover:bg-white/[0.06] transition-colors group" title="Regenerate">
+            <RotateCcw className="w-3 h-3 text-slate-600 group-hover:text-slate-400" />
+          </button>
+          <span className="text-[10px] text-slate-600 ml-auto">{formatTime(message.timestamp)}</span>
         </div>
       </div>
     </div>

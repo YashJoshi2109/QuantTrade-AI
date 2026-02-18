@@ -1,30 +1,34 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
-  LayoutDashboard,
   Search,
   User,
-  Zap,
   TrendingUp,
   TrendingDown,
   ArrowRight,
   FileText,
   BarChart3,
+  Zap,
 } from 'lucide-react'
+import Image from 'next/image'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   fetchMarketStatus,
   fetchMarketMovers,
   fetchMarketIndices,
   fetchSectorPerformance,
+  searchSymbols,
+  syncSymbol,
   MarketStatus,
   MarketMovers,
   MarketIndex,
   SectorPerformance,
+  SearchResult,
 } from '@/lib/api'
 import { useBreakingNews } from '@/hooks/useRealtimeNews'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
@@ -107,9 +111,40 @@ function DashboardIndexCard({ index, label }: DashboardIndexCardProps) {
 }
 
 export default function MobileDashboard() {
+  const router = useRouter()
   const { user } = useAuth()
   const greeting = useGreeting(user?.full_name || user?.username)
   const timeString = useCurrentTime()
+
+  /* ── Search state ── */
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  const { data: searchResults = [], isLoading: searching } = useQuery<SearchResult[]>({
+    queryKey: ['mobile.dashSearch', searchQuery],
+    queryFn: () => searchSymbols(searchQuery, 10),
+    enabled: showSearch && searchQuery.trim().length > 0,
+    staleTime: 0,
+  })
+
+  useEffect(() => {
+    if (showSearch) {
+      setTimeout(() => searchInputRef.current?.focus(), 100)
+    } else {
+      setSearchQuery('')
+    }
+  }, [showSearch])
+
+  const handleSearchSelect = useCallback(
+    async (symbol: string) => {
+      setShowSearch(false)
+      setSearchQuery('')
+      try { await syncSymbol(symbol) } catch { /* ignore */ }
+      router.push(`/research?symbol=${symbol}`)
+    },
+    [router],
+  )
 
   const { data: status, isLoading: statusLoading } = useQuery<MarketStatus>({
     // Share cache with desktop dashboard/other views
@@ -215,14 +250,14 @@ export default function MobileDashboard() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-[#00D9FF] via-[#4c6fff] to-[#00D9FF] p-[1px]">
-              <div className="h-full w-full rounded-2xl bg-[#0A0E1A] flex items-center justify-center">
-                <Zap className="w-4 h-4 text-[#00D9FF]" />
+              <div className="h-full w-full rounded-2xl bg-[#0A0E1A] flex items-center justify-center overflow-hidden">
+                <Image src="/logo.png" alt="QuantTrade AI" width={20} height={20} className="object-contain" />
               </div>
             </div>
             <div>
               <div className="flex items-center gap-1">
                 <span className="text-[11px] tracking-[0.22em] text-slate-400 font-semibold">
-                  QUANTTRADE
+                  QUANTTRADE AI
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-1">
@@ -231,12 +266,13 @@ export default function MobileDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link
-              href="/research"
+            <button
+              type="button"
+              onClick={() => setShowSearch(true)}
               className="h-8 w-8 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center active:scale-95"
             >
               <Search className="w-4 h-4 text-slate-200" />
-            </Link>
+            </button>
             <Link
               href="/settings"
               className="h-8 w-8 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center active:scale-95"
@@ -246,6 +282,70 @@ export default function MobileDashboard() {
           </div>
         </div>
       </header>
+
+      {/* Search overlay */}
+      {showSearch && (
+        <div className="fixed inset-0 z-50 bg-[#0A0E1A]/98 backdrop-blur-xl flex flex-col animate-fade-in">
+          <div className="flex items-center gap-2 px-4 pt-safe pb-3 border-b border-white/10">
+            <button
+              type="button"
+              onClick={() => setShowSearch(false)}
+              className="p-2 -ml-2 rounded-full hover:bg-white/5 active:scale-95"
+            >
+              <ArrowRight className="w-5 h-5 text-slate-400 rotate-180" />
+            </button>
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search stocks, ETFs, crypto..."
+                className="w-full h-10 rounded-full bg-[#1A2332] border border-white/10 pl-9 pr-4 text-[13px] text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 py-3">
+            {searching && (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-5 h-5 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+            {!searching && searchQuery.trim().length > 0 && searchResults.length === 0 && (
+              <div className="text-center py-8 text-slate-500 text-sm">
+                No results for &quot;{searchQuery}&quot;
+              </div>
+            )}
+            {!searching && searchQuery.trim().length === 0 && (
+              <div className="text-center py-8 text-slate-500 text-sm">
+                Type a symbol or company name to search
+              </div>
+            )}
+            {searchResults.map((result) => (
+              <button
+                key={result.symbol}
+                type="button"
+                onClick={() => handleSearchSelect(result.symbol)}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors text-left"
+              >
+                <div className="w-9 h-9 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center text-[11px] font-bold text-white">
+                  {result.symbol.slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-white">{result.symbol}</p>
+                  <p className="text-[11px] text-slate-500 truncate">{result.name}</p>
+                </div>
+                {result.type && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400 uppercase">
+                    {result.type}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Greeting */}
       <section className="px-1">

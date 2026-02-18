@@ -1,37 +1,51 @@
-import { TrendingUp, Sparkles, BarChart3, Lightbulb } from 'lucide-react'
+import { Sparkles, BarChart3, Lightbulb, Activity, BrainCircuit, TrendingUp } from 'lucide-react'
+
+const features = [
+  { icon: Sparkles, label: 'Real-time Analysis', desc: 'Live market data' },
+  { icon: BarChart3, label: 'Market Insights', desc: 'Sector trends' },
+  { icon: TrendingUp, label: 'Stock Ratings', desc: 'Buy/sell signals' },
+  { icon: BrainCircuit, label: 'AI Predictions', desc: 'ML forecasts' },
+  { icon: Activity, label: 'Portfolio Review', desc: 'Risk analysis' },
+  { icon: Lightbulb, label: 'Smart Ideas', desc: 'Trade setups' },
+]
 
 export default function WelcomeScreen() {
   return (
-    <div className="text-center py-8 px-4 space-y-6 animate-fade-in">
-      <div className="relative mx-auto w-24 h-24">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#00D9FF] to-[#0066FF] rounded-full opacity-20 animate-pulse" />
-        <div className="relative w-full h-full rounded-full bg-gradient-to-br from-[#00D9FF] to-[#0066FF] flex items-center justify-center">
-          <TrendingUp className="w-12 h-12 text-white" />
+    <div className="flex flex-col items-center justify-center px-4 py-6 animate-fade-in">
+      {/* Title */}
+      <h3 className="text-xl font-bold text-white mb-1.5 tracking-tight">
+        Quant AI Assistant
+      </h3>
+      <p className="text-[13px] text-slate-400 text-center max-w-[260px] leading-relaxed mb-6">
+        Ask about any stock, market trend, or investment strategy. Powered by real-time data.
+      </p>
+
+      {/* Feature chips — horizontal scroll */}
+      <div className="w-full overflow-x-auto scrollbar-hide -mx-4 px-4">
+        <div className="flex gap-2.5 pb-1 w-max">
+          {features.map((f, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-white/[0.04] backdrop-blur-md border border-white/[0.08] hover:bg-white/[0.07] hover:border-white/[0.15] transition-all cursor-default group"
+            >
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00D9FF]/20 to-[#7C3AED]/20 flex items-center justify-center border border-white/[0.06] group-hover:border-cyan-500/20 transition-colors">
+                <f.icon className="w-4 h-4 text-cyan-400" />
+              </div>
+              <div className="text-left">
+                <p className="text-[11px] font-semibold text-white/90 leading-none">{f.label}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5 leading-none">{f.desc}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
-      <div>
-        <h3 className="text-2xl font-bold text-white mb-2">AI Stock Analysis</h3>
-        <p className="text-gray-400 text-sm max-w-xs mx-auto leading-relaxed">
-          Ask me anything about stocks, market trends, or investment strategies.
+
+      {/* Subtle hint */}
+      <div className="mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/[0.06]">
+        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        <p className="text-[10px] text-slate-500">
+          Try: <span className="text-slate-400">&quot;Analyze NVDA&quot;</span> or <span className="text-slate-400">&quot;Top gainers today&quot;</span>
         </p>
-      </div>
-      <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto pt-4">
-        {[
-          { icon: Sparkles, text: 'Real-time Analysis', color: 'from-purple-500 to-pink-500' },
-          { icon: BarChart3, text: 'Market Insights', color: 'from-blue-500 to-cyan-500' },
-          { icon: TrendingUp, text: 'Stock Ratings', color: 'from-green-500 to-emerald-500' },
-          { icon: Lightbulb, text: 'AI Predictions', color: 'from-orange-500 to-yellow-500' },
-        ].map((feature, i) => (
-          <div
-            key={i}
-            className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/10"
-          >
-            <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${feature.color} flex items-center justify-center mb-2 mx-auto`}>
-              <feature.icon className="w-4 h-4 text-white" />
-            </div>
-            <p className="text-xs text-gray-300 font-medium">{feature.text}</p>
-          </div>
-        ))}
       </div>
     </div>
   )

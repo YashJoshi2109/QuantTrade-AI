@@ -14,7 +14,6 @@ import {
   MarketIndex,
 } from '@/lib/api'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
-import LiveNews from '@/components/LiveNews'
 import MarketHeatmap from '@/components/MarketHeatmap'
 import MarketMoversPanel from '@/components/MarketMoversPanel'
 
@@ -239,6 +238,16 @@ export default function MobileMarkets() {
         </div>
       </section>
 
+      {/* Market Movers Panel */}
+      <section className="px-1">
+        <MarketMoversPanel
+          gainers={movers?.gainers?.slice(0, 10) || []}
+          losers={movers?.losers?.slice(0, 10) || []}
+          loading={isLoading}
+          onRefresh={() => refetchMovers()}
+        />
+      </section>
+
       {/* Filters */}
       <section className="px-1">
         <div className="flex overflow-x-auto scrollbar-hide gap-2">
@@ -263,7 +272,7 @@ export default function MobileMarkets() {
       </section>
 
       {/* Combined movers list */}
-      <section className="px-1 space-y-2">
+      <section className="px-1 space-y-2 pb-4">
         {isLoading && (
           <>
             {Array.from({ length: 5 }).map((_, i) => (
@@ -329,24 +338,6 @@ export default function MobileMarkets() {
               </Link>
             )
           })}
-      </section>
-
-      {/* Market Movers Panel – expanded for mobile */}
-      <section className="px-1">
-        <MarketMoversPanel
-          gainers={movers?.gainers?.slice(0, 10) || []}
-          losers={movers?.losers?.slice(0, 10) || []}
-          loading={isLoading}
-          onRefresh={() => refetchMovers()}
-        />
-      </section>
-
-      {/* Live market news (compact) */}
-      <section className="px-1 pb-4">
-        <div className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-3">
-          <p className="text-[12px] font-semibold text-white mb-2">Live Market News</p>
-          <LiveNews limit={8} showTitle={false} />
-        </div>
       </section>
     </div>
   )

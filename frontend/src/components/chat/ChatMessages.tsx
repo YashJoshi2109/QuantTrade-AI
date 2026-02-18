@@ -17,13 +17,18 @@ export default function ChatMessages({ messages, isTyping }: ChatMessagesProps) 
   }, [messages, isTyping])
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5 min-h-0">
-      {messages.length === 0 && <WelcomeScreen />}
-      {messages.map((message) => (
-        <ChatMessage key={message.id} message={message} />
-      ))}
-      {isTyping && <TypingIndicator />}
-      <div ref={messagesEndRef} />
+    <div className="relative flex-1 overflow-y-auto min-h-0">
+      {/* Subtle gradient background for depth */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/[0.01] to-transparent pointer-events-none" />
+
+      <div className="relative px-4 py-4 space-y-4">
+        {messages.length === 0 && <WelcomeScreen />}
+        {messages.map((message) => (
+          <ChatMessage key={message.id} message={message} />
+        ))}
+        {isTyping && <TypingIndicator />}
+        <div ref={messagesEndRef} />
+      </div>
     </div>
   )
 }
