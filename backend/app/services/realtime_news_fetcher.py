@@ -61,15 +61,20 @@ class RealtimeNewsFetcher:
                         except Exception:
                             published_at = datetime.utcnow()
                     
-                    # Extract thumbnail safely
+                    # Extract thumbnail safely - handle multiple yfinance formats
                     thumbnail = None
                     thumb_data = item.get('thumbnail')
                     if isinstance(thumb_data, dict):
                         resolutions = thumb_data.get('resolutions', [])
                         if resolutions and isinstance(resolutions, list) and len(resolutions) > 0:
-                            thumbnail = resolutions[0].get('url')
+                            best = max(resolutions, key=lambda r: r.get('width', 0) * r.get('height', 0)) if len(resolutions) > 1 else resolutions[0]
+                            thumbnail = best.get('url')
+                        if not thumbnail:
+                            thumbnail = thumb_data.get('url')
                     elif isinstance(thumb_data, str):
                         thumbnail = thumb_data
+                    if not thumbnail:
+                        thumbnail = item.get('image') or item.get('heroImage') or item.get('previewImage')
                     
                     articles.append({
                         "title": item.get('title', ''),

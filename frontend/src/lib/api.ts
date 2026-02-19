@@ -285,6 +285,8 @@ export interface ChatResponse {
   symbol?: string
   session_id?: string
   analysis_summary?: string
+  response_type?: string
+  structured_data?: Record<string, any>
 }
 
 export async function sendChatMessage(message: ChatMessage): Promise<ChatResponse> {

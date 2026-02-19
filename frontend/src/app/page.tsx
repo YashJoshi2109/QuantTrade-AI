@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
@@ -12,70 +11,22 @@ import {
   TrendingUp, 
   TrendingDown, 
   Sparkles, 
-  Flame, 
-  Plus, 
   Zap, 
   ArrowRight, 
   Activity,
   BarChart3,
   Cpu,
-  LogIn,
   RefreshCw
 } from 'lucide-react'
-import { fetchMarketMovers, fetchSectorPerformance, StockPerformance, SectorPerformance, fetchMarketStatus, MarketStatus } from '@/lib/api'
+import { fetchMarketMovers, fetchSectorPerformance, StockPerformance, SectorPerformance } from '@/lib/api'
 import { useRealtimeQuotes } from '@/hooks/useRealtimeQuote'
 import MarketNewsGrid from '@/components/MarketNewsGrid'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import {
-  SkeletonText,
   SkeletonMoversSection,
   SkeletonNewsFeed,
   SkeletonSectorPerformance
 } from '@/components/Skeleton'
-
-// Market Status Component
-function MarketStatusCard() {
-  const { data: marketStatus, isLoading } = useQuery<MarketStatus>({
-    queryKey: ['marketStatus'],
-    queryFn: fetchMarketStatus,
-    refetchInterval: 60000, // Refresh every minute
-  })
-
-  const isOpen = marketStatus?.is_open ?? false
-  const status = marketStatus?.status ?? 'CLOSED'
-
-  return (
-    <div className="bento-sm">
-      <div className="hud-panel h-full p-5 flex flex-col justify-between">
-        <div>
-          <div className="hud-label mb-2">MARKET STATUS</div>
-          {isLoading ? (
-            <div className="space-y-2 mt-2">
-              <SkeletonText className="h-5 w-20" />
-              <SkeletonText className="h-3 w-16" />
-              <SkeletonText className="h-2 w-12" />
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 mt-2">
-                <div className={`w-2 h-2 rounded-full ${isOpen ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
-                <span className={`text-lg font-bold ${isOpen ? 'text-green-400' : 'text-red-400'}`}>
-                  {status}
-                </span>
-              </div>
-              <div className="text-[10px] text-slate-500 font-mono mt-2">
-                {marketStatus?.exchanges.NYSE ? 'NYSE' : 'NYSE'} · {marketStatus?.exchanges.NASDAQ ? 'NASDAQ' : 'NASDAQ'}
-              </div>
-              <div className="text-[9px] text-slate-600 font-mono mt-1">
-                {marketStatus?.current_time_et?.split(' ')[1] || ''} ET
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function DesktopHome() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -474,36 +425,19 @@ function DesktopHome() {
 
           {/* Quick Stats - User Dependent */}
           {isAuthenticated && (
-            <>
-              <div className="bento-sm">
-                <div className="hud-panel h-full p-5 flex flex-col justify-between">
-                  <div>
-                    <div className="hud-label mb-2">WELCOME BACK</div>
-                    <div className="text-lg font-bold text-white truncate">{user?.username || user?.full_name}</div>
-                    <div className="text-xs text-slate-500 mt-1 truncate">{user?.email}</div>
-                  </div>
-                  <Link href="/settings" className="text-[10px] text-blue-400 hover:text-white transition-colors mt-2">
-                    Settings →
-                  </Link>
+            <div className="bento-sm">
+              <div className="hud-panel h-full p-5 flex flex-col justify-between">
+                <div>
+                  <div className="hud-label mb-2">WELCOME BACK</div>
+                  <div className="text-lg font-bold text-white truncate">{user?.username || user?.full_name}</div>
+                  <div className="text-xs text-slate-500 mt-1 truncate">{user?.email}</div>
                 </div>
+                <Link href="/settings" className="text-[10px] text-blue-400 hover:text-white transition-colors mt-2">
+                  Settings →
+                </Link>
               </div>
-
-              <div className="bento-sm">
-                <div className="hud-panel h-full p-5 flex flex-col justify-between">
-                  <div>
-                    <div className="hud-label mb-2">YOUR WATCHLIST</div>
-                    <div className="text-2xl font-bold text-white hud-value">—</div>
-                    <div className="text-xs text-slate-500 mt-1">Tracked symbols</div>
-                  </div>
-                  <Link href="/watchlist" className="text-[10px] text-blue-400 hover:text-white transition-colors mt-2">
-                    Manage →
-                  </Link>
-                </div>
-              </div>
-            </>
+            </div>
           )}
-
-          <MarketStatusCard />
 
         </div>
 

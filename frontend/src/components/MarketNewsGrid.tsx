@@ -238,29 +238,19 @@ function HeroStory({ article }: { article: NewsArticle }) {
       className="block group"
     >
       {/* Hero image */}
-      <div className="relative w-full h-52 rounded-xl overflow-hidden bg-gradient-to-br from-[#1A2332] to-[#0d1321] border border-white/[0.06] mb-4">
-        {article.thumbnail ? (
-          <img
-            src={article.thumbnail}
-            alt=""
-            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
-          />
-        ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <img
-              src={getFaviconUrl(article.url, article.source)}
-              alt=""
-              className="w-14 h-14 rounded-2xl opacity-60 mb-2"
-              loading="lazy"
-              onError={(e) => {
-                ;(e.target as HTMLImageElement).style.display = 'none'
-              }}
-            />
-            <span className="text-[11px] text-slate-500 font-medium">
-              {article.source || 'FEATURED STORY'}
-            </span>
-          </div>
-        )}
+      <div className="relative w-full h-52 rounded-xl overflow-hidden bg-gradient-to-br from-[#1A2332] via-[#141B2D] to-[#0d1321] border border-white/[0.06] mb-4">
+        <img
+          src={article.thumbnail || getFaviconUrl(article.url, article.source)}
+          alt=""
+          className={article.thumbnail
+            ? "w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
+            : "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-2xl opacity-60 group-hover:opacity-80 transition-opacity"
+          }
+          loading="lazy"
+          onError={(e) => {
+            ;(e.target as HTMLImageElement).style.display = 'none'
+          }}
+        />
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E1A]/80 to-transparent" />
         {/* Sentiment badge */}
@@ -326,30 +316,19 @@ function RightColumnCard({ article }: { article: NewsArticle }) {
   const inner = (
     <div className="flex gap-3 py-3 border-b border-white/[0.04] group hover:bg-white/[0.02] -mx-2 px-2 rounded-lg transition-all">
       {/* Thumbnail */}
-      <div className="w-20 h-16 rounded-lg overflow-hidden bg-[#1A2332] border border-white/[0.06] flex-shrink-0">
-        {article.thumbnail ? (
-          <img
-            src={article.thumbnail}
-            alt=""
-            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-          />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-1">
-            <img
-              src={getFaviconUrl(article.url, article.source)}
-              alt=""
-              className="w-7 h-7 rounded opacity-70"
-              loading="lazy"
-              onError={(e) => {
-                const img = e.target as HTMLImageElement
-                img.style.display = 'none'
-              }}
-            />
-            <span className="text-[7px] text-slate-600 font-medium text-center leading-none truncate w-full px-1">
-              {article.source}
-            </span>
-          </div>
-        )}
+      <div className="w-20 h-16 rounded-lg overflow-hidden bg-[#1A2332] border border-white/[0.06] flex-shrink-0 flex items-center justify-center">
+        <img
+          src={article.thumbnail || getFaviconUrl(article.url, article.source)}
+          alt=""
+          className={article.thumbnail
+            ? "w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+            : "w-8 h-8 rounded opacity-70 group-hover:opacity-100 transition-opacity"
+          }
+          loading="lazy"
+          onError={(e) => {
+            ;(e.target as HTMLImageElement).style.display = 'none'
+          }}
+        />
       </div>
       {/* Content */}
       <div className="flex-1 min-w-0">

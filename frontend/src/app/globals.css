@@ -862,6 +862,27 @@ html {
   animation-play-state: paused;
 }
 
+/* ===== Chat Visual Terminal Animations ===== */
+@keyframes gradient-border-shimmer {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient-border {
+  background-size: 200% 200%;
+  animation: gradient-border-shimmer 3s ease infinite;
+}
+
+@keyframes price-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.animate-price-pulse {
+  animation: price-pulse 0.3s ease-out;
+}
+
 @supports (padding: max(0px)) {
   .pb-safe {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));

@@ -1,10 +1,11 @@
 """
 Chat/AI Copilot API endpoints with RAG integration and QuantTrade Stock Analysis.
+Supports structured visual responses for stock analysis, comparisons, screeners, and sectors.
 """
 from datetime import datetime, timedelta, timezone
 import re
 import uuid
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -18,10 +19,34 @@ from app.services.rag_service import RAGService
 from app.services.stock_analysis_client import fetch_stock_prediction
 from app.services.fmp_client import get_fundamentals_snapshot
 from app.services.quote_cache import QuoteCacheService
+from app.services.indicators import IndicatorService
+from app.services.risk_scorer import RiskScorer
+from app.services.comprehensive_analysis import build_comprehensive_analysis
+from app.models.fundamentals import Fundamentals
 from app.api.auth import get_current_user, require_auth
 
 router = APIRouter()
 rag_service = RAGService()
+
+
+# ---------------------------------------------------------------------------
+# Intent detection keywords
+# ---------------------------------------------------------------------------
+ANALYSIS_KEYWORDS = [
+    "analyze", "analysis", "tell me about", "how is", "what about",
+    "look at", "research", "review", "evaluate", "assess", "check",
+    "price of", "forecast", "predict", "outlook",
+]
+COMPARISON_KEYWORDS = ["compare", "vs", "versus", "against", "difference between"]
+SCREENER_KEYWORDS = [
+    "top gainers", "top losers", "gainers", "losers", "screener",
+    "best performing", "worst performing", "movers", "biggest gains",
+    "biggest losses",
+]
+SECTOR_KEYWORDS = [
+    "sector performance", "sectors", "sector breakdown",
+    "industry performance", "which sectors",
+]
 
 
 class ChatMessage(BaseModel):
@@ -40,6 +65,8 @@ class ChatResponse(BaseModel):
     symbol: Optional[str] = None
     session_id: Optional[str] = None
     analysis_summary: Optional[str] = None
+    response_type: str = "text"
+    structured_data: Optional[Dict[str, Any]] = None
 
 
 class ChatHistoryItem(BaseModel):
@@ -54,6 +81,165 @@ class ChatHistoryItem(BaseModel):
         from_attributes = True
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _detect_intent(msg: str, resolved_symbol: Optional[str], resolved_symbols: List[str]) -> str:
+    lower = msg.lower()
+
+    if len(resolved_symbols) >= 2 and any(kw in lower for kw in COMPARISON_KEYWORDS):
+        return "comparison"
+
+    if any(kw in lower for kw in SCREENER_KEYWORDS):
+        return "screener"
+
+    if any(kw in lower for kw in SECTOR_KEYWORDS):
+        return "sector"
+
+    if resolved_symbol:
+        if any(kw in lower for kw in ANALYSIS_KEYWORDS):
+            return "stock_analysis"
+        return "stock_analysis"
+
+    return "text"
+
+
+def _safe_float(val, default=None):
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return default
+
+
+async def _build_stock_analysis_data(
+    symbol: str,
+    db: Session,
+    quote_service: QuoteCacheService,
+) -> Dict[str, Any]:
+    """Assemble structured data for a single stock analysis."""
+    data: Dict[str, Any] = {"symbol": symbol}
+
+    # Quote
+    try:
+        quote = await quote_service.get_quote(symbol)
+        if quote and not quote.get("unavailable"):
+            data["quote"] = {
+                "price": _safe_float(quote.get("price")),
+                "change": _safe_float(quote.get("change")),
+                "change_percent": _safe_float(quote.get("change_percent")),
+                "volume": quote.get("volume"),
+                "high": _safe_float(quote.get("high")),
+                "low": _safe_float(quote.get("low")),
+                "open": _safe_float(quote.get("open")),
+                "previous_close": _safe_float(quote.get("previous_close")),
+                "data_source": quote.get("data_source"),
+            }
+    except Exception:
+        pass
+
+    # Indicators
+    try:
+        db_sym = db.query(Symbol).filter(Symbol.symbol == symbol).first()
+        if db_sym:
+            indicators = IndicatorService.get_all_indicators(db, db_sym.id)
+            if indicators:
+                data["indicators"] = indicators
+    except Exception:
+        pass
+
+    # Fundamentals from Fundamentals table
+    try:
+        db_sym = db.query(Symbol).filter(Symbol.symbol == symbol).first()
+        if db_sym:
+            fund = db.query(Fundamentals).filter(Fundamentals.symbol_id == db_sym.id).first()
+            if fund:
+                data["fundamentals"] = {
+                    "market_cap": _safe_float(fund.market_cap),
+                    "pe_ratio": _safe_float(fund.pe_ratio),
+                    "forward_pe": _safe_float(fund.forward_pe),
+                    "peg_ratio": _safe_float(fund.peg_ratio),
+                    "price_to_book": _safe_float(fund.price_to_book),
+                    "eps": _safe_float(fund.eps),
+                    "beta": _safe_float(fund.beta),
+                    "rsi": _safe_float(fund.rsi),
+                    "dividend_yield": _safe_float(fund.dividend_yield),
+                    "week_52_high": _safe_float(fund.week_52_high),
+                    "week_52_low": _safe_float(fund.week_52_low),
+                    "profit_margin": _safe_float(fund.profit_margin),
+                    "operating_margin": _safe_float(fund.operating_margin),
+                    "roe": _safe_float(fund.roe),
+                    "roa": _safe_float(fund.roa),
+                    "debt_to_equity": _safe_float(fund.debt_to_equity),
+                    "current_ratio": _safe_float(fund.current_ratio),
+                    "target_price": _safe_float(fund.target_price),
+                    "recommendation": fund.recommendation,
+                    "earnings_date": fund.earnings_date,
+                    "revenue": _safe_float(fund.revenue),
+                    "volume": fund.volume,
+                    "avg_volume": fund.avg_volume,
+                }
+    except Exception:
+        pass
+
+    # Risk metrics
+    try:
+        db_sym = db.query(Symbol).filter(Symbol.symbol == symbol).first()
+        if db_sym:
+            risk = RiskScorer.calculate_risk_score(db, db_sym.id)
+            if risk:
+                data["risk"] = risk
+    except Exception:
+        pass
+
+    # Company metadata from Symbol table
+    try:
+        db_sym = db.query(Symbol).filter(Symbol.symbol == symbol).first()
+        if db_sym:
+            data["company"] = {
+                "name": db_sym.name,
+                "sector": db_sym.sector,
+                "industry": db_sym.industry,
+                "market_cap": _safe_float(db_sym.market_cap),
+            }
+    except Exception:
+        pass
+
+    return data
+
+
+async def _build_screener_data(db: Session) -> Dict[str, Any]:
+    """Fetch market movers for screener intent."""
+    try:
+        from app.api.market import get_top_gainers, get_top_losers
+        gainers = await get_top_gainers(10, db)
+        losers = await get_top_losers(10, db)
+        return {
+            "gainers": [g.dict() if hasattr(g, "dict") else g for g in (gainers or [])],
+            "losers": [l.dict() if hasattr(l, "dict") else l for l in (losers or [])],
+        }
+    except Exception:
+        return {"gainers": [], "losers": []}
+
+
+async def _build_sector_data(db: Session) -> Dict[str, Any]:
+    """Fetch sector performance for sector intent."""
+    try:
+        from app.api.market import get_sector_performance
+        sectors = await get_sector_performance(db)
+        return {
+            "sectors": [s.dict() if hasattr(s, "dict") else s for s in (sectors or [])],
+        }
+    except Exception:
+        return {"sectors": []}
+
+
+# ---------------------------------------------------------------------------
+# Main endpoint
+# ---------------------------------------------------------------------------
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     message: ChatMessage,
@@ -62,25 +248,23 @@ async def chat(
 ):
     """
     AI copilot chat endpoint with RAG, QuantTrade Stock Analysis integration,
-    simple Apple->AAPL symbol resolution, and per-user stock limits.
+    structured visual responses, and per-user stock limits.
     """
     symbol_id = None
     resolved_symbol: Optional[str] = None
+    all_resolved_symbols: List[str] = []
 
     # ------------------------------------------------------------------
-    # 1) Resolve symbol from explicit field OR from free text
+    # 1) Resolve symbol(s) from explicit field OR from free text
     # ------------------------------------------------------------------
     raw_symbol_input = (message.symbol or "").strip()
 
     def _resolve_symbol(candidate: str) -> Optional[Symbol]:
-        """Try resolving a single token as ticker first, then as company name."""
         if not candidate:
             return None
-        # Exact ticker
         db_symbol = db.query(Symbol).filter(Symbol.symbol == candidate.upper()).first()
         if db_symbol:
             return db_symbol
-        # Fuzzy company name match, prefer highest market cap
         return (
             db.query(Symbol)
             .filter(Symbol.name.ilike(f"%{candidate}%"))
@@ -93,10 +277,6 @@ async def chat(
     if raw_symbol_input:
         db_symbol_obj = _resolve_symbol(raw_symbol_input)
     else:
-        # No explicit symbol field – try to infer from the message text.
-        # Heuristic:
-        # - Prefer tokens that look like tickers (ALL CAPS, <=5 chars)
-        # - Then capitalized words (e.g. "Apple") as company names
         raw_tokens = re.findall(r"[A-Za-z]{2,15}", message.message)
         ticker_like = [t for t in raw_tokens if t.isupper() and 1 <= len(t) <= 5]
         name_like = [t for t in raw_tokens if t[0].isupper() and t[1:].islower()]
@@ -107,26 +287,26 @@ async def chat(
             if not t or t.lower() in seen:
                 continue
             seen.add(t.lower())
-            db_symbol_obj = _resolve_symbol(t)
-            if db_symbol_obj:
-                break
+            obj = _resolve_symbol(t)
+            if obj:
+                all_resolved_symbols.append(obj.symbol.upper())
+                if not db_symbol_obj:
+                    db_symbol_obj = obj
 
     if db_symbol_obj:
         symbol_id = db_symbol_obj.id
         resolved_symbol = db_symbol_obj.symbol.upper()
+        if resolved_symbol not in all_resolved_symbols:
+            all_resolved_symbols.insert(0, resolved_symbol)
     elif raw_symbol_input:
-        # If symbol not found but user explicitly provided something, keep it.
         resolved_symbol = raw_symbol_input.upper()
 
-    # Ensure we have a session id for grouping messages
     session_id = message.session_id or str(uuid.uuid4())
     user_id = current_user.id if current_user else None
-    symbol_value = resolved_symbol  # stored in history
+    symbol_value = resolved_symbol
 
     # ------------------------------------------------------------------
-    # 2) Enforce simple stock-analysis quotas over a rolling 12h window
-    #    - Authenticated user: up to 10 distinct symbols / 12h
-    #    - Anonymous (session only): up to 5 distinct symbols / 12h
+    # 2) Enforce stock-analysis quotas
     # ------------------------------------------------------------------
     if symbol_value:
         window_start = datetime.now(timezone.utc) - timedelta(hours=12)
@@ -153,12 +333,18 @@ async def chat(
             )
 
     # ------------------------------------------------------------------
-    # 3) Fetch real-time quote (Yahoo direct / yfinance / Finnhub via cache)
+    # 3) Detect intent
+    # ------------------------------------------------------------------
+    response_type = _detect_intent(message.message, resolved_symbol, all_resolved_symbols)
+
+    # ------------------------------------------------------------------
+    # 4) Fetch real-time quote for RAG context
     # ------------------------------------------------------------------
     realtime_snippet: Optional[str] = None
+    quote_service = QuoteCacheService(db)
+
     if resolved_symbol:
         try:
-            quote_service = QuoteCacheService(db)
             quote = await quote_service.get_quote(resolved_symbol)
             if quote and not quote.get("unavailable"):
                 price = quote.get("price")
@@ -173,26 +359,25 @@ async def chat(
                         f"Change: {change:+.2f} ({change_pct:+.2f}%)\n"
                         f"Data source: {source}\n"
                     )
-        except Exception as exc:  # pragma: no cover - defensive
+        except Exception as exc:
             print(f"⚠️ Realtime quote fetch failed for {resolved_symbol}: {exc}")
-            realtime_snippet = None
 
     # ------------------------------------------------------------------
-    # 4) Fetch QuantTrade Stock Analysis summary (prediction service)
+    # 5) Fetch prediction summary
     # ------------------------------------------------------------------
     prediction_summary: Optional[str] = None
     if resolved_symbol:
         prediction_summary = fetch_stock_prediction(resolved_symbol)
 
     # ------------------------------------------------------------------
-    # 5) Fetch FMP fundamentals snapshot (within 20 req/hour budget)
+    # 6) Fetch FMP fundamentals snippet for RAG
     # ------------------------------------------------------------------
     fundamentals_snippet: Optional[str] = None
     if resolved_symbol:
         fundamentals_snippet = get_fundamentals_snapshot(resolved_symbol)
 
     # ------------------------------------------------------------------
-    # 6) Build augmented query for RAG: include quote + analysis summary + FMP
+    # 7) Build augmented RAG query
     # ------------------------------------------------------------------
     sections: List[str] = []
     if realtime_snippet:
@@ -207,7 +392,6 @@ async def chat(
     sections.append(f"[USER QUESTION]\n{message.message}")
     augmented_query = "\n\n".join(sections)
 
-    # Query RAG service
     result = rag_service.query(
         db=db,
         query=augmented_query,
@@ -218,7 +402,40 @@ async def chat(
         top_k=message.top_k,
     )
 
-    # Persist chat messages (user + assistant). Fail soft if something goes wrong.
+    # ------------------------------------------------------------------
+    # 8) Build structured_data based on intent
+    # ------------------------------------------------------------------
+    structured_data: Optional[Dict[str, Any]] = None
+
+    try:
+        if response_type == "stock_analysis" and resolved_symbol:
+            structured_data = await build_comprehensive_analysis(
+                resolved_symbol, db, quote_service
+            )
+            if prediction_summary:
+                structured_data["prediction"] = {"summary": prediction_summary}
+
+        elif response_type == "comparison" and len(all_resolved_symbols) >= 2:
+            stocks = []
+            for sym in all_resolved_symbols[:2]:
+                stock_data = await build_comprehensive_analysis(sym, db, quote_service)
+                stocks.append(stock_data)
+            structured_data = {"stocks": stocks}
+
+        elif response_type == "screener":
+            structured_data = await _build_screener_data(db)
+
+        elif response_type == "sector":
+            structured_data = await _build_sector_data(db)
+    except Exception as e:
+        print(f"⚠️ Failed to build structured data: {e}")
+        structured_data = None
+        if response_type != "text":
+            response_type = "text"
+
+    # ------------------------------------------------------------------
+    # 9) Persist chat history
+    # ------------------------------------------------------------------
     try:
         now = datetime.now(timezone.utc)
         user_msg = ChatHistory(
@@ -250,6 +467,8 @@ async def chat(
         symbol=resolved_symbol or message.symbol,
         session_id=session_id,
         analysis_summary=prediction_summary,
+        response_type=response_type,
+        structured_data=structured_data,
     )
 
 

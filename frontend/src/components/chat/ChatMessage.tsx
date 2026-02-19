@@ -1,6 +1,11 @@
+'use client'
+
 import { Zap, Copy, Check, ThumbsUp, ThumbsDown, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import type { Message } from './ChatWindow'
+
+const AIMessageContainer = dynamic(() => import('./visual/AIMessageContainer'), { ssr: false })
 
 export default function ChatMessage({ message }: { message: Message }) {
   const [copied, setCopied] = useState(false)
@@ -27,6 +32,8 @@ export default function ChatMessage({ message }: { message: Message }) {
     )
   }
 
+  const hasVisual = message.responseType && message.responseType !== 'text' && message.structuredData
+
   return (
     <div className="flex gap-2.5 animate-fade-in">
       {/* AI avatar */}
@@ -34,8 +41,12 @@ export default function ChatMessage({ message }: { message: Message }) {
         <Zap className="w-4 h-4 text-cyan-400" />
       </div>
 
-      <div className="flex-1 space-y-2 max-w-[85%]">
-        {message.analysisSummary && (
+      <div className="flex-1 space-y-2 min-w-0">
+        {/* Visual structured response */}
+        {hasVisual && <AIMessageContainer message={message} />}
+
+        {/* Analysis summary card (when present and no visual) */}
+        {message.analysisSummary && !hasVisual && (
           <div className="rounded-2xl rounded-tl-sm px-4 py-3 bg-gradient-to-br from-cyan-500/[0.08] to-blue-500/[0.05] backdrop-blur-sm border border-cyan-500/[0.15] shadow-lg shadow-cyan-500/5">
             <div className="flex items-center gap-1.5 mb-1.5">
               <div className="w-4 h-4 rounded bg-cyan-500/20 flex items-center justify-center">
@@ -51,9 +62,12 @@ export default function ChatMessage({ message }: { message: Message }) {
           </div>
         )}
 
-        <div className="bg-white/[0.04] backdrop-blur-sm rounded-2xl rounded-tl-sm px-4 py-2.5 border border-white/[0.06]">
-          <p className="text-slate-200 text-[13px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
-        </div>
+        {/* AI text response - hidden when visual structured data is rendered */}
+        {!hasVisual && (
+          <div className="bg-white/[0.04] backdrop-blur-sm rounded-2xl rounded-tl-sm px-4 py-2.5 border border-white/[0.06]">
+            <p className="text-slate-200 text-[13px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
+          </div>
+        )}
 
         {/* Action bar */}
         <div className="flex items-center gap-1 px-1">

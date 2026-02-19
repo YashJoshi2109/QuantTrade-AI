@@ -6,6 +6,7 @@ import ChatMessages from './ChatMessages'
 import ChatInput from './ChatInput'
 import QuickActions from './QuickActions'
 import { sendChatMessage } from '@/lib/api'
+import type { AIResponseType, StructuredData } from './types'
 
 const STORAGE_KEY = 'quanttrade_chat_messages'
 const SESSION_KEY = 'quanttrade_chat_session'
@@ -16,6 +17,8 @@ export interface Message {
   content: string
   timestamp: Date
   analysisSummary?: string
+  responseType?: AIResponseType
+  structuredData?: StructuredData
 }
 
 interface StoredMessage {
@@ -24,6 +27,8 @@ interface StoredMessage {
   content: string
   timestamp: string
   analysisSummary?: string
+  responseType?: AIResponseType
+  structuredData?: StructuredData
 }
 
 function loadStoredMessages(): Message[] {
@@ -87,6 +92,8 @@ export default function ChatWindow({ onClose }: { onClose: () => void }) {
         content: response.response,
         timestamp: new Date(),
         analysisSummary: response.analysis_summary,
+        responseType: (response.response_type as AIResponseType) || 'text',
+        structuredData: response.structured_data as StructuredData | undefined,
       }
       setMessages((prev) => [...prev, aiMessage])
     } catch (error) {
