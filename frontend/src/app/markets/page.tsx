@@ -42,7 +42,7 @@ function DesktopMarketsPage() {
   // Fetch sector data with stocks - shared cache with home page
   const { data: sectors, isLoading: sectorsLoading, refetch: refetchSectors } = useQuery({
     queryKey: ['sectorPerformance'],
-    queryFn: fetchSectorPerformance,
+    queryFn: () => fetchSectorPerformance(),
     refetchInterval: 120000, // Update every 2 minutes
     staleTime: 60000, // Fresh for 1 minute
     gcTime: 300000, // Keep in cache for 5 minutes

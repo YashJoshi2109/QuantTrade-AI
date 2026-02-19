@@ -80,14 +80,14 @@ export default function MarketTicker() {
 
   const { data: movers } = useQuery({
     queryKey: ['marketMovers'],
-    queryFn: fetchMarketMovers,
+    queryFn: () => fetchMarketMovers(),
     refetchInterval: refreshInterval,
     staleTime: 15_000,
   })
 
   const { data: sectors } = useQuery({
     queryKey: ['sectorPerformance'],
-    queryFn: fetchSectorPerformance,
+    queryFn: () => fetchSectorPerformance(),
     refetchInterval: refreshInterval * 2,
     staleTime: 30_000,
   })

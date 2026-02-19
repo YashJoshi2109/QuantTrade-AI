@@ -156,7 +156,7 @@ export default function MobileDashboard() {
   const { data: movers, isLoading: moversLoading } = useQuery<MarketMovers>({
     // Share cache with desktop dashboard/markets page
     queryKey: ['marketMovers'],
-    queryFn: fetchMarketMovers,
+    queryFn: () => fetchMarketMovers(),
     refetchInterval: 120000,
     staleTime: 60000,
   })
@@ -164,7 +164,7 @@ export default function MobileDashboard() {
   const { data: indices } = useQuery<MarketIndex[]>({
     // Share cache with desktop markets page
     queryKey: ['marketIndices'],
-    queryFn: fetchMarketIndices,
+    queryFn: () => fetchMarketIndices(),
     refetchInterval: 60000,
     staleTime: 30000,
   })
@@ -172,7 +172,7 @@ export default function MobileDashboard() {
   const { data: sectors } = useQuery<SectorPerformance[]>({
     // Share cache with desktop dashboard/markets page
     queryKey: ['sectorPerformance'],
-    queryFn: fetchSectorPerformance,
+    queryFn: () => fetchSectorPerformance(),
     refetchInterval: 120000,
     staleTime: 60000,
   })

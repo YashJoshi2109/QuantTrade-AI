@@ -34,7 +34,7 @@ function DesktopHome() {
   // Fetch live market movers (gainers/losers) - cached aggressively
   const { data: movers, isLoading: moversLoading, refetch: refetchMovers } = useQuery({
     queryKey: ['marketMovers'],
-    queryFn: fetchMarketMovers,
+    queryFn: () => fetchMarketMovers(),
     refetchInterval: 120000, // Refresh every 2 minutes (backend caches for 60s)
     staleTime: 60000, // Consider fresh for 1 minute
     gcTime: 300000, // Keep in cache for 5 minutes
@@ -43,7 +43,7 @@ function DesktopHome() {
   // Fetch sector performance - cached aggressively
   const { data: sectors, isLoading: sectorsLoading } = useQuery({
     queryKey: ['sectorPerformance'],
-    queryFn: fetchSectorPerformance,
+    queryFn: () => fetchSectorPerformance(),
     refetchInterval: 120000, // Refresh every 2 minutes
     staleTime: 60000, // Consider fresh for 1 minute
     gcTime: 300000, // Keep in cache for 5 minutes

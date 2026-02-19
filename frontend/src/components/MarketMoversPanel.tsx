@@ -312,7 +312,7 @@ interface MarketMoversPanelProps {
   gainers: StockPerformance[]
   losers: StockPerformance[]
   loading: boolean
-  onRefresh: () => void
+  onRefresh?: () => void
 }
 
 export default function MarketMoversPanel({
@@ -390,7 +390,7 @@ export default function MarketMoversPanel({
             </span>
           </div>
           <button
-            onClick={onRefresh}
+            onClick={() => onRefresh?.()}
             className="p-1.5 rounded-lg hover:bg-white/[0.05] text-slate-500 hover:text-white transition-all"
             title="Refresh"
           >

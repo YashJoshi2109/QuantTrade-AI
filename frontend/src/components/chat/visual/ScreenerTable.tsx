@@ -122,7 +122,7 @@ export default function ScreenerTable({ data: initialData }: Props) {
             <span>{items?.length ?? 0} stocks</span>
           </div>
           <button
-            onClick={refreshData}
+            onClick={() => refreshData(true)}
             disabled={isRefreshing}
             className="flex items-center gap-1 text-[9px] text-slate-500 hover:text-cyan-400 transition-colors disabled:opacity-50"
             title="Refresh data"

@@ -27,7 +27,7 @@ export default function MobileMarkets() {
   const { data: movers, isLoading, refetch: refetchMovers } = useQuery<MarketMovers>({
     // Share cache with desktop markets/home pages
     queryKey: ['marketMovers'],
-    queryFn: fetchMarketMovers,
+    queryFn: () => fetchMarketMovers(),
     refetchInterval: 120000,
     staleTime: 60000,
   })
@@ -35,7 +35,7 @@ export default function MobileMarkets() {
   const { data: sectors } = useQuery<SectorPerformance[]>({
     // Share cache with desktop markets/home pages
     queryKey: ['sectorPerformance'],
-    queryFn: fetchSectorPerformance,
+    queryFn: () => fetchSectorPerformance(),
     refetchInterval: 120000,
     staleTime: 60000,
   })
@@ -43,7 +43,7 @@ export default function MobileMarkets() {
   const { data: indices } = useQuery<MarketIndex[]>({
     // Share cache with desktop markets page
     queryKey: ['marketIndices'],
-    queryFn: fetchMarketIndices,
+    queryFn: () => fetchMarketIndices(),
     refetchInterval: 60000,
     staleTime: 30000,
   })
