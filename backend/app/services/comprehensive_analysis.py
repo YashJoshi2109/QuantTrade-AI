@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.models.symbol import Symbol
 from app.models.fundamentals import Fundamentals
+from app.models.price import PriceBar
 from app.services.indicators import IndicatorService
 from app.services.risk_scorer import RiskScorer
 from app.services.quote_cache import QuoteCacheService
@@ -246,6 +247,29 @@ def _compute_enhanced_risk(risk_data: Dict, indicators: Dict) -> Dict[str, Any]:
     return base
 
 
+def _compute_52w_from_prices(db: Session, symbol_id: int) -> Dict[str, Optional[float]]:
+    """Compute 52-week high/low from price bar history when fundamentals lack them."""
+    from datetime import datetime, timedelta
+    try:
+        cutoff = datetime.utcnow() - timedelta(days=365)
+        bars = (
+            db.query(PriceBar.high, PriceBar.low)
+            .filter(PriceBar.symbol_id == symbol_id, PriceBar.timestamp >= cutoff)
+            .all()
+        )
+        if not bars:
+            return {"week_52_high": None, "week_52_low": None}
+
+        highs = [b.high for b in bars if b.high is not None]
+        lows = [b.low for b in bars if b.low is not None]
+        return {
+            "week_52_high": round(max(highs), 2) if highs else None,
+            "week_52_low": round(min(lows), 2) if lows else None,
+        }
+    except Exception:
+        return {"week_52_high": None, "week_52_low": None}
+
+
 def _compute_sentiment_from_fundamentals(fund: Optional[Fundamentals], quote_change: Optional[float]) -> Dict[str, Any]:
     """
     Build sentiment data from fundamentals and price action.
@@ -404,6 +428,21 @@ async def build_comprehensive_analysis(
                 }
         except Exception as e:
             logger.warning(f"Fundamentals failed for {symbol}: {e}")
+
+    # --- 52W High/Low fallback from price history ---
+    if db_sym:
+        fund_data = data.get("fundamentals", {})
+        if fund_data.get("week_52_high") is None or fund_data.get("week_52_low") is None:
+            try:
+                price_52w = _compute_52w_from_prices(db, db_sym.id)
+                if "fundamentals" not in data:
+                    data["fundamentals"] = {}
+                if data["fundamentals"].get("week_52_high") is None and price_52w["week_52_high"]:
+                    data["fundamentals"]["week_52_high"] = price_52w["week_52_high"]
+                if data["fundamentals"].get("week_52_low") is None and price_52w["week_52_low"]:
+                    data["fundamentals"]["week_52_low"] = price_52w["week_52_low"]
+            except Exception as e:
+                logger.warning(f"52W fallback failed for {symbol}: {e}")
 
     # --- Risk ---
     risk_data: Dict = {}

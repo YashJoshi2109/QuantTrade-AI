@@ -35,7 +35,9 @@ rag_service = RAGService()
 ANALYSIS_KEYWORDS = [
     "analyze", "analysis", "tell me about", "how is", "what about",
     "look at", "research", "review", "evaluate", "assess", "check",
-    "price of", "forecast", "predict", "outlook",
+    "price of", "forecast", "predict", "outlook", "comprehensive",
+    "stock price", "give me", "show me", "what is", "how about",
+    "overview", "deep dive", "breakdown", "insight",
 ]
 COMPARISON_KEYWORDS = ["compare", "vs", "versus", "against", "difference between"]
 SCREENER_KEYWORDS = [
@@ -272,6 +274,22 @@ async def chat(
             .first()
         )
 
+    # Common English words that should NOT be resolved as company names
+    STOP_WORDS = {
+        "the", "and", "for", "are", "but", "not", "you", "all", "can",
+        "had", "her", "was", "one", "our", "out", "has", "his", "how",
+        "its", "may", "new", "now", "old", "see", "way", "who", "did",
+        "get", "let", "say", "she", "too", "use", "give", "show", "tell",
+        "stock", "stocks", "price", "share", "shares", "market", "trade",
+        "buy", "sell", "hold", "analysis", "analyze", "research", "review",
+        "what", "which", "about", "comprehensive", "deep", "dive", "please",
+        "with", "from", "this", "that", "have", "will", "been", "some",
+        "like", "just", "also", "more", "much", "very", "most", "make",
+        "top", "best", "worst", "compare", "versus", "sector", "sectors",
+        "gainers", "losers", "performance", "prediction", "forecast",
+        "overview", "insight", "breakdown", "today", "current",
+    }
+
     db_symbol_obj: Optional[Symbol] = None
 
     if raw_symbol_input:
@@ -280,11 +298,16 @@ async def chat(
         raw_tokens = re.findall(r"[A-Za-z]{2,15}", message.message)
         ticker_like = [t for t in raw_tokens if t.isupper() and 1 <= len(t) <= 5]
         name_like = [t for t in raw_tokens if t[0].isupper() and t[1:].islower()]
-        tokens = ticker_like + name_like
+        # Also try lowercase tokens (3+ chars) as potential company names
+        lowercase_like = [
+            t for t in raw_tokens
+            if t.islower() and len(t) >= 3 and t not in STOP_WORDS
+        ]
+        tokens = ticker_like + name_like + lowercase_like
         seen = set()
         for token in tokens:
             t = token.strip()
-            if not t or t.lower() in seen:
+            if not t or t.lower() in seen or t.lower() in STOP_WORDS:
                 continue
             seen.add(t.lower())
             obj = _resolve_symbol(t)

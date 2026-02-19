@@ -36,6 +36,14 @@ export default function ChartSnapshot({ symbol, data }: Props) {
 
     try {
       const limit = limitForTimeframe(timeframe)
+
+      // Trigger a price sync first so the chart has fresh data
+      try {
+        await fetch(`${API_URL}/api/v1/prices/${symbol}/sync`, { method: 'POST' })
+      } catch {
+        // Sync is best-effort; continue with whatever data the DB has
+      }
+
       const res = await fetch(`${API_URL}/api/v1/prices/${symbol}?limit=${limit}`)
       if (!res.ok) {
         setHasData(false)
