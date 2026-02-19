@@ -128,17 +128,37 @@ export async function searchSymbols(
 export async function fetchPrices(
   symbol: string,
   start?: string,
-  end?: string
+  end?: string,
+  limit: number = 500
 ): Promise<PriceBar[]> {
   const url = new URL(`${API_URL}/api/v1/prices/${symbol}`)
+  
+  // If no date range provided, default to last 3 months for chart display
+  if (!start && !end) {
+    const endDate = new Date()
+    const startDate = new Date()
+    startDate.setMonth(startDate.getMonth() - 3)
+    start = startDate.toISOString()
+    end = endDate.toISOString()
+  }
+  
   if (start) url.searchParams.append('start', start)
   if (end) url.searchParams.append('end', end)
+  url.searchParams.append('limit', limit.toString())
+  url.searchParams.append('auto_sync', 'true') // Ensure auto-sync is enabled
   
-  const response = await fetch(url.toString())
-  if (!response.ok) {
-    throw new Error('Failed to fetch prices')
+  try {
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      throw new Error(`Failed to fetch prices: ${response.status}`)
+    }
+    const data = await response.json()
+    return Array.isArray(data) ? data : []
+  } catch (error) {
+    console.error('Error fetching prices:', error)
+    // Return empty array instead of throwing - let component handle it
+    return []
   }
-  return response.json()
 }
 
 export async function fetchIndicators(symbol: string): Promise<Indicators> {
@@ -276,9 +296,27 @@ export interface ChatMessage {
   include_filings?: boolean
   top_k?: number
   session_id?: string
+  conversation_id?: string
+}
+
+export interface ResponseMeta {
+  symbol?: string
+  as_of?: string
+  ttl_expires_at?: string
+  data_freshness?: {
+    quote?: string
+    technicals?: string
+    news?: string
+    fundamentals?: string
+  }
 }
 
 export interface ChatResponse {
+  version?: string
+  request_id?: string
+  conversation_id?: string
+  message_id?: number
+  intent?: string
   response: string
   sources: string[]
   context_docs: number
@@ -287,35 +325,103 @@ export interface ChatResponse {
   analysis_summary?: string
   response_type?: string
   structured_data?: Record<string, any>
+  meta?: ResponseMeta
+}
+
+export interface ConversationSummary {
+  id: string
+  title: string | null
+  created_at: string
+  updated_at: string
+  message_count: number
+  last_message: string | null
+}
+
+export interface StoredMessage {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  symbol?: string
+  intent_type?: string
+  payload_json?: Record<string, any>
+  as_of?: string
+  ttl_expires_at?: string
+  created_at: string
+}
+
+async function getAuthHeadersClient(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (typeof window !== 'undefined') {
+    const { getAuthHeaders } = await import('./auth')
+    Object.assign(headers, getAuthHeaders())
+  }
+  return headers
 }
 
 export async function sendChatMessage(message: ChatMessage): Promise<ChatResponse> {
-  try {
-    // Attach auth headers if user is logged in so chat history can be tied to user
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    }
-    
-    // Only get auth headers on client side
-    if (typeof window !== 'undefined') {
-      const { getAuthHeaders } = await import('./auth')
-      Object.assign(headers, getAuthHeaders())
-    }
-
-    const response = await fetch(`${API_URL}/api/v1/chat`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(message),
-    })
-    
-    if (!response.ok) {
-      throw new Error('Failed to send chat message')
-    }
-    return response.json()
-  } catch (error) {
-    console.error('Error sending chat message:', error)
-    throw error
+  const headers = await getAuthHeadersClient()
+  const response = await fetch(`${API_URL}/api/v1/chat`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(message),
+  })
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('AUTH_REQUIRED')
+    throw new Error('Failed to send chat message')
   }
+  return response.json()
+}
+
+export async function listConversations(): Promise<ConversationSummary[]> {
+  const headers = await getAuthHeadersClient()
+  const response = await fetch(`${API_URL}/api/v1/conversations?limit=30`, { headers })
+  if (!response.ok) return []
+  return response.json()
+}
+
+export async function createConversation(title?: string): Promise<ConversationSummary> {
+  const headers = await getAuthHeadersClient()
+  const response = await fetch(`${API_URL}/api/v1/conversations`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ title }),
+  })
+  if (!response.ok) throw new Error('Failed to create conversation')
+  return response.json()
+}
+
+export async function getConversationMessages(conversationId: string): Promise<StoredMessage[]> {
+  const headers = await getAuthHeadersClient()
+  const response = await fetch(`${API_URL}/api/v1/conversations/${conversationId}/messages`, { headers })
+  if (!response.ok) return []
+  return response.json()
+}
+
+export async function deleteConversation(conversationId: string): Promise<void> {
+  const headers = await getAuthHeadersClient()
+  await fetch(`${API_URL}/api/v1/conversations/${conversationId}`, {
+    method: 'DELETE',
+    headers,
+  })
+}
+
+export async function refreshChatMessage(
+  conversationId: string,
+  messageId: number,
+  refreshParts?: string[]
+): Promise<{ payload_json: Record<string, any>; as_of: string; ttl_expires_at: string; refreshed_parts: string[] }> {
+  const headers = await getAuthHeadersClient()
+  const response = await fetch(`${API_URL}/api/v1/chat/refresh`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      conversation_id: conversationId,
+      message_id: messageId,
+      refresh_parts: refreshParts,
+    }),
+  })
+  if (!response.ok) throw new Error('Refresh failed')
+  return response.json()
 }
 
 // Phase 3: Risk & Watchlist
@@ -904,23 +1010,37 @@ export async function fetchHeatmapData(): Promise<HeatmapData> {
   }
 }
 
-export async function fetchMarketMovers(): Promise<MarketMovers> {
+export async function fetchMarketMovers(forceRefresh: boolean = false): Promise<MarketMovers> {
   try {
     // Try enhanced endpoint first for faster real-time data
-    const response = await fetch(`${API_URL}/api/v1/market/movers`)
+    const url = new URL(`${API_URL}/api/v1/market/movers`)
+    if (forceRefresh) {
+      url.searchParams.append('force_refresh', 'true')
+    }
+    const response = await fetch(url.toString())
     const data = await parseJsonSafe<MarketMovers>(response)
-    if (data) return data
-    if (!response.ok) {
-      console.error('Failed to fetch market movers:', response.status, response.statusText)
-      return {
-        gainers: [],
-        losers: [],
-        updated_at: new Date().toISOString()
+    if (data && (data.gainers?.length > 0 || data.losers?.length > 0)) {
+      return data
+    }
+    
+    // If no data and not already forcing refresh, try force refresh
+    if (!forceRefresh) {
+      const forceUrl = new URL(`${API_URL}/api/v1/market/movers`)
+      forceUrl.searchParams.append('force_refresh', 'true')
+      const forceResponse = await fetch(forceUrl.toString())
+      const forceData = await parseJsonSafe<MarketMovers>(forceResponse)
+      if (forceData && (forceData.gainers?.length > 0 || forceData.losers?.length > 0)) {
+        return forceData
       }
     }
+    
+    if (!response.ok) {
+      console.error('Failed to fetch market movers:', response.status, response.statusText)
+    }
+    
     return {
-      gainers: [],
-      losers: [],
+      gainers: data?.gainers || [],
+      losers: data?.losers || [],
       updated_at: new Date().toISOString()
     }
   } catch (error) {
@@ -947,26 +1067,44 @@ export async function fetchBatchQuotes(
   }
 }
 
-export async function fetchTopGainers(limit: number = 10): Promise<StockPerformance[]> {
+export async function fetchTopGainers(limit: number = 10, forceRefresh: boolean = false): Promise<StockPerformance[]> {
   const url = new URL(`${API_URL}/api/v1/market/gainers`)
   url.searchParams.append('limit', limit.toString())
-  
-  const response = await fetch(url.toString())
-  if (!response.ok) {
-    throw new Error('Failed to fetch top gainers')
+  if (forceRefresh) {
+    url.searchParams.append('force_refresh', 'true')
   }
-  return response.json()
+  
+  try {
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      throw new Error(`Failed to fetch top gainers: ${response.status}`)
+    }
+    const data = await response.json()
+    return Array.isArray(data) ? data : []
+  } catch (error) {
+    console.error('Error fetching top gainers:', error)
+    return []
+  }
 }
 
-export async function fetchTopLosers(limit: number = 10): Promise<StockPerformance[]> {
+export async function fetchTopLosers(limit: number = 10, forceRefresh: boolean = false): Promise<StockPerformance[]> {
   const url = new URL(`${API_URL}/api/v1/market/losers`)
   url.searchParams.append('limit', limit.toString())
-  
-  const response = await fetch(url.toString())
-  if (!response.ok) {
-    throw new Error('Failed to fetch top losers')
+  if (forceRefresh) {
+    url.searchParams.append('force_refresh', 'true')
   }
-  return response.json()
+  
+  try {
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      throw new Error(`Failed to fetch top losers: ${response.status}`)
+    }
+    const data = await response.json()
+    return Array.isArray(data) ? data : []
+  } catch (error) {
+    console.error('Error fetching top losers:', error)
+    return []
+  }
 }
 
 // Market Status API

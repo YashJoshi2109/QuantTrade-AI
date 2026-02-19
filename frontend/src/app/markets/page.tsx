@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
@@ -51,11 +51,19 @@ function DesktopMarketsPage() {
   // Fetch movers - shared cache with home page
   const { data: movers, isLoading: moversLoading, refetch: refetchMovers } = useQuery({
     queryKey: ['marketMovers'],
-    queryFn: fetchMarketMovers,
+    queryFn: () => fetchMarketMovers(false), // Try without force refresh first
     refetchInterval: 120000, // Update every 2 minutes
     staleTime: 60000, // Fresh for 1 minute
     gcTime: 300000, // Keep in cache for 5 minutes
   })
+
+  // Enhanced refetch that forces refresh
+  const handleRefreshMovers = useCallback(async () => {
+    const refreshed = await fetchMarketMovers(true) // Force refresh
+    if (refreshed.gainers.length > 0 || refreshed.losers.length > 0) {
+      refetchMovers()
+    }
+  }, [refetchMovers])
 
   // Calculate market stats
   const marketStats = {
@@ -285,7 +293,7 @@ function DesktopMarketsPage() {
                 gainers={movers?.gainers?.slice(0, 10) || []}
                 losers={movers?.losers?.slice(0, 10) || []}
                 loading={moversLoading}
-                onRefresh={() => refetchMovers()}
+                onRefresh={handleRefreshMovers}
               />
             </div>
           </div>

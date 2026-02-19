@@ -1,22 +1,30 @@
-import { Sparkles, X, Maximize2, Minimize2 } from 'lucide-react'
+import { Sparkles, X, Maximize2, Minimize2, History, Plus } from 'lucide-react'
 import Image from 'next/image'
 
 interface ChatHeaderProps {
   onClose: () => void
   isFullscreen?: boolean
   onToggleFullscreen?: () => void
+  onToggleHistory?: () => void
+  showingHistory?: boolean
+  isAuthenticated?: boolean
 }
 
-export default function ChatHeader({ onClose, isFullscreen, onToggleFullscreen }: ChatHeaderProps) {
+export default function ChatHeader({
+  onClose,
+  isFullscreen,
+  onToggleFullscreen,
+  onToggleHistory,
+  showingHistory,
+  isAuthenticated,
+}: ChatHeaderProps) {
   return (
     <div className="relative shrink-0">
-      {/* Glass background with gradient accent */}
       <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/[0.06] via-blue-500/[0.04] to-purple-500/[0.06]" />
       <div className="absolute inset-0 backdrop-blur-xl bg-[#0A0E1A]/60" />
 
       <div className="relative border-b border-white/[0.06] px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {/* Company logo with gradient ring */}
           <div className="relative">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00D9FF] via-[#0066FF] to-[#7C3AED] p-[1.5px] shadow-lg shadow-cyan-500/20">
               <div className="w-full h-full rounded-[10px] bg-[#0A0E1A] flex items-center justify-center overflow-hidden">
@@ -39,6 +47,20 @@ export default function ChatHeader({ onClose, isFullscreen, onToggleFullscreen }
         </div>
 
         <div className="flex items-center gap-0.5">
+          {isAuthenticated && onToggleHistory && (
+            <button
+              className={`p-2 rounded-lg transition-all active:scale-95 ${
+                showingHistory ? 'bg-cyan-500/10' : 'hover:bg-white/[0.06]'
+              }`}
+              aria-label="Chat history"
+              onClick={onToggleHistory}
+              title="Chat history"
+            >
+              <History className={`w-4 h-4 transition-colors ${
+                showingHistory ? 'text-cyan-400' : 'text-slate-500 hover:text-white'
+              }`} />
+            </button>
+          )}
           {onToggleFullscreen && (
             <button
               className="p-2 hover:bg-white/[0.06] rounded-lg transition-all active:scale-95"

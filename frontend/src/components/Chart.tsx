@@ -75,7 +75,19 @@ export default function Chart({ data, symbol }: ChartProps) {
   }, [])
 
   useEffect(() => {
-    if (!chartRef.current || !candlestickSeriesRef.current || !data.length) return
+    if (!chartRef.current || !candlestickSeriesRef.current) return
+    
+    // If no data, clear the chart
+    if (!data || data.length === 0) {
+      if (candlestickSeriesRef.current) {
+        try {
+          candlestickSeriesRef.current.setData([])
+        } catch (e) {
+          // Ignore errors when clearing
+        }
+      }
+      return
+    }
 
     const chart = chartRef.current
 

@@ -1,14 +1,18 @@
-import { Send, Loader2, Mic } from 'lucide-react'
+'use client'
+
+import { Send, Loader2, LogIn } from 'lucide-react'
 import { useRef, KeyboardEvent } from 'react'
+import Link from 'next/link'
 
 interface ChatInputProps {
   value: string
   onChange: (value: string) => void
   onSend: (message: string) => void
   isLoading: boolean
+  isAuthenticated?: boolean
 }
 
-export default function ChatInput({ value, onChange, onSend, isLoading }: ChatInputProps) {
+export default function ChatInput({ value, onChange, onSend, isLoading, isAuthenticated = true }: ChatInputProps) {
   const handleSend = () => {
     if (value.trim() && !isLoading) onSend(value)
   }
@@ -20,11 +24,27 @@ export default function ChatInput({ value, onChange, onSend, isLoading }: ChatIn
     }
   }
 
+  if (!isAuthenticated) {
+    return (
+      <div className="shrink-0 p-3 pb-4">
+        <Link
+          href="/auth"
+          className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-gradient-to-r from-[#00D9FF] to-[#0066FF] text-white text-[13px] font-semibold shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 transition-all active:scale-[0.98]"
+        >
+          <LogIn className="w-4 h-4" />
+          Sign up to start chatting
+        </Link>
+        <p className="text-[10px] text-slate-600 mt-1.5 text-center">
+          Free account required for AI analysis
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="shrink-0 p-3 pb-4">
       {/* Glass input container */}
       <div className="relative rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] focus-within:border-cyan-500/30 focus-within:bg-white/[0.06] transition-all shadow-lg shadow-black/20">
-        {/* Subtle glow on focus */}
         <div className="absolute -inset-px rounded-2xl bg-gradient-to-r from-cyan-500/0 via-cyan-500/0 to-purple-500/0 opacity-0 focus-within:opacity-100 transition-opacity pointer-events-none" />
 
         <div className="relative flex items-end gap-2 p-2">

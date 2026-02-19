@@ -31,6 +31,49 @@ export interface SentimentData {
   target_upside?: number | null
 }
 
+export interface MonteCarloForecast {
+  current_price: number
+  days: number
+  num_simulations: number
+  expected_price: number
+  expected_return_pct: number
+  percentiles: {
+    p5: number
+    p10: number
+    p25: number
+    p50: number
+    p75: number
+    p90: number
+    p95: number
+  }
+  probabilities: {
+    price_up: number
+    price_down: number
+    gain_5pct: number
+    gain_10pct: number
+    gain_20pct: number
+    loss_5pct: number
+    loss_10pct: number
+    loss_20pct: number
+  }
+  confidence_intervals: {
+    '80': { lower: number; upper: number }
+    '95': { lower: number; upper: number }
+  }
+  min_price: number
+  max_price: number
+  historical_days?: number
+  mean_daily_return?: number
+  daily_volatility?: number
+  annualized_volatility?: number
+  sample_paths?: number[][]
+}
+
+export interface MonteCarloData {
+  forecast_30d?: MonteCarloForecast
+  forecast_90d?: MonteCarloForecast
+}
+
 export interface EnhancedRiskFactors {
   sharpe_ratio: number
   annualized_volatility: number
@@ -115,6 +158,7 @@ export interface StockAnalysisData {
   technical_signal?: TechnicalSignal
   regime?: RegimeData
   sentiment?: SentimentData
+  monte_carlo?: MonteCarloData
 }
 
 export interface ComparisonData {

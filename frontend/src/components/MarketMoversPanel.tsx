@@ -464,9 +464,21 @@ export default function MarketMoversPanel({
             />
           ))
         ) : (
-          <div className="flex flex-col items-center justify-center h-full py-12">
+          <div className="flex flex-col items-center justify-center h-full py-12 px-4">
             <Activity className="w-8 h-8 text-slate-600 mb-2" />
-            <p className="text-[12px] text-slate-500">No data available</p>
+            <p className="text-[12px] text-slate-500 text-center mb-2">No data available</p>
+            <p className="text-[10px] text-slate-600 text-center">
+              {onRefresh ? 'Click refresh to fetch latest data' : 'Data will update automatically'}
+            </p>
+            {onRefresh && (
+              <button
+                onClick={() => onRefresh()}
+                className="mt-3 px-3 py-1.5 text-[11px] font-medium text-cyan-400 hover:text-white bg-cyan-500/10 hover:bg-cyan-500/20 rounded-lg transition-all flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Refresh Data
+              </button>
+            )}
           </div>
         )}
       </div>

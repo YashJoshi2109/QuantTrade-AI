@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models.symbol import Symbol
-from app.models.chat_history import ChatHistory
+from app.models.chat_history import ChatHistory, Conversation
 from app.models.user import User
 from app.services.rag_service import RAGService
 from app.services.stock_analysis_client import fetch_stock_prediction
@@ -58,9 +58,29 @@ class ChatMessage(BaseModel):
     include_filings: bool = True
     top_k: int = 5
     session_id: Optional[str] = None
+    conversation_id: Optional[str] = None
+
+
+class DataFreshness(BaseModel):
+    quote: Optional[str] = None
+    technicals: Optional[str] = None
+    news: Optional[str] = None
+    fundamentals: Optional[str] = None
+
+
+class ResponseMeta(BaseModel):
+    symbol: Optional[str] = None
+    as_of: Optional[str] = None
+    ttl_expires_at: Optional[str] = None
+    data_freshness: Optional[DataFreshness] = None
 
 
 class ChatResponse(BaseModel):
+    version: str = "1.0"
+    request_id: Optional[str] = None
+    conversation_id: Optional[str] = None
+    message_id: Optional[int] = None
+    intent: str = "text"
     response: str
     sources: List[str]
     context_docs: int
@@ -69,18 +89,7 @@ class ChatResponse(BaseModel):
     analysis_summary: Optional[str] = None
     response_type: str = "text"
     structured_data: Optional[Dict[str, Any]] = None
-
-
-class ChatHistoryItem(BaseModel):
-    id: int
-    role: str
-    content: str
-    symbol: Optional[str]
-    session_id: Optional[str]
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
+    meta: Optional[ResponseMeta] = None
 
 
 # ---------------------------------------------------------------------------
@@ -246,12 +255,14 @@ async def _build_sector_data(db: Session) -> Dict[str, Any]:
 async def chat(
     message: ChatMessage,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user),
+    current_user: User = Depends(require_auth),
 ):
     """
     AI copilot chat endpoint with RAG, QuantTrade Stock Analysis integration,
-    structured visual responses, and per-user stock limits.
+    structured visual responses, persistent conversations, and snapshot storage.
+    Requires authentication.
     """
+    request_id = str(uuid.uuid4())
     symbol_id = None
     resolved_symbol: Optional[str] = None
     all_resolved_symbols: List[str] = []
@@ -325,8 +336,28 @@ async def chat(
         resolved_symbol = raw_symbol_input.upper()
 
     session_id = message.session_id or str(uuid.uuid4())
-    user_id = current_user.id if current_user else None
+    user_id = current_user.id
     symbol_value = resolved_symbol
+
+    # --- Resolve or create conversation ---
+    conversation_id = message.conversation_id
+    if conversation_id:
+        conv = (
+            db.query(Conversation)
+            .filter(Conversation.id == conversation_id, Conversation.user_id == user_id)
+            .first()
+        )
+        if not conv:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+    else:
+        conv = Conversation(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            title=message.message[:80] if message.message else None,
+        )
+        db.add(conv)
+        db.flush()
+        conversation_id = conv.id
 
     # ------------------------------------------------------------------
     # 2) Enforce stock-analysis quotas
@@ -337,12 +368,8 @@ async def chat(
             ChatHistory.symbol.isnot(None),
             ChatHistory.created_at >= window_start,
         )
-        if current_user:
-            base_q = base_q.filter(ChatHistory.user_id == current_user.id)
-            max_symbols = 10
-        else:
-            base_q = base_q.filter(ChatHistory.session_id == session_id)
-            max_symbols = 5
+        base_q = base_q.filter(ChatHistory.user_id == user_id)
+        max_symbols = 10
 
         distinct_symbols = {row.symbol for row in base_q.with_entities(ChatHistory.symbol).distinct()}
         if symbol_value not in distinct_symbols and len(distinct_symbols) >= max_symbols:
@@ -457,13 +484,23 @@ async def chat(
             response_type = "text"
 
     # ------------------------------------------------------------------
-    # 9) Persist chat history
+    # 9) Persist chat history with snapshot
     # ------------------------------------------------------------------
+    assistant_msg_id: Optional[int] = None
+    now = datetime.now(timezone.utc)
+
+    from app.services.ttl_cache import DEFAULT_TTLS
+
+    ttl_seconds = DEFAULT_TTLS.get("quote", 60)
+    if response_type in ("stock_analysis", "comparison"):
+        ttl_seconds = DEFAULT_TTLS.get("technicals", 900)
+    ttl_expires = now + timedelta(seconds=ttl_seconds)
+
     try:
-        now = datetime.now(timezone.utc)
         user_msg = ChatHistory(
             user_id=user_id,
             session_id=session_id,
+            conversation_id=conversation_id,
             symbol=symbol_value,
             role="user",
             content=message.message,
@@ -472,18 +509,46 @@ async def chat(
         assistant_msg = ChatHistory(
             user_id=user_id,
             session_id=session_id,
+            conversation_id=conversation_id,
             symbol=symbol_value,
             role="assistant",
             content=result["response"],
+            intent_type=response_type,
+            payload_json=structured_data,
+            as_of=now if structured_data else None,
+            ttl_expires_at=ttl_expires if structured_data else None,
             created_at=now,
         )
         db.add_all([user_msg, assistant_msg])
+        db.flush()
+        assistant_msg_id = assistant_msg.id
+
+        # Update conversation timestamp
+        if conv:
+            conv.updated_at = now
+
         db.commit()
     except Exception as e:
         print(f"⚠️ Failed to save chat history: {e}")
         db.rollback()
 
+    # Build meta
+    meta = ResponseMeta(
+        symbol=resolved_symbol,
+        as_of=now.isoformat() if structured_data else None,
+        ttl_expires_at=ttl_expires.isoformat() if structured_data else None,
+        data_freshness=DataFreshness(
+            quote=now.isoformat() if structured_data else None,
+            technicals=now.isoformat() if structured_data else None,
+        ) if structured_data else None,
+    )
+
     return ChatResponse(
+        version="1.0",
+        request_id=request_id,
+        conversation_id=conversation_id,
+        message_id=assistant_msg_id,
+        intent=response_type,
         response=result["response"],
         sources=result.get("sources", []),
         context_docs=result.get("context_docs", 0),
@@ -492,21 +557,5 @@ async def chat(
         analysis_summary=prediction_summary,
         response_type=response_type,
         structured_data=structured_data,
+        meta=meta,
     )
-
-
-@router.get("/chat/history", response_model=List[ChatHistoryItem])
-async def get_chat_history(
-    limit: int = 50,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_auth),
-):
-    """Get recent chat history for the authenticated user"""
-    history = (
-        db.query(ChatHistory)
-        .filter(ChatHistory.user_id == user.id)
-        .order_by(ChatHistory.created_at.desc())
-        .limit(limit)
-        .all()
-    )
-    return history

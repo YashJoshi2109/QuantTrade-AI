@@ -10,6 +10,7 @@ import {
   StockPerformance,
 } from '@/lib/api'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
+import { useMarketRefreshInterval } from '@/hooks/useMarketRefresh'
 
 /* ────────────────── Types ────────────────── */
 
@@ -75,18 +76,20 @@ function TickerChip({ item }: { item: TickerItem }) {
 /* ────────────────── Main Marquee Component ────────────────── */
 
 export default function MarketTicker() {
+  const refreshInterval = useMarketRefreshInterval({ liveInterval: 30_000, extendedInterval: 120_000, closedInterval: 300_000 })
+
   const { data: movers } = useQuery({
     queryKey: ['marketMovers'],
     queryFn: fetchMarketMovers,
-    refetchInterval: 120000,
-    staleTime: 60000,
+    refetchInterval: refreshInterval,
+    staleTime: 15_000,
   })
 
   const { data: sectors } = useQuery({
     queryKey: ['sectorPerformance'],
     queryFn: fetchSectorPerformance,
-    refetchInterval: 120000,
-    staleTime: 60000,
+    refetchInterval: refreshInterval * 2,
+    staleTime: 30_000,
   })
 
   // Build ticker items: indices + top stocks from each sector

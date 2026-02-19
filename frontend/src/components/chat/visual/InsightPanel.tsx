@@ -12,8 +12,10 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  BarChart3,
 } from 'lucide-react'
 import type { StockAnalysisData } from '../types'
+import MonteCarloPanel from './MonteCarloPanel'
 
 const RSIChart = dynamic(() => import('./MiniIndicatorCharts').then(m => ({ default: m.RSIChart })), { ssr: false })
 const MACDChart = dynamic(() => import('./MiniIndicatorCharts').then(m => ({ default: m.MACDChart })), { ssr: false })
@@ -557,6 +559,21 @@ export default function InsightPanel({ data }: Props) {
       <CollapsibleSection title="Technical Analysis" icon={Activity} defaultOpen badge={techBadge}>
         <TechnicalInsight data={data} />
       </CollapsibleSection>
+
+      {data.monte_carlo && data.quote?.price && (
+        <CollapsibleSection 
+          title="Monte Carlo Simulation" 
+          icon={BarChart3} 
+          badge={data.monte_carlo.forecast_30d?.expected_return_pct ? {
+            text: `${data.monte_carlo.forecast_30d.expected_return_pct >= 0 ? '+' : ''}${data.monte_carlo.forecast_30d.expected_return_pct.toFixed(1)}%`,
+            color: data.monte_carlo.forecast_30d.expected_return_pct >= 0 
+              ? 'text-emerald-400 bg-emerald-500/10' 
+              : 'text-red-400 bg-red-500/10'
+          } : undefined}
+        >
+          <MonteCarloPanel data={data.monte_carlo} currentPrice={data.quote.price} />
+        </CollapsibleSection>
+      )}
 
       <CollapsibleSection title="Regime Prediction" icon={Brain} badge={regimeBadge}>
         <RegimePrediction data={data} />

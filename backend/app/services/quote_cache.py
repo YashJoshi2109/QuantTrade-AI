@@ -3,13 +3,14 @@ Quote Cache Service - Neon-backed caching for real-time quotes
 
 Implementation Notes:
 - Fetches quotes from multiple providers with fallback chain:
-  1. Twelve Data API (primary - most reliable, 800 credits/day free)
-  2. Yahoo Finance Direct API (fallback - no API key needed)
-  3. yfinance library (fallback - uses Yahoo's data)
-  4. Finnhub API (tertiary - requires API key)
+  1. Yahoo Finance Direct API (primary - free, unlimited, real-time)
+  2. yfinance library (fallback - uses Yahoo's data)
+  3. Finnhub API (tertiary - requires API key)
+  4. TradingView API (final fallback - ensures data availability, handles null values)
 - Caches results in Neon PostgreSQL (quote_snapshots table)
 - TTL-based expiration: 60s market hours, 300s after hours, 600s weekends
 - PARALLEL fetching for bulk operations (critical for performance)
+- TradingView fallback automatically handles null/zero values from other sources
 
 TTL Strategy:
 - Market hours (9:30 AM - 4:00 PM ET weekdays): 60 seconds
@@ -260,21 +261,31 @@ class QuoteCacheService:
         1. Yahoo Finance direct API (primary - free, unlimited, real-time)
         2. yfinance library (fallback)
         3. Finnhub API (if configured)
+        4. TradingView API (final fallback - ensures we always have data)
         """
         # Try Yahoo Finance direct API first (primary source - free & unlimited)
         quote = await self._fetch_from_yahoo_direct(symbol)
-        if quote and quote.get('price'):
+        if quote and quote.get('price') and quote.get('price') > 0:
             return quote
         
         # Try yfinance library
         quote = await self._fetch_from_yfinance(symbol)
-        if quote and quote.get('price'):
+        if quote and quote.get('price') and quote.get('price') > 0:
             return quote
         
         # Fallback to Finnhub
         quote = await self._fetch_from_finnhub(symbol)
-        if quote and quote.get('price'):
+        if quote and quote.get('price') and quote.get('price') > 0:
             return quote
+        
+        # Final fallback: TradingView (ensures we have data even if others fail)
+        try:
+            from app.services.tradingview_fetcher import TradingViewFetcher
+            quote = await TradingViewFetcher.get_quote(symbol)
+            if quote and quote.get('price') and quote.get('price') > 0:
+                return quote
+        except Exception as e:
+            print(f"TradingView fallback failed for {symbol}: {e}")
         
         return None
     
@@ -376,8 +387,19 @@ class QuoteCacheService:
             ttl = self._get_current_ttl()
             for symbol, quote in fresh_quotes.items():
                 if quote and not quote.get("unavailable"):
-                    self._update_cache(symbol, quote, ttl)
-                    quote['cached'] = False
+                    price = quote.get("price", 0)
+                    # Only cache if price is valid (not null, not zero)
+                    if price and price > 0:
+                        self._update_cache(symbol, quote, ttl)
+                        quote['cached'] = False
+                    else:
+                        # Invalid price, mark as unavailable
+                        quote = {
+                            "symbol": symbol.upper(),
+                            "unavailable": True,
+                            "message": "Quote temporarily unavailable",
+                            "timestamp": datetime.now(timezone.utc).isoformat()
+                        }
                 results[symbol] = quote
         
         # Return unavailable for any remaining symbols
@@ -444,19 +466,53 @@ class QuoteCacheService:
             # Gather all results in parallel
             batch_results = await asyncio.gather(*tasks, return_exceptions=True)
             
+            # Track symbols that failed or returned null/zero values
+            failed_symbols = []
+            
             for result in batch_results:
                 if isinstance(result, Exception):
                     continue
                 symbol, quote = result
                 if quote:
-                    results[symbol.upper()] = quote
+                    price = quote.get("price", 0)
+                    # Check if price is valid (not null, not zero)
+                    if price and price > 0:
+                        results[symbol.upper()] = quote
+                    else:
+                        # Price is null or zero, mark for TradingView fallback
+                        failed_symbols.append(symbol.upper())
                 else:
-                    results[symbol.upper()] = {
-                        "symbol": symbol.upper(),
-                        "unavailable": True,
-                        "message": "Quote temporarily unavailable",
-                        "timestamp": datetime.now(timezone.utc).isoformat()
-                    }
+                    # Quote unavailable, mark for TradingView fallback
+                    failed_symbols.append(symbol.upper())
+            
+            # Try TradingView for failed symbols in this batch
+            if failed_symbols:
+                try:
+                    from app.services.tradingview_fetcher import TradingViewFetcher
+                    tv_quotes = await TradingViewFetcher.get_quotes_bulk(failed_symbols)
+                    
+                    for symbol, quote in tv_quotes.items():
+                        if quote and quote.get("price") and quote.get("price") > 0:
+                            results[symbol.upper()] = quote
+                        else:
+                            # Still failed, mark as unavailable
+                            results[symbol.upper()] = {
+                                "symbol": symbol.upper(),
+                                "unavailable": True,
+                                "message": "Quote temporarily unavailable",
+                                "timestamp": datetime.now(timezone.utc).isoformat()
+                            }
+                except Exception as e:
+                    print(f"TradingView batch fallback error: {e}")
+                    # Mark failed symbols as unavailable
+                    for symbol in failed_symbols:
+                        if symbol.upper() not in results:
+                            results[symbol.upper()] = {
+                                "symbol": symbol.upper(),
+                                "unavailable": True,
+                                "message": "Quote temporarily unavailable",
+                                "timestamp": datetime.now(timezone.utc).isoformat()
+                            }
         
         return results
     

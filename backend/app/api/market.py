@@ -252,11 +252,13 @@ async def fetch_stock_performance(
 
 async def fetch_bulk_quotes(
     symbols_info: List[tuple], 
-    db: Session
+    db: Session,
+    force_refresh: bool = False
 ) -> List[StockPerformance]:
     """
     Fetch quotes for multiple symbols using cache service.
     Returns list of StockPerformance (only available quotes).
+    Uses TradingView as final fallback to ensure we have data.
     """
     cache_service = QuoteCacheService(db)
     results = []
@@ -266,23 +268,61 @@ async def fetch_bulk_quotes(
     symbol_map = {s[0]: (s[1], s[2]) for s in symbols_info}  # symbol -> (name, sector)
     
     try:
-        quotes = await cache_service.get_quotes(symbols)
+        # Use force_refresh to bypass stale cache when needed
+        quotes = await cache_service.get_quotes(symbols, force_refresh=force_refresh)
+        
+        # Track symbols that failed to get quotes
+        failed_symbols = []
         
         for symbol, quote in quotes.items():
             if quote and not quote.get("unavailable"):
-                name, sector = symbol_map.get(symbol, (symbol, None))
-                results.append(StockPerformance(
-                    symbol=symbol,
-                    name=name,
-                    price=round(quote.get("price", 0), 2),
-                    change=round(quote.get("change", 0), 2),
-                    change_percent=round(quote.get("change_percent", 0), 2),
-                    volume=int(quote.get("volume", 0)),
-                    market_cap=quote.get("market_cap"),
-                    sector=sector
-                ))
+                price = quote.get("price", 0)
+                # Only include stocks with valid prices
+                if price and price > 0:
+                    name, sector = symbol_map.get(symbol, (symbol, None))
+                    results.append(StockPerformance(
+                        symbol=symbol,
+                        name=name,
+                        price=round(price, 2),
+                        change=round(quote.get("change", 0), 2),
+                        change_percent=round(quote.get("change_percent", 0), 2),
+                        volume=int(quote.get("volume", 0)),
+                        market_cap=quote.get("market_cap"),
+                        sector=sector
+                    ))
+                else:
+                    failed_symbols.append(symbol)
+            else:
+                failed_symbols.append(symbol)
+        
+        # If we have failed symbols, try TradingView as final fallback
+        if failed_symbols:
+            try:
+                from app.services.tradingview_fetcher import TradingViewFetcher
+                tv_quotes = await TradingViewFetcher.get_quotes_bulk(failed_symbols)
+                
+                for symbol, quote in tv_quotes.items():
+                    if quote and quote.get("price") and quote.get("price") > 0:
+                        name, sector = symbol_map.get(symbol, (symbol, None))
+                        results.append(StockPerformance(
+                            symbol=symbol,
+                            name=name,
+                            price=round(quote.get("price", 0), 2),
+                            change=round(quote.get("change", 0), 2),
+                            change_percent=round(quote.get("change_percent", 0), 2),
+                            volume=int(quote.get("volume", 0)),
+                            market_cap=quote.get("market_cap"),
+                            sector=sector
+                        ))
+            except Exception as e:
+                print(f"TradingView fallback error: {e}")
+                import traceback
+                traceback.print_exc()
+                
     except Exception as e:
         print(f"Error fetching bulk quotes: {e}")
+        import traceback
+        traceback.print_exc()
     
     return results
 
@@ -389,6 +429,7 @@ async def get_heatmap_data(db: Session = Depends(get_db)) -> HeatmapData:
 @router.get("/market/gainers")
 async def get_top_gainers(
     limit: int = Query(10, ge=1, le=50),
+    force_refresh: bool = Query(False, description="Force refresh quotes"),
     db: Session = Depends(get_db)
 ) -> List[StockPerformance]:
     """
@@ -397,22 +438,36 @@ async def get_top_gainers(
     """
     all_stocks = []
     
+    # Fetch from all sectors in parallel batches
     for sector_name, stock_list in SP500_STOCKS.items():
         symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
-        stocks = await fetch_bulk_quotes(symbols_info, db)
+        stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=force_refresh)
         all_stocks.extend(stocks)
+    
+    if not all_stocks:
+        # If no stocks found, try force refresh
+        if not force_refresh:
+            for sector_name, stock_list in SP500_STOCKS.items():
+                symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
+                stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=True)
+                all_stocks.extend(stocks)
     
     # Sort by gain (highest positive change first)
     all_stocks.sort(key=lambda x: x.change_percent, reverse=True)
     
-    # Return only positive gainers
+    # Return only positive gainers (or top movers if no positive gainers)
     gainers = [s for s in all_stocks if s.change_percent > 0]
+    if not gainers and all_stocks:
+        # Fallback: return top movers by absolute change if no gainers
+        gainers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:limit]
+    
     return gainers[:limit]
 
 
 @router.get("/market/losers")
 async def get_top_losers(
     limit: int = Query(10, ge=1, le=50),
+    force_refresh: bool = Query(False, description="Force refresh quotes"),
     db: Session = Depends(get_db)
 ) -> List[StockPerformance]:
     """
@@ -421,26 +476,42 @@ async def get_top_losers(
     """
     all_stocks = []
     
+    # Fetch from all sectors in parallel batches
     for sector_name, stock_list in SP500_STOCKS.items():
         symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
-        stocks = await fetch_bulk_quotes(symbols_info, db)
+        stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=force_refresh)
         all_stocks.extend(stocks)
+    
+    if not all_stocks:
+        # If no stocks found, try force refresh
+        if not force_refresh:
+            for sector_name, stock_list in SP500_STOCKS.items():
+                symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
+                stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=True)
+                all_stocks.extend(stocks)
     
     # Sort by loss (most negative first)
     all_stocks.sort(key=lambda x: x.change_percent)
     
-    # Return only negative losers
+    # Return only negative losers (or top movers if no negative losers)
     losers = [s for s in all_stocks if s.change_percent < 0]
+    if not losers and all_stocks:
+        # Fallback: return top movers by absolute change if no losers
+        losers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:limit]
+    
     return losers[:limit]
 
 
 @router.get("/market/movers")
-async def get_market_movers(db: Session = Depends(get_db)) -> dict:
+async def get_market_movers(
+    force_refresh: bool = Query(False, description="Force refresh quotes"),
+    db: Session = Depends(get_db)
+) -> dict:
     """
     Get market movers (gainers and losers combined) with real data.
     """
-    gainers = await get_top_gainers(10, db)
-    losers = await get_top_losers(10, db)
+    gainers = await get_top_gainers(10, force_refresh=force_refresh, db=db)
+    losers = await get_top_losers(10, force_refresh=force_refresh, db=db)
     
     return {
         "gainers": gainers,

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, TrendingDown, ExternalLink, BarChart3 } from 'lucide-react'
+import { TrendingUp, TrendingDown, ExternalLink, BarChart3, RotateCcw, Clock } from 'lucide-react'
 import Link from 'next/link'
+import { fetchTopGainers, fetchTopLosers, type StockPerformance } from '@/lib/api'
 import type { ScreenerData } from '../types'
 
 interface Props {
@@ -26,10 +27,67 @@ function MiniBar({ value, max, isUp }: { value: number; max: number; isUp: boole
   )
 }
 
-export default function ScreenerTable({ data }: Props) {
+export default function ScreenerTable({ data: initialData }: Props) {
   const [tab, setTab] = useState<Tab>('gainers')
+  const [data, setData] = useState<ScreenerData>(initialData)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+  
   const items = tab === 'gainers' ? data.gainers : data.losers
   const maxChange = Math.max(1, ...((items || []).map((i) => Math.abs(i.change_percent ?? 0))))
+
+  const refreshData = useCallback(async (forceRefresh: boolean = false) => {
+    setIsRefreshing(true)
+    try {
+      const [gainers, losers] = await Promise.all([
+        fetchTopGainers(10, forceRefresh),
+        fetchTopLosers(10, forceRefresh),
+      ])
+      
+      // Only update if we got data
+      if (gainers.length > 0 || losers.length > 0) {
+        setData({ gainers, losers })
+        setLastUpdated(new Date())
+      } else if (forceRefresh === false) {
+        // If no data and not already forcing refresh, try force refresh
+        const [forceGainers, forceLosers] = await Promise.all([
+          fetchTopGainers(10, true),
+          fetchTopLosers(10, true),
+        ])
+        if (forceGainers.length > 0 || forceLosers.length > 0) {
+          setData({ gainers: forceGainers, losers: forceLosers })
+          setLastUpdated(new Date())
+        }
+      }
+    } catch (error) {
+      console.error('Failed to refresh screener data:', error)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [])
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshData()
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(interval)
+  }, [refreshData])
+
+  // Initial refresh on mount to ensure fresh data (with force refresh)
+  useEffect(() => {
+    refreshData(true) // Force refresh on mount
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const timeAgo = useCallback(() => {
+    const seconds = Math.floor((new Date().getTime() - lastUpdated.getTime()) / 1000)
+    if (seconds < 10) return 'just now'
+    if (seconds < 60) return `${seconds}s ago`
+    const minutes = Math.floor(seconds / 60)
+    if (minutes < 60) return `${minutes}m ago`
+    return `${Math.floor(minutes / 60)}h ago`
+  }, [lastUpdated])
 
   return (
     <motion.div
@@ -58,9 +116,23 @@ export default function ScreenerTable({ data }: Props) {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1 text-[9px] text-slate-500">
-          <BarChart3 className="w-3 h-3" />
-          <span>{items?.length ?? 0} stocks</span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 text-[9px] text-slate-500">
+            <BarChart3 className="w-3 h-3" />
+            <span>{items?.length ?? 0} stocks</span>
+          </div>
+          <button
+            onClick={refreshData}
+            disabled={isRefreshing}
+            className="flex items-center gap-1 text-[9px] text-slate-500 hover:text-cyan-400 transition-colors disabled:opacity-50"
+            title="Refresh data"
+          >
+            <RotateCcw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <div className="flex items-center gap-1 text-[8px] text-slate-600">
+            <Clock className="w-2.5 h-2.5" />
+            <span>{timeAgo()}</span>
+          </div>
         </div>
       </div>
 

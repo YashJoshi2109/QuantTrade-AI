@@ -51,8 +51,43 @@ function ResearchContent() {
     setError(null)
     
     try {
-      const [prices, ind, fund] = await Promise.all([
-        fetchPrices(selectedSymbol).catch(() => []),
+      // Fetch prices with a reasonable default range (last 3 months)
+      // This ensures charts have data even if database is empty
+      const endDate = new Date()
+      const startDate = new Date()
+      startDate.setMonth(startDate.getMonth() - 3)
+      
+      // First attempt: fetch prices (will auto-sync if empty)
+      let prices = await fetchPrices(
+        selectedSymbol,
+        startDate.toISOString(),
+        endDate.toISOString(),
+        500 // Get up to 500 bars
+      ).catch(() => [])
+      
+      // If still no data, try syncing explicitly
+      if (prices.length === 0) {
+        try {
+          // Trigger explicit sync
+          const syncUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/prices/${selectedSymbol}/sync`)
+          syncUrl.searchParams.append('start', startDate.toISOString())
+          syncUrl.searchParams.append('end', endDate.toISOString())
+          await fetch(syncUrl.toString(), { method: 'POST' })
+          
+          // Wait a bit for sync to complete, then retry
+          await new Promise(resolve => setTimeout(resolve, 2000))
+          prices = await fetchPrices(
+            selectedSymbol,
+            startDate.toISOString(),
+            endDate.toISOString(),
+            500
+          ).catch(() => [])
+        } catch (syncErr) {
+          console.warn('Sync attempt failed:', syncErr)
+        }
+      }
+      
+      const [ind, fund] = await Promise.all([
         fetchIndicators(selectedSymbol).catch(() => null),
         fetchFundamentals(selectedSymbol).catch(() => null)
       ])
@@ -74,12 +109,30 @@ function ResearchContent() {
 
   const handleSyncData = async () => {
     setSyncing(true)
+    setError(null)
     try {
+      // Sync symbol first
       await syncSymbol(selectedSymbol)
+      
+      // Also trigger price sync with date range
+      const endDate = new Date()
+      const startDate = new Date()
+      startDate.setMonth(startDate.getMonth() - 3)
+      
+      try {
+        const syncUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/prices/${selectedSymbol}/sync`)
+        syncUrl.searchParams.append('start', startDate.toISOString())
+        syncUrl.searchParams.append('end', endDate.toISOString())
+        await fetch(syncUrl.toString(), { method: 'POST' })
+      } catch (syncErr) {
+        console.warn('Price sync failed, continuing with regular fetch:', syncErr)
+      }
+      
+      // Reload data after sync
       await loadSymbolData()
     } catch (err) {
       console.error('Error syncing:', err)
-      setError('Failed to sync data.')
+      setError('Failed to sync data. Please try again.')
     } finally {
       setSyncing(false)
     }

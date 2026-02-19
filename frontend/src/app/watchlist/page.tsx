@@ -33,11 +33,12 @@ import {
 } from 'lucide-react'
 import { 
   getWatchlist, addToWatchlist, removeFromWatchlist, 
-  updateWatchlistNote, fetchPrices, syncSymbol,
+  updateWatchlistNote, fetchPrices, fetchQuote, syncSymbol,
   searchSymbols, SearchResult,
   WatchlistItem
 } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
+import { useMarketRefreshInterval } from '@/hooks/useMarketRefresh'
 import { useToast } from '@/components/Toast'
 import { SkeletonWatchlistTable, SkeletonText } from '@/components/Skeleton'
 
@@ -92,6 +93,7 @@ function DesktopWatchlistPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const queryClient = useQueryClient()
   const toast = useToast()
+  const priceRefreshInterval = useMarketRefreshInterval({ liveInterval: 15_000, extendedInterval: 60_000, closedInterval: 300_000 })
   
   // Form state
   const [showAddModal, setShowAddModal] = useState(false)
@@ -205,7 +207,7 @@ function DesktopWatchlistPage() {
     refetchOnWindowFocus: true,
   })
 
-  // Fetch prices for watchlist items
+  // Fetch real-time quotes for watchlist items
   const { data: watchlist = [] } = useQuery({
     queryKey: ['watchlist-prices', watchlistRaw.map(i => i.symbol).join(',')],
     queryFn: async (): Promise<WatchlistItemWithPrice[]> => {
@@ -214,23 +216,19 @@ function DesktopWatchlistPage() {
       const itemsWithPrices = await Promise.all(
         watchlistRaw.map(async (item): Promise<WatchlistItemWithPrice> => {
           try {
-            const prices = await fetchPrices(item.symbol)
-            if (prices.length >= 2) {
-              const latest = prices[prices.length - 1]
-              const previous = prices[prices.length - 2]
-              const change = latest.close - previous.close
-              const percent = (change / previous.close) * 100
+            const quote = await fetchQuote(item.symbol, 'high')
+            if (quote && quote.price) {
               return {
                 ...item,
-                price: latest.close,
-                change,
-                percent,
-                volume: `${(latest.volume / 1e6).toFixed(1)}M`,
-                starred: false
+                price: quote.price,
+                change: quote.change,
+                percent: quote.change_percent,
+                volume: quote.volume ? `${(quote.volume / 1e6).toFixed(1)}M` : undefined,
+                starred: false,
               }
             }
           } catch (e) {
-            console.error(`Error fetching prices for ${item.symbol}:`, e)
+            console.error(`Error fetching quote for ${item.symbol}:`, e)
           }
           return { ...item, starred: false }
         })
@@ -238,7 +236,9 @@ function DesktopWatchlistPage() {
       return itemsWithPrices
     },
     enabled: watchlistRaw.length > 0,
-    staleTime: 60000, // Prices fresh for 1 min
+    staleTime: 10_000,
+    refetchInterval: priceRefreshInterval,
+    refetchOnWindowFocus: true,
   })
 
   // Add mutation with optimistic update

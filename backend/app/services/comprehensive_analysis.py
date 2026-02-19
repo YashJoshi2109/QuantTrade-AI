@@ -17,6 +17,7 @@ from app.models.price import PriceBar
 from app.services.indicators import IndicatorService
 from app.services.risk_scorer import RiskScorer
 from app.services.quote_cache import QuoteCacheService
+from app.services.monte_carlo import run_monte_carlo_simulation
 
 logger = logging.getLogger(__name__)
 
@@ -463,5 +464,21 @@ async def build_comprehensive_analysis(
 
     # --- Sentiment ---
     data["sentiment"] = _compute_sentiment_from_fundamentals(fund, quote_change_pct)
+
+    # --- Monte Carlo Simulation ---
+    try:
+        current_price = data.get("quote", {}).get("price")
+        if current_price and db_sym:
+            # Run simulations for multiple timeframes
+            monte_carlo_30d = run_monte_carlo_simulation(symbol, db, days=30, num_simulations=10000)
+            monte_carlo_90d = run_monte_carlo_simulation(symbol, db, days=90, num_simulations=10000)
+            
+            if monte_carlo_30d or monte_carlo_90d:
+                data["monte_carlo"] = {
+                    "forecast_30d": monte_carlo_30d,
+                    "forecast_90d": monte_carlo_90d,
+                }
+    except Exception as e:
+        logger.warning(f"Monte Carlo simulation failed for {symbol}: {e}")
 
     return data
