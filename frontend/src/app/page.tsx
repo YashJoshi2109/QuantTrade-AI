@@ -19,8 +19,9 @@ import {
   RefreshCw
 } from 'lucide-react'
 import { fetchMarketMovers, fetchSectorPerformance, StockPerformance, SectorPerformance } from '@/lib/api'
-import { useRealtimeQuotes } from '@/hooks/useRealtimeQuote'
 import MarketNewsGrid from '@/components/MarketNewsGrid'
+import MiniWorldMonitorSnapshot from '@/components/MiniWorldMonitorSnapshot'
+import LiveNewsChannelPanel from '@/components/LiveNewsChannelPanel'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import {
   SkeletonMoversSection,
@@ -52,9 +53,9 @@ function DesktopHome() {
   // Fetch breaking real-time news
   const { data: liveNews, isLoading: newsLoading } = useBreakingNews(5, 60000)
 
-  const topGainers = movers?.gainers?.slice(0, 5) || []
-  const topLosers = movers?.losers?.slice(0, 5) || []
-  const topSectors = sectors?.slice(0, 4) || []
+  const topGainers = movers?.gainers?.slice(0, 10) || []
+  const topLosers = movers?.losers?.slice(0, 10) || []
+  const topSectors = sectors?.slice(0, 5) || []
 
   return (
     <AppLayout>
@@ -179,6 +180,11 @@ function DesktopHome() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Mini Global Map Snapshot */}
+          <div className="bento-md bento-tall">
+            <MiniWorldMonitorSnapshot />
           </div>
 
           {/* Top Gainers */}
@@ -355,7 +361,7 @@ function DesktopHome() {
           </div>
 
           {/* AI Insights - Dynamic from Copilot */}
-          <div className="bento-md bento-tall">
+          <div className="bento-md">
             <div className="hud-panel h-full flex flex-col relative overflow-hidden">
               {/* Decorative glow */}
               <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl" />
@@ -423,26 +429,13 @@ function DesktopHome() {
             </div>
           </div>
 
-          {/* Quick Stats - User Dependent */}
-          {isAuthenticated && (
-            <div className="bento-sm">
-              <div className="hud-panel h-full p-5 flex flex-col justify-between">
-                <div>
-                  <div className="hud-label mb-2">WELCOME BACK</div>
-                  <div className="text-lg font-bold text-white truncate">{user?.username || user?.full_name}</div>
-                  <div className="text-xs text-slate-500 mt-1 truncate">{user?.email}</div>
-                </div>
-                <Link href="/settings" className="text-[10px] text-blue-400 hover:text-white transition-colors mt-2">
-                  Settings →
-                </Link>
-              </div>
-            </div>
-          )}
+          {/* User welcome card removed from homepage as requested */}
 
         </div>
 
-        {/* WSJ-Style News Grid */}
-        <div className="mt-6">
+        {/* Live TV + WSJ-Style News Grid */}
+        <div className="mt-6 space-y-4">
+          <LiveNewsChannelPanel />
           <MarketNewsGrid />
         </div>
       </div>

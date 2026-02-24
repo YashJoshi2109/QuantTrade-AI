@@ -33,6 +33,8 @@ import {
 import { useBreakingNews } from '@/hooks/useRealtimeNews'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import MarketNewsGrid from '@/components/MarketNewsGrid'
+import LiveNewsChannelPanel from '@/components/LiveNewsChannelPanel'
+import MiniWorldMonitorSnapshot from '@/components/MiniWorldMonitorSnapshot'
 
 function useGreeting(name?: string | null) {
   const now = new Date()
@@ -550,6 +552,11 @@ export default function MobileDashboard() {
         </div>
       </section>
 
+      {/* Global macro globe snapshot */}
+      <section className="px-1">
+        <MiniWorldMonitorSnapshot />
+      </section>
+
       {/* Breaking news */}
       <section className="px-1 pb-4">
         <div className="flex items-center justify-between mb-2 px-0.5">
@@ -626,8 +633,13 @@ export default function MobileDashboard() {
         </div>
       </section>
 
-      {/* Market Intelligence & News – full editorial grid */}
+      {/* Live global TV news */}
       <section className="px-1 pb-4">
+        <LiveNewsChannelPanel />
+      </section>
+
+      {/* Market Intelligence & News – full editorial grid */}
+      <section className="px-1 pb-6">
         <MarketNewsGrid />
       </section>
     </div>

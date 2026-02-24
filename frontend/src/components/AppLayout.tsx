@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
 import MarketTicker from './MarketTicker'
+import SiteFooter from './SiteFooter'
 import { fetchSymbols, Symbol, syncSymbol, fetchMarketStatus, MarketStatus } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { useQuery } from '@tanstack/react-query'
@@ -372,6 +373,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
       >
         <div className="h-full overflow-y-auto px-4 md:px-6 py-4 md:py-6">
           {children}
+          <SiteFooter />
         </div>
       </main>
 
