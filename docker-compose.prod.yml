@@ -5,6 +5,10 @@ services:
     image: nginx:stable-alpine
     container_name: quanttrade-nginx
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
     ports:
       - "80:80"
       - "443:443"
@@ -29,6 +33,10 @@ services:
     image: redis:7-alpine
     container_name: quanttrade-redis
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
     networks:
       - quanttrade-network
     healthcheck:
@@ -41,6 +49,10 @@ services:
     image: ghcr.io/yashjoshi2109/quanttrade-frontend:latest
     container_name: quanttrade-frontend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
     expose:
       - "3000"
     env_file:
@@ -61,6 +73,10 @@ services:
     image: ghcr.io/yashjoshi2109/quanttrade-backend:latest
     container_name: quanttrade-backend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1200M
     expose:
       - "8000"
     env_file:
