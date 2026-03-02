@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Radio, CircleDot, Settings2 } from 'lucide-react'
+import { fetchBreakingMarketNews } from '@/lib/api'
 
 type LiveChannelId =
   | 'bloomberg'
@@ -22,13 +24,19 @@ interface LiveChannel {
   embedUrl?: string
 }
 
+// Bloomberg: use specific live stream video ID (more reliable than live_stream?channel=)
 const CHANNELS: LiveChannel[] = [
   {
     id: 'bloomberg',
     label: 'Bloomberg',
-    // Bloomberg live stream – may change, but safe as a default
     embedUrl:
-      'https://www.youtube.com/embed/live_stream?channel=UCIALMKvObZNtJ6AmdCLP7Lg&autoplay=1&mute=1',
+      'https://www.youtube.com/embed/iEpJwprxDdk?si=LM0zbJQxROwOyTQ4?autoplay=1&mute=1',
+  },
+  {
+    id: 'cnbc',
+    label: 'CNBC TV Live',
+    embedUrl:
+      'https://www.youtube.com/embed/hZpvudz_oOw?si=cUYdBhocu01jrzAv?autoplay=1&mute=1',
   },
   {
     id: 'skynews',
@@ -47,12 +55,6 @@ const CHANNELS: LiveChannel[] = [
     label: 'DW',
     embedUrl:
       'https://www.youtube.com/embed/live_stream?channel=UCknLrEdhRCp1aegoMqRaCZg&autoplay=1&mute=1',
-  },
-  {
-    id: 'cnbc',
-    label: 'CNBC TV Live',
-    embedUrl:
-      'https://www.youtube.com/embed/a6KFJSDqzfc?autoplay=1&mute=1',
   },
   {
     id: 'france24',
@@ -93,17 +95,36 @@ const CHANNELS: LiveChannel[] = [
 
 ]
 
-const HEADLINE_TICKER = [
-  'Futures edge higher as risk-on tone builds in Asia',
-  "Oil edges up on Middle East tensions and Red Sea shipping reroutes",
-  'JPY carry trades remain crowded as BoJ stays patient',
-  'US tech mega-cap breadth narrows, small caps lag',
-  'Credit spreads stable despite equity volatility spike earlier in session',
-]
+// Fallback when API is unavailable
+const FALLBACK_HEADLINES = ['Market data loading…']
 
 export default function LiveNewsChannelPanel() {
-  const [activeId, setActiveId] = useState<LiveChannelId>('bloomberg')
-  const activeChannel = CHANNELS.find((c) => c.id === activeId) ?? CHANNELS[0]
+  const [activeId, setActiveId] = useState<LiveChannelId>('cnbc')
+  const [streamError, setStreamError] = useState(false)
+
+  const { data: breakingNews } = useQuery({
+    queryKey: ['breaking-market-news'],
+    queryFn: () => fetchBreakingMarketNews(25),
+    refetchInterval: 90_000,
+    staleTime: 60_000,
+  })
+
+  const tickerHeadlines = (breakingNews?.length
+    ? breakingNews.map((n) => n.title).filter(Boolean)
+    : FALLBACK_HEADLINES) as string[]
+
+  // Reset stream error when switching channels
+  useEffect(() => {
+    setStreamError(false)
+  }, [activeId])
+
+  const baseChannel = CHANNELS.find((c) => c.id === activeId) ?? CHANNELS[0]
+
+  // If Bloomberg cannot be embedded, fall back to CNBC (reliable finance stream)
+  const effectiveChannel =
+    baseChannel.id === 'bloomberg' && streamError
+      ? CHANNELS.find((c) => c.id === 'cnbc') ?? baseChannel
+      : baseChannel
 
   return (
     <div className="hud-panel p-0 overflow-hidden">
@@ -161,13 +182,24 @@ export default function LiveNewsChannelPanel() {
 
       {/* Video area */}
       <div className="relative bg-black">
+        {activeId === 'bloomberg' && (
+          <div className="absolute top-2 left-2 z-10">
+            <button
+              type="button"
+              onClick={() => setStreamError(true)}
+              className="rounded bg-slate-800/90 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-600/50"
+            >
+              Video unavailable? Switch to CNBC
+            </button>
+          </div>
+        )}
         <div className="relative w-full overflow-hidden bg-black pt-[56.25%]">
-          {activeChannel.embedUrl ? (
+          {effectiveChannel.embedUrl ? (
             <iframe
-              src={activeChannel.embedUrl}
-              title={`${activeChannel.label} Live`}
+              src={effectiveChannel.embedUrl}
+              title={`${effectiveChannel.label} Live`}
               className="absolute inset-0 h-full w-full border-0"
-              allow="autoplay; encrypted-media; picture-in-picture"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
               loading="lazy"
             />
@@ -175,7 +207,7 @@ export default function LiveNewsChannelPanel() {
             <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900">
               <div className="text-center">
                 <p className="text-xs font-medium text-slate-200 mb-1">
-                  {activeChannel.label} stream
+                  {effectiveChannel.label} stream
                 </p>
                 <p className="text-[11px] text-slate-500">
                   Stream URL not configured yet. Add an embed later.
@@ -186,16 +218,16 @@ export default function LiveNewsChannelPanel() {
         </div>
       </div>
 
-      {/* Ticker bar */}
+      {/* Ticker bar – marquee with live headlines */}
       <div className="border-t border-slate-800/60 bg-gradient-to-r from-[#050816] via-[#040715] to-[#050816] px-3 py-2">
         <div className="flex items-center gap-2 text-[11px] text-slate-300">
-          <span className="rounded bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] text-emerald-400 border border-emerald-500/30">
+          <span className="shrink-0 rounded bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] text-emerald-400 border border-emerald-500/30">
             Macro Tape
           </span>
-          <div className="flex-1 overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-thumb-slate-700/70 scrollbar-track-transparent">
-            <div className="inline-flex items-center gap-6">
-              {HEADLINE_TICKER.map((h, idx) => (
-                <span key={idx} className="text-slate-400">
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <div className="flex gap-8 whitespace-nowrap animate-marquee" style={{ width: 'max-content' }}>
+              {tickerHeadlines.concat(tickerHeadlines).map((h, idx) => (
+                <span key={idx} className="text-slate-400 inline">
                   {h}
                 </span>
               ))}

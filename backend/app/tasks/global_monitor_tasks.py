@@ -9,11 +9,13 @@ import asyncio
 
 from sqlalchemy.orm import Session
 from app.db.database import SessionLocal
+from app.config import settings
 from app.services.global_monitor_fetchers import (
     OpenSkyFetcher, GDELTFetcher, ACLEDFetcher, USGSFetcher,
     NASAFIRMSFetcher, NASAEONETFetcher, CloudflareRadarFetcher,
-    FREDFetcher, PolymarketFetcher, VesselFinderFetcher
+    FREDFetcher, PolymarketFetcher, BaseDataFetcher
 )
+from app.services.vesselfinder_fetcher import VesselFinderFetcher
 from app.services.threat_classification import (
     ThreatClassifier, WelfordAnomalyDetector,
     GeographicClusterDetector, CountryInstabilityCalculator
@@ -67,6 +69,8 @@ async def _sync_opensky_flights_async(db: Session):
         
         for event_data in all_events:
             event_id = f"opensky_{event_data.get('icao24', '')}_{int(event_data['timestamp'])}"
+            # Pass event_id into classifier for proper deduplication
+            event_data["event_id"] = event_id
             
             # Check if already exists
             existing = db.query(GlobalEvent).filter(GlobalEvent.event_id == event_id).first()
@@ -381,6 +385,120 @@ async def _sync_acled_conflicts_async(db: Session):
     except Exception as e:
         print(f"ACLED sync error: {e}")
         log = DataIngestionLog(source=DataSource.ACLED, status="failed", error_message=str(e))
+        db.add(log)
+        db.commit()
+    
+    finally:
+        await fetcher.close()
+
+
+@shared_task(name="sync_vesselfinder_shipping")
+def sync_vesselfinder_shipping():
+    """
+    Sync vessel positions from VesselFinder for shipping disruptions.
+    Schedule: Every 15–30 minutes (configure in Celery beat).
+    """
+    db = SessionLocal()
+    try:
+        asyncio.run(_sync_vesselfinder_shipping_async(db))
+    finally:
+        db.close()
+
+
+async def _sync_vesselfinder_shipping_async(db: Session):
+    """Async implementation of VesselFinder sync."""
+    fetcher = VesselFinderFetcher()
+    classifier = ThreatClassifier()
+    log_start = datetime.utcnow()
+    
+    try:
+        # Read tracked vessels from environment (comma-separated lists)
+        imo_str = getattr(settings, "VESSELFINDER_IMO_LIST", "") or ""
+        mmsi_str = getattr(settings, "VESSELFINDER_MMSI_LIST", "") or ""
+        
+        imo_list = [int(x.strip()) for x in imo_str.split(",") if x.strip()] if imo_str else []
+        mmsi_list = [int(x.strip()) for x in mmsi_str.split(",") if x.strip()] if mmsi_str else []
+        
+        events = await fetcher.fetch_vessels(
+            imo_list=imo_list or None,
+            mmsi_list=mmsi_list or None,
+            interval_minutes=60,
+            include_satellite=False,
+        )
+        
+        inserted = 0
+        skipped = 0
+        
+        for event_data in events:
+            # Deterministic ID based on source event payload
+            event_id = BaseDataFetcher.generate_event_id("vesselfinder", event_data)
+            event_data["event_id"] = event_id
+            
+            existing = db.query(GlobalEvent).filter(GlobalEvent.event_id == event_id).first()
+            if existing:
+                skipped += 1
+                continue
+            
+            classification = await classifier.classify_event(event_data)
+            if classification.get("skip"):
+                skipped += 1
+                continue
+            
+            ts_raw = event_data.get("event_timestamp")
+            try:
+                # Handle both ISO strings and "YYYY-MM-DD HH:MM:SS" styles
+                if ts_raw and "T" in ts_raw:
+                    event_ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
+                elif ts_raw:
+                    event_ts = datetime.strptime(ts_raw, "%Y-%m-%d %H:%M:%S")
+                else:
+                    event_ts = datetime.utcnow()
+            except Exception:
+                event_ts = datetime.utcnow()
+            
+            event = GlobalEvent(
+                event_id=event_id,
+                source=DataSource.VESSELFINDER,
+                category=classification["category"],
+                title=event_data["title"][:500],
+                description=event_data.get("description", "")[:1000],
+                latitude=event_data["latitude"],
+                longitude=event_data["longitude"],
+                location_name=event_data.get("location_name"),
+                country_code=event_data.get("country_code"),
+                event_timestamp=event_ts,
+                threat_level=classification["threat_level"],
+                severity=event_data.get("severity"),
+                keywords=classification.get("keywords", []),
+                raw_data=event_data.get("raw_data"),
+                confidence=classification.get("confidence", 0.85),
+            )
+            
+            db.add(event)
+            inserted += 1
+        
+        db.commit()
+        
+        log = DataIngestionLog(
+            source=DataSource.VESSELFINDER,
+            records_fetched=len(events),
+            records_inserted=inserted,
+            records_skipped=skipped,
+            total_time_ms=int((datetime.utcnow() - log_start).total_seconds() * 1000),
+            status="success",
+        )
+        db.add(log)
+        db.commit()
+        
+        print(f"VesselFinder sync: {inserted} inserted, {skipped} skipped")
+    
+    except Exception as e:
+        print(f"VesselFinder sync error: {e}")
+        log = DataIngestionLog(
+            source=DataSource.VESSELFINDER,
+            status="failed",
+            error_message=str(e),
+        )
         db.add(log)
         db.commit()
     

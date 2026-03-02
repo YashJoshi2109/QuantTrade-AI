@@ -426,22 +426,63 @@ class OpenSkyFetcher(BaseDataFetcher):
     
     def _parse_opensky_response(self, data: Dict) -> List[Dict]:
         """Parse OpenSky response - detect anomalies like diversions"""
-        flights = []
+        flights: List[Dict] = []
         
         states = data.get("states", [])
         for state in states:
-            # OpenSky state vector format
+            # OpenSky state vector format:
+            # [0] icao24, [1] callsign, [2] origin_country,
+            # [3] time_position, [4] last_contact,
+            # [5] longitude, [6] latitude, [7] baro_altitude,
+            # [8] on_ground, [9] velocity, [10] heading, [11] vertical_rate, ...
+            icao24 = state[0]
+            callsign = (state[1] or "").strip() if len(state) > 1 else ""
+            origin_country = state[2] if len(state) > 2 else ""
+            last_contact = state[4] if len(state) > 4 else None
+            longitude = state[5] if len(state) > 5 else None
+            latitude = state[6] if len(state) > 6 else None
+            altitude = state[7] if len(state) > 7 else None
+            velocity = state[9] if len(state) > 9 else None
+            heading = state[10] if len(state) > 10 else None
+            vertical_rate = state[11] if len(state) > 11 else None
+
+            if latitude is None or longitude is None:
+                continue
+
+            flight_id = callsign or icao24 or "unknown"
+            title = f"Flight {flight_id} near {origin_country or 'unknown'}"
+
+            desc_parts = []
+            if origin_country:
+                desc_parts.append(f"Origin country: {origin_country}")
+            if altitude is not None:
+                desc_parts.append(f"Altitude: {altitude} m")
+            if velocity is not None:
+                desc_parts.append(f"Speed: {velocity} m/s")
+            if heading is not None:
+                desc_parts.append(f"Heading: {heading}°")
+            description = " | ".join(desc_parts) if desc_parts else "Aviation activity detected"
+
             flight_data = {
-                "icao24": state[0],
-                "callsign": state[1],
-                "origin_country": state[2],
-                "latitude": state[6],
-                "longitude": state[5],
-                "altitude": state[7],
-                "velocity": state[9],
-                "heading": state[10],
-                "vertical_rate": state[11],
-                "last_contact": state[4]
+                "source": "opensky",
+                "title": title,
+                "description": description,
+                "icao24": icao24,
+                "callsign": callsign,
+                "origin_country": origin_country,
+                "latitude": float(latitude),
+                "longitude": float(longitude),
+                "altitude": altitude,
+                "velocity": velocity,
+                "heading": heading,
+                "vertical_rate": vertical_rate,
+                "timestamp": last_contact or int(time.time()),
+                "location_name": origin_country,
+                "country_code": None,
+                "raw_data": state,
+                # Simple severity proxy: faster flights score higher
+                "severity": float(velocity or 0) / 2.0,
+                "category": "aviation",
             }
             flights.append(flight_data)
         
