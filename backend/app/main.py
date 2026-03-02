@@ -24,6 +24,7 @@ from app.api import (
     quotes,
     billing,
     finviz,
+    global_monitor,
 )
 from app.db.database import engine, Base
 
@@ -50,6 +51,15 @@ from app.models import (
     QuoteHistory,
 )
 from app.models.user import User
+from app.models.global_monitor import (
+    GlobalEvent,
+    CountryInstability,
+    EventAnomaly,
+    GeographicCluster,
+    TickerImpact,
+    DataIngestionLog,
+    MarketImpactHistory,
+)
 
 
 def _create_db_tables():
@@ -148,6 +158,9 @@ app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
 
 # Finviz stock data endpoint
 app.include_router(finviz.router, prefix="/api/v1", tags=["finviz"])
+
+# Global Monitor endpoint
+app.include_router(global_monitor.router, tags=["global-monitor"])
 
 
 @app.get("/")

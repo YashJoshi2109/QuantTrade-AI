@@ -20,6 +20,7 @@ A comprehensive AI-powered trading and research platform with TradingView-style 
 
 ## Core Features
 
+- **🌍 Global Monitor** — Real-time geopolitical intelligence with 3D globe visualization, AI threat classification, and ticker impact correlation (NEW!)
 - **Symbol Analysis with AI** — Real-time charts, indicators, and AI-powered explanations
 - **Earnings & Filings Deep Dive** — RAG-powered analysis of SEC filings and earnings calls
 - **Personal Watchlist** — Portfolio-aware AI insights and risk monitoring
@@ -162,6 +163,9 @@ See `docs/QUICK_START.md` and `docs/INSTALLATION_EXPLAINED.md` for detailed setu
 
 ## Documentation
 
+- **[Global Monitor](docs/GLOBAL_MONITOR_README.md)** — Real-time geopolitical intelligence (NEW!)
+  - [Quick Start Guide](docs/GLOBAL_MONITOR_QUICK_START.md) — Get running in 15 minutes
+  - [Implementation Guide](docs/GLOBAL_MONITOR_IMPLEMENTATION.md) — Architecture & deployment
 - [Quick Start](docs/QUICK_START.md) — Fast setup and key endpoints
 - [Architecture](docs/ARCHITECTURE.md) — System design
 - [Tech Stack](docs/TECH_STACK.md) — Stack details

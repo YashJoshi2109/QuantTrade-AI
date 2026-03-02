@@ -31,6 +31,14 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     
+    # Global Monitor API Keys
+    GROQ_API_KEY: Optional[str] = None  # Groq LLM for threat classification
+    UPSTASH_REDIS_URL: Optional[str] = None  # Upstash Redis for deduplication
+    UPSTASH_REDIS_TOKEN: Optional[str] = None
+    FRED_API_KEY: Optional[str] = None  # Federal Reserve Economic Data
+    USGS_API_KEY: Optional[str] = None  # USGS Earthquake data (optional, public API)
+    NASA_API_KEY: Optional[str] = None  # NASA FIRMS/EONET APIs
+    
     # Google OAuth
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
@@ -60,6 +68,7 @@ class Settings(BaseSettings):
     # Celery/Redis
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+    REDIS_URL: str = "redis://localhost:6379"  # For general caching
     
     # Object Storage
     S3_ENDPOINT: Optional[str] = None
