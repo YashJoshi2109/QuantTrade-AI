@@ -23,6 +23,11 @@ export interface GlobalEvent {
   market_impact_score?: number
   correlated_sectors?: string[]
   is_anomaly: boolean
+  /**
+   * Optional raw source payload, used for specialized visualizations
+   * (e.g. aviation routes where departure/arrival data is needed).
+   */
+  raw_data?: Record<string, any> | null
 }
 
 export interface GeographicCluster {
