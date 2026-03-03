@@ -68,13 +68,13 @@ export default function WorldClockWidget() {
   }, [])
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 overflow-x-auto no-scrollbar flex-nowrap">
       {CLOCKS.map((clock) => {
         const market = getMarketStatus(clock.timezone)
         return (
           <div
             key={clock.city}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-800/40 border border-slate-700/40 hover:border-slate-600/60 transition-colors"
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-800/40 border border-slate-700/40 hover:border-slate-600/60 transition-colors shrink-0"
           >
             <span className="text-sm">{clock.flag}</span>
             <div className="flex flex-col">
