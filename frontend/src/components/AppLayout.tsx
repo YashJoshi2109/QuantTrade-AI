@@ -20,7 +20,8 @@ import {
   LogOut,
   Menu,
   ChevronLeft,
-  X
+  X,
+  Globe,
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
 import MarketTicker from './MarketTicker'
@@ -98,6 +99,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/' },
+    { id: 'monitor', label: 'Global Monitor', icon: Globe, href: '/monitor' },
     { id: 'markets', label: 'Markets', icon: TrendingUp, href: '/markets' },
     { id: 'watchlist', label: 'Watchlist', icon: Bookmark, href: '/watchlist' },
     { id: 'research', label: 'Research', icon: FileText, href: '/research' },

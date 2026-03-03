@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     NASA_API_KEY: Optional[str] = None  # Generic NASA Key
     NASA_FIRMS_API_KEY: Optional[str] = None # NASA FIRMS Specific
     CLOUDFLARE_RADAR_TOKEN: Optional[str] = None # Internet outages
+    GUARDIAN_API_KEY: Optional[str] = None  # The Guardian Open Platform (free "test" key works)
     OPENSKY_USERNAME: Optional[str] = None
     OPENSKY_PASSWORD: Optional[str] = None
     AVIATIONSTACK_API_KEY: Optional[str] = None

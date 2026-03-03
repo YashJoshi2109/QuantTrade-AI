@@ -1,46 +1,62 @@
 'use client'
 
-import { useState, useEffect, useMemo, Suspense, lazy } from 'react'
+import { useState, useMemo, Suspense, lazy } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
-import Link from 'next/link'
 import {
   Globe,
   Activity,
   AlertTriangle,
-  TrendingUp,
   TrendingDown,
   Zap,
   Filter,
-  Clock,
   RefreshCw,
-  Share2,
-  Download,
   Maximize2,
-  X,
+  Minimize2,
   ChevronDown,
-  ChevronUp,
-  Info,
 } from 'lucide-react'
 import { fetchMapData, fetchMonitorStats, type MapData, type MonitorStats, type GlobalEvent } from '@/lib/global-monitor-api'
-import GlobalMonitorRightColumn from '@/components/GlobalMonitorRightColumn'
 
-// Lazy load the globe component for better performance
+// Lazy load heavy components
 const GlobalMonitorGlobe = lazy(() => import('@/components/GlobalMonitorGlobe'))
 const TickerImpactDrawer = lazy(() => import('@/components/TickerImpactDrawer'))
 
+// Lazy load all panel components
+const MarketRadarPanel = lazy(() => import('@/components/monitor/MarketRadarPanel'))
+const EconomicIndicatorsPanel = lazy(() => import('@/components/monitor/EconomicIndicatorsPanel'))
+const TradePolicyPanel = lazy(() => import('@/components/monitor/TradePolicyPanel'))
+const ContinentNewsFeedGrid = lazy(() => import('@/components/monitor/ContinentNewsFeedGrid'))
+const WorldClockWidget = lazy(() => import('@/components/monitor/WorldClockWidget'))
+const PolymarketFinancePanel = lazy(() => import('@/components/monitor/PolymarketFinancePanel'))
+const StrategicRiskPanel = lazy(() => import('@/components/monitor/StrategicRiskPanel'))
+const CommoditiesWidget = lazy(() => import('@/components/monitor/CommoditiesWidget'))
+const SecurityAdvisoriesPanel = lazy(() => import('@/components/monitor/SecurityAdvisoriesPanel'))
+const LiveEventsFeed = lazy(() => import('@/components/monitor/LiveEventsFeed'))
+
+// Shimmer placeholder while panels load
+function PanelShimmer({ height = 'h-48' }: { height?: string }) {
+  return (
+    <div className={`${height} bg-slate-900/50 rounded-xl border border-slate-800/40 animate-pulse flex items-center justify-center`}>
+      <div className="w-6 h-6 border-2 border-slate-700 border-t-sky-500 rounded-full animate-spin" />
+    </div>
+  )
+}
+
+// ─── Desktop Bloomberg Terminal Layout ──────────────────────────────────
+
 function MonitorDesktop() {
   const [selectedEvent, setSelectedEvent] = useState<GlobalEvent | null>(null)
-  const [timeWindow, setTimeWindow] = useState(24) // hours
-  const [showFilters, setShowFilters] = useState(true) // Show filters by default to match screenshot vibe
+  const [timeWindow, setTimeWindow] = useState(24)
+  const [showFilters, setShowFilters] = useState(false)
+  const [globeExpanded, setGlobeExpanded] = useState(false)
 
   const threatLevels = [
-    { value: 'critical', label: 'Critical', color: 'text-red-500' },
-    { value: 'high', label: 'High', color: 'text-orange-500' },
-    { value: 'medium', label: 'Medium', color: 'text-yellow-500' },
-    { value: 'low', label: 'Low', color: 'text-blue-500' },
-    { value: 'unknown', label: 'Monitoring', color: 'text-gray-500' }
+    { value: 'critical', label: 'Critical', color: 'text-red-500', bg: 'bg-red-500/20 border-red-500' },
+    { value: 'high', label: 'High', color: 'text-orange-500', bg: 'bg-orange-500/20 border-orange-500' },
+    { value: 'medium', label: 'Medium', color: 'text-yellow-500', bg: 'bg-yellow-500/20 border-yellow-500' },
+    { value: 'low', label: 'Low', color: 'text-blue-500', bg: 'bg-blue-500/20 border-blue-500' },
+    { value: 'unknown', label: 'Monitoring', color: 'text-gray-500', bg: 'bg-gray-500/20 border-gray-500' },
   ]
 
   const categories = [
@@ -51,79 +67,42 @@ function MonitorDesktop() {
     { value: 'shipping', label: 'Shipping', icon: '🚢' },
     { value: 'cyber', label: 'Cyber', icon: '🔒' },
     { value: 'economic', label: 'Economic', icon: '💰' },
-    { value: 'climate', label: 'Climate', icon: '🌡️' }
+    { value: 'climate', label: 'Climate', icon: '🌡️' },
   ]
 
-  // All filters ON by default
   const [activeThreats, setActiveThreats] = useState<Set<string>>(new Set(threatLevels.map(t => t.value)))
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set(categories.map(c => c.value)))
-  
   const [autoRotate, setAutoRotate] = useState(true)
-  
-  // Fetch map data with auto-refresh every 2 minutes
+
   const { data: mapData, isLoading, refetch } = useQuery<MapData>({
     queryKey: ['monitor-map-data', timeWindow],
     queryFn: () => fetchMapData(timeWindow, true),
-    refetchInterval: 60000, // 1 minute auto-refresh to maintain live data
+    refetchInterval: 60000,
     staleTime: 30000,
   })
-  
-  // Fetch stats
+
   const { data: stats } = useQuery<MonitorStats>({
     queryKey: ['monitor-stats'],
     queryFn: fetchMonitorStats,
-    refetchInterval: 60000, // 1 minute
+    refetchInterval: 60000,
   })
 
-  // Filter events based on selected filters (Allow ALL if all selected, else filter)
-  const filteredEvents = mapData?.events.filter(event => {
-    if (!activeThreats.has(event.threat_level || 'unknown')) return false
-    if (!activeCategories.has(event.category || 'unknown') && event.category) return false
-    return true
-  }) || []
-
-  // Time-bucket activity summary for last 24h (0-6, 6-12, 12-24 hours)
-  const timeBuckets = useMemo(() => {
-    const summary = {
-      '0-6': 0,
-      '6-12': 0,
-      '12-24': 0,
-    }
-
-    const now = Date.now()
-    filteredEvents.forEach(event => {
-      const ts = new Date(event.event_timestamp).getTime()
-      if (Number.isNaN(ts)) return
-      const hoursAgo = (now - ts) / 36e5
-      if (hoursAgo <= 6) summary['0-6'] += 1
-      else if (hoursAgo <= 12) summary['6-12'] += 1
-      else if (hoursAgo <= 24) summary['12-24'] += 1
+  const filteredEvents = useMemo(() => {
+    return (mapData?.events || []).filter(event => {
+      if (!activeThreats.has(event.threat_level || 'unknown')) return false
+      if (event.category && !activeCategories.has(event.category)) return false
+      return true
     })
-
-    return summary
-  }, [filteredEvents])
-
-  // Per-category counts for quick-glance institutional panel
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
-    filteredEvents.forEach(event => {
-      const cat = event.category || 'unknown'
-      counts[cat] = (counts[cat] || 0) + 1
-    })
-    return counts
-  }, [filteredEvents])
+  }, [mapData, activeThreats, activeCategories])
 
   const toggleThreat = (val: string) => {
     const next = new Set(activeThreats)
-    if (next.has(val)) next.delete(val)
-    else next.add(val)
+    next.has(val) ? next.delete(val) : next.add(val)
     setActiveThreats(next)
   }
-
   const toggleCategory = (val: string) => {
     const next = new Set(activeCategories)
-    if (next.has(val)) next.delete(val)
-    else next.add(val)
+    next.has(val) ? next.delete(val) : next.add(val)
     setActiveCategories(next)
   }
 
@@ -134,130 +113,106 @@ function MonitorDesktop() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col">
-        {/* Header - stays above globe (opaque so globe never shows through) */}
+      <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col -mx-4 md:-mx-6 -my-4 md:-my-6">
+        {/* ─── TOP BAR: World Clock + Stats ────────────────────── */}
         <div className="border-b border-slate-800/50 bg-slate-950/95 backdrop-blur-md sticky top-0 z-30 shrink-0">
-          <div className="px-6 py-4">
+          {/* World Clock Row */}
+          <div className="border-b border-slate-800/30 px-4 py-2 flex justify-center">
+            <Suspense fallback={<div className="h-8" />}>
+              <WorldClockWidget />
+            </Suspense>
+          </div>
+
+          {/* Title + Controls */}
+          <div className="px-4 py-3">
             <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold flex items-center gap-3">
-                  <Globe className="w-7 h-7 text-sky-400" />
-                  Global Monitor
-                  {isLoading && (
-                    <RefreshCw className="w-4 h-4 text-sky-400 animate-spin" />
-                  )}
-                </h1>
-                <p className="text-sm text-slate-400 mt-1">
-                  Real-time global event tracking with market impact analysis
-                </p>
-              </div>
-              
               <div className="flex items-center gap-3">
-                {/* Time Window Selector */}
+                <Globe className="w-6 h-6 text-sky-400" />
+                <h1 className="text-lg font-bold text-slate-100">Global Monitor</h1>
+                {isLoading && <RefreshCw className="w-3.5 h-3.5 text-sky-400 animate-spin" />}
+                <span className="hidden xl:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[9px] text-emerald-400 font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
                 <select
                   value={timeWindow}
                   onChange={(e) => setTimeWindow(Number(e.target.value))}
-                  className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
                 >
-                  <option value={1}>Last Hour</option>
-                  <option value={6}>Last 6 Hours</option>
-                  <option value={24}>Last 24 Hours</option>
-                  <option value={72}>Last 3 Days</option>
-                  <option value={168}>Last Week</option>
+                  <option value={1}>1H</option>
+                  <option value={6}>6H</option>
+                  <option value={24}>24H</option>
+                  <option value={72}>3D</option>
+                  <option value={168}>1W</option>
                 </select>
 
-                {/* Filters Button */}
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm flex items-center gap-2 transition-colors"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs flex items-center gap-1.5 transition-colors"
                 >
-                  <Filter className="w-4 h-4" />
-                  Filters
+                  <Filter className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Filters</span>
                   {(activeThreats.size < threatLevels.length || activeCategories.size < categories.length) && (
-                    <span className="w-2 h-2 bg-sky-500 rounded-full" />
+                    <span className="w-1.5 h-1.5 bg-sky-500 rounded-full" />
                   )}
                 </button>
 
                 <button
                   onClick={() => refetch()}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm flex items-center gap-2 transition-colors"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs flex items-center gap-1.5 transition-colors"
+                  title="Refresh"
                 >
-                  <RefreshCw className="w-4 h-4" />
-                  Refresh
+                  <RefreshCw className="w-3.5 h-3.5" />
                 </button>
 
                 <button
-                  onClick={() => setAutoRotate((prev) => !prev)}
-                  className={`px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition-colors border ${
+                  onClick={() => setAutoRotate(r => !r)}
+                  className={`px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 border transition-colors ${
                     autoRotate
-                      ? 'bg-slate-800 border-sky-600 text-sky-300 hover:bg-slate-700'
-                      : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+                      ? 'bg-slate-800 border-sky-600 text-sky-300'
+                      : 'bg-slate-900 border-slate-700 text-slate-400'
                   }`}
+                  title="Auto-rotate globe"
                 >
-                  <Activity className={`w-4 h-4 ${autoRotate ? 'text-sky-400' : 'text-slate-400'}`} />
-                  {autoRotate ? 'Auto-rotate: On' : 'Auto-rotate: Off'}
+                  <Activity className={`w-3.5 h-3.5 ${autoRotate ? 'text-sky-400' : ''}`} />
                 </button>
               </div>
             </div>
 
-            {/* Stats Bar */}
+            {/* Stats strip */}
             {mapData && (
-              <div className="mt-4 grid grid-cols-6 gap-3">
-                <div className="bg-slate-800/50 rounded-xl px-4 py-3 border border-slate-700/50">
-                  <div className="text-xs text-slate-400">Total Events</div>
-                  <div className="text-2xl font-bold text-slate-50 mt-1">
-                    {mapData.stats.total_events}
+              <div className="mt-2.5 grid grid-cols-6 gap-2">
+                {[
+                  { label: 'Events', value: mapData.stats.total_events, color: 'text-slate-50', border: 'border-slate-700/50' },
+                  { label: 'Critical', value: mapData.stats.critical_events, color: 'text-red-500', border: 'border-red-900/30' },
+                  { label: 'High Threat', value: mapData.stats.high_threat_events, color: 'text-orange-500', border: 'border-orange-900/30' },
+                  { label: 'Hotspots', value: mapData.stats.total_hotspots, color: 'text-purple-500', border: 'border-purple-900/30' },
+                  { label: 'High Risk', value: mapData.stats.high_risk_countries, color: 'text-yellow-500', border: 'border-yellow-900/30' },
+                  { label: 'Anomalies', value: mapData.stats.anomalies_detected, color: 'text-sky-500', border: 'border-sky-900/30' },
+                ].map((stat) => (
+                  <div key={stat.label} className={`bg-slate-800/40 rounded-lg px-3 py-2 border ${stat.border}`}>
+                    <div className="text-[9px] text-slate-500 uppercase tracking-wider">{stat.label}</div>
+                    <div className={`text-xl font-bold ${stat.color} font-mono`}>{stat.value}</div>
                   </div>
-                </div>
-                <div className="bg-slate-800/50 rounded-xl px-4 py-3 border border-red-900/30">
-                  <div className="text-xs text-red-400">Critical</div>
-                  <div className="text-2xl font-bold text-red-500 mt-1">
-                    {mapData.stats.critical_events}
-                  </div>
-                </div>
-                <div className="bg-slate-800/50 rounded-xl px-4 py-3 border border-orange-900/30">
-                  <div className="text-xs text-orange-400">High Threat</div>
-                  <div className="text-2xl font-bold text-orange-500 mt-1">
-                    {mapData.stats.high_threat_events}
-                  </div>
-                </div>
-                <div className="bg-slate-800/50 rounded-xl px-4 py-3 border border-purple-900/30">
-                  <div className="text-xs text-purple-400">Hotspots</div>
-                  <div className="text-2xl font-bold text-purple-500 mt-1">
-                    {mapData.stats.total_hotspots}
-                  </div>
-                </div>
-                <div className="bg-slate-800/50 rounded-xl px-4 py-3 border border-yellow-900/30">
-                  <div className="text-xs text-yellow-400">High Risk Countries</div>
-                  <div className="text-2xl font-bold text-yellow-500 mt-1">
-                    {mapData.stats.high_risk_countries}
-                  </div>
-                </div>
-                <div className="bg-slate-800/50 rounded-xl px-4 py-3 border border-sky-900/30">
-                  <div className="text-xs text-sky-400">Anomalies</div>
-                  <div className="text-2xl font-bold text-sky-500 mt-1">
-                    {mapData.stats.anomalies_detected}
-                  </div>
-                </div>
+                ))}
               </div>
             )}
 
-            {/* Filters Panel */}
+            {/* Expandable Filters */}
             {showFilters && (
-              <div className="mt-4 p-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                <div className="grid grid-cols-2 gap-6">
-                  {/* Threat Level Filter */}
+              <div className="mt-3 p-3 bg-slate-800/40 rounded-lg border border-slate-700/50">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-sm font-medium text-slate-300 mb-2">Threat Level</div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="text-[10px] text-slate-400 mb-1.5 uppercase tracking-wider font-bold">Threat Level</div>
+                    <div className="flex flex-wrap gap-1.5">
                       {threatLevels.map(level => (
                         <button
                           key={level.value}
                           onClick={() => toggleThreat(level.value)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                            activeThreats.has(level.value)
-                              ? `bg-${level.value === 'critical' ? 'red' : level.value === 'high' ? 'orange' : level.value === 'medium' ? 'yellow' : 'blue'}-500/20 border border-${level.value === 'critical' ? 'red' : level.value === 'high' ? 'orange' : level.value === 'medium' ? 'yellow' : 'blue'}-500 ${level.color}`
-                              : 'bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600'
+                          className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all border ${
+                            activeThreats.has(level.value) ? level.bg + ' ' + level.color : 'bg-slate-700 border-slate-600 text-slate-400'
                           }`}
                         >
                           {level.label}
@@ -265,23 +220,18 @@ function MonitorDesktop() {
                       ))}
                     </div>
                   </div>
-
-                  {/* Category Filter */}
                   <div>
-                    <div className="text-sm font-medium text-slate-300 mb-2">Event Category</div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="text-[10px] text-slate-400 mb-1.5 uppercase tracking-wider font-bold">Category</div>
+                    <div className="flex flex-wrap gap-1.5">
                       {categories.map(cat => (
                         <button
                           key={cat.value}
                           onClick={() => toggleCategory(cat.value)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                            activeCategories.has(cat.value)
-                              ? 'bg-sky-500/20 border border-sky-500 text-sky-300'
-                              : 'bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600'
+                          className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all border ${
+                            activeCategories.has(cat.value) ? 'bg-sky-500/20 border-sky-500 text-sky-300' : 'bg-slate-700 border-slate-600 text-slate-400'
                           }`}
                         >
-                          <span className="mr-1">{cat.icon}</span>
-                          {cat.label}
+                          {cat.icon} {cat.label}
                         </button>
                       ))}
                     </div>
@@ -292,57 +242,144 @@ function MonitorDesktop() {
           </div>
         </div>
 
-        {/* Main Layout: Globe left, intel blocks right */}
-        <div
-          className="relative flex gap-4 overflow-hidden z-0 shrink-0"
-          style={{ height: 'calc(100vh - 240px)', minHeight: 320 }}
-        >
-          {/* Globe column */}
-          <div className="flex-[2] relative overflow-hidden min-h-0 flex items-center justify-center">
-            {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <RefreshCw className="w-12 h-12 text-sky-500 animate-spin mx-auto mb-4" />
-                  <p className="text-slate-400">Loading global data...</p>
-                </div>
-              </div>
-            ) : mapData ? (
-              <Suspense fallback={
-                <div className="flex items-center justify-center h-full">
-                  <RefreshCw className="w-12 h-12 text-sky-500 animate-spin" />
-                </div>
-              }>
-                <GlobalMonitorGlobe
-                  events={filteredEvents}
-                  clusters={mapData.clusters}
-                  instability={mapData.instability}
-                  onEventClick={handleEventClick}
-                  autoRotate={autoRotate}
-                />
-              </Suspense>
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                  <p className="text-slate-400">Failed to load map data</p>
-                  <button
-                    onClick={() => refetch()}
-                    className="mt-4 px-4 py-2 bg-sky-500 rounded-xl text-sm hover:bg-sky-600 transition-colors"
-                  >
-                    Retry
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+        {/* ─── MAIN CONTENT ─────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-3 space-y-3">
 
-          {/* Right intelligence column */}
-          <div className="flex-[1.2] hidden lg:block h-full overflow-y-auto pr-1">
-            <GlobalMonitorRightColumn />
+            {/* ═══ HERO ROW: Globe (dominant left) + Live Events (right) ═══ */}
+            <div className="grid grid-cols-12 gap-3" style={{ minHeight: '420px' }}>
+              {/* Globe — 8 cols = dominant hero */}
+              <div className="col-span-8">
+                <div
+                  className="relative bg-slate-950 border border-slate-800/70 rounded-xl overflow-hidden"
+                  style={{ height: '420px' }}
+                >
+                  {/* Globe expand/collapse button */}
+                  <button
+                    onClick={() => setGlobeExpanded(!globeExpanded)}
+                    className="absolute top-3 right-3 z-20 p-1.5 rounded-lg bg-slate-900/80 border border-slate-700/50 text-slate-400 hover:text-white transition-colors"
+                    title={globeExpanded ? 'Collapse' : 'Expand'}
+                  >
+                    {globeExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                  </button>
+
+                  {isLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <RefreshCw className="w-10 h-10 text-sky-500 animate-spin" />
+                    </div>
+                  ) : mapData ? (
+                    <Suspense fallback={<div className="flex items-center justify-center h-full"><RefreshCw className="w-10 h-10 text-sky-500 animate-spin" /></div>}>
+                      <GlobalMonitorGlobe
+                        events={filteredEvents}
+                        clusters={mapData.clusters}
+                        instability={mapData.instability}
+                        onEventClick={handleEventClick}
+                        autoRotate={autoRotate}
+                        showLabels={true}
+                      />
+                    </Suspense>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <AlertTriangle className="w-10 h-10 text-yellow-500" />
+                    </div>
+                  )}
+
+                  {/* Globe overlay stat badges */}
+                  {mapData && !isLoading && (
+                    <div className="absolute bottom-3 left-3 z-20 flex gap-2">
+                      <div className="px-2.5 py-1 rounded-full bg-slate-900/80 border border-slate-700 backdrop-blur-md flex items-center gap-1.5">
+                        <Activity className="w-3 h-3 text-sky-400" />
+                        <span className="text-[9px] font-bold text-slate-200">{filteredEvents.length} Events</span>
+                      </div>
+                      {mapData.stats.critical_events > 0 && (
+                        <div className="px-2.5 py-1 rounded-full bg-red-500/20 border border-red-500/30 backdrop-blur-md flex items-center gap-1.5 animate-pulse">
+                          <AlertTriangle className="w-3 h-3 text-red-400" />
+                          <span className="text-[9px] font-bold text-red-200">{mapData.stats.critical_events} Critical</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Live Events Feed — 4 cols, same height as globe */}
+              <div className="col-span-4">
+                <div
+                  className="bg-slate-950/95 border border-slate-800/70 rounded-xl overflow-hidden"
+                  style={{ height: '420px' }}
+                >
+                  <Suspense fallback={<PanelShimmer height="h-full" />}>
+                    <LiveEventsFeed events={filteredEvents} onEventClick={handleEventClick} maxItems={60} />
+                  </Suspense>
+                </div>
+              </div>
+            </div>
+
+            {/* ═══ PINTEREST / MASONRY GRID below the hero ═══ */}
+            <div className="columns-1 md:columns-2 xl:columns-3 gap-3 space-y-3 [&>*]:break-inside-avoid">
+
+              {/* Economic Indicators — tall card */}
+              <div className="rounded-xl overflow-hidden">
+                <Suspense fallback={<PanelShimmer height="h-80" />}>
+                  <EconomicIndicatorsPanel />
+                </Suspense>
+              </div>
+
+              {/* Strategic Risk — medium card */}
+              <div className="rounded-xl overflow-hidden">
+                <Suspense fallback={<PanelShimmer height="h-72" />}>
+                  <StrategicRiskPanel />
+                </Suspense>
+              </div>
+
+              {/* Polymarket Finance — compact */}
+              <div className="rounded-xl overflow-hidden">
+                <Suspense fallback={<PanelShimmer height="h-64" />}>
+                  <PolymarketFinancePanel />
+                </Suspense>
+              </div>
+
+              {/* Trade Policy — medium card */}
+              <div className="rounded-xl overflow-hidden">
+                <Suspense fallback={<PanelShimmer height="h-72" />}>
+                  <TradePolicyPanel />
+                </Suspense>
+              </div>
+
+              {/* Security & Infrastructure — taller */}
+              <div className="rounded-xl overflow-hidden">
+                <Suspense fallback={<PanelShimmer height="h-80" />}>
+                  <SecurityAdvisoriesPanel />
+                </Suspense>
+              </div>
+
+              {/* Commodities Widget — compact */}
+              <div className="rounded-xl overflow-hidden">
+                <Suspense fallback={<PanelShimmer height="h-56" />}>
+                  <CommoditiesWidget />
+                </Suspense>
+              </div>
+
+            </div>
+
+            {/* ═══ CONTINENT NEWS — full width below masonry ═══ */}
+            <div>
+              <Suspense fallback={<PanelShimmer height="h-96" />}>
+                <ContinentNewsFeedGrid />
+              </Suspense>
+            </div>
+
+            {/* ═══ MARKET RADAR — full width bottom anchor ═══ */}
+            <div>
+              <Suspense fallback={<PanelShimmer height="h-64" />}>
+                <MarketRadarPanel />
+              </Suspense>
+            </div>
+
           </div>
         </div>
 
-        {/* Ticker Impact Drawer */}
+        {/* ─── DRAWER: Ticker Impact ────────────────────────────── */}
         {selectedEvent && (
           <Suspense fallback={null}>
             <TickerImpactDrawer
@@ -356,10 +393,14 @@ function MonitorDesktop() {
   )
 }
 
+// ─── Mobile Layout (simplified) ────────────────────────────────────────
+
+// ─── Mobile Layout — Full Bloomberg Terminal Experience ─────────────────
+
 function MonitorMobile() {
-  const [selectedEvent, setSelectedEvent] = useState<any>(null)
-  
-  // Reuse same query for mobile
+  const [selectedEvent, setSelectedEvent] = useState<GlobalEvent | null>(null)
+  const [activeSection, setActiveSection] = useState(0)
+
   const { data: mapData, isLoading, refetch } = useQuery<MapData>({
     queryKey: ['monitor-map-data', 24],
     queryFn: () => fetchMapData(24, true),
@@ -367,181 +408,244 @@ function MonitorMobile() {
     staleTime: 60000,
   })
 
-  // Mobile-specific data transformation
   const events = mapData?.events || []
-  const activeEvents = events.length
-  
-  const categories = [
-    { value: 'conflict', label: 'Conflict', icon: '⚔️', color: 'bg-red-500/10 text-red-400 border-red-500/20' },
-    { value: 'political', label: 'Political', icon: '🏛️', color: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
-    { value: 'economic', label: 'Economic', icon: '💰', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-    { value: 'climate', label: 'Climate', icon: '🌡️', color: 'bg-sky-500/10 text-sky-400 border-sky-500/20' }
+
+  const handleEventClick = (event: GlobalEvent) => {
+    setSelectedEvent(event)
+  }
+
+  // Section navigation for quick jumps
+  const sections = [
+    { id: 'live', label: 'Live', icon: '🔴' },
+    { id: 'markets', label: 'Markets', icon: '📈' },
+    { id: 'risk', label: 'Risk', icon: '🛡️' },
+    { id: 'news', label: 'News', icon: '🌍' },
+    { id: 'policy', label: 'Policy', icon: '📋' },
   ]
 
   return (
     <MobileLayout>
       <div className="flex flex-col min-h-screen pb-20">
-        {/* Header */}
-        <div className="px-5 pt-6 pb-2">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-                Global Monitor
-              </h1>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <p className="text-xs text-slate-400 font-mono">
-                  {isLoading ? 'SYNCING...' : 'LIVE FEED ACTIVE'}
-                </p>
+        {/* ═══ STICKY HEADER ═══ */}
+        <div className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-slate-800/50">
+          <div className="px-4 pt-4 pb-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-lg font-bold bg-gradient-to-r from-white via-sky-200 to-sky-400 bg-clip-text text-transparent">
+                  Global Monitor
+                </h1>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                  </span>
+                  <p className="text-[10px] text-slate-400 font-mono tracking-wider">
+                    {isLoading ? 'SYNCING...' : `LIVE • ${events.length} EVENTS`}
+                  </p>
+                </div>
               </div>
+              <button
+                onClick={() => refetch()}
+                className="p-2 rounded-xl bg-slate-800/60 border border-slate-700/50 text-slate-400 active:scale-90 transition-all"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-sky-400' : ''}`} />
+              </button>
             </div>
-            <button 
-              onClick={() => refetch()}
-              className="p-2 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 active:scale-95 transition-transform"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-sky-400' : ''}`} />
-            </button>
+          </div>
+
+          {/* Quick Section Nav */}
+          <div className="flex gap-1 px-4 pb-2 overflow-x-auto no-scrollbar">
+            {sections.map((sec, i) => (
+              <a
+                key={sec.id}
+                href={`#mobile-${sec.id}`}
+                onClick={() => setActiveSection(i)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-medium whitespace-nowrap transition-all ${
+                  activeSection === i
+                    ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                    : 'bg-slate-800/40 text-slate-400 border border-slate-700/30'
+                }`}
+              >
+                <span>{sec.icon}</span>
+                {sec.label}
+              </a>
+            ))}
           </div>
         </div>
 
-        {/* 3D Globe Viewer */}
-        <div className="relative w-full aspect-square max-h-[360px] my-2">
+        {/* ═══ WORLD CLOCK — Horizontal Scroll ═══ */}
+        <div className="px-4 pt-4">
+          <Suspense fallback={<div className="h-16 bg-slate-800/30 rounded-xl animate-pulse" />}>
+            <WorldClockWidget />
+          </Suspense>
+        </div>
+
+        {/* ═══ GLOBE — Compact ═══ */}
+        <div className="relative w-full aspect-[4/3] max-h-[280px] mt-3 mx-auto">
           {isLoading ? (
             <div className="absolute inset-0 flex items-center justify-center">
-              <RefreshCw className="w-8 h-8 text-sky-500 animate-spin opacity-50" />
+              <RefreshCw className="w-8 h-8 text-sky-500 animate-spin opacity-40" />
             </div>
           ) : mapData ? (
             <div className="w-full h-full relative">
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-950/80 z-10 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0A0E1A] z-10 pointer-events-none" />
               <Suspense fallback={null}>
                 <GlobalMonitorGlobe
                   events={events}
                   clusters={mapData.clusters}
                   instability={mapData.instability}
-                  onEventClick={setSelectedEvent}
+                  onEventClick={handleEventClick}
+                  showLabels={true}
                 />
               </Suspense>
-              
-              {/* Globe Overlay Stats */}
-              <div className="absolute bottom-4 left-5 z-20 flex gap-2">
-                <div className="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-700 backdrop-blur-md flex items-center gap-1.5">
+              <div className="absolute bottom-3 left-4 z-20 flex gap-2">
+                <div className="px-2.5 py-1 rounded-full bg-slate-900/90 border border-slate-700/60 backdrop-blur-md flex items-center gap-1.5">
                   <Activity className="w-3 h-3 text-sky-400" />
-                  <span className="text-[10px] font-bold text-slate-200">{activeEvents} Events</span>
+                  <span className="text-[10px] font-bold text-slate-200">{events.length} Events</span>
                 </div>
-                {mapData.stats.critical_events > 0 && (
-                  <div className="px-3 py-1.5 rounded-full bg-red-500/20 border border-red-500/30 backdrop-blur-md flex items-center gap-1.5 animate-pulse">
-                    <AlertTriangle className="w-3 h-3 text-red-400" />
-                    <span className="text-[10px] font-bold text-red-200">{mapData.stats.critical_events} Critical</span>
-                  </div>
-                )}
-              </div>
-              
-              <div className="absolute top-4 right-5 z-20">
-                <div className="px-2 py-1 rounded bg-slate-900/60 backdrop-blur text-[9px] text-slate-500 border border-white/5">
-                  Tap points to inspect
+                <div className="px-2.5 py-1 rounded-full bg-slate-900/90 border border-red-500/30 backdrop-blur-md flex items-center gap-1.5">
+                  <AlertTriangle className="w-3 h-3 text-red-400" />
+                  <span className="text-[10px] font-bold text-red-300">
+                    {events.filter(e => e.threat_level === 'critical' || e.threat_level === 'high').length} Critical
+                  </span>
                 </div>
               </div>
             </div>
           ) : (
-             <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-2">
-               <AlertTriangle className="w-8 h-8 opacity-50" />
-               <span className="text-xs">Map Data Unavailable</span>
-             </div>
+            <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-2">
+              <AlertTriangle className="w-6 h-6 opacity-40" />
+              <span className="text-xs">Map Unavailable</span>
+            </div>
           )}
         </div>
 
-        {/* Quick Filters / Legend */}
-        <div className="px-5 mb-4">
-          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {categories.map(cat => (
-              <div 
-                key={cat.value} 
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium whitespace-nowrap ${cat.color}`}
-              >
-                <span>{cat.icon}</span>
-                {cat.label}
-              </div>
-            ))}
+        {/* ═══ SECTION: LIVE EVENTS ═══ */}
+        <div id="mobile-live" className="px-4 mt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/30">
+              <Zap className="w-3 h-3 text-red-400" />
+              <span className="text-[11px] font-bold text-red-300 uppercase tracking-wider">Live Events</span>
+            </div>
+            <div className="flex-1 h-px bg-gradient-to-r from-red-500/20 to-transparent" />
+          </div>
+          <div className="rounded-xl overflow-hidden border border-slate-800/50" style={{ height: '320px' }}>
+            <Suspense fallback={<PanelShimmer height="h-full" />}>
+              <LiveEventsFeed events={events} onEventClick={handleEventClick} maxItems={30} />
+            </Suspense>
           </div>
         </div>
 
-        {/* Event Feed */}
-        <div className="flex-1 px-5 pb-8">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-              <Zap className="w-3.5 h-3.5 text-yellow-500" />
-              Latest Alerts
-            </h3>
-            <span className="text-[10px] text-slate-500">
-              {mapData?.stats?.last_updated ? new Date(mapData.stats.last_updated).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
-            </span>
+        {/* ═══ SECTION: MARKETS & PREDICTIONS ═══ */}
+        <div id="mobile-markets" className="px-4 mt-6">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+              <TrendingDown className="w-3 h-3 text-emerald-400" />
+              <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Markets & Predictions</span>
+            </div>
+            <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/20 to-transparent" />
           </div>
-          
+
           <div className="space-y-3">
-            {isLoading ? (
-               [1,2,3].map(i => (
-                 <div key={i} className="h-20 bg-slate-800/50 rounded-xl animate-pulse" />
-               ))
-            ) : events.slice(0, 5).map(event => (
-              <div 
-                key={event.id}
-                onClick={() => setSelectedEvent(event)}
-                className="group relative overflow-hidden bg-slate-900/50 border border-slate-800 rounded-xl p-3 active:scale-[0.98] transition-all"
-              >
-                <div className="flex justify-between items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        event.threat_level === 'critical' ? 'bg-red-500 animate-pulse' :
-                        event.threat_level === 'high' ? 'bg-orange-500' :
-                        'bg-sky-500'
-                      }`} />
-                      <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-                        {event.category} • {event.location_name || 'Global'}
-                      </span>
-                    </div>
-                    <h4 className="text-sm font-medium text-slate-200 line-clamp-1 group-active:text-sky-400 transition-colors">
-                      {event.title}
-                    </h4>
-                    <div className="flex items-center gap-2 mt-2">
-                       {event.market_impact_score && event.market_impact_score > 70 && (
-                         <div className="flex items-center gap-1 text-[10px] text-red-300 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
-                           <TrendingDown className="w-3 h-3" />
-                           High Impact
-                         </div>
-                       )}
-                       <span className="text-[10px] text-slate-500">
-                         {new Date(event.event_timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-                       </span>
-                    </div>
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-slate-600 -rotate-90 group-active:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            ))}
+            {/* Market Radar */}
+            <div className="rounded-xl overflow-hidden">
+              <Suspense fallback={<PanelShimmer height="h-64" />}>
+                <MarketRadarPanel />
+              </Suspense>
+            </div>
+
+            {/* Polymarket Finance */}
+            <div className="rounded-xl overflow-hidden">
+              <Suspense fallback={<PanelShimmer height="h-72" />}>
+                <PolymarketFinancePanel />
+              </Suspense>
+            </div>
+
+            {/* Economic Indicators */}
+            <div className="rounded-xl overflow-hidden">
+              <Suspense fallback={<PanelShimmer height="h-80" />}>
+                <EconomicIndicatorsPanel />
+              </Suspense>
+            </div>
+
+            {/* Commodities */}
+            <div className="rounded-xl overflow-hidden">
+              <Suspense fallback={<PanelShimmer height="h-56" />}>
+                <CommoditiesWidget />
+              </Suspense>
+            </div>
           </div>
         </div>
 
-        {/* Mobile Impact Drawer */}
+        {/* ═══ SECTION: STRATEGIC RISK ═══ */}
+        <div id="mobile-risk" className="px-4 mt-6">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-500/10 border border-orange-500/30">
+              <AlertTriangle className="w-3 h-3 text-orange-400" />
+              <span className="text-[11px] font-bold text-orange-300 uppercase tracking-wider">Risk & Security</span>
+            </div>
+            <div className="flex-1 h-px bg-gradient-to-r from-orange-500/20 to-transparent" />
+          </div>
+
+          <div className="space-y-3">
+            {/* Strategic Risk */}
+            <div className="rounded-xl overflow-hidden">
+              <Suspense fallback={<PanelShimmer height="h-72" />}>
+                <StrategicRiskPanel />
+              </Suspense>
+            </div>
+
+            {/* Security Advisories */}
+            <div className="rounded-xl overflow-hidden">
+              <Suspense fallback={<PanelShimmer height="h-80" />}>
+                <SecurityAdvisoriesPanel />
+              </Suspense>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══ SECTION: GLOBAL NEWS ═══ */}
+        <div id="mobile-news" className="px-4 mt-6">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-500/30">
+              <Globe className="w-3 h-3 text-sky-400" />
+              <span className="text-[11px] font-bold text-sky-300 uppercase tracking-wider">Global News</span>
+            </div>
+            <div className="flex-1 h-px bg-gradient-to-r from-sky-500/20 to-transparent" />
+          </div>
+          <div className="rounded-xl overflow-hidden">
+            <Suspense fallback={<PanelShimmer height="h-96" />}>
+              <ContinentNewsFeedGrid />
+            </Suspense>
+          </div>
+        </div>
+
+        {/* ═══ SECTION: TRADE POLICY ═══ */}
+        <div id="mobile-policy" className="px-4 mt-6 mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-500/10 border border-violet-500/30">
+              <Filter className="w-3 h-3 text-violet-400" />
+              <span className="text-[11px] font-bold text-violet-300 uppercase tracking-wider">Trade Policy</span>
+            </div>
+            <div className="flex-1 h-px bg-gradient-to-r from-violet-500/20 to-transparent" />
+          </div>
+          <div className="rounded-xl overflow-hidden">
+            <Suspense fallback={<PanelShimmer height="h-72" />}>
+              <TradePolicyPanel />
+            </Suspense>
+          </div>
+        </div>
+
+        {/* ═══ MOBILE IMPACT DRAWER ═══ */}
         {selectedEvent && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
-            <div 
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
-              onClick={() => setSelectedEvent(null)}
-            />
-            <div className="bg-slate-900 w-full max-h-[85vh] rounded-t-3xl border-t border-slate-700 pointer-events-auto flex flex-col overflow-hidden animate-slide-up-mobile">
+          <div className="fixed inset-0 z-50 flex items-end justify-center pointer-events-none">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm pointer-events-auto" onClick={() => setSelectedEvent(null)} />
+            <div className="bg-slate-900 w-full max-h-[85vh] rounded-t-3xl border-t border-slate-700/70 pointer-events-auto flex flex-col overflow-hidden animate-slide-up-mobile">
               <div className="flex justify-center pt-3 pb-1" onClick={() => setSelectedEvent(null)}>
-                <div className="w-12 h-1.5 bg-slate-700/50 rounded-full" />
+                <div className="w-12 h-1.5 bg-slate-700/60 rounded-full" />
               </div>
               <div className="flex-1 overflow-y-auto">
-                <Suspense fallback={<div className="h-40 flex items-center justify-center"><RefreshCw className="animate-spin" /></div>}>
-                  <TickerImpactDrawer 
-                    event={selectedEvent} 
-                    onClose={() => setSelectedEvent(null)} 
-                  />
+                <Suspense fallback={<div className="h-40 flex items-center justify-center"><RefreshCw className="animate-spin text-sky-500" /></div>}>
+                  <TickerImpactDrawer event={selectedEvent} onClose={() => setSelectedEvent(null)} />
                 </Suspense>
               </div>
             </div>
@@ -551,6 +655,8 @@ function MonitorMobile() {
     </MobileLayout>
   )
 }
+
+// ─── Page Export ────────────────────────────────────────────────────────
 
 export default function MonitorPage() {
   return (
@@ -564,4 +670,3 @@ export default function MonitorPage() {
     </>
   )
 }
-

@@ -26,6 +26,7 @@ from app.api import (
     finviz,
     global_monitor,
 )
+from app.api import monitor_extended
 from app.db.database import engine, Base
 
 # Import all models to ensure they're registered with SQLAlchemy
@@ -161,6 +162,7 @@ app.include_router(finviz.router, prefix="/api/v1", tags=["finviz"])
 
 # Global Monitor endpoint
 app.include_router(global_monitor.router, tags=["global-monitor"])
+app.include_router(monitor_extended.router, tags=["global-monitor-extended"])
 
 
 @app.get("/")

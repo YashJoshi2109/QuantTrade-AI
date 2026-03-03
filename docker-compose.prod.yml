@@ -88,6 +88,28 @@ services:
       - ALLOWED_ORIGINS=https://www.quanttrade.us,https://quanttrade.us
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      # Global Monitor API Keys (loaded from .env)
+      - GUARDIAN_API_KEY=${GUARDIAN_API_KEY:-test}
+      - ACLED_API_KEY=${ACLED_API_KEY:-}
+      - ACLED_EMAIL=${ACLED_EMAIL:-}
+      - ACLED_PASSWORD=${ACLED_PASSWORD:-}
+      - FRED_API_KEY=${FRED_API_KEY:-}
+      - EIA_API_KEY=${EIA_API_KEY:-}
+      - CLOUDFLARE_RADAR_TOKEN=${CLOUDFLARE_RADAR_TOKEN:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - NASA_API_KEY=${NASA_API_KEY:-}
+      - NASA_FIRMS_API_KEY=${NASA_FIRMS_API_KEY:-}
+      - USGS_API_KEY=${USGS_API_KEY:-}
+      # Email / Auth
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-QuantTrade <onboarding@resend.dev>}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      # Neon Auth
+      - NEON_AUTH_URL=${NEON_AUTH_URL:-}
+      - NEON_AUTH_JWKS_URL=${NEON_AUTH_JWKS_URL:-}
+      - NEON_AUTH_AUDIENCE=${NEON_AUTH_AUDIENCE:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
