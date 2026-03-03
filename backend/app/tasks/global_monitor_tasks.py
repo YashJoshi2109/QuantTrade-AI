@@ -6,15 +6,18 @@ from celery import shared_task
 from datetime import datetime, timedelta
 from typing import List
 import asyncio
+import time
+import hashlib
 
 from sqlalchemy.orm import Session
 from app.db.database import SessionLocal
 from app.config import settings
 from app.services.global_monitor_fetchers import (
     OpenSkyFetcher, GDELTFetcher, ACLEDFetcher, USGSFetcher,
-    NASAFIRMSFetcher, NASAEONETFetcher, CloudflareRadarFetcher,
-    FREDFetcher, PolymarketFetcher, BaseDataFetcher
+    NASAFIRMSFetcher, NASAEONETFetcher, FredFetcher, EIAFetcher, AviationStackFetcher,
+    BaseDataFetcher
 )
+from app.services.ais_stream_fetcher import AISStreamFetcher
 from app.services.vesselfinder_fetcher import VesselFinderFetcher
 from app.services.threat_classification import (
     ThreatClassifier, WelfordAnomalyDetector,
@@ -155,9 +158,9 @@ async def _sync_gdelt_news_async(db: Session):
     
     try:
         events = await fetcher.fetch_events(
-            timespan="15m",
-            max_records=500,
-            themes=["WAR", "TERROR", "CRISIS", "MARKET_CRASH", "PROTEST"]
+            query="(conflict OR war OR attack OR disaster OR earthquake OR protest OR crisis)",
+            timespan="6h",
+            max_records=500
         )
         
         inserted = 0
@@ -506,6 +509,349 @@ async def _sync_vesselfinder_shipping_async(db: Session):
         await fetcher.close()
 
 
+@shared_task(name="sync_nasa_fires")
+def sync_nasa_fires():
+    """
+    Sync active fires from NASA FIRMS
+    Schedule: Every 4 hours
+    """
+    db = SessionLocal()
+    try:
+        asyncio.run(_sync_nasa_fires_async(db))
+    finally:
+        db.close()
+
+async def _sync_nasa_fires_async(db: Session):
+    fetcher = NASAFIRMSFetcher()
+    classifier = ThreatClassifier()
+    try:
+        # Fetch global fires (last 24h)
+        events = await fetcher.fetch_fires(days=1)
+        inserted = 0
+        
+        for event_data in events:
+            # Create a unique ID based on lat/lon/date/brightness
+            lat = event_data['latitude']
+            lon = event_data['longitude']
+            date = event_data['event_timestamp']
+            
+            # Use deterministic hash for ID
+            id_comp = f"{lat}_{lon}_{date}_{event_data.get('title')}"
+            event_id = f"nasa_{hashlib.md5(id_comp.encode()).hexdigest()[:16]}"
+            
+            existing = db.query(GlobalEvent).filter(GlobalEvent.event_id == event_id).first()
+            if existing: continue
+            
+            classification = await classifier.classify_event(event_data)
+            
+            event = GlobalEvent(
+                event_id=event_id,
+                source=DataSource.NASA_FIRMS,
+                category=classification.get("category", EventCategory.CLIMATE),
+                title=event_data["title"],
+                description=event_data.get("description", "Wildfire detected"),
+                latitude=lat,
+                longitude=lon,
+                location_name="Wildfire Zone",
+                event_timestamp=datetime.fromisoformat(event_data["event_timestamp"].replace("Z", "+00:00")),
+                severity=event_data.get("severity", 50),
+                threat_level=classification.get("threat_level", ThreatLevel.MEDIUM),
+                raw_data=event_data.get("raw_data"),
+                confidence=0.8
+            )
+            db.add(event)
+            inserted += 1
+            
+        db.commit()
+        print(f"NASA FIRMS sync: {inserted} inserted")
+    except Exception as e:
+        print(f"NASA FIRMS sync error: {e}")
+    finally:
+        await fetcher.close()
+
+
+@shared_task(name="sync_nasa_eonet")
+def sync_nasa_eonet():
+    """
+    Sync natural events from NASA EONET (no API key required).
+    Schedule: Every 6 hours.
+    """
+    db = SessionLocal()
+    try:
+        asyncio.run(_sync_nasa_eonet_async(db))
+    finally:
+        db.close()
+
+
+async def _sync_nasa_eonet_async(db: Session):
+    fetcher = NASAEONETFetcher()
+    classifier = ThreatClassifier()
+    try:
+        events = await fetcher.fetch_events(limit=80, days_back=7)
+        inserted = 0
+        for event_data in events:
+            eid = event_data.get("raw_data", {}).get("id") or event_data.get("title", "")
+            event_id = f"eonet_{hashlib.md5(str(eid).encode()).hexdigest()[:16]}"
+            existing = db.query(GlobalEvent).filter(GlobalEvent.event_id == event_id).first()
+            if existing:
+                continue
+            classification = await classifier.classify_event(event_data)
+            event = GlobalEvent(
+                event_id=event_id,
+                source=DataSource.NASA_EONET,
+                category=classification.get("category", EventCategory.DISASTER),
+                title=event_data["title"][:500],
+                description=(event_data.get("description") or "")[:1000],
+                latitude=event_data["latitude"],
+                longitude=event_data["longitude"],
+                location_name=event_data.get("location_name"),
+                event_timestamp=(
+                    datetime.fromisoformat(event_data["event_timestamp"].replace("Z", "+00:00"))
+                    if event_data.get("event_timestamp")
+                    else datetime.utcnow()
+                ),
+                severity=event_data.get("severity", 50),
+                threat_level=classification.get("threat_level", ThreatLevel.MEDIUM),
+                raw_data=event_data.get("raw_data"),
+                confidence=0.85,
+            )
+            db.add(event)
+            inserted += 1
+        db.commit()
+        print(f"NASA EONET sync: {inserted} inserted")
+    except Exception as e:
+        print(f"NASA EONET sync error: {e}")
+    finally:
+        await fetcher.close()
+
+
+@shared_task(name="sync_fred_economics")
+def sync_fred_economics():
+    """
+    Sync economic indicators from FRED
+    Schedule: Daily
+    """
+    db = SessionLocal()
+    try:
+        asyncio.run(_sync_fred_economics_async(db))
+    finally:
+        db.close()
+
+async def _sync_fred_economics_async(db: Session):
+    fetcher = FredFetcher()
+    classifier = ThreatClassifier()
+    # Key indicators
+    series_list = ["CPIAUCSL", "UNRATE", "DGS10", "VIXCLS", "GDP"]
+    
+    try:
+        all_events = []
+        for series in series_list:
+            events = await fetcher.fetch_series(series_id=series)
+            # Ensure series_id is preserved in raw_data for ID generation
+            for e in events:
+                if 'raw_data' not in e:
+                    e['raw_data'] = {}
+                e['raw_data']['series_id'] = series
+            all_events.extend(events)
+            
+        inserted = 0
+        processed_ids = set()
+        for event_data in all_events:
+            date_str = event_data['event_timestamp'][:10]
+            series_id = event_data['raw_data']['series_id'] if 'series_id' in event_data.get('raw_data', {}) else "unknown"
+            event_id = f"fred_{series_id}_{date_str}"
+            
+            if event_id in processed_ids:
+                continue
+            processed_ids.add(event_id)
+            
+            existing = db.query(GlobalEvent).filter(GlobalEvent.event_id == event_id).first()
+            if existing: continue
+            
+            classification = await classifier.classify_event(event_data)
+            
+            event = GlobalEvent(
+                event_id=event_id,
+                source=DataSource.FRED,
+                category=classification.get("category", EventCategory.ECONOMIC),
+                title=event_data["title"],
+                description=event_data.get("description", ""),
+                # Default to Washington DC for US economic data since it's national level
+                latitude=38.8951,
+                longitude=-77.0364,
+                event_timestamp=datetime.fromisoformat(event_data["event_timestamp"].replace("Z", "+00:00")),
+                threat_level=classification.get("threat_level", ThreatLevel.LOW),
+                raw_data=event_data.get("raw_data"),
+                confidence=0.9
+            )
+            db.add(event)
+            inserted += 1
+            
+        db.commit()
+        print(f"FRED sync: {inserted} inserted")
+    except Exception as e:
+        print(f"FRED sync error: {e}")
+    finally:
+        await fetcher.close()
+
+
+@shared_task(name="sync_eia_energy")
+def sync_eia_energy():
+    """Sync EIA Energy Data"""
+    db = SessionLocal()
+    try:
+        asyncio.run(_sync_eia_energy_async(db))
+    finally:
+        db.close()
+
+async def _sync_eia_energy_async(db: Session):
+    fetcher = EIAFetcher()
+    classifier = ThreatClassifier()
+    try:
+        events = await fetcher.fetch_prices()
+        inserted = 0
+        for event_data in events:
+            # Using hash for ID
+            data_str = str(event_data['raw_data'])
+            event_id = f"eia_{hashlib.md5(data_str.encode()).hexdigest()[:16]}"
+            
+            existing = db.query(GlobalEvent).filter(GlobalEvent.event_id == event_id).first()
+            if existing: continue
+            
+            classification = await classifier.classify_event(event_data)
+            
+            event = GlobalEvent(
+                event_id=event_id,
+                source=DataSource.EIA,
+                category=classification.get("category", EventCategory.ECONOMIC),
+                title=event_data["title"],
+                description=event_data.get("description"),
+                # Default to Washington DC for US Energy data
+                latitude=38.8951,
+                longitude=-77.0364,
+                event_timestamp=datetime.fromisoformat(event_data["event_timestamp"].replace("Z", "+00:00")),
+                threat_level=classification.get("threat_level", ThreatLevel.LOW),
+                raw_data=event_data.get("raw_data"),
+                confidence=0.9
+            )
+            db.add(event)
+            inserted += 1
+        db.commit()
+        print(f"EIA sync: {inserted} inserted")
+    except Exception as e:
+        print(f"EIA sync error: {e}")
+    finally:
+        await fetcher.close()
+
+
+@shared_task(name="sync_aviation_stack")
+def sync_aviation_stack():
+    """Sync AviationStack Flights"""
+    db = SessionLocal()
+    try:
+        asyncio.run(_sync_aviation_stack_async(db))
+    finally:
+        db.close()
+
+async def _sync_aviation_stack_async(db: Session):
+    fetcher = AviationStackFetcher()
+    classifier = ThreatClassifier()
+    try:
+        events = await fetcher.fetch_flights(limit=100)
+        inserted = 0
+        for event_data in events:
+            # Using hash for ID because live flights change constantly
+            flight_num = event_data['raw_data'].get('flight', {}).get('iata', 'unknown')
+            ts = int(time.time() / 300) # Dedupe per 5 minutes
+            event_id = f"avstack_{flight_num}_{ts}"
+            
+            existing = db.query(GlobalEvent).filter(GlobalEvent.event_id == event_id).first()
+            if existing: continue
+
+            classification = await classifier.classify_event(event_data)
+            
+            event = GlobalEvent(
+                event_id=event_id,
+                source=DataSource.AVIATIONSTACK,
+                category=classification.get("category", EventCategory.AVIATION),
+                title=event_data["title"],
+                description=event_data.get("description"),
+                latitude=event_data["latitude"],
+                longitude=event_data["longitude"],
+                event_timestamp=datetime.utcnow(),
+                threat_level=classification.get("threat_level", ThreatLevel.LOW),
+                raw_data=event_data.get("raw_data"),
+                confidence=0.8
+            )
+            db.add(event)
+            inserted += 1
+        db.commit()
+        print(f"AviationStack sync: {inserted} inserted")
+    except Exception as e:
+        print(f"AviationStack sync error: {e}")
+    finally:
+        await fetcher.close()
+
+
+@shared_task(name="sync_ais_vessels")
+def sync_ais_vessels():
+    """Sync shipping data from AISStream (WebSocket Snapshot)"""
+    db = SessionLocal()
+    try:
+        asyncio.run(_sync_ais_vessels_async(db))
+    finally:
+        db.close()
+
+async def _sync_ais_vessels_async(db: Session):
+    fetcher = AISStreamFetcher()  # Create fetcher instance
+    classifier = ThreatClassifier()
+    try:
+        # Collect 30 seconds of live data
+        vessels = await fetcher.fetch_vessels(duration_seconds=30)
+        inserted = 0
+        
+        for v in vessels:
+            try:
+                # Use MMSI + timestamp hour as ID to verify unique
+                mmsi = v['raw_data']['MetaData']['MMSI']
+                ts_key = int(time.time() / 300) # 5 min bucket
+                event_id = f"ais_{mmsi}_{ts_key}"
+                
+                existing = db.query(GlobalEvent).filter(GlobalEvent.event_id == event_id).first()
+                if existing: continue
+                
+                # Classify
+                classification = await classifier.classify_event(v)
+                
+                event = GlobalEvent(
+                    event_id=event_id,
+                    source=DataSource.AISSTREAM,
+                    category=classification.get("category", EventCategory.SHIPPING),
+                    title=v["title"],
+                    description=v.get("description", ""),
+                    latitude=v["latitude"],
+                    longitude=v["longitude"],
+                    location_name=v.get("location_name", "High Seas"),
+                    event_timestamp=datetime.utcnow(),
+                    threat_level=classification.get("threat_level", ThreatLevel.LOW),
+                    raw_data=v.get("raw_data"),
+                    confidence=0.9
+                )
+                db.add(event)
+                inserted += 1
+            except Exception as inner_e:
+                print(f"Skipping vessel: {inner_e}")
+                continue
+                
+        db.commit()
+        print(f"AISStream sync: {inserted} vessels tracked")
+    except Exception as e:
+        print(f"AISStream sync error: {e}")
+    finally:
+        # No explicit close needed for fetcher unless we add one
+        pass
+
+
 @shared_task(name="calculate_derived_metrics")
 def calculate_derived_metrics():
     """
@@ -723,6 +1069,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "sync_opensky_flights",
         "schedule": 300.0,  # Every 5 minutes
     },
+    "sync-ais-vessels": {
+        "task": "sync_ais_vessels",
+        "schedule": 300.0,  # Every 5 minutes
+    },
     "sync-gdelt-news": {
         "task": "sync_gdelt_news",
         "schedule": 900.0,  # Every 15 minutes
@@ -734,6 +1084,26 @@ CELERY_BEAT_SCHEDULE = {
     "sync-acled-conflicts": {
         "task": "sync_acled_conflicts",
         "schedule": 1800.0,  # Every 30 minutes
+    },
+    "sync-nasa-fires": {
+        "task": "sync_nasa_fires",
+        "schedule": 14400.0,  # Every 4 hours
+    },
+    "sync-nasa-eonet": {
+        "task": "sync_nasa_eonet",
+        "schedule": 21600.0,  # Every 6 hours (NASA EONET - no key)
+    },
+    "sync-fred-economics": {
+        "task": "sync_fred_economics",
+        "schedule": 86400.0,  # Daily
+    },
+    "sync-eia-energy": {
+        "task": "sync_eia_energy",
+        "schedule": 21600.0,  # Every 6 hours
+    },
+    "sync-aviation-stack": {
+        "task": "sync_aviation_stack",
+        "schedule": 900.0,  # Every 15 minutes
     },
     "calculate-derived-metrics": {
         "task": "calculate_derived_metrics",
@@ -756,7 +1126,12 @@ def ingest_global_data():
     sync_usgs_earthquakes()
     sync_acled_conflicts()
     sync_opensky_flights()
-    # Add other syncs here
+    sync_nasa_fires()
+    sync_nasa_eonet()
+    sync_fred_economics()
+    sync_eia_energy()
+    sync_aviation_stack()
+    sync_ais_vessels()
     print("✅ Global data ingestion complete")
 
 @shared_task(name="update_instability_indices")

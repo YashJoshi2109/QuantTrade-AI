@@ -26,13 +26,9 @@ pip install -r requirements.txt
 
 ### 1.2 Configure Critical API Keys
 
-Create `.env` file from template:
+**Add these variables to your main backend `.env` file** (in `backend/`). The app reads all API keys from this single `.env` file.
 
-```bash
-cp .env.global-monitor.template .env
-```
-
-**Edit `.env` and add these 2 CRITICAL keys:**
+**Add these 2 CRITICAL keys to `backend/.env`:**
 
 ```bash
 # 1. Groq API (AI threat classification) - REQUIRED

@@ -5,6 +5,7 @@ Fetch data from external APIs with circuit breakers and rate limiting
 import asyncio
 import httpx
 import time
+import redis.asyncio as redis
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from enum import Enum
@@ -139,6 +140,9 @@ class BaseDataFetcher:
         self, 
         url: str, 
         params: Optional[Dict] = None,
+        headers: Optional[Dict] = None,
+        method: str = "GET",
+        data: Optional[Dict] = None,
         max_retries: int = 3,
         backoff_factor: float = 2.0
     ) -> Dict:
@@ -149,7 +153,7 @@ class BaseDataFetcher:
             try:
                 await self.rate_limiter.acquire()
                 
-                response = await client.get(url, params=params)
+                response = await client.request(method, url, params=params, headers=headers, data=data)
                 response.raise_for_status()
                 return response.json()
                 
@@ -245,14 +249,67 @@ class ACLEDFetcher(BaseDataFetcher):
     Real-time conflict and crisis monitoring
     """
     
-    BASE_URL = "https://api.acleddata.com/acled/read"
+    BASE_URL = "https://acleddata.com/api/acled/read"
+    AUTH_URL = "https://acleddata.com/oauth/token"
     
     def __init__(self):
         super().__init__()
         # ACLED requires authentication (get free key at acleddata.com)
         self.api_key = settings.ACLED_API_KEY if hasattr(settings, 'ACLED_API_KEY') else None
         self.email = settings.ACLED_EMAIL if hasattr(settings, 'ACLED_EMAIL') else None
-    
+        self.password = settings.ACLED_PASSWORD if hasattr(settings, 'ACLED_PASSWORD') else None
+        self.redis_client = None
+
+    async def _get_redis(self):
+        if not self.redis_client:
+            redis_url = getattr(settings, "REDIS_URL", "redis://localhost:6379")
+            self.redis_client = redis.from_url(redis_url, decode_responses=True)
+        return self.redis_client
+
+    async def _get_access_token(self) -> Optional[str]:
+        """Get OAuth token, check cache first"""
+        if not self.email or not self.password:
+            return None
+
+        try:
+            r = await self._get_redis()
+            token_key = f"acled_token:{self.email}"
+            
+            # 1. Check Redis cache
+            cached_token = await r.get(token_key)
+            if cached_token:
+                return cached_token
+
+            # 2. Authenticate
+            payload = {
+                "username": self.email,
+                "password": self.password,
+                "grant_type": "password",
+                "client_id": "acled"
+            }
+            # Use fetch_with_retry for resilience, but it's a POST
+            # We can use the parent client directly or use httpx if retry logic is complex
+            # Let's use fetch_with_retry which we updated to support POST
+            response = await self.fetch_with_retry(
+                self.AUTH_URL, 
+                method="POST", 
+                data=payload,
+                headers={"Content-Type": "application/x-www-form-urlencoded"}
+            )
+            
+            access_token = response.get("access_token")
+            expires_in = response.get("expires_in", 86400) # Default 1 day
+            
+            if access_token:
+                # Cache for expires_in - 60 seconds (safety buffer)
+                await r.setex(token_key, int(expires_in) - 60, access_token)
+                return access_token
+                
+        except Exception as e:
+            print(f"ACLED Auth Failed: {e}")
+            return None
+        return None
+
     async def fetch_conflicts(
         self,
         event_date: Optional[str] = None,
@@ -267,10 +324,12 @@ class ACLEDFetcher(BaseDataFetcher):
             event_date_where: Query operator (BETWEEN, >, <, =)
             limit: Maximum records
         """
-        if not self.api_key or not self.email:
-            print("ACLED API key not configured")
-            return []
+        token = await self._get_access_token()
         
+        if not token and not self.api_key:
+             print("ACLED Credentials missing (Email+Password or API Key)")
+             return []
+
         # Default to last 7 days
         if not event_date:
             today = datetime.utcnow()
@@ -278,19 +337,30 @@ class ACLEDFetcher(BaseDataFetcher):
             event_date = f"{week_ago.strftime('%Y-%m-%d')}|{today.strftime('%Y-%m-%d')}"
         
         params = {
-            "key": self.api_key,
-            "email": self.email,
             "event_date": event_date,
             "event_date_where": event_date_where,
             "limit": limit,
             "format": "json"
         }
         
+        headers = {}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        elif self.email and self.api_key:
+            # Fallback to legacy
+            params["key"] = self.api_key
+            params["email"] = self.email
+        
         try:
-            data = await self.fetch_with_retry(self.BASE_URL, params)
+            data = await self.fetch_with_retry(self.BASE_URL, params=params, headers=headers)
             return self._parse_acled_response(data)
         except Exception as e:
             print(f"ACLED fetch error: {e}")
+            # Try clearing token if auth failed (401/403 would be raised by raise_for_status)
+            if "nb_err_auth" in str(e) or "401" in str(e) or "403" in str(e):
+                r = await self._get_redis()
+                await r.delete(f"acled_token:{self.email}")
+                print("ACLED Token invalidated, will retry next run")
             return []
     
     def _parse_acled_response(self, data: Dict) -> List[Dict]:
@@ -399,7 +469,14 @@ class OpenSkyFetcher(BaseDataFetcher):
     
     def __init__(self):
         super().__init__()
-        self.rate_limiter = RateLimiter(calls_per_second=0.5)  # 2 calls per 10 seconds for anonymous
+        self.username = settings.OPENSKY_USERNAME
+        self.password = settings.OPENSKY_PASSWORD
+        
+        # Rate limits: 
+        # Anonymous: 400 credits per day (~100 req/day conservative)
+        # Authenticated: 4000 credits per day (~1000 req/day)
+        cps = 2.0 if self.username and self.password else 0.5
+        self.rate_limiter = RateLimiter(calls_per_second=cps)
     
     async def fetch_flights(
         self,
@@ -414,11 +491,22 @@ class OpenSkyFetcher(BaseDataFetcher):
         url = f"{self.BASE_URL}/states/all"
         params = {}
         
-        if bbox:
-            params["lamin"], params["lomin"], params["lamax"], params["lomax"] = bbox
+        if bbox and len(bbox) == 4:
+            # OpenSky expects lamin, lomin, lamax, lomax
+            params["lamin"] = bbox[0]
+            params["lomin"] = bbox[1]
+            params["lamax"] = bbox[2]
+            params["lomax"] = bbox[3]
+
+        headers = {}
+        if self.username and self.password:
+             import base64
+             auth_str = f"{self.username}:{self.password}"
+             b64_auth = base64.b64encode(auth_str.encode()).decode()
+             headers["Authorization"] = f"Basic {b64_auth}"
         
         try:
-            data = await self.fetch_with_retry(url, params)
+            data = await self.fetch_with_retry(url, params=params, headers=headers)
             return self._parse_opensky_response(data)
         except Exception as e:
             print(f"OpenSky fetch error: {e}")
@@ -429,59 +517,53 @@ class OpenSkyFetcher(BaseDataFetcher):
         flights: List[Dict] = []
         
         states = data.get("states", [])
-        for state in states:
+        if not states:
+            return []
+
+        # Limit to 100 flights to avoid overwhelming the system
+        for state in states[:100]:
             # OpenSky state vector format:
             # [0] icao24, [1] callsign, [2] origin_country,
             # [3] time_position, [4] last_contact,
             # [5] longitude, [6] latitude, [7] baro_altitude,
             # [8] on_ground, [9] velocity, [10] heading, [11] vertical_rate, ...
+            if not state or len(state) < 12:
+                continue
+
             icao24 = state[0]
-            callsign = (state[1] or "").strip() if len(state) > 1 else ""
-            origin_country = state[2] if len(state) > 2 else ""
-            last_contact = state[4] if len(state) > 4 else None
-            longitude = state[5] if len(state) > 5 else None
-            latitude = state[6] if len(state) > 6 else None
-            altitude = state[7] if len(state) > 7 else None
-            velocity = state[9] if len(state) > 9 else None
-            heading = state[10] if len(state) > 10 else None
-            vertical_rate = state[11] if len(state) > 11 else None
+            callsign = (state[1] or "").strip()
+            origin_country = state[2] or "Unknown"
+            last_contact = state[4]
+            longitude = state[5]
+            latitude = state[6]
+            altitude = state[7]
+            velocity = state[9]
+            heading = state[10]
 
             if latitude is None or longitude is None:
                 continue
 
-            flight_id = callsign or icao24 or "unknown"
-            title = f"Flight {flight_id} near {origin_country or 'unknown'}"
-
-            desc_parts = []
-            if origin_country:
-                desc_parts.append(f"Origin country: {origin_country}")
-            if altitude is not None:
-                desc_parts.append(f"Altitude: {altitude} m")
-            if velocity is not None:
+            flight_title = f"Flight {callsign if callsign else icao24}"
+            desc_parts = [f"Origin: {origin_country}"]
+            if velocity:
                 desc_parts.append(f"Speed: {velocity} m/s")
-            if heading is not None:
-                desc_parts.append(f"Heading: {heading}°")
-            description = " | ".join(desc_parts) if desc_parts else "Aviation activity detected"
+            description = " | ".join(desc_parts)
 
             flight_data = {
                 "source": "opensky",
-                "title": title,
+                "title": flight_title,
                 "description": description,
-                "icao24": icao24,
-                "callsign": callsign,
-                "origin_country": origin_country,
                 "latitude": float(latitude),
                 "longitude": float(longitude),
-                "altitude": altitude,
-                "velocity": velocity,
-                "heading": heading,
-                "vertical_rate": vertical_rate,
-                "timestamp": last_contact or int(time.time()),
-                "location_name": origin_country,
-                "country_code": None,
-                "raw_data": state,
-                # Simple severity proxy: faster flights score higher
-                "severity": float(velocity or 0) / 2.0,
+                "location_name": f"Over {origin_country}",
+                "event_timestamp": datetime.fromtimestamp(last_contact or time.time()).isoformat(),
+                "severity": 0,
+                "raw_data": {
+                    "icao24": icao24,
+                    "callsign": callsign,
+                    "velocity": velocity,
+                    "altitude": altitude
+                },
                 "category": "aviation",
             }
             flights.append(flight_data)
@@ -499,26 +581,29 @@ class NASAFIRMSFetcher(BaseDataFetcher):
     
     def __init__(self):
         super().__init__()
-        self.api_key = settings.NASA_API_KEY if hasattr(settings, 'NASA_API_KEY') else "DEMO_KEY"
+        self.api_key = settings.NASA_FIRMS_API_KEY or settings.NASA_API_KEY or "DEMO_KEY"
     
     async def fetch_fires(
         self,
-        bbox: tuple,  # (lat_min, lon_min, lat_max, lon_max)
+        bbox: tuple = (-90, -180, 90, 180),  # Default to world
         days: int = 1
     ) -> List[Dict]:
         """
         Fetch active fires in region
-        
-        Args:
-            bbox: Bounding box (lat_min, lon_min, lat_max, lon_max)
-            days: Days to look back (1-10)
         """
-        url = f"{self.BASE_URL}/{self.api_key}/VIIRS_SNPP_NRT/{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}/{days}"
+        # Format: /KEY/SOURCE/AREA_COORDS/DAY_RANGE
+        # Area coords: West,South,East,North
+        area_str = f"{bbox[1]},{bbox[0]},{bbox[3]},{bbox[2]}"
+        
+        # VIIRS_NOAA20_NRT is a standard source
+        url = f"{self.BASE_URL}/{self.api_key}/VIIRS_NOAA20_NRT/{area_str}/{days}"
         
         try:
             client = await self._get_client()
             response = await client.get(url)
-            response.raise_for_status()
+            
+            if response.status_code != 200:
+                return []
             
             return self._parse_firms_csv(response.text)
         except Exception as e:
@@ -539,27 +624,269 @@ class NASAFIRMSFetcher(BaseDataFetcher):
             if len(values) != len(headers):
                 continue
             
-            fire_data = dict(zip(headers, values))
+            row = dict(zip(headers, values))
+            try:
+                lat = float(row.get("latitude", 0))
+                lon = float(row.get("longitude", 0))
+                brightness = float(row.get("bright_ti4", 0) or row.get("brightness", 0))
+                
+                # Normalize brightness (typ. 300-500K) to 0-100 severity
+                severity = min(100, max(0, (brightness - 300) / 2))
+                
+                event = {
+                    "source": "nasa_firms",
+                    "title": f"Wildfire Detected ({brightness}K)",
+                    "latitude": lat,
+                    "longitude": lon,
+                    "event_timestamp": self._parse_acquisition_date(row),
+                    "severity": severity,
+                    "raw_data": row,
+                    "category": "climate"
+                }
+                events.append(event)
+            except ValueError:
+                continue
+        
+        return events
+
+    def _parse_acquisition_date(self, row: Dict) -> str:
+        date = row.get("acq_date", "")
+        time_str = row.get("acq_time", "")
+        if date:
+            if len(time_str) == 4:
+                time_fmt = f"{time_str[:2]}:{time_str[2:]}:00"
+            else:
+                time_fmt = "00:00:00"
+            return f"{date}T{time_fmt}Z"
+        return datetime.utcnow().isoformat()
+
+
+class NASAEONETFetcher(BaseDataFetcher):
+    """
+    Fetch natural events from NASA EONET (Earth Observatory Natural Event Tracker).
+    Public API: https://eonet.gsfc.nasa.gov/api/v3/events - no key required.
+    """
+    BASE_URL = "https://eonet.gsfc.nasa.gov/api/v3/events"
+
+    async def fetch_events(
+        self,
+        limit: int = 100,
+        days_back: int = 7,
+    ) -> List[Dict]:
+        """Fetch recent natural events (wildfires, storms, volcanoes, etc.)."""
+        try:
+            # EONET returns events with status=open by default; we can add &limit=
+            params = {"limit": limit}
+            data = await self.fetch_with_retry(self.BASE_URL, params=params)
+            return self._parse_eonet_response(data, days_back)
+        except Exception as e:
+            print(f"NASA EONET fetch error: {e}")
+            return []
+
+    def _parse_eonet_response(self, data: Dict, days_back: int) -> List[Dict]:
+        events = []
+        cutoff = (datetime.utcnow() - timedelta(days=days_back)).isoformat()
+        for ev in data.get("events", []):
+            geoms = ev.get("geometry", [])
+            if not geoms:
+                continue
+            # Use latest geometry (first can be forecast)
+            g = geoms[-1] if geoms else {}
+            coords = g.get("coordinates", [0, 0])
+            if len(coords) < 2:
+                continue
+            lon, lat = float(coords[0]), float(coords[1])
+            date_str = g.get("date") or ev.get("lastDate") or ev.get("created") or ""
+            if date_str and date_str < cutoff:
+                continue
+            title = ev.get("title", "Natural Event")
+            cat = (ev.get("categories") or [{}])[0] if ev.get("categories") else {}
+            cat_title = cat.get("title", "disaster")
+            events.append({
+                "source": "nasa_eonet",
+                "title": title,
+                "description": ev.get("description", ""),
+                "latitude": lat,
+                "longitude": lon,
+                "location_name": ev.get("title", ""),
+                "event_timestamp": date_str or datetime.utcnow().isoformat(),
+                "severity": 50,
+                "raw_data": ev,
+                "category": "disaster" if "fire" in cat_title.lower() or "storm" in cat_title.lower() else "disaster",
+            })
+        return events
+
+
+class FredFetcher(BaseDataFetcher):
+    """
+    Fetch economic data from FRED (Federal Reserve Economic Data)
+    """
+    BASE_URL = "https://api.stlouisfed.org/fred/series/observations"
+    
+    def __init__(self):
+        super().__init__()
+        self.api_key = settings.FRED_API_KEY
+    
+    async def fetch_series(self, series_id: str = "GDP") -> List[Dict]:
+        if not self.api_key:
+            return []
             
-            # Brightness as severity indicator
-            brightness = float(fire_data.get("bright_ti4", 300))
-            severity = min(100, (brightness - 300) / 5)  # Normalize to 0-100
+        params = {
+            "series_id": series_id,
+            "api_key": self.api_key,
+            "file_type": "json",
+            "sort_order": "desc",
+            "limit": 5
+        }
+        
+        try:
+            data = await self.fetch_with_retry(self.BASE_URL, params=params)
+            return self._parse_fred_response(data, series_id)
+        except Exception as e:
+            print(f"FRED fetch error: {e}")
+            return []
+
+    def _parse_fred_response(self, data: Dict, series_id: str) -> List[Dict]:
+        events = []
+        observations = data.get("observations", [])
+        
+        for obs in observations:
+            date = obs.get("date")
+            value = obs.get("value")
+            if value == ".": continue 
             
             event = {
-                "source": "nasa_firms",
-                "title": f"Wildfire Detection - Brightness {brightness}K",
-                "latitude": float(fire_data.get("latitude", 0)),
-                "longitude": float(fire_data.get("longitude", 0)),
-                "event_timestamp": fire_data.get("acq_date", ""),
-                "severity": severity,
-                "raw_data": fire_data,
-                "category": "climate"
+                "source": "fred",
+                "title": f"Economic Indicator: {series_id}",
+                "description": f"Value: {value} on {date}",
+                "latitude": 38.8977,
+                "longitude": -77.0365,
+                "location_name": "United States",
+                "event_timestamp": f"{date}T00:00:00Z",
+                "severity": 0,
+                "raw_data": obs,
+                "category": "economy"
+            }
+            events.append(event)
+            
+        return events
+
+
+class EIAFetcher(BaseDataFetcher):
+    """
+    Fetch energy data from EIA (Energy Information Administration)
+    """
+    BASE_URL = "https://api.eia.gov/v2"
+    
+    def __init__(self):
+        super().__init__()
+        self.api_key = settings.EIA_API_KEY
+
+    async def fetch_prices(self):
+        if not self.api_key:
+             return []
+        
+        # Example: Petroleum Spot Prices
+        url = f"{self.BASE_URL}/petroleum/pri/spt/data/"
+        params = {
+            "api_key": self.api_key,
+            "frequency": "daily",
+            "data[0]": "value",
+            "sort[0][column]": "period",
+            "sort[0][direction]": "desc",
+            "offset": 0,
+            "length": 5
+        }
+        
+        try:
+             data = await self.fetch_with_retry(url, params=params)
+             return self._parse_eia_response(data)
+        except Exception as e:
+            print(f"EIA fetch error: {e}")
+            return []
+
+    def _parse_eia_response(self, data: Dict) -> List[Dict]:
+        response_data = data.get("response", {}).get("data", [])
+        events = []
+        
+        for item in response_data:
+            price = item.get("value", 0)
+            product = item.get("product-name", "Petroleum")
+            date = item.get("period", "")
+            
+            event = {
+                "source": "eia",
+                "title": f"Energy Price: {product}",
+                "description": f"Price: ${price}",
+                "latitude": 38.9072,
+                "longitude": -77.0369,
+                "location_name": "USA",
+                "event_timestamp": f"{date}T00:00:00Z" if len(date) == 10 else datetime.utcnow().isoformat(),
+                "severity": 0,
+                "raw_data": item,
+                "category": "energy"
             }
             events.append(event)
         
         return events
 
 
-# Additional fetchers for Polymarket, FRED, Cloudflare Radar, VesselFinder
-# would be implemented similarly with their respective APIs
+class AviationStackFetcher(BaseDataFetcher):
+    """
+    Fetch flight data from AviationStack
+    """
+    BASE_URL = "http://api.aviationstack.com/v1/flights"
+    
+    def __init__(self):
+        super().__init__()
+        self.api_key = settings.AVIATIONSTACK_API_KEY
+    
+    async def fetch_flights(self, limit: int = 20) -> List[Dict]:
+        if not self.api_key:
+            return []
+            
+        params = {
+            "access_key": self.api_key,
+            "limit": limit,
+            "flight_status": "active"
+        }
+        
+        try:
+            data = await self.fetch_with_retry(self.BASE_URL, params=params)
+            return self._parse_response(data)
+        except Exception as e:
+            print(f"AviationStack fetch error: {e}")
+            return []
+    
+    def _parse_response(self, data: Dict) -> List[Dict]:
+        events = []
+        for flight in data.get("data", []):
+            try:
+                live = flight.get("live", {}) or {}
+                # Sometimes live data is null if not tracked properly
+                if not live: continue
+
+                lat = live.get("latitude")
+                lon = live.get("longitude")
+                if not lat or not lon: continue
+                
+                airline = flight.get("airline", {}).get("name", "Unknown Airline")
+                flight_num = flight.get("flight", {}).get("iata", "Unknown")
+                
+                event = {
+                    "source": "aviationstack",
+                    "title": f"Flight {flight_num} ({airline})",
+                    "description": f"Alt: {live.get('altitude', 0)}m",
+                    "latitude": float(lat),
+                    "longitude": float(lon),
+                    "location_name": "In Flight",
+                    "event_timestamp": datetime.utcnow().isoformat(),
+                    "severity": 0,
+                    "raw_data": flight,
+                    "category": "aviation"
+                }
+                events.append(event)
+            except Exception:
+                continue
+        return events
 

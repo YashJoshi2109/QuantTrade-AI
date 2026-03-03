@@ -33,11 +33,22 @@ class Settings(BaseSettings):
     
     # Global Monitor API Keys
     GROQ_API_KEY: Optional[str] = None  # Groq LLM for threat classification
+    OPENROUTER_API_KEY: Optional[str] = None # AI fallback
+    ACLED_API_KEY: Optional[str] = None  # Legacy API Key
+    ACLED_EMAIL: Optional[str] = None    # ACLED OAuth Email
+    ACLED_PASSWORD: Optional[str] = None # ACLED OAuth Password
     UPSTASH_REDIS_URL: Optional[str] = None  # Upstash Redis for deduplication
     UPSTASH_REDIS_TOKEN: Optional[str] = None
     FRED_API_KEY: Optional[str] = None  # Federal Reserve Economic Data
+    EIA_API_KEY: Optional[str] = None   # US Energy Information Administration
     USGS_API_KEY: Optional[str] = None  # USGS Earthquake data (optional, public API)
-    NASA_API_KEY: Optional[str] = None  # NASA FIRMS/EONET APIs
+    NASA_API_KEY: Optional[str] = None  # Generic NASA Key
+    NASA_FIRMS_API_KEY: Optional[str] = None # NASA FIRMS Specific
+    CLOUDFLARE_RADAR_TOKEN: Optional[str] = None # Internet outages
+    OPENSKY_USERNAME: Optional[str] = None
+    OPENSKY_PASSWORD: Optional[str] = None
+    AVIATIONSTACK_API_KEY: Optional[str] = None
+    AISSTREAM_API_KEY: Optional[str] = None   # AIS Stream API Key
     
     # Google OAuth
     GOOGLE_CLIENT_ID: Optional[str] = None

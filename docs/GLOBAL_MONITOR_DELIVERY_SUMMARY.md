@@ -75,7 +75,7 @@
 - `scripts/migrate_global_monitor.py` - Database table creation
 - `scripts/ingest_global_monitor.py` - Manual data ingestion
 - `tests/test_global_monitor_integration.py` - Integration test suite
-- `.env.global-monitor.template` - Environment configuration template
+- `.env.global-monitor.template` - Reference list of variables (add these to main `backend/.env`; app reads only from `.env`)
 
 ✅ **Configuration** (`backend/app/config.py`)
 - 10+ new environment variables for API keys
@@ -192,7 +192,7 @@
 | Background sync | ✅ Complete | Celery tasks with beat schedule |
 | Database migrations | ✅ Complete | Script-based table creation |
 | Integration tests | ✅ Complete | 15+ test cases covering all components |
-| Environment templates | ✅ Complete | .env.global-monitor.template with all keys |
+| Environment | ✅ Complete | All keys in main backend/.env; .env.global-monitor.template is reference only |
 | API documentation | ✅ Complete | Swagger UI at /docs |
 | Error logging | ✅ Complete | DataIngestionLog table tracks all syncs |
 | Performance indexes | ✅ Complete | 15+ indexes on critical columns |

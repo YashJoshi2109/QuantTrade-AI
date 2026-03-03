@@ -24,6 +24,12 @@ class TickerCorrelationEngine:
             "Energy": ("negative", 0.70, "Supply chain disruption"),
             "Materials": ("negative", 0.65, "Resource access issues"),
         },
+        EventCategory.POLITICAL: {
+            "Financial": ("negative", 0.80, "Market uncertainty"),
+            "Energy": ("mixed", 0.75, "Regulatory changes"),
+            "Defense": ("positive", 0.70, "Geopolitical tensions"),
+            "Healthcare": ("mixed", 0.65, "Policy shifts"),
+        },
         EventCategory.DISASTER: {
             "Insurance": ("negative", 0.90, "Claim payouts"),
             "Utilities": ("negative", 0.80, "Infrastructure damage"),
@@ -59,6 +65,15 @@ class TickerCorrelationEngine:
             "Agriculture": ("negative", 0.90, "Crop damage"),
             "Insurance": ("negative", 0.80, "Climate claims"),
             "Renewable Energy": ("positive", 0.70, "Alternative energy"),
+        },
+        EventCategory.PREDICTION: {
+            "Financial": ("mixed", 0.75, "Market speculation"),
+            "Technology": ("positive", 0.65, "Prediction markets activity"),
+        },
+        EventCategory.SPACE: {
+            "Aerospace": ("positive", 0.90, "Space economy growth"),
+            "Technology": ("positive", 0.75, "Satellite communications"),
+            "Utilities": ("negative", 0.60, "Solar flare infrastructure risk"),
         },
     }
     
@@ -127,6 +142,12 @@ class TickerCorrelationEngine:
                 category, severity, threat_level
             )
             impacts.extend(sector_impacts)
+        else:
+            # Fallback for categories without specific secter definitions
+            fallback_impacts = self._correlate_by_sector(
+                EventCategory.ECONOMIC, severity, threat_level
+            )
+            impacts.extend(fallback_impacts)
         
         # 2. Geographic exposure correlation
         if country_code and country_code in self.COUNTRY_COMPANY_EXPOSURE:
@@ -134,6 +155,28 @@ class TickerCorrelationEngine:
                 country_code, severity, threat_level, event_data
             )
             impacts.extend(geo_impacts)
+        else:
+            # Fallback to general market if no specific geographic exposure found
+            if not impacts:
+                impacts.extend([{
+                    "ticker": "SPY",
+                    "sector": "Market",
+                    "impact_score": severity * 0.5,
+                    "correlation_type": "macro",
+                    "confidence": 0.5,
+                    "expected_direction": "negative" if threat_level in [ThreatLevel.CRITICAL, ThreatLevel.HIGH] else "mixed",
+                    "impact_reason": "Broad market exposure to global events",
+                    "correlation_factors": ["Macroeconomic uncertainty"]
+                }, {
+                    "ticker": "VIX",
+                    "sector": "Volatility",
+                    "impact_score": severity * 0.8,
+                    "correlation_type": "macro",
+                    "confidence": 0.7,
+                    "expected_direction": "positive" if threat_level in [ThreatLevel.CRITICAL, ThreatLevel.HIGH] else "mixed",
+                    "impact_reason": "Increased market volatility",
+                    "correlation_factors": ["Market uncertainty"]
+                }])
         
         # 3. ETF correlation
         etf_impacts = self._correlate_etfs(category, severity)

@@ -44,6 +44,9 @@ class DataSource(str, enum.Enum):
     FRED = "fred"
     POLYMARKET = "polymarket"
     VESSELFINDER = "vesselfinder"
+    AISSTREAM = "aisstream"
+    EIA = "eia"
+    AVIATIONSTACK = "aviationstack"
 
 
 class GlobalEvent(Base):

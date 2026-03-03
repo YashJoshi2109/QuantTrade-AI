@@ -17,6 +17,7 @@ interface Props {
 
 export default function GlobalMonitorGlobe({ events, clusters, instability, onEventClick, autoRotate }: Props) {
   const globeEl = useRef<any>()
+  const globeInstance = useRef<any>(null)
   const [Globe, setGlobe] = useState<any>(null)
 
   // Dynamically import globe.gl (client-side only)
@@ -26,8 +27,9 @@ export default function GlobalMonitorGlobe({ events, clusters, instability, onEv
     })
   }, [])
 
+  // 1. Setup Globe once
   useEffect(() => {
-    if (!Globe || !globeEl.current) return
+    if (!Globe || !globeEl.current || globeInstance.current) return
 
     const globe = Globe()(globeEl.current)
       .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
@@ -35,6 +37,61 @@ export default function GlobalMonitorGlobe({ events, clusters, instability, onEv
       .showAtmosphere(true)
       .atmosphereColor('#0ea5e9')
       .atmosphereAltitude(0.15)
+      .pointAltitude(0.01)
+      .pointRadius('size')
+      .pointColor('color')
+      .pointLabel((d: any) => `
+        <div class="bg-slate-900 text-white p-3 rounded-lg shadow-xl border border-sky-500/30 max-w-xs">
+          <div class="font-bold text-sm">${d.event.title}</div>
+          <div class="text-xs text-slate-400 mt-1">${d.event.location_name || 'Unknown'}</div>
+          <div class="text-xs mt-2">
+            <span class="px-2 py-1 rounded ${getThreatBadgeClass(d.event.threat_level)}">
+              ${d.event.threat_level.toUpperCase()}
+            </span>
+          </div>
+        </div>
+      `)
+      .onPointClick((d: any) => {
+        if (onEventClick) {
+          onEventClick(d.event)
+        }
+      })
+      .ringColor('color')
+      .ringMaxRadius('maxR')
+      .ringPropagationSpeed('propagationSpeed')
+      .ringRepeatPeriod('repeatPeriod')
+
+    // Zoom out: larger z = globe appears smaller (reduced zoom)
+    globe.camera().position.z = 280;
+
+    globeInstance.current = globe
+
+    // Responsive sizing
+    const handleResize = () => {
+      if (globeEl.current && globeInstance.current) {
+        const width = globeEl.current.offsetWidth
+        const height = globeEl.current.offsetHeight
+        globeInstance.current.width(width).height(height)
+      }
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      if (globeInstance.current) {
+        try {
+          globeInstance.current._destructor()
+        } catch (e) {}
+      }
+    }
+  }, [Globe]) // Run once when Globe library loads
+
+  // 2. Update Data without destroying
+  useEffect(() => {
+    if (!globeInstance.current) return
+
+    const globe = globeInstance.current
 
     // Add event markers as points
     globe.pointsData(events.map(event => ({
@@ -44,25 +101,6 @@ export default function GlobalMonitorGlobe({ events, clusters, instability, onEv
       color: getThreatColor(event.threat_level),
       event
     })))
-    .pointAltitude(0.01)
-    .pointRadius('size')
-    .pointColor('color')
-    .pointLabel((d: any) => `
-      <div class="bg-slate-900 text-white p-3 rounded-lg shadow-xl border border-sky-500/30 max-w-xs">
-        <div class="font-bold text-sm">${d.event.title}</div>
-        <div class="text-xs text-slate-400 mt-1">${d.event.location_name || 'Unknown'}</div>
-        <div class="text-xs mt-2">
-          <span class="px-2 py-1 rounded ${getThreatBadgeClass(d.event.threat_level)}">
-            ${d.event.threat_level.toUpperCase()}
-          </span>
-        </div>
-      </div>
-    `)
-    .onPointClick((d: any) => {
-      if (onEventClick) {
-        onEventClick(d.event)
-      }
-    })
 
     // Add hotspot markers as rings
     globe.ringsData(clusters.filter(c => c.is_hotspot).map(cluster => ({
@@ -73,32 +111,35 @@ export default function GlobalMonitorGlobe({ events, clusters, instability, onEv
       repeatPeriod: 2000,
       color: 'rgba(168, 85, 247, 0.5)' // Purple for hotspots
     })))
-    .ringColor('color')
-    .ringMaxRadius('maxR')
-    .ringPropagationSpeed('propagationSpeed')
-    .ringRepeatPeriod('repeatPeriod')
 
-    // Auto-rotate (configurable)
-    const controls = globe.controls()
+    // Flight paths from Aviation events (using arcs)
+    const flightEvents = events.filter(e => e.category === 'aviation' && e.raw_data && e.raw_data.departure && e.raw_data.arrival)
+    const arcsData = flightEvents.map(event => {
+      // Basic extraction of coordinates if available. We'll use mock destination offsets if raw_data lacks precise arrival coords but has an indication of flight.
+      return {
+        startLat: event.latitude,
+        startLng: event.longitude,
+        endLat: event.latitude + (Math.random() * 20 - 10), // Fallback if exact endpoint missing
+        endLng: event.longitude + (Math.random() * 20 - 10),
+        color: ['rgba(255, 255, 255, 0.8)', 'rgba(56, 189, 248, 0.1)']
+      }
+    })
+    globe.arcsData(arcsData)
+      .arcColor('color')
+      .arcDashLength(0.4)
+      .arcDashGap(0.1)
+      .arcDashInitialGap(() => Math.random())
+      .arcDashAnimateTime(1500)
+
+  }, [events, clusters]) // Update on data changes
+
+  // 3. Handle Auto Rotate independently so we don't reset data
+  useEffect(() => {
+    if (!globeInstance.current) return
+    const controls = globeInstance.current.controls()
     controls.autoRotate = autoRotate ?? true
     controls.autoRotateSpeed = 0.5
-
-    // Responsive sizing
-    const handleResize = () => {
-      if (globeEl.current) {
-        const width = globeEl.current.offsetWidth
-        const height = globeEl.current.offsetHeight
-        globe.width(width).height(height)
-      }
-    }
-    handleResize()
-    window.addEventListener('resize', handleResize)
-
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      globe._destructor()
-    }
-  }, [Globe, events, clusters, onEventClick, autoRotate])
+  }, [autoRotate])
 
   if (!Globe) {
     return (
@@ -109,7 +150,11 @@ export default function GlobalMonitorGlobe({ events, clusters, instability, onEv
   }
 
   return (
-    <div ref={globeEl} className="w-full h-full bg-slate-950" />
+    <div 
+      ref={globeEl} 
+      className="w-full h-full min-h-0 bg-slate-950 overflow-hidden isolate"
+      style={{ contain: 'layout paint' }}
+    />
   )
 }
 

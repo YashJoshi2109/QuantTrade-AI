@@ -61,9 +61,8 @@ cd backend
 # Install dependencies
 pip install -r requirements.txt
 
-# Configure API keys
-cp .env.global-monitor.template .env
-# Edit .env and add GROQ_API_KEY and UPSTASH_REDIS_URL
+# Configure API keys (add variables to your main backend/.env file)
+# Edit backend/.env and add GROQ_API_KEY and UPSTASH_REDIS_URL
 
 # Create database tables
 python scripts/migrate_global_monitor.py

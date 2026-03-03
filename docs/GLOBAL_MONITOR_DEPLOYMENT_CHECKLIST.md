@@ -7,7 +7,7 @@ Use this checklist to track your deployment progress.
 ## Phase 1: Pre-Deployment Setup
 
 ### Backend Configuration
-- [ ] Copy `.env.global-monitor.template` to `.env`
+- [ ] Add Global Monitor variables to your main **backend/.env** file (see `backend/.env.global-monitor.template` for a reference list)
 - [ ] Add **GROQ_API_KEY** (required - sign up at https://console.groq.com/)
 - [ ] Add **UPSTASH_REDIS_URL** (required - sign up at https://upstash.com/)
 - [ ] Add **ACLED_API_KEY** (recommended - https://developer.acleddata.com/)

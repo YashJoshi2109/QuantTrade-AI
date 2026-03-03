@@ -1,16 +1,30 @@
 'use client'
 
-import { useState, useEffect, Suspense, lazy } from 'react'
+import { useState, useEffect, useMemo, Suspense, lazy } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
 import Link from 'next/link'
-import { 
-  Globe, Activity, AlertTriangle, TrendingUp, TrendingDown,
-  Zap, Filter, Clock, RefreshCw, Share2, Download, Maximize2,
-  X, ChevronDown, ChevronUp, Info
+import {
+  Globe,
+  Activity,
+  AlertTriangle,
+  TrendingUp,
+  TrendingDown,
+  Zap,
+  Filter,
+  Clock,
+  RefreshCw,
+  Share2,
+  Download,
+  Maximize2,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Info,
 } from 'lucide-react'
 import { fetchMapData, fetchMonitorStats, type MapData, type MonitorStats, type GlobalEvent } from '@/lib/global-monitor-api'
+import GlobalMonitorRightColumn from '@/components/GlobalMonitorRightColumn'
 
 // Lazy load the globe component for better performance
 const GlobalMonitorGlobe = lazy(() => import('@/components/GlobalMonitorGlobe'))
@@ -19,38 +33,14 @@ const TickerImpactDrawer = lazy(() => import('@/components/TickerImpactDrawer'))
 function MonitorDesktop() {
   const [selectedEvent, setSelectedEvent] = useState<GlobalEvent | null>(null)
   const [timeWindow, setTimeWindow] = useState(24) // hours
-  const [showFilters, setShowFilters] = useState(false)
-  const [threatFilter, setThreatFilter] = useState<string | null>(null)
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
-  const [autoRotate, setAutoRotate] = useState(true)
-  
-  // Fetch map data with auto-refresh every 2 minutes
-  const { data: mapData, isLoading, refetch } = useQuery<MapData>({
-    queryKey: ['monitor-map-data', timeWindow, threatFilter, categoryFilter],
-    queryFn: () => fetchMapData(timeWindow, true),
-    refetchInterval: 120000, // 2 minutes
-    staleTime: 60000, // 1 minute
-  })
-  
-  // Fetch stats
-  const { data: stats } = useQuery<MonitorStats>({
-    queryKey: ['monitor-stats'],
-    queryFn: fetchMonitorStats,
-    refetchInterval: 60000, // 1 minute
-  })
-
-  // Filter events based on selected filters
-  const filteredEvents = mapData?.events.filter(event => {
-    if (threatFilter && event.threat_level !== threatFilter) return false
-    if (categoryFilter && event.category !== categoryFilter) return false
-    return true
-  }) || []
+  const [showFilters, setShowFilters] = useState(true) // Show filters by default to match screenshot vibe
 
   const threatLevels = [
     { value: 'critical', label: 'Critical', color: 'text-red-500' },
     { value: 'high', label: 'High', color: 'text-orange-500' },
     { value: 'medium', label: 'Medium', color: 'text-yellow-500' },
-    { value: 'low', label: 'Low', color: 'text-blue-500' }
+    { value: 'low', label: 'Low', color: 'text-blue-500' },
+    { value: 'unknown', label: 'Monitoring', color: 'text-gray-500' }
   ]
 
   const categories = [
@@ -64,6 +54,79 @@ function MonitorDesktop() {
     { value: 'climate', label: 'Climate', icon: '🌡️' }
   ]
 
+  // All filters ON by default
+  const [activeThreats, setActiveThreats] = useState<Set<string>>(new Set(threatLevels.map(t => t.value)))
+  const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set(categories.map(c => c.value)))
+  
+  const [autoRotate, setAutoRotate] = useState(true)
+  
+  // Fetch map data with auto-refresh every 2 minutes
+  const { data: mapData, isLoading, refetch } = useQuery<MapData>({
+    queryKey: ['monitor-map-data', timeWindow],
+    queryFn: () => fetchMapData(timeWindow, true),
+    refetchInterval: 60000, // 1 minute auto-refresh to maintain live data
+    staleTime: 30000,
+  })
+  
+  // Fetch stats
+  const { data: stats } = useQuery<MonitorStats>({
+    queryKey: ['monitor-stats'],
+    queryFn: fetchMonitorStats,
+    refetchInterval: 60000, // 1 minute
+  })
+
+  // Filter events based on selected filters (Allow ALL if all selected, else filter)
+  const filteredEvents = mapData?.events.filter(event => {
+    if (!activeThreats.has(event.threat_level || 'unknown')) return false
+    if (!activeCategories.has(event.category || 'unknown') && event.category) return false
+    return true
+  }) || []
+
+  // Time-bucket activity summary for last 24h (0-6, 6-12, 12-24 hours)
+  const timeBuckets = useMemo(() => {
+    const summary = {
+      '0-6': 0,
+      '6-12': 0,
+      '12-24': 0,
+    }
+
+    const now = Date.now()
+    filteredEvents.forEach(event => {
+      const ts = new Date(event.event_timestamp).getTime()
+      if (Number.isNaN(ts)) return
+      const hoursAgo = (now - ts) / 36e5
+      if (hoursAgo <= 6) summary['0-6'] += 1
+      else if (hoursAgo <= 12) summary['6-12'] += 1
+      else if (hoursAgo <= 24) summary['12-24'] += 1
+    })
+
+    return summary
+  }, [filteredEvents])
+
+  // Per-category counts for quick-glance institutional panel
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    filteredEvents.forEach(event => {
+      const cat = event.category || 'unknown'
+      counts[cat] = (counts[cat] || 0) + 1
+    })
+    return counts
+  }, [filteredEvents])
+
+  const toggleThreat = (val: string) => {
+    const next = new Set(activeThreats)
+    if (next.has(val)) next.delete(val)
+    else next.add(val)
+    setActiveThreats(next)
+  }
+
+  const toggleCategory = (val: string) => {
+    const next = new Set(activeCategories)
+    if (next.has(val)) next.delete(val)
+    else next.add(val)
+    setActiveCategories(next)
+  }
+
   const handleEventClick = (event: GlobalEvent) => {
     setSelectedEvent(event)
     setAutoRotate(false)
@@ -71,9 +134,9 @@ function MonitorDesktop() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-slate-950 text-slate-50">
-        {/* Header */}
-        <div className="border-b border-slate-800/50 bg-slate-900/30 backdrop-blur-sm sticky top-0 z-20">
+      <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col">
+        {/* Header - stays above globe (opaque so globe never shows through) */}
+        <div className="border-b border-slate-800/50 bg-slate-950/95 backdrop-blur-md sticky top-0 z-30 shrink-0">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
@@ -110,7 +173,7 @@ function MonitorDesktop() {
                 >
                   <Filter className="w-4 h-4" />
                   Filters
-                  {(threatFilter || categoryFilter) && (
+                  {(activeThreats.size < threatLevels.length || activeCategories.size < categories.length) && (
                     <span className="w-2 h-2 bg-sky-500 rounded-full" />
                   )}
                 </button>
@@ -190,9 +253,9 @@ function MonitorDesktop() {
                       {threatLevels.map(level => (
                         <button
                           key={level.value}
-                          onClick={() => setThreatFilter(threatFilter === level.value ? null : level.value)}
+                          onClick={() => toggleThreat(level.value)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                            threatFilter === level.value
+                            activeThreats.has(level.value)
                               ? `bg-${level.value === 'critical' ? 'red' : level.value === 'high' ? 'orange' : level.value === 'medium' ? 'yellow' : 'blue'}-500/20 border border-${level.value === 'critical' ? 'red' : level.value === 'high' ? 'orange' : level.value === 'medium' ? 'yellow' : 'blue'}-500 ${level.color}`
                               : 'bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600'
                           }`}
@@ -210,9 +273,9 @@ function MonitorDesktop() {
                       {categories.map(cat => (
                         <button
                           key={cat.value}
-                          onClick={() => setCategoryFilter(categoryFilter === cat.value ? null : cat.value)}
+                          onClick={() => toggleCategory(cat.value)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                            categoryFilter === cat.value
+                            activeCategories.has(cat.value)
                               ? 'bg-sky-500/20 border border-sky-500 text-sky-300'
                               : 'bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600'
                           }`}
@@ -229,43 +292,54 @@ function MonitorDesktop() {
           </div>
         </div>
 
-        {/* Globe Visualization */}
-        <div className="relative" style={{ height: 'calc(100vh - 240px)' }}>
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <RefreshCw className="w-12 h-12 text-sky-500 animate-spin mx-auto mb-4" />
-                <p className="text-slate-400">Loading global data...</p>
-              </div>
-            </div>
-          ) : mapData ? (
-            <Suspense fallback={
+        {/* Main Layout: Globe left, intel blocks right */}
+        <div
+          className="relative flex gap-4 overflow-hidden z-0 shrink-0"
+          style={{ height: 'calc(100vh - 240px)', minHeight: 320 }}
+        >
+          {/* Globe column */}
+          <div className="flex-[2] relative overflow-hidden min-h-0 flex items-center justify-center">
+            {isLoading ? (
               <div className="flex items-center justify-center h-full">
-                <RefreshCw className="w-12 h-12 text-sky-500 animate-spin" />
+                <div className="text-center">
+                  <RefreshCw className="w-12 h-12 text-sky-500 animate-spin mx-auto mb-4" />
+                  <p className="text-slate-400">Loading global data...</p>
+                </div>
               </div>
-            }>
-              <GlobalMonitorGlobe
-                events={filteredEvents}
-                clusters={mapData.clusters}
-                instability={mapData.instability}
-                onEventClick={handleEventClick}
-                autoRotate={autoRotate}
-              />
-            </Suspense>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                <p className="text-slate-400">Failed to load map data</p>
-                <button
-                  onClick={() => refetch()}
-                  className="mt-4 px-4 py-2 bg-sky-500 rounded-xl text-sm hover:bg-sky-600 transition-colors"
-                >
-                  Retry
-                </button>
+            ) : mapData ? (
+              <Suspense fallback={
+                <div className="flex items-center justify-center h-full">
+                  <RefreshCw className="w-12 h-12 text-sky-500 animate-spin" />
+                </div>
+              }>
+                <GlobalMonitorGlobe
+                  events={filteredEvents}
+                  clusters={mapData.clusters}
+                  instability={mapData.instability}
+                  onEventClick={handleEventClick}
+                  autoRotate={autoRotate}
+                />
+              </Suspense>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+                  <p className="text-slate-400">Failed to load map data</p>
+                  <button
+                    onClick={() => refetch()}
+                    className="mt-4 px-4 py-2 bg-sky-500 rounded-xl text-sm hover:bg-sky-600 transition-colors"
+                  >
+                    Retry
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Right intelligence column */}
+          <div className="flex-[1.2] hidden lg:block h-full overflow-y-auto pr-1">
+            <GlobalMonitorRightColumn />
+          </div>
         </div>
 
         {/* Ticker Impact Drawer */}
