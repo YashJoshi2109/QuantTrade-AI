@@ -77,3 +77,25 @@ def fetch_stock_prediction(symbol: str) -> Optional[str]:
     except Exception:
         return None
 
+
+def fetch_stock_prediction_payload(symbol: str, horizons: Optional[List[int]] = None) -> Optional[Dict]:
+    """
+    Fetch structured prediction payload from the prediction service.
+    Returns None when unavailable.
+    """
+    url = f"{PREDICTION_SERVICE_URL.rstrip('/')}/api/v1/predict"
+    try:
+        resp = requests.post(
+            url,
+            json={"symbol": symbol, "horizons": horizons or [1, 7, 30]},
+            timeout=8,
+        )
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        if isinstance(data, dict):
+            return data
+        return None
+    except Exception:
+        return None
+

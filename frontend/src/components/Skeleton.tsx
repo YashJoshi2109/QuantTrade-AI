@@ -251,8 +251,8 @@ export function SkeletonWatchlistTable({ rows = 5 }: { rows?: number }) {
 // Markets page specific skeletons
 export function SkeletonMarketIndices() {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {Array.from({ length: 4 }).map((_, i) => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+      {Array.from({ length: 10 }).map((_, i) => (
         <SkeletonIndexCard key={i} />
       ))}
     </div>

@@ -8,6 +8,7 @@ import {
   DollarSign,
   FileText,
   HelpCircle,
+  Info,
   Lightbulb,
   LogOut,
   Settings,
@@ -217,6 +218,12 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
               title="Settings"
               description="Tune your workspace and preferences."
               href="/settings"
+            />
+            <MenuItem
+              icon={<Info className="w-4 h-4 text-slate-200" />}
+              title="About"
+              description="Product scope, data sources, and contact."
+              href="/about"
             />
             <MenuItem
               icon={<HelpCircle className="w-4 h-4 text-cyan-400" />}

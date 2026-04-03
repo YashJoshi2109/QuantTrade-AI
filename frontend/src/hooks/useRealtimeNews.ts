@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
-import { fetchRealtimeNews, fetchYFinanceNews, fetchBreakingMarketNews, NewsArticle } from '@/lib/api'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
+import { fetchRealtimeNews, fetchYFinanceNews, fetchLiveMarketHeadlines, NewsArticle } from '@/lib/api'
 
 interface UseRealtimeNewsOptions {
   symbol?: string
@@ -51,9 +51,12 @@ export function useYFinanceNews(symbol: string, limit = 20, refetchInterval = 30
  */
 export function useBreakingNews(limit = 10, refetchInterval = 60000) {
   return useQuery<NewsArticle[]>({
-    queryKey: ['breakingNews'],
-    queryFn: () => fetchBreakingMarketNews(limit),
+    queryKey: ['breakingNews', 'liveHeadlines', limit],
+    queryFn: () => fetchLiveMarketHeadlines(limit),
     refetchInterval,
     staleTime: 30000,
+    retry: 1,
+    retryDelay: 1500,
+    placeholderData: keepPreviousData,
   })
 }

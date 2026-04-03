@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import AppLayout from '@/components/AppLayout'
+import { motion } from 'framer-motion'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileBacktest from '@/components/layout/MobileBacktest'
 import { runBacktest, BacktestResult, BacktestRequest } from '@/lib/api'
-import { Play, TrendingUp, TrendingDown, Activity, Target, AlertTriangle, Loader2 } from 'lucide-react'
+import { Play, Activity, Target, AlertTriangle, Loader2 } from 'lucide-react'
+import { ProButton, ProCard, ProDivider, ProSection } from '@/components/ui/pro'
 
 function DesktopBacktestPage() {
   const [symbol, setSymbol] = useState('NVDA')
@@ -55,15 +57,26 @@ function DesktopBacktestPage() {
 
   return (
     <AppLayout>
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-2xl font-bold mb-6 text-white flex items-center gap-2">
-            <Activity className="w-7 h-7 text-blue-400" />
-            Strategy Backtester
-          </h1>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="mb-5"
+          >
+            <ProSection className="p-5">
+              <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                <Activity className="w-7 h-7 text-cyan-400" />
+                Strategy Backtester
+              </h1>
+              <p className="text-sm text-slate-400 mt-1">Run historical strategy checks with risk metrics and trade logs.</p>
+            </ProSection>
+          </motion.div>
+          <ProDivider label="Strategy configuration" />
 
           {/* Configuration */}
-          <div className="bg-[#1e293b] border border-slate-700 rounded-lg p-6 mb-6">
+          <ProCard className="p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4 text-white">Configuration</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -73,7 +86,7 @@ function DesktopBacktestPage() {
                   type="text"
                   value={symbol}
                   onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 bg-[#131722] border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[#0d1423] border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
                   placeholder="e.g., NVDA"
                 />
               </div>
@@ -83,7 +96,7 @@ function DesktopBacktestPage() {
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#131722] border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[#0d1423] border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
               <div>
@@ -92,7 +105,7 @@ function DesktopBacktestPage() {
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#131722] border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[#0d1423] border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
               <div>
@@ -101,7 +114,7 @@ function DesktopBacktestPage() {
                   type="number"
                   value={initialCapital}
                   onChange={(e) => setInitialCapital(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-[#131722] border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-[#0d1423] border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
                   placeholder="10000"
                 />
               </div>
@@ -117,8 +130,8 @@ function DesktopBacktestPage() {
                     onClick={() => setStrategy(s.id)}
                     className={`p-4 rounded-lg border text-left transition-colors ${
                       strategy === s.id
-                        ? 'bg-blue-600/20 border-blue-500 text-white'
-                        : 'bg-[#131722] border-slate-700 text-gray-300 hover:border-slate-600'
+                        ? 'bg-cyan-500/20 border-cyan-500 text-white'
+                        : 'bg-[#0d1423] border-slate-700 text-gray-300 hover:border-slate-600'
                     }`}
                   >
                     <div className="font-semibold mb-1">{s.name}</div>
@@ -128,15 +141,15 @@ function DesktopBacktestPage() {
               </div>
             </div>
 
-            <button
+            <ProButton
               onClick={handleRunBacktest}
               disabled={loading || !symbol}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-6"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
               {loading ? 'Running Backtest...' : 'Run Backtest'}
-            </button>
-          </div>
+            </ProButton>
+          </ProCard>
 
           {error && (
             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400">
@@ -152,21 +165,21 @@ function DesktopBacktestPage() {
             <div className="space-y-6">
               {/* Key Metrics */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-[#1e293b] border border-slate-700 rounded-lg p-4">
+                <div className="bg-[#111a2b] border border-slate-700/70 rounded-lg p-4">
                   <div className="text-sm text-gray-400 mb-1">Final Equity</div>
                   <div className="text-2xl font-bold text-white">${result.final_equity.toLocaleString()}</div>
                 </div>
-                <div className="bg-[#1e293b] border border-slate-700 rounded-lg p-4">
+                <div className="bg-[#111a2b] border border-slate-700/70 rounded-lg p-4">
                   <div className="text-sm text-gray-400 mb-1">Total Return</div>
                   <div className={`text-2xl font-bold ${result.total_return >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {result.total_return >= 0 ? '+' : ''}{result.total_return.toFixed(2)}%
                   </div>
                 </div>
-                <div className="bg-[#1e293b] border border-slate-700 rounded-lg p-4">
+                <div className="bg-[#111a2b] border border-slate-700/70 rounded-lg p-4">
                   <div className="text-sm text-gray-400 mb-1">Win Rate</div>
                   <div className="text-2xl font-bold text-white">{result.win_rate.toFixed(1)}%</div>
                 </div>
-                <div className="bg-[#1e293b] border border-slate-700 rounded-lg p-4">
+                <div className="bg-[#111a2b] border border-slate-700/70 rounded-lg p-4">
                   <div className="text-sm text-gray-400 mb-1">Sharpe Ratio</div>
                   <div className="text-2xl font-bold text-white">{result.sharpe_ratio.toFixed(2)}</div>
                 </div>
@@ -174,21 +187,21 @@ function DesktopBacktestPage() {
 
               {/* Additional Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-[#1e293b] border border-slate-700 rounded-lg p-4">
+                <div className="bg-[#111a2b] border border-slate-700/70 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Target className="w-4 h-4 text-blue-400" />
                     <span className="text-sm text-gray-400">Total Trades</span>
                   </div>
                   <div className="text-xl font-bold text-white">{result.total_trades}</div>
                 </div>
-                <div className="bg-[#1e293b] border border-slate-700 rounded-lg p-4">
+                <div className="bg-[#111a2b] border border-slate-700/70 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <AlertTriangle className="w-4 h-4 text-yellow-400" />
                     <span className="text-sm text-gray-400">Max Drawdown</span>
                   </div>
                   <div className="text-xl font-bold text-red-400">-{result.max_drawdown.toFixed(2)}%</div>
                 </div>
-                <div className="bg-[#1e293b] border border-slate-700 rounded-lg p-4">
+                <div className="bg-[#111a2b] border border-slate-700/70 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Activity className="w-4 h-4 text-green-400" />
                     <span className="text-sm text-gray-400">Initial Capital</span>
@@ -198,7 +211,7 @@ function DesktopBacktestPage() {
               </div>
 
               {/* Equity Curve */}
-              <div className="bg-[#1e293b] border border-slate-700 rounded-lg p-4">
+              <div className="bg-[#111a2b] border border-slate-700/70 rounded-lg p-4">
                 <h3 className="text-lg font-semibold mb-4 text-white">Equity Curve</h3>
                 <div className="h-48 flex items-end justify-between gap-px">
                   {result.equity_curve.map((value, idx) => {
@@ -223,7 +236,7 @@ function DesktopBacktestPage() {
               </div>
 
               {/* Trade History */}
-              <div className="bg-[#1e293b] border border-slate-700 rounded-lg overflow-hidden">
+              <div className="bg-[#111a2b] border border-slate-700/70 rounded-lg overflow-hidden">
                 <div className="p-4 border-b border-slate-700">
                   <h3 className="text-lg font-semibold text-white">Trade History</h3>
                 </div>

@@ -24,6 +24,7 @@ const MORE_PATHS = [
   '/watchlist',
   '/ideas-lab',
   '/pricing',
+  '/about',
   '/settings',
   '/settings/profile',
   '/settings/notifications',

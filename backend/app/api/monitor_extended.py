@@ -305,6 +305,46 @@ async def get_market_radar():
                 value="N/A",
                 detail="BTC hash rate",
             ))
+
+        # 5b. Gold (real-time via Yahoo)
+        try:
+            gold_resp = await client.get(
+                "https://query1.finance.yahoo.com/v8/finance/chart/GC=F",
+                params={"interval": "1d", "range": "2d"},
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            if gold_resp.status_code == 200:
+                chart = gold_resp.json().get("chart", {}).get("result", [])
+                if chart:
+                    meta = chart[0].get("meta", {})
+                    price = meta.get("regularMarketPrice", 0)
+                    prev = meta.get("chartPreviousClose") or meta.get("previousClose") or price
+                    if price and prev and prev != 0:
+                        chg_pct = ((price - prev) / prev) * 100
+                        if chg_pct > 0.5:
+                            gold_status = "RISK-OFF"
+                            gold_color = "yellow"
+                        elif chg_pct < -0.5:
+                            gold_status = "RISK-ON"
+                            gold_color = "green"
+                        else:
+                            gold_status = "FLAT"
+                            gold_color = "gray"
+                        signals.append(MarketRadarSignal(
+                            name="Gold",
+                            status=gold_status,
+                            status_color=gold_color,
+                            value=f"${price:,.0f}",
+                            detail=f"{chg_pct:+.2f}% 24h",
+                        ))
+        except Exception:
+            signals.append(MarketRadarSignal(
+                name="Gold",
+                status="N/A",
+                status_color="gray",
+                value="N/A",
+                detail="spot proxy",
+            ))
         
         # 6. Fear & Greed Index
         fear_greed_index = None
@@ -1272,6 +1312,7 @@ async def get_acled_conflicts(
 class CommodityQuote(BaseModel):
     name: str
     symbol: str
+    group: Optional[str] = None
     price: str
     change: str
     change_pct: str
@@ -1288,17 +1329,25 @@ _YF_QUOTE = "https://query1.finance.yahoo.com/v8/finance/chart"
 async def get_commodities():
     """Live commodity, volatility & crypto quotes via Yahoo Finance."""
     symbols = [
-        ("^VIX",    "VIX",      "VIX"),
-        ("GC=F",    "Gold",     "XAUUSD"),
-        ("CL=F",    "Crude Oil","CL"),
-        ("NG=F",    "Nat Gas",  "NG"),
-        ("DX-Y.NYB","DXY",     "DXY"),
-        ("BTC-USD", "Bitcoin",  "BTC"),
+        ("^VIX", "VIX", "VIX", "macro"),
+        ("GC=F", "Gold", "XAUUSD", "commodities"),
+        ("CL=F", "Crude Oil", "CL", "commodities"),
+        ("NG=F", "Nat Gas", "NG", "commodities"),
+        ("DX-Y.NYB", "DXY", "DXY", "forex"),
+        ("BTC-USD", "Bitcoin", "BTC", "crypto"),
+        ("ETH-USD", "Ethereum", "ETH", "crypto"),
+        ("EURUSD=X", "EUR/USD", "EURUSD", "forex"),
+        ("JPY=X", "USD/JPY", "USDJPY", "forex"),
+        ("GBPUSD=X", "GBP/USD", "GBPUSD", "forex"),
+        ("DAL", "Delta Air", "DAL", "airlines"),
+        ("UAL", "United Air", "UAL", "airlines"),
+        ("AAL", "American Air", "AAL", "airlines"),
+        ("LUV", "Southwest", "LUV", "airlines"),
     ]
     quotes: List[CommodityQuote] = []
 
     async with httpx.AsyncClient(timeout=10) as client:
-        for yf_sym, display_name, display_sym in symbols:
+        for yf_sym, display_name, display_sym, quote_group in symbols:
             try:
                 resp = await client.get(
                     f"{_YF_QUOTE}/{yf_sym}",
@@ -1333,6 +1382,7 @@ async def get_commodities():
                             quotes.append(CommodityQuote(
                                 name=display_name,
                                 symbol=display_sym,
+                                group=quote_group,
                                 price=p_str,
                                 change=c_str,
                                 change_pct=cp_str,
@@ -1346,6 +1396,7 @@ async def get_commodities():
             quotes.append(CommodityQuote(
                 name=display_name,
                 symbol=display_sym,
+                group=quote_group,
                 price="--",
                 change="--",
                 change_pct="",

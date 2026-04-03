@@ -8,6 +8,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 interface CommodityQuote {
   name: string
   symbol: string
+  group?: string
   price: string
   change: string
   change_pct: string
@@ -27,12 +28,12 @@ async function fetchCommodities(): Promise<CommodityQuote[]> {
 
   // Fallback static snapshot
   return [
-    { name: 'VIX', symbol: 'VIX', price: '--', change: '--', change_pct: '', direction: 'flat' },
-    { name: 'Gold', symbol: 'XAUUSD', price: '--', change: '--', change_pct: '', direction: 'flat' },
-    { name: 'Crude Oil', symbol: 'CL', price: '--', change: '--', change_pct: '', direction: 'flat' },
-    { name: 'Nat Gas', symbol: 'NG', price: '--', change: '--', change_pct: '', direction: 'flat' },
-    { name: 'DXY', symbol: 'DXY', price: '--', change: '--', change_pct: '', direction: 'flat' },
-    { name: 'Bitcoin', symbol: 'BTC', price: '--', change: '--', change_pct: '', direction: 'flat' },
+    { name: 'VIX', symbol: 'VIX', group: 'macro', price: '--', change: '--', change_pct: '', direction: 'flat' },
+    { name: 'Gold', symbol: 'XAUUSD', group: 'commodities', price: '--', change: '--', change_pct: '', direction: 'flat' },
+    { name: 'Crude Oil', symbol: 'CL', group: 'commodities', price: '--', change: '--', change_pct: '', direction: 'flat' },
+    { name: 'Nat Gas', symbol: 'NG', group: 'commodities', price: '--', change: '--', change_pct: '', direction: 'flat' },
+    { name: 'DXY', symbol: 'DXY', group: 'forex', price: '--', change: '--', change_pct: '', direction: 'flat' },
+    { name: 'Bitcoin', symbol: 'BTC', group: 'crypto', price: '--', change: '--', change_pct: '', direction: 'flat' },
   ]
 }
 
@@ -66,7 +67,7 @@ export default function CommoditiesWidget() {
         </div>
       ) : (
         <div className="divide-y divide-slate-800/40">
-          {(commodities || []).map((c) => (
+          {(commodities || []).slice(0, 10).map((c) => (
             <div key={c.symbol} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-900/50 transition-colors">
               <div className="flex items-center gap-2.5">
                 {c.direction === 'up' ? (
@@ -79,6 +80,9 @@ export default function CommoditiesWidget() {
                 <div>
                   <span className="text-[11px] font-medium text-slate-200">{c.name}</span>
                   <span className="text-[9px] text-slate-600 ml-1.5 font-mono">{c.symbol}</span>
+                  {c.group && (
+                    <span className="ml-1.5 text-[8px] uppercase tracking-wider text-slate-500">{c.group}</span>
+                  )}
                 </div>
               </div>
               <div className="text-right">

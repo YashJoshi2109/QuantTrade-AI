@@ -26,8 +26,11 @@ dist/
 .env
 .env.local
 .env.*.local
-.env.development
 .env.production
+.env.development
+
+# Local Claude SEO tooling bundle (not shipped with the app)
+claude-seo/
 
 # Database
 *.db

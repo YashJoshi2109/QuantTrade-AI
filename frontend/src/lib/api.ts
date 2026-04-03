@@ -2,6 +2,8 @@
  * API client for backend communication
  */
 
+import { getToken } from '@/lib/auth'
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 function isFiniteNumber(value: unknown): value is number {
@@ -13,6 +15,30 @@ async function parseJsonSafe<T>(response: Response): Promise<T | null> {
     return (await response.json()) as T
   } catch {
     return null
+  }
+}
+
+/** Abort fetch after `timeoutMs` so slow backend RSS jobs cannot hang the UI forever */
+async function fetchWithTimeout(
+  url: string,
+  timeoutMs: number,
+  init?: RequestInit
+): Promise<Response> {
+  const controller = new AbortController()
+  const t = setTimeout(
+    () => controller.abort(new DOMException('Request timed out', 'TimeoutError')),
+    timeoutMs
+  )
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } catch (err) {
+    // Re-throw non-abort errors; swallow expected timeout aborts by returning a synthetic 408
+    if (err instanceof DOMException && err.name === 'TimeoutError') {
+      return new Response(null, { status: 408, statusText: 'Request Timeout' })
+    }
+    throw err
+  } finally {
+    clearTimeout(t)
   }
 }
 
@@ -227,7 +253,7 @@ export async function fetchYFinanceNews(
     const url = new URL(`${API_URL}/api/v1/enhanced/news/${symbol}/yfinance`)
     url.searchParams.append('limit', limit.toString())
     
-    const response = await fetch(url.toString())
+    const response = await fetchWithTimeout(url.toString(), 12_000)
     const data = await parseJsonSafe<NewsArticle[]>(response)
     if (data) return data
     if (!response.ok) {
@@ -240,7 +266,7 @@ export async function fetchYFinanceNews(
   }
 }
 
-// Breaking market news
+// Breaking market news (can be slow: RSS + parallel fetches on server)
 export async function fetchBreakingMarketNews(
   limit: number = 10
 ): Promise<NewsArticle[]> {
@@ -248,7 +274,7 @@ export async function fetchBreakingMarketNews(
     const url = new URL(`${API_URL}/api/v1/enhanced/news/market/breaking`)
     url.searchParams.append('limit', limit.toString())
     
-    const response = await fetch(url.toString())
+    const response = await fetchWithTimeout(url.toString(), 14_000)
     const data = await parseJsonSafe<NewsArticle[]>(response)
     if (data) return data
     if (!response.ok) {
@@ -257,6 +283,68 @@ export async function fetchBreakingMarketNews(
     return []
   } catch (error) {
     console.error('Error fetching breaking news:', error)
+    return []
+  }
+}
+
+/**
+ * Headlines for the dashboard: breaking feed and ETF headlines fetch in parallel,
+ * then merge with breaking first so live tape stays full even if one source is slow.
+ */
+export async function fetchLiveMarketHeadlines(limit: number = 10): Promise<NewsArticle[]> {
+  const [primary, spy, qqq] = await Promise.all([
+    fetchBreakingMarketNews(limit),
+    fetchYFinanceNews('SPY', Math.max(limit, 12)),
+    fetchYFinanceNews('QQQ', Math.min(20, Math.max(8, Math.ceil(limit / 2)))),
+  ])
+
+  const seen = new Set<string>()
+  const out: NewsArticle[] = []
+
+  const pushUnique = (articles: NewsArticle[]) => {
+    for (const a of articles) {
+      const key = `${a.url ?? ''}|${(a.title ?? '').slice(0, 200)}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(a)
+      if (out.length >= limit) return
+    }
+  }
+
+  pushUnique(primary)
+  if (out.length < limit) pushUnique([...spy, ...qqq])
+  return out
+}
+
+export interface PredictionAlert {
+  symbol: string
+  timeframe: string
+  direction: string
+  expected_return: number
+  confidence: number
+  severity: 'high' | 'medium' | 'low'
+  message: string
+}
+
+export async function fetchPredictionAlerts(
+  minConfidence: number = 0.65,
+  minAbsReturn: number = 2.0
+): Promise<PredictionAlert[]> {
+  try {
+    const url = new URL(`${API_URL}/api/v1/enhanced/alerts/predictions`)
+    url.searchParams.append('min_confidence', String(minConfidence))
+    url.searchParams.append('min_abs_return', String(minAbsReturn))
+    const token = typeof window !== 'undefined' ? getToken() : null
+    const headers: HeadersInit = { Accept: 'application/json' }
+    if (token) {
+      ;(headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
+    }
+    const response = await fetchWithTimeout(url.toString(), 25_000, { headers })
+    const data = await parseJsonSafe<PredictionAlert[]>(response)
+    if (data && Array.isArray(data)) return data
+    return []
+  } catch (error) {
+    console.error('Error fetching prediction alerts:', error)
     return []
   }
 }
@@ -867,6 +955,28 @@ export interface MarketMovers {
   updated_at: string
 }
 
+export interface IpoCalendarEntry {
+  date: string
+  symbol?: string | null
+  name: string
+  exchange?: string | null
+  status?: string | null
+  price?: string | null
+  shares?: number | null
+}
+
+export async function fetchIpoCalendar(): Promise<IpoCalendarEntry[]> {
+  try {
+    const response = await fetchWithTimeout(`${API_URL}/api/v1/market/ipo-calendar`, 20_000)
+    const data = await parseJsonSafe<IpoCalendarEntry[]>(response)
+    if (data && Array.isArray(data)) return data
+    return []
+  } catch (e) {
+    console.error('Error fetching IPO calendar:', e)
+    return []
+  }
+}
+
 export interface MarketIndex {
   symbol: string
   name: string
@@ -980,7 +1090,7 @@ export async function fetchMarketStocks(
 
 export async function fetchSectorPerformance(): Promise<SectorPerformance[]> {
   try {
-    const response = await fetch(`${API_URL}/api/v1/market/sectors`)
+    const response = await fetchWithTimeout(`${API_URL}/api/v1/market/sectors`, 60_000)
     const data = await parseJsonSafe<SectorPerformance[]>(response)
     if (data) return data
     if (!response.ok) {
@@ -1011,44 +1121,55 @@ export async function fetchHeatmapData(): Promise<HeatmapData> {
 }
 
 export async function fetchMarketMovers(forceRefresh: boolean = false): Promise<MarketMovers> {
+  const updatedAt = () => new Date().toISOString()
   try {
-    // Try enhanced endpoint first for faster real-time data
     const url = new URL(`${API_URL}/api/v1/market/movers`)
     if (forceRefresh) {
       url.searchParams.append('force_refresh', 'true')
     }
-    const response = await fetch(url.toString())
+    const response = await fetchWithTimeout(url.toString(), 60_000)
     const data = await parseJsonSafe<MarketMovers>(response)
     if (data && (data.gainers?.length > 0 || data.losers?.length > 0)) {
-      return data
+      return { ...data, updated_at: data.updated_at || updatedAt() }
     }
-    
-    // If no data and not already forcing refresh, try force refresh
+
     if (!forceRefresh) {
       const forceUrl = new URL(`${API_URL}/api/v1/market/movers`)
       forceUrl.searchParams.append('force_refresh', 'true')
-      const forceResponse = await fetch(forceUrl.toString())
+      const forceResponse = await fetchWithTimeout(forceUrl.toString(), 60_000)
       const forceData = await parseJsonSafe<MarketMovers>(forceResponse)
       if (forceData && (forceData.gainers?.length > 0 || forceData.losers?.length > 0)) {
-        return forceData
+        return { ...forceData, updated_at: forceData.updated_at || updatedAt() }
       }
     }
-    
+
+    const [gainers, losers] = await Promise.all([
+      fetchTopGainers(10, true),
+      fetchTopLosers(10, true),
+    ])
+    if (gainers.length > 0 || losers.length > 0) {
+      return { gainers, losers, updated_at: updatedAt() }
+    }
+
     if (!response.ok) {
       console.error('Failed to fetch market movers:', response.status, response.statusText)
     }
-    
+
     return {
-      gainers: data?.gainers || [],
-      losers: data?.losers || [],
-      updated_at: new Date().toISOString()
+      gainers: data?.gainers ?? [],
+      losers: data?.losers ?? [],
+      updated_at: updatedAt(),
     }
   } catch (error) {
     console.error('Error fetching market movers:', error)
-    return {
-      gainers: [],
-      losers: [],
-      updated_at: new Date().toISOString()
+    try {
+      const [gainers, losers] = await Promise.all([
+        fetchTopGainers(10, true),
+        fetchTopLosers(10, true),
+      ])
+      return { gainers, losers, updated_at: updatedAt() }
+    } catch {
+      return { gainers: [], losers: [], updated_at: updatedAt() }
     }
   }
 }
@@ -1075,7 +1196,7 @@ export async function fetchTopGainers(limit: number = 10, forceRefresh: boolean 
   }
   
   try {
-    const response = await fetch(url.toString())
+    const response = await fetchWithTimeout(url.toString(), 60_000)
     if (!response.ok) {
       throw new Error(`Failed to fetch top gainers: ${response.status}`)
     }
@@ -1095,7 +1216,7 @@ export async function fetchTopLosers(limit: number = 10, forceRefresh: boolean =
   }
   
   try {
-    const response = await fetch(url.toString())
+    const response = await fetchWithTimeout(url.toString(), 60_000)
     if (!response.ok) {
       throw new Error(`Failed to fetch top losers: ${response.status}`)
     }

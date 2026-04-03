@@ -1,16 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Radio, CircleDot, Settings2 } from 'lucide-react'
-import { fetchBreakingMarketNews } from '@/lib/api'
+import { fetchLiveMarketHeadlines } from '@/lib/api'
 
 type LiveChannelId =
   | 'bloomberg'
   | 'skynews'
   | 'euronews'
   | 'dw'
-  | 'cnbc'
   | 'france24'
   | 'alarabiya'
   | 'aljazeera'
@@ -24,31 +23,36 @@ interface LiveChannel {
   embedUrl?: string
 }
 
-// Bloomberg: use specific live stream video ID (more reliable than live_stream?channel=)
+/** YouTube sometimes blocks embeds when `si` share-id params are present */
+function sanitizeYoutubeEmbed(url: string): string {
+  try {
+    const u = new URL(url)
+    u.searchParams.delete('si')
+    return u.toString()
+  } catch {
+    return url
+  }
+}
+
+// Bloomberg: specific live stream video ID (more reliable than live_stream?channel=)
 const CHANNELS: LiveChannel[] = [
   {
     id: 'bloomberg',
     label: 'Bloomberg',
     embedUrl:
-      'https://www.youtube.com/embed/iEpJwprxDdk?si=LM0zbJQxROwOyTQ4?autoplay=1&mute=1',
-  },
-  {
-    id: 'cnbc',
-    label: 'CNBC TV Live',
-    embedUrl:
-      'https://www.youtube.com/embed/hZpvudz_oOw?si=cUYdBhocu01jrzAv?autoplay=1&mute=1',
+      'https://www.youtube.com/embed/iEpJwprxDdk?autoplay=1&mute=1',
   },
   {
     id: 'skynews',
     label: 'SkyNews',
     embedUrl:
-      'https://www.youtube.com/embed/YDvsBbKfLPA?si=NxcTKgE5rV1uA8GC&autoplay=1&mute=1',
+      'https://www.youtube.com/embed/YDvsBbKfLPA?autoplay=1&mute=1',
   },
   {
     id: 'euronews',
     label: 'Euronews',
     embedUrl:
-      'https://www.youtube.com/embed/pykpO5kQJ98?si=EwsSHKvP5nTL92ez&autoplay=1&mute=1',
+      'https://www.youtube.com/embed/pykpO5kQJ98?autoplay=1&mute=1',
   },
   {
     id: 'dw',
@@ -66,7 +70,7 @@ const CHANNELS: LiveChannel[] = [
     id: 'alarabiya',
     label: 'AlArabiya',
     embedUrl:
-      'https://www.youtube.com/embed/n7eQejkXbnM?si=XR5DQQc0KtJJC_6P&autoplay=1&mute=1',
+      'https://www.youtube.com/embed/n7eQejkXbnM?autoplay=1&mute=1',
   },
   {
     id: 'aljazeera',
@@ -78,57 +82,66 @@ const CHANNELS: LiveChannel[] = [
     id: 'foxbusiness',
     label: 'Fox Business',
     embedUrl:
-      'https://www.youtube.com/embed/gfEwymG-6GI?si=xLgHt94nhpHxhOwW&autoplay=1&mute=1',
+      'https://www.youtube.com/embed/gfEwymG-6GI?autoplay=1&mute=1',
   },
   {
     id: 'cgtn',
     label: 'CGTN (China)',
     embedUrl:
-      'https://www.youtube.com/embed/BOy2xDU1LC8?si=1HvnmjuZEPA3JkVc&autoplay=1&mute=1',
+      'https://www.youtube.com/embed/BOy2xDU1LC8?autoplay=1&mute=1',
   },
   {
     id: 'japan',
     label: 'NHK Japan',
     embedUrl:
-      'https://www.youtube.com/embed/f0lYkdA-Gtw?si=Vkl5alvVnZTm03NN&autoplay=1&mute=1',
-  }
-
+      'https://www.youtube.com/embed/f0lYkdA-Gtw?autoplay=1&mute=1',
+  },
 ]
 
-// Fallback when API is unavailable
 const FALLBACK_HEADLINES = ['Market data loading…']
 
 export default function LiveNewsChannelPanel() {
-  const [activeId, setActiveId] = useState<LiveChannelId>('cnbc')
+  const [activeId, setActiveId] = useState<LiveChannelId>('bloomberg')
   const [streamError, setStreamError] = useState(false)
 
   const { data: breakingNews } = useQuery({
-    queryKey: ['breaking-market-news'],
-    queryFn: () => fetchBreakingMarketNews(25),
-    refetchInterval: 90_000,
-    staleTime: 60_000,
+    queryKey: ['breaking-market-news', 'liveHeadlines'],
+    queryFn: () => fetchLiveMarketHeadlines(25),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    retry: 1,
   })
 
   const tickerHeadlines = (breakingNews?.length
     ? breakingNews.map((n) => n.title).filter(Boolean)
     : FALLBACK_HEADLINES) as string[]
 
-  // Reset stream error when switching channels
   useEffect(() => {
     setStreamError(false)
   }, [activeId])
 
-  const baseChannel = CHANNELS.find((c) => c.id === activeId) ?? CHANNELS[0]
+  const channelsEmbedSafe = useMemo(
+    () =>
+      CHANNELS.map((c) =>
+        c.embedUrl ? { ...c, embedUrl: sanitizeYoutubeEmbed(c.embedUrl) } : c
+      ),
+    []
+  )
 
-  // If Bloomberg cannot be embedded, fall back to CNBC (reliable finance stream)
+  const baseChannel =
+    channelsEmbedSafe.find((c) => c.id === activeId) ?? channelsEmbedSafe[0]
+
   const effectiveChannel =
     baseChannel.id === 'bloomberg' && streamError
-      ? CHANNELS.find((c) => c.id === 'cnbc') ?? baseChannel
+      ? channelsEmbedSafe.find((c) => c.id === 'foxbusiness') ?? baseChannel
       : baseChannel
+
+  const iframeSrc = effectiveChannel.embedUrl
+    ? sanitizeYoutubeEmbed(effectiveChannel.embedUrl)
+    : undefined
 
   return (
     <div className="hud-panel p-0 overflow-hidden">
-      {/* Header bar */}
       <div className="flex items-center justify-between border-b border-slate-800/60 bg-gradient-to-r from-[#050814] via-[#070b16] to-[#050814] px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/20 border border-red-500/50 shadow-[0_0_15px_rgba(248,113,113,0.5)]">
@@ -159,9 +172,8 @@ export default function LiveNewsChannelPanel() {
         </button>
       </div>
 
-      {/* Channel tabs */}
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-800/60 bg-[#050816]/95 px-3 py-2">
-        {CHANNELS.map((ch) => {
+        {channelsEmbedSafe.map((ch) => {
           const isActive = ch.id === activeId
           return (
             <button
@@ -180,7 +192,6 @@ export default function LiveNewsChannelPanel() {
         })}
       </div>
 
-      {/* Video area */}
       <div className="relative bg-black">
         {activeId === 'bloomberg' && (
           <div className="absolute top-2 left-2 z-10">
@@ -189,14 +200,14 @@ export default function LiveNewsChannelPanel() {
               onClick={() => setStreamError(true)}
               className="rounded bg-slate-800/90 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-600/50"
             >
-              Video unavailable? Switch to CNBC
+              Video unavailable? Switch to Fox Business
             </button>
           </div>
         )}
         <div className="relative w-full overflow-hidden bg-black pt-[56.25%]">
-          {effectiveChannel.embedUrl ? (
+          {iframeSrc ? (
             <iframe
-              src={effectiveChannel.embedUrl}
+              src={iframeSrc}
               title={`${effectiveChannel.label} Live`}
               className="absolute inset-0 h-full w-full border-0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -218,14 +229,16 @@ export default function LiveNewsChannelPanel() {
         </div>
       </div>
 
-      {/* Ticker bar – marquee with live headlines */}
       <div className="border-t border-slate-800/60 bg-gradient-to-r from-[#050816] via-[#040715] to-[#050816] px-3 py-2">
         <div className="flex items-center gap-2 text-[11px] text-slate-300">
           <span className="shrink-0 rounded bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] text-emerald-400 border border-emerald-500/30">
             Macro Tape
           </span>
           <div className="flex-1 min-w-0 overflow-hidden">
-            <div className="flex gap-8 whitespace-nowrap animate-marquee" style={{ width: 'max-content' }}>
+            <div
+              className="flex gap-8 whitespace-nowrap animate-marquee"
+              style={{ width: 'max-content' }}
+            >
               {tickerHeadlines.concat(tickerHeadlines).map((h, idx) => (
                 <span key={idx} className="text-slate-400 inline">
                   {h}
@@ -238,4 +251,3 @@ export default function LiveNewsChannelPanel() {
     </div>
   )
 }
-

@@ -8,10 +8,12 @@ MVP Lean Implementation:
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from datetime import datetime, timedelta
+import asyncio
 from app.db.database import get_db
 from app.models.symbol import Symbol
+from app.models.quote_snapshot import QuoteSnapshot
 from app.config import settings
 from app.services.quote_cache import QuoteCacheService
 from pydantic import BaseModel
@@ -327,6 +329,218 @@ async def fetch_bulk_quotes(
     return results
 
 
+def _flatten_sp500_symbol_rows() -> List[tuple]:
+    """All (symbol, name, sector) rows for one bulk quote fetch."""
+    rows: List[tuple] = []
+    for sector_name, stock_list in SP500_STOCKS.items():
+        for symbol, name in stock_list:
+            rows.append((symbol, name, sector_name))
+    return rows
+
+
+def _fast_mover_symbol_rows(limit: int = 140) -> List[Tuple[str, str, str]]:
+    """
+    Fast subset used when full-universe movers are slow.
+    Keeps broad sector coverage while returning quickly.
+    """
+    rows = _flatten_sp500_symbol_rows()
+    return [(s[0], s[1], s[2]) for s in rows[:limit]]
+
+
+def _load_cached_mover_rows(
+    db: Session,
+    limit: int = 160,
+) -> List[StockPerformance]:
+    """
+    Fastest path for movers: use cached quote_snapshots only (no network).
+    """
+    rows = _fast_mover_symbol_rows(limit=limit)
+    symbol_meta = {s: (n, sec) for s, n, sec in rows}
+    symbols = list(symbol_meta.keys())
+    snapshots = (
+        db.query(QuoteSnapshot)
+        .filter(QuoteSnapshot.symbol.in_(symbols))
+        .all()
+    )
+
+    out: List[StockPerformance] = []
+    for snap in snapshots:
+        payload = snap.payload or {}
+        price = float(payload.get("price", 0) or 0)
+        if price <= 0:
+            continue
+        name, sector = symbol_meta.get(snap.symbol, (snap.symbol, None))
+        out.append(
+            StockPerformance(
+                symbol=snap.symbol,
+                name=name,
+                price=round(price, 2),
+                change=round(float(payload.get("change", 0) or 0), 2),
+                change_percent=round(float(payload.get("change_percent", 0) or 0), 2),
+                volume=int(payload.get("volume", 0) or 0),
+                market_cap=payload.get("market_cap"),
+                sector=sector,
+            )
+        )
+    return out
+
+
+async def _yfinance_fallback_performances(
+    db: Session,
+    symbols_info: List[Tuple[str, str, str]],
+    max_symbols: int = 72,
+) -> List[StockPerformance]:
+    """
+    When cache + TradingView return nothing (cold cache, provider outages), pull a
+    slice of the universe directly via yfinance so gainers/losers stay populated.
+    """
+    cache_service = QuoteCacheService(db)
+    batch = symbols_info[:max_symbols]
+    sem = asyncio.Semaphore(12)
+
+    async def one(row: Tuple[str, str, str]) -> Optional[StockPerformance]:
+        symbol, name, sector = row
+        try:
+            quote = await cache_service._fetch_from_yfinance(symbol)
+            if not quote or quote.get("unavailable"):
+                return None
+            price = float(quote.get("price", 0) or 0)
+            if price <= 0:
+                return None
+            return StockPerformance(
+                symbol=symbol,
+                name=name,
+                price=round(price, 2),
+                change=round(float(quote.get("change", 0) or 0), 2),
+                change_percent=round(float(quote.get("change_percent", 0) or 0), 2),
+                volume=int(quote.get("volume", 0) or 0),
+                market_cap=quote.get("market_cap"),
+                sector=sector,
+            )
+        except Exception as e:
+            print(f"yfinance fallback error for {symbol}: {e}")
+            return None
+
+    async def guarded(row: Tuple[str, str, str]) -> Optional[StockPerformance]:
+        async with sem:
+            return await one(row)
+
+    results = await asyncio.gather(*[guarded(r) for r in batch])
+    return [r for r in results if r is not None]
+
+
+async def load_sp500_performances(
+    db: Session,
+    force_refresh: bool = False,
+) -> List[StockPerformance]:
+    """
+    Load the full S&P watchlist in a single fetch_bulk_quotes call.
+
+    The previous implementation looped every sector and called fetch_bulk_quotes
+    once per sector, and get_market_movers called get_top_gainers + get_top_losers
+    which duplicated the entire pass — often timing out or returning empty lists.
+    """
+    symbols_info = [(s[0], s[1], s[2]) for s in _flatten_sp500_symbol_rows()]
+    stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=force_refresh)
+    if not stocks and not force_refresh:
+        stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=True)
+    if not stocks:
+        stocks = await _yfinance_fallback_performances(db, symbols_info)
+    return stocks
+
+
+async def _load_movers_universe(
+    db: Session,
+    force_refresh: bool = False,
+) -> List[StockPerformance]:
+    """
+    Robust movers loader:
+    1) Full S&P pass with timeout guard
+    2) Fast subset (cached + force refresh)
+    3) yfinance subset fallback
+    """
+    try:
+        return await asyncio.wait_for(
+            load_sp500_performances(db, force_refresh=force_refresh),
+            timeout=22.0,
+        )
+    except asyncio.TimeoutError:
+        print("load_sp500_performances timed out; using fast movers subset")
+    except Exception as e:
+        print(f"load_sp500_performances failed; using fast movers subset: {e}")
+
+    fast_rows = _fast_mover_symbol_rows()
+    stocks = await fetch_bulk_quotes(fast_rows, db, force_refresh=force_refresh)
+    if not stocks and not force_refresh:
+        stocks = await fetch_bulk_quotes(fast_rows, db, force_refresh=True)
+    if not stocks:
+        stocks = await _yfinance_fallback_performances(db, fast_rows, max_symbols=90)
+    return stocks
+
+
+@router.get("/market/ipo-calendar")
+async def get_ipo_calendar(
+    from_date: Optional[str] = Query(
+        None,
+        description="ISO date YYYY-MM-DD (default: today UTC)",
+    ),
+    to_date: Optional[str] = Query(
+        None,
+        description="ISO date YYYY-MM-DD (default: ~90 days ahead)",
+    ),
+) -> List[dict]:
+    """
+    Upcoming IPOs from Finnhub calendar when FINNHUB_API_KEY is set; otherwise [].
+    """
+    if not settings.FINNHUB_API_KEY:
+        return []
+
+    start = from_date or datetime.utcnow().strftime("%Y-%m-%d")
+    end = to_date or (datetime.utcnow() + timedelta(days=90)).strftime("%Y-%m-%d")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(
+                "https://finnhub.io/api/v1/calendar/ipo",
+                params={
+                    "from": start,
+                    "to": end,
+                    "token": settings.FINNHUB_API_KEY,
+                },
+                timeout=20.0,
+            )
+            if r.status_code != 200:
+                print(f"Finnhub IPO calendar HTTP {r.status_code}")
+                return []
+            payload = r.json()
+    except Exception as e:
+        print(f"IPO calendar fetch error: {e}")
+        return []
+
+    raw = payload.get("ipoCalendar") or []
+    out: List[dict] = []
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        name = row.get("name") or row.get("company") or ""
+        dt = row.get("date") or row.get("startDate") or ""
+        if not name and not row.get("symbol"):
+            continue
+        out.append(
+            {
+                "date": dt,
+                "symbol": row.get("symbol"),
+                "name": name or row.get("symbol"),
+                "exchange": row.get("exchange"),
+                "status": row.get("status"),
+                "price": row.get("price"),
+                "shares": row.get("numberOfShares") or row.get("totalShares"),
+            }
+        )
+    out.sort(key=lambda x: (x.get("date") or ""))
+    return out[:40]
+
+
 @router.get("/market/stocks")
 async def get_all_stocks(
     sector: Optional[str] = Query(None, description="Filter by sector"),
@@ -436,31 +650,17 @@ async def get_top_gainers(
     Get top gaining stocks with real data.
     NO FAKE DATA - returns only stocks with available quotes.
     """
-    all_stocks = []
-    
-    # Fetch from all sectors in parallel batches
-    for sector_name, stock_list in SP500_STOCKS.items():
-        symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
-        stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=force_refresh)
-        all_stocks.extend(stocks)
-    
-    if not all_stocks:
-        # If no stocks found, try force refresh
-        if not force_refresh:
-            for sector_name, stock_list in SP500_STOCKS.items():
-                symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
-                stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=True)
-                all_stocks.extend(stocks)
-    
+    all_stocks = await _load_movers_universe(db, force_refresh=force_refresh)
+
     # Sort by gain (highest positive change first)
     all_stocks.sort(key=lambda x: x.change_percent, reverse=True)
-    
+
     # Return only positive gainers (or top movers if no positive gainers)
     gainers = [s for s in all_stocks if s.change_percent > 0]
     if not gainers and all_stocks:
         # Fallback: return top movers by absolute change if no gainers
         gainers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:limit]
-    
+
     return gainers[:limit]
 
 
@@ -474,31 +674,17 @@ async def get_top_losers(
     Get top losing stocks with real data.
     NO FAKE DATA - returns only stocks with available quotes.
     """
-    all_stocks = []
-    
-    # Fetch from all sectors in parallel batches
-    for sector_name, stock_list in SP500_STOCKS.items():
-        symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
-        stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=force_refresh)
-        all_stocks.extend(stocks)
-    
-    if not all_stocks:
-        # If no stocks found, try force refresh
-        if not force_refresh:
-            for sector_name, stock_list in SP500_STOCKS.items():
-                symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
-                stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=True)
-                all_stocks.extend(stocks)
-    
+    all_stocks = await _load_movers_universe(db, force_refresh=force_refresh)
+
     # Sort by loss (most negative first)
     all_stocks.sort(key=lambda x: x.change_percent)
-    
+
     # Return only negative losers (or top movers if no negative losers)
     losers = [s for s in all_stocks if s.change_percent < 0]
     if not losers and all_stocks:
         # Fallback: return top movers by absolute change if no losers
         losers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:limit]
-    
+
     return losers[:limit]
 
 
@@ -509,10 +695,25 @@ async def get_market_movers(
 ) -> dict:
     """
     Get market movers (gainers and losers combined) with real data.
+    Uses a single quote pass over the universe (fast); do not call gainers+losers endpoints twice.
     """
-    gainers = await get_top_gainers(10, force_refresh=force_refresh, db=db)
-    losers = await get_top_losers(10, force_refresh=force_refresh, db=db)
-    
+    # First try cached snapshots only (fast, no provider calls).
+    all_stocks = _load_cached_mover_rows(db)
+
+    # If cache is thin/empty, trigger slower refresh path.
+    if len(all_stocks) < 12:
+        all_stocks = await _load_movers_universe(db, force_refresh=force_refresh)
+
+    sorted_up = sorted(all_stocks, key=lambda x: x.change_percent, reverse=True)
+    gainers = [s for s in sorted_up if s.change_percent > 0][:10]
+    if not gainers and all_stocks:
+        gainers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:10]
+
+    sorted_down = sorted(all_stocks, key=lambda x: x.change_percent)
+    losers = [s for s in sorted_down if s.change_percent < 0][:10]
+    if not losers and all_stocks:
+        losers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:10]
+
     return {
         "gainers": gainers,
         "losers": losers,

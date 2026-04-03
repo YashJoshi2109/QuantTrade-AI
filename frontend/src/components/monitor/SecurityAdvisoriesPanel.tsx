@@ -4,6 +4,29 @@ import { useQuery } from '@tanstack/react-query'
 import { Shield, Wifi, WifiOff, Flame, Satellite, AlertOctagon } from 'lucide-react'
 import { fetchInternetOutages, fetchEnergyData, type OutageData, type EnergyData } from '@/lib/monitor-extended-api'
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+interface QuoteRow {
+  name: string
+  symbol: string
+  group?: string
+  price: string
+  change: string
+  direction: string
+}
+
+async function fetchAirlineQuotes(): Promise<QuoteRow[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/monitor/commodities`)
+    if (!res.ok) return []
+    const data = await res.json()
+    const rows: QuoteRow[] = data?.commodities || []
+    return rows.filter((r) => r.group === 'airlines').slice(0, 4)
+  } catch {
+    return []
+  }
+}
+
 export default function SecurityAdvisoriesPanel() {
   const { data: outageData, isLoading: outagesLoading } = useQuery<OutageData>({
     queryKey: ['internet-outages'],
@@ -17,6 +40,12 @@ export default function SecurityAdvisoriesPanel() {
     queryFn: fetchEnergyData,
     refetchInterval: 600_000,
     staleTime: 300_000,
+  })
+  const { data: airlineQuotes } = useQuery({
+    queryKey: ['airline-watch'],
+    queryFn: fetchAirlineQuotes,
+    refetchInterval: 120_000,
+    staleTime: 60_000,
   })
 
   const activeOutages = (outageData?.outages || []).filter(o => o.status !== 'normal')
@@ -89,11 +118,39 @@ export default function SecurityAdvisoriesPanel() {
               <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">ENERGY MARKETS</span>
             </div>
             <div className="space-y-1">
-              {(energyData?.data || []).slice(0, 4).map((e) => (
+              {(energyData?.data || []).slice(0, 5).map((e) => (
                 <div key={e.series_id} className="flex items-center justify-between px-2 py-1.5 rounded-md bg-slate-900/60 border border-slate-800/40">
                   <span className="text-[10px] text-slate-300 truncate max-w-[55%]">{e.name}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-mono text-slate-200">{e.value} <span className="text-slate-600">{e.unit}</span></span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Live airline watch (from commodity stream if present) */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Satellite className="w-3 h-3 text-cyan-400" />
+              <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">AIRLINES WATCH</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              {(airlineQuotes && airlineQuotes.length > 0 ? airlineQuotes : [
+                { symbol: 'DAL', name: 'Delta', price: '--', change: '--', direction: 'flat' },
+                { symbol: 'UAL', name: 'United', price: '--', change: '--', direction: 'flat' },
+                { symbol: 'AAL', name: 'American', price: '--', change: '--', direction: 'flat' },
+                { symbol: 'LUV', name: 'Southwest', price: '--', change: '--', direction: 'flat' },
+              ]).map((r) => (
+                <div key={r.symbol} className="px-2 py-1.5 rounded-md bg-slate-900/50 border border-slate-800/40">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[9px] text-slate-400 font-mono">{r.symbol}</div>
+                    <div className="text-[9px] text-slate-300 font-mono">{r.price}</div>
+                  </div>
+                  <div className={`text-[9px] ${
+                    r.direction === 'up' ? 'text-emerald-400' : r.direction === 'down' ? 'text-red-400' : 'text-slate-500'
+                  }`}>
+                    {r.change}
                   </div>
                 </div>
               ))}

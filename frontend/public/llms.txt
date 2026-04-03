@@ -1,0 +1,47 @@
+# QuantTrade AI
+
+> AI-powered stock trading research, backtesting, and geopolitical market intelligence platform.
+
+QuantTrade AI is a professional-grade trading research platform built for active traders, quant developers, and portfolio managers. It combines real-time financial data, AI-powered analysis, global geopolitical event monitoring, and strategy backtesting into a single terminal-style interface.
+
+## Core Platform Features
+
+- **AI Trading Copilot**: Multi-turn conversational AI for stock research, powered by Claude and GPT-4. Answers questions about earnings, filings, technicals, and macro conditions with cited sources.
+- **Symbol Research**: Deep-dive analysis for any US-listed stock — real-time quotes, OHLCV charts, technical indicators (SMA, EMA, RSI, MACD, Bollinger Bands), SEC filings with RAG-powered search, and AI-generated explanations.
+- **Strategy Backtester**: Rule-based backtesting engine with Monte Carlo simulations. Supports crossover, RSI, MACD, and custom multi-condition strategies across configurable time windows.
+- **Global Monitor**: Bloomberg-style geopolitical intelligence dashboard with an interactive 3D globe. Tracks 400+ data sources including GDELT, ACLED, OpenSky, NASA FIRMS, USGS, and Cloudflare Radar. Shows which stocks are impacted by global events in real time.
+- **Markets Dashboard**: S&P 500 sector heatmap, real-time top gainers/losers, market indices, and sector performance powered by Finnhub and Alpha Vantage.
+- **Ideas Lab**: AI-generated investment theses with confidence scores and sector tagging.
+- **Watchlist**: Personalized portfolio tracker with AI commentary and risk analysis.
+
+## Data Sources
+
+- Market data: Finnhub (real-time), Alpha Vantage (historical), Financial Modeling Prep
+- News: NewsAPI, Guardian Open Platform, GDELT
+- Geopolitical: ACLED (armed conflict), NASA FIRMS (fires), USGS (earthquakes), OpenSky (aviation), AIS Stream (maritime)
+- Economic: FRED (Federal Reserve), EIA (energy)
+- Prediction markets: Polymarket
+- Filings: SEC EDGAR (via sec-api.io)
+
+## Pricing
+
+- **Free tier**: Markets dashboard, basic symbol research, 3 AI chat queries/day
+- **QuantTrade Pro** ($8/month or $80/year): Unlimited AI copilot, full backtester, Global Monitor, SEC filing deep-dives, priority data refresh
+
+## About
+
+QuantTrade AI was built by Yash Joshi, a software engineer and quantitative trading enthusiast. The platform is designed to give independent traders access to institutional-grade tools without Bloomberg Terminal pricing.
+
+Contact: yashjosh7486@gmail.com
+GitHub: https://github.com/YashJoshi2109
+
+## Technical Architecture
+
+- Frontend: Next.js 16 (App Router), React 18, Tailwind CSS, TradingView Lightweight Charts
+- Backend: FastAPI (Python), SQLAlchemy, Neon PostgreSQL, Celery, Upstash Redis
+- AI: Anthropic Claude, OpenAI GPT-4, RAG with vector embeddings, Groq for low-latency inference
+- Deployment: Vercel (frontend), Render (backend), Neon (database)
+
+## Important Disclaimer
+
+Trading and investing involve substantial risk of loss. QuantTrade AI provides tools for research and analysis only — not financial advice. Past performance of any backtested strategy does not guarantee future results. Always consult a licensed financial advisor before making investment decisions.

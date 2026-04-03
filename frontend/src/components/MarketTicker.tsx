@@ -6,13 +6,12 @@ import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import {
   fetchMarketMovers,
+  fetchMarketIndices,
   fetchSectorPerformance,
   StockPerformance,
 } from '@/lib/api'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { useMarketRefreshInterval } from '@/hooks/useMarketRefresh'
-
-/* ────────────────── Types ────────────────── */
 
 interface TickerItem {
   symbol: string
@@ -22,17 +21,6 @@ interface TickerItem {
   isIndex?: boolean
 }
 
-/* ────────────────── Static index data (updated via sector performance) ────────────────── */
-
-const INDEX_TICKERS: TickerItem[] = [
-  { symbol: 'NASDAQ', name: 'NASDAQ Composite', isIndex: true },
-  { symbol: 'S&P 500', name: 'S&P 500 Index', isIndex: true },
-  { symbol: 'DOW', name: 'Dow Jones Industrial', isIndex: true },
-  { symbol: 'RUT', name: 'Russell 2000', isIndex: true },
-]
-
-/* ────────────────── Ticker Item Component ────────────────── */
-
 function TickerChip({ item }: { item: TickerItem }) {
   const hasData = isNumber(item.change_percent)
   const isUp = hasData && (item.change_percent ?? 0) >= 0
@@ -40,10 +28,15 @@ function TickerChip({ item }: { item: TickerItem }) {
 
   const content = (
     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1] transition-all cursor-pointer whitespace-nowrap group">
-      <span
-        className={`text-[11px] font-bold ${item.isIndex ? 'text-cyan-400' : 'text-white'}`}
-      >
-        {item.symbol}
+      <span className="flex flex-col items-start leading-tight">
+        <span
+          className={`text-[11px] font-bold ${item.isIndex ? 'text-cyan-400' : 'text-white'}`}
+        >
+          {item.symbol}
+        </span>
+        <span className="text-[9px] text-slate-500 max-w-[120px] truncate">
+          {item.name}
+        </span>
       </span>
       {isNumber(item.price) && (
         <span className="text-[10px] font-mono text-slate-400">
@@ -69,14 +62,23 @@ function TickerChip({ item }: { item: TickerItem }) {
   if (item.isIndex) return content
 
   return (
-    <Link href={`/research?symbol=${item.symbol}`}>{content}</Link>
+    <Link href={`/research?symbol=${encodeURIComponent(item.symbol)}`}>{content}</Link>
   )
 }
 
-/* ────────────────── Main Marquee Component ────────────────── */
-
 export default function MarketTicker() {
-  const refreshInterval = useMarketRefreshInterval({ liveInterval: 30_000, extendedInterval: 120_000, closedInterval: 300_000 })
+  const refreshInterval = useMarketRefreshInterval({
+    liveInterval: 30_000,
+    extendedInterval: 120_000,
+    closedInterval: 300_000,
+  })
+
+  const { data: indices } = useQuery({
+    queryKey: ['marketIndices'],
+    queryFn: () => fetchMarketIndices(),
+    refetchInterval: refreshInterval,
+    staleTime: 15_000,
+  })
 
   const { data: movers } = useQuery({
     queryKey: ['marketMovers'],
@@ -92,26 +94,20 @@ export default function MarketTicker() {
     staleTime: 30_000,
   })
 
-  // Build ticker items: indices + top stocks from each sector
   const tickerItems = useMemo(() => {
     const items: TickerItem[] = []
 
-    // 1. Index placeholders with approximate data from sector averages
-    const sectorAvg =
-      sectors && sectors.length > 0
-        ? sectors.reduce((sum, s) => sum + (s.change_percent || 0), 0) /
-          sectors.length
-        : undefined
-
-    for (const idx of INDEX_TICKERS) {
+    for (const idx of indices || []) {
+      if (!idx?.symbol) continue
       items.push({
-        ...idx,
-        change_percent: sectorAvg,
+        symbol: idx.symbol,
+        name: idx.name || idx.symbol,
+        price: idx.price,
+        change_percent: idx.change_percent,
+        isIndex: true,
       })
     }
 
-    // 2. Divider-style spacer
-    // 3. Top gainers (distinct symbols)
     const seen = new Set<string>()
     const allStocks: StockPerformance[] = [
       ...(movers?.gainers?.slice(0, 8) || []),
@@ -129,12 +125,11 @@ export default function MarketTicker() {
       })
     }
 
-    // 4. Add sector-level items
     if (sectors) {
       for (const sector of sectors.slice(0, 6)) {
         items.push({
           symbol: sector.sector,
-          name: sector.sector,
+          name: `Sector · ${sector.sector}`,
           change_percent: sector.change_percent,
           isIndex: true,
         })
@@ -142,18 +137,15 @@ export default function MarketTicker() {
     }
 
     return items
-  }, [movers, sectors])
+  }, [movers, sectors, indices])
 
   if (tickerItems.length <= 4) return null
 
-  // Duplicate items for seamless infinite scroll
   const duplicated = [...tickerItems, ...tickerItems]
 
   return (
-    <div className="w-full h-9 bg-[#070a12]/80 backdrop-blur-xl border-b border-white/[0.04] overflow-hidden relative">
-      {/* Left fade */}
+    <div className="w-full min-h-[2.75rem] py-1 bg-[#070a12]/80 backdrop-blur-xl border-b border-white/[0.04] overflow-hidden relative">
       <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-[#070a12] to-transparent z-10 pointer-events-none" />
-      {/* Right fade */}
       <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#070a12] to-transparent z-10 pointer-events-none" />
 
       <div className="flex items-center h-full animate-marquee hover:[animation-play-state:paused]">

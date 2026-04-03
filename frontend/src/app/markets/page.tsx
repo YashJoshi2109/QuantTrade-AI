@@ -119,34 +119,43 @@ function DesktopMarketsPage() {
           </div>
         </div>
 
-        {/* Index Cards - Real-time */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {/* Index Cards - Real-time (labels: symbol + name) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 mb-6">
           {indicesLoading ? (
             <SkeletonMarketIndices />
           ) : indexData && indexData.length > 0 ? (
             indexData.map((index, idx) => {
               const hasValidPrice = isNumber(index.price) && index.price > 0
               const changePositive = isNumber(index.change_percent) ? index.change_percent >= 0 : false
+              const label = (index.name && index.name.trim()) || 'Market index'
               return (
-                <div key={index.symbol || `index-${idx}`} className="hud-panel p-4 relative group">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="text-xs text-slate-500">{index.name}</div>
-                    {hasValidPrice && <div className="live-pulse scale-75" />}
+                <div key={index.symbol || `index-${idx}`} className="hud-panel p-3 sm:p-4 relative group flex flex-col min-h-[120px]">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wide truncate" title={index.symbol}>
+                        {index.symbol}
+                      </div>
+                      <div className="text-[11px] sm:text-xs font-semibold text-white mt-0.5 line-clamp-2 leading-snug" title={label}>
+                        {label}
+                      </div>
+                    </div>
+                    {hasValidPrice && <div className="live-pulse scale-75 shrink-0 mt-0.5" aria-hidden />}
                   </div>
-                  <div className="text-xl font-bold text-white font-mono">
+                  <div className="text-lg sm:text-xl font-bold text-white font-mono mt-auto">
                     {hasValidPrice
                       ? Number(index.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                       : '—'}
                   </div>
                   {hasValidPrice ? (
-                    <div className={`text-sm font-mono flex items-center gap-1 ${
+                    <div className={`text-xs sm:text-sm font-mono flex items-center gap-1 mt-1 ${
                       changePositive ? 'text-green-400' : 'text-red-400'
                     }`}>
-                      {changePositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                      {changePositive ? <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> : <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />}
                       {changePositive ? '+' : ''}{formatPercent(index.change_percent, 2)}
+                      <span className="text-[10px] text-slate-600 ml-1 hidden sm:inline">session</span>
                     </div>
                   ) : (
-                    <div className="text-sm text-slate-500">Market closed</div>
+                    <div className="text-xs text-slate-500 mt-1">No live price</div>
                   )}
                 </div>
               )

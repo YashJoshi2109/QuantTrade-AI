@@ -102,7 +102,9 @@ app = FastAPI(
 class CacheControlMiddleware(BaseHTTPMiddleware):
     """Add cache headers for specific endpoints to improve performance"""
     
+    # More specific paths first (startswith matches first hit)
     CACHE_PATHS = {
+        "/api/v1/market/ipo-calendar": 300,  # IPO list changes slowly
         "/api/v1/market/": 30,  # 30 second cache for market data
         "/api/v1/enhanced/market-indices": 30,  # 30 second cache for indices
         "/api/v1/market/sectors": 60,  # 60 second cache for sectors

@@ -19,9 +19,18 @@ from app.services.finnhub_fetcher import FinnhubFetcher
 from app.services.rate_limiter import get_api_stats
 from app.api.auth import get_current_user
 from app.models.user import User
+from app.models.watchlist import Watchlist
+from app.services.stock_analysis_client import fetch_stock_prediction_payload
+from app.services.quote_cache import QuoteCacheService
 from app.config import settings
 
 router = APIRouter()
+
+# When user has no watchlist (or unauthenticated), still drive the alerts strip from liquid names + live quotes
+_DEFAULT_ALERT_SYMBOLS = [
+    "SPY", "QQQ", "NVDA", "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "AMD",
+    "AVGO", "JPM", "XOM", "UNH",
+]
 
 
 # ============= REAL-TIME QUOTES =============
@@ -151,9 +160,15 @@ async def get_market_indices(db: Session = Depends(get_db)):
     
     indices_config = [
         {"symbol": "^GSPC", "name": "S&P 500"},
-        {"symbol": "^IXIC", "name": "NASDAQ"},
+        {"symbol": "^IXIC", "name": "NASDAQ Composite"},
         {"symbol": "^DJI", "name": "Dow Jones"},
         {"symbol": "^RUT", "name": "Russell 2000"},
+        {"symbol": "^VIX", "name": "VIX (Volatility)"},
+        {"symbol": "GLD", "name": "Gold (GLD)"},
+        {"symbol": "USO", "name": "Crude Oil (USO)"},
+        {"symbol": "TLT", "name": "20+ Yr Treasuries"},
+        {"symbol": "XLF", "name": "Financials (XLF)"},
+        {"symbol": "XLE", "name": "Energy (XLE)"},
     ]
     
     def fetch_index_sync(config: dict) -> dict:
@@ -190,7 +205,7 @@ async def get_market_indices(db: Session = Depends(get_db)):
     loop = asyncio.get_event_loop()
     
     # Fetch all indices in PARALLEL using thread pool
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=min(12, len(indices_config))) as executor:
         futures = [loop.run_in_executor(executor, fetch_index_sync, config) for config in indices_config]
         fetched = await asyncio.gather(*futures)
     
@@ -303,6 +318,16 @@ class NewsArticleResponse(BaseModel):
     sentiment: Optional[str] = "Neutral"
     thumbnail: Optional[str] = None
     related_tickers: Optional[List[str]] = []
+
+
+class PredictionAlertResponse(BaseModel):
+    symbol: str
+    timeframe: str
+    direction: str
+    expected_return: float
+    confidence: float
+    severity: str
+    message: str
 
 
 @router.get("/news/{symbol}/realtime", response_model=List[NewsArticleResponse])
@@ -956,3 +981,116 @@ async def get_finnhub_api_stats():
             }
         }
     }
+
+
+@router.get("/alerts/predictions", response_model=List[PredictionAlertResponse])
+async def get_prediction_alerts(
+    min_confidence: float = Query(0.65, ge=0.0, le=1.0),
+    min_abs_return: float = Query(2.0, ge=0.0, le=100.0),
+    max_symbols: int = Query(12, ge=1, le=30),
+    current_user: Optional[User] = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Hybrid alerts: ML predictions when the prediction service is up, otherwise (or in addition
+    for symbols without ML) live quote “session pulse” from QuoteCacheService.
+
+    Works without authentication by scanning a default liquid universe; signed-in users with
+    a watchlist get those symbols first.
+    """
+    symbols: List[str] = []
+    if current_user:
+        watch_items = (
+            db.query(Watchlist, Symbol)
+            .join(Symbol, Symbol.id == Watchlist.symbol_id)
+            .filter(Watchlist.user_id == current_user.id)
+            .order_by(Watchlist.created_at.desc())
+            .limit(max_symbols)
+            .all()
+        )
+        symbols = [s.symbol.upper() for _, s in watch_items if s and s.symbol]
+
+    if not symbols:
+        symbols = list(_DEFAULT_ALERT_SYMBOLS[:max_symbols])
+
+    cache = QuoteCacheService(db)
+    alerts: List[PredictionAlertResponse] = []
+    min_pulse_pct = 0.55
+
+    for sym in symbols:
+        sym_u = sym.upper().strip()
+        had_ml = False
+
+        payload = fetch_stock_prediction_payload(sym_u, horizons=[1, 7, 30])
+        if payload:
+            for p in payload.get("predictions", []) or []:
+                try:
+                    direction = str(p.get("direction", "")).upper()
+                    expected_return = float(p.get("expected_return", 0.0))
+                    confidence = float(p.get("confidence", 0.0))
+                except Exception:
+                    continue
+
+                if confidence < min_confidence or abs(expected_return) < min_abs_return:
+                    continue
+
+                if confidence >= 0.8 and abs(expected_return) >= 4:
+                    severity = "high"
+                elif confidence >= 0.7 and abs(expected_return) >= 3:
+                    severity = "medium"
+                else:
+                    severity = "low"
+
+                tf = str(p.get("timeframe", "N/A"))
+                movement = (
+                    "rise" if direction == "UP" else "fall" if direction == "DOWN" else "move"
+                )
+                alerts.append(
+                    PredictionAlertResponse(
+                        symbol=sym_u,
+                        timeframe=tf,
+                        direction=direction,
+                        expected_return=expected_return,
+                        confidence=confidence,
+                        severity=severity,
+                        message=f"{sym_u} may {movement} ({expected_return:+.2f}%) on {tf} horizon (model)",
+                    )
+                )
+                had_ml = True
+
+        if had_ml:
+            continue
+
+        try:
+            q = await cache.get_quote(sym_u, force_refresh=False)
+            if q.get("unavailable"):
+                continue
+            pct = float(q.get("change_percent") or 0.0)
+            if abs(pct) < min_pulse_pct:
+                continue
+            direction = "UP" if pct > 0 else "DOWN"
+            if abs(pct) >= 3.0:
+                severity = "high"
+            elif abs(pct) >= 1.8:
+                severity = "medium"
+            else:
+                severity = "low"
+            conf = min(0.92, 0.52 + min(abs(pct) / 8.0, 0.38))
+            alerts.append(
+                PredictionAlertResponse(
+                    symbol=sym_u,
+                    timeframe="1d",
+                    direction=direction,
+                    expected_return=round(pct, 2),
+                    confidence=round(conf, 2),
+                    severity=severity,
+                    message=f"{sym_u} session {pct:+.2f}% (live quote)",
+                )
+            )
+        except Exception:
+            continue
+
+    alerts.sort(
+        key=lambda a: (a.severity == "high", a.confidence, abs(a.expected_return)), reverse=True
+    )
+    return alerts[:20]

@@ -30,9 +30,10 @@ interface ApiStats {
 
 interface ApiStatsMonitorProps {
   isInSidebar?: boolean
+  compact?: boolean
 }
 
-export default function ApiStatsMonitor({ isInSidebar = false }: ApiStatsMonitorProps) {
+export default function ApiStatsMonitor({ isInSidebar = false, compact = false }: ApiStatsMonitorProps) {
   const [stats, setStats] = useState<ApiStats | null>(null)
   const [isExpanded, setIsExpanded] = useState(false)
 
@@ -46,8 +47,8 @@ export default function ApiStatsMonitor({ isInSidebar = false }: ApiStatsMonitor
           const data = await response.json()
           setStats(data)
         }
-      } catch (error) {
-        console.error('API stats error:', error)
+      } catch {
+        // Silently fail — endpoint may not be available
       }
     }
 
@@ -63,6 +64,26 @@ export default function ApiStatsMonitor({ isInSidebar = false }: ApiStatsMonitor
   const remainingCalls = isNumber(rate_limit.remaining_calls) ? rate_limit.remaining_calls : 0
   const usagePercent = maxCalls > 0 ? ((maxCalls - remainingCalls) / maxCalls) * 100 : 0
   const isRateLimited = rate_limit.status === 'rate_limited'
+
+  // Header compact view
+  if (compact) {
+    return (
+      <div
+        className={`hidden lg:flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-mono ${
+          isRateLimited
+            ? 'bg-red-500/10 border-red-500/30 text-red-300'
+            : 'bg-slate-800/50 border-slate-700/60 text-slate-300'
+        }`}
+        title={`API limit ${formatNumber(rate_limit.remaining_calls, 0)} / ${formatNumber(rate_limit.max_calls_per_minute, 0)}`}
+      >
+        <Activity className={`w-3.5 h-3.5 ${isRateLimited ? 'text-red-400 animate-pulse' : 'text-cyan-300'}`} />
+        <span className="uppercase tracking-wider text-[10px] text-slate-400">API</span>
+        <span className="font-bold tabular-nums">
+          {formatNumber(rate_limit.remaining_calls, 0)}/{formatNumber(rate_limit.max_calls_per_minute, 0)}
+        </span>
+      </div>
+    )
+  }
 
   // Sidebar compact view
   if (isInSidebar) {

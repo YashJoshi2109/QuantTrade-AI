@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
 import { isNeonAuthConfigured } from '@/lib/neon-auth'
 import { validateEmail, sendOtp } from '@/lib/auth'
 import { Sparkles, Mail, Lock, User, Eye, EyeOff, Loader2, AlertCircle, Database, Key, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
+import { ProCard, ProDivider } from '@/components/ui/pro'
 
 
 declare global {
@@ -184,7 +186,12 @@ export default function AuthPage() {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
       </div>
       
-      <div className="relative w-full max-w-md">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="relative w-full max-w-md"
+      >
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2">
@@ -195,10 +202,11 @@ export default function AuthPage() {
         </div>
         
         {/* Auth Card */}
-        <div className="glass rounded-2xl p-8 border border-slate-700/50">
+        <ProCard className="p-8 shadow-[0_20px_60px_rgba(2,6,23,0.45)]">
           {/* Tab Switcher */}
           <div className="flex gap-2 mb-4">
             <button
+              type="button"
               onClick={() => setIsLogin(true)}
               className={`flex-1 py-3 rounded-lg font-medium transition-all ${
                 isLogin
@@ -209,6 +217,7 @@ export default function AuthPage() {
               Sign In
             </button>
             <button
+              type="button"
               onClick={() => setIsLogin(false)}
               className={`flex-1 py-3 rounded-lg font-medium transition-all ${
                 !isLogin
@@ -257,6 +266,7 @@ export default function AuthPage() {
               </p>
             </div>
           )}
+          <ProDivider label={isLogin ? 'Sign in' : 'Create account'} />
           
           {/* Error Message */}
           {error && (
@@ -433,6 +443,7 @@ export default function AuthPage() {
             </div>
           ) : (
             <button
+              type="button"
               onClick={handleGoogleLogin}
               disabled
               className="w-full py-3 bg-slate-800/50 border border-slate-700 text-gray-500 font-medium rounded-lg flex items-center justify-center gap-2 cursor-not-allowed"
@@ -463,15 +474,15 @@ export default function AuthPage() {
           <p className="text-center text-gray-500 text-xs mt-6">
             By continuing, you agree to our Terms of Service and Privacy Policy
           </p>
-        </div>
-        
+        </ProCard>
+
         {/* Back to home */}
         <div className="text-center mt-6">
           <Link href="/" className="text-gray-400 hover:text-white text-sm transition-colors">
             ← Back to Dashboard
           </Link>
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }

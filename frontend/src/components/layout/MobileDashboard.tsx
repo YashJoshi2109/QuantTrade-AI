@@ -22,6 +22,7 @@ import {
   fetchMarketMovers,
   fetchMarketIndices,
   fetchSectorPerformance,
+  fetchPredictionAlerts,
   searchSymbols,
   syncSymbol,
   MarketStatus,
@@ -35,6 +36,8 @@ import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import MarketNewsGrid from '@/components/MarketNewsGrid'
 import LiveNewsChannelPanel from '@/components/LiveNewsChannelPanel'
 import MiniWorldMonitorSnapshot from '@/components/MiniWorldMonitorSnapshot'
+import IpoRadarWidget from '@/components/IpoRadarWidget'
+import { useToast } from '@/components/Toast'
 
 function useGreeting(name?: string | null) {
   const now = new Date()
@@ -115,6 +118,7 @@ function DashboardIndexCard({ index, label }: DashboardIndexCardProps) {
 export default function MobileDashboard() {
   const router = useRouter()
   const { user } = useAuth()
+  const { warning } = useToast()
   const greeting = useGreeting(user?.full_name || user?.username)
   const timeString = useCurrentTime()
 
@@ -159,8 +163,8 @@ export default function MobileDashboard() {
     // Share cache with desktop dashboard/markets page
     queryKey: ['marketMovers'],
     queryFn: () => fetchMarketMovers(),
-    refetchInterval: 120000,
-    staleTime: 60000,
+    refetchInterval: 45000,
+    staleTime: 25000,
   })
 
   const { data: indices } = useQuery<MarketIndex[]>({
@@ -175,11 +179,27 @@ export default function MobileDashboard() {
     // Share cache with desktop dashboard/markets page
     queryKey: ['sectorPerformance'],
     queryFn: () => fetchSectorPerformance(),
-    refetchInterval: 120000,
-    staleTime: 60000,
+    refetchInterval: 60000,
+    staleTime: 30000,
   })
 
-  const { data: breakingNews, isLoading: newsLoading } = useBreakingNews(10, 60000)
+  const { data: breakingNews, isLoading: newsLoading } = useBreakingNews(10, 45000)
+  const { data: predictionAlerts = [] } = useQuery({
+    queryKey: ['predictionAlerts'],
+    queryFn: () => fetchPredictionAlerts(0.65, 2.0),
+    refetchInterval: 90000,
+    staleTime: 45000,
+  })
+
+  useEffect(() => {
+    const firstHigh = predictionAlerts.find((a) => a.severity === 'high')
+    if (!firstHigh) return
+    const key = `mobile-pred-alert-${firstHigh.symbol}-${firstHigh.timeframe}-${firstHigh.direction}`
+    if (!localStorage.getItem(key)) {
+      warning(`Signal alert: ${firstHigh.message}`, 6000)
+      localStorage.setItem(key, '1')
+    }
+  }, [predictionAlerts, warning])
 
   const dateString = useMemo(() => {
     const now = new Date()
@@ -550,6 +570,10 @@ export default function MobileDashboard() {
               ))}
           </div>
         </div>
+      </section>
+
+      <section className="px-1 pb-4">
+        <IpoRadarWidget />
       </section>
 
       {/* Global macro globe snapshot */}

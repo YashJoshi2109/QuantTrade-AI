@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, ReactNode, useMemo } from 'react'
+import { useState, useEffect, ReactNode, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -11,7 +11,6 @@ import {
   Lightbulb,
   Settings,
   Search,
-  Bell,
   HelpCircle,
   Loader2,
   Activity,
@@ -22,10 +21,13 @@ import {
   ChevronLeft,
   X,
   Globe,
+  Info,
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
 import MarketTicker from './MarketTicker'
 import SiteFooter from './SiteFooter'
+import PredictionAlertCenter from './PredictionAlertCenter'
+import HelpDialog from './HelpDialog'
 import { fetchSymbols, Symbol, syncSymbol, fetchMarketStatus, MarketStatus } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { useQuery } from '@tanstack/react-query'
@@ -35,8 +37,28 @@ interface AppLayoutProps {
   symbol?: string
 }
 
+function HeaderTooltip({
+  label,
+  detail,
+  children,
+}: {
+  label: string
+  detail: string
+  children: ReactNode
+}) {
+  return (
+    <div className="relative group">
+      {children}
+      <div className="pointer-events-none absolute top-full right-0 mt-2 w-52 rounded-lg border border-slate-700/70 bg-slate-900/95 px-3 py-2 text-[10px] opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all shadow-xl z-50">
+        <div className="text-slate-200 font-semibold">{label}</div>
+        <div className="text-slate-400 mt-0.5">{detail}</div>
+      </div>
+    </div>
+  )
+}
+
 // Market Status Indicator Component
-function MarketStatusIndicator() {
+function MarketStatusIndicator({ compact = false }: { compact?: boolean }) {
   const { data: marketStatus, isLoading } = useQuery<MarketStatus>({
     queryKey: ['marketStatus'],
     queryFn: fetchMarketStatus,
@@ -45,6 +67,29 @@ function MarketStatusIndicator() {
 
   const isOpen = marketStatus?.is_open ?? false
   const statusText = marketStatus?.status ?? 'CLOSED'
+
+  if (compact) {
+    return (
+      <HeaderTooltip
+        label="Market Status"
+        detail={isLoading ? 'Checking exchange session.' : `NYSE + NASDAQ session is ${statusText}.`}
+      >
+        <div
+          className={`hidden lg:flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-mono ${
+            isOpen
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              : 'bg-slate-800/50 border-slate-700/60 text-slate-300'
+          }`}
+        >
+          <span className={`w-2 h-2 rounded-full ${isOpen ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+          <span className="uppercase tracking-wider text-[10px] text-slate-400">MKT</span>
+          <span className={`font-bold ${isOpen ? 'text-emerald-300' : 'text-red-300'}`}>
+            {isLoading ? 'LOAD' : statusText}
+          </span>
+        </div>
+      </HeaderTooltip>
+    )
+  }
 
   return (
     <div className="p-4 border-t border-slate-800/50">
@@ -73,6 +118,8 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
   const [searching, setSearching] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const headerSearchRef = useRef<HTMLInputElement>(null)
 
   // Load sidebar state from localStorage on mount
   useEffect(() => {
@@ -93,6 +140,19 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
   useEffect(() => {
     setMobileMenuOpen(false)
   }, [pathname])
+
+  // "/" focuses header search when not typing in an input
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (t && ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)) return
+      e.preventDefault()
+      headerSearchRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // Dynamic widths for responsive layout
   const sidebarWidth = sidebarCollapsed ? '5rem' : '14rem'
@@ -205,10 +265,11 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
                 <Search className="w-4 h-4 text-blue-400 ml-3" />
                 {searching && <Loader2 className="w-4 h-4 text-blue-400 animate-spin absolute right-3" />}
                 <input
+                  ref={headerSearchRef}
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search symbols, companies..."
+                  placeholder="Search symbols, companies… (press /)"
                   className="flex-1 bg-transparent border-none outline-none text-sm py-2 text-white placeholder-slate-500"
                 />
               </div>
@@ -239,16 +300,50 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-2">
-            <button className="hud-button p-2 hidden sm:flex" aria-label="Notifications">
-              <Bell className="w-5 h-5" />
-            </button>
-            <button className="hud-button p-2 hidden sm:flex" aria-label="Help">
-              <HelpCircle className="w-5 h-5" />
-            </button>
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <HeaderTooltip
+              label="API Quota"
+              detail="Live remaining request budget for market data adapters."
+            >
+              <div>
+                <ApiStatsMonitor compact={true} />
+              </div>
+            </HeaderTooltip>
+            <MarketStatusIndicator compact={true} />
+            <HeaderTooltip
+              label="About QuantTrade"
+              detail="Product scope, data sources, and operator details."
+            >
+              <Link
+                href="/about"
+                className="hud-button p-2 flex items-center justify-center text-slate-400 hover:text-cyan-300 transition-colors rounded-lg hover:bg-slate-800/60 border border-transparent hover:border-slate-700/50"
+                aria-label="About this product"
+                title="About"
+              >
+                <Info className="w-5 h-5" aria-hidden />
+              </Link>
+            </HeaderTooltip>
+            <PredictionAlertCenter />
+            <HeaderTooltip
+              label="Help"
+              detail="Shortcuts, product info, and data disclaimer."
+            >
+              <button
+                type="button"
+                onClick={() => setHelpOpen(true)}
+                className="hud-button p-2 hidden sm:flex items-center justify-center text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 rounded-lg border border-transparent hover:border-slate-700/50 transition-colors"
+                aria-label="Help"
+                aria-expanded={helpOpen}
+                aria-haspopup="dialog"
+              >
+                <HelpCircle className="w-5 h-5" aria-hidden />
+              </button>
+            </HeaderTooltip>
           </div>
         </div>
       </header>
+
+      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       {/* Click outside to close search */}
       {showResults && (
@@ -308,16 +403,6 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
               })}
             </ul>
           </nav>
-
-          {/* API Stats Monitor */}
-          {!sidebarCollapsed && (
-            <div className="p-4 border-t border-slate-800/50">
-              <ApiStatsMonitor isInSidebar={true} />
-            </div>
-          )}
-
-          {/* Status Indicator */}
-          {!sidebarCollapsed && <MarketStatusIndicator />}
 
           {/* User Profile */}
           <div className={`p-4 border-t border-slate-800/50 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>

@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AppLayout from '@/components/AppLayout'
+import { motion } from 'framer-motion'
 import { Check, Zap, ShieldCheck, CreditCard, AlertCircle } from 'lucide-react'
 import { createCheckoutSession, BillingPlan } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobilePricing from '@/components/layout/MobilePricing'
+import { ProButton, ProCard, ProDivider, ProSection } from '@/components/ui/pro'
 
 const features = [
   'AI copilot for symbol research',
@@ -61,21 +63,29 @@ function DesktopPricingPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 overflow-y-auto">
+      <div className="p-4 md:p-6 overflow-y-auto">
         <div className="max-w-5xl mx-auto">
-          <header className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs font-mono mb-4">
-              <Zap className="w-3 h-3" />
-              <span>QuantTrade AI Subscriptions</span>
-            </div>
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">
-              Level up your trading workflow
-            </h1>
-            <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-base">
-              Start with a flat-rate subscription for serious traders who want real-time market data,
-              backtesting, and an AI research copilot—all in one place.
-            </p>
-          </header>
+          <motion.header
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="text-center mb-8"
+          >
+            <ProSection className="p-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs font-mono mb-4">
+                <Zap className="w-3 h-3" />
+                <span>QuantTrade AI Subscriptions</span>
+              </div>
+              <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">
+                Level up your trading workflow
+              </h1>
+              <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-base">
+                Start with a flat-rate subscription for serious traders who want real-time market data,
+                backtesting, and an AI research copilot-all in one place.
+              </p>
+            </ProSection>
+          </motion.header>
+          <ProDivider label="Plans" />
 
           <div className="flex justify-center mb-6">
             <div className="inline-flex items-center bg-[#0f172a] border border-slate-700 rounded-full p-1">
@@ -111,7 +121,7 @@ function DesktopPricingPage() {
 
           <div className="grid md:grid-cols-[1.4fr_1fr] gap-6 items-stretch">
             {/* Feature list */}
-            <section className="bg-[#0f172a] border border-slate-800 rounded-xl p-6 md:p-8">
+            <ProCard className="p-6 md:p-8">
               <div className="flex items-center gap-2 mb-4">
                 <ShieldCheck className="w-5 h-5 text-emerald-400" />
                 <h2 className="text-lg font-semibold text-white">What&apos;s included</h2>
@@ -128,12 +138,12 @@ function DesktopPricingPage() {
                 <CreditCard className="w-3 h-3" />
                 Payments handled securely by Stripe. We never store card details.
               </p>
-            </section>
+            </ProCard>
 
             {/* Plan card */}
-            <section className="bg-gradient-to-b from-blue-600/20 via-[#0b1220] to-black/60 border border-blue-500/40 rounded-xl p-6 md:p-7 flex flex-col justify-between">
+            <section className="bg-gradient-to-b from-cyan-500/20 via-[#0b1220] to-black/60 border border-cyan-500/40 rounded-xl p-6 md:p-7 flex flex-col justify-between shadow-[0_20px_60px_rgba(6,182,212,0.15)]">
               <div>
-                <h2 className="text-lg font-semibold text-white mb-1">QuantTrade Plus</h2>
+                <h2 className="text-lg font-semibold text-white mb-1">QuantTrade Pro</h2>
                 <p className="text-xs text-slate-300 mb-4">
                   For active traders and builders who want the full QuantTrade AI experience.
                 </p>
@@ -152,21 +162,21 @@ function DesktopPricingPage() {
                 </p>
               </div>
 
-              <button
+              <ProButton
                 onClick={() =>
                   handleCheckout(
                     billingInterval === 'monthly' ? 'plus_monthly' : 'plus_yearly'
                   )
                 }
                 disabled={!!loadingPlan}
-                className="w-full mt-4 py-2.5 rounded-lg text-sm font-semibold bg-blue-500 hover:bg-blue-400 text-white shadow-lg shadow-blue-500/30 disabled:opacity-70 disabled:cursor-not-allowed"
+                className="w-full mt-4 shadow-lg shadow-cyan-500/30"
               >
                 {loadingPlan
                   ? 'Redirecting to Stripe...'
                   : billingInterval === 'monthly'
                   ? 'Start monthly subscription'
                   : 'Start yearly subscription'}
-              </button>
+              </ProButton>
             </section>
           </div>
         </div>
