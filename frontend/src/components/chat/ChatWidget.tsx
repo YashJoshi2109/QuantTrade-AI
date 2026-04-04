@@ -1,35 +1,28 @@
 'use client'
 
-import { useState } from 'react'
-import { Zap, X } from 'lucide-react'
-import ChatWindow from './ChatWindow'
+import Link from 'next/link'
+import { Sparkles } from 'lucide-react'
 
 export default function ChatWidget() {
-  const [isOpen, setIsOpen] = useState(false)
-
   return (
-    <>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-20 right-4 md:bottom-28 md:right-8 z-50 group"
-        aria-label={isOpen ? 'Close chat' : 'Open AI chat'}
-      >
-        {/* Pulse ring */}
-        {!isOpen && (
-          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 animate-ping" />
-        )}
+    <Link
+      href="/copilot"
+      className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 group"
+      aria-label="Open AI Copilot"
+    >
+      {/* Pulse ring */}
+      <div className="absolute inset-0 rounded-full bg-[#007AFF]/30 animate-ping" />
 
-        {/* Button */}
-        <div className="relative w-14 h-14 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-[#00D9FF] via-[#0066FF] to-[#7C3AED] flex items-center justify-center shadow-2xl shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all duration-300 hover:scale-105 active:scale-95">
-          {isOpen ? (
-            <X className="w-5 h-5 text-white" />
-          ) : (
-            <Zap className="w-5 h-5 text-white" />
-          )}
-        </div>
-      </button>
+      {/* Button */}
+      <div className="relative w-14 h-14 rounded-full bg-[#007AFF] flex items-center justify-center shadow-2xl shadow-[rgba(0,122,255,0.4)] hover:shadow-[rgba(0,122,255,0.6)] hover:bg-[#0066CC] transition-all duration-300 hover:scale-105 active:scale-95">
+        <Sparkles className="w-6 h-6 text-white" />
+      </div>
 
-      {isOpen && <ChatWindow onClose={() => setIsOpen(false)} />}
-    </>
+      {/* Tooltip */}
+      <div className="absolute bottom-full right-0 mb-3 px-3 py-1.5 bg-[#0D1117] border border-[rgba(0,122,255,0.3)] rounded-lg text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-xl pointer-events-none">
+        AI Copilot
+        <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#0D1117]" />
+      </div>
+    </Link>
   )
 }

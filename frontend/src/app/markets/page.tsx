@@ -1,34 +1,304 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useCallback, useMemo } from 'react'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileMarkets from '@/components/layout/MobileMarkets'
 import MarketMoversPanel from '@/components/MarketMoversPanel'
 import MarketHeatmap from '@/components/MarketHeatmap'
-import { 
-  SkeletonMarketIndices, 
-  SkeletonMarketStats, 
-  SkeletonHeatmap, 
+import MoversHeatmap from '@/components/MoversHeatmap'
+import { QuoteActivityFlash, moversActivityFingerprint } from '@/components/QuoteActivityFlash'
+import {
+  SkeletonMarketIndices,
+  SkeletonMarketStats,
+  SkeletonHeatmap,
 } from '@/components/Skeleton'
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  RefreshCw, 
-  Globe, 
+import {
+  TrendingUp,
+  TrendingDown,
+  RefreshCw,
+  Globe,
   BarChart3,
   Activity,
   Zap,
   Grid3X3,
-  List
+  List,
+  Signal,
+  DollarSign,
 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { fetchSectorPerformance, fetchMarketMovers, fetchMarketIndices, SectorPerformance, MarketIndex } from '@/lib/api'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import Link from 'next/link'
+import { CONTINENTS, DISPLAY_CURRENCIES, type Continent } from '@/lib/world-exchanges'
+import type { IndexQuote } from '@/app/api/quotes/indices/route'
+
+// ─── Hooks ────────────────────────────────────────────────────────────────────
+function useWorldIndices(continent: Continent) {
+  return useQuery({
+    queryKey: ['worldIndices', continent],
+    queryFn: async (): Promise<IndexQuote[]> => {
+      const res = await fetch(`/api/quotes/indices?continent=${continent}`)
+      if (!res.ok) return []
+      return res.json()
+    },
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  })
+}
+
+function useContinentMovers(continent: Continent) {
+  return useQuery({
+    queryKey: ['continentMovers', continent],
+    queryFn: async (): Promise<{
+      gainers: GlobalMover[]
+      losers: GlobalMover[]
+      actives: GlobalMover[]
+    }> => {
+      const res = await fetch(`/api/quotes/movers?continent=${continent}&count=12`)
+      if (!res.ok) return { gainers: [], losers: [], actives: [] }
+      const j = await res.json()
+      return {
+        gainers: j.gainers ?? [],
+        losers: j.losers ?? [],
+        actives: j.actives ?? [],
+      }
+    },
+    refetchInterval: 120_000,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  })
+}
+
+function useCurrencyRates() {
+  return useQuery({
+    queryKey: ['currencyRates'],
+    queryFn: async (): Promise<Record<string, number>> => {
+      const res = await fetch('/api/currencies')
+      if (!res.ok) return {}
+      const data = await res.json()
+      return data.rates ?? {}
+    },
+    staleTime: 3_600_000,
+    gcTime: 7_200_000,
+  })
+}
+
+interface GlobalMover {
+  symbol: string
+  name: string
+  price: number
+  change: number
+  change_percent: number
+  volume: number
+  market_cap: number
+  exchange: string
+  currency: string
+}
+
+// ─── Continent Tab Bar ─────────────────────────────────────────────────────
+function ContinentTabBar({ active, onChange }: { active: Continent; onChange: (c: Continent) => void }) {
+  return (
+    <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-3 mb-4">
+      {CONTINENTS.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          onClick={() => onChange(c.id)}
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+            active === c.id
+              ? 'bg-[#007AFF] text-white shadow-lg shadow-[rgba(0,122,255,0.25)]'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60 border border-slate-700/40'
+          }`}
+        >
+          <span>{c.emoji}</span>
+          <span>{c.label}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ─── Currency Selector ─────────────────────────────────────────────────────
+function CurrencySelector({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const curr = DISPLAY_CURRENCIES.find((c) => c.code === value) ?? DISPLAY_CURRENCIES[0]
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-slate-700/60 bg-slate-900/60 hover:border-[rgba(0,122,255,0.4)] transition-colors text-[11px] text-slate-300 font-medium"
+      >
+        <DollarSign className="w-3 h-3 text-[#007AFF]" />
+        {curr.flag} {curr.code}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl border border-slate-700/60 bg-[#101928] shadow-2xl overflow-hidden"
+          >
+            <div className="max-h-64 overflow-y-auto py-1">
+              {DISPLAY_CURRENCIES.map((c) => (
+                <button
+                  key={c.code}
+                  type="button"
+                  onClick={() => { onChange(c.code); setOpen(false) }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-[11px] transition-colors ${
+                    c.code === value ? 'text-[#007AFF] bg-[#007AFF]/10' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                  }`}
+                >
+                  <span>{c.flag}</span>
+                  <span className="font-bold font-mono">{c.code}</span>
+                  <span className="text-slate-500 truncate">{c.name}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// ─── World Exchange Indices Grid ──────────────────────────────────────────
+function WorldIndicesGrid({ continent, currency, rates }: { continent: Continent; currency: string; rates: Record<string, number> }) {
+  const { data: indices = [], isLoading } = useWorldIndices(continent)
+  const currInfo = DISPLAY_CURRENCIES.find((c) => c.code === currency)
+  const currSymbol = currInfo?.symbol ?? '$'
+
+  function convertPrice(price: number, from: string): number {
+    if (!price || currency === from) return price
+    const usd = from === 'USD' ? price : price / (rates[from] ?? 1)
+    return currency === 'USD' ? usd : usd * (rates[currency] ?? 1)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <div key={i} className="h-20 rounded-lg bg-slate-800/40 animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+
+  const validIndices = indices.filter((q) => q.price > 0)
+  if (!validIndices.length) return null
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6">
+      {validIndices.map((q) => {
+        const up = q.change_percent >= 0
+        const displayPrice = convertPrice(q.price, q.currency)
+        return (
+          <Link
+            key={q.symbol}
+            href={`/research?symbol=${q.symbol}`}
+            className="group hud-panel p-3 hover:border-[rgba(0,122,255,0.35)] transition-all relative overflow-hidden"
+          >
+            <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: q.color, opacity: 0.6 }} />
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full" style={{ background: q.color }} />
+                <span className="text-[10px] text-slate-500 font-medium">{q.exchangeName}</span>
+              </div>
+              <span className={`text-[9px] font-mono font-bold px-1 py-0.5 rounded ${up ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'}`}>
+                {up ? '+' : ''}{formatPercent(q.change_percent, 2)}
+              </span>
+            </div>
+            <div className="text-sm font-bold font-mono text-white group-hover:text-[#007AFF] transition-colors">
+              {displayPrice > 0 ? `${currSymbol}${formatNumber(displayPrice, displayPrice > 1000 ? 0 : 2)}` : '—'}
+            </div>
+            <div className="text-[10px] text-slate-500 mt-0.5 truncate">{q.shortName}</div>
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Continent Movers ──────────────────────────────────────────────────────
+function ContinentMovers({ continent }: { continent: Continent }) {
+  const { data, isLoading } = useContinentMovers(continent)
+  const gainers = data?.gainers ?? []
+  const losers = data?.losers ?? []
+  const actives = data?.actives ?? []
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      {[
+        { label: 'Top Gainers', items: gainers, color: 'emerald' as const },
+        { label: 'Top Losers', items: losers, color: 'red' as const },
+        { label: 'Most Active (Vol.)', items: actives, color: 'cyan' as const },
+      ].map(({ label, items, color }) => (
+        <div key={label} className="hud-panel">
+          <div className="px-4 py-3 border-b border-slate-700/30 flex items-center gap-2">
+            {color === 'emerald' ? (
+              <TrendingUp className="w-4 h-4 text-emerald-400" />
+            ) : color === 'red' ? (
+              <TrendingDown className="w-4 h-4 text-red-400" />
+            ) : (
+              <Activity className="w-4 h-4 text-cyan-400" />
+            )}
+            <h3 className="font-bold text-white text-sm">{label}</h3>
+          </div>
+          <div className="divide-y divide-slate-800/30 max-h-64 overflow-y-auto">
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-10 mx-4 my-1 rounded bg-slate-800/40 animate-pulse" />
+              ))
+            ) : items.length === 0 ? (
+              <div className="flex items-center justify-center h-16 text-slate-500 text-xs">No data available</div>
+            ) : (
+              items.map((s, i) => (
+                <Link key={s.symbol} href={`/research?symbol=${s.symbol}`}
+                  className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-800/30 transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-600 font-mono w-4">{i + 1}</span>
+                    <div>
+                      <span className="font-bold text-white text-xs font-mono group-hover:text-[#007AFF] transition-colors">{s.symbol}</span>
+                      <div className="text-[10px] text-slate-500 truncate max-w-[120px]">{s.name}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs font-mono text-white">{s.price > 0 ? `$${formatNumber(s.price, 2)}` : '—'}</div>
+                    <div
+                      className={`text-[10px] font-mono font-bold ${
+                        color === 'emerald'
+                          ? 'text-emerald-400'
+                          : color === 'red'
+                            ? 'text-red-400'
+                            : s.change_percent >= 0
+                              ? 'text-cyan-300'
+                              : 'text-orange-300'
+                      }`}
+                    >
+                      {color !== 'red' && s.change_percent >= 0 ? '+' : ''}
+                      {formatPercent(s.change_percent, 2)}
+                    </div>
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function DesktopMarketsPage() {
   const [view, setView] = useState<'heatmap' | 'list'>('heatmap')
+  const [activeContinent, setActiveContinent] = useState<Continent>('global')
+  const [displayCurrency, setDisplayCurrency] = useState('USD')
+  const { data: currencyRates = {} } = useCurrencyRates()
   
   // Fetch market indices from dedicated endpoint - cached aggressively
   const { data: indexData, isLoading: indicesLoading } = useQuery({
@@ -65,6 +335,34 @@ function DesktopMarketsPage() {
     }
   }, [refetchMovers])
 
+  const { data: continentMoverBundle } = useContinentMovers(activeContinent)
+
+  const marketsActivityFingerprint = useMemo(() => {
+    if (activeContinent !== 'global') {
+      return moversActivityFingerprint(continentMoverBundle)
+    }
+    const m = moversActivityFingerprint({ gainers: movers?.gainers, losers: movers?.losers })
+    const sectorSum =
+      sectors?.reduce((acc, s) => acc + (Number.isFinite(s.change_percent) ? s.change_percent : 0), 0) ?? 0
+    return Math.round((m + sectorSum) * 1000) / 1000
+  }, [activeContinent, continentMoverBundle, movers, sectors])
+
+  const regionalHeatRowsMarkets = useMemo(() => {
+    if (activeContinent === 'global') return []
+    const seen = new Set<string>()
+    const out: { symbol: string; name: string; change_percent: number }[] = []
+    const push = (m: GlobalMover) => {
+      if (!m?.symbol || seen.has(m.symbol)) return
+      seen.add(m.symbol)
+      out.push({ symbol: m.symbol, name: m.name, change_percent: m.change_percent })
+    }
+    for (const m of continentMoverBundle?.gainers ?? []) push(m)
+    for (const m of continentMoverBundle?.losers ?? []) push(m)
+    for (const m of continentMoverBundle?.actives ?? []) push(m)
+    out.sort((a, b) => Math.abs(b.change_percent) - Math.abs(a.change_percent))
+    return out.slice(0, 48)
+  }, [activeContinent, continentMoverBundle])
+
   // Calculate market stats
   const marketStats = {
     totalStocks: sectors?.reduce((acc, s) => acc + s.stocks.length, 0) || 0,
@@ -76,23 +374,24 @@ function DesktopMarketsPage() {
     <AppLayout>
       <div className="min-h-full">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2 sm:gap-3">
-              <Globe className="w-6 h-6 sm:w-7 sm:h-7 text-blue-400" />
+              <Globe className="w-6 h-6 sm:w-7 sm:h-7 text-[#007AFF]" />
               Markets Overview
             </h1>
             <p className="text-slate-400 text-xs sm:text-sm mt-1">
-              Real-time market data • {marketStats.totalStocks} stocks tracked
+              Real-time global market data · {marketStats.totalStocks} US stocks + world indices
             </p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            <CurrencySelector value={displayCurrency} onChange={setDisplayCurrency} />
             {/* View Toggle */}
             <div className="flex items-center gap-1 p-1 bg-slate-800/50 rounded-lg">
               <button
                 onClick={() => setView('heatmap')}
                 className={`p-2 rounded-md transition-all ${
-                  view === 'heatmap' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-white'
+                  view === 'heatmap' ? 'bg-[#007AFF]/20 text-[#007AFF]' : 'text-slate-400 hover:text-white'
                 }`}
                 aria-label="Heatmap view"
               >
@@ -101,16 +400,16 @@ function DesktopMarketsPage() {
               <button
                 onClick={() => setView('list')}
                 className={`p-2 rounded-md transition-all ${
-                  view === 'list' ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-white'
+                  view === 'list' ? 'bg-[#007AFF]/20 text-[#007AFF]' : 'text-slate-400 hover:text-white'
                 }`}
                 aria-label="List view"
               >
                 <List className="w-4 h-4" />
               </button>
             </div>
-            <button 
+            <button
               onClick={() => refetchSectors()}
-              className="hud-card px-3 sm:px-4 py-2 text-xs sm:text-sm text-blue-400 hover:text-white flex items-center gap-2 transition-all"
+              className="hud-card px-3 sm:px-4 py-2 text-xs sm:text-sm text-[#007AFF] hover:text-white flex items-center gap-2 transition-all"
               aria-label="Refresh data"
             >
               <RefreshCw className="w-4 h-4" />
@@ -119,6 +418,59 @@ function DesktopMarketsPage() {
           </div>
         </div>
 
+        {/* Continent Tabs */}
+        <ContinentTabBar active={activeContinent} onChange={setActiveContinent} />
+
+        {/* World Exchange Indices */}
+        <div className="mb-2">
+          <div className="flex items-center gap-2 mb-3">
+            <Signal className="w-4 h-4 text-[#007AFF]" />
+            <h2 className="text-sm font-bold text-white">
+              {CONTINENTS.find((c) => c.id === activeContinent)?.label} Exchange Indices
+            </h2>
+            <QuoteActivityFlash fingerprint={marketsActivityFingerprint} className="scale-90" />
+          </div>
+          <WorldIndicesGrid continent={activeContinent} currency={displayCurrency} rates={currencyRates} />
+        </div>
+
+        {/* Continent-specific movers (non-global) */}
+        {activeContinent !== 'global' && (
+          <motion.div
+            key={`markets-movers-${activeContinent}`}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <ContinentMovers continent={activeContinent} />
+          </motion.div>
+        )}
+
+        {activeContinent !== 'global' && (
+          <motion.div
+            key={`markets-heat-${activeContinent}`}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.05 }}
+            className="mb-6"
+          >
+            <div className="hud-panel p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-blue-400" />
+                  1-Day performance — {CONTINENTS.find((c) => c.id === activeContinent)?.label}
+                </h2>
+                <QuoteActivityFlash fingerprint={marketsActivityFingerprint} />
+              </div>
+              <MoversHeatmap
+                rows={regionalHeatRowsMarkets}
+                emptyLabel="No regional movers for this view yet"
+              />
+            </div>
+          </motion.div>
+        )}
+
+        {/* US/Global Market Stats — only on global tab */}
+        {activeContinent === 'global' && (<>
         {/* Index Cards - Real-time (labels: symbol + name) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 mb-6">
           {indicesLoading ? (
@@ -139,7 +491,17 @@ function DesktopMarketsPage() {
                         {label}
                       </div>
                     </div>
-                    {hasValidPrice && <div className="live-pulse scale-75 shrink-0 mt-0.5" aria-hidden />}
+                    {hasValidPrice && (
+                      <QuoteActivityFlash
+                        className="scale-75 shrink-0 mt-0.5"
+                        fingerprint={
+                          Math.round(
+                            (Number(index.price) || 0) * 1000 +
+                              (Number(index.change_percent) || 0) * 10000
+                          ) / 1000
+                        }
+                      />
+                    )}
                   </div>
                   <div className="text-lg sm:text-xl font-bold text-white font-mono mt-auto">
                     {hasValidPrice
@@ -236,8 +598,8 @@ function DesktopMarketsPage() {
                   <span className="sm:hidden">Performance</span>
                 </h2>
                 <div className="flex items-center gap-2">
-                  <div className="live-pulse" />
-                  <span className="text-xs text-slate-400 ml-2">Real-time</span>
+                  <QuoteActivityFlash fingerprint={marketsActivityFingerprint} />
+                  <span className="text-xs text-slate-400 ml-2">Updates</span>
                 </div>
               </div>
               
@@ -307,6 +669,7 @@ function DesktopMarketsPage() {
             </div>
           </div>
         </div>
+        </>)}
       </div>
     </AppLayout>
   )

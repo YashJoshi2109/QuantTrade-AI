@@ -1,5 +1,11 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
-import { fetchRealtimeNews, fetchYFinanceNews, fetchLiveMarketHeadlines, NewsArticle } from '@/lib/api'
+import {
+  fetchRealtimeNews,
+  fetchYFinanceNews,
+  fetchLiveMarketHeadlines,
+  type LiveHeadlinesContext,
+  NewsArticle,
+} from '@/lib/api'
 
 interface UseRealtimeNewsOptions {
   symbol?: string
@@ -47,12 +53,18 @@ export function useYFinanceNews(symbol: string, limit = 20, refetchInterval = 30
 }
 
 /**
- * Hook for breaking market news
+ * Hook for breaking market news (optionally scoped to continent / exchange for the dashboard)
  */
-export function useBreakingNews(limit = 10, refetchInterval = 60000) {
+export function useBreakingNews(
+  limit = 10,
+  refetchInterval = 60000,
+  context?: LiveHeadlinesContext
+) {
+  const c = context?.continent ?? 'global'
+  const x = context?.exchangeId ?? ''
   return useQuery<NewsArticle[]>({
-    queryKey: ['breakingNews', 'liveHeadlines', limit],
-    queryFn: () => fetchLiveMarketHeadlines(limit),
+    queryKey: ['breakingNews', 'liveHeadlines', limit, c, x],
+    queryFn: () => fetchLiveMarketHeadlines(limit, context),
     refetchInterval,
     staleTime: 30000,
     retry: 1,

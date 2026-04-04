@@ -234,22 +234,141 @@ export async function fetchAnomalies(
   return response.json()
 }
 
+// ── Sector → ticker map for client-side synthesis ────────────────────────────
+const SECTOR_TICKERS: Record<string, string[]> = {
+  energy: ['XOM', 'CVX', 'COP', 'SLB', 'OXY'],
+  technology: ['NVDA', 'AAPL', 'MSFT', 'GOOGL', 'META'],
+  defense: ['LMT', 'RTX', 'NOC', 'GD', 'BA'],
+  financials: ['JPM', 'BAC', 'GS', 'MS', 'WFC'],
+  shipping: ['ZIM', 'MATX', 'STNG', 'FRO', 'GOGL'],
+  commodities: ['GLD', 'SLV', 'USO', 'UNG', 'CORN'],
+  cyber: ['CRWD', 'PANW', 'ZS', 'FTNT', 'S'],
+  healthcare: ['UNH', 'JNJ', 'PFE', 'ABBV', 'MRK'],
+  'emerging markets': ['EEM', 'VWO', 'EWZ', 'MCHI', 'EPI'],
+  infrastructure: ['CAT', 'DE', 'VMC', 'MLM', 'URI'],
+  agriculture: ['ADM', 'BG', 'CORN', 'WEAT', 'SOYB'],
+  aviation: ['DAL', 'UAL', 'AAL', 'LUV', 'ALK'],
+  insurance: ['AIZ', 'ALL', 'TRV', 'PGR', 'HIG'],
+}
+
+const CATEGORY_TICKERS: Record<string, Array<{ ticker: string; direction: 'positive' | 'negative' | 'neutral'; reason: string }>> = {
+  conflict: [
+    { ticker: 'LMT', direction: 'positive', reason: 'Defense contracts increase during conflict' },
+    { ticker: 'RTX', direction: 'positive', reason: 'Weapons systems demand rises' },
+    { ticker: 'NOC', direction: 'positive', reason: 'Aerospace & defense beneficiary' },
+    { ticker: 'XOM', direction: 'positive', reason: 'Supply disruptions lift energy prices' },
+    { ticker: 'GLD', direction: 'positive', reason: 'Safe-haven demand spikes in conflict' },
+    { ticker: 'TLT', direction: 'positive', reason: 'Flight to safety boosts bonds' },
+  ],
+  disaster: [
+    { ticker: 'AIZ', direction: 'negative', reason: 'Insurance claims surge' },
+    { ticker: 'ALL', direction: 'negative', reason: 'Property damage liabilities rise' },
+    { ticker: 'TRV', direction: 'negative', reason: 'Catastrophe loss exposure' },
+    { ticker: 'CAT', direction: 'negative', reason: 'Heavy equipment supply chain disruption' },
+    { ticker: 'HD', direction: 'positive', reason: 'Reconstruction demand drives sales' },
+  ],
+  economic: [
+    { ticker: 'JPM', direction: 'negative', reason: 'Credit risk rises in economic stress' },
+    { ticker: 'GS', direction: 'negative', reason: 'Deal flow slows in downturns' },
+    { ticker: 'GLD', direction: 'positive', reason: 'Safe haven asset demand increases' },
+    { ticker: 'TLT', direction: 'positive', reason: 'Bonds rally on rate cut expectations' },
+    { ticker: 'VIX', direction: 'positive', reason: 'Volatility spikes on uncertainty' },
+  ],
+  cyber: [
+    { ticker: 'CRWD', direction: 'positive', reason: 'Cybersecurity spending accelerates' },
+    { ticker: 'PANW', direction: 'positive', reason: 'Demand for threat prevention rises' },
+    { ticker: 'ZS', direction: 'positive', reason: 'Zero-trust architecture adoption grows' },
+    { ticker: 'FTNT', direction: 'positive', reason: 'Enterprise firewall solutions in demand' },
+  ],
+  shipping: [
+    { ticker: 'ZIM', direction: 'negative', reason: 'Route disruption reduces shipping volumes' },
+    { ticker: 'MATX', direction: 'negative', reason: 'Freight rates volatile on route changes' },
+    { ticker: 'FDX', direction: 'negative', reason: 'Supply chain delays impact logistics' },
+    { ticker: 'UPS', direction: 'negative', reason: 'Delivery network disruptions' },
+  ],
+  political: [
+    { ticker: 'EEM', direction: 'negative', reason: 'Emerging market risk premium rises' },
+    { ticker: 'GLD', direction: 'positive', reason: 'Political instability boosts safe havens' },
+    { ticker: 'DXY', direction: 'positive', reason: 'Dollar strengthens on uncertainty' },
+  ],
+  climate: [
+    { ticker: 'NEE', direction: 'positive', reason: 'Clean energy transition accelerates' },
+    { ticker: 'ENPH', direction: 'positive', reason: 'Solar adoption benefits from climate action' },
+    { ticker: 'XOM', direction: 'negative', reason: 'Fossil fuel demand faces headwinds' },
+  ],
+}
+
 /**
- * Fetch ticker impact for a specific event
+ * Synthesize ticker impacts from event metadata (client-side fallback).
+ * Used when the backend endpoint returns empty or fails.
+ */
+export function synthesizeTickerImpacts(event: GlobalEvent, limit: number = 15): TickerImpact[] {
+  const map = new Map<string, TickerImpact>()
+  const baseScore = event.market_impact_score ?? 30
+  const weight = event.threat_level === 'critical' ? 1.5 : event.threat_level === 'high' ? 1.2 : 1.0
+
+  // From category-specific tickers
+  const catTickers = CATEGORY_TICKERS[event.category] ?? []
+  catTickers.forEach(({ ticker, direction, reason }) => {
+    map.set(ticker, {
+      ticker,
+      impact_score: Math.min(95, Math.round(baseScore * weight)),
+      correlation_type: 'category',
+      confidence: event.threat_level === 'critical' ? 0.85 : event.threat_level === 'high' ? 0.75 : 0.65,
+      expected_direction: direction,
+      impact_reason: reason,
+    })
+  })
+
+  // From correlated sectors
+  ;(event.correlated_sectors ?? []).forEach((sector) => {
+    const tickers = SECTOR_TICKERS[sector.toLowerCase()] ?? []
+    tickers.forEach((ticker) => {
+      if (!map.has(ticker)) {
+        map.set(ticker, {
+          ticker,
+          impact_score: Math.min(80, Math.round(baseScore * weight * 0.8)),
+          correlation_type: 'sector',
+          confidence: 0.6,
+          expected_direction: 'neutral',
+          impact_reason: `Exposure via ${sector} sector`,
+        })
+      }
+    })
+  })
+
+  return Array.from(map.values())
+    .sort((a, b) => b.impact_score - a.impact_score)
+    .slice(0, limit)
+}
+
+/**
+ * Fetch ticker impact for a specific event.
+ * Falls back to client-side synthesis if the endpoint returns nothing.
  */
 export async function fetchTickerImpact(
   eventId: string,
-  limit: number = 20
+  limit: number = 20,
+  event?: GlobalEvent
 ): Promise<TickerImpact[]> {
-  const params = new URLSearchParams({ limit: limit.toString() })
-  
-  const response = await fetch(`${API_URL}/api/v1/monitor/ticker-impact/${eventId}?${params}`)
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch ticker impact')
+  try {
+    const params = new URLSearchParams({ limit: limit.toString() })
+    const response = await fetch(`${API_URL}/api/v1/monitor/ticker-impact/${eventId}?${params}`)
+
+    if (response.ok) {
+      const data: TickerImpact[] = await response.json()
+      if (data && data.length > 0) return data
+    }
+  } catch {
+    // Network error — fall through to synthesis
   }
-  
-  return response.json()
+
+  // Synthesize from event metadata if provided
+  if (event) {
+    return synthesizeTickerImpacts(event, limit)
+  }
+
+  return []
 }
 
 /**

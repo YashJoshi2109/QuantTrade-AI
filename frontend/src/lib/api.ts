@@ -3,6 +3,11 @@
  */
 
 import { getToken } from '@/lib/auth'
+import {
+  CONTINENT_NEWS_TICKERS,
+  getExchangeById,
+  type Continent,
+} from '@/lib/world-exchanges'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -287,15 +292,34 @@ export async function fetchBreakingMarketNews(
   }
 }
 
+export type LiveHeadlinesContext = {
+  continent?: Continent
+  exchangeId?: string | null
+}
+
 /**
- * Headlines for the dashboard: breaking feed and ETF headlines fetch in parallel,
- * then merge with breaking first so live tape stays full even if one source is slow.
+ * Headlines for the dashboard: breaking feed and regional / exchange ETF & index news,
+ * merged with breaking first so the tape stays full even if one source is slow.
  */
-export async function fetchLiveMarketHeadlines(limit: number = 10): Promise<NewsArticle[]> {
-  const [primary, spy, qqq] = await Promise.all([
+export async function fetchLiveMarketHeadlines(
+  limit: number = 10,
+  context?: LiveHeadlinesContext
+): Promise<NewsArticle[]> {
+  let tickers: string[] = ['SPY', 'QQQ', 'IWM']
+  if (context?.exchangeId) {
+    const ex = getExchangeById(context.exchangeId)
+    if (ex) {
+      const fromEx = [ex.mainIndex, ...ex.indices.map((i) => i.symbol)].filter(Boolean)
+      tickers = Array.from(new Set(fromEx)).slice(0, 6)
+    }
+  } else if (context?.continent && context.continent !== 'global') {
+    tickers = [...(CONTINENT_NEWS_TICKERS[context.continent] ?? CONTINENT_NEWS_TICKERS.global)]
+  }
+
+  const perTicker = Math.max(10, Math.ceil(limit * 0.6))
+  const [primary, ...regionalBatches] = await Promise.all([
     fetchBreakingMarketNews(limit),
-    fetchYFinanceNews('SPY', Math.max(limit, 12)),
-    fetchYFinanceNews('QQQ', Math.min(20, Math.max(8, Math.ceil(limit / 2)))),
+    ...tickers.slice(0, 5).map((t) => fetchYFinanceNews(t, perTicker)),
   ])
 
   const seen = new Set<string>()
@@ -312,7 +336,10 @@ export async function fetchLiveMarketHeadlines(limit: number = 10): Promise<News
   }
 
   pushUnique(primary)
-  if (out.length < limit) pushUnique([...spy, ...qqq])
+  for (const batch of regionalBatches) {
+    if (out.length >= limit) break
+    pushUnique(batch)
+  }
   return out
 }
 

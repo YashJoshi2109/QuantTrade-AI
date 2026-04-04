@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Radio, CircleDot, Settings2 } from 'lucide-react'
 import { fetchLiveMarketHeadlines } from '@/lib/api'
+import type { Continent } from '@/lib/world-exchanges'
 
 type LiveChannelId =
   | 'bloomberg'
@@ -100,13 +101,33 @@ const CHANNELS: LiveChannel[] = [
 
 const FALLBACK_HEADLINES = ['Market data loading…']
 
-export default function LiveNewsChannelPanel() {
-  const [activeId, setActiveId] = useState<LiveChannelId>('bloomberg')
+const DEFAULT_CHANNEL_BY_CONTINENT: Partial<Record<Continent, LiveChannelId>> = {
+  global: 'bloomberg',
+  americas: 'bloomberg',
+  europe: 'euronews',
+  asia: 'cgtn',
+  africa: 'aljazeera',
+  oceania: 'skynews',
+}
+
+export default function LiveNewsChannelPanel({ continent }: { continent?: Continent }) {
+  const defaultChannel =
+    (continent && DEFAULT_CHANNEL_BY_CONTINENT[continent]) || 'bloomberg'
+  const [activeId, setActiveId] = useState<LiveChannelId>(defaultChannel)
   const [streamError, setStreamError] = useState(false)
 
+  useEffect(() => {
+    setActiveId((continent && DEFAULT_CHANNEL_BY_CONTINENT[continent]) || 'bloomberg')
+  }, [continent])
+
+  const headlineContext = useMemo(
+    () => (continent ? { continent } : undefined),
+    [continent]
+  )
+
   const { data: breakingNews } = useQuery({
-    queryKey: ['breaking-market-news', 'liveHeadlines'],
-    queryFn: () => fetchLiveMarketHeadlines(25),
+    queryKey: ['breaking-market-news', 'liveHeadlines', continent ?? 'global'],
+    queryFn: () => fetchLiveMarketHeadlines(25, headlineContext),
     refetchInterval: 60_000,
     staleTime: 30_000,
     retry: 1,

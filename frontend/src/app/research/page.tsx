@@ -2,19 +2,148 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileResearch from '@/components/layout/MobileResearch'
 import Chart from '@/components/Chart'
 import LiveNews from '@/components/LiveNews'
-import { Sparkles, TrendingUp, TrendingDown, RefreshCw, Activity, AlertTriangle, BarChart3, Newspaper, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import {
+  Sparkles, TrendingUp, TrendingDown, RefreshCw, Activity, AlertTriangle,
+  BarChart3, Newspaper, Loader2, Globe, Building2, Users, ExternalLink,
+  DollarSign, Target, Info,
+} from 'lucide-react'
 import { fetchPrices, fetchIndicators, fetchFundamentals, syncSymbol, PriceBar, Indicators, FundamentalsData } from '@/lib/api'
 import TechnicalAnalysisGauge from '@/components/TechnicalAnalysisGauge'
 import KeyFactorsPanel from '@/components/KeyFactorsPanel'
 import FundamentalsPanel from '@/components/FundamentalsPanel'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
+import { QuoteActivityFlash } from '@/components/QuoteActivityFlash'
 import { SkeletonChart, SkeletonIndicators, SkeletonText, Skeleton } from '@/components/Skeleton'
+import type { TickerInfo } from '@/app/api/quotes/ticker/route'
+
+// ─── Global Ticker Info Panel ─────────────────────────────────────────────────
+function GlobalTickerInfoPanel({ symbol }: { symbol: string }) {
+  const { data: info, isLoading } = useQuery<TickerInfo>({
+    queryKey: ['tickerInfo', symbol],
+    queryFn: async () => {
+      const res = await fetch(`/api/quotes/ticker?symbol=${encodeURIComponent(symbol)}`)
+      if (!res.ok) throw new Error('Not found')
+      return res.json()
+    },
+    staleTime: 300_000,
+    retry: 1,
+  })
+
+  if (isLoading) {
+    return (
+      <div className="hud-panel p-4 col-span-12">
+        <div className="animate-pulse space-y-2">
+          <div className="h-4 bg-slate-800/60 rounded w-48" />
+          <div className="grid grid-cols-4 gap-3 mt-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-14 bg-slate-800/40 rounded-lg" />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!info || !info.name) return null
+
+  const isPositive = info.change_percent >= 0
+
+  const fmtBig = (n: number) => {
+    if (!n || !isFinite(n)) return '—'
+    if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`
+    if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`
+    if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`
+    return `$${formatNumber(n, 0)}`
+  }
+
+  const fmtPct = (n: number) => (n && isFinite(n) ? `${n.toFixed(2)}%` : '—')
+  const fmtNum = (n: number, d = 2) => (n && isFinite(n) ? formatNumber(n, d) : '—')
+
+  const recColor = (r: string) =>
+    r === 'buy' || r === 'strongBuy'
+      ? 'text-emerald-400 bg-emerald-500/10'
+      : r === 'sell' || r === 'strongSell'
+      ? 'text-red-400 bg-red-500/10'
+      : 'text-yellow-400 bg-yellow-500/10'
+
+  return (
+    <div className="col-span-12 hud-panel overflow-hidden">
+      {/* Company header */}
+      <div className="p-4 border-b border-slate-700/30 flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h3 className="text-base font-bold text-white">{info.name}</h3>
+            <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-800/60 text-slate-400 rounded">{info.exchange_display}</span>
+            <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-800/60 text-slate-400 rounded">{info.currency}</span>
+            {info.country && (
+              <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                <Globe className="w-3 h-3" />{info.country}
+              </span>
+            )}
+            {info.sector && (
+              <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                <Building2 className="w-3 h-3" />{info.sector}
+              </span>
+            )}
+            {info.recommendation && (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${recColor(info.recommendation)}`}>
+                {info.recommendation.replace('strong', 'Strong ').replace('Buy', 'Buy').replace('Sell', 'Sell')}
+                {info.analyst_count ? ` (${info.analyst_count})` : ''}
+              </span>
+            )}
+          </div>
+          {info.description && (
+            <p className="text-[11px] text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">{info.description}</p>
+          )}
+        </div>
+        {info.website && (
+          <a href={info.website} target="_blank" rel="noopener noreferrer"
+            className="shrink-0 p-2 rounded-lg border border-slate-700/60 text-slate-400 hover:text-white hover:border-[rgba(0,122,255,0.4)] transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        )}
+      </div>
+
+      {/* Key metrics grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 divide-x divide-y divide-slate-800/40">
+        {[
+          { label: 'Market Cap', value: fmtBig(info.market_cap) },
+          { label: 'Revenue', value: fmtBig(info.revenue) },
+          { label: 'Net Income', value: fmtBig(info.net_income) },
+          { label: 'Free Cash Flow', value: fmtBig(info.free_cash_flow) },
+          { label: 'P/E Ratio', value: fmtNum(info.pe_ratio) },
+          { label: 'Fwd P/E', value: fmtNum(info.forward_pe) },
+          { label: 'EPS', value: info.eps ? `$${fmtNum(info.eps)}` : '—' },
+          { label: 'Beta', value: fmtNum(info.beta) },
+          { label: '52W High', value: info.week_52_high ? `$${fmtNum(info.week_52_high)}` : '—' },
+          { label: '52W Low', value: info.week_52_low ? `$${fmtNum(info.week_52_low)}` : '—' },
+          { label: 'Avg Volume', value: info.avg_volume ? `${(info.avg_volume / 1e6).toFixed(1)}M` : '—' },
+          { label: 'Div Yield', value: fmtPct(info.dividend_yield) },
+          { label: 'P/B Ratio', value: fmtNum(info.price_to_book) },
+          { label: 'D/E Ratio', value: fmtNum(info.debt_to_equity) },
+          { label: 'ROE', value: fmtPct(info.return_on_equity) },
+          { label: 'Target Price', value: info.target_price ? `$${fmtNum(info.target_price)}` : '—', highlight: true },
+        ].map((m) => (
+          <div key={m.label} className="p-3 flex flex-col gap-0.5">
+            <span className="text-[9px] text-slate-500 uppercase tracking-wider">{m.label}</span>
+            <span className={`text-xs font-bold font-mono ${(m as { highlight?: boolean }).highlight ? 'text-[#007AFF]' : 'text-white'}`}>
+              {m.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function ResearchContent() {
   const searchParams = useSearchParams()
@@ -163,6 +292,9 @@ function ResearchContent() {
 
   const priceInfo = getPriceInfo()
   const isPositive = isNumber(priceInfo.percent) ? priceInfo.percent >= 0 : false
+  const quoteActivityFingerprint = Math.round(
+    ((priceInfo.price || 0) * 1000 + (priceInfo.percent || 0) * 10000) / 10
+  ) / 100
 
   const aiReport = {
     sentiment: indicators?.indicators?.rsi && indicators.indicators.rsi > 50 ? 'Bullish' : 'Neutral',
@@ -202,7 +334,7 @@ function ResearchContent() {
                       <span className="text-xs text-slate-500 font-mono px-2 py-0.5 bg-slate-800/50 rounded">NASDAQ</span>
                       {realtimeQuote && !quoteLoading && (
                         <div className="flex items-center gap-2">
-                          <div className="live-pulse" />
+                          <QuoteActivityFlash fingerprint={quoteActivityFingerprint} />
                           {priceInfo.dataSource && (
                             <span className="text-xs text-emerald-400 font-mono px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
                               {priceInfo.dataSource}
@@ -410,6 +542,9 @@ function ResearchContent() {
             />
           </div>
 
+          {/* Global Ticker Info (Yahoo Finance — works for all 53K+ stocks) */}
+          <GlobalTickerInfoPanel symbol={selectedSymbol} />
+
           {/* Live News Section */}
           <div className="col-span-12">
             <div className="hud-panel">
@@ -417,7 +552,7 @@ function ResearchContent() {
                 <Newspaper className="w-5 h-5 text-blue-400" />
                 <h3 className="font-bold text-white">{selectedSymbol} Live News</h3>
                 <span className="ml-auto text-xs text-slate-500 font-mono">REAL-TIME</span>
-                <div className="live-pulse" />
+                <QuoteActivityFlash fingerprint={quoteActivityFingerprint} />
               </div>
               <div className="p-4">
                 <LiveNews symbol={selectedSymbol} limit={8} showTitle={false} />

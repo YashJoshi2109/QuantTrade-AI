@@ -3,58 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Globe2, Activity, Zap, ShieldAlert, BarChart3, Wind } from 'lucide-react'
+import { CONTINENTS, filterGlobePointsForContinent, type Continent } from '@/lib/world-exchanges'
 
-type SignalType = 'exchange' | 'financial' | 'bank' | 'weather' | 'economic'
-
-interface FinancialPoint {
-  type: SignalType
-  name: string
-  lat: number
-  lng: number
-  color: string
-}
-
-const FINANCIAL_POINTS: FinancialPoint[] = [
-  // Stock Exchanges
-  { type: 'exchange', name: 'NYSE', lat: 40.7128, lng: -74.006, color: '#f59e0b' },
-  { type: 'exchange', name: 'NASDAQ', lat: 40.758, lng: -73.9855, color: '#f59e0b' },
-  { type: 'exchange', name: 'LSE', lat: 51.5074, lng: -0.1278, color: '#f59e0b' },
-  { type: 'exchange', name: 'TSE', lat: 35.6762, lng: 139.6503, color: '#f59e0b' },
-  { type: 'exchange', name: 'SSE', lat: 31.2304, lng: 121.4737, color: '#f59e0b' },
-  { type: 'exchange', name: 'HKEX', lat: 22.3193, lng: 114.1694, color: '#f59e0b' },
-  { type: 'exchange', name: 'Euronext', lat: 48.8566, lng: 2.3522, color: '#f59e0b' },
-  { type: 'exchange', name: 'BSE', lat: 19.076, lng: 72.8777, color: '#f59e0b' },
-
-  // Financial Centers
-  { type: 'financial', name: 'London', lat: 51.5074, lng: -0.1278, color: '#06b6d4' },
-  { type: 'financial', name: 'Singapore', lat: 1.3521, lng: 103.8198, color: '#06b6d4' },
-  { type: 'financial', name: 'Hong Kong', lat: 22.3193, lng: 114.1694, color: '#06b6d4' },
-  { type: 'financial', name: 'Zurich', lat: 47.3769, lng: 8.5417, color: '#06b6d4' },
-  { type: 'financial', name: 'Frankfurt', lat: 50.1109, lng: 8.6821, color: '#06b6d4' },
-  { type: 'financial', name: 'Dubai', lat: 25.2048, lng: 55.2708, color: '#06b6d4' },
-  { type: 'financial', name: 'Sydney', lat: -33.8688, lng: 151.2093, color: '#06b6d4' },
-
-  // Central Banks
-  { type: 'bank', name: 'Federal Reserve', lat: 38.8937, lng: -77.0465, color: '#3b82f6' },
-  { type: 'bank', name: 'ECB', lat: 50.1109, lng: 8.6821, color: '#3b82f6' },
-  { type: 'bank', name: 'Bank of Japan', lat: 35.6762, lng: 139.6503, color: '#3b82f6' },
-  { type: 'bank', name: 'Bank of England', lat: 51.5142, lng: -0.0931, color: '#3b82f6' },
-  { type: 'bank', name: 'PBoC', lat: 39.9042, lng: 116.4074, color: '#3b82f6' },
-  { type: 'bank', name: 'Swiss National Bank', lat: 46.948, lng: 7.4474, color: '#3b82f6' },
-
-  // Weather Alerts (simulated)
-  { type: 'weather', name: 'Hurricane Alert', lat: 25.7617, lng: -80.1918, color: '#ef4444' },
-  { type: 'weather', name: 'Typhoon Warning', lat: 14.5995, lng: 120.9842, color: '#ef4444' },
-  { type: 'weather', name: 'Flooding', lat: 51.5074, lng: -0.1278, color: '#ef4444' },
-
-  // Economic Centers
-  { type: 'economic', name: 'Silicon Valley', lat: 37.3861, lng: -122.0839, color: '#10b981' },
-  { type: 'economic', name: 'Shenzhen', lat: 22.5431, lng: 114.0579, color: '#10b981' },
-  { type: 'economic', name: 'Tel Aviv', lat: 32.0853, lng: 34.7818, color: '#10b981' },
-  { type: 'economic', name: 'Bangalore', lat: 12.9716, lng: 77.5946, color: '#10b981' },
-]
-
-export default function MiniWorldMonitorSnapshot() {
+export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { continent?: Continent }) {
   const globeRef = useRef<HTMLDivElement | null>(null)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -81,7 +32,11 @@ export default function MiniWorldMonitorSnapshot() {
         if (cancelled || !globeRef.current) return
 
         const Globe = mod.default
-        cleanup = initGlobe(globeRef.current, Globe)
+        cleanup = initGlobe(
+          globeRef.current,
+          Globe,
+          filterGlobePointsForContinent(continent).map(({ continents: _c, ...p }) => p)
+        )
       } catch (err) {
         console.error('Failed to load globe', err)
       }
@@ -95,44 +50,38 @@ export default function MiniWorldMonitorSnapshot() {
         cleanup()
       }
     }
-  }, [])
+  }, [continent])
 
   return (
-    <div className="hud-panel h-full flex flex-col relative overflow-hidden group">
+    <div className="group relative flex h-full min-h-0 flex-col overflow-hidden hud-panel">
       {/* Decorative glow background */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-500/10 via-sky-500/5 to-emerald-500/10" />
       <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-cyan-500/20 blur-[80px]" />
       <div className="pointer-events-none absolute -left-12 bottom-0 h-32 w-32 rounded-full bg-blue-500/10 blur-[60px]" />
 
-      {/* Header */}
-      <div className="relative z-10 flex items-center justify-between border-b border-slate-700/40 px-4 py-3 bg-slate-900/40 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="absolute inset-0 bg-cyan-500/20 blur-sm rounded-full animate-pulse"></div>
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900/90 border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
-              <Globe2 className="h-4 w-4 text-cyan-400" />
-            </div>
+      {/* Header — h-12 to align with dashboard watchlist / heatmap toolbars */}
+      <div className="relative z-10 flex h-12 shrink-0 items-center justify-between border-b border-slate-700/40 px-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-slate-900/90 shadow-md shadow-cyan-500/10">
+            <Globe2 className="h-4 w-4 text-cyan-400" />
           </div>
-          <div className="flex flex-col">
-            <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-              Global Insights
-              <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span>
-            </h3>
-            <span className="text-[10px] font-medium text-cyan-300/80 tracking-wide uppercase">
-              Live Market Intelligence
-            </span>
-          </div>
+          <h3 className="truncate text-sm font-bold tracking-tight text-white">
+            {continent === 'global' ? 'Global' : CONTINENTS.find((c) => c.id === continent)?.label}{' '}
+            Insights
+          </h3>
+          <span
+            className="hidden shrink-0 sm:inline h-2 w-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"
+            aria-hidden
+          />
         </div>
-        
-        {/* Mobile-friendly Stats Badge */}
-        <div className="hidden md:flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-800/50 border border-slate-700/50">
+        <div className="hidden items-center gap-1.5 rounded-md border border-slate-700/50 bg-slate-800/50 px-2 py-1 md:flex">
           <Activity className="h-3 w-3 text-emerald-400" />
-          <span className="text-[10px] font-mono text-emerald-300">ACTIVE</span>
+          <span className="text-[10px] font-mono text-emerald-300">MAP</span>
         </div>
       </div>
 
       {/* 3D Globe Container */}
-      <div className="relative z-10 flex-1 min-h-[280px] md:min-h-[auto] flex flex-col justify-center items-center py-4">
+      <div className="relative z-10 flex min-h-[240px] flex-1 flex-col items-center justify-center py-2 md:min-h-0 md:py-3">
         {/* Mobile Touch Overlay - Prevents scroll hijack on mobile */}
         {isMobile && (
           <div className="absolute inset-0 z-20 pointer-events-auto touch-pan-y" />
@@ -175,22 +124,27 @@ export default function MiniWorldMonitorSnapshot() {
       </div>
 
       {/* Key Metrics Grid - Mobile Optimized */}
-      <div className="relative z-10 grid grid-cols-3 gap-px bg-slate-700/30 border-t border-slate-700/40">
+      <div className="relative z-10 grid grid-cols-3 gap-px border-t border-slate-700/40 bg-slate-700/30">
         {[
           { label: 'Volatility', value: 'High', icon: Activity, color: 'text-orange-400' },
           { label: 'Sentiment', value: 'Bullish', icon: BarChart3, color: 'text-emerald-400' },
           { label: 'Weather', value: 'Clear', icon: Wind, color: 'text-sky-400' },
-        ].map((metric, i) => (
-          <div key={metric.label} className="flex flex-col items-center justify-center p-3 hover:bg-white/5 transition-colors group/metric">
-            <metric.icon className={`h-4 w-4 ${metric.color} mb-1 opacity-70 group-hover/metric:opacity-100 transition-opacity`} />
-            <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{metric.label}</span>
-            <span className={`text-xs font-bold text-slate-200 mt-0.5`}>{metric.value}</span>
+        ].map((metric) => (
+          <div
+            key={metric.label}
+            className="group/metric flex flex-col items-center justify-center p-2 transition-colors hover:bg-white/5 md:p-2.5"
+          >
+            <metric.icon
+              className={`mb-0.5 h-3.5 w-3.5 ${metric.color} opacity-70 transition-opacity group-hover/metric:opacity-100`}
+            />
+            <span className="text-[9px] font-medium uppercase tracking-wider text-slate-400">{metric.label}</span>
+            <span className="mt-0.5 text-[11px] font-bold text-slate-200">{metric.value}</span>
           </div>
         ))}
       </div>
 
       {/* Footer CTA */}
-      <div className="relative z-10 border-t border-slate-700/40 p-3 bg-slate-900/40 md:bg-transparent">
+      <div className="relative z-10 border-t border-slate-700/40 bg-slate-900/40 p-2 md:bg-transparent md:p-2.5">
         <Link
           href="/monitor"
           className="flex items-center justify-between gap-3 w-full group/btn p-1"
@@ -212,7 +166,11 @@ export default function MiniWorldMonitorSnapshot() {
   )
 }
 
-function initGlobe(container: HTMLDivElement, Globe: any) {
+function initGlobe(
+  container: HTMLDivElement,
+  Globe: any,
+  pointsData: { type: string; name: string; lat: number; lng: number; color: string }[]
+) {
   // Clear any existing canvas
   while (container.firstChild) {
     container.removeChild(container.firstChild)
@@ -231,7 +189,7 @@ function initGlobe(container: HTMLDivElement, Globe: any) {
     .atmosphereAltitude(0.15)
     
   // Add financial points
-  globe.pointsData(FINANCIAL_POINTS)
+  globe.pointsData(pointsData)
     .pointLat('lat')
     .pointLng('lng')
     .pointColor('color')

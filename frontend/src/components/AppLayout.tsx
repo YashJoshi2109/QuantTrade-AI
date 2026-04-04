@@ -22,6 +22,7 @@ import {
   X,
   Globe,
   Info,
+  Sparkles,
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
 import MarketTicker from './MarketTicker'
@@ -114,6 +115,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
   const { user, isAuthenticated, logout, isLoading: authLoading } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Symbol[]>([])
+  const [globalResults, setGlobalResults] = useState<Array<{ symbol: string; name: string; exchange_display: string; country: string }>>([])
   const [showResults, setShowResults] = useState(false)
   const [searching, setSearching] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -159,6 +161,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/' },
+    { id: 'copilot', label: 'AI Copilot', icon: Sparkles, href: '/copilot' },
     { id: 'monitor', label: 'Global Monitor', icon: Globe, href: '/monitor' },
     { id: 'markets', label: 'Markets', icon: TrendingUp, href: '/markets' },
     { id: 'watchlist', label: 'Watchlist', icon: Bookmark, href: '/watchlist' },
@@ -174,17 +177,33 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
       if (searchQuery.length >= 1) {
         setSearching(true)
         try {
-          const results = await fetchSymbols(searchQuery)
-          setSearchResults(results)
+          // Parallel: local DB + global Yahoo Finance search
+          const [localResults, globalRes] = await Promise.allSettled([
+            fetchSymbols(searchQuery),
+            fetch(`/api/search/global?q=${encodeURIComponent(searchQuery)}&limit=12`).then((r) =>
+              r.ok ? r.json() : []
+            ),
+          ])
+
+          const local = localResults.status === 'fulfilled' ? localResults.value : []
+          const global = globalRes.status === 'fulfilled' ? (globalRes.value as Array<{ symbol: string; name: string; exchange_display: string; country: string }>) : []
+
+          // Deduplicate global by symbols already in local
+          const localSymbols = new Set(local.map((s) => s.symbol.toUpperCase()))
+          const filteredGlobal = global.filter((g) => !localSymbols.has(g.symbol.toUpperCase()))
+
+          setSearchResults(local)
+          setGlobalResults(filteredGlobal)
           setShowResults(true)
-        } catch (error) {
-          console.error('Search error:', error)
+        } catch {
           setSearchResults([])
+          setGlobalResults([])
         } finally {
           setSearching(false)
         }
       } else {
         setSearchResults([])
+        setGlobalResults([])
         setShowResults(false)
       }
     }, 300)
@@ -275,25 +294,62 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
               </div>
 
               {/* Search Results Dropdown */}
-              {showResults && searchResults.length > 0 && (
+              {showResults && (searchResults.length > 0 || globalResults.length > 0) && (
                 <div className="absolute top-full left-0 right-0 mt-2 hud-card max-h-96 overflow-y-auto z-50">
-                  {searchResults.slice(0, 10).map((sym) => (
-                    <button
-                      key={sym.symbol}
-                      onClick={() => handleSymbolSelect(sym)}
-                      className="w-full flex items-center gap-3 p-3 hover:bg-slate-800/50 transition-colors text-left"
-                    >
-                      <div className="flex-1">
-                        <div className="font-bold text-white">{sym.symbol}</div>
-                        <div className="text-xs text-slate-400 truncate">{sym.name}</div>
+                  {/* Local DB results */}
+                  {searchResults.length > 0 && (
+                    <>
+                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-700/40">
+                        Your Database
                       </div>
-                      {sym.market_cap && (
-                        <div className="text-blue-400 font-mono text-sm">
-                          ${(sym.market_cap / 1e9).toFixed(1)}B
-                        </div>
-                      )}
-                    </button>
-                  ))}
+                      {searchResults.slice(0, 8).map((sym) => (
+                        <button
+                          key={sym.symbol}
+                          onClick={() => handleSymbolSelect(sym)}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-slate-800/50 transition-colors text-left"
+                        >
+                          <div className="flex-1">
+                            <div className="font-bold text-white text-sm">{sym.symbol}</div>
+                            <div className="text-xs text-slate-400 truncate">{sym.name}</div>
+                          </div>
+                          {sym.market_cap && (
+                            <div className="text-[#007AFF] font-mono text-xs">
+                              ${(sym.market_cap / 1e9).toFixed(1)}B
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {/* Global Yahoo Finance results */}
+                  {globalResults.length > 0 && (
+                    <>
+                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-y border-slate-700/40">
+                        Global Markets · {globalResults.length} results
+                      </div>
+                      {globalResults.slice(0, 8).map((g) => (
+                        <button
+                          key={`global-${g.symbol}`}
+                          onClick={() => {
+                            setShowResults(false)
+                            setSearchQuery('')
+                            syncSymbol(g.symbol).catch(() => {})
+                            router.push(`/research?symbol=${g.symbol}`)
+                          }}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-slate-800/50 transition-colors text-left"
+                        >
+                          <div className="flex-1">
+                            <div className="font-bold text-white text-sm">{g.symbol}</div>
+                            <div className="text-xs text-slate-400 truncate">{g.name}</div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-[10px] text-slate-500 font-mono">{g.exchange_display}</div>
+                            <div className="text-[9px] text-slate-600">{g.country}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
                 </div>
               )}
             </form>

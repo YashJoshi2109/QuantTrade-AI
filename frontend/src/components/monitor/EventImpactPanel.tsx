@@ -110,7 +110,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
 
   const { data: impacts, isLoading } = useQuery({
     queryKey: ['ticker-impact', event.event_id],
-    queryFn: () => fetchTickerImpact(event.event_id, 15),
+    queryFn: () => fetchTickerImpact(event.event_id, 15, event),
     enabled: !!event.event_id,
     staleTime: 30000,
     refetchInterval: 60000,

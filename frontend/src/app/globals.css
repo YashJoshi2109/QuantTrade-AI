@@ -4,12 +4,15 @@
 
 :root {
   --foreground-rgb: 255, 255, 255;
-  /* Use the same deep blue as the main app background to avoid color flicker on load/refresh */
-  --background-start-rgb: 10, 15, 26;
-  --background-end-rgb: 10, 15, 26;
-  --accent-blue: #3b82f6;
-  --accent-cyan: #06b6d4;
-  --accent-purple: #8b5cf6;
+  --background-start-rgb: 11, 14, 20;
+  --background-end-rgb: 11, 14, 20;
+  --accent-blue: #007AFF;
+  --accent-cyan: #007AFF;
+  --accent-brand: #007AFF;
+  --bg-primary: #0B0E14;
+  --bg-secondary: #101928;
+  --bg-tertiary: #0D1117;
+  --bg-card: #101928;
 }
 
 * {
@@ -22,7 +25,8 @@ html {
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
+  background: #0B0E14;
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
   font-feature-settings: "rlig" 1, "calt" 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -77,11 +81,11 @@ body {
 
 /* ===== Glow Effects ===== */
 .glow-blue {
-  box-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 30px rgba(0, 122, 255, 0.3);
 }
 
 .glow-cyan {
-  box-shadow: 0 0 30px rgba(6, 182, 212, 0.3);
+  box-shadow: 0 0 30px rgba(0, 122, 255, 0.25);
 }
 
 .glow-purple {
@@ -332,13 +336,12 @@ body {
 
 /* ===== Text Selection ===== */
 ::selection {
-  background: rgba(59, 130, 246, 0.3);
+  background: rgba(0, 122, 255, 0.3);
   color: white;
 }
 
-/* ===== Focus Visible ===== */
 :focus-visible {
-  outline: 2px solid var(--accent-blue);
+  outline: 2px solid #007AFF;
   outline-offset: 2px;
 }
 
@@ -360,10 +363,10 @@ body {
 
 /* HUD Panel - Main glass panel with tech borders */
 .hud-panel {
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%);
+  background: linear-gradient(135deg, rgba(13, 17, 23, 0.95) 0%, rgba(16, 25, 40, 0.9) 100%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(0, 122, 255, 0.15);
   border-radius: 16px;
   position: relative;
   overflow: hidden;
@@ -376,7 +379,7 @@ body {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.5), transparent);
+  background: linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.4), transparent);
 }
 
 .hud-panel::after {
@@ -386,31 +389,28 @@ body {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.3), transparent);
+  background: linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.2), transparent);
 }
 
 /* HUD Card - Smaller interactive elements */
 .hud-card {
-  background: linear-gradient(145deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+  background: linear-gradient(145deg, rgba(16, 25, 40, 0.8) 0%, rgba(13, 17, 23, 0.95) 100%);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(71, 85, 105, 0.3);
+  border: 1px solid rgba(71, 85, 105, 0.25);
   border-radius: 12px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
 
 .hud-card:hover {
-  border-color: rgba(59, 130, 246, 0.5);
-  box-shadow: 
-    0 0 30px rgba(59, 130, 246, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transform: translateY(-2px);
+  border-color: rgba(0, 122, 255, 0.4);
+  box-shadow: 0 0 20px rgba(0, 122, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 /* HUD Stat Box - For displaying metrics */
 .hud-stat {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(13, 17, 23, 0.7);
   border: 1px solid rgba(71, 85, 105, 0.2);
   border-radius: 8px;
   position: relative;
@@ -424,7 +424,7 @@ body {
   left: 0;
   width: 3px;
   height: 100%;
-  background: linear-gradient(180deg, #3b82f6, #06b6d4);
+  background: linear-gradient(180deg, #007AFF, #0066CC);
 }
 
 /* HUD Glow Line */
@@ -627,35 +627,28 @@ body {
   }
 }
 
-/* Live Indicator Pulse */
+/* Live pulse indicator */
 .live-pulse {
-  position: relative;
-}
-
-.live-pulse::before {
-  content: '';
-  position: absolute;
   width: 8px;
   height: 8px;
-  background: #22c55e;
   border-radius: 50%;
-  animation: live-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+  background: #22c55e;
+  position: relative;
+  flex-shrink: 0;
 }
 
 .live-pulse::after {
   content: '';
   position: absolute;
-  width: 8px;
-  height: 8px;
-  background: #22c55e;
+  inset: -2px;
   border-radius: 50%;
+  background: rgba(34, 197, 94, 0.4);
+  animation: pulse-ring 1.5s ease-out infinite;
 }
 
-@keyframes live-ping {
-  75%, 100% {
-    transform: scale(2);
-    opacity: 0;
-  }
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
 }
 
 /* Status Indicator Colors */
@@ -859,6 +852,32 @@ html {
 }
 
 .animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+.animate-marquee-slow {
+  animation: marquee 100s linear infinite;
+}
+
+.animate-marquee-slow:hover {
+  animation-play-state: paused;
+}
+
+/* Continent tabs — faster loop, duplicated row */
+@keyframes marquee-tabs {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-tabs {
+  animation: marquee-tabs 55s linear infinite;
+}
+
+.animate-marquee-tabs:hover {
   animation-play-state: paused;
 }
 
