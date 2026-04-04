@@ -159,7 +159,10 @@ class QuoteCacheService:
                 "range": "2d"
             }
             headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "application/json",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Referer": "https://finance.yahoo.com/",
             }
             
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -253,32 +256,114 @@ class QuoteCacheService:
         
         return None
     
+    async def _fetch_from_fmp(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Fetch quote from Financial Modeling Prep API (250 calls/day free)"""
+        fmp_key = settings.FMP_API_KEY
+        if not fmp_key:
+            return None
+        try:
+            url = f"https://financialmodelingprep.com/api/v3/quote/{symbol.upper()}?apikey={fmp_key}"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url)
+                data = response.json()
+            if not isinstance(data, list) or not data:
+                return None
+            q = data[0]
+            price = float(q.get('price') or 0)
+            if price <= 0:
+                return None
+            return {
+                "symbol": symbol.upper(),
+                "price": round(price, 2),
+                "change": round(float(q.get('change') or 0), 2),
+                "change_percent": round(float(q.get('changesPercentage') or 0), 4),
+                "volume": int(q.get('volume') or 0),
+                "high": round(float(q.get('dayHigh') or 0), 2),
+                "low": round(float(q.get('dayLow') or 0), 2),
+                "open": round(float(q.get('open') or 0), 2),
+                "previous_close": round(float(q.get('previousClose') or 0), 2),
+                "market_cap": q.get('marketCap'),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "data_source": "fmp",
+            }
+        except Exception as e:
+            print(f"FMP error for {symbol}: {e}")
+            return None
+
+    async def _fetch_from_twelve_data(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Fetch quote from Twelve Data API (800 credits/day free)"""
+        twelve_key = settings.TWELVEDATA_API_KEY
+        if not twelve_key:
+            return None
+        try:
+            url = f"https://api.twelvedata.com/quote?symbol={symbol}&apikey={twelve_key}"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url)
+                q = response.json()
+            if q.get('status') == 'error' or not q.get('close'):
+                return None
+            price = float(q.get('close') or 0)
+            prev = float(q.get('previous_close') or price)
+            if price <= 0:
+                return None
+            change = price - prev
+            change_pct = (change / prev * 100) if prev else 0
+            return {
+                "symbol": symbol.upper(),
+                "price": round(price, 2),
+                "change": round(change, 2),
+                "change_percent": round(change_pct, 4),
+                "volume": int(q.get('volume') or 0),
+                "high": round(float(q.get('high') or 0), 2),
+                "low": round(float(q.get('low') or 0), 2),
+                "open": round(float(q.get('open') or 0), 2),
+                "previous_close": round(prev, 2),
+                "market_cap": None,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "data_source": "twelve_data",
+            }
+        except Exception as e:
+            print(f"Twelve Data error for {symbol}: {e}")
+            return None
+
     async def _fetch_quote(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
         Fetch quote from providers with multiple fallbacks
-        
+
         Priority Order:
         1. Yahoo Finance direct API (primary - free, unlimited, real-time)
         2. yfinance library (fallback)
-        3. Finnhub API (if configured)
-        4. TradingView API (final fallback - ensures we always have data)
+        3. Financial Modeling Prep (250 calls/day)
+        4. Twelve Data (800 credits/day)
+        5. Finnhub API (if configured)
+        6. TradingView API (final fallback)
         """
-        # Try Yahoo Finance direct API first (primary source - free & unlimited)
+        # 1. Yahoo Finance direct API
         quote = await self._fetch_from_yahoo_direct(symbol)
         if quote and quote.get('price') and quote.get('price') > 0:
             return quote
-        
-        # Try yfinance library
+
+        # 2. yfinance library
         quote = await self._fetch_from_yfinance(symbol)
         if quote and quote.get('price') and quote.get('price') > 0:
             return quote
-        
-        # Fallback to Finnhub
+
+        # 3. Financial Modeling Prep
+        quote = await self._fetch_from_fmp(symbol)
+        if quote and quote.get('price') and quote.get('price') > 0:
+            return quote
+
+        # 4. Twelve Data
+        quote = await self._fetch_from_twelve_data(symbol)
+        if quote and quote.get('price') and quote.get('price') > 0:
+            return quote
+
+        # 5. Finnhub
         quote = await self._fetch_from_finnhub(symbol)
         if quote and quote.get('price') and quote.get('price') > 0:
             return quote
-        
-        # Final fallback: TradingView (ensures we have data even if others fail)
+
+        # 6. TradingView final fallback
         try:
             from app.services.tradingview_fetcher import TradingViewFetcher
             quote = await TradingViewFetcher.get_quote(symbol)
@@ -286,7 +371,7 @@ class QuoteCacheService:
                 return quote
         except Exception as e:
             print(f"TradingView fallback failed for {symbol}: {e}")
-        
+
         return None
     
     def _update_cache(self, symbol: str, data: Dict[str, Any], ttl: int) -> QuoteSnapshot:

@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     SEC_API_KEY: Optional[str] = None  # sec-api.io for SEC filings
     NEWSAPI_KEY: Optional[str] = None  # NewsAPI.org for real-time news
     TWELVEDATA_API_KEY: Optional[str] = None  # Twelve Data for real-time quotes (800 credits/day free)
+    FMP_API_KEY: Optional[str] = None         # Financial Modeling Prep — 250 calls/day
+    EODHD_API_KEY: Optional[str] = None       # EOD Historical Data — exchange info + EOD quotes
+    APILAYER_CURRENCY_KEY: Optional[str] = None  # ApiLayer currency exchange rates
+    MARKETSTACK_API_KEY: Optional[str] = None    # Marketstack global stock data
+    OPENFIGI_API_KEY: Optional[str] = None       # OpenFIGI real-time stock info
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     

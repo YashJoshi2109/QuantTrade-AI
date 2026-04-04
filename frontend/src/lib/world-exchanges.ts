@@ -551,6 +551,323 @@ export function filterGlobePointsForContinent(
   return points.filter((p) => p.continents.includes('global') || p.continents.includes(continent))
 }
 
+// ─── Exchange-specific stock lists for sector heatmap ────────────────────
+export interface ExchangeStock {
+  symbol: string   // Yahoo Finance / FMP symbol
+  name: string
+  sector: string
+}
+
+export const EXCHANGE_HEATMAP_STOCKS: Record<string, ExchangeStock[]> = {
+  // ── JSE (South Africa) ─────────────────────────────────────────────
+  jse: [
+    { symbol: 'SBK.JO', name: 'Standard Bank', sector: 'Financials' },
+    { symbol: 'FSR.JO', name: 'Firstrand', sector: 'Financials' },
+    { symbol: 'ABG.JO', name: 'Absa Group', sector: 'Financials' },
+    { symbol: 'NED.JO', name: 'Nedbank Group', sector: 'Financials' },
+    { symbol: 'DSY.JO', name: 'Discovery Ltd', sector: 'Financials' },
+    { symbol: 'AGL.JO', name: 'Anglo American Plat', sector: 'Materials' },
+    { symbol: 'GFI.JO', name: 'Gold Fields', sector: 'Materials' },
+    { symbol: 'AMS.JO', name: 'Anglo Platinum', sector: 'Materials' },
+    { symbol: 'HAR.JO', name: 'Harmony Gold', sector: 'Materials' },
+    { symbol: 'BHP.JO', name: 'BHP Group', sector: 'Materials' },
+    { symbol: 'SOL.JO', name: 'Sasol', sector: 'Energy' },
+    { symbol: 'NPN.JO', name: 'Naspers', sector: 'Technology' },
+    { symbol: 'PRX.JO', name: 'Prosus', sector: 'Technology' },
+    { symbol: 'SHP.JO', name: 'Shoprite Holdings', sector: 'Consumer Defensive' },
+    { symbol: 'TBS.JO', name: 'Tiger Brands', sector: 'Consumer Defensive' },
+    { symbol: 'MRP.JO', name: 'Mr Price Group', sector: 'Consumer Cyclical' },
+    { symbol: 'WHL.JO', name: 'Woolworths Holdings', sector: 'Consumer Cyclical' },
+    { symbol: 'VOD.JO', name: 'Vodacom Group', sector: 'Communication Services' },
+    { symbol: 'MTN.JO', name: 'MTN Group', sector: 'Communication Services' },
+    { symbol: 'LHC.JO', name: 'Life Healthcare', sector: 'Healthcare' },
+    { symbol: 'REM.JO', name: 'Remgro Ltd', sector: 'Industrials' },
+    { symbol: 'MNP.JO', name: 'Mondi PLC', sector: 'Materials' },
+  ],
+  // ── Tadawul (Saudi Arabia) ─────────────────────────────────────────
+  tadawul: [
+    { symbol: '2222.SR', name: 'Saudi Aramco', sector: 'Energy' },
+    { symbol: '2380.SR', name: 'Petro Rabigh', sector: 'Energy' },
+    { symbol: '2010.SR', name: 'SABIC', sector: 'Materials' },
+    { symbol: '2070.SR', name: 'SIPCHEM', sector: 'Materials' },
+    { symbol: '1120.SR', name: 'Al Rajhi Bank', sector: 'Financials' },
+    { symbol: '1180.SR', name: 'Saudi National Bank', sector: 'Financials' },
+    { symbol: '1050.SR', name: 'Saudi Fransi Bank', sector: 'Financials' },
+    { symbol: '1140.SR', name: 'Al Bilad Bank', sector: 'Financials' },
+    { symbol: '1020.SR', name: 'Bank AlJazira', sector: 'Financials' },
+    { symbol: '7010.SR', name: 'Saudi Telecom (STC)', sector: 'Communication Services' },
+    { symbol: '7040.SR', name: 'Mobily', sector: 'Communication Services' },
+    { symbol: '4009.SR', name: 'Mouwasat Medical', sector: 'Healthcare' },
+    { symbol: '4020.SR', name: 'Dar Al-Arkan', sector: 'Real Estate' },
+    { symbol: '4002.SR', name: 'National Industrialization', sector: 'Industrials' },
+  ],
+  // ── LSE (United Kingdom) ──────────────────────────────────────────
+  lse: [
+    { symbol: 'BP.L', name: 'BP PLC', sector: 'Energy' },
+    { symbol: 'SHEL.L', name: 'Shell PLC', sector: 'Energy' },
+    { symbol: 'BARC.L', name: 'Barclays PLC', sector: 'Financials' },
+    { symbol: 'LLOY.L', name: 'Lloyds Banking Group', sector: 'Financials' },
+    { symbol: 'NWG.L', name: 'NatWest Group', sector: 'Financials' },
+    { symbol: 'HSBA.L', name: 'HSBC Holdings', sector: 'Financials' },
+    { symbol: 'AZN.L', name: 'AstraZeneca', sector: 'Healthcare' },
+    { symbol: 'GSK.L', name: 'GSK PLC', sector: 'Healthcare' },
+    { symbol: 'AHT.L', name: 'Ashtead Group', sector: 'Industrials' },
+    { symbol: 'ULVR.L', name: 'Unilever', sector: 'Consumer Defensive' },
+    { symbol: 'DGE.L', name: 'Diageo', sector: 'Consumer Defensive' },
+    { symbol: 'RIO.L', name: 'Rio Tinto', sector: 'Materials' },
+    { symbol: 'GLEN.L', name: 'Glencore', sector: 'Materials' },
+    { symbol: 'AAL.L', name: 'Anglo American', sector: 'Materials' },
+    { symbol: 'VOD.L', name: 'Vodafone Group', sector: 'Communication Services' },
+    { symbol: 'BT-A.L', name: 'BT Group', sector: 'Communication Services' },
+    { symbol: 'SAGE.L', name: 'Sage Group', sector: 'Technology' },
+    { symbol: 'REL.L', name: 'RELX PLC', sector: 'Industrials' },
+    { symbol: 'BA.L', name: 'BAE Systems', sector: 'Industrials' },
+    { symbol: 'RR.L', name: 'Rolls-Royce Holdings', sector: 'Industrials' },
+  ],
+  // ── Frankfurt (Germany) ───────────────────────────────────────────
+  frankfurt: [
+    { symbol: 'SAP.DE', name: 'SAP SE', sector: 'Technology' },
+    { symbol: 'IFX.DE', name: 'Infineon Technologies', sector: 'Technology' },
+    { symbol: 'BMW.DE', name: 'BMW AG', sector: 'Consumer Cyclical' },
+    { symbol: 'MBG.DE', name: 'Mercedes-Benz Group', sector: 'Consumer Cyclical' },
+    { symbol: 'VOW3.DE', name: 'Volkswagen', sector: 'Consumer Cyclical' },
+    { symbol: 'MRK.DE', name: 'Merck KGaA', sector: 'Healthcare' },
+    { symbol: 'BAY.DE', name: 'Bayer AG', sector: 'Healthcare' },
+    { symbol: 'FRE.DE', name: 'Fresenius SE', sector: 'Healthcare' },
+    { symbol: 'DBK.DE', name: 'Deutsche Bank', sector: 'Financials' },
+    { symbol: 'ALV.DE', name: 'Allianz SE', sector: 'Financials' },
+    { symbol: 'MUV2.DE', name: 'Munich Re', sector: 'Financials' },
+    { symbol: 'SIE.DE', name: 'Siemens AG', sector: 'Industrials' },
+    { symbol: 'DTE.DE', name: 'Deutsche Telekom', sector: 'Communication Services' },
+    { symbol: 'BAS.DE', name: 'BASF SE', sector: 'Materials' },
+    { symbol: 'HEN3.DE', name: 'Henkel AG', sector: 'Consumer Defensive' },
+    { symbol: 'RWE.DE', name: 'RWE AG', sector: 'Utilities' },
+    { symbol: 'EON.DE', name: 'E.ON SE', sector: 'Utilities' },
+    { symbol: 'ADS.DE', name: 'Adidas AG', sector: 'Consumer Cyclical' },
+  ],
+  // ── Euronext Paris (France) ───────────────────────────────────────
+  euronext: [
+    { symbol: 'MC.PA', name: 'LVMH', sector: 'Consumer Cyclical' },
+    { symbol: 'TTE.PA', name: 'TotalEnergies', sector: 'Energy' },
+    { symbol: 'SAN.PA', name: 'Sanofi', sector: 'Healthcare' },
+    { symbol: 'AIR.PA', name: 'Airbus SE', sector: 'Industrials' },
+    { symbol: 'BNP.PA', name: 'BNP Paribas', sector: 'Financials' },
+    { symbol: 'ACA.PA', name: 'Credit Agricole', sector: 'Financials' },
+    { symbol: 'SG.PA', name: 'Societe Generale', sector: 'Financials' },
+    { symbol: 'OR.PA', name: "L'Oreal", sector: 'Consumer Defensive' },
+    { symbol: 'CAP.PA', name: 'Capgemini', sector: 'Technology' },
+    { symbol: 'DG.PA', name: 'Vinci SA', sector: 'Industrials' },
+    { symbol: 'AXA.PA', name: 'AXA', sector: 'Financials' },
+    { symbol: 'BN.PA', name: 'Danone SA', sector: 'Consumer Defensive' },
+    { symbol: 'VIE.PA', name: 'Veolia Environment', sector: 'Utilities' },
+  ],
+  // ── TSE (Japan) ───────────────────────────────────────────────────
+  tse: [
+    { symbol: '6758.T', name: 'Sony Group', sector: 'Technology' },
+    { symbol: '6861.T', name: 'Keyence Corp', sector: 'Technology' },
+    { symbol: '8035.T', name: 'Tokyo Electron', sector: 'Technology' },
+    { symbol: '9984.T', name: 'SoftBank Group', sector: 'Communication Services' },
+    { symbol: '7203.T', name: 'Toyota Motor', sector: 'Consumer Cyclical' },
+    { symbol: '7267.T', name: 'Honda Motor', sector: 'Consumer Cyclical' },
+    { symbol: '7269.T', name: 'Suzuki Motor', sector: 'Consumer Cyclical' },
+    { symbol: '8306.T', name: 'Mitsubishi UFJ', sector: 'Financials' },
+    { symbol: '8411.T', name: 'Mizuho Financial', sector: 'Financials' },
+    { symbol: '8316.T', name: 'Sumitomo Mitsui', sector: 'Financials' },
+    { symbol: '9983.T', name: 'Fast Retailing', sector: 'Consumer Cyclical' },
+    { symbol: '7974.T', name: 'Nintendo Co', sector: 'Communication Services' },
+    { symbol: '4519.T', name: 'Chugai Pharma', sector: 'Healthcare' },
+    { symbol: '4502.T', name: 'Takeda Pharma', sector: 'Healthcare' },
+    { symbol: '6301.T', name: 'Komatsu Ltd', sector: 'Industrials' },
+    { symbol: '6501.T', name: 'Hitachi Ltd', sector: 'Industrials' },
+  ],
+  // ── HKEX (Hong Kong) ─────────────────────────────────────────────
+  hkex: [
+    { symbol: '0700.HK', name: 'Tencent Holdings', sector: 'Technology' },
+    { symbol: '9988.HK', name: 'Alibaba Group', sector: 'Consumer Cyclical' },
+    { symbol: '0005.HK', name: 'HSBC Holdings', sector: 'Financials' },
+    { symbol: '0941.HK', name: 'China Mobile', sector: 'Communication Services' },
+    { symbol: '1299.HK', name: 'AIA Group', sector: 'Financials' },
+    { symbol: '0388.HK', name: 'HK Exchanges', sector: 'Financials' },
+    { symbol: '2318.HK', name: 'Ping An Insurance', sector: 'Financials' },
+    { symbol: '3690.HK', name: 'Meituan', sector: 'Consumer Cyclical' },
+    { symbol: '9618.HK', name: 'JD.com', sector: 'Consumer Cyclical' },
+    { symbol: '0939.HK', name: 'China Construction Bank', sector: 'Financials' },
+    { symbol: '0883.HK', name: 'CNOOC Ltd', sector: 'Energy' },
+    { symbol: '0027.HK', name: 'Galaxy Entertainment', sector: 'Consumer Cyclical' },
+    { symbol: '0762.HK', name: 'China Unicom', sector: 'Communication Services' },
+    { symbol: '2382.HK', name: 'Sunny Optical', sector: 'Technology' },
+  ],
+  // ── SSE (Shanghai/China) ──────────────────────────────────────────
+  sse: [
+    { symbol: '600519.SS', name: 'Kweichow Moutai', sector: 'Consumer Defensive' },
+    { symbol: '601318.SS', name: 'Ping An Insurance', sector: 'Financials' },
+    { symbol: '600036.SS', name: 'China Merchants Bank', sector: 'Financials' },
+    { symbol: '600900.SS', name: 'Yangtze Power', sector: 'Utilities' },
+    { symbol: '601857.SS', name: 'PetroChina', sector: 'Energy' },
+    { symbol: '600028.SS', name: 'Sinopec Corp', sector: 'Energy' },
+    { symbol: '601088.SS', name: 'China Shenhua Energy', sector: 'Energy' },
+    { symbol: '600276.SS', name: 'Hengrui Medicine', sector: 'Healthcare' },
+    { symbol: '601166.SS', name: 'Industrial Bank', sector: 'Financials' },
+    { symbol: '600809.SS', name: 'Shanxi Xinghuacun', sector: 'Consumer Defensive' },
+  ],
+  // ── NSE (India) ───────────────────────────────────────────────────
+  nse: [
+    { symbol: 'RELIANCE.NS', name: 'Reliance Industries', sector: 'Energy' },
+    { symbol: 'TCS.NS', name: 'Tata Consultancy', sector: 'Technology' },
+    { symbol: 'INFY.NS', name: 'Infosys', sector: 'Technology' },
+    { symbol: 'WIPRO.NS', name: 'Wipro Ltd', sector: 'Technology' },
+    { symbol: 'HCLTECH.NS', name: 'HCL Technologies', sector: 'Technology' },
+    { symbol: 'HDFCBANK.NS', name: 'HDFC Bank', sector: 'Financials' },
+    { symbol: 'ICICIBANK.NS', name: 'ICICI Bank', sector: 'Financials' },
+    { symbol: 'KOTAKBANK.NS', name: 'Kotak Mahindra Bank', sector: 'Financials' },
+    { symbol: 'AXISBANK.NS', name: 'Axis Bank', sector: 'Financials' },
+    { symbol: 'BAJFINANCE.NS', name: 'Bajaj Finance', sector: 'Financials' },
+    { symbol: 'HINDUNILVR.NS', name: 'Hindustan Unilever', sector: 'Consumer Defensive' },
+    { symbol: 'NESTLEIND.NS', name: 'Nestle India', sector: 'Consumer Defensive' },
+    { symbol: 'SUNPHARMA.NS', name: 'Sun Pharmaceutical', sector: 'Healthcare' },
+    { symbol: 'DRREDDY.NS', name: "Dr. Reddy's Labs", sector: 'Healthcare' },
+    { symbol: 'TATAMOTORS.NS', name: 'Tata Motors', sector: 'Consumer Cyclical' },
+    { symbol: 'MARUTI.NS', name: 'Maruti Suzuki', sector: 'Consumer Cyclical' },
+    { symbol: 'NTPC.NS', name: 'NTPC Ltd', sector: 'Utilities' },
+    { symbol: 'ONGC.NS', name: 'ONGC', sector: 'Energy' },
+  ],
+  // ── KRX (South Korea) ────────────────────────────────────────────
+  krx: [
+    { symbol: '005930.KS', name: 'Samsung Electronics', sector: 'Technology' },
+    { symbol: '000660.KS', name: 'SK Hynix', sector: 'Technology' },
+    { symbol: '035420.KS', name: 'Naver Corp', sector: 'Technology' },
+    { symbol: '035720.KS', name: 'Kakao Corp', sector: 'Technology' },
+    { symbol: '005380.KS', name: 'Hyundai Motor', sector: 'Consumer Cyclical' },
+    { symbol: '000270.KS', name: 'Kia Corp', sector: 'Consumer Cyclical' },
+    { symbol: '105560.KS', name: 'KB Financial Group', sector: 'Financials' },
+    { symbol: '055550.KS', name: 'Shinhan Financial', sector: 'Financials' },
+    { symbol: '207940.KS', name: 'Samsung Biologics', sector: 'Healthcare' },
+    { symbol: '068270.KS', name: 'Celltrion Inc', sector: 'Healthcare' },
+    { symbol: '034730.KS', name: 'SK Holdings', sector: 'Industrials' },
+    { symbol: '096770.KS', name: 'SK Innovation', sector: 'Energy' },
+    { symbol: '003550.KS', name: 'LG Corp', sector: 'Industrials' },
+  ],
+  // ── SGX (Singapore) ──────────────────────────────────────────────
+  sgx: [
+    { symbol: 'D05.SI', name: 'DBS Group Holdings', sector: 'Financials' },
+    { symbol: 'O39.SI', name: 'OCBC Bank', sector: 'Financials' },
+    { symbol: 'U11.SI', name: 'United Overseas Bank', sector: 'Financials' },
+    { symbol: 'Z74.SI', name: 'Singapore Telecom', sector: 'Communication Services' },
+    { symbol: 'C31.SI', name: 'CapitaLand Integrated', sector: 'Real Estate' },
+    { symbol: 'S63.SI', name: 'ST Engineering', sector: 'Industrials' },
+    { symbol: 'V03.SI', name: 'Venture Corp', sector: 'Technology' },
+    { symbol: 'F34.SI', name: 'Wilmar International', sector: 'Consumer Defensive' },
+    { symbol: 'G13.SI', name: 'Genting Singapore', sector: 'Consumer Cyclical' },
+    { symbol: 'BS6.SI', name: 'Yangzijiang Shipbuilding', sector: 'Industrials' },
+  ],
+  // ── ASX (Australia) ───────────────────────────────────────────────
+  asx: [
+    { symbol: 'BHP.AX', name: 'BHP Group', sector: 'Materials' },
+    { symbol: 'RIO.AX', name: 'Rio Tinto', sector: 'Materials' },
+    { symbol: 'FMG.AX', name: 'Fortescue Metals', sector: 'Materials' },
+    { symbol: 'NCM.AX', name: 'Newcrest Mining', sector: 'Materials' },
+    { symbol: 'CBA.AX', name: 'Commonwealth Bank', sector: 'Financials' },
+    { symbol: 'NAB.AX', name: 'National Australia Bank', sector: 'Financials' },
+    { symbol: 'WBC.AX', name: 'Westpac Banking', sector: 'Financials' },
+    { symbol: 'ANZ.AX', name: 'ANZ Group Holdings', sector: 'Financials' },
+    { symbol: 'MQG.AX', name: 'Macquarie Group', sector: 'Financials' },
+    { symbol: 'CSL.AX', name: 'CSL Limited', sector: 'Healthcare' },
+    { symbol: 'RMD.AX', name: 'ResMed Inc', sector: 'Healthcare' },
+    { symbol: 'WES.AX', name: 'Wesfarmers', sector: 'Consumer Cyclical' },
+    { symbol: 'WOW.AX', name: 'Woolworths Group', sector: 'Consumer Defensive' },
+    { symbol: 'COL.AX', name: 'Coles Group', sector: 'Consumer Defensive' },
+    { symbol: 'GMG.AX', name: 'Goodman Group', sector: 'Real Estate' },
+    { symbol: 'XRO.AX', name: 'Xero Limited', sector: 'Technology' },
+  ],
+  // ── TSX (Canada) ──────────────────────────────────────────────────
+  tsx: [
+    { symbol: 'RY.TO', name: 'Royal Bank of Canada', sector: 'Financials' },
+    { symbol: 'TD.TO', name: 'Toronto-Dominion Bank', sector: 'Financials' },
+    { symbol: 'BNS.TO', name: 'Bank of Nova Scotia', sector: 'Financials' },
+    { symbol: 'BAM.TO', name: 'Brookfield Asset Mgmt', sector: 'Financials' },
+    { symbol: 'MFC.TO', name: 'Manulife Financial', sector: 'Financials' },
+    { symbol: 'CNQ.TO', name: 'Canadian Natural Resources', sector: 'Energy' },
+    { symbol: 'SU.TO', name: 'Suncor Energy', sector: 'Energy' },
+    { symbol: 'ENB.TO', name: 'Enbridge Inc', sector: 'Energy' },
+    { symbol: 'ABX.TO', name: 'Barrick Gold', sector: 'Materials' },
+    { symbol: 'NTR.TO', name: 'Nutrien Ltd', sector: 'Materials' },
+    { symbol: 'CNR.TO', name: 'Canadian National Railway', sector: 'Industrials' },
+    { symbol: 'CP.TO', name: 'Canadian Pacific Kansas City', sector: 'Industrials' },
+    { symbol: 'BCE.TO', name: 'BCE Inc', sector: 'Communication Services' },
+    { symbol: 'TRI.TO', name: 'Thomson Reuters', sector: 'Industrials' },
+    { symbol: 'SHOP.TO', name: 'Shopify Inc', sector: 'Technology' },
+  ],
+  // ── B3 (Brazil) ───────────────────────────────────────────────────
+  b3: [
+    { symbol: 'PETR4.SA', name: 'Petrobras PN', sector: 'Energy' },
+    { symbol: 'VALE3.SA', name: 'Vale SA', sector: 'Materials' },
+    { symbol: 'ITUB4.SA', name: 'Itau Unibanco PN', sector: 'Financials' },
+    { symbol: 'BBDC4.SA', name: 'Bradesco PN', sector: 'Financials' },
+    { symbol: 'BBAS3.SA', name: 'Banco do Brasil', sector: 'Financials' },
+    { symbol: 'WEGE3.SA', name: 'WEG SA', sector: 'Industrials' },
+    { symbol: 'ABEV3.SA', name: 'Ambev SA', sector: 'Consumer Defensive' },
+    { symbol: 'RENT3.SA', name: 'Localiza Rent a Car', sector: 'Consumer Cyclical' },
+    { symbol: 'GGBR4.SA', name: 'Gerdau SA', sector: 'Materials' },
+    { symbol: 'MGLU3.SA', name: 'Magazine Luiza', sector: 'Consumer Cyclical' },
+  ],
+  // ── NYSE (fallback — US movers shown via S&P500 in global view) ───
+  nyse: [],
+  nasdaq: [],
+  // ── Euronext Amsterdam ────────────────────────────────────────────
+  amsterdam: [
+    { symbol: 'ASML.AS', name: 'ASML Holding', sector: 'Technology' },
+    { symbol: 'HEIA.AS', name: 'Heineken NV', sector: 'Consumer Defensive' },
+    { symbol: 'PHIA.AS', name: 'Philips NV', sector: 'Healthcare' },
+    { symbol: 'INGA.AS', name: 'ING Group', sector: 'Financials' },
+    { symbol: 'ABN.AS', name: 'ABN AMRO', sector: 'Financials' },
+    { symbol: 'REN.AS', name: 'RELX NV', sector: 'Industrials' },
+    { symbol: 'WKL.AS', name: 'Wolters Kluwer', sector: 'Industrials' },
+  ],
+  // ── SIX Swiss Exchange ────────────────────────────────────────────
+  six: [
+    { symbol: 'NESN.SW', name: 'Nestle SA', sector: 'Consumer Defensive' },
+    { symbol: 'ROG.SW', name: 'Roche Holding', sector: 'Healthcare' },
+    { symbol: 'NOVN.SW', name: 'Novartis AG', sector: 'Healthcare' },
+    { symbol: 'ABBN.SW', name: 'ABB Ltd', sector: 'Industrials' },
+    { symbol: 'ZURN.SW', name: 'Zurich Insurance', sector: 'Financials' },
+    { symbol: 'CSGN.SW', name: 'Credit Suisse Group', sector: 'Financials' },
+    { symbol: 'UBSG.SW', name: 'UBS Group AG', sector: 'Financials' },
+    { symbol: 'SIKA.SW', name: 'Sika AG', sector: 'Materials' },
+    { symbol: 'LONN.SW', name: 'Lonza Group', sector: 'Healthcare' },
+  ],
+  // ── NZX (New Zealand) ────────────────────────────────────────────
+  nzx: [
+    { symbol: 'FPH.NZ', name: 'Fisher & Paykel Healthcare', sector: 'Healthcare' },
+    { symbol: 'ATM.NZ', name: 'a2 Milk Company', sector: 'Consumer Defensive' },
+    { symbol: 'MFT.NZ', name: 'Mainfreight Ltd', sector: 'Industrials' },
+    { symbol: 'MEL.NZ', name: 'Meridian Energy', sector: 'Utilities' },
+    { symbol: 'CEN.NZ', name: 'Contact Energy', sector: 'Utilities' },
+    { symbol: 'AIR.NZ', name: 'Air New Zealand', sector: 'Industrials' },
+    { symbol: 'SCL.NZ', name: 'Scales Corp', sector: 'Consumer Defensive' },
+  ],
+}
+
+// ─── Get stocks for a specific exchange ───────────────────────────────────
+export function getExchangeStocks(exchangeId: string): ExchangeStock[] {
+  return EXCHANGE_HEATMAP_STOCKS[exchangeId] ?? []
+}
+
+// ─── Get all stocks for a continent (combined from all exchanges) ──────────
+export function getContinentStocks(continent: Continent): ExchangeStock[] {
+  const exchanges = getExchangesByContinent(continent)
+  const seen = new Set<string>()
+  const out: ExchangeStock[] = []
+  for (const ex of exchanges) {
+    for (const stock of EXCHANGE_HEATMAP_STOCKS[ex.id] ?? []) {
+      if (!seen.has(stock.symbol)) {
+        seen.add(stock.symbol)
+        out.push(stock)
+      }
+    }
+  }
+  return out
+}
+
 // Currencies available for price display
 export const DISPLAY_CURRENCIES = [
   { code: 'USD', symbol: '$', name: 'US Dollar', flag: '🇺🇸' },

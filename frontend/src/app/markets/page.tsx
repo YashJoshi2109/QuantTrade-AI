@@ -33,6 +33,7 @@ import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import Link from 'next/link'
 import { CONTINENTS, DISPLAY_CURRENCIES, type Continent } from '@/lib/world-exchanges'
 import type { IndexQuote } from '@/app/api/quotes/indices/route'
+import type { ExchangeSector } from '@/app/api/exchange/heatmap/route'
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 function useWorldIndices(continent: Continent) {
@@ -68,6 +69,22 @@ function useContinentMovers(continent: Continent) {
     },
     refetchInterval: 120_000,
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  })
+}
+
+function useExchangeHeatmap(continent: Continent) {
+  return useQuery({
+    queryKey: ['exchangeHeatmap', continent],
+    queryFn: async (): Promise<{ sectors: ExchangeSector[]; exchangeLabel: string }> => {
+      if (continent === 'global') return { sectors: [], exchangeLabel: 'Global' }
+      const res = await fetch(`/api/exchange/heatmap?continent=${continent}`)
+      if (!res.ok) return { sectors: [], exchangeLabel: continent }
+      return res.json()
+    },
+    enabled: continent !== 'global',
+    refetchInterval: 180_000,
+    staleTime: 120_000,
     placeholderData: keepPreviousData,
   })
 }
@@ -219,6 +236,88 @@ function WorldIndicesGrid({ continent, currency, rates }: { continent: Continent
           </Link>
         )
       })}
+    </div>
+  )
+}
+
+// ─── Exchange Sector Heatmap ───────────────────────────────────────────────
+function getHeatColor(pct: number): string {
+  if (pct >= 3) return '#166534'
+  if (pct >= 2) return '#15803d'
+  if (pct >= 1) return '#16a34a'
+  if (pct >= 0.5) return '#22c55e'
+  if (pct > 0) return '#4ade80'
+  if (pct >= -0.5) return '#f87171'
+  if (pct >= -1) return '#ef4444'
+  if (pct >= -2) return '#dc2626'
+  if (pct >= -3) return '#b91c1c'
+  return '#7f1d1d'
+}
+
+function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
+  const { data, isLoading } = useExchangeHeatmap(continent)
+  const sectors = data?.sectors ?? []
+
+  if (isLoading) {
+    return (
+      <div className="hud-panel p-4 sm:p-6 mb-6">
+        <div className="h-6 w-48 bg-slate-800/60 rounded animate-pulse mb-4" />
+        <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-8 gap-1">
+          {Array.from({ length: 24 }).map((_, i) => (
+            <div key={i} className="h-14 rounded bg-slate-800/40 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (!sectors.length) return null
+
+  return (
+    <div className="hud-panel p-4 sm:p-6 mb-6">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <h2 className="text-base font-bold text-white flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-blue-400" />
+          Sector Heatmap — {CONTINENTS.find((c) => c.id === continent)?.label}
+        </h2>
+        <div className="flex items-center gap-3 text-[11px] text-slate-400">
+          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-[#15803d]" /> Up</span>
+          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-[#dc2626]" /> Down</span>
+        </div>
+      </div>
+      <div className="space-y-4">
+        {sectors.map((sector) => (
+          <div key={sector.sector} className="border border-slate-700/40 rounded-lg overflow-hidden">
+            <div className={`px-3 py-2 flex items-center justify-between ${sector.change_percent >= 0 ? 'bg-emerald-900/20' : 'bg-red-900/20'}`}>
+              <span className="font-bold text-white text-sm">{sector.sector}</span>
+              <span className={`font-mono font-bold text-sm ${sector.change_percent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {sector.change_percent >= 0 ? '+' : ''}{sector.change_percent.toFixed(2)}%
+              </span>
+            </div>
+            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-px bg-slate-900 p-px">
+              {sector.stocks.map((stock) => (
+                <Link
+                  key={stock.symbol}
+                  href={`/research?symbol=${stock.symbol}`}
+                  title={`${stock.name}\n${stock.currency} ${stock.price.toFixed(2)}\n${stock.change_percent >= 0 ? '+' : ''}${stock.change_percent.toFixed(2)}%`}
+                  className="p-2 flex flex-col items-center justify-center border border-white/5 hover:brightness-110 hover:scale-[1.02] transition-all cursor-pointer"
+                  style={{ backgroundColor: getHeatColor(stock.change_percent) }}
+                >
+                  <span className="font-bold text-white text-[10px] truncate w-full text-center leading-tight">
+                    {stock.symbol.replace(/\.(JO|SR|L|DE|PA|AS|SW|T|HK|SS|NS|KS|SI|AX|TO|SA|NZ)$/i, '')}
+                  </span>
+                  <span className="text-white/90 text-[9px] font-mono">
+                    {stock.change_percent >= 0 ? '+' : ''}{stock.change_percent.toFixed(1)}%
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-center text-[10px] text-slate-500 mt-3">
+        Click any stock for detailed analysis · Powered by live market data
+      </p>
     </div>
   )
 }
@@ -451,21 +550,26 @@ function DesktopMarketsPage() {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, delay: 0.05 }}
-            className="mb-6"
           >
-            <div className="hud-panel p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-blue-400" />
-                  1-Day performance — {CONTINENTS.find((c) => c.id === activeContinent)?.label}
-                </h2>
-                <QuoteActivityFlash fingerprint={marketsActivityFingerprint} />
+            {/* Exchange-specific sector heatmap */}
+            <ExchangeSectorHeatmap continent={activeContinent} />
+
+            {/* Movers-based quick heatmap (fallback / supplement if sector data empty) */}
+            {regionalHeatRowsMarkets.length > 0 && (
+              <div className="hud-panel p-4 sm:p-6 mb-6">
+                <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+                  <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-cyan-400" />
+                    1-Day Movers Map — {CONTINENTS.find((c) => c.id === activeContinent)?.label}
+                  </h2>
+                  <QuoteActivityFlash fingerprint={marketsActivityFingerprint} />
+                </div>
+                <MoversHeatmap
+                  rows={regionalHeatRowsMarkets}
+                  emptyLabel="No regional movers for this view yet"
+                />
               </div>
-              <MoversHeatmap
-                rows={regionalHeatRowsMarkets}
-                emptyLabel="No regional movers for this view yet"
-              />
-            </div>
+            )}
           </motion.div>
         )}
 
