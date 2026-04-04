@@ -60,6 +60,13 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=https://www.quanttrade.us
+      # Stock market data API keys (server-side Next.js routes)
+      - FMP_API_KEY=${FMP_API_KEY:-}
+      - TWELVE_DATA_API_KEY=${TWELVEDATA_API_KEY:-}
+      - EODHD_API_KEY=${EODHD_API_KEY:-}
+      - APILAYER_CURRENCY_KEY=${APILAYER_CURRENCY_KEY:-}
+      - MARKETSTACK_API_KEY=${MARKETSTACK_API_KEY:-}
+      - OPENFIGI_API_KEY=${OPENFIGI_API_KEY:-}
     healthcheck:
       test: ["CMD-SHELL", "node -e \"const http = require('http'); http.get('http://localhost:3000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
       interval: 30s
@@ -88,7 +95,16 @@ services:
       - ALLOWED_ORIGINS=https://www.quanttrade.us,https://quanttrade.us
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      # Global Monitor API Keys (loaded from .env)
+      # ── Stock Market Data APIs ──────────────────────────────────────
+      - FMP_API_KEY=${FMP_API_KEY:-}
+      - TWELVEDATA_API_KEY=${TWELVEDATA_API_KEY:-}
+      - EODHD_API_KEY=${EODHD_API_KEY:-}
+      - MARKETSTACK_API_KEY=${MARKETSTACK_API_KEY:-}
+      - OPENFIGI_API_KEY=${OPENFIGI_API_KEY:-}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY:-}
+      - SEC_API_KEY=${SEC_API_KEY:-}
+      # ── Global Monitor API Keys ─────────────────────────────────────
       - GUARDIAN_API_KEY=${GUARDIAN_API_KEY:-test}
       - ACLED_API_KEY=${ACLED_API_KEY:-}
       - ACLED_EMAIL=${ACLED_EMAIL:-}
