@@ -23,6 +23,16 @@ import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { QuoteActivityFlash } from '@/components/QuoteActivityFlash'
 import { SkeletonChart, SkeletonIndicators, SkeletonText, Skeleton } from '@/components/Skeleton'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
+import {
+  FinnhubQuotePanel,
+  BasicFinancialsPanel,
+  RecommendationTrendsPanel,
+  InsiderTransactionsPanel,
+  CompanyNewsPanel,
+  SECFilingsPanel,
+  IPOCalendarPanel,
+  CountryMetadataPanel,
+} from '@/components/FinnhubPanels'
 
 // ─── Global Ticker Info Panel ─────────────────────────────────────────────────
 function GlobalTickerInfoPanel({ symbol }: { symbol: string }) {
@@ -156,6 +166,9 @@ function ResearchContent() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [finnhubTab, setFinnhubTab] = useState<
+    'quote' | 'financials' | 'recommendations' | 'insider' | 'news' | 'sec' | 'ipo' | 'country'
+  >('financials')
 
   // Real-time quote with HIGH PRIORITY for research page and 5-second updates
   const { data: realtimeQuote, isLoading: quoteLoading } = useRealtimeQuote({ 
@@ -556,6 +569,50 @@ function ResearchContent() {
               </div>
               <div className="p-4">
                 <LiveNews symbol={selectedSymbol} limit={8} showTitle={false} />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Finnhub Data Section ─────────────────────────────────────────── */}
+          <div className="col-span-12">
+            <div className="hud-panel">
+              {/* Tab bar */}
+              <div className="p-3 border-b border-blue-500/10 flex items-center gap-1 overflow-x-auto">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mr-2 shrink-0">Finnhub</span>
+                {([
+                  { id: 'financials', label: 'Basic Financials' },
+                  { id: 'quote', label: 'Quote' },
+                  { id: 'recommendations', label: 'Analyst Recs' },
+                  { id: 'insider', label: 'Insider Txn' },
+                  { id: 'news', label: 'Company News' },
+                  { id: 'sec', label: 'SEC Filings' },
+                  { id: 'ipo', label: 'IPO Calendar' },
+                  { id: 'country', label: 'Country Data' },
+                ] as const).map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setFinnhubTab(tab.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors ${
+                      finnhubTab === tab.id
+                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Panel content */}
+              <div className="min-h-[320px]">
+                {finnhubTab === 'quote' && <FinnhubQuotePanel symbol={selectedSymbol} />}
+                {finnhubTab === 'financials' && <BasicFinancialsPanel symbol={selectedSymbol} />}
+                {finnhubTab === 'recommendations' && <RecommendationTrendsPanel symbol={selectedSymbol} />}
+                {finnhubTab === 'insider' && <InsiderTransactionsPanel symbol={selectedSymbol} />}
+                {finnhubTab === 'news' && <CompanyNewsPanel symbol={selectedSymbol} />}
+                {finnhubTab === 'sec' && <SECFilingsPanel symbol={selectedSymbol} />}
+                {finnhubTab === 'ipo' && <IPOCalendarPanel />}
+                {finnhubTab === 'country' && <CountryMetadataPanel />}
               </div>
             </div>
           </div>

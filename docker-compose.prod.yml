@@ -67,6 +67,7 @@ services:
       - APILAYER_CURRENCY_KEY=${APILAYER_CURRENCY_KEY:-}
       - MARKETSTACK_API_KEY=${MARKETSTACK_API_KEY:-}
       - OPENFIGI_API_KEY=${OPENFIGI_API_KEY:-}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
     healthcheck:
       test: ["CMD-SHELL", "node -e \"const http = require('http'); http.get('http://localhost:3000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
       interval: 30s
