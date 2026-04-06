@@ -1,4 +1,6 @@
 
+# Production stack: expects a host file `.env` next to this compose file (e.g. /opt/quanttrade/.env).
+# Do not put secrets in the image — use env_file + environment below. See deploy/.env.production.template.
 
 services:
   nginx:
