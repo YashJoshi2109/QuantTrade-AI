@@ -143,6 +143,7 @@ console.log(`Market Cap: ${fundamentals.market_cap}`);
 - **Health Check**: http://localhost:8000/health
 - **Full Documentation**: `ENHANCED_FEATURES.md`
 - **Summary**: `IMPLEMENTATION_SUMMARY.md`
+- **Contributing (PRs, Code Scanning, signed commits)**: [`CONTRIBUTING.md`](../CONTRIBUTING.md) at the repo root
 
 ## 📞 Need Help?
 

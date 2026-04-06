@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime, timedelta
 import jwt
 import bcrypt
@@ -546,6 +546,15 @@ _passkey_challenges: Dict[str, Tuple[str, _Opt[int], float]] = {}
 _CHALLENGE_TTL = 300  # 5 minutes
 
 
+def _webauthn_expected_origins() -> List[str]:
+    """Origins allowed in clientDataJSON.origin (must match browser page origin)."""
+    raw = (getattr(settings, "WEBAUTHN_ORIGINS", None) or "").strip()
+    if raw:
+        return [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+    single = (settings.WEBAUTHN_ORIGIN or "").strip().rstrip("/")
+    return [single] if single else ["http://localhost:3000"]
+
+
 def _b64url(data: bytes) -> str:
     return _base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
@@ -590,8 +599,14 @@ class PasskeyAuthVerifyRequest(BaseModel):
 
 
 @router.post("/passkey/register/challenge")
-async def passkey_register_challenge(req: PasskeyRegisterChallengeRequest, db: Session = Depends(get_db)):
-    """Generate a WebAuthn registration challenge for an authenticated user."""
+async def passkey_register_challenge(
+    req: PasskeyRegisterChallengeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_auth),
+):
+    """Generate a WebAuthn registration challenge for the signed-in user."""
+    if req.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Cannot register a passkey for another account")
     user = db.query(User).filter(User.id == req.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -615,10 +630,14 @@ async def passkey_register_challenge(req: PasskeyRegisterChallengeRequest, db: S
 
 
 @router.post("/passkey/register/verify")
-async def passkey_register_verify(req: PasskeyRegisterVerifyRequest, db: Session = Depends(get_db)):
+async def passkey_register_verify(
+    req: PasskeyRegisterVerifyRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_auth),
+):
     """Verify WebAuthn attestation and persist the passkey credential."""
     if not WEBAUTHN_AVAILABLE:
-        raise HTTPException(status_code=503, detail="WebAuthn library not installed. Run: pip install py_webauthn")
+        raise HTTPException(status_code=503, detail="WebAuthn library not installed. Run: pip install webauthn")
 
     entry = _passkey_challenges.get(req.session_token)
     if not entry or _time.time() > entry[2]:
@@ -629,6 +648,9 @@ async def passkey_register_verify(req: PasskeyRegisterVerifyRequest, db: Session
 
     if not user_id:
         raise HTTPException(status_code=400, detail="No user_id associated with this challenge")
+
+    if user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Challenge does not match the signed-in user")
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -655,7 +677,7 @@ async def passkey_register_verify(req: PasskeyRegisterVerifyRequest, db: Session
             credential=credential,
             expected_challenge=_b64url_decode(challenge_b64),
             expected_rp_id=settings.WEBAUTHN_RP_ID,
-            expected_origin=settings.WEBAUTHN_ORIGIN,
+            expected_origin=_webauthn_expected_origins(),
             require_user_verification=True,
         )
 
@@ -700,7 +722,7 @@ async def passkey_auth_challenge():
 async def passkey_auth_verify(req: PasskeyAuthVerifyRequest, db: Session = Depends(get_db)):
     """Verify WebAuthn assertion and return a JWT if valid."""
     if not WEBAUTHN_AVAILABLE:
-        raise HTTPException(status_code=503, detail="WebAuthn library not installed. Run: pip install py_webauthn")
+        raise HTTPException(status_code=503, detail="WebAuthn library not installed. Run: pip install webauthn")
 
     entry = _passkey_challenges.get(req.session_token)
     if not entry or _time.time() > entry[2]:
@@ -738,7 +760,7 @@ async def passkey_auth_verify(req: PasskeyAuthVerifyRequest, db: Session = Depen
             credential=credential,
             expected_challenge=_b64url_decode(challenge_b64),
             expected_rp_id=settings.WEBAUTHN_RP_ID,
-            expected_origin=settings.WEBAUTHN_ORIGIN,
+            expected_origin=_webauthn_expected_origins(),
             credential_public_key=passkey.public_key,
             credential_current_sign_count=passkey.sign_count,
             require_user_verification=True,

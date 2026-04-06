@@ -94,6 +94,10 @@ services:
       - LOG_LEVEL=INFO
       - APP_URL=https://www.quanttrade.us
       - ALLOWED_ORIGINS=https://www.quanttrade.us,https://quanttrade.us
+      # WebAuthn: registrable domain as rp_id so credentials work from www (and apex after redirect)
+      - WEBAUTHN_RP_ID=quanttrade.us
+      - WEBAUTHN_ORIGIN=https://www.quanttrade.us
+      - WEBAUTHN_ORIGINS=https://www.quanttrade.us,https://quanttrade.us
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       # ── Stock Market Data APIs ──────────────────────────────────────
