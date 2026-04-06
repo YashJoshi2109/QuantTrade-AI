@@ -37,13 +37,13 @@ export const COPILOT_MODELS = [
     description: 'Great for structured analysis',
   },
   {
-    id: 'google/gemini-flash-1.5-8b',
-    label: 'Gemini Flash',
+    id: 'google/gemini-2.0-flash-001',
+    label: 'Gemini 2.0 Flash',
     provider: 'Google',
     context: '1M tokens',
     recommended: false,
     backend: 'openrouter' as const,
-    description: 'Via OpenRouter — 1M context',
+    description: 'Via OpenRouter — current Gemini Flash',
   },
   {
     id: 'meta-llama/llama-3.1-8b-instruct:free',

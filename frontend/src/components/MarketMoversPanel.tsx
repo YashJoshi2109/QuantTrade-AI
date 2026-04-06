@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { StockPerformance } from '@/lib/api'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
+import { useStockSnapshot } from '@/context/StockSnapshotContext'
 
 /* ────────────────── Types ────────────────── */
 
@@ -225,6 +226,7 @@ function StockRow({
   maxVolume: number
   tab: Tab
 }) {
+  const { openSnapshot } = useStockSnapshot()
   const isUp = stock.change_percent >= 0
   const accentColor = tab === 'losers'
     ? '#EF4444'
@@ -235,9 +237,9 @@ function StockRow({
         : '#EF4444'
 
   return (
-    <Link
-      href={`/research?symbol=${stock.symbol}`}
-      className="flex items-center gap-3 px-3 py-3 sm:py-2.5 hover:bg-white/[0.03] active:bg-white/[0.05] border-b border-white/[0.03] transition-all group"
+    <button
+      onClick={() => openSnapshot({ symbol: stock.symbol, name: stock.name, price: stock.price, change_percent: stock.change_percent, change: (stock.price * stock.change_percent) / 100, volume: stock.volume })}
+      className="w-full flex items-center gap-3 px-3 py-3 sm:py-2.5 hover:bg-white/[0.03] active:bg-white/[0.05] border-b border-white/[0.03] transition-all group text-left"
     >
       {/* Rank */}
       <span className="w-6 h-6 sm:w-5 sm:h-5 flex items-center justify-center text-[11px] sm:text-[10px] text-slate-500 bg-slate-800/50 rounded font-mono flex-shrink-0">
@@ -279,7 +281,7 @@ function StockRow({
           {formatVolume(stock.volume || 0)} vol
         </div>
       </div>
-    </Link>
+    </button>
   )
 }
 

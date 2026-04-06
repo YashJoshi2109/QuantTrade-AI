@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
+import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
 import {
@@ -29,6 +30,7 @@ import {
   type CopilotMessage,
   type CopilotModelId,
 } from '@/lib/copilot-api'
+import { fetchFinnhubQuote } from '@/lib/api'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -213,6 +215,48 @@ function WelcomeScreen({ onPrompt }: { onPrompt: (p: string) => void }) {
   )
 }
 
+// ─── Live quote ribbon (Finnhub via backend, rate-limited server-side) ──────
+
+function CopilotLiveQuoteStrip() {
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['copilot-header-quote', 'SPY'],
+    queryFn: () => fetchFinnhubQuote('SPY', 'normal'),
+    staleTime: 12_000,
+    refetchInterval: 25_000,
+  })
+
+  const price = data?.price ?? 0
+  const pct = data?.change_percent ?? 0
+  const up = pct >= 0
+  const ok = price > 0
+
+  return (
+    <div
+      className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#007AFF]/12 to-cyan-500/10 border border-[#007AFF]/20 text-[10px] font-mono text-slate-200 shadow-sm shadow-black/20"
+      title="Live SPY via API (Finnhub path on server)"
+    >
+      <BarChart3 className="w-3.5 h-3.5 text-[#007AFF] shrink-0" />
+      <span className="font-bold text-white tracking-tight">SPY</span>
+      {isLoading && !ok ? (
+        <span className="text-slate-500 animate-pulse">···</span>
+      ) : ok ? (
+        <>
+          <span className="text-slate-300 tabular-nums">${price.toFixed(2)}</span>
+          <span className={up ? 'text-emerald-400' : 'text-red-400'}>
+            {up ? '▲' : '▼'}
+            {Math.abs(pct).toFixed(2)}%
+          </span>
+          {isFetching && !isLoading && (
+            <RefreshCw className="w-3 h-3 text-slate-500 animate-spin shrink-0" />
+          )}
+        </>
+      ) : (
+        <span className="text-slate-500">API idle</span>
+      )}
+    </div>
+  )
+}
+
 // ─── Model Selector ───────────────────────────────────────────────────────────
 
 function ModelSelector({
@@ -223,6 +267,7 @@ function ModelSelector({
   onChange: (m: CopilotModelId) => void
 }) {
   const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
   const selected = COPILOT_MODELS.find((m) => m.id === value)
   const isGroq = selected?.backend === 'groq'
 
@@ -230,9 +275,21 @@ function ModelSelector({
   const groqModels = COPILOT_MODELS.filter((m) => m.backend === 'groq')
   const openrouterModels = COPILOT_MODELS.filter((m) => m.backend === 'openrouter')
 
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
   return (
-    <div className="relative">
+    <div className="relative z-[90]" ref={rootRef}>
       <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#101928] border border-slate-700/50 hover:border-[#007AFF]/40 transition-colors text-xs text-slate-300 font-medium"
       >
@@ -249,10 +306,11 @@ function ModelSelector({
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -4 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            className="absolute bottom-full mb-2 left-0 w-72 rounded-xl bg-[#0D1117] border border-slate-700/60 shadow-2xl z-50 overflow-hidden"
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.15 }}
+            className="absolute top-full left-0 mt-2 w-72 max-h-[min(70vh,380px)] overflow-y-auto rounded-xl bg-[#0D1117] border border-slate-700/60 shadow-2xl shadow-black/50 z-[100] overflow-x-hidden"
           >
             {/* GROQ section */}
             <div className="px-3 pt-2.5 pb-1">
@@ -415,7 +473,7 @@ function DesktopCopilot() {
 
   return (
     <AppLayout>
-      <div className="flex flex-col h-[calc(100vh-5.75rem-48px)] max-h-[900px]">
+      <div className="flex flex-col h-[calc(100vh-6.25rem-48px)] max-h-[900px]">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(0,122,255,0.1)] bg-[#0D1117]/80 shrink-0">
           <div className="flex items-center gap-3">
@@ -431,7 +489,8 @@ function DesktopCopilot() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <CopilotLiveQuoteStrip />
             <ModelSelector value={modelId} onChange={setModelId} />
             {hasMessages && (
               <button

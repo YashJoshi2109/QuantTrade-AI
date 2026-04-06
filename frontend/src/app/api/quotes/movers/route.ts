@@ -9,8 +9,11 @@ import { filterMoversByExchange, getExchangeById } from '@/lib/world-exchanges'
  *  3. Twelve Data (800 credits/day — gainers/losers endpoint)
  */
 
+export const dynamic = 'force-dynamic'
+
 const FMP_KEY = process.env.FMP_API_KEY ?? ''
-const TWELVE_KEY = process.env.TWELVE_DATA_API_KEY ?? ''
+const TWELVE_KEY =
+  process.env.TWELVE_DATA_API_KEY ?? process.env.TWELVEDATA_API_KEY ?? ''
 
 export interface GlobalMover {
   symbol: string
@@ -75,7 +78,7 @@ async function fetchYFScreener(
         'Accept-Language': 'en-US,en;q=0.9',
         Referer: 'https://finance.yahoo.com/',
       },
-      next: { revalidate: 120 },
+      cache: 'no-store',
     })
 
     if (!res.ok) return []
@@ -107,7 +110,7 @@ async function fetchFMPUSMovers(type: 'gainers' | 'losers' | 'actives'): Promise
       type === 'gainers' ? 'gainers' : type === 'losers' ? 'losers' : 'actives'
     const res = await fetch(
       `https://financialmodelingprep.com/api/v3/stock_market/${endpoint}?apikey=${FMP_KEY}`,
-      { next: { revalidate: 120 } }
+      { cache: 'no-store' }
     )
     if (!res.ok) return []
     const data: Record<string, unknown>[] = await res.json()
@@ -141,7 +144,7 @@ async function fetchFMPExchangeMovers(
       `https://financialmodelingprep.com/api/v3/stock-screener` +
       `?exchange=${exchangeCode}&limit=${count * 2}&sortBy=changePercentage&sortOrder=${sortOrder}` +
       `&isActivelyTrading=true&apikey=${FMP_KEY}`
-    const res = await fetch(url, { next: { revalidate: 120 } })
+    const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) return []
     const data: Record<string, unknown>[] = await res.json()
     if (!Array.isArray(data)) return []
@@ -182,7 +185,7 @@ async function fetchTwelveMovers(
     const endpoint = type === 'gainers' ? 'gainers' : 'losers'
     const res = await fetch(
       `https://api.twelvedata.com/${endpoint}?${params}`,
-      { next: { revalidate: 120 } }
+      { cache: 'no-store' }
     )
     if (!res.ok) return []
     const data = await res.json()
@@ -268,7 +271,7 @@ async function fmpContinentActives(continent: string, count: number): Promise<Gl
       try {
         const res = await fetch(
           `https://financialmodelingprep.com/api/v3/stock-screener?exchange=${c}&limit=${count * 2}&sortBy=volume&sortOrder=desc&isActivelyTrading=true&apikey=${FMP_KEY}`,
-          { next: { revalidate: 120 } }
+          { cache: 'no-store' }
         )
         if (!res.ok) return []
         const data: Record<string, unknown>[] = await res.json()
@@ -310,13 +313,13 @@ async function twelveContinentMovers(continent: string, count: number, type: 'ga
 
 // ─── Unified mover fetch with fallback chain ───────────────────────────────
 async function getContinentMovers(continent: string, count: number, type: 'gainers' | 'losers'): Promise<GlobalMover[]> {
-  // 1. Yahoo Finance screener
+  // 1. Yahoo Finance screener (accept partial — Yahoo often rate-limits in cloud)
   const yf = await yfContinentMovers(continent, count, type)
-  if (yf.length >= 3) return yf
+  if (yf.length >= 1) return yf
 
   // 2. FMP fallback
   const fmp = await fmpContinentMovers(continent, count, type)
-  if (fmp.length >= 3) return fmp
+  if (fmp.length >= 1) return fmp
 
   // 3. Twelve Data tertiary
   const twelve = await twelveContinentMovers(continent, count, type)
@@ -325,7 +328,7 @@ async function getContinentMovers(continent: string, count: number, type: 'gaine
 
 async function getContinentActives(continent: string, count: number): Promise<GlobalMover[]> {
   const yf = await yfContinentActives(continent, count)
-  if (yf.length >= 3) return yf
+  if (yf.length >= 1) return yf
   return fmpContinentActives(continent, count)
 }
 
@@ -398,14 +401,14 @@ export async function GET(request: NextRequest) {
       let losers = type !== 'gainers' ? yfL : []
       let actives = wantActives ? yfA : []
 
-      // FMP fallback for empty lists
-      if (gainers.length < 3 && type !== 'losers') gainers = await fetchFMPUSMovers('gainers')
-      if (losers.length < 3 && type !== 'gainers') losers = await fetchFMPUSMovers('losers')
-      if (actives.length < 3 && wantActives) actives = await fetchFMPUSMovers('actives')
+      // FMP fallback for thin lists
+      if (gainers.length < 1 && type !== 'losers') gainers = await fetchFMPUSMovers('gainers')
+      if (losers.length < 1 && type !== 'gainers') losers = await fetchFMPUSMovers('losers')
+      if (actives.length < 1 && wantActives) actives = await fetchFMPUSMovers('actives')
 
       // Twelve Data tertiary if still empty
-      if (gainers.length < 3 && type !== 'losers') gainers = await fetchTwelveMovers('NYSE', undefined, 'gainers', count)
-      if (losers.length < 3 && type !== 'gainers') losers = await fetchTwelveMovers('NYSE', undefined, 'losers', count)
+      if (gainers.length < 1 && type !== 'losers') gainers = await fetchTwelveMovers('NYSE', undefined, 'gainers', count)
+      if (losers.length < 1 && type !== 'gainers') losers = await fetchTwelveMovers('NYSE', undefined, 'losers', count)
 
       return NextResponse.json({
         gainers: gainers.slice(0, count),

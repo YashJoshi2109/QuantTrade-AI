@@ -1,6 +1,8 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 import {
   TrendingUp, TrendingDown, Minus, FileText, Calendar, Users, Globe,
   BarChart2, Newspaper, ExternalLink, ChevronDown, ChevronUp, Clock,
@@ -105,16 +107,28 @@ export function FinnhubQuotePanel({ symbol }: { symbol: string }) {
 }
 
 // ─── Basic Financials Panel ───────────────────────────────────────────────────
-interface BasicFinancials {
-  metric: Record<string, number | string | null>
-  metricType?: string
-  symbol?: string
-}
 
 export function BasicFinancialsPanel({ symbol }: { symbol: string }) {
-  const { data, isLoading } = useFinnh<BasicFinancials>('basic-financials', symbol)
+  /** Backend Finnhub path uses FINNHUB_API_KEY + shared rate limiter (60/min). */
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['finnhub-basic-financials', symbol],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/api/v1/enhanced/company/${encodeURIComponent(symbol)}/profile?priority=high`
+      )
+      if (!res.ok) {
+        const t = await res.text()
+        throw new Error(t || `HTTP ${res.status}`)
+      }
+      return res.json() as Promise<{ metrics?: Record<string, number | string | null> }>
+    },
+    staleTime: 300_000,
+    retry: 1,
+    enabled: !!symbol,
+  })
 
-  const m = data?.metric ?? {}
+  const m = data?.metrics ?? {}
+  const hasMetrics = Object.keys(m).length > 0
 
   const rows = [
     { label: '52W High', value: m['52WeekHigh'] },
@@ -151,9 +165,21 @@ export function BasicFinancialsPanel({ symbol }: { symbol: string }) {
       title="Basic Financials"
       badge="Finnhub"
     >
-      {isLoading ? <Spinner /> : !data?.metric ? <Empty /> : (
+      {isLoading ? (
+        <Spinner />
+      ) : isError ? (
+        <Empty
+          msg={
+            error instanceof Error
+              ? error.message.slice(0, 120)
+              : 'Could not load financials. Is the API running and FINNHUB_API_KEY set on the server?'
+          }
+        />
+      ) : !hasMetrics ? (
+        <Empty msg="No metrics for this symbol yet (Finnhub tier or symbol coverage)." />
+      ) : (
         <div className="divide-y divide-slate-800/40">
-          {rows.map(r => (
+          {rows.map((r) => (
             <div key={r.label} className="px-4 py-2 flex items-center justify-between">
               <span className="text-xs text-slate-500">{r.label}</span>
               <span className="text-xs font-mono text-white">{fmt(r.value, r.pct)}</span>

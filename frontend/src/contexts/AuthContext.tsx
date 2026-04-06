@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { User, checkSession, logout as authLogout, login as authLogin, register as authRegister, googleLogin as authGoogleLogin, googleVerify as authGoogleVerify } from '@/lib/auth'
+import { User, checkSession, logout as authLogout, login as authLogin, register as authRegister, googleLogin as authGoogleLogin, googleVerify as authGoogleVerify, setToken, setUser as storeUser } from '@/lib/auth'
 import { isNeonAuthConfigured, neonSignIn, neonSignUp, neonGetUser, neonSignOut, NeonUser } from '@/lib/neon-auth'
 
 export type AuthMethod = 'jwt' | 'neon-auth'
@@ -24,7 +24,8 @@ interface AuthContextType {
   ) => Promise<void>
   googleLogin: (googleId: string, email: string, name: string, avatarUrl?: string) => Promise<void>
   googleVerify: (credential: string) => Promise<void>
-  
+  loginWithToken: (token: string) => Promise<void>
+
   // Neon Auth methods
   neonLogin: (email: string, password: string) => Promise<void>
   neonRegister: (email: string, password: string, name?: string) => Promise<void>
@@ -118,6 +119,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthMethod('jwt')
   }
 
+  const loginWithToken = async (token: string) => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    setToken(token)
+    const res = await fetch(`${API_URL}/api/v1/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) throw new Error('Failed to fetch user from token')
+    const userObj: User = await res.json()
+    storeUser(userObj)
+    setUser(userObj)
+    setNeonUser(null)
+    setAuthMethod('jwt')
+  }
+
   // Neon Auth Methods
   const neonLogin = async (email: string, password: string) => {
     const result = await neonSignIn(email, password)
@@ -162,6 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         googleLogin,
         googleVerify,
+        loginWithToken,
         neonLogin,
         neonRegister,
         logout,

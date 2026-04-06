@@ -26,14 +26,23 @@ import {
   List,
   Signal,
   DollarSign,
+  Database,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { fetchSectorPerformance, fetchMarketMovers, fetchMarketIndices, SectorPerformance, MarketIndex } from '@/lib/api'
+import {
+  fetchSectorPerformance,
+  fetchMarketMovers,
+  fetchMarketIndices,
+  fetchMarketCoverage,
+  SectorPerformance,
+  MarketIndex,
+} from '@/lib/api'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import Link from 'next/link'
 import { CONTINENTS, DISPLAY_CURRENCIES, type Continent } from '@/lib/world-exchanges'
 import type { IndexQuote } from '@/app/api/quotes/indices/route'
 import type { ExchangeSector } from '@/app/api/exchange/heatmap/route'
+import { useStockSnapshot } from '@/context/StockSnapshotContext'
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 function useWorldIndices(continent: Continent) {
@@ -118,21 +127,21 @@ interface GlobalMover {
 // ─── Continent Tab Bar ─────────────────────────────────────────────────────
 function ContinentTabBar({ active, onChange }: { active: Continent; onChange: (c: Continent) => void }) {
   return (
-    <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-3 mb-4">
+    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-3 mb-4 no-scrollbar">
       {CONTINENTS.map((c) => (
-        <button
+        <motion.button
           key={c.id}
           type="button"
           onClick={() => onChange(c.id)}
-          className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
-            active === c.id
-              ? 'bg-[#007AFF] text-white shadow-lg shadow-[rgba(0,122,255,0.25)]'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/60 border border-slate-700/40'
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.95 }}
+          className={`mac-btn mac-btn-pill shrink-0 flex items-center gap-1.5 text-[11px] font-bold ${
+            active === c.id ? 'mac-btn-active' : ''
           }`}
         >
           <span>{c.emoji}</span>
           <span>{c.label}</span>
-        </button>
+        </motion.button>
       ))}
     </div>
   )
@@ -183,9 +192,18 @@ function CurrencySelector({ value, onChange }: { value: string; onChange: (c: st
   )
 }
 
-// ─── World Exchange Indices Grid ──────────────────────────────────────────
+// ─── Helper: country code → flag emoji ───────────────────────────────────────
+function countryFlag(code: string): string {
+  if (!code || code.length !== 2) return ''
+  const u = code.toUpperCase()
+  const A = 0x1F1E6 // Regional Indicator Symbol Letter A (🇦)
+  return String.fromCodePoint(A + u.charCodeAt(0) - 65, A + u.charCodeAt(1) - 65)
+}
+
+// ─── World Exchange Indices Grid (Bloomberg-style) ───────────────────────────
 function WorldIndicesGrid({ continent, currency, rates }: { continent: Continent; currency: string; rates: Record<string, number> }) {
   const { data: indices = [], isLoading } = useWorldIndices(continent)
+  const { openSnapshot } = useStockSnapshot()
   const currInfo = DISPLAY_CURRENCIES.find((c) => c.code === currency)
   const currSymbol = currInfo?.symbol ?? '$'
 
@@ -199,7 +217,7 @@ function WorldIndicesGrid({ continent, currency, rates }: { continent: Continent
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6">
         {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="h-20 rounded-lg bg-slate-800/40 animate-pulse" />
+          <div key={i} className="h-28 rounded-xl bg-slate-800/40 animate-pulse" />
         ))}
       </div>
     )
@@ -208,34 +226,297 @@ function WorldIndicesGrid({ continent, currency, rates }: { continent: Continent
   const validIndices = indices.filter((q) => q.price > 0)
   if (!validIndices.length) return null
 
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6">
-      {validIndices.map((q) => {
-        const up = q.change_percent >= 0
-        const displayPrice = convertPrice(q.price, q.currency)
-        return (
-          <Link
-            key={q.symbol}
-            href={`/research?symbol=${q.symbol}`}
-            className="group hud-panel p-3 hover:border-[rgba(0,122,255,0.35)] transition-all relative overflow-hidden"
+  const isGlobal = continent === 'global'
+  const displayIndices = isGlobal ? [...validIndices, ...validIndices, ...validIndices] : validIndices
+
+  const renderCard = (q: IndexQuote, idx: number) => {
+    const up = q.change_percent >= 0
+    const displayPrice = convertPrice(q.price, q.currency)
+    const neon = up ? '#34d399' : '#f87171'
+    const neonBg = up ? 'rgba(52,211,153,' : 'rgba(248,113,113,'
+
+    return (
+      <motion.button
+        key={`${q.symbol}-${idx}`}
+        onClick={() => openSnapshot({
+          symbol: q.symbol,
+          name: q.shortName || q.exchangeName,
+          price: displayPrice,
+          change: (displayPrice * (q.change_percent ?? 0)) / 100,
+          change_percent: q.change_percent,
+          exchange: q.exchangeName,
+          currency: currency,
+          flag: countryFlag(q.countryCode),
+        })}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, delay: idx * 0.025 }}
+        whileHover={{ scale: 1.03, y: -2 }}
+        whileTap={{ scale: 0.97 }}
+        className={`group relative overflow-hidden text-left cursor-pointer ${isGlobal ? 'shrink-0 w-[200px]' : ''}`}
+        style={{
+          background: 'linear-gradient(145deg, rgba(16,25,50,0.92) 0%, rgba(10,16,38,0.96) 100%)',
+          border: `1px solid rgba(255,255,255,0.07)`,
+          borderTop: '1px solid rgba(255,255,255,0.11)',
+          borderLeft: '1px solid rgba(255,255,255,0.09)',
+          borderRadius: 14,
+          boxShadow: [
+            'inset 0 1px 0 rgba(255,255,255,0.07)',
+            '0 4px 16px rgba(0,0,0,0.35)',
+          ].join(', '),
+          backdropFilter: 'blur(20px)',
+          padding: '12px 14px 10px',
+          transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
+        }}
+      >
+        {/* Top accent line */}
+        <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-2xl transition-opacity"
+          style={{ background: `linear-gradient(90deg, transparent, ${neon}80, transparent)`, opacity: 0.6 }} />
+
+        {/* Hover glow overlay */}
+        <div className="absolute inset-0 rounded-[14px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+          style={{ background: `radial-gradient(ellipse at 50% 0%, ${neonBg}0.06) 0%, transparent 70%)` }} />
+
+        {/* Exchange name + change */}
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1.5">
+            {q.countryCode && <span className="text-sm leading-none">{countryFlag(q.countryCode)}</span>}
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">{q.exchangeName}</span>
+          </div>
+          <span
+            className="text-[10px] font-black font-mono tabular-nums px-1.5 py-0.5 rounded-md"
+            style={{
+              background: neonBg + '0.12)',
+              border: `1px solid ${neonBg}0.35)`,
+              color: neon,
+            }}
           >
-            <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: q.color, opacity: 0.6 }} />
-            <div className="flex items-center justify-between mb-1.5">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full" style={{ background: q.color }} />
-                <span className="text-[10px] text-slate-500 font-medium">{q.exchangeName}</span>
-              </div>
-              <span className={`text-[9px] font-mono font-bold px-1 py-0.5 rounded ${up ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'}`}>
-                {up ? '+' : ''}{formatPercent(q.change_percent, 2)}
-              </span>
-            </div>
-            <div className="text-sm font-bold font-mono text-white group-hover:text-[#007AFF] transition-colors">
-              {displayPrice > 0 ? `${currSymbol}${formatNumber(displayPrice, displayPrice > 1000 ? 0 : 2)}` : '—'}
-            </div>
-            <div className="text-[10px] text-slate-500 mt-0.5 truncate">{q.shortName}</div>
-          </Link>
-        )
-      })}
+            {up ? '+' : ''}{(q.change_percent ?? 0).toFixed(2)}%
+          </span>
+        </div>
+
+        {/* Price */}
+        <div className="text-xl font-black font-mono tabular-nums text-white leading-tight group-hover:text-white transition-colors">
+          {displayPrice > 0
+            ? `${currSymbol}${formatNumber(displayPrice, displayPrice > 1000 ? 0 : 2)}`
+            : '—'
+          }
+        </div>
+
+        {/* Index name */}
+        <div className="text-[10px] text-slate-500 mt-0.5 truncate font-medium group-hover:text-slate-400 transition-colors">
+          {q.shortName}
+        </div>
+      </motion.button>
+    )
+  }
+
+  return (
+    <div className="mb-6">
+      {/* Section header */}
+      <div className="flex items-center gap-2 mb-3 px-0.5">
+        <div className="w-1 h-4 rounded-full bg-[#007AFF]" />
+        <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Global Exchange Indices</span>
+        <div className="ml-auto flex items-center gap-1.5 text-[10px] text-slate-600 font-mono">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          Live
+        </div>
+      </div>
+
+      {isGlobal ? (
+        <div className="relative w-full overflow-hidden [mask-image:_linear-gradient(to_right,transparent_0,_black_40px,_black_calc(100%-40px),transparent_100%)]">
+          <div className="animate-ticker-tape gap-2 pb-2 pt-1 px-1">
+            {displayIndices.map(renderCard)}
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+          {displayIndices.map(renderCard)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Exchange Universe (ranked stock list) ────────────────────────────────
+const CONTINENT_UNIVERSE_KEYS: Partial<Record<Continent, { key: string; limit: number; label: string }[]>> = {
+  americas: [
+    { key: 'us',     limit: 300, label: '🇺🇸 United States' },
+    { key: 'canada', limit: 50,  label: '🇨🇦 Canada' },
+    { key: 'brazil', limit: 15,  label: '🇧🇷 Brazil' },
+  ],
+  europe: [
+    { key: 'uk',      limit: 75, label: '🇬🇧 United Kingdom' },
+    { key: 'germany', limit: 50, label: '🇩🇪 Germany' },
+    { key: 'france',  limit: 40, label: '🇫🇷 France' },
+  ],
+  asia: [
+    { key: 'india',    limit: 100, label: '🇮🇳 India' },
+    { key: 'japan',    limit: 50,  label: '🇯🇵 Japan' },
+    { key: 'hongkong', limit: 40,  label: '🇭🇰 Hong Kong' },
+    { key: 'china',    limit: 40,  label: '🇨🇳 China' },
+    { key: 'korea',    limit: 20,  label: '🇰🇷 South Korea' },
+  ],
+  oceania: [
+    { key: 'australia', limit: 20, label: '🇦🇺 Australia' },
+  ],
+}
+
+interface UniverseStock {
+  symbol: string
+  name: string
+  sector: string
+  price: number
+  change_percent: number
+  volume: number
+  market_cap: number
+  currency: string
+  rank: number
+}
+
+function useExchangeUniverse(exchangeKey: string, limit: number) {
+  return useQuery({
+    queryKey: ['exchangeUniverse', exchangeKey, limit],
+    queryFn: async (): Promise<UniverseStock[]> => {
+      const res = await fetch(`/api/exchange/universe?exchange=${exchangeKey}&limit=${limit}`)
+      if (!res.ok) return []
+      const j = await res.json()
+      return j.stocks ?? []
+    },
+    staleTime: 6 * 60 * 60 * 1000,   // 6 hours — FMP screener data
+    gcTime:    7 * 60 * 60 * 1000,
+    refetchInterval: 6 * 60 * 60 * 1000,
+  })
+}
+
+function UniverseExchangeTable({
+  exchangeKey,
+  limit,
+  label,
+}: {
+  exchangeKey: string
+  limit: number
+  label: string
+}) {
+  const { data: stocks = [], isLoading } = useExchangeUniverse(exchangeKey, limit)
+  const { openSnapshot } = useStockSnapshot()
+  const [expanded, setExpanded] = useState(false)
+  const visible = expanded ? stocks : stocks.slice(0, 10)
+
+  return (
+    <div className="rounded-xl border border-slate-700/40 overflow-hidden bg-[#0d1526]/60">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-800/30 border-b border-slate-700/30">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-white">{label}</span>
+          {!isLoading && (
+            <span className="text-[10px] text-slate-500 font-mono">
+              {stocks.length} stocks
+            </span>
+          )}
+        </div>
+        {stocks.length > 10 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="text-[11px] text-[#007AFF] hover:text-white transition-colors font-medium"
+          >
+            {expanded ? 'Show less' : `Show all ${stocks.length}`}
+          </button>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="p-3 space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-8 rounded bg-slate-800/30 animate-pulse" />
+          ))}
+        </div>
+      ) : stocks.length === 0 ? (
+        <div className="p-4 text-center text-slate-500 text-xs">
+          No data — universe syncs nightly via FMP
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-800/40">
+          {/* Header row */}
+          <div className="grid grid-cols-[28px_1fr_80px_80px_80px] gap-1 px-3 py-1.5 text-[10px] text-slate-600 font-medium uppercase tracking-wide">
+            <span>#</span>
+            <span>Company</span>
+            <span className="text-right">Price</span>
+            <span className="text-right">Chg%</span>
+            <span className="text-right">Mkt Cap</span>
+          </div>
+          {visible.map((s) => {
+            const up = s.change_percent >= 0
+            const mcap = s.market_cap > 1e12
+              ? `${(s.market_cap / 1e12).toFixed(2)}T`
+              : s.market_cap > 1e9
+                ? `${(s.market_cap / 1e9).toFixed(1)}B`
+                : s.market_cap > 1e6
+                  ? `${(s.market_cap / 1e6).toFixed(0)}M`
+                  : '—'
+            return (
+              <button
+                key={s.symbol}
+                type="button"
+                onClick={() => openSnapshot({
+                  symbol: s.symbol,
+                  name: s.name,
+                  price: s.price,
+                  change: (s.price * s.change_percent) / 100,
+                  change_percent: s.change_percent,
+                  exchange: exchangeKey.toUpperCase(),
+                  currency: s.currency,
+                })}
+                className="w-full grid grid-cols-[28px_1fr_80px_80px_80px] gap-1 px-3 py-2 hover:bg-slate-800/40 text-left transition-colors group"
+              >
+                <span className="text-[10px] text-slate-600 font-mono self-center">{s.rank}</span>
+                <div className="min-w-0 self-center">
+                  <div className="text-xs font-bold text-white font-mono group-hover:text-[#007AFF] transition-colors truncate">
+                    {s.symbol}
+                  </div>
+                  <div className="text-[10px] text-slate-500 truncate">{s.name}</div>
+                </div>
+                <span className="text-xs font-mono text-white self-center text-right">
+                  {s.price > 0 ? `${s.currency === 'USD' ? '$' : ''}${formatNumber(s.price, 2)}` : '—'}
+                </span>
+                <span className={`text-xs font-mono font-bold self-center text-right ${up ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {up ? '+' : ''}{formatPercent(s.change_percent, 2)}
+                </span>
+                <span className="text-[10px] font-mono text-slate-400 self-center text-right">{mcap}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ExchangeUniverseSection({ continent }: { continent: Continent }) {
+  const exchanges = CONTINENT_UNIVERSE_KEYS[continent]
+  if (!exchanges?.length) return null
+
+  return (
+    <div className="hud-panel p-4 sm:p-6 mb-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Database className="w-5 h-5 text-purple-400" />
+        <h2 className="text-base font-bold text-white">
+          Ranked Universe — {CONTINENTS.find((c) => c.id === continent)?.label}
+        </h2>
+        <span className="text-[10px] text-slate-500 ml-1">
+          Sorted by market cap · 6h cache
+        </span>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        {exchanges.map((ex) => (
+          <UniverseExchangeTable
+            key={ex.key}
+            exchangeKey={ex.key}
+            limit={ex.limit}
+            label={ex.label}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -252,6 +533,40 @@ function getHeatColor(pct: number): string {
   if (pct >= -2) return '#dc2626'
   if (pct >= -3) return '#b91c1c'
   return '#7f1d1d'
+}
+
+function SessionChangeLegendStrip({ className = '' }: { className?: string }) {
+  const stops = [
+    '#7f1d1d',
+    '#b91c1c',
+    '#dc2626',
+    '#f87171',
+    '#64748b',
+    '#4ade80',
+    '#22c55e',
+    '#16a34a',
+    '#15803d',
+    '#166534',
+  ]
+  return (
+    <div className={`space-y-1.5 ${className}`}>
+      <div className="text-[10px] text-slate-500 text-center">1-day % change scale</div>
+      <div
+        className="flex h-2.5 rounded-md overflow-hidden border border-white/10 max-w-lg mx-auto shadow-inner"
+        role="img"
+        aria-label="Color scale from loss to gain"
+      >
+        {stops.map((c, i) => (
+          <div key={i} className="flex-1 min-w-[4px]" style={{ backgroundColor: c }} />
+        ))}
+      </div>
+      <div className="flex justify-between text-[9px] text-slate-600 max-w-lg mx-auto font-mono px-1">
+        <span>-3%+</span>
+        <span className="text-slate-500">flat</span>
+        <span>+3%+</span>
+      </div>
+    </div>
+  )
 }
 
 function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
@@ -275,11 +590,16 @@ function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
 
   return (
     <div className="hud-panel p-4 sm:p-6 mb-6">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h2 className="text-base font-bold text-white flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-blue-400" />
-          Sector Heatmap — {CONTINENTS.find((c) => c.id === continent)?.label}
-        </h2>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div>
+          <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-blue-400" />
+            Sector Heatmap — {CONTINENTS.find((c) => c.id === continent)?.label}
+          </h2>
+          <p className="text-[11px] text-slate-500 mt-1">
+            Regional names grouped by sector; tile color = session % change vs prior close.
+          </p>
+        </div>
         <div className="flex items-center gap-3 text-[11px] text-slate-400">
           <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-[#15803d]" /> Up</span>
           <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-[#dc2626]" /> Down</span>
@@ -315,6 +635,7 @@ function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
           </div>
         ))}
       </div>
+      <SessionChangeLegendStrip className="mt-4" />
       <p className="text-center text-[10px] text-slate-500 mt-3">
         Click any stock for detailed analysis · Powered by live market data
       </p>
@@ -325,6 +646,7 @@ function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
 // ─── Continent Movers ──────────────────────────────────────────────────────
 function ContinentMovers({ continent }: { continent: Continent }) {
   const { data, isLoading } = useContinentMovers(continent)
+  const { openSnapshot } = useStockSnapshot()
   const gainers = data?.gainers ?? []
   const losers = data?.losers ?? []
   const actives = data?.actives ?? []
@@ -356,8 +678,9 @@ function ContinentMovers({ continent }: { continent: Continent }) {
               <div className="flex items-center justify-center h-16 text-slate-500 text-xs">No data available</div>
             ) : (
               items.map((s, i) => (
-                <Link key={s.symbol} href={`/research?symbol=${s.symbol}`}
-                  className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-800/30 transition-colors group"
+                <button key={s.symbol}
+                  onClick={() => openSnapshot({ symbol: s.symbol, name: s.name, price: s.price, change_percent: s.change_percent, exchange: s.exchange, currency: s.currency, market_cap: s.market_cap })}
+                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-800/30 transition-colors group text-left"
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-slate-600 font-mono w-4">{i + 1}</span>
@@ -383,7 +706,7 @@ function ContinentMovers({ continent }: { continent: Continent }) {
                       {formatPercent(s.change_percent, 2)}
                     </div>
                   </div>
-                </Link>
+                </button>
               ))
             )}
           </div>
@@ -424,6 +747,13 @@ function DesktopMarketsPage() {
     refetchInterval: 120000, // Update every 2 minutes
     staleTime: 60000, // Fresh for 1 minute
     gcTime: 300000, // Keep in cache for 5 minutes
+  })
+
+  const { data: coverage } = useQuery({
+    queryKey: ['marketCoverage'],
+    queryFn: fetchMarketCoverage,
+    staleTime: 300_000,
+    refetchInterval: 600_000,
   })
 
   // Enhanced refetch that forces refresh
@@ -479,8 +809,13 @@ function DesktopMarketsPage() {
               <Globe className="w-6 h-6 sm:w-7 sm:h-7 text-[#007AFF]" />
               Markets Overview
             </h1>
-            <p className="text-slate-400 text-xs sm:text-sm mt-1">
-              Real-time global market data · {marketStats.totalStocks} US stocks + world indices
+            <p className="text-slate-400 text-xs sm:text-sm mt-1 max-w-2xl">
+              Real-time global data · US sector heatmap covers{' '}
+              {coverage?.heatmap_universe_count ?? marketStats.totalStocks}+ large-cap stocks
+              {coverage && coverage.symbols_master_active > 0
+                ? ` · ${formatNumber(coverage.symbols_master_active, 0)} symbols in search DB`
+                : ''}
+              {' '}· Americas tab: 300 US · 50 Canada · 15 Brazil · Exchange tabs: 100 India · 50 Japan · 40 HK · 40 China · 20 Korea · 20 Australia.
             </p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
@@ -554,6 +889,9 @@ function DesktopMarketsPage() {
             {/* Exchange-specific sector heatmap */}
             <ExchangeSectorHeatmap continent={activeContinent} />
 
+            {/* Ranked stock universe per exchange */}
+            <ExchangeUniverseSection continent={activeContinent} />
+
             {/* Movers-based quick heatmap (fallback / supplement if sector data empty) */}
             {regionalHeatRowsMarkets.length > 0 && (
               <div className="hud-panel p-4 sm:p-6 mb-6">
@@ -567,6 +905,7 @@ function DesktopMarketsPage() {
                 <MoversHeatmap
                   rows={regionalHeatRowsMarkets}
                   emptyLabel="No regional movers for this view yet"
+                  showLegend
                 />
               </div>
             )}
@@ -654,11 +993,24 @@ function DesktopMarketsPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <div className="hud-panel p-4 flex items-center gap-3">
             <div className="p-2 bg-blue-500/10 rounded-lg">
-              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+              <Database className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
             </div>
-            <div>
-              <div className="text-lg sm:text-xl font-bold text-white">{marketStats.totalStocks}</div>
-              <div className="text-xs text-slate-500">Total Stocks</div>
+            <div className="min-w-0">
+              <div className="text-lg sm:text-xl font-bold text-white tabular-nums">
+                {coverage && coverage.symbols_master_active > 0
+                  ? formatNumber(coverage.symbols_master_active, 0)
+                  : marketStats.totalStocks}
+              </div>
+              <div className="text-xs text-slate-500 leading-snug">
+                {coverage && coverage.symbols_master_active > 0
+                  ? 'Symbols in database (search)'
+                  : 'Heatmap quotes (sample)'}
+              </div>
+              {coverage && coverage.symbols_master_active > 0 ? (
+                <div className="text-[10px] text-slate-600 mt-0.5">
+                  Heatmap sample: {marketStats.totalStocks}
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="hud-panel p-4 flex items-center gap-3">
@@ -774,6 +1126,13 @@ function DesktopMarketsPage() {
           </div>
         </div>
         </>)}
+      </div>
+
+      {/* Data source attribution */}
+      <div className="px-4 py-2 border-t border-slate-800/30 mt-2">
+        <p className="text-[9px] text-slate-700 font-mono">
+          Market data: Finnhub (real-time quotes) · Polygon.io (NYSE/NASDAQ/AMEX symbols) · Alpha Vantage (historical OHLCV) · Data is delayed 15 min for non-Pro users.
+        </p>
       </div>
     </AppLayout>
   )

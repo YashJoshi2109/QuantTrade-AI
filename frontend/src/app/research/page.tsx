@@ -1,18 +1,18 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileResearch from '@/components/layout/MobileResearch'
-import Chart from '@/components/Chart'
+import Chart, { type ChartSeriesType } from '@/components/Chart'
 import LiveNews from '@/components/LiveNews'
 import Link from 'next/link'
 import {
-  Sparkles, TrendingUp, TrendingDown, RefreshCw, Activity, AlertTriangle,
+  Sparkles, TrendingUp, TrendingDown, RefreshCw, AlertTriangle,
   BarChart3, Newspaper, Loader2, Globe, Building2, Users, ExternalLink,
-  DollarSign, Target, Info,
+  DollarSign, Target, Info, SlidersHorizontal, X,
 } from 'lucide-react'
 import { fetchPrices, fetchIndicators, fetchFundamentals, syncSymbol, PriceBar, Indicators, FundamentalsData } from '@/lib/api'
 import TechnicalAnalysisGauge from '@/components/TechnicalAnalysisGauge'
@@ -23,16 +23,24 @@ import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { QuoteActivityFlash } from '@/components/QuoteActivityFlash'
 import { SkeletonChart, SkeletonIndicators, SkeletonText, Skeleton } from '@/components/Skeleton'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
-import {
-  FinnhubQuotePanel,
-  BasicFinancialsPanel,
-  RecommendationTrendsPanel,
-  InsiderTransactionsPanel,
-  CompanyNewsPanel,
-  SECFilingsPanel,
-  IPOCalendarPanel,
-  CountryMetadataPanel,
-} from '@/components/FinnhubPanels'
+
+type ChartPeriod = '1M' | '3M' | '6M' | '1Y' | '2Y' | '5Y'
+
+function chartPeriodRange(period: ChartPeriod): { start: Date; end: Date; barLimit: number } {
+  const end = new Date()
+  const start = new Date(end)
+  const dayMap: Record<ChartPeriod, number> = {
+    '1M': 35,
+    '3M': 98,
+    '6M': 190,
+    '1Y': 370,
+    '2Y': 750,
+    '5Y': 1900,
+  }
+  start.setUTCDate(start.getUTCDate() - dayMap[period])
+  const barLimit = Math.min(5000, Math.ceil(dayMap[period] * 1.25))
+  return { start, end, barLimit }
+}
 
 // ─── Global Ticker Info Panel ─────────────────────────────────────────────────
 function GlobalTickerInfoPanel({ symbol }: { symbol: string }) {
@@ -166,9 +174,11 @@ function ResearchContent() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [finnhubTab, setFinnhubTab] = useState<
-    'quote' | 'financials' | 'recommendations' | 'insider' | 'news' | 'sec' | 'ipo' | 'country'
-  >('financials')
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('1Y')
+  const [chartSeriesType, setChartSeriesType] = useState<ChartSeriesType>('candlestick')
+  const [chartShowMa, setChartShowMa] = useState(true)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const advancedRef = useRef<HTMLDivElement>(null)
 
   // Real-time quote with HIGH PRIORITY for research page and 5-second updates
   const { data: realtimeQuote, isLoading: quoteLoading } = useRealtimeQuote({ 
@@ -185,44 +195,43 @@ function ResearchContent() {
   }, [symbolParam])
 
   useEffect(() => {
-    loadSymbolData()
-  }, [selectedSymbol])
+    if (!advancedOpen) return
+    const onDoc = (e: MouseEvent) => {
+      if (advancedRef.current && !advancedRef.current.contains(e.target as Node)) {
+        setAdvancedOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [advancedOpen])
 
-  const loadSymbolData = async () => {
+  const loadSymbolData = useCallback(async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
-      // Fetch prices with a reasonable default range (last 3 months)
-      // This ensures charts have data even if database is empty
-      const endDate = new Date()
-      const startDate = new Date()
-      startDate.setMonth(startDate.getMonth() - 3)
-      
-      // First attempt: fetch prices (will auto-sync if empty)
+      const { start: startDate, end: endDate, barLimit } = chartPeriodRange(chartPeriod)
+
       let prices = await fetchPrices(
         selectedSymbol,
         startDate.toISOString(),
         endDate.toISOString(),
-        500 // Get up to 500 bars
+        barLimit
       ).catch(() => [])
-      
-      // If still no data, try syncing explicitly
+
       if (prices.length === 0) {
         try {
-          // Trigger explicit sync
           const syncUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/prices/${selectedSymbol}/sync`)
           syncUrl.searchParams.append('start', startDate.toISOString())
           syncUrl.searchParams.append('end', endDate.toISOString())
           await fetch(syncUrl.toString(), { method: 'POST' })
-          
-          // Wait a bit for sync to complete, then retry
-          await new Promise(resolve => setTimeout(resolve, 2000))
+
+          await new Promise((resolve) => setTimeout(resolve, 2000))
           prices = await fetchPrices(
             selectedSymbol,
             startDate.toISOString(),
             endDate.toISOString(),
-            500
+            barLimit
           ).catch(() => [])
         } catch (syncErr) {
           console.warn('Sync attempt failed:', syncErr)
@@ -247,20 +256,20 @@ function ResearchContent() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedSymbol, chartPeriod])
+
+  useEffect(() => {
+    loadSymbolData()
+  }, [loadSymbolData])
 
   const handleSyncData = async () => {
     setSyncing(true)
     setError(null)
     try {
-      // Sync symbol first
       await syncSymbol(selectedSymbol)
-      
-      // Also trigger price sync with date range
-      const endDate = new Date()
-      const startDate = new Date()
-      startDate.setMonth(startDate.getMonth() - 3)
-      
+
+      const { start: startDate, end: endDate } = chartPeriodRange(chartPeriod)
+
       try {
         const syncUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/prices/${selectedSymbol}/sync`)
         syncUrl.searchParams.append('start', startDate.toISOString())
@@ -269,8 +278,7 @@ function ResearchContent() {
       } catch (syncErr) {
         console.warn('Price sync failed, continuing with regular fetch:', syncErr)
       }
-      
-      // Reload data after sync
+
       await loadSymbolData()
     } catch (err) {
       console.error('Error syncing:', err)
@@ -281,21 +289,20 @@ function ResearchContent() {
   }
 
   const getPriceInfo = () => {
-    // Use real-time quote if available (most current)
-    if (realtimeQuote && isNumber(realtimeQuote.price)) {
-      return { 
-        price: realtimeQuote.price, 
-        change: realtimeQuote.change, 
-        percent: realtimeQuote.change_percent,
+    // Ignore realtime rows that are placeholders (fetchQuote returns zeros on failure)
+    if (realtimeQuote && isNumber(realtimeQuote.price) && realtimeQuote.price > 0) {
+      return {
+        price: realtimeQuote.price,
+        change: realtimeQuote.change ?? 0,
+        percent: realtimeQuote.change_percent ?? 0,
         volume: realtimeQuote.volume,
         high: realtimeQuote.high,
         low: realtimeQuote.low,
         dataSource: realtimeQuote.data_source,
-        latency: realtimeQuote.latency_ms
+        latency: realtimeQuote.latency_ms,
       }
     }
-    // Fallback to historical price data
-    if (priceData.length < 2) return { price: 0, change: 0, percent: 0 }
+    if (priceData.length < 2) return { price: 0, change: 0, percent: 0, volume: undefined as number | undefined }
     const latest = priceData[priceData.length - 1]
     const previous = priceData[priceData.length - 2]
     const change = latest.close - previous.close
@@ -304,6 +311,20 @@ function ResearchContent() {
   }
 
   const priceInfo = getPriceInfo()
+  const pricePrevRef = useRef<number | null>(null)
+  const [priceTick, setPriceTick] = useState<'up' | 'down' | null>(null)
+
+  useEffect(() => {
+    const p = priceInfo.price
+    if (!isNumber(p) || p <= 0) return
+    const prev = pricePrevRef.current
+    pricePrevRef.current = p
+    if (prev === null || !isNumber(prev) || prev <= 0) return
+    if (Math.abs(p - prev) < 1e-6) return
+    setPriceTick(p > prev ? 'up' : 'down')
+    const id = window.setTimeout(() => setPriceTick(null), 900)
+    return () => window.clearTimeout(id)
+  }, [priceInfo.price])
   const isPositive = isNumber(priceInfo.percent) ? priceInfo.percent >= 0 : false
   const quoteActivityFingerprint = Math.round(
     ((priceInfo.price || 0) * 1000 + (priceInfo.percent || 0) * 10000) / 10
@@ -361,9 +382,17 @@ function ResearchContent() {
                         </div>
                       )}
                     </div>
-                    {(realtimeQuote || priceData.length > 0) && (
+                    {(priceInfo.price > 0 || quoteLoading || priceData.length > 0) && (
                       <div className="flex items-center gap-3 mt-1">
-                        <span className="text-2xl font-bold text-white hud-value">
+                        <span
+                          className={`text-2xl font-bold text-white hud-value transition-colors duration-300 ${
+                            priceTick === 'up'
+                              ? 'quote-price-flash-up'
+                              : priceTick === 'down'
+                                ? 'quote-price-flash-down'
+                                : ''
+                          }`}
+                        >
                           ${formatNumber(priceInfo.price, 2)}
                           {quoteLoading && <Loader2 className="inline w-4 h-4 ml-2 animate-spin text-blue-400" />}
                         </span>
@@ -375,7 +404,7 @@ function ResearchContent() {
                           {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
                           {isPositive ? '+' : ''}{formatPercent(priceInfo.percent, 2)}
                         </span>
-                        {isNumber(priceInfo.volume) && (
+                        {isNumber(priceInfo.volume) && priceInfo.volume > 0 && (
                           <span className="text-xs text-slate-400 font-mono">
                             Vol: {formatNumber(priceInfo.volume / 1000000, 2)}M
                           </span>
@@ -385,8 +414,12 @@ function ResearchContent() {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <button 
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  <span className="text-[10px] font-mono text-slate-500 px-2 py-1 rounded bg-slate-800/50 hidden sm:inline">
+                    {chartPeriod} daily
+                  </span>
+                  <button
+                    type="button"
                     onClick={handleSyncData}
                     disabled={syncing}
                     className="hud-card flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:border-blue-500/30 transition-all disabled:opacity-50"
@@ -394,10 +427,106 @@ function ResearchContent() {
                     {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                     Sync Data
                   </button>
-                  <button className="hud-card flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border-blue-500/30 transition-all">
-                    <Activity className="w-4 h-4" />
-                    Advanced
-                  </button>
+                  <div className="relative" ref={advancedRef}>
+                    <button
+                      type="button"
+                      onClick={() => setAdvancedOpen((o) => !o)}
+                      className={`hud-card flex items-center gap-2 px-4 py-2 text-sm font-medium border transition-all ${
+                        advancedOpen
+                          ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                          : 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border-blue-500/30'
+                      }`}
+                      aria-expanded={advancedOpen}
+                      aria-haspopup="dialog"
+                    >
+                      <SlidersHorizontal className="w-4 h-4" />
+                      Advanced
+                    </button>
+                    {advancedOpen ? (
+                      <div
+                        className="absolute right-0 top-full mt-2 z-[80] w-[min(100vw-2rem,18rem)] rounded-xl border border-slate-700/80 bg-[#0b0f14] shadow-2xl p-4 space-y-4 text-left"
+                        role="dialog"
+                        aria-label="Chart options"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-white">Chart</span>
+                          <button
+                            type="button"
+                            onClick={() => setAdvancedOpen(false)}
+                            className="p-1 rounded text-slate-500 hover:text-white"
+                            aria-label="Close"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-2">Period</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(
+                              [
+                                ['1M', '1M'],
+                                ['3M', '3M'],
+                                ['6M', '6M'],
+                                ['1Y', '1Y'],
+                                ['2Y', '2Y'],
+                                ['5Y', '5Y'],
+                              ] as const
+                            ).map(([id, label]) => (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() => setChartPeriod(id)}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-mono border transition-colors ${
+                                  chartPeriod === id
+                                    ? 'bg-blue-500/25 text-blue-200 border-blue-500/50'
+                                    : 'bg-slate-800/50 text-slate-400 border-slate-700/60 hover:text-white'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-2">Series</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(
+                              [
+                                ['candlestick', 'OHLC'],
+                                ['line', 'Line'],
+                                ['area', 'Area'],
+                              ] as const
+                            ).map(([id, label]) => (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() => setChartSeriesType(id)}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                                  chartSeriesType === id
+                                    ? 'bg-cyan-500/20 text-cyan-200 border-cyan-500/45'
+                                    : 'bg-slate-800/50 text-slate-400 border-slate-700/60 hover:text-white'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={chartShowMa}
+                            onChange={(e) => setChartShowMa(e.target.checked)}
+                            disabled={chartSeriesType !== 'candlestick'}
+                            className="rounded border-slate-600"
+                          />
+                          <span className={chartSeriesType !== 'candlestick' ? 'opacity-40' : ''}>
+                            SMA 20 / EMA 50 overlays
+                          </span>
+                        </label>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
               
@@ -417,7 +546,12 @@ function ResearchContent() {
                     </button>
                   </div>
                 ) : (
-                  <Chart data={priceData} symbol={selectedSymbol} />
+                  <Chart
+                    data={priceData}
+                    symbol={selectedSymbol}
+                    seriesType={chartSeriesType}
+                    showMovingAverages={chartShowMa && chartSeriesType === 'candlestick'}
+                  />
                 )}
               </div>
             </div>
@@ -505,7 +639,17 @@ function ResearchContent() {
               {priceData.length > 0 && (
                 <div className="grid grid-cols-3 gap-3">
                   <div className="hud-stat p-3 text-center">
-                    <div className="text-lg font-bold text-white hud-value">${formatNumber(priceInfo.price, 2)}</div>
+                    <div
+                      className={`text-lg font-bold text-white hud-value ${
+                        priceTick === 'up'
+                          ? 'quote-price-flash-up'
+                          : priceTick === 'down'
+                            ? 'quote-price-flash-down'
+                            : ''
+                      }`}
+                    >
+                      ${formatNumber(priceInfo.price, 2)}
+                    </div>
                     <div className="text-[10px] text-slate-500">CURRENT</div>
                   </div>
                   <div className="hud-stat p-3 text-center">
@@ -569,50 +713,6 @@ function ResearchContent() {
               </div>
               <div className="p-4">
                 <LiveNews symbol={selectedSymbol} limit={8} showTitle={false} />
-              </div>
-            </div>
-          </div>
-
-          {/* ── Finnhub Data Section ─────────────────────────────────────────── */}
-          <div className="col-span-12">
-            <div className="hud-panel">
-              {/* Tab bar */}
-              <div className="p-3 border-b border-blue-500/10 flex items-center gap-1 overflow-x-auto">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mr-2 shrink-0">Finnhub</span>
-                {([
-                  { id: 'financials', label: 'Basic Financials' },
-                  { id: 'quote', label: 'Quote' },
-                  { id: 'recommendations', label: 'Analyst Recs' },
-                  { id: 'insider', label: 'Insider Txn' },
-                  { id: 'news', label: 'Company News' },
-                  { id: 'sec', label: 'SEC Filings' },
-                  { id: 'ipo', label: 'IPO Calendar' },
-                  { id: 'country', label: 'Country Data' },
-                ] as const).map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setFinnhubTab(tab.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors ${
-                      finnhubTab === tab.id
-                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Panel content */}
-              <div className="min-h-[320px]">
-                {finnhubTab === 'quote' && <FinnhubQuotePanel symbol={selectedSymbol} />}
-                {finnhubTab === 'financials' && <BasicFinancialsPanel symbol={selectedSymbol} />}
-                {finnhubTab === 'recommendations' && <RecommendationTrendsPanel symbol={selectedSymbol} />}
-                {finnhubTab === 'insider' && <InsiderTransactionsPanel symbol={selectedSymbol} />}
-                {finnhubTab === 'news' && <CompanyNewsPanel symbol={selectedSymbol} />}
-                {finnhubTab === 'sec' && <SECFilingsPanel symbol={selectedSymbol} />}
-                {finnhubTab === 'ipo' && <IPOCalendarPanel />}
-                {finnhubTab === 'country' && <CountryMetadataPanel />}
               </div>
             </div>
           </div>

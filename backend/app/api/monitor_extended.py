@@ -592,7 +592,7 @@ async def get_trade_policy(
 
 # Guardian search queries per continent/category
 _GUARDIAN_CONTINENT_QUERIES: Dict[str, Dict[str, str]] = {
-    "World News": {"q": "world affairs OR global crisis OR geopolitical", "section": "world"},
+    "World News": {"q": "international OR united nations OR global OR conflict OR diplomacy", "section": "world"},
     "Europe": {"q": "Europe OR EU OR NATO OR European Union", "section": "world"},
     "Middle East": {"q": "Middle East OR Iran OR Israel OR Saudi OR Gaza", "section": "world"},
     "Africa": {"q": "Africa OR Nigeria OR Kenya OR South Africa OR Ethiopia", "section": "world"},
@@ -620,23 +620,40 @@ _GDELT_CONTINENT_QUERIES = {
 async def get_continent_news():
     """
     Continent-wise news feed — like the Bloomberg/WorldMonitor grid.
-    Primary: The Guardian Open Platform.  Fallback: GDELT Project API.
+    Primary: The Guardian Open Platform. Per-column GDELT when a category is empty.
     """
-    feeds: List[ContinentNewsFeed] = []
+    feeds_by_continent: Dict[str, ContinentNewsFeed] = {}
 
+    continent_order = list(_GUARDIAN_CONTINENT_QUERIES.keys())
     async with httpx.AsyncClient(timeout=_GUARDIAN_TIMEOUT) as client:
         tasks = [
             _fetch_continent_news_guardian(client, continent, params)
             for continent, params in _GUARDIAN_CONTINENT_QUERIES.items()
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        for r in results:
-            if isinstance(r, ContinentNewsFeed) and r.count > 0:
-                feeds.append(r)
+        for idx, r in enumerate(results):
+            c = continent_order[idx] if idx < len(continent_order) else None
+            if isinstance(r, ContinentNewsFeed):
+                feeds_by_continent[r.continent] = r
+            elif c:
+                feeds_by_continent[c] = ContinentNewsFeed(continent=c, live=True, count=0, articles=[])
 
-    # If Guardian returned nothing (rate-limited / down), try GDELT
-    if not feeds:
-        logger.warning("Guardian returned no feeds — falling back to GDELT")
+    empty = [c for c, f in feeds_by_continent.items() if f.count == 0]
+    if empty:
+        async with httpx.AsyncClient(timeout=20) as client:
+            gdelt_tasks = [
+                _fetch_continent_news_gdelt(client, c, _GDELT_CONTINENT_QUERIES[c])
+                for c in empty
+                if c in _GDELT_CONTINENT_QUERIES
+            ]
+            gdelt_results = await asyncio.gather(*gdelt_tasks, return_exceptions=True)
+            for r in gdelt_results:
+                if isinstance(r, ContinentNewsFeed) and r.count > 0:
+                    feeds_by_continent[r.continent] = r
+
+    # If everything failed, one-shot GDELT for all categories
+    if not feeds_by_continent or all(f.count == 0 for f in feeds_by_continent.values()):
+        logger.warning("Guardian/GDELT sparse — full GDELT sweep")
         async with httpx.AsyncClient(timeout=20) as client:
             tasks = [
                 _fetch_continent_news_gdelt(client, continent, query)
@@ -644,8 +661,10 @@ async def get_continent_news():
             ]
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for r in results:
-                if isinstance(r, ContinentNewsFeed):
-                    feeds.append(r)
+                if isinstance(r, ContinentNewsFeed) and r.count > 0:
+                    feeds_by_continent[r.continent] = r
+
+    feeds: List[ContinentNewsFeed] = list(feeds_by_continent.values())
 
     # Ensure all 9 categories present even if empty
     present = {f.continent for f in feeds}

@@ -79,7 +79,7 @@ function BillingSuccessContent() {
                 Subscription activated
               </h1>
               <p className="text-sm text-slate-400 mb-2">
-                You now have access to QuantTrade Plus. Redirecting you back to your dashboard...
+                You now have access to QuantTrade Pro. Redirecting you back to your dashboard...
               </p>
             </>
           )}

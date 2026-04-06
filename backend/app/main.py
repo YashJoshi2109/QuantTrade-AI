@@ -52,6 +52,7 @@ from app.models import (
     QuoteHistory,
 )
 from app.models.user import User
+from app.models.passkey_credential import PasskeyCredential
 from app.models.global_monitor import (
     GlobalEvent,
     CountryInstability,
@@ -80,13 +81,68 @@ def _create_db_tables():
             print("   App will continue but some database features may not work")
 
 
+# ── APScheduler — Exchange universe batch jobs ─────────────────────────────────
+_scheduler = None
+
+def _start_scheduler():
+    global _scheduler
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from apscheduler.triggers.cron import CronTrigger
+        from app.db.database import SessionLocal
+        from app.services.exchange_universe_service import sync_all_exchanges, cleanup_stale_symbols
+
+        if SessionLocal is None:
+            print("⚠️ Skipping scheduler — no database configured")
+            return
+
+        def _nightly_sync():
+            db = SessionLocal()
+            try:
+                results = sync_all_exchanges(db)
+                total = sum(v for v in results.values() if v > 0)
+                print(f"🌍 Exchange universe nightly sync complete: {total} symbols updated")
+            except Exception as e:
+                print(f"⚠️ Exchange universe sync error: {e}")
+            finally:
+                db.close()
+
+        def _weekly_cleanup():
+            db = SessionLocal()
+            try:
+                n = cleanup_stale_symbols(db)
+                print(f"🧹 Weekly cleanup: {n} stale symbols marked inactive")
+            except Exception as e:
+                print(f"⚠️ Weekly cleanup error: {e}")
+            finally:
+                db.close()
+
+        sched = BackgroundScheduler(timezone="UTC")
+        # Nightly at 00:30 UTC — refresh universe
+        sched.add_job(_nightly_sync, CronTrigger(hour=0, minute=30), id="exchange_nightly_sync", replace_existing=True)
+        # Weekly cleanup — Sunday 03:00 UTC
+        sched.add_job(_weekly_cleanup, CronTrigger(day_of_week="sun", hour=3, minute=0), id="exchange_weekly_cleanup", replace_existing=True)
+        sched.start()
+        _scheduler = sched
+        print("✅ APScheduler started — exchange universe batch jobs scheduled")
+    except ImportError:
+        print("⚠️ APScheduler not installed — skipping batch jobs. Run: pip install APScheduler")
+    except Exception as e:
+        print(f"⚠️ Scheduler startup error: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Run table creation in a thread so /health is available immediately
     t = threading.Thread(target=_create_db_tables, daemon=True)
     t.start()
+    # Start background scheduler
+    sched_t = threading.Thread(target=_start_scheduler, daemon=True)
+    sched_t.start()
     yield
-    # shutdown if needed
+    # Shutdown
+    if _scheduler and _scheduler.running:
+        _scheduler.shutdown(wait=False)
     t.join(timeout=1.0)
 
 

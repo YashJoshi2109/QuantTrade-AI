@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
 
+    # WebAuthn / Passkey
+    WEBAUTHN_RP_ID: str = os.getenv("WEBAUTHN_RP_ID", "localhost")
+    WEBAUTHN_ORIGIN: str = os.getenv("WEBAUTHN_ORIGIN", "http://localhost:3000")
+
     # Email OTP (Resend - https://resend.com)
     RESEND_API_KEY: Optional[str] = None
     RESEND_FROM_EMAIL: str = "QuantTrade <onboarding@resend.dev>"  # Replace with verified domain

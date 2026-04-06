@@ -1,30 +1,36 @@
 """
-Finnhub API integration for real-time market data
-API Key: d60jvp1r01qto1rdeangd60jvp1r01qto1rdeao0
+Finnhub API integration for real-time market data.
 Docs: https://finnhub.io/docs/api
 
-Rate limited to 60 calls/minute with intelligent caching
+Uses FINNHUB_API_KEY from settings. Rate limited to 60 calls/minute with caching.
 """
 import requests
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
-import time
+from app.config import settings
 from app.services.rate_limiter import rate_limited_api_call, CACHE_TTL
 
 
 class FinnhubFetcher:
     """Fetch market data from Finnhub API"""
-    
+
     BASE_URL = "https://finnhub.io/api/v1"
-    API_KEY = "d60jvp1r01qto1rdeangd60jvp1r01qto1rdeao0"
-    
+
+    @staticmethod
+    def _api_token() -> str:
+        return (settings.FINNHUB_API_KEY or "").strip()
+
     @staticmethod
     def _make_request(endpoint: str, params: Optional[Dict] = None) -> Dict:
         """Make API request with error handling"""
+        token = FinnhubFetcher._api_token()
+        if not token:
+            print("Finnhub API key not configured (FINNHUB_API_KEY)")
+            return {}
         if params is None:
             params = {}
-        params['token'] = FinnhubFetcher.API_KEY
-        
+        params = {**params, "token": token}
+
         try:
             response = requests.get(
                 f"{FinnhubFetcher.BASE_URL}/{endpoint}",

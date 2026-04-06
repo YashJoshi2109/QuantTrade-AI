@@ -996,10 +996,25 @@ export async function fetchIpoCalendar(): Promise<IpoCalendarEntry[]> {
   try {
     const response = await fetchWithTimeout(`${API_URL}/api/v1/market/ipo-calendar`, 20_000)
     const data = await parseJsonSafe<IpoCalendarEntry[]>(response)
-    if (data && Array.isArray(data)) return data
-    return []
+    if (data && Array.isArray(data) && data.length > 0) return data
   } catch (e) {
     console.error('Error fetching IPO calendar:', e)
+  }
+  try {
+    const r = await fetchWithTimeout('/api/finnhub?type=ipo-calendar', 18_000)
+    if (!r.ok) return []
+    const raw = (await parseJsonSafe<Record<string, unknown>[]>(r)) ?? []
+    if (!Array.isArray(raw) || raw.length === 0) return []
+    return raw.map((row) => ({
+      date: String(row.date ?? ''),
+      symbol: row.symbol != null ? String(row.symbol) : null,
+      name: String(row.name ?? row.symbol ?? 'IPO'),
+      exchange: row.exchange != null ? String(row.exchange) : null,
+      status: row.status != null ? String(row.status) : null,
+      price: row.price != null ? String(row.price) : null,
+      shares: typeof row.numberOfShares === 'number' ? row.numberOfShares : null,
+    }))
+  } catch {
     return []
   }
 }
@@ -1013,7 +1028,46 @@ export interface MarketIndex {
   timestamp: string
 }
 
+const MARKETS_OVERVIEW_INDEX_SYMBOLS =
+  '^GSPC,^IXIC,^DJI,^RUT,^VIX,GLD,USO,TLT,XLF,XLE'
+
+/** Next.js route: Yahoo → FMP → Twelve → Finnhub (works when backend yfinance is blocked). */
+async function fetchMarketIndicesFromNextProxy(): Promise<MarketIndex[] | null> {
+  try {
+    const res = await fetch(
+      `/api/quotes/indices?symbols=${encodeURIComponent(MARKETS_OVERVIEW_INDEX_SYMBOLS)}`
+    )
+    if (!res.ok) return null
+    const rows = (await parseJsonSafe<
+      Array<{
+        symbol: string
+        name: string
+        shortName?: string
+        price: number
+        change: number
+        change_percent: number
+      }>
+    >(res)) ?? []
+    if (!Array.isArray(rows) || rows.length === 0) return null
+    if (!rows.some((r) => isFiniteNumber(r.price) && r.price > 0)) return null
+    const ts = new Date().toISOString()
+    return rows.map((r) => ({
+      symbol: r.symbol,
+      name: (r.name && r.name.trim()) || r.shortName || r.symbol,
+      price: Number(r.price) || 0,
+      change: Number(r.change) || 0,
+      change_percent: Number(r.change_percent) || 0,
+      timestamp: ts,
+    }))
+  } catch {
+    return null
+  }
+}
+
 export async function fetchMarketIndices(): Promise<MarketIndex[]> {
+  const proxied = await fetchMarketIndicesFromNextProxy()
+  if (proxied && proxied.length > 0) return proxied
+
   try {
     const response = await fetch(`${API_URL}/api/v1/enhanced/market-indices`)
     const data = await parseJsonSafe<MarketIndex[]>(response)
@@ -1128,6 +1182,28 @@ export async function fetchSectorPerformance(): Promise<SectorPerformance[]> {
   } catch (error) {
     console.error('Error fetching sector performance:', error)
     return []
+  }
+}
+
+export interface MarketCoverageStats {
+  heatmap_universe_count: number
+  symbols_master_active: number
+  symbols_master_total: number
+  note: string
+}
+
+export async function fetchMarketCoverage(): Promise<MarketCoverageStats | null> {
+  try {
+    const response = await fetchWithTimeout(
+      `${API_URL}/api/v1/market/coverage`,
+      15_000
+    )
+    const data = await parseJsonSafe<MarketCoverageStats>(response)
+    if (data) return data
+    if (!response.ok) return null
+    return null
+  } catch {
+    return null
   }
 }
 

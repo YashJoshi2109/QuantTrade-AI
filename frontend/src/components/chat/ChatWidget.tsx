@@ -1,9 +1,16 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
 
+// Routes where the floating AI Copilot button should NOT appear
+const HIDDEN_ON: string[] = ['/auth', '/terms', '/legal']
+
 export default function ChatWidget() {
+  const pathname = usePathname()
+  if (HIDDEN_ON.some((p) => pathname.startsWith(p))) return null
+
   return (
     <Link
       href="/copilot"

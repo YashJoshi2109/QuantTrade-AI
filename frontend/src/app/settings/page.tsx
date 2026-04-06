@@ -1,48 +1,86 @@
 'use client'
 
+/**
+ * QuantTrade AI — Settings Page
+ * Production-grade, Bloomberg terminal-style settings with animated sections
+ */
+
 import { useState, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import AppLayout from '@/components/AppLayout'
-import { Brain, Bell, CheckCircle, LogIn, Camera, CreditCard } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Brain, Bell, CheckCircle, LogIn, Camera, CreditCard, Shield, User,
+  ChevronRight, Trash2, Eye, EyeOff, Save, AlertTriangle, Zap, Lock,
+  Settings, Moon, Sun, Globe, Activity,
+} from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createBillingPortalSession } from '@/lib/api'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileSettings from '@/components/layout/MobileSettings'
 
+// ─── Toggle Switch ───────────────────────────────────────────────────
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ${checked ? 'bg-cyan-500' : 'bg-slate-700'}`}
+    >
+      <motion.span
+        className="inline-block w-4 h-4 bg-white rounded-full shadow-sm mt-0.5 ml-0.5"
+        animate={{ translateX: checked ? 20 : 0 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      />
+    </button>
+  )
+}
+
+// ─── Section card ────────────────────────────────────────────────────
+function SettingsCard({ icon: Icon, title, subtitle, children, accent = 'cyan' }: {
+  icon: React.ElementType; title: string; subtitle?: string; children: React.ReactNode; accent?: string
+}) {
+  const colors: Record<string, string> = {
+    cyan:   'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
+    violet: 'text-violet-400 bg-violet-500/10 border-violet-500/20',
+    amber:  'text-amber-400 bg-amber-500/10 border-amber-500/20',
+    red:    'text-red-400 bg-red-500/10 border-red-500/20',
+    emerald:'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+  }
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden backdrop-blur-sm"
+    >
+      <div className="px-6 py-4 border-b border-slate-800/50 flex items-center gap-3">
+        <div className={`w-8 h-8 rounded-lg border flex items-center justify-center ${colors[accent]}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+        <div>
+          <h3 className="text-sm font-bold text-white">{title}</h3>
+          {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
+        </div>
+      </div>
+      <div className="p-6">{children}</div>
+    </motion.section>
+  )
+}
+
 function DesktopSettingsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const [analystPersonality, setAnalystPersonality] = useState('conservative')
-  const [notifications, setNotifications] = useState({
-    volatility: true,
-    earnings: true,
-    updates: false
-  })
+  const [notifications, setNotifications] = useState({ volatility: true, earnings: true, updates: false, security: true })
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [billingLoading, setBillingLoading] = useState(false)
   const [billingError, setBillingError] = useState<string | null>(null)
-  
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    
-    setUploadingPhoto(true)
-    try {
-      // TODO: Implement photo upload to backend
-      // For now, just show a preview
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        // In production, upload to backend/S3 and update user profile
-        console.log('Photo selected:', file.name)
-      }
-      reader.readAsDataURL(file)
-    } catch (error) {
-      console.error('Photo upload error:', error)
-    } finally {
-      setUploadingPhoto(false)
-    }
-  }
-  
+  const [theme, setTheme] = useState<'dark' | 'system'>('dark')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const displayName = user?.full_name || user?.username || 'Trader'
   const email = user?.email || '—'
   const avatarUrl = user?.avatar_url
@@ -54,33 +92,27 @@ function DesktopSettingsPage() {
       const { url } = await createBillingPortalSession()
       window.location.href = url
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unable to open billing portal'
-      setBillingError(message)
+      setBillingError(err instanceof Error ? err.message : 'Unable to open billing portal')
     } finally {
       setBillingLoading(false)
     }
   }
-  
-  // Show auth gate if not authenticated
+
+  // Auth gate
   if (!authLoading && !isAuthenticated) {
     return (
       <AppLayout>
-        <div className="p-6 flex items-center justify-center min-h-[80vh]">
-          <div className="text-center max-w-md">
-            <div className="hud-panel p-8">
-              <LogIn className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-white mb-2">Sign In Required</h2>
-              <p className="text-slate-400 mb-6">
-                Create an account to access settings and personalize your experience.
-              </p>
-              <Link 
-                href="/auth"
-                className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
-              >
-                Sign In / Register
-              </Link>
+        <div className="min-h-screen bg-[#020617] -mx-4 md:-mx-6 -my-4 md:-my-6 flex items-center justify-center">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-md px-6">
+            <div className="w-20 h-20 rounded-2xl bg-slate-900 border border-cyan-500/20 flex items-center justify-center mx-auto mb-6">
+              <Lock className="w-8 h-8 text-cyan-500" />
             </div>
-          </div>
+            <h2 className="text-2xl font-black text-white mb-3">Authentication Required</h2>
+            <p className="text-slate-400 mb-8 text-sm leading-relaxed">Sign in to access your settings and personalize your QuantTrade AI experience.</p>
+            <Link href="/auth" className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 text-white font-bold hover:from-cyan-400 hover:to-sky-400 transition-all shadow-lg shadow-cyan-500/25">
+              <LogIn className="w-4 h-4" /> Sign In to Continue
+            </Link>
+          </motion.div>
         </div>
       </AppLayout>
     )
@@ -88,233 +120,180 @@ function DesktopSettingsPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 overflow-y-auto">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl font-bold mb-6 text-white">Settings & Preferences</h1>
-          
-          <div className="space-y-6">
-            {/* Profile Information */}
-            <section className="bg-[#1e293b] border border-slate-700 rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-700 flex justify-between items-center">
-                <h3 className="text-lg font-medium text-white">Profile Information</h3>
-                <button className="text-sm text-blue-400 hover:text-blue-300 font-medium">Edit Profile</button>
+      <div className="min-h-screen bg-[#020617] -mx-4 md:-mx-6 -my-4 md:-my-6">
+        <div className="max-w-4xl mx-auto px-6 py-10">
+
+          {/* Header */}
+          <motion.div className="flex items-center gap-4 mb-10" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="w-10 h-10 rounded-xl bg-slate-900 border border-cyan-500/20 overflow-hidden">
+              <Image src="/logo.png" alt="QuantTrade AI" width={40} height={40} className="object-contain" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <Settings className="w-4 h-4 text-slate-600" />
+                <h1 className="text-xl font-black text-white">Settings</h1>
               </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-center space-x-4">
-                  <div className="relative group">
-                    {avatarUrl ? (
-                      <img 
-                        src={avatarUrl} 
-                        alt={displayName}
-                        className="h-16 w-16 rounded-full object-cover border-2 border-slate-600"
-                      />
-                    ) : (
-                      <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl border-2 border-slate-600">
-                        {displayName.slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                    <button 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 shadow-lg hover:bg-blue-700 transition-all opacity-0 group-hover:opacity-100"
-                      disabled={uploadingPhoto}
-                    >
-                      {uploadingPhoto ? (
-                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Camera className="w-3 h-3" />
-                      )}
-                    </button>
-                    <input 
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoUpload}
-                      className="hidden"
-                    />
-                  </div>
-                  <div>
-                    <h4 className="text-base font-medium text-white">{displayName}</h4>
-                    <p className="text-sm text-gray-400">{email}</p>
-                  </div>
+              <p className="text-[11px] text-slate-500 font-mono mt-0.5">Account · AI · Notifications · Billing</p>
+            </div>
+          </motion.div>
+
+          <div className="space-y-5">
+
+            {/* Profile */}
+            <SettingsCard icon={User} title="Profile" subtitle="Your account identity and avatar" accent="cyan">
+              <div className="flex items-center gap-6">
+                <div className="relative group">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={displayName} className="w-18 h-18 w-[4.5rem] h-[4.5rem] rounded-2xl object-cover border-2 border-slate-700" />
+                  ) : (
+                    <div className="w-[4.5rem] h-[4.5rem] rounded-2xl bg-gradient-to-br from-cyan-500/40 to-blue-600/20 border border-cyan-500/20 flex items-center justify-center text-cyan-300 text-2xl font-black">
+                      {displayName.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="absolute bottom-0 right-0 translate-x-1 translate-y-1 w-7 h-7 rounded-full bg-cyan-500 border-2 border-slate-900 flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    {uploadingPhoto ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Camera className="w-3 h-3 text-white" />}
+                  </button>
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" />
                 </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">Username</label>
-                    <input 
-                      type="text" 
-                      value={user?.username || ''} 
-                      readOnly
-                      className="w-full px-3 py-2 bg-[#131722] border border-slate-700 rounded-md text-sm text-white cursor-not-allowed opacity-75"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
-                    <input 
-                      type="text" 
-                      value={email} 
-                      readOnly
-                      className="w-full px-3 py-2 bg-[#131722] border border-slate-700 rounded-md text-sm text-white cursor-not-allowed opacity-75"
-                    />
-                  </div>
-                  <div className="text-xs text-slate-500 mt-2">
-                    Account created: {user?.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    { label: 'Username', value: user?.username || '', readOnly: true },
+                    { label: 'Email', value: email, readOnly: true },
+                  ].map(f => (
+                    <div key={f.label}>
+                      <label className="block text-[11px] text-slate-500 font-bold uppercase tracking-wider mb-1.5">{f.label}</label>
+                      <div className="px-3 py-2.5 bg-slate-800/60 border border-slate-700/40 rounded-xl text-sm text-slate-300 font-mono opacity-75">{f.value || '—'}</div>
+                    </div>
+                  ))}
+                  <div className="text-[11px] text-slate-600 col-span-2">
+                    Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
                   </div>
                 </div>
               </div>
-            </section>
+            </SettingsCard>
 
             {/* AI Customization */}
-            <section className="bg-[#1e293b] border border-slate-700 rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-700">
-                <h3 className="text-lg font-medium flex items-center text-white">
-                  <Brain className="w-5 h-5 mr-2 text-blue-400" />
-                  AI Customization
-                </h3>
-                <p className="mt-1 text-sm text-gray-400">Tailor the AI Copilot to your trading style and risk tolerance.</p>
-              </div>
-              <div className="p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium text-white">Analyst Personality</h4>
-                    <p className="text-xs text-gray-400 mt-1">Adjusts the tone and risk-aversion of generated insights.</p>
-                  </div>
-                  <div className="flex items-center bg-[#131722] rounded-lg p-1">
-                    {['conservative', 'balanced', 'aggressive'].map((type) => (
+            <SettingsCard icon={Brain} title="AI Copilot" subtitle="Tailor the AI to your trading style" accent="violet">
+              <div className="space-y-6">
+                {/* Personality */}
+                <div>
+                  <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mb-3">Analyst Personality</div>
+                  <p className="text-xs text-slate-500 mb-4">Adjusts the tone and risk-aversion of generated insights.</p>
+                  <div className="flex items-center gap-1 bg-slate-800/60 border border-slate-700/40 rounded-xl p-1">
+                    {(['conservative', 'balanced', 'aggressive'] as const).map((type) => (
                       <button
                         key={type}
                         onClick={() => setAnalystPersonality(type)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all capitalize ${analystPersonality === type ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                        className={`flex-1 px-4 py-2 text-xs font-bold rounded-lg transition-all capitalize ${analystPersonality === type ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
                       >
                         {type}
                       </button>
                     ))}
                   </div>
                 </div>
-                <hr className="border-slate-700" />
+
+                <div className="border-t border-slate-800/50" />
+
+                {/* Data sources */}
                 <div>
-                  <h4 className="text-sm font-medium mb-3 text-white">Data Sources Priority</h4>
-                  <div className="space-y-3">
+                  <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mb-4">Data Sources Priority</div>
+                  <div className="space-y-4">
                     {[
-                      { id: 'sec', label: 'SEC Filings Analysis', enabled: false },
-                      { id: 'social', label: 'Social Sentiment (Reddit/X)', enabled: true },
-                      { id: 'technical', label: 'Technical Indicators (RSI, MACD)', enabled: true }
-                    ].map((source) => (
-                      <div key={source.id} className="flex items-center justify-between">
-                        <span className="text-sm text-gray-300">{source.label}</span>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" defaultChecked={source.enabled} className="sr-only peer" />
-                          <div className="w-10 h-5 bg-slate-600 rounded-full peer peer-checked:bg-blue-600 transition-colors"></div>
-                          <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
-                        </label>
+                      { id: 'sec', label: 'SEC Filings Analysis', desc: 'Deep 10-K/10-Q analysis via RAG pipeline', enabled: false },
+                      { id: 'social', label: 'Social Sentiment (Reddit/X)', desc: 'Retail sentiment signals from social platforms', enabled: true },
+                      { id: 'technical', label: 'Technical Indicators (RSI, MACD)', desc: 'Chart-based technical analysis signals', enabled: true },
+                    ].map(s => (
+                      <div key={s.id} className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm text-slate-200 font-medium">{s.label}</div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">{s.desc}</div>
+                        </div>
+                        <Toggle checked={s.enabled} onChange={() => {}} label={s.label} />
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
-            </section>
+            </SettingsCard>
 
-            {/* Account Info */}
-            <section className="bg-[#1e293b] border border-slate-700 rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-700">
-                <h3 className="text-lg font-medium text-white">Account Information</h3>
-              </div>
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-slate-400">Account Type:</span>
-                    <span className="text-white font-medium ml-2">
-                      {/* TODO: Wire to real subscription status */}
-                      Free Plan
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400">Member Since:</span>
-                    <span className="text-white font-medium ml-2">
-                      {user?.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400">Verified:</span>
-                    <span className="text-white font-medium ml-2">
-                      {user?.is_verified ? 'Yes' : 'No'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400">Status:</span>
-                    <span className="text-green-400 font-medium ml-2 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" />
-                      Active
-                    </span>
-                  </div>
-                </div>
-                <div className="pt-4 border-t border-slate-700 space-y-3">
-                  <p className="text-xs text-slate-400">
-                    Billing is handled securely by Stripe. You can update your payment method,
-                    change plans, or cancel anytime from the billing portal.
-                  </p>
-                  {billingError && (
-                    <p className="text-[11px] text-amber-300">{billingError}</p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleManageBilling}
-                    disabled={billingLoading}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    {billingLoading ? 'Opening billing portal...' : 'Manage billing'}
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            {/* Notifications */}
-            <section className="bg-[#1e293b] border border-slate-700 rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-700">
-                <h3 className="text-lg font-medium flex items-center text-white">
-                  <Bell className="w-5 h-5 mr-2" />
-                  Notifications
-                </h3>
-              </div>
-              <div className="p-6">
-                <div className="space-y-4">
+            {/* Account info & billing */}
+            <SettingsCard icon={CreditCard} title="Billing & Subscription" subtitle="Manage your plan and payment method" accent="emerald">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
-                    { id: 'volatility', label: 'Market Volatility Alerts', desc: 'Get notified when watched assets move >5% in 1 hour.', enabled: notifications.volatility },
-                    { id: 'earnings', label: 'Earnings Reports', desc: 'Daily summary of upcoming earnings for your watchlist.', enabled: notifications.earnings },
-                    { id: 'updates', label: 'Product Updates', desc: 'News about new AI features and platform improvements.', enabled: notifications.updates }
-                  ].map((notif) => (
-                    <div key={notif.id} className="flex items-center justify-between py-2">
-                      <div>
-                        <p className="text-sm font-medium text-white">{notif.label}</p>
-                        <p className="text-xs text-gray-400">{notif.desc}</p>
+                    { label: 'Plan', value: 'Free Plan' },
+                    { label: 'Status', value: 'Active', green: true },
+                    { label: 'Verified', value: user?.is_verified ? 'Yes' : 'No' },
+                    { label: 'Member Since', value: user?.created_at ? new Date(user.created_at).toLocaleDateString() : '—' },
+                  ].map(row => (
+                    <div key={row.label} className="bg-slate-800/40 border border-slate-700/30 rounded-xl px-4 py-3">
+                      <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">{row.label}</div>
+                      <div className={`text-sm font-bold ${row.green ? 'text-emerald-400' : 'text-white'} flex items-center gap-1`}>
+                        {row.green && <CheckCircle className="w-3 h-3" />}
+                        {row.value}
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={notif.enabled}
-                          onChange={(e) => setNotifications({ ...notifications, [notif.id]: e.target.checked })}
-                          className="sr-only peer"
-                        />
-                        <div className="w-10 h-5 bg-slate-600 rounded-full peer peer-checked:bg-blue-600 transition-colors"></div>
-                        <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
-                      </label>
                     </div>
                   ))}
                 </div>
-              </div>
-            </section>
-
-            {/* Danger Zone */}
-            <div className="border-t border-slate-700 pt-6">
-              <h3 className="text-lg font-medium text-red-400 mb-4">Danger Zone</h3>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-red-900/10 border border-red-900/30 rounded-lg p-4">
-                <div className="mb-4 sm:mb-0">
-                  <h4 className="text-sm font-bold text-red-400">Delete Account</h4>
-                  <p className="text-xs text-red-300/70 mt-1">Once you delete your account, there is no going back. Please be certain.</p>
+                <p className="text-xs text-slate-500">Billing is handled securely by Stripe. Update payment methods, change plans, or cancel anytime.</p>
+                {billingError && <p className="text-xs text-amber-300">{billingError}</p>}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleManageBilling}
+                    disabled={billingLoading}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500/20 to-sky-500/10 border border-cyan-500/30 text-cyan-300 text-sm font-bold hover:from-cyan-500/30 hover:to-sky-500/20 transition-all disabled:opacity-50"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    {billingLoading ? 'Opening...' : 'Manage Billing'}
+                  </button>
+                  <Link href="/pricing" className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 text-white text-sm font-bold hover:from-cyan-400 hover:to-sky-400 transition-all shadow-lg shadow-cyan-500/20">
+                    <Zap className="w-4 h-4" /> Upgrade to Pro
+                  </Link>
                 </div>
-                <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap">Delete Account</button>
               </div>
-            </div>
+            </SettingsCard>
+
+            {/* Notifications */}
+            <SettingsCard icon={Bell} title="Notifications" subtitle="Configure alert preferences" accent="amber">
+              <div className="space-y-4">
+                {[
+                  { id: 'volatility', label: 'Market Volatility Alerts', desc: 'Notify when watched assets move >5% in 1 hour' },
+                  { id: 'earnings', label: 'Earnings Reports', desc: 'Daily summary of upcoming earnings for your watchlist' },
+                  { id: 'security', label: 'Security Login Alerts', desc: 'Email notification whenever a new device signs in' },
+                  { id: 'updates', label: 'Product Updates', desc: 'News about new AI features and platform improvements' },
+                ].map(n => (
+                  <div key={n.id} className="flex items-center justify-between py-2 border-b border-slate-800/40 last:border-0">
+                    <div>
+                      <p className="text-sm font-bold text-white">{n.label}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{n.desc}</p>
+                    </div>
+                    <Toggle
+                      checked={notifications[n.id as keyof typeof notifications]}
+                      onChange={(v) => setNotifications(prev => ({ ...prev, [n.id]: v }))}
+                      label={n.label}
+                    />
+                  </div>
+                ))}
+              </div>
+            </SettingsCard>
+
+            {/* Danger zone */}
+            <SettingsCard icon={AlertTriangle} title="Danger Zone" subtitle="Irreversible account actions" accent="red">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-red-500/5 border border-red-500/20">
+                <div>
+                  <h4 className="text-sm font-bold text-red-400">Delete Account</h4>
+                  <p className="text-[11px] text-red-300/50 mt-1">Once deleted, all data is permanently removed. This cannot be undone.</p>
+                </div>
+                <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600/20 border border-red-600/40 text-red-400 text-sm font-bold hover:bg-red-600/30 transition-colors whitespace-nowrap">
+                  <Trash2 className="w-4 h-4" /> Delete Account
+                </button>
+              </div>
+            </SettingsCard>
+
           </div>
         </div>
       </div>
@@ -325,13 +304,9 @@ function DesktopSettingsPage() {
 export default function SettingsPage() {
   return (
     <>
-      <div className="hidden md:block">
-        <DesktopSettingsPage />
-      </div>
+      <div className="hidden md:block"><DesktopSettingsPage /></div>
       <div className="md:hidden">
-        <MobileLayout>
-          <MobileSettings />
-        </MobileLayout>
+        <MobileLayout><MobileSettings /></MobileLayout>
       </div>
     </>
   )

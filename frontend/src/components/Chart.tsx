@@ -1,24 +1,41 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts'
+import {
+  createChart,
+  ColorType,
+  IChartApi,
+  ISeriesApi,
+  Time,
+} from 'lightweight-charts'
 import { PriceBar } from '@/lib/api'
+
+export type ChartSeriesType = 'candlestick' | 'line' | 'area'
 
 interface ChartProps {
   data: PriceBar[]
   symbol: string
+  seriesType?: ChartSeriesType
+  /** Moving averages (SMA 20 / EMA 50) — shown on candlesticks only. */
+  showMovingAverages?: boolean
 }
 
-export default function Chart({ data, symbol }: ChartProps) {
+export default function Chart({
+  data,
+  symbol,
+  seriesType = 'candlestick',
+  showMovingAverages = true,
+}: ChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
-  const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
-  const lineSeriesRefs = useRef<ISeriesApi<'Line'>[]>([])
+  const mainSeriesRef = useRef<
+    ISeriesApi<'Candlestick'> | ISeriesApi<'Line'> | ISeriesApi<'Area'> | null
+  >(null)
+  const overlayLineRefs = useRef<ISeriesApi<'Line'>[]>([])
 
   useEffect(() => {
     if (!chartContainerRef.current) return
 
-    // Create chart
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: '#131722' },
@@ -45,18 +62,6 @@ export default function Chart({ data, symbol }: ChartProps) {
 
     chartRef.current = chart
 
-    // Create candlestick series
-    const candlestickSeries = chart.addCandlestickSeries({
-      upColor: '#26a69a',
-      downColor: '#ef5350',
-      borderVisible: false,
-      wickUpColor: '#26a69a',
-      wickDownColor: '#ef5350',
-    })
-
-    candlestickSeriesRef.current = candlestickSeries
-
-    // Handle resize
     const handleResize = () => {
       if (chartContainerRef.current && chart) {
         chart.applyOptions({
@@ -71,93 +76,148 @@ export default function Chart({ data, symbol }: ChartProps) {
     return () => {
       window.removeEventListener('resize', handleResize)
       chart.remove()
+      chartRef.current = null
+      mainSeriesRef.current = null
+      overlayLineRefs.current = []
     }
   }, [])
 
   useEffect(() => {
-    if (!chartRef.current || !candlestickSeriesRef.current) return
-    
-    // If no data, clear the chart
-    if (!data || data.length === 0) {
-      if (candlestickSeriesRef.current) {
-        try {
-          candlestickSeriesRef.current.setData([])
-        } catch (e) {
-          // Ignore errors when clearing
-        }
+    const chart = chartRef.current
+    if (!chart) return
+
+    overlayLineRefs.current.forEach((series) => {
+      try {
+        chart.removeSeries(series)
+      } catch {
+        /* already removed */
+      }
+    })
+    overlayLineRefs.current = []
+
+    if (mainSeriesRef.current) {
+      try {
+        chart.removeSeries(mainSeriesRef.current)
+      } catch {
+        /* already removed */
+      }
+      mainSeriesRef.current = null
+    }
+
+    if (seriesType === 'candlestick') {
+      mainSeriesRef.current = chart.addCandlestickSeries({
+        upColor: '#26a69a',
+        downColor: '#ef5350',
+        borderVisible: false,
+        wickUpColor: '#26a69a',
+        wickDownColor: '#ef5350',
+      })
+    } else if (seriesType === 'line') {
+      mainSeriesRef.current = chart.addLineSeries({
+        color: '#38bdf8',
+        lineWidth: 2,
+        title: 'Close',
+      })
+    } else {
+      mainSeriesRef.current = chart.addAreaSeries({
+        lineColor: '#38bdf8',
+        topColor: 'rgba(56, 189, 248, 0.35)',
+        bottomColor: 'rgba(56, 189, 248, 0.02)',
+        lineWidth: 2,
+        title: 'Close',
+      })
+    }
+  }, [seriesType])
+
+  useEffect(() => {
+    const chart = chartRef.current
+    const main = mainSeriesRef.current
+    if (!chart || !main) return
+
+    overlayLineRefs.current.forEach((series) => {
+      try {
+        chart.removeSeries(series)
+      } catch {
+        /* ignore */
+      }
+    })
+    overlayLineRefs.current = []
+
+    if (!data?.length) {
+      try {
+        main.setData([])
+      } catch {
+        /* ignore */
       }
       return
     }
 
-    const chart = chartRef.current
+    if (seriesType === 'candlestick') {
+      const candleData = data.map((bar) => ({
+        time: (new Date(bar.timestamp).getTime() / 1000) as Time,
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+      }))
+      ;(main as ISeriesApi<'Candlestick'>).setData(candleData)
 
-    // Transform data for lightweight-charts
-    const chartData = data.map((bar) => ({
-      time: new Date(bar.timestamp).getTime() / 1000 as any,
-      open: bar.open,
-      high: bar.high,
-      low: bar.low,
-      close: bar.close,
-    }))
+      if (showMovingAverages && data.length >= 50) {
+        const chartData = candleData
+        const sma20Data: { time: Time; value: number }[] = []
+        for (let i = 19; i < chartData.length; i++) {
+          const sum = chartData
+            .slice(i - 19, i + 1)
+            .reduce((acc, d) => acc + d.close, 0)
+          sma20Data.push({
+            time: chartData[i].time,
+            value: sum / 20,
+          })
+        }
 
-    candlestickSeriesRef.current.setData(chartData)
+        const ema50Data: { time: Time; value: number }[] = []
+        let ema = chartData[0].close
+        const multiplier = 2 / (50 + 1)
+        ema50Data.push({ time: chartData[0].time, value: ema })
 
-    // Remove existing line series
-    lineSeriesRefs.current.forEach((series) => {
-      try {
-        chart.removeSeries(series)
-      } catch (e) {
-        // Series might already be removed
+        for (let i = 1; i < chartData.length; i++) {
+          ema = (chartData[i].close - ema) * multiplier + ema
+          ema50Data.push({ time: chartData[i].time, value: ema })
+        }
+
+        if (sma20Data.length > 0) {
+          const s = chart.addLineSeries({
+            color: '#3b82f6',
+            lineWidth: 2,
+            title: 'SMA 20',
+          })
+          s.setData(sma20Data)
+          overlayLineRefs.current.push(s)
+        }
+        if (ema50Data.length > 0) {
+          const s = chart.addLineSeries({
+            color: '#f97316',
+            lineWidth: 2,
+            title: 'EMA 50',
+          })
+          s.setData(ema50Data)
+          overlayLineRefs.current.push(s)
+        }
       }
-    })
-    lineSeriesRefs.current = []
-
-    // Add moving averages if we have enough data
-    if (data.length >= 50) {
-      // Calculate SMA 20
-      const sma20Data: any[] = []
-      for (let i = 19; i < chartData.length; i++) {
-        const sum = chartData.slice(i - 19, i + 1).reduce((acc, d) => acc + d.close, 0)
-        sma20Data.push({
-          time: chartData[i].time,
-          value: sum / 20,
-        })
-      }
-
-      // Calculate EMA 50
-      const ema50Data: any[] = []
-      let ema = chartData[0].close
-      const multiplier = 2 / (50 + 1)
-      ema50Data.push({ time: chartData[0].time, value: ema })
-      
-      for (let i = 1; i < chartData.length; i++) {
-        ema = (chartData[i].close - ema) * multiplier + ema
-        ema50Data.push({ time: chartData[i].time, value: ema })
-      }
-
-      // Add SMA 20 (blue)
-      if (sma20Data.length > 0) {
-        const sma20Series = chart.addLineSeries({
-          color: '#3b82f6',
-          lineWidth: 2,
-          title: 'SMA 20',
-        })
-        sma20Series.setData(sma20Data)
-        lineSeriesRefs.current.push(sma20Series)
-      }
-
-      // Add EMA 50 (orange)
-      if (ema50Data.length > 0) {
-        const ema50Series = chart.addLineSeries({
-          color: '#f97316',
-          lineWidth: 2,
-          title: 'EMA 50',
-        })
-        ema50Series.setData(ema50Data)
-        lineSeriesRefs.current.push(ema50Series)
+    } else {
+      const lineData = data.map((bar) => ({
+        time: (new Date(bar.timestamp).getTime() / 1000) as Time,
+        value: bar.close,
+      }))
+      if (seriesType === 'line') {
+        ;(main as ISeriesApi<'Line'>).setData(lineData)
+      } else {
+        ;(main as ISeriesApi<'Area'>).setData(lineData)
       }
     }
-  }, [data])
+
+    chart.timeScale().fitContent()
+  }, [data, seriesType, showMovingAverages, symbol])
 
   return (
     <div className="w-full h-full">

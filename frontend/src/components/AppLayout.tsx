@@ -244,10 +244,10 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
         <MarketTicker />
       </div>
 
-      {/* Fixed Header */}
-      <header className="fixed top-0 md:top-9 left-0 right-0 h-14 z-50">
+      {/* Fixed Header — md:top-11 clears ticker a bit more so the alert bell badge does not crowd API quota */}
+      <header className="fixed top-0 md:top-11 left-0 right-0 h-14 z-50">
         <div className="absolute inset-0 bg-[#0d1321]/90 backdrop-blur-xl border-b border-blue-500/10" />
-        <div className="relative h-full flex items-center px-4 md:px-6 gap-2 md:gap-4">
+        <div className="relative h-full flex items-center px-4 md:px-6 gap-2 md:gap-4 md:pt-1">
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -355,13 +355,13 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
             </form>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Actions — extra gap before bell so badge does not overlap API chip */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 md:ml-1">
             <HeaderTooltip
               label="API Quota"
               detail="Live remaining request budget for market data adapters."
             >
-              <div>
+              <div className="shrink-0 max-w-[min(11rem,32vw)]">
                 <ApiStatsMonitor compact={true} />
               </div>
             </HeaderTooltip>
@@ -372,14 +372,16 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
             >
               <Link
                 href="/about"
-                className="hud-button p-2 flex items-center justify-center text-slate-400 hover:text-cyan-300 transition-colors rounded-lg hover:bg-slate-800/60 border border-transparent hover:border-slate-700/50"
+                className="hud-button p-2 flex items-center justify-center text-slate-400 hover:text-cyan-300 transition-colors rounded-lg hover:bg-slate-800/60 border border-transparent hover:border-slate-700/50 shrink-0"
                 aria-label="About this product"
                 title="About"
               >
                 <Info className="w-5 h-5" aria-hidden />
               </Link>
             </HeaderTooltip>
-            <PredictionAlertCenter />
+            <div className="shrink-0 relative z-[52] pl-0.5">
+              <PredictionAlertCenter />
+            </div>
             <HeaderTooltip
               label="Help"
               detail="Shortcuts, product info, and data disclaimer."
@@ -416,7 +418,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
 
       {/* Fixed Sidebar */}
       <aside 
-        className={`fixed left-0 top-14 md:top-[5.75rem] bottom-0 z-40 transition-all duration-300 ${
+        className={`fixed left-0 top-14 md:top-[6.25rem] bottom-0 z-40 transition-all duration-300 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0`}
         style={{ width: sidebarWidth }}
@@ -508,7 +510,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
 
       {/* Main Content Area */}
       <main 
-        className="pt-14 md:pt-[5.75rem] min-h-screen transition-all duration-300"
+        className="pt-14 md:pt-[6.25rem] min-h-screen transition-all duration-300"
         style={{ 
           marginLeft: `calc(${sidebarWidth})`,
           marginRight: 0 

@@ -1,19 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || ''
 const BASE = 'https://finnhub.io/api/v1'
+
+/** Per-IP sliding window: max requests per minute (Finnhub free tier is 60/min; stay under globally). */
+const RATE_WINDOW_MS = 60_000
+const RATE_MAX = 40
+const ipBuckets = new Map<string, number[]>()
+
+function clientIp(req: NextRequest): string {
+  const xf = req.headers.get('x-forwarded-for')
+  if (xf) return xf.split(',')[0]?.trim() || 'unknown'
+  return req.headers.get('x-real-ip') || 'local'
+}
+
+function allowRate(ip: string): boolean {
+  const now = Date.now()
+  const prev = ipBuckets.get(ip) ?? []
+  const fresh = prev.filter((t) => now - t < RATE_WINDOW_MS)
+  if (fresh.length >= RATE_MAX) return false
+  fresh.push(now)
+  ipBuckets.set(ip, fresh)
+  return true
+}
 
 async function fhFetch(path: string) {
   const sep = path.includes('?') ? '&' : '?'
   const res = await fetch(`${BASE}${path}${sep}token=${FINNHUB_KEY}`, {
     headers: { 'User-Agent': 'QuantTrade/1.0' },
-    next: { revalidate: 60 },
+    cache: 'no-store',
   })
   if (!res.ok) throw new Error(`Finnhub ${res.status}: ${path}`)
   return res.json()
 }
 
 export async function GET(req: NextRequest) {
+  const ip = clientIp(req)
+  if (!allowRate(ip)) {
+    return NextResponse.json(
+      { error: 'Too many Finnhub proxy requests. Try again in a minute.' },
+      { status: 429, headers: { 'Retry-After': '60' } }
+    )
+  }
+
   if (!FINNHUB_KEY) {
     return NextResponse.json({ error: 'FINNHUB_API_KEY not configured' }, { status: 503 })
   }
@@ -102,8 +133,50 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(data?.earningsCalendar ?? [])
       }
 
+      // ── Stock Candle (OHLCV for sparkline/chart) ─────────────────────────────
+      case 'candle': {
+        if (!symbol) return NextResponse.json({ error: 'symbol required' }, { status: 400 })
+        const resolution = searchParams.get('resolution') || '60'
+        const from = searchParams.get('from') || String(Math.floor((Date.now() - 30 * 86400_000) / 1000))
+        const to = searchParams.get('to') || String(Math.floor(Date.now() / 1000))
+        const data = await fhFetch(`/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${to}`)
+        return NextResponse.json(data)
+      }
+
+      // ── Symbol List (NYSE + NASDAQ + AMEX → 12,000+ US stocks) ───────────────
+      // Finnhub /stock/symbol returns all listed stocks for a given exchange.
+      // exchange=US  → covers NYSE + NASDAQ + AMEX (~8,000-11,000 symbols, common stocks + ETFs)
+      // exchange=OTC → OTC / Pink sheet markets (~3,000-5,000 additional symbols)
+      // Combined: 12,000-16,000 publicly traded US symbols.
+      case 'symbol-list': {
+        const exchange = (searchParams.get('exchange') || 'US').toUpperCase()
+        if (!['US', 'OTC', 'NYSE', 'NASDAQ', 'AMEX'].includes(exchange)) {
+          return NextResponse.json({ error: 'exchange must be US | OTC | NYSE | NASDAQ | AMEX' }, { status: 400 })
+        }
+        // Map friendly names to Finnhub exchange codes
+        const fhExchange = exchange === 'NYSE' ? 'NYSE' : exchange === 'NASDAQ' ? 'NASDAQ' : exchange === 'AMEX' ? 'AS' : exchange
+        const data = await fhFetch(`/stock/symbol?exchange=${fhExchange}&securityType=Common Stock`)
+        const symbols = Array.isArray(data) ? data : []
+        // Return minimal payload: symbol, description (company name), type, exchange
+        const mapped = symbols.map((s: { symbol: string; description: string; type: string; exchange?: string }) => ({
+          symbol: s.symbol,
+          name: s.description,
+          type: s.type,
+          exchange: s.exchange ?? fhExchange,
+        }))
+        return NextResponse.json({ count: mapped.length, exchange: fhExchange, symbols: mapped })
+      }
+
+      // ── Symbol Search (full text search via Finnhub) ───────────────────────────
+      case 'symbol-search': {
+        const q = searchParams.get('q') || symbol
+        if (!q) return NextResponse.json({ error: 'q or symbol required' }, { status: 400 })
+        const data = await fhFetch(`/search?q=${encodeURIComponent(q)}`)
+        return NextResponse.json(data?.result ?? [])
+      }
+
       default:
-        return NextResponse.json({ error: 'type required: quote | basic-financials | recommendations | insider-transactions | company-news | sec-filings | ipo-calendar | country | earnings-calendar' }, { status: 400 })
+        return NextResponse.json({ error: 'type required: quote | candle | basic-financials | recommendations | insider-transactions | company-news | sec-filings | ipo-calendar | country | earnings-calendar | symbol-list | symbol-search' }, { status: 400 })
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)

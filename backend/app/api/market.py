@@ -11,6 +11,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Tuple
 from datetime import datetime, timedelta
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 from app.db.database import get_db
 from app.models.symbol import Symbol
 from app.models.quote_snapshot import QuoteSnapshot
@@ -20,6 +23,11 @@ from pydantic import BaseModel
 import httpx
 
 router = APIRouter()
+
+
+def _heatmap_sample_symbol_count() -> int:
+    """Symbols included in the US sector heatmap / movers sample (curated list)."""
+    return sum(len(pairs) for pairs in SP500_STOCKS.values())
 
 
 class StockPerformance(BaseModel):
@@ -47,175 +55,133 @@ class HeatmapData(BaseModel):
     unchanged: int
 
 
-# Major S&P 500 stocks by sector
+# Top 300 US stocks by market cap — NYSE + NASDAQ + AMEX, grouped by sector
 SP500_STOCKS = {
     "Technology": [
-        ("AAPL", "Apple Inc"),
-        ("MSFT", "Microsoft Corp"),
-        ("NVDA", "NVIDIA Corp"),
-        ("GOOGL", "Alphabet Inc"),
-        ("META", "Meta Platforms"),
-        ("AVGO", "Broadcom Inc"),
-        ("ORCL", "Oracle Corp"),
-        ("CRM", "Salesforce Inc"),
-        ("ADBE", "Adobe Inc"),
-        ("AMD", "AMD Inc"),
-        ("INTC", "Intel Corp"),
-        ("QCOM", "Qualcomm Inc"),
-        ("TXN", "Texas Instruments"),
-        ("IBM", "IBM Corp"),
-        ("NOW", "ServiceNow Inc"),
-        ("INTU", "Intuit Inc"),
-        ("AMAT", "Applied Materials"),
-        ("MU", "Micron Technology"),
-        ("ADI", "Analog Devices"),
-        ("LRCX", "Lam Research"),
+        ("AAPL", "Apple Inc"), ("MSFT", "Microsoft Corp"), ("NVDA", "NVIDIA Corp"),
+        ("GOOGL", "Alphabet Inc A"), ("META", "Meta Platforms"), ("AVGO", "Broadcom Inc"),
+        ("ORCL", "Oracle Corp"), ("CRM", "Salesforce Inc"), ("ADBE", "Adobe Inc"),
+        ("AMD", "AMD Inc"), ("INTC", "Intel Corp"), ("QCOM", "Qualcomm Inc"),
+        ("TXN", "Texas Instruments"), ("IBM", "IBM Corp"), ("NOW", "ServiceNow Inc"),
+        ("INTU", "Intuit Inc"), ("AMAT", "Applied Materials"), ("MU", "Micron Technology"),
+        ("ADI", "Analog Devices"), ("LRCX", "Lam Research"), ("KLAC", "KLA Corp"),
+        ("SNPS", "Synopsys Inc"), ("CDNS", "Cadence Design"), ("PANW", "Palo Alto Networks"),
+        ("FTNT", "Fortinet Inc"), ("CRWD", "CrowdStrike"), ("WDAY", "Workday Inc"),
+        ("MRVL", "Marvell Technology"), ("NXPI", "NXP Semiconductors"), ("ONTO", "Onto Innovation"),
+        ("HPQ", "HP Inc"), ("HPE", "Hewlett Packard Ent"), ("MSI", "Motorola Solutions"),
+        ("GLW", "Corning Inc"), ("ZBRA", "Zebra Technologies"), ("TER", "Teradyne Inc"),
+        ("ENPH", "Enphase Energy"), ("MPWR", "Monolithic Power"), ("AKAM", "Akamai Tech"),
+        ("NET", "Cloudflare Inc"), ("DDOG", "Datadog Inc"),
     ],
     "Healthcare": [
-        ("UNH", "UnitedHealth Group"),
-        ("JNJ", "Johnson & Johnson"),
-        ("LLY", "Eli Lilly"),
-        ("PFE", "Pfizer Inc"),
-        ("ABBV", "AbbVie Inc"),
-        ("MRK", "Merck & Co"),
-        ("TMO", "Thermo Fisher"),
-        ("ABT", "Abbott Labs"),
-        ("DHR", "Danaher Corp"),
-        ("BMY", "Bristol-Myers Squibb"),
-        ("AMGN", "Amgen Inc"),
-        ("GILD", "Gilead Sciences"),
-        ("CVS", "CVS Health"),
-        ("ISRG", "Intuitive Surgical"),
-        ("VRTX", "Vertex Pharma"),
+        ("UNH", "UnitedHealth Group"), ("JNJ", "Johnson & Johnson"), ("LLY", "Eli Lilly"),
+        ("PFE", "Pfizer Inc"), ("ABBV", "AbbVie Inc"), ("MRK", "Merck & Co"),
+        ("TMO", "Thermo Fisher"), ("ABT", "Abbott Labs"), ("DHR", "Danaher Corp"),
+        ("BMY", "Bristol-Myers Squibb"), ("AMGN", "Amgen Inc"), ("GILD", "Gilead Sciences"),
+        ("CVS", "CVS Health"), ("ISRG", "Intuitive Surgical"), ("VRTX", "Vertex Pharma"),
+        ("REGN", "Regeneron Pharma"), ("ZTS", "Zoetis Inc"), ("BSX", "Boston Scientific"),
+        ("SYK", "Stryker Corp"), ("MDT", "Medtronic PLC"), ("ELV", "Elevance Health"),
+        ("CI", "Cigna Group"), ("HUM", "Humana Inc"), ("A", "Agilent Technologies"),
+        ("IDXX", "IDEXX Labs"), ("EW", "Edwards Lifesciences"), ("IQV", "IQVIA Holdings"),
     ],
     "Financials": [
-        ("JPM", "JPMorgan Chase"),
-        ("V", "Visa Inc"),
-        ("MA", "Mastercard Inc"),
-        ("BAC", "Bank of America"),
-        ("WFC", "Wells Fargo"),
-        ("GS", "Goldman Sachs"),
-        ("MS", "Morgan Stanley"),
-        ("BLK", "BlackRock Inc"),
-        ("SCHW", "Charles Schwab"),
-        ("AXP", "American Express"),
-        ("C", "Citigroup Inc"),
-        ("SPGI", "S&P Global"),
-        ("CME", "CME Group"),
-        ("PNC", "PNC Financial"),
-        ("USB", "US Bancorp"),
+        ("JPM", "JPMorgan Chase"), ("V", "Visa Inc"), ("MA", "Mastercard Inc"),
+        ("BAC", "Bank of America"), ("WFC", "Wells Fargo"), ("GS", "Goldman Sachs"),
+        ("MS", "Morgan Stanley"), ("BLK", "BlackRock Inc"), ("SCHW", "Charles Schwab"),
+        ("AXP", "American Express"), ("C", "Citigroup Inc"), ("SPGI", "S&P Global"),
+        ("CME", "CME Group"), ("PNC", "PNC Financial"), ("USB", "US Bancorp"),
+        ("TFC", "Truist Financial"), ("MCO", "Moody's Corp"), ("ICE", "Intercontinental Exch"),
+        ("COF", "Capital One"), ("DFS", "Discover Financial"), ("AIG", "AIG Inc"),
+        ("PRU", "Prudential Financial"), ("MET", "MetLife Inc"), ("AFL", "Aflac Inc"),
+        ("ALL", "Allstate Corp"), ("MTB", "M&T Bank"), ("FITB", "Fifth Third Bancorp"),
+        ("RF", "Regions Financial"), ("KEY", "KeyCorp"), ("CFG", "Citizens Financial"),
+        ("HBAN", "Huntington Bancshares"),
     ],
     "Consumer Cyclical": [
-        ("AMZN", "Amazon.com"),
-        ("TSLA", "Tesla Inc"),
-        ("HD", "Home Depot"),
-        ("MCD", "McDonald's Corp"),
-        ("NKE", "Nike Inc"),
-        ("SBUX", "Starbucks Corp"),
-        ("LOW", "Lowe's Companies"),
-        ("TJX", "TJX Companies"),
-        ("BKNG", "Booking Holdings"),
-        ("CMG", "Chipotle Mexican"),
-        ("TGT", "Target Corp"),
-        ("ORLY", "O'Reilly Auto"),
-        ("GM", "General Motors"),
-        ("F", "Ford Motor"),
-        ("ROST", "Ross Stores"),
+        ("AMZN", "Amazon.com"), ("TSLA", "Tesla Inc"), ("HD", "Home Depot"),
+        ("MCD", "McDonald's Corp"), ("NKE", "Nike Inc"), ("SBUX", "Starbucks Corp"),
+        ("LOW", "Lowe's Companies"), ("TJX", "TJX Companies"), ("BKNG", "Booking Holdings"),
+        ("CMG", "Chipotle Mexican"), ("TGT", "Target Corp"), ("ORLY", "O'Reilly Auto"),
+        ("GM", "General Motors"), ("F", "Ford Motor"), ("ROST", "Ross Stores"),
+        ("YUM", "Yum! Brands"), ("HLT", "Hilton Worldwide"), ("MAR", "Marriott Intl"),
+        ("LVS", "Las Vegas Sands"), ("MGM", "MGM Resorts"), ("EBAY", "eBay Inc"),
+        ("ETSY", "Etsy Inc"), ("DKNG", "DraftKings Inc"), ("ABNB", "Airbnb Inc"),
+        ("LKQ", "LKQ Corp"), ("AZO", "AutoZone Inc"), ("BBY", "Best Buy Co"),
     ],
     "Communication Services": [
-        ("GOOG", "Alphabet Inc C"),
-        ("NFLX", "Netflix Inc"),
-        ("DIS", "Walt Disney"),
-        ("CMCSA", "Comcast Corp"),
-        ("VZ", "Verizon Comms"),
-        ("T", "AT&T Inc"),
-        ("TMUS", "T-Mobile US"),
-        ("CHTR", "Charter Comms"),
-        ("EA", "Electronic Arts"),
-        ("WBD", "Warner Bros"),
+        ("GOOG", "Alphabet Inc C"), ("NFLX", "Netflix Inc"), ("DIS", "Walt Disney"),
+        ("CMCSA", "Comcast Corp"), ("VZ", "Verizon Comms"), ("T", "AT&T Inc"),
+        ("TMUS", "T-Mobile US"), ("CHTR", "Charter Comms"), ("EA", "Electronic Arts"),
+        ("WBD", "Warner Bros Discovery"), ("SNAP", "Snap Inc"), ("PINS", "Pinterest Inc"),
+        ("MTCH", "Match Group"), ("LYV", "Live Nation Ent"), ("FOXA", "Fox Corp"),
+        ("IPG", "Interpublic Group"), ("OMC", "Omnicom Group"), ("TTWO", "Take-Two Interactive"),
+        ("RBLX", "Roblox Corp"), ("SPOT", "Spotify Technology"),
     ],
     "Industrials": [
-        ("GE", "General Electric"),
-        ("CAT", "Caterpillar Inc"),
-        ("UNP", "Union Pacific"),
-        ("HON", "Honeywell Intl"),
-        ("BA", "Boeing Co"),
-        ("RTX", "RTX Corp"),
-        ("UPS", "United Parcel"),
-        ("DE", "Deere & Co"),
-        ("LMT", "Lockheed Martin"),
-        ("MMM", "3M Company"),
-        ("GD", "General Dynamics"),
-        ("CSX", "CSX Corp"),
-        ("NSC", "Norfolk Southern"),
-        ("FDX", "FedEx Corp"),
-        ("EMR", "Emerson Electric"),
+        ("GE", "GE Aerospace"), ("CAT", "Caterpillar Inc"), ("UNP", "Union Pacific"),
+        ("HON", "Honeywell Intl"), ("BA", "Boeing Co"), ("RTX", "RTX Corp"),
+        ("UPS", "United Parcel Service"), ("DE", "Deere & Co"), ("LMT", "Lockheed Martin"),
+        ("MMM", "3M Company"), ("GD", "General Dynamics"), ("CSX", "CSX Corp"),
+        ("NSC", "Norfolk Southern"), ("FDX", "FedEx Corp"), ("EMR", "Emerson Electric"),
+        ("ITW", "Illinois Tool Works"), ("ETN", "Eaton Corp"), ("PH", "Parker-Hannifin"),
+        ("ROK", "Rockwell Automation"), ("AME", "AMETEK Inc"), ("CTAS", "Cintas Corp"),
+        ("RSG", "Republic Services"), ("WM", "Waste Management"), ("EXPD", "Expeditors Intl"),
+        ("CHRW", "CH Robinson"), ("XPO", "XPO Inc"), ("JBHT", "JB Hunt Transport"),
+        ("ODFL", "Old Dominion Freight"), ("SAIA", "Saia Inc"),
     ],
     "Consumer Defensive": [
-        ("PG", "Procter & Gamble"),
-        ("KO", "Coca-Cola Co"),
-        ("PEP", "PepsiCo Inc"),
-        ("COST", "Costco Wholesale"),
-        ("WMT", "Walmart Inc"),
-        ("PM", "Philip Morris"),
-        ("MDLZ", "Mondelez Intl"),
-        ("MO", "Altria Group"),
-        ("CL", "Colgate-Palmolive"),
-        ("KMB", "Kimberly-Clark"),
-        ("GIS", "General Mills"),
-        ("SYY", "Sysco Corp"),
-        ("KR", "Kroger Co"),
-        ("HSY", "Hershey Co"),
-        ("K", "Kellogg Co"),
+        ("PG", "Procter & Gamble"), ("KO", "Coca-Cola Co"), ("PEP", "PepsiCo Inc"),
+        ("COST", "Costco Wholesale"), ("WMT", "Walmart Inc"), ("PM", "Philip Morris"),
+        ("MDLZ", "Mondelez Intl"), ("MO", "Altria Group"), ("CL", "Colgate-Palmolive"),
+        ("KMB", "Kimberly-Clark"), ("GIS", "General Mills"), ("SYY", "Sysco Corp"),
+        ("KR", "Kroger Co"), ("HSY", "Hershey Co"), ("K", "Kellanova"),
+        ("STZ", "Constellation Brands"), ("TAP", "Molson Coors"), ("TSN", "Tyson Foods"),
+        ("HRL", "Hormel Foods"), ("CAG", "Conagra Brands"), ("CPB", "Campbell Soup"),
+        ("MKC", "McCormick & Co"), ("CHD", "Church & Dwight"), ("CLX", "Clorox Co"),
     ],
     "Energy": [
-        ("XOM", "Exxon Mobil"),
-        ("CVX", "Chevron Corp"),
-        ("COP", "ConocoPhillips"),
-        ("EOG", "EOG Resources"),
-        ("SLB", "Schlumberger"),
-        ("MPC", "Marathon Petrol"),
-        ("PXD", "Pioneer Natural"),
-        ("PSX", "Phillips 66"),
-        ("VLO", "Valero Energy"),
-        ("OXY", "Occidental Petrol"),
+        ("XOM", "Exxon Mobil"), ("CVX", "Chevron Corp"), ("COP", "ConocoPhillips"),
+        ("EOG", "EOG Resources"), ("SLB", "SLB (Schlumberger)"), ("MPC", "Marathon Petroleum"),
+        ("PSX", "Phillips 66"), ("VLO", "Valero Energy"), ("OXY", "Occidental Petroleum"),
+        ("HES", "Hess Corp"), ("DVN", "Devon Energy"), ("FANG", "Diamondback Energy"),
+        ("APA", "APA Corp"), ("HAL", "Halliburton Co"), ("BKR", "Baker Hughes"),
+        ("KMI", "Kinder Morgan"), ("WMB", "Williams Companies"), ("OKE", "ONEOK Inc"),
+        ("ET", "Energy Transfer"), ("TRGP", "Targa Resources"),
     ],
     "Utilities": [
-        ("NEE", "NextEra Energy"),
-        ("DUK", "Duke Energy"),
-        ("SO", "Southern Co"),
-        ("D", "Dominion Energy"),
-        ("AEP", "American Electric"),
-        ("EXC", "Exelon Corp"),
-        ("XEL", "Xcel Energy"),
-        ("SRE", "Sempra Energy"),
-        ("ED", "Consolidated Edison"),
-        ("WEC", "WEC Energy"),
+        ("NEE", "NextEra Energy"), ("DUK", "Duke Energy"), ("SO", "Southern Co"),
+        ("D", "Dominion Energy"), ("AEP", "American Electric Power"), ("EXC", "Exelon Corp"),
+        ("XEL", "Xcel Energy"), ("SRE", "Sempra Energy"), ("ED", "Consolidated Edison"),
+        ("WEC", "WEC Energy"), ("ES", "Eversource Energy"), ("AWK", "American Water Works"),
+        ("PPL", "PPL Corp"), ("DTE", "DTE Energy"), ("FE", "FirstEnergy Corp"),
+        ("CMS", "CMS Energy"), ("ATO", "Atmos Energy"), ("NI", "NiSource Inc"),
+        ("PNW", "Pinnacle West Capital"), ("OGE", "OGE Energy"),
     ],
     "Real Estate": [
-        ("PLD", "Prologis Inc"),
-        ("AMT", "American Tower"),
-        ("CCI", "Crown Castle"),
-        ("EQIX", "Equinix Inc"),
-        ("PSA", "Public Storage"),
-        ("O", "Realty Income"),
-        ("WELL", "Welltower Inc"),
-        ("SPG", "Simon Property"),
-        ("DLR", "Digital Realty"),
-        ("AVB", "AvalonBay Comms"),
+        ("PLD", "Prologis Inc"), ("AMT", "American Tower"), ("CCI", "Crown Castle"),
+        ("EQIX", "Equinix Inc"), ("PSA", "Public Storage"), ("O", "Realty Income"),
+        ("WELL", "Welltower Inc"), ("SPG", "Simon Property Group"), ("DLR", "Digital Realty"),
+        ("AVB", "AvalonBay Communities"), ("EQR", "Equity Residential"), ("ARE", "Alexandria RE"),
+        ("VTR", "Ventas Inc"), ("HST", "Host Hotels"), ("KIM", "Kimco Realty"),
+        ("REG", "Regency Centers"), ("WPC", "W.P. Carey"), ("IRM", "Iron Mountain"),
+        ("INVH", "Invitation Homes"), ("EXR", "Extra Space Storage"),
     ],
     "Materials": [
-        ("LIN", "Linde PLC"),
-        ("APD", "Air Products"),
-        ("SHW", "Sherwin-Williams"),
-        ("ECL", "Ecolab Inc"),
-        ("FCX", "Freeport-McMoRan"),
-        ("NEM", "Newmont Corp"),
-        ("NUE", "Nucor Corp"),
-        ("DOW", "Dow Inc"),
-        ("DD", "DuPont de Nemours"),
-        ("VMC", "Vulcan Materials"),
-    ]
+        ("LIN", "Linde PLC"), ("APD", "Air Products"), ("SHW", "Sherwin-Williams"),
+        ("ECL", "Ecolab Inc"), ("FCX", "Freeport-McMoRan"), ("NEM", "Newmont Corp"),
+        ("NUE", "Nucor Corp"), ("DOW", "Dow Inc"), ("DD", "DuPont de Nemours"),
+        ("VMC", "Vulcan Materials"), ("MLM", "Martin Marietta"), ("IP", "International Paper"),
+        ("PKG", "Packaging Corp"), ("AVY", "Avery Dennison"), ("SEE", "Sealed Air Corp"),
+        ("CE", "Celanese Corp"), ("EMN", "Eastman Chemical"), ("RPM", "RPM International"),
+        ("BLL", "Ball Corp"), ("CC", "Chemours Co"),
+    ],
+    "Biotechnology": [
+        ("BIIB", "Biogen Inc"), ("MRNA", "Moderna Inc"), ("ILMN", "Illumina Inc"),
+        ("ALNY", "Alnylam Pharma"), ("SGEN", "Seagen Inc"), ("BMRN", "BioMarin Pharma"),
+        ("EXEL", "Exelixis Inc"), ("HALO", "Halozyme Therapeutics"), ("IONS", "Ionis Pharma"),
+        ("FOLD", "Amicus Therapeutics"), ("RARE", "Ultragenyx Pharma"), ("ACAD", "ACADIA Pharma"),
+        ("PCVX", "Vaxcyte Inc"), ("RXRX", "Recursion Pharma"), ("RVMD", "Revolution Medicines"),
+    ],
 }
 
 
@@ -541,6 +507,46 @@ async def get_ipo_calendar(
     return out[:40]
 
 
+class MarketCoverageStats(BaseModel):
+    """Explains heatmap sample size vs full searchable symbol universe."""
+
+    heatmap_universe_count: int
+    symbols_master_active: int
+    symbols_master_total: int
+    note: str
+
+
+@router.get("/market/coverage", response_model=MarketCoverageStats)
+async def get_market_coverage(db: Session = Depends(get_db)) -> MarketCoverageStats:
+    """
+    Heatmap and movers use a curated US large-cap sample (fast quote batching).
+    Autocomplete search uses `symbols_master` when seeded (can be 10k+ rows).
+    """
+    heatmap_n = _heatmap_sample_symbol_count()
+    master_active = 0
+    master_total = 0
+    try:
+        from app.models.symbols_master import SymbolsMaster
+
+        master_total = db.query(SymbolsMaster).count()
+        master_active = (
+            db.query(SymbolsMaster).filter(SymbolsMaster.is_active == "Y").count()
+        )
+    except Exception as e:
+        print(f"market coverage symbols_master count failed: {e}")
+
+    return MarketCoverageStats(
+        heatmap_universe_count=heatmap_n,
+        symbols_master_active=master_active,
+        symbols_master_total=master_total,
+        note=(
+            "The US performance heatmap quotes a fixed large-cap sample for speed. "
+            "Run `python scripts/seed_symbols_master.py` to load the full searchable listing into symbols_master; "
+            "quote refresh for every listing requires batch jobs and data licenses beyond this MVP."
+        ),
+    )
+
+
 @router.get("/market/stocks")
 async def get_all_stocks(
     sector: Optional[str] = Query(None, description="Filter by sector"),
@@ -718,4 +724,79 @@ async def get_market_movers(
         "gainers": gainers,
         "losers": losers,
         "updated_at": datetime.utcnow().isoformat()
+    }
+
+
+# ── Exchange Universe endpoint ─────────────────────────────────────────────────
+_VALID_EXCHANGE_KEYS = {
+    "us", "india", "uk", "canada", "germany", "france",
+    "japan", "hongkong", "china", "korea", "australia", "brazil",
+}
+
+@router.get("/market/universe")
+async def get_exchange_universe(
+    exchange: str = Query("us", description="Exchange key: us | india | uk | canada | germany | france | japan | hongkong | china | korea | australia | brazil"),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    """
+    Serve ranked stock universe from ExchangeRankedSymbol table (populated by nightly APScheduler job).
+    Falls back to live FMP screener fetch if DB is empty for the exchange.
+    """
+    from app.models.exchange_ranked_symbol import ExchangeRankedSymbol
+    from app.services.exchange_universe_service import sync_exchange_universe
+
+    exchange = exchange.lower().strip()
+    if exchange not in _VALID_EXCHANGE_KEYS:
+        raise HTTPException(status_code=400, detail=f"Unknown exchange key: {exchange}. Valid: {sorted(_VALID_EXCHANGE_KEYS)}")
+
+    rows = (
+        db.query(ExchangeRankedSymbol)
+        .filter(
+            ExchangeRankedSymbol.exchange_key == exchange,
+            ExchangeRankedSymbol.is_active == True,
+        )
+        .order_by(ExchangeRankedSymbol.rank_in_exchange)
+        .limit(limit)
+        .all()
+    )
+
+    # If DB is empty for this exchange, trigger a live sync (first-deploy seed)
+    if not rows:
+        try:
+            sync_exchange_universe(db, exchange)
+            rows = (
+                db.query(ExchangeRankedSymbol)
+                .filter(
+                    ExchangeRankedSymbol.exchange_key == exchange,
+                    ExchangeRankedSymbol.is_active == True,
+                )
+                .order_by(ExchangeRankedSymbol.rank_in_exchange)
+                .limit(limit)
+                .all()
+            )
+        except Exception as e:
+            logger.warning(f"Live sync fallback failed for {exchange}: {e}")
+
+    return {
+        "exchange": exchange,
+        "count": len(rows),
+        "stocks": [
+            {
+                "symbol": r.symbol,
+                "name": r.name,
+                "exchange": r.exchange,
+                "country": r.country,
+                "currency": r.currency,
+                "sector": r.sector,
+                "industry": r.industry,
+                "market_cap": r.market_cap,
+                "price": r.price,
+                "change_percent": r.change_percent,
+                "volume": r.volume,
+                "priority_score": r.priority_score,
+                "rank": r.rank_in_exchange,
+            }
+            for r in rows
+        ],
     }

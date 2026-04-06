@@ -26,6 +26,12 @@ from app.models.quote_snapshot import QuoteSnapshot
 from app.models.news_cache import NewsCache
 from app.models.symbols_master import SymbolsMaster
 
+# Auth extension
+from app.models.passkey_credential import PasskeyCredential
+
+# Exchange universe (ranked stock batch ingestion)
+from app.models.exchange_ranked_symbol import ExchangeRankedSymbol
+
 __all__ = [
     "User",
     "Symbol",
@@ -55,4 +61,6 @@ __all__ = [
     "NewsCache",
     "SymbolsMaster",
     "SecAPIUsage",
+    "PasskeyCredential",
+    "ExchangeRankedSymbol",
 ]

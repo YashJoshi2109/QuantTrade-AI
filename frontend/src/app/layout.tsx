@@ -8,6 +8,7 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { ToastProvider } from '@/components/Toast'
 import ChatWidget from '@/components/chat/ChatWidget'
 import BrandIntroGate from '@/components/BrandIntroGate'
+import { StockSnapshotProvider } from '@/context/StockSnapshotContext'
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -214,9 +215,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthProvider>
             <ReactQueryProvider>
               <ToastProvider>
-                <BrandIntroGate />
-                {children}
-                <ChatWidget />
+                <StockSnapshotProvider>
+                  <BrandIntroGate />
+                  {children}
+                  <ChatWidget />
+                </StockSnapshotProvider>
               </ToastProvider>
             </ReactQueryProvider>
           </AuthProvider>

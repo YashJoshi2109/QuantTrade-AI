@@ -109,6 +109,83 @@ async function fetchFMPBatch(symbols: string[]): Promise<Map<string, ReturnType<
   return map
 }
 
+// ─── Continent → universe exchange key mapping ─────────────────────────────
+const CONTINENT_TO_UNIVERSE: Record<string, string[]> = {
+  americas: ['us', 'canada', 'brazil'],
+  europe: ['uk', 'germany', 'france'],
+  asia: ['japan', 'hongkong', 'china', 'india', 'korea'],
+  africa: [],
+  oceania: ['australia'],
+}
+
+const EXCHANGE_ID_TO_UNIVERSE: Record<string, string> = {
+  nyse: 'us', nasdaq: 'us',
+  nse: 'india', bse: 'india',
+  lse: 'uk',
+  frankfurt: 'germany',
+  euronext: 'france',
+  tsx: 'canada',
+  b3: 'brazil',
+  tse: 'japan',
+  hkex: 'hongkong',
+  sse: 'china',
+  krx: 'korea',
+  asx: 'australia',
+}
+
+// ─── Universe exchange → FMP exchange codes ────────────────────────────────
+const UNIVERSE_TO_FMP: Record<string, string[]> = {
+  us: ['NYSE', 'NASDAQ', 'AMEX'],
+  india: ['NSE', 'BSE'],
+  uk: ['LON'],
+  canada: ['TSX', 'TSXV'],
+  germany: ['XETRA', 'FRA'],
+  france: ['PAR'],
+  japan: ['JPX', 'TSE'],
+  hongkong: ['HKSE'],
+  china: ['SHH', 'SHZ'],
+  korea: ['KSC', 'KOSDAQ'],
+  australia: ['ASX'],
+  brazil: ['SAO'],
+}
+
+// In-memory cache for universe data (6h TTL)
+const _universeCache = new Map<string, { data: ExchangeStock[]; expires: number }>()
+
+async function fetchUniverseStocks(universeKey: string, limit: number): Promise<ExchangeStock[]> {
+  const cacheKey = `${universeKey}:${limit}`
+  const cached = _universeCache.get(cacheKey)
+  if (cached && cached.expires > Date.now()) return cached.data
+
+  const fmpExchanges = UNIVERSE_TO_FMP[universeKey]
+  if (!fmpExchanges || !FMP_KEY) return []
+
+  try {
+    const exchangeParam = fmpExchanges.join(',')
+    const res = await fetch(
+      `https://financialmodelingprep.com/api/v3/stock-screener?exchange=${encodeURIComponent(exchangeParam)}&marketCapMoreThan=500000000&isActivelyTrading=true&limit=${Math.min(limit * 2, 500)}&sortBy=marketCap&sortOrder=desc&apikey=${FMP_KEY}`,
+      { next: { revalidate: 21600 } }
+    )
+    if (!res.ok) return []
+    const data: Record<string, unknown>[] = await res.json()
+    if (!Array.isArray(data)) return []
+
+    const stocks: ExchangeStock[] = data
+      .filter((q) => q.symbol && Number(q.price ?? 0) > 0)
+      .slice(0, limit)
+      .map((q) => ({
+        symbol: String(q.symbol ?? ''),
+        name: String(q.companyName ?? q.symbol ?? ''),
+        sector: String(q.sector ?? 'Other'),
+      }))
+
+    _universeCache.set(cacheKey, { data: stocks, expires: Date.now() + 6 * 60 * 60 * 1000 })
+    return stocks
+  } catch {
+    return []
+  }
+}
+
 // ─── GET handler ───────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -119,14 +196,44 @@ export async function GET(request: NextRequest) {
   let stocks: ExchangeStock[] = []
   let exchangeLabel = ''
 
+  // Limits per exchange
+  const EXCHANGE_LIMITS: Record<string, number> = {
+    us: 300, india: 100, uk: 75, canada: 50, germany: 50,
+    france: 40, japan: 50, hongkong: 40, china: 40, korea: 20, australia: 20, brazil: 15,
+  }
+
   if (exchangeId) {
-    stocks = EXCHANGE_HEATMAP_STOCKS[exchangeId] ?? []
+    const hardcoded = EXCHANGE_HEATMAP_STOCKS[exchangeId] ?? []
+    if (hardcoded.length > 0) {
+      stocks = hardcoded
+    } else {
+      const universeKey = EXCHANGE_ID_TO_UNIVERSE[exchangeId]
+      if (universeKey) {
+        const limit = EXCHANGE_LIMITS[universeKey] ?? 100
+        stocks = await fetchUniverseStocks(universeKey, limit)
+      }
+    }
     exchangeLabel = exchangeId.toUpperCase()
   } else if (continent && continent !== 'global') {
     const exchanges = getExchangesByContinent(continent)
+    const seen = new Set<string>()
     for (const ex of exchanges) {
       const exStocks = EXCHANGE_HEATMAP_STOCKS[ex.id] ?? []
-      stocks.push(...exStocks)
+      for (const s of exStocks) {
+        if (!seen.has(s.symbol)) { seen.add(s.symbol); stocks.push(s) }
+      }
+    }
+    // Supplement sparse lists with universe data
+    const universeKeys = CONTINENT_TO_UNIVERSE[continent] ?? []
+    if (universeKeys.length > 0) {
+      const dynamicBatches = await Promise.all(
+        universeKeys.map((k) => fetchUniverseStocks(k, EXCHANGE_LIMITS[k] ?? 50))
+      )
+      for (const batch of dynamicBatches) {
+        for (const s of batch) {
+          if (!seen.has(s.symbol)) { seen.add(s.symbol); stocks.push(s) }
+        }
+      }
     }
     exchangeLabel = continent
   }

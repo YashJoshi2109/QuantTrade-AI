@@ -168,7 +168,18 @@ export default function SiteFooter() {
             </div>
           </div>
 
-          <div className="mt-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-slate-800/80 pt-3">
+          {/* Financial disclaimer */}
+          <div className="mt-4 mb-3 p-3 rounded-xl border border-amber-500/15 bg-amber-500/[0.03]">
+            <p className="text-[10px] text-slate-500 leading-relaxed">
+              <span className="text-amber-400/80 font-semibold">Risk Disclosure:</span>{' '}
+              QuantTrade AI provides market data, research tools, and AI-generated analysis for informational purposes only.
+              Nothing on this platform constitutes personalized investment, tax, or legal advice.
+              AI outputs may be inaccurate, delayed, or biased. Past backtest performance does not guarantee future results.
+              Securities trading involves substantial risk of loss. You are solely responsible for all trading decisions.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-slate-800/80 pt-3">
             <p className="text-[11px] text-slate-500">
               © {new Date().getFullYear()}{' '}
               <span className="text-slate-300">QuantTrade AI</span>. All rights reserved.
@@ -184,9 +195,9 @@ export default function SiteFooter() {
               .
             </p>
             <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
-              <span>Privacy</span>
-              <span>Terms</span>
-              <span>Risk Disclosure</span>
+              <Link href="/terms" className="hover:text-slate-300 transition-colors">Privacy Policy</Link>
+              <Link href="/terms" className="hover:text-slate-300 transition-colors">Terms of Service</Link>
+              <Link href="/about" className="hover:text-slate-300 transition-colors">Risk Disclosure</Link>
             </div>
           </div>
         </div>

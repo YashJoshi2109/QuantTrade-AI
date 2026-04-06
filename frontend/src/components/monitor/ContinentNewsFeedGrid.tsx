@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { Activity, ExternalLink, AlertTriangle } from 'lucide-react'
+import { Newspaper } from 'lucide-react'
 import { fetchContinentNews, type ContinentNewsData, type ContinentNewsFeed as FeedType } from '@/lib/monitor-extended-api'
 
 function TagBadge({ tag }: { tag: string }) {
@@ -21,8 +21,9 @@ function TagBadge({ tag }: { tag: string }) {
 }
 
 function NewsFeedCard({ feed }: { feed: FeedType }) {
+  const empty = feed.articles.length === 0
   return (
-    <div className="bg-slate-950/95 border border-slate-800/70 rounded-xl overflow-hidden flex flex-col">
+    <div className="bg-slate-950/95 border border-slate-800/70 rounded-xl overflow-hidden flex flex-col min-h-[14rem] shadow-lg shadow-black/20">
       {/* Feed Header */}
       <div className="px-3 py-2 border-b border-slate-800/50 flex items-center justify-between bg-gradient-to-r from-slate-950 via-slate-900/60 to-slate-950">
         <div className="flex items-center gap-2">
@@ -43,12 +44,16 @@ function NewsFeedCard({ feed }: { feed: FeedType }) {
       </div>
 
       {/* Articles */}
-      <div className="flex-1 min-h-0 overflow-y-auto max-h-64 divide-y divide-slate-800/30">
-        {feed.articles.length === 0 ? (
-          <div className="flex items-center justify-center p-6 text-[10px] text-slate-600">
-            No recent articles
+      <div className="flex-1 min-h-0 overflow-y-auto max-h-72 divide-y divide-slate-800/30">
+        {empty ? (
+          <div className="flex flex-col items-center justify-center p-5 text-center gap-2">
+            <Newspaper className="w-8 h-8 text-slate-700" aria-hidden />
+            <p className="text-[10px] text-slate-500 leading-relaxed px-2">
+              No headlines for this column right now. Sources rotate between The Guardian and GDELT — try refresh in a minute.
+            </p>
           </div>
-        ) : feed.articles.map((article, i) => (
+        ) : (
+          feed.articles.map((article, i) => (
           <div key={i} className="px-3 py-2.5 hover:bg-slate-800/20 transition-colors group">
             <div className="flex items-start gap-2">
               {article.threat_level === 'critical' || article.threat_level === 'high' ? (
@@ -81,7 +86,8 @@ function NewsFeedCard({ feed }: { feed: FeedType }) {
               </div>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
     </div>
   )

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import Link from 'next/link'
 import { SectorPerformance, StockPerformance } from '@/lib/api'
+import { useStockSnapshot } from '@/context/StockSnapshotContext'
 
 interface MarketHeatmapProps {
   sectors?: SectorPerformance[] | null
@@ -28,20 +28,21 @@ function getTextColorForChange(change: number): string {
 }
 
 function StockTile({ stock }: { stock: StockPerformance }) {
+  const { openSnapshot } = useStockSnapshot()
   const bgColor = getColorForChange(stock.change_percent)
   const textColor = getTextColorForChange(stock.change_percent)
   
   return (
-    <Link
-      href={`/research?symbol=${stock.symbol}`}
-      className={`${bgColor} p-2 flex flex-col items-center justify-center transition-all hover:brightness-110 hover:scale-[1.02] cursor-pointer border border-white/5`}
+    <button
+      onClick={() => openSnapshot({ symbol: stock.symbol, name: stock.name, price: stock.price, change_percent: stock.change_percent, change: (stock.price * stock.change_percent) / 100 })}
+      className={`${bgColor} p-2 flex flex-col items-center justify-center transition-all hover:brightness-110 hover:scale-[1.02] cursor-pointer border border-white/5 w-full`}
       title={`${stock.name}\n$${stock.price.toFixed(2)}\n${stock.change_percent >= 0 ? '+' : ''}${stock.change_percent.toFixed(2)}%`}
     >
       <span className={`font-bold text-xs ${textColor}`}>{stock.symbol}</span>
       <span className={`text-[10px] ${textColor} font-mono`}>
         {stock.change_percent >= 0 ? '+' : ''}{stock.change_percent.toFixed(2)}%
       </span>
-    </Link>
+    </button>
   )
 }
 
