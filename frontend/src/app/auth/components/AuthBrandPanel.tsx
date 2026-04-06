@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion, type Variants } from 'framer-motion'
 import { TrendingUp, Shield, Zap, Globe, Lock } from 'lucide-react'
 
 // Animated candlestick data for the brand panel
@@ -34,13 +34,18 @@ const STATS = [
   { label: 'Markets Covered', value: '60+' },
 ]
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.1, delayChildren: 0.2 } },
 }
-const itemVariants = {
+
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const },
+  },
 }
 
 export function AuthBrandPanel() {
