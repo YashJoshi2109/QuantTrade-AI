@@ -74,5 +74,6 @@ google-auth-httplib2>=0.1.1
 email-validator>=2.1.0
 resend>=0.8.0  # Email OTP delivery
 websockets
-py_webauthn>=2.1.0
+# PyPI package is "webauthn" (duo-labs/py_webauthn); "py-webauthn" is a different project (0.0.x only).
+webauthn>=2.1.0
 APScheduler>=3.10.0

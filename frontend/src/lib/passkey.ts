@@ -3,14 +3,37 @@
  * OWASP: credentials never leave the device — only signed assertions are transmitted
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const CONFIGURED_API = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+
+/**
+ * API base for passkey calls. On production (real hostname), use same-origin `/api`
+ * so requests go through nginx and match the browser's WebAuthn origin.
+ * On localhost, call the FastAPI server directly.
+ */
+function passkeyApiBase(): string {
+  if (typeof window === 'undefined') {
+    return CONFIGURED_API || 'http://localhost:8000'
+  }
+  const host = window.location.hostname
+  const isLocal = host === 'localhost' || host === '127.0.0.1'
+  if (isLocal) {
+    return CONFIGURED_API || 'http://localhost:8000'
+  }
+  return ''
+}
+
+function passkeyUrl(path: string): string {
+  const base = passkeyApiBase()
+  const p = path.startsWith('/') ? path : `/${path}`
+  return base ? `${base}${p}` : p
+}
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function bufferToBase64url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
   let str = ''
-  for (const b of bytes) str += String.fromCharCode(b)
+  for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]!)
   return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 }
 
@@ -29,10 +52,14 @@ export async function isPasskeySupported(): Promise<boolean> {
   if (typeof window === 'undefined') return false
   if (!window.PublicKeyCredential) return false
   try {
-    return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+    if (await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()) {
+      return true
+    }
   } catch {
-    return false
+    /* continue */
   }
+  // Security keys / cross-device passkeys (no platform UV)
+  return true
 }
 
 export async function getBiometricType(): Promise<'face' | 'fingerprint' | 'device' | null> {
@@ -54,22 +81,32 @@ export async function getBiometricType(): Promise<'face' | 'fingerprint' | 'devi
  * 1. Fetch server challenge
  * 2. Invoke navigator.credentials.create() (triggers biometric prompt)
  * 3. POST attestation to server for verification and storage
+ *
+ * @param accessToken JWT for the signed-in user (required by API)
  */
-export async function registerPasskey(userId: number, email: string): Promise<{ success: boolean; error?: string }> {
+export async function registerPasskey(
+  userId: number,
+  email: string,
+  accessToken: string
+): Promise<{ success: boolean; error?: string }> {
   try {
-    // Step 1 — get challenge from server
-    const challengeRes = await fetch(`${API_URL}/api/v1/auth/passkey/register/challenge`, {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    }
+
+    const challengeRes = await fetch(passkeyUrl('/api/v1/auth/passkey/register/challenge'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ user_id: userId }),
     })
     if (!challengeRes.ok) {
-      const err = await challengeRes.json()
+      const err = await challengeRes.json().catch(() => ({}))
       return { success: false, error: err.detail || 'Failed to get registration challenge' }
     }
-    const { challenge, session_token, rp_id, rp_name, user_id: userIdB64, user_name, user_display_name } = await challengeRes.json()
+    const { challenge, session_token, rp_id, rp_name, user_id: userIdB64, user_name, user_display_name } =
+      await challengeRes.json()
 
-    // Step 2 — create credential
     const credential = await navigator.credentials.create({
       publicKey: {
         challenge: base64urlToBuffer(challenge),
@@ -80,8 +117,8 @@ export async function registerPasskey(userId: number, email: string): Promise<{ 
           displayName: user_display_name || email,
         },
         pubKeyCredParams: [
-          { alg: -7, type: 'public-key' },   // ES256
-          { alg: -257, type: 'public-key' },  // RS256
+          { alg: -7, type: 'public-key' },
+          { alg: -257, type: 'public-key' },
         ],
         authenticatorSelection: {
           authenticatorAttachment: 'platform',
@@ -97,10 +134,9 @@ export async function registerPasskey(userId: number, email: string): Promise<{ 
 
     const response = credential.response as AuthenticatorAttestationResponse
 
-    // Step 3 — verify with server
-    const verifyRes = await fetch(`${API_URL}/api/v1/auth/passkey/register/verify`, {
+    const verifyRes = await fetch(passkeyUrl('/api/v1/auth/passkey/register/verify'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         session_token,
         credential_id: bufferToBase64url(credential.rawId),
@@ -110,15 +146,17 @@ export async function registerPasskey(userId: number, email: string): Promise<{ 
     })
 
     if (!verifyRes.ok) {
-      const err = await verifyRes.json()
+      const err = await verifyRes.json().catch(() => ({}))
       return { success: false, error: err.detail || 'Passkey registration verification failed' }
     }
 
     return { success: true }
-  } catch (err: any) {
-    if (err.name === 'NotAllowedError') return { success: false, error: 'Passkey setup was cancelled or timed out' }
-    if (err.name === 'InvalidStateError') return { success: false, error: 'A passkey already exists for this account on this device' }
-    return { success: false, error: err.message || 'Passkey registration failed' }
+  } catch (err: unknown) {
+    const e = err as { name?: string; message?: string }
+    if (e.name === 'NotAllowedError') return { success: false, error: 'Passkey setup was cancelled or timed out' }
+    if (e.name === 'InvalidStateError')
+      return { success: false, error: 'A passkey already exists for this account on this device' }
+    return { success: false, error: e.message || 'Passkey registration failed' }
   }
 }
 
@@ -132,18 +170,16 @@ export async function registerPasskey(userId: number, email: string): Promise<{ 
  */
 export async function authenticatePasskey(): Promise<{ success: boolean; token?: string; error?: string }> {
   try {
-    // Step 1 — get challenge
-    const challengeRes = await fetch(`${API_URL}/api/v1/auth/passkey/auth/challenge`, {
+    const challengeRes = await fetch(passkeyUrl('/api/v1/auth/passkey/auth/challenge'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     })
     if (!challengeRes.ok) {
-      const err = await challengeRes.json()
+      const err = await challengeRes.json().catch(() => ({}))
       return { success: false, error: err.detail || 'Failed to get authentication challenge' }
     }
     const { challenge, session_token, rp_id } = await challengeRes.json()
 
-    // Step 2 — get assertion (biometric prompt)
     const credential = await navigator.credentials.get({
       publicKey: {
         challenge: base64urlToBuffer(challenge),
@@ -157,8 +193,7 @@ export async function authenticatePasskey(): Promise<{ success: boolean; token?:
 
     const response = credential.response as AuthenticatorAssertionResponse
 
-    // Step 3 — verify with server, receive JWT
-    const verifyRes = await fetch(`${API_URL}/api/v1/auth/passkey/auth/verify`, {
+    const verifyRes = await fetch(passkeyUrl('/api/v1/auth/passkey/auth/verify'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -172,15 +207,18 @@ export async function authenticatePasskey(): Promise<{ success: boolean; token?:
     })
 
     if (!verifyRes.ok) {
-      const err = await verifyRes.json()
+      const err = await verifyRes.json().catch(() => ({}))
       return { success: false, error: err.detail || 'Passkey authentication failed' }
     }
 
     const data = await verifyRes.json()
     return { success: true, token: data.access_token }
-  } catch (err: any) {
-    if (err.name === 'NotAllowedError') return { success: false, error: 'Biometric authentication was cancelled or timed out' }
-    if (err.name === 'SecurityError') return { success: false, error: 'Security error — ensure you are on HTTPS' }
-    return { success: false, error: err.message || 'Passkey authentication failed' }
+  } catch (err: unknown) {
+    const e = err as { name?: string; message?: string }
+    if (e.name === 'NotAllowedError')
+      return { success: false, error: 'Biometric authentication was cancelled or timed out' }
+    if (e.name === 'SecurityError')
+      return { success: false, error: 'Security error — ensure you are on HTTPS' }
+    return { success: false, error: e.message || 'Passkey authentication failed' }
   }
 }

@@ -41,7 +41,7 @@ QuantTrade AI is a full-stack financial intelligence platform that combines real
 - **Continent News Feed Grid** — Real-time news by region with sentiment
 
 ### Auth & Security
-- **WebAuthn/Passkey** — Biometric authentication (Face ID / Touch ID / hardware keys) via `py_webauthn`
+- **WebAuthn/Passkey** — Biometric authentication (Face ID / Touch ID / hardware keys) via `webauthn` (PyPI)
 - **JWT Sessions** — RS256 tokens, refresh rotation, secure httpOnly cookie option
 - **Email OTP + Google OAuth** — Multi-method auth flow
 - **Subscription Billing** — Stripe integration with plan gating
@@ -92,7 +92,7 @@ QuantTrade AI is a full-stack financial intelligence platform that combines real
 | **State** | TanStack Query v5, Zustand, React Context |
 | **Backend** | Python 3.11, FastAPI, SQLAlchemy 2.0, Pydantic v2 |
 | **Database** | PostgreSQL (Neon serverless), APScheduler background jobs |
-| **Auth** | py_webauthn (WebAuthn/FIDO2), PyJWT, Google OAuth |
+| **Auth** | webauthn (WebAuthn/FIDO2), PyJWT, Google OAuth |
 | **AI/LLM** | Anthropic Claude API, OpenAI API, LangChain |
 | **Market Data** | Finnhub, FMP, Yahoo Finance, Finviz, SEC EDGAR |
 | **Billing** | Stripe (subscriptions, webhooks) |

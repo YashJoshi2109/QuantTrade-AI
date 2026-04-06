@@ -235,6 +235,10 @@ jobs:
             echo "# === App Settings ===" >> .env
             echo "DEBUG=false" >> .env
             echo "LOG_LEVEL=INFO" >> .env
+            echo "# === WebAuthn / Passkey (required for production verification) ===" >> .env
+            echo "WEBAUTHN_RP_ID=quanttrade.us" >> .env
+            echo "WEBAUTHN_ORIGIN=https://www.quanttrade.us" >> .env
+            echo "WEBAUTHN_ORIGINS=https://www.quanttrade.us,https://quanttrade.us" >> .env
 
             chmod 600 .env
             echo "✅ .env written with $(wc -l < .env) lines"

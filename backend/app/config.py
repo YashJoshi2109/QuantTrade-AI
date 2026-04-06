@@ -60,9 +60,12 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
 
-    # WebAuthn / Passkey
+    # WebAuthn / Passkey (production: set WEBAUTHN_RP_ID + WEBAUTHN_ORIGINS to your real hostname(s))
     WEBAUTHN_RP_ID: str = os.getenv("WEBAUTHN_RP_ID", "localhost")
+    # Single origin (dev); production should set WEBAUTHN_ORIGINS instead or in addition
     WEBAUTHN_ORIGIN: str = os.getenv("WEBAUTHN_ORIGIN", "http://localhost:3000")
+    # Comma-separated allowed origins for verify_registration_response / verify_authentication_response
+    WEBAUTHN_ORIGINS: str = os.getenv("WEBAUTHN_ORIGINS", "")
 
     # Email OTP (Resend - https://resend.com)
     RESEND_API_KEY: Optional[str] = None
