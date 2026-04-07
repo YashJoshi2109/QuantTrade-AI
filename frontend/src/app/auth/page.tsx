@@ -22,29 +22,41 @@
  *   - Framer Motion step machine with AnimatePresence
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Mail, Lock, User, Eye, EyeOff, Loader2, AlertCircle,
-  ArrowRight, ArrowLeft, CheckCircle2, TrendingUp,
+  ArrowRight, ArrowLeft, CheckCircle2, TrendingUp, ChevronDown, Fingerprint,
 } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { validateEmail, sendOtp } from '@/lib/auth'
+import { sendOtp, getToken } from '@/lib/auth'
+import { registerPasskey, isPasskeySupported } from '@/lib/passkey'
 import { AuthBrandPanel } from './components/AuthBrandPanel'
 import { OtpInput } from './components/OtpInput'
 import { PasskeyButton } from './components/PasskeyButton'
 import { PasswordStrength, isPasswordStrong } from './components/PasswordStrength'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 declare global {
   interface Window { google: any }
 }
 
 // ─── Step Machine ──────────────────────────────────────────────────────────────
-type Step = 'METHOD' | 'EMAIL_FORM' | 'OTP_VERIFY' | 'SUCCESS'
+type Step = 'METHOD' | 'EMAIL_FORM' | 'OTP_VERIFY' | 'PASSKEY_SETUP' | 'SUCCESS'
 type Mode  = 'signin' | 'signup'
+
+const GENDER_OPTIONS = [
+  { value: '', label: 'Prefer not to say', emoji: '🤐' },
+  { value: 'male', label: 'Male', emoji: '♂️' },
+  { value: 'female', label: 'Female', emoji: '♀️' },
+  { value: 'non-binary', label: 'Non-binary', emoji: '⚧' },
+]
+const OTP_RESEND_COOLDOWN_SECONDS = 30
 
 // ─── Framer Motion Variants ────────────────────────────────────────────────────
 const pageTransition = { duration: 0.38, ease: 'easeOut' as const }
@@ -71,7 +83,13 @@ const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
 
 export default function AuthPage() {
   const router = useRouter()
-  const { login, register, googleVerify, loginWithToken } = useAuth()
+  const { login, register, googleVerify, loginWithToken, user, isAuthenticated, isLoading } = useAuth()
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.replace('/')
+    }
+  }, [isLoading, isAuthenticated, router])
 
   // ── Mode + Step ────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<Mode>('signin')
@@ -83,16 +101,14 @@ export default function AuthPage() {
   const [fullName, setFullName]   = useState('')
   const [username, setUsername]   = useState('')
   const [showPw, setShowPw]       = useState(false)
+  const [dateOfBirth, setDateOfBirth] = useState('')
+  const [gender, setGender]       = useState('')
 
   // ── OTP ────────────────────────────────────────────────────────────────────
   const [otpSent, setOtpSent]     = useState(false)
   const [otpVerified, setOtpVerified] = useState(false)
   const [otpError, setOtpError]   = useState('')
   const [capturedOtp, setCapturedOtp] = useState('')
-
-  // ── Email Validation ───────────────────────────────────────────────────────
-  const [emailValid, setEmailValid] = useState<{ valid: boolean; message: string } | null>(null)
-  const [validatingEmail, setValidatingEmail] = useState(false)
 
   // ── Loading / Errors ───────────────────────────────────────────────────────
   const [isLoading, setIsLoading]   = useState(false)
@@ -114,27 +130,14 @@ export default function AuthPage() {
     setPassword('')
     setFullName('')
     setUsername('')
-    setEmailValid(null)
+    setDateOfBirth('')
+    setGender('')
     setOtpSent(false)
     setOtpVerified(false)
     setOtpError('')
     setCapturedOtp('')
     setTermsAccepted(false)
   }
-
-  // ── Email Validation on blur ───────────────────────────────────────────────
-  const handleEmailBlur = useCallback(async () => {
-    if (!email || emailValid !== null) return
-    setValidatingEmail(true)
-    try {
-      const res = await validateEmail(email)
-      setEmailValid({ valid: res.valid, message: res.message })
-    } catch {
-      // non-blocking — validation failure is not a hard block
-    } finally {
-      setValidatingEmail(false)
-    }
-  }, [email, emailValid])
 
   // ── Send OTP ───────────────────────────────────────────────────────────────
   const handleSendOtp = async () => {
@@ -157,8 +160,23 @@ export default function AuthPage() {
   const handleContinueToOtp = async () => {
     if (!email) { setError('Please enter your email'); return }
     setError('')
-    await handleSendOtp()
-    setStep('OTP_VERIFY')
+    try {
+      await sendOtp(email)
+      setOtpSent(true)
+      setStep('OTP_VERIFY')
+    } catch (err: any) {
+      setError(err.message || 'Failed to send verification code')
+    }
+  }
+
+  // ── Resend OTP (shown inside OTP step — errors go to otpError) ─────────────
+  const handleResendOtp = async () => {
+    setOtpError('')
+    try {
+      await sendOtp(email)
+    } catch (err: any) {
+      setOtpError(err.message || 'Failed to resend code. Please try again.')
+    }
   }
 
   // ── Final submit ───────────────────────────────────────────────────────────
@@ -171,6 +189,7 @@ export default function AuthPage() {
       if (!fullName.trim()) { setError('Full name is required'); return }
       if (!username.trim()) { setError('Username is required'); return }
       if (!isPasswordStrong(password)) { setError('Please choose a stronger password'); return }
+      if (!otpVerified) { setError('Email verification is required — please verify your email with the OTP code'); return }
       if (!termsAccepted) { setError('You must accept the Terms of Service'); return }
     }
 
@@ -178,18 +197,51 @@ export default function AuthPage() {
     try {
       if (mode === 'signin') {
         await login(email, password)
+        setStep('SUCCESS')
+        setTimeout(() => router.push('/'), 1200)
       } else {
         await register(email, sanitize(username), password, sanitize(fullName), {
           otp: capturedOtp || undefined,
+          dateOfBirth: dateOfBirth || undefined,
+          gender: gender || undefined,
         })
+        // Step 2: offer passkey setup for the new account
+        setStep('PASSKEY_SETUP')
       }
-      setStep('SUCCESS')
-      setTimeout(() => router.push('/'), 1200)
     } catch (err: any) {
       setError(err.message || 'Authentication failed')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // ── Passkey setup after registration ──────────────────────────────────────
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [passkeySupported, setPasskeySupported] = useState(true)
+
+  useEffect(() => {
+    isPasskeySupported().then(setPasskeySupported)
+  }, [])
+
+  const handlePasskeySetup = async () => {
+    if (!user) return
+    const token = getToken()
+    if (!token) return
+    setPasskeyLoading(true)
+    setError('')
+    const result = await registerPasskey(user.id, user.email, token)
+    setPasskeyLoading(false)
+    if (result.success) {
+      setStep('SUCCESS')
+      setTimeout(() => router.push('/'), 1200)
+    } else {
+      setError(result.error || 'Passkey setup failed')
+    }
+  }
+
+  const handleSkipPasskey = () => {
+    setStep('SUCCESS')
+    setTimeout(() => router.push('/'), 1200)
   }
 
   // ── Google GSI ────────────────────────────────────────────────────────────
@@ -461,12 +513,14 @@ export default function AuthPage() {
                     )}
                   </div>
 
-                  {/* Passkey */}
-                  <PasskeyButton
-                    label={mode === 'signin' ? 'Sign in with Passkey / Biometrics' : 'Set up Passkey'}
-                    onSuccess={handlePasskeySuccess}
-                    onError={handlePasskeyError}
-                  />
+                  {/* Passkey — sign-in only (setup happens post-registration in step 2) */}
+                  {mode === 'signin' && (
+                    <PasskeyButton
+                      label="Sign in with Passkey / Biometrics"
+                      onSuccess={handlePasskeySuccess}
+                      onError={handlePasskeyError}
+                    />
+                  )}
                 </motion.div>
 
                 {/* Terms hint */}
@@ -558,6 +612,68 @@ export default function AuthPage() {
                           />
                         </div>
                       </motion.div>
+
+                      {/* DOB — used for automatic life-stage assignment in QLife game */}
+                      <motion.div initial={fieldInitial()} animate={fieldAnimate()} transition={fieldTransition(3)}>
+                        <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-widest mb-1.5">
+                          Date of Birth <span className="normal-case text-[#334155] font-normal">(for QuantTrade Life)</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={dateOfBirth}
+                          onChange={(e) => setDateOfBirth(e.target.value)}
+                          max={new Date().toISOString().split('T')[0]}
+                          className="qt-input"
+                          style={{ paddingLeft: '16px' }}
+                          autoComplete="bday"
+                        />
+                      </motion.div>
+
+                      {/* Gender — used only for avatar presentation defaults */}
+                      <motion.div initial={fieldInitial()} animate={fieldAnimate()} transition={fieldTransition(4)}>
+                        <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-widest mb-1.5">
+                          Gender <span className="normal-case text-[#334155] font-normal">(avatar only)</span>
+                        </label>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="qt-input flex items-center justify-between w-full text-left"
+                              style={{ paddingLeft: '16px', paddingRight: '16px' }}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span>{GENDER_OPTIONS.find(g => g.value === gender)?.emoji}</span>
+                                <span className={gender ? 'text-[#F0F6FF]' : 'text-[#334155]'}>
+                                  {GENDER_OPTIONS.find(g => g.value === gender)?.label || 'Prefer not to say'}
+                                </span>
+                              </span>
+                              <ChevronDown className="w-4 h-4 text-[#334155] shrink-0" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            className="w-[var(--radix-dropdown-menu-trigger-width)] bg-[#0D1828] border-[#1E293B] text-[#F0F6FF] rounded-xl shadow-xl shadow-black/40"
+                            sideOffset={4}
+                          >
+                            {GENDER_OPTIONS.map((opt) => (
+                              <DropdownMenuItem
+                                key={opt.value}
+                                onSelect={() => setGender(opt.value)}
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
+                                  gender === opt.value
+                                    ? 'bg-[#00D4FF]/15 text-[#00D4FF]'
+                                    : 'hover:bg-white/5 text-[#94A3B8] hover:text-white'
+                                }`}
+                              >
+                                <span className="text-base leading-none">{opt.emoji}</span>
+                                <span className="text-sm font-medium">{opt.label}</span>
+                                {gender === opt.value && (
+                                  <CheckCircle2 className="w-3.5 h-3.5 ml-auto text-[#00D4FF]" />
+                                )}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </motion.div>
                     </>
                   )}
 
@@ -568,32 +684,17 @@ export default function AuthPage() {
                     </label>
                     <div className="relative">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#334155] pointer-events-none" />
-                      {validatingEmail && (
-                        <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#00D4FF] animate-spin" />
-                      )}
-                      {emailValid?.valid && !validatingEmail && (
-                        <CheckCircle2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#00E5A0]" />
-                      )}
                       <input
                         type="email"
                         value={email}
-                        onChange={(e) => { setEmail(e.target.value); setEmailValid(null) }}
-                        onBlur={handleEmailBlur}
+                        onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@example.com"
                         required
-                        className={`qt-input ${emailValid?.valid === false ? 'error' : emailValid?.valid ? 'success' : ''}`}
+                        className="qt-input"
                         autoComplete="email"
                         inputMode="email"
                       />
                     </div>
-                    <AnimatePresence>
-                      {emailValid && !emailValid.valid && (
-                        <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }} className="text-[#FF4757] text-xs mt-1">
-                          {emailValid.message}
-                        </motion.p>
-                      )}
-                    </AnimatePresence>
                   </motion.div>
 
                   {/* Password */}
@@ -631,33 +732,47 @@ export default function AuthPage() {
                     {/* Forgot password (sign-in only) */}
                     {mode === 'signin' && (
                       <div className="flex justify-end mt-1.5">
-                        <button type="button" className="text-xs text-[#00D4FF] hover:text-[#00D4FF]/80 transition-colors">
+                        <Link href="/auth/forgot-password" className="text-xs text-[#00D4FF] hover:text-[#00D4FF]/80 transition-colors">
                           Forgot password?
-                        </button>
+                        </Link>
                       </div>
                     )}
                   </motion.div>
 
-                  {/* Sign-up: OTP section */}
+                  {/* Sign-up: OTP section (mandatory) */}
                   {mode === 'signup' && (
                     <motion.div initial={fieldInitial()} animate={fieldAnimate()} transition={fieldTransition(5)}
-                      className="rounded-xl border border-[#1E293B] bg-[#0D1828]/50 p-4 space-y-3">
+                      className={`rounded-xl border p-4 space-y-3 transition-all ${
+                        otpVerified
+                          ? 'border-[#00E5A0]/40 bg-[#00E5A0]/5'
+                          : 'border-[#00D4FF]/25 bg-[#0D1828]/50'
+                      }`}>
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-widest">Email Verification</p>
-                          <p className="text-[11px] text-[#334155] mt-0.5">Verify your email with a one-time code</p>
+                          <p className="text-xs font-semibold text-[#64748B] uppercase tracking-widest flex items-center gap-1.5">
+                            Email Verification
+                            <span className="text-[#FF4757] text-[10px] normal-case font-bold tracking-normal">required</span>
+                          </p>
+                          <p className="text-[11px] text-[#334155] mt-0.5">
+                            {otpVerified ? 'Email verified successfully' : 'Step 1 of 2 — verify your email to continue'}
+                          </p>
                         </div>
-                        {otpVerified && <CheckCircle2 className="w-4 h-4 text-[#00E5A0]" />}
+                        {otpVerified
+                          ? <CheckCircle2 className="w-5 h-5 text-[#00E5A0] shrink-0" />
+                          : <span className="text-[10px] text-[#334155] border border-[#1E293B] rounded-full px-2 py-0.5">1/2</span>
+                        }
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleContinueToOtp}
-                        disabled={!email || !!emailValid && !emailValid.valid}
-                        className="qt-btn-secondary text-sm py-2"
-                      >
-                        <Mail className="w-3.5 h-3.5" />
-                        {otpVerified ? 'Resend verification code' : 'Send verification code'}
-                      </button>
+                      {!otpVerified && (
+                        <button
+                          type="button"
+                          onClick={handleContinueToOtp}
+                          disabled={!email}
+                          className="qt-btn-secondary text-sm py-2"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          Send verification code
+                        </button>
+                      )}
                     </motion.div>
                   )}
 
@@ -712,15 +827,22 @@ export default function AuthPage() {
                   <motion.div initial={fieldInitial()} animate={fieldAnimate()} transition={fieldTransition(mode === 'signup' ? 7 : 3)}>
                     <button
                       type="submit"
-                      disabled={isLoading || (mode === 'signup' && !termsAccepted)}
+                      disabled={isLoading || (mode === 'signup' && (!termsAccepted || !otpVerified))}
                       className="qt-btn-primary"
                     >
                       {isLoading ? (
                         <><Loader2 className="w-4 h-4 animate-spin" /> {mode === 'signin' ? 'Signing in…' : 'Creating account…'}</>
+                      ) : mode === 'signup' ? (
+                        <>Step 2: Set Up Passkey <ArrowRight className="w-4 h-4" /></>
                       ) : (
-                        <>{mode === 'signin' ? 'Sign In' : 'Create Account'} <ArrowRight className="w-4 h-4" /></>
+                        <>Sign In <ArrowRight className="w-4 h-4" /></>
                       )}
                     </button>
+                    {mode === 'signup' && !otpVerified && (
+                      <p className="text-center text-[11px] text-[#334155] mt-2">
+                        Verify your email above to continue
+                      </p>
+                    )}
                   </motion.div>
                 </form>
               </motion.div>
@@ -755,15 +877,79 @@ export default function AuthPage() {
                     setCapturedOtp(otp)
                     setOtpVerified(true)
                     setOtpError('')
-                    // After short delay, return to form
-                    setTimeout(() => {
-                      setStep('EMAIL_FORM')
-                    }, 1000)
+                    setTimeout(() => setStep('EMAIL_FORM'), 1000)
                   }}
-                  onResend={handleSendOtp}
+                  onResend={handleResendOtp}
+                  resendCooldown={OTP_RESEND_COOLDOWN_SECONDS}
                   isVerified={otpVerified}
                   error={otpError}
                 />
+              </motion.div>
+            )}
+
+            {/* ── STEP: PASSKEY SETUP (Step 2 of signup) ── */}
+            {step === 'PASSKEY_SETUP' && (
+              <motion.div key="passkey-setup" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                <motion.div initial={fieldInitial()} animate={fieldAnimate()} transition={fieldTransition(0)} className="mb-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-[#00D4FF]/10 border border-[#00D4FF]/20 flex items-center justify-center">
+                      <Fingerprint className="w-5 h-5 text-[#00D4FF]" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[#334155] uppercase tracking-widest font-semibold">Step 2 of 2</div>
+                      <h2 className="text-xl font-bold text-[#F0F6FF]" style={{ fontFamily: 'Syne, sans-serif' }}>
+                        Secure with Passkey
+                      </h2>
+                    </div>
+                  </div>
+                  <p className="text-[#475569] text-sm leading-relaxed">
+                    Add biometric authentication — fingerprint or Face ID — for faster, password-free logins.
+                    Your credentials never leave your device.
+                  </p>
+                </motion.div>
+
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-2.5 p-3 mb-4 rounded-xl bg-[#FF4757]/10 border border-[#FF4757]/25 text-[#FF4757] text-sm"
+                  >
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    {error}
+                  </motion.div>
+                )}
+
+                <motion.div initial={fieldInitial()} animate={fieldAnimate()} transition={fieldTransition(1)} className="space-y-3">
+                  {passkeySupported ? (
+                    <button
+                      type="button"
+                      onClick={handlePasskeySetup}
+                      disabled={passkeyLoading}
+                      className="qt-btn-primary"
+                    >
+                      {passkeyLoading ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Setting up passkey…</>
+                      ) : (
+                        <><Fingerprint className="w-4 h-4" /> Set Up Passkey</>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="w-full py-3 px-4 rounded-xl border border-[#1E293B] bg-[#0D1828]/50 text-[#475569] text-sm text-center">
+                      Passkey not available on this device
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleSkipPasskey}
+                    className="qt-btn-secondary text-sm"
+                  >
+                    Skip for now
+                  </button>
+
+                  <p className="text-center text-[11px] text-[#334155]">
+                    You can always set up a passkey later in Settings
+                  </p>
+                </motion.div>
               </motion.div>
             )}
 
@@ -801,7 +987,7 @@ export default function AuthPage() {
           </AnimatePresence>
 
           {/* ── Footer nav ── */}
-          {step !== 'SUCCESS' && (
+          {step !== 'SUCCESS' && step !== 'PASSKEY_SETUP' && (
             <div className="mt-8 pt-6 border-t border-[#0D1828] flex items-center justify-center gap-4 text-xs text-[#334155]">
               <Link href="/" className="hover:text-[#64748B] transition-colors">← Dashboard</Link>
               <span>·</span>

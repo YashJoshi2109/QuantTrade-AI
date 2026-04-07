@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import { useQuery } from '@tanstack/react-query'
+import { useAuth } from '@/contexts/AuthContext'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
 import {
@@ -601,6 +602,23 @@ function MobileCopilot() {
 }
 
 export default function CopilotPage() {
+  const { isAuthenticated, isLoading } = useAuth()
+  if (isLoading) return null
+  if (!isAuthenticated) {
+    return (
+      <AppLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center max-w-md px-4">
+            <h2 className="text-xl font-bold text-white mb-2">Sign in required</h2>
+            <p className="text-slate-400 text-sm mb-4">AI Copilot is available for signed-in users only.</p>
+            <a href="/auth" className="inline-flex items-center px-5 py-2.5 rounded-xl bg-[#007AFF] text-white font-semibold">
+              Go to Sign In
+            </a>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
   return (
     <>
       <div className="hidden md:block">

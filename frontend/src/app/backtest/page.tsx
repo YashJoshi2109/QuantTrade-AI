@@ -7,11 +7,13 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import AppLayout from '@/components/AppLayout'
 import { motion, AnimatePresence } from 'framer-motion'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileBacktest from '@/components/layout/MobileBacktest'
 import { runBacktest, BacktestResult, BacktestRequest } from '@/lib/api'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   Play, Activity, Target, AlertTriangle, Loader2, TrendingUp, TrendingDown,
   BarChart3, Percent, DollarSign, Zap, ChevronRight, Filter, Download,
@@ -311,6 +313,23 @@ function DesktopBacktestPage() {
 }
 
 export default function BacktestPage() {
+  const { isAuthenticated, isLoading } = useAuth()
+  if (isLoading) return null
+  if (!isAuthenticated) {
+    return (
+      <AppLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center max-w-md px-4">
+            <h2 className="text-xl font-bold text-white mb-2">Sign in required</h2>
+            <p className="text-slate-400 text-sm mb-4">Backtesting is available for signed-in users only.</p>
+            <Link href="/auth" className="inline-flex items-center px-5 py-2.5 rounded-xl bg-cyan-500 text-slate-950 font-semibold">
+              Go to Sign In
+            </Link>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
   return (
     <>
       <div className="hidden md:block"><DesktopBacktestPage /></div>
