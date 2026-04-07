@@ -23,6 +23,7 @@ import {
   Globe,
   Info,
   Sparkles,
+  Swords,
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
 import MarketTicker from './MarketTicker'
@@ -159,6 +160,8 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
   // Dynamic widths for responsive layout
   const sidebarWidth = sidebarCollapsed ? '5rem' : '14rem'
 
+  const isGameActive = pathname?.startsWith('/game')
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/' },
     { id: 'copilot', label: 'AI Copilot', icon: Sparkles, href: '/copilot' },
@@ -168,6 +171,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
     { id: 'research', label: 'Research', icon: FileText, href: '/research' },
     { id: 'backtest', label: 'Backtest', icon: Activity, href: '/backtest' },
     { id: 'ideas', label: 'Ideas Lab', icon: Lightbulb, href: '/ideas-lab' },
+    { id: 'game', label: 'CoinRealm', icon: Swords, href: '/game', amber: true },
     { id: 'pricing', label: 'Pricing', icon: Zap, href: '/pricing' },
     { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
   ]
@@ -431,26 +435,36 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
             <ul className="space-y-1">
               {menuItems.map((item) => {
                 const Icon = item.icon
-                const isActive = pathname === item.href
+                const isActive = item.id === 'game' ? isGameActive : pathname === item.href
+                const isAmber = (item as { amber?: boolean }).amber
                 return (
                   <li key={item.id}>
                     <Link
                       href={item.href}
                       className={`relative w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-xl transition-all group ${
-                        isActive
+                        isAmber
+                          ? isActive
+                            ? 'bg-amber-500/15 border border-amber-500/30 text-amber-300'
+                            : 'text-amber-500/70 hover:text-amber-400 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20'
+                          : isActive
                           ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/10 text-white'
                           : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                       }`}
                       title={sidebarCollapsed ? item.label : undefined}
                     >
-                      {isActive && !sidebarCollapsed && (
+                      {isActive && !sidebarCollapsed && !isAmber && (
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-blue-400 to-cyan-400 rounded-r-full" />
                       )}
-                      <Icon className={`w-5 h-5 ${isActive ? 'text-blue-400' : 'group-hover:text-blue-400'} transition-colors`} />
+                      <Icon className={`w-5 h-5 ${isAmber ? (isActive ? 'text-amber-400' : 'group-hover:text-amber-400') : isActive ? 'text-blue-400' : 'group-hover:text-blue-400'} transition-colors`} />
                       {!sidebarCollapsed && (
                         <>
                           <span className="font-medium text-sm">{item.label}</span>
-                          {isActive && (
+                          {(item as { badge?: string }).badge && (
+                            <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold">
+                              {(item as { badge?: string }).badge}
+                            </span>
+                          )}
+                          {isActive && !isAmber && (
                             <Zap className="w-3 h-3 text-cyan-400 ml-auto" />
                           )}
                         </>

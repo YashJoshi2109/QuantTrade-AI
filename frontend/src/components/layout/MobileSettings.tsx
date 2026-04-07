@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Bell,
   ChevronRight,
   CreditCard,
+  Fingerprint,
   HelpCircle,
   LogIn,
   LogOut,
@@ -17,6 +18,8 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createBillingPortalSession } from '@/lib/api'
+import { registerPasskey, listPasskeys, type PasskeyCredentialSummary } from '@/lib/passkey'
+import { getToken } from '@/lib/auth'
 
 function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -108,6 +111,34 @@ export default function MobileSettings() {
   const [billingLoading, setBillingLoading] = useState(false)
   const [billingError, setBillingError] = useState<string | null>(null)
 
+  // Passkey state
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [passkeyMsg, setPasskeyMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [savedPasskeys, setSavedPasskeys] = useState<PasskeyCredentialSummary[]>([])
+
+  async function handleAddPasskey() {
+    if (!user) return
+    setPasskeyLoading(true)
+    setPasskeyMsg(null)
+    const token = getToken() || ''
+    const result = await registerPasskey(user.id, user.email, token)
+    setPasskeyLoading(false)
+    setPasskeyMsg(result.success
+      ? { type: 'success', text: 'Passkey added! Sign in with biometrics next time.' }
+      : { type: 'error', text: result.error || 'Passkey setup failed.' }
+    )
+    if (result.success && token) {
+      listPasskeys(token).then(setSavedPasskeys).catch(() => {})
+    }
+  }
+
+  useEffect(() => {
+    const token = getToken()
+    if (token) {
+      listPasskeys(token).then(setSavedPasskeys).catch(() => setSavedPasskeys([]))
+    }
+  }, [])
+
   const openBillingPortal = async () => {
     setBillingError(null)
     setBillingLoading(true)
@@ -181,6 +212,50 @@ export default function MobileSettings() {
           }
           onClick={openBillingPortal}
         />
+      </section>
+
+      {/* Passkey / Security */}
+      <section className="px-1 space-y-2">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold px-1">
+          Security
+        </p>
+        <div className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-4 space-y-3">
+          <p className="text-[12px] text-slate-300 leading-relaxed">
+            Add a passkey to sign in with Face ID, Touch ID, or Windows Hello — no password needed.
+          </p>
+          <button
+            onClick={handleAddPasskey}
+            disabled={passkeyLoading}
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-full bg-violet-500/20 border border-violet-500/40 text-violet-300 text-[13px] font-semibold active:scale-[0.98] transition-transform disabled:opacity-50"
+          >
+            <Fingerprint className="w-4 h-4" />
+            {passkeyLoading ? 'Setting up…' : 'Add Passkey to This Device'}
+          </button>
+          {passkeyMsg && (
+            <p className={`text-[11px] px-3 py-2 rounded-xl border ${
+              passkeyMsg.type === 'success'
+                ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                : 'text-red-400 bg-red-500/10 border-red-500/20'
+            }`}>
+              {passkeyMsg.text}
+            </p>
+          )}
+          <div className="pt-2 border-t border-white/10">
+            <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 font-semibold mb-2">Registered passkeys</p>
+            {savedPasskeys.length === 0 ? (
+              <p className="text-[11px] text-slate-500">No passkeys saved yet.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {savedPasskeys.map((pk) => (
+                  <div key={pk.id} className="text-[11px] text-slate-300 bg-[#0A0E1A] border border-white/10 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
+                    <span>••••{pk.credential_id_suffix}</span>
+                    <span className="text-slate-500">{pk.created_at ? new Date(pk.created_at).toLocaleDateString() : '—'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </section>
 
       <section className="px-1 space-y-2">

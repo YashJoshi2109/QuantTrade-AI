@@ -47,6 +47,7 @@ Important:
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+import logging
 import stripe
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -65,6 +66,7 @@ from app.services.billing_service import (
 
 
 router = APIRouter()
+logger = logging.getLogger("billing")
 
 if not settings.STRIPE_SECRET_KEY:
     # Stripe will be configured at runtime if keys are provided; otherwise
@@ -149,11 +151,24 @@ def _get_stripe_customer_for_user(db: Session, user: User) -> BillingCustomer:
         )
 
     # Create Stripe customer
-    customer = stripe.Customer.create(
-        email=user.email,
-        name=user.full_name or user.username,
-        metadata={"user_id": str(user.id)},
-    )
+    try:
+        customer = stripe.Customer.create(
+            email=user.email,
+            name=user.full_name or user.username,
+            metadata={"user_id": str(user.id)},
+        )
+    except stripe.error.AuthenticationError:
+        logger.error("Stripe authentication failed while creating customer for user_id=%s", user.id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Billing is temporarily unavailable (invalid Stripe configuration)",
+        )
+    except stripe.error.StripeError as exc:
+        logger.error("Stripe error while creating customer for user_id=%s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to create billing customer",
+        )
 
     return get_or_create_billing_customer(
         db=db, user=user, stripe_customer_id=customer["id"]
@@ -197,9 +212,14 @@ async def create_checkout_session(
             success_url=f"{settings.APP_URL}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{settings.APP_URL}/billing/cancel",
         )
-    except Exception as e:
-        import logging
-        logging.getLogger("billing").error("Stripe Checkout error: %s", e)
+    except stripe.error.AuthenticationError:
+        logger.error("Stripe authentication failed while creating checkout for user_id=%s", user.id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Billing is temporarily unavailable (invalid Stripe configuration)",
+        )
+    except stripe.error.StripeError as exc:
+        logger.error("Stripe Checkout error for user_id=%s: %s", user.id, exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to create Stripe Checkout session",
@@ -226,7 +246,12 @@ async def get_session_status(session_id: str):
         session = stripe.checkout.Session.retrieve(
             session_id, expand=["subscription", "subscription.items.data.price"]
         )
-    except Exception:
+    except stripe.error.AuthenticationError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Billing is temporarily unavailable (invalid Stripe configuration)",
+        )
+    except stripe.error.StripeError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Checkout session not found",
@@ -310,7 +335,14 @@ async def create_billing_portal_session(
             customer=billing_customer.stripe_customer_id,
             return_url=f"{settings.APP_URL}/settings",
         )
-    except Exception:
+    except stripe.error.AuthenticationError:
+        logger.error("Stripe authentication failed while creating billing portal for user_id=%s", user.id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Billing is temporarily unavailable (invalid Stripe configuration)",
+        )
+    except stripe.error.StripeError as exc:
+        logger.error("Stripe portal error for user_id=%s: %s", user.id, exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to create Stripe Billing Portal session",

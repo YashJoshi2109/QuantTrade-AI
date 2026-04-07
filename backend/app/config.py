@@ -2,11 +2,23 @@
 Application configuration
 """
 import os
-from pydantic_settings import BaseSettings
+from pathlib import Path
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
+
+# Always load backend/.env (not cwd) so `uvicorn` from repo root still picks up keys
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent
+_BACKEND_ENV_FILE = _BACKEND_ROOT / ".env"
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=str(_BACKEND_ENV_FILE),
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=True,
+    )
+
     # Database (use postgresql+psycopg:// for psycopg3)
     # Priority: DATABASE_URL (from environment) > NEON_DATABASE_URL
     DATABASE_URL: Optional[str] = None
@@ -22,6 +34,16 @@ class Settings(BaseSettings):
     # API Keys
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
+    FAL_API_KEY: Optional[str] = None   # fal.ai image generation
+    ELEVENLABS_API_KEY: Optional[str] = None
+    ELEVENLABS_MODEL_ID: str = "eleven_multilingual_v2"
+    ELEVENLABS_VOICE_NARRATOR: Optional[str] = None
+    ELEVENLABS_VOICE_KNIGHT: Optional[str] = None
+    ELEVENLABS_VOICE_SCHOLAR: Optional[str] = None
+    ELEVENLABS_VOICE_MERCHANT: Optional[str] = None
+    ELEVENLABS_VOICE_NOBLE: Optional[str] = None
+    ELEVENLABS_VOICE_SAGE: Optional[str] = None
+    GROK_API_KEY: Optional[str] = None  # xAI Grok LLM (OpenAI-compatible API)
     ALPHA_VANTAGE_API_KEY: Optional[str] = None
     BYTEZ_API_KEY: Optional[str] = None
     FINNHUB_API_KEY: Optional[str] = None
@@ -34,7 +56,10 @@ class Settings(BaseSettings):
     MARKETSTACK_API_KEY: Optional[str] = None    # Marketstack global stock data
     OPENFIGI_API_KEY: Optional[str] = None       # OpenFIGI real-time stock info
     STRIPE_SECRET_KEY: Optional[str] = None
+    STRIPE_PUBLISHABLE_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
+    STRIPE_CONNECT_THIN_WEBHOOK_SECRET: Optional[str] = None
+    STRIPE_CONNECT_SUBSCRIPTION_PRICE_ID: Optional[str] = None
     
     # Global Monitor API Keys
     GROQ_API_KEY: Optional[str] = None  # Groq LLM for threat classification
@@ -67,9 +92,9 @@ class Settings(BaseSettings):
     # Comma-separated allowed origins for verify_registration_response / verify_authentication_response
     WEBAUTHN_ORIGINS: str = os.getenv("WEBAUTHN_ORIGINS", "")
 
-    # Email OTP (Resend - https://resend.com)
-    RESEND_API_KEY: Optional[str] = None
-    RESEND_FROM_EMAIL: str = "QuantTrade <onboarding@resend.dev>"  # Replace with verified domain
+    # Email — Brevo only (https://www.brevo.com — verify sender in dashboard)
+    BREVO_API_KEY: Optional[str] = None
+    BREVO_FROM_EMAIL: str = "QuantTrade AI <noreply@quanttrade.us>"
     
     # Neon Auth
     NEON_AUTH_URL: Optional[str] = None
@@ -105,6 +130,8 @@ class Settings(BaseSettings):
     # App settings
     DEBUG: bool = True
     LOG_LEVEL: str = "INFO"
+    # DEBUG only: if Brevo fails, log OTP to server logs and treat send as OK (local dev)
+    EMAIL_DEV_LOG_OTP: bool = False
 
     def __init__(self, **values):
         super().__init__(**values)
@@ -120,11 +147,6 @@ class Settings(BaseSettings):
             print("⚠️ WARNING: DATABASE_URL/NEON_DATABASE_URL not set - DB features will fail. Set in .env on EC2.")
 
         self.DATABASE_URL = db_url or ""
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"  # Ignore frontend-only vars (e.g. NEXT_PUBLIC_*) when loading .env
 
 
 settings = Settings()

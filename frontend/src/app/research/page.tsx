@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { fetchPrices, fetchIndicators, fetchFundamentals, syncSymbol, PriceBar, Indicators, FundamentalsData } from '@/lib/api'
 import TechnicalAnalysisGauge from '@/components/TechnicalAnalysisGauge'
+import StockVisual from '@/components/StockVisual'
 import KeyFactorsPanel from '@/components/KeyFactorsPanel'
 import FundamentalsPanel from '@/components/FundamentalsPanel'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
@@ -715,6 +716,16 @@ function ResearchContent() {
                 <LiveNews symbol={selectedSymbol} limit={8} showTitle={false} />
               </div>
             </div>
+
+            {/* AI Visual */}
+            <StockVisual
+              symbol={selectedSymbol}
+              companyName={selectedSymbol}
+              sentiment={
+                priceInfo.percent > 1 ? 'bullish' :
+                priceInfo.percent < -1 ? 'bearish' : 'neutral'
+              }
+            />
           </div>
 
         </div>

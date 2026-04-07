@@ -23,8 +23,11 @@ from app.api import (
     enhanced_endpoints,
     quotes,
     billing,
+    connect,
     finviz,
     global_monitor,
+    game,
+    ai_image,
 )
 from app.api import monitor_extended
 from app.db.database import engine, Base
@@ -41,6 +44,7 @@ from app.models import (
     BillingCustomer,
     Subscription,
     BillingEvent,
+    ConnectedAccount,
     Fundamentals,
     Portfolio,
     Position,
@@ -53,6 +57,11 @@ from app.models import (
 )
 from app.models.user import User
 from app.models.passkey_credential import PasskeyCredential
+from app.models.game import (
+    GameCharacter, GameWallet, GameMission,
+    GameCommunityGroup, GameCharacterCommunity,
+    GamePortfolioHolding, GameEventLog,
+)
 from app.models.global_monitor import (
     GlobalEvent,
     CountryInstability,
@@ -214,6 +223,7 @@ app.include_router(chat_history.router, prefix="/api/v1", tags=["chat-history"])
 app.include_router(enhanced_endpoints.router, prefix="/api/v1/enhanced", tags=["enhanced"])
 app.include_router(quotes.router, prefix="/api/v1", tags=["quotes"])
 app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
+app.include_router(connect.router, prefix="/api/v1/connect", tags=["connect"])
 
 # Finviz stock data endpoint
 app.include_router(finviz.router, prefix="/api/v1", tags=["finviz"])
@@ -221,6 +231,10 @@ app.include_router(finviz.router, prefix="/api/v1", tags=["finviz"])
 # Global Monitor endpoint
 app.include_router(global_monitor.router, tags=["global-monitor"])
 app.include_router(monitor_extended.router, tags=["global-monitor-extended"])
+
+# QuantTrade Life — Game engine (all routes JWT-protected server-side)
+app.include_router(game.router, prefix="/api/v1/game", tags=["game"])
+app.include_router(ai_image.router, prefix="/api/v1/ai-image", tags=["ai-image"])
 
 
 @app.get("/")

@@ -7,7 +7,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import jwt
 import bcrypt
 from app.db.database import get_db
@@ -19,6 +19,7 @@ from app.services.otp_service import (
     store_otp,
     verify_otp,
     check_rate_limit,
+    get_rate_limit_remaining_seconds,
     set_rate_limit,
     send_otp_email,
 )
@@ -54,6 +55,8 @@ class UserRegister(BaseModel):
     country_code: Optional[str] = None
     phone_number: Optional[str] = None
     otp: Optional[str] = None  # Optional code for email verification
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None  # male | female | non-binary | prefer_not_to_say
 
 
 class UserLogin(BaseModel):
@@ -161,6 +164,7 @@ def require_auth(
 
 
 def user_to_dict(user: User) -> dict:
+    dob = getattr(user, "date_of_birth", None)
     return {
         "id": user.id,
         "email": user.email,
@@ -170,6 +174,8 @@ def user_to_dict(user: User) -> dict:
         "is_verified": user.is_verified,
         "country_code": getattr(user, "country_code", None),
         "phone_number": getattr(user, "phone_number", None),
+        "date_of_birth": dob.isoformat() if dob else None,
+        "gender": getattr(user, "gender", None),
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
 
@@ -202,17 +208,15 @@ class SendOtpRequest(BaseModel):
 @router.post("/send-otp")
 async def send_otp_endpoint(req: SendOtpRequest, db: Session = Depends(get_db)):
     """Send OTP to email for verification. Rate limited to 1 per minute."""
-    # Validate email first
-    validation = await validate_email(req.email)
-    if not validation.valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=validation.message
-        )
     if not check_rate_limit(req.email):
+        wait_seconds = get_rate_limit_remaining_seconds(req.email)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Please wait a minute before requesting another code"
+            detail=(
+                f"Please wait {wait_seconds} seconds before requesting another code"
+                if wait_seconds > 0
+                else "Please wait a moment before requesting another code"
+            ),
         )
     otp = generate_otp()
     if not store_otp(req.email, otp):
@@ -220,13 +224,13 @@ async def send_otp_endpoint(req: SendOtpRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OTP service temporarily unavailable"
         )
-    sent = await asyncio.to_thread(send_otp_email, req.email, otp)
-    set_rate_limit(req.email)
+    sent, mail_error = await asyncio.to_thread(send_otp_email, req.email, otp)
     if not sent:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Failed to send verification email. Please check RESEND_API_KEY and domain configuration."
+            detail=mail_error or "Failed to send verification email.",
         )
+    set_rate_limit(req.email)
     return {"message": "Verification code sent to your email"}
 
 
@@ -250,19 +254,6 @@ async def verify_otp_endpoint(req: VerifyOtpRequest):
 @router.post("/register", response_model=TokenResponse)
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     """Register a new user with optional email verification and phone"""
-    # Validate email format and deliverability
-    validation = await validate_email(user_data.email)
-    if not validation.valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=validation.message
-        )
-    if validation.is_disposable:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Disposable email addresses are not allowed"
-        )
-
     # Optional: require OTP verification if OTP provided
     if user_data.otp:
         if not verify_otp(user_data.email, user_data.otp):
@@ -296,6 +287,8 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
         is_verified=True,
         otp_verified=bool(user_data.otp),
         email_verified_at=datetime.utcnow() if user_data.otp else None,
+        date_of_birth=user_data.date_of_birth,
+        gender=user_data.gender,
     )
     
     db.add(user)
@@ -589,6 +582,13 @@ class PasskeyAuthChallengeResponse(BaseModel):
     rp_id: str
 
 
+class PasskeySummaryResponse(BaseModel):
+    id: int
+    credential_id_suffix: str
+    created_at: Optional[str] = None
+    sign_count: int
+
+
 class PasskeyAuthVerifyRequest(BaseModel):
     session_token: str
     credential_id: str
@@ -701,6 +701,45 @@ async def passkey_register_verify(
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(exc)}")
 
 
+@router.get("/passkey/status")
+async def passkey_status():
+    """Return the current WebAuthn configuration for debugging."""
+    return {
+        "webauthn_available": WEBAUTHN_AVAILABLE,
+        "rp_id": settings.WEBAUTHN_RP_ID,
+        "expected_origins": _webauthn_expected_origins(),
+        "hint": (
+            "rp_id must match your browser's hostname exactly (e.g. localhost or quanttrade.us). "
+            "expected_origins must match the full origin including protocol and port "
+            "(e.g. http://localhost:3000 or https://quanttrade.us)."
+        ),
+    }
+
+
+@router.get("/passkey/list")
+async def passkey_list(
+    current_user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """List passkeys registered for the signed-in user."""
+    rows = (
+        db.query(PasskeyCredential)
+        .filter(PasskeyCredential.user_id == current_user.id)
+        .order_by(PasskeyCredential.created_at.desc())
+        .all()
+    )
+    items = [
+        PasskeySummaryResponse(
+            id=row.id,
+            credential_id_suffix=(row.credential_id[-10:] if row.credential_id else ""),
+            created_at=row.created_at.isoformat() if row.created_at else None,
+            sign_count=row.sign_count or 0,
+        ).model_dump()
+        for row in rows
+    ]
+    return {"count": len(items), "items": items}
+
+
 @router.post("/passkey/auth/challenge")
 async def passkey_auth_challenge():
     """Generate a WebAuthn authentication challenge (no user required — discoverable credentials)."""
@@ -782,3 +821,141 @@ async def passkey_auth_verify(req: PasskeyAuthVerifyRequest, db: Session = Depen
         raise
     except Exception as exc:
         raise HTTPException(status_code=401, detail=f"Authentication failed: {str(exc)}")
+
+
+# ─── Forgot / Reset Password ──────────────────────────────────────────────────
+import secrets as _pw_secrets
+import time as _pw_time
+
+# In-memory store: token → (email, expiry). Redis-backed in production via OTP module.
+_reset_tokens: dict = {}
+_RESET_TOKEN_TTL = 3600  # 1 hour
+
+
+def _clean_reset_tokens() -> None:
+    now = _pw_time.time()
+    expired = [k for k, (_, exp) in _reset_tokens.items() if now > exp]
+    for k in expired:
+        del _reset_tokens[k]
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Send a password-reset link to the registered email address.
+    Always returns 200 to prevent email enumeration (OWASP A07).
+    """
+    _clean_reset_tokens()
+    user = db.query(User).filter(User.email == req.email.lower()).first()
+    if user:
+        token = _pw_secrets.token_urlsafe(32)
+        _reset_tokens[token] = (user.email, _pw_time.time() + _RESET_TOKEN_TTL)
+
+        app_url = getattr(settings, "APP_URL", "https://quanttrade.us")
+        reset_link = f"{app_url}/auth/forgot-password?token={token}"
+
+        html = f"""
+        <div style="font-family:-apple-system,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;background:#060B12;padding:40px 20px;">
+          <div style="background:#0D1828;border:1px solid rgba(0,212,255,0.2);border-radius:16px;overflow:hidden;">
+            <div style="background:linear-gradient(135deg,#060B12,#0a1628);padding:28px 32px;border-bottom:1px solid rgba(0,212,255,0.15);">
+              <span style="color:#00D4FF;font-size:18px;font-weight:700;">⚡ QuantTrade AI</span>
+              <h1 style="margin:12px 0 0;color:#F0F6FF;font-size:20px;font-weight:600;">Password Reset Request</h1>
+            </div>
+            <div style="padding:32px;">
+              <p style="color:#94A3B8;font-size:15px;margin:0 0 24px;">
+                We received a request to reset the password for your account (<strong style="color:#E2E8F0">{user.email}</strong>).
+                Click the button below to set a new password.
+              </p>
+              <a href="{reset_link}"
+                 style="display:inline-block;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:700;margin-bottom:24px;">
+                Reset My Password →
+              </a>
+              <p style="color:#64748B;font-size:13px;margin:0 0 8px;">
+                This link expires in <strong style="color:#94A3B8">1 hour</strong>.
+                If you didn't request a reset, you can safely ignore this email — your password won't change.
+              </p>
+            </div>
+          </div>
+        </div>
+        """
+
+        try:
+            from app.services.email_service import send_email
+            await send_email(user.email, "QuantTrade AI — Reset Your Password", html)
+        except Exception:
+            pass  # Never block — anti-enumeration
+
+    return {"message": "If that email is registered, you'll receive a reset link shortly."}
+
+
+@router.post("/reset-password")
+async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Validate the reset token and update the user's password."""
+    _clean_reset_tokens()
+    entry = _reset_tokens.get(req.token)
+    if not entry or _pw_time.time() > entry[1]:
+        raise HTTPException(status_code=400, detail="Reset link is invalid or has expired. Please request a new one.")
+
+    email, _ = entry
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Account not found.")
+
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+
+    user.hashed_password = hash_password(req.new_password)
+    db.commit()
+
+    # Invalidate the token after use
+    del _reset_tokens[req.token]
+
+    return {"message": "Password updated successfully. You can now sign in with your new password."}
+
+
+# ── Email diagnostics (dev/admin) ─────────────────────────────────────────────
+
+class TestEmailRequest(BaseModel):
+    to: str
+    subject: str = "QuantTrade AI — Test Email"
+
+
+@router.post("/test-email")
+async def test_email(req: TestEmailRequest):
+    """
+    Diagnostic endpoint: send a test email via Brevo and return detailed result.
+    Remove or gate behind admin check in production.
+    """
+    from app.services.email_service import send_email_sync
+    from app.config import settings as _cfg
+    import os
+
+    brevo_key_set = bool(getattr(_cfg, "BREVO_API_KEY", None))
+    from_email = getattr(_cfg, "BREVO_FROM_EMAIL", "NOT SET")
+
+    html = """
+    <div style="font-family:sans-serif;padding:24px;background:#060B12;color:#e2e8f0;">
+      <h2 style="color:#00D4FF;">✅ QuantTrade AI — Brevo Test</h2>
+      <p>If you're reading this, Brevo is configured correctly.</p>
+    </div>
+    """
+    ok, detail = send_email_sync(req.to, req.subject, html)
+    return {
+        "success": ok,
+        "error": detail if not ok else None,
+        "brevo_key_set": brevo_key_set,
+        "from_email": from_email,
+        "hint": (
+            "Email sent successfully." if ok
+            else "Check that BREVO_FROM_EMAIL sender is verified in Brevo dashboard → Senders & IPs."
+        ),
+    }

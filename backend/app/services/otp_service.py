@@ -1,7 +1,7 @@
 """
 OTP (One-Time Password) service for email verification.
 Uses Redis when available, with an in-memory fallback for local dev.
-Resend is used for email delivery.
+Email delivery via Brevo.
 """
 import random
 import string
@@ -11,7 +11,6 @@ from typing import Dict, Optional, Tuple
 
 import logging
 
-import httpx
 import redis
 
 from app.config import settings
@@ -21,7 +20,7 @@ OTP_LENGTH = 6
 OTP_EXPIRY_MINUTES = 10
 OTP_REDIS_PREFIX = "otp:"
 OTP_RATE_LIMIT_PREFIX = "otp_limit:"
-OTP_RATE_LIMIT_SECONDS = 60  # 1 OTP per minute per email
+OTP_RATE_LIMIT_SECONDS = 30  # 1 OTP per 30 seconds per email
 
 _redis_client: Optional[redis.Redis] = None
 
@@ -126,6 +125,33 @@ def check_rate_limit(email: str) -> bool:
     return (time.time() - last_ts) >= OTP_RATE_LIMIT_SECONDS
 
 
+def get_rate_limit_remaining_seconds(email: str) -> int:
+    """
+    Return seconds remaining before the next OTP request is allowed.
+    Returns 0 when the email is not currently rate limited.
+    """
+    key = email.lower()
+    r = _get_redis()
+
+    if r:
+        try:
+            redis_key = f"{OTP_RATE_LIMIT_PREFIX}{key}"
+            ttl = r.ttl(redis_key)
+            # Redis returns:
+            #  -2 key does not exist, -1 no expire, >=0 remaining seconds
+            if ttl is None or ttl <= 0:
+                return 0
+            return int(ttl)
+        except Exception:
+            pass
+
+    last_ts = _memory_rate_limit.get(key)
+    if last_ts is None:
+        return 0
+    remaining = int(OTP_RATE_LIMIT_SECONDS - (time.time() - last_ts))
+    return remaining if remaining > 0 else 0
+
+
 def set_rate_limit(email: str) -> None:
     """Set rate limit for email."""
     key = email.lower()
@@ -143,56 +169,44 @@ def set_rate_limit(email: str) -> None:
     _memory_rate_limit[key] = time.time()
 
 
-def send_otp_email(email: str, otp: str) -> bool:
+def send_otp_email(email: str, otp: str) -> tuple[bool, str]:
     """
-    Send OTP via Resend (HTTP API).
-
-    Uses the RESEND_API_KEY from settings and sends via the official
-    HTTPS endpoint so we don't depend on the Python SDK.
+    Send OTP via Brevo.
+    Returns (success, error_detail) — error_detail is safe to show in API responses.
     """
-    api_key = getattr(settings, "RESEND_API_KEY", None)
-    if not api_key:
-        return False
+    from app.services.email_service import send_email_sync
 
-    try:
-        from_email = getattr(
-            settings,
-            "RESEND_FROM_EMAIL",
-            "QuantTrade <onboarding@resend.dev>",
-        )
-        payload = {
-            "from": from_email,
-            "to": [email],
-            "subject": "QuantTrade AI - Your Verification Code",
-            "html": f"""
-            <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto;">
-                <h2 style="color: #0A0E1A;">QuantTrade AI</h2>
-                <p>Your verification code is:</p>
-                <p style="font-size: 28px; font-weight: bold; letter-spacing: 4px; color: #00D9FF; background: #1A2332; padding: 16px; border-radius: 8px; text-align: center;">
+    html = f"""
+    <div style="font-family: -apple-system, 'Segoe UI', sans-serif; max-width: 440px; margin: 0 auto; background: #060B12; padding: 40px 20px;">
+        <div style="background: #0D1828; border: 1px solid rgba(0,212,255,0.2); border-radius: 16px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg,#060B12,#0a1628); padding: 28px 32px; border-bottom: 1px solid rgba(0,212,255,0.15);">
+                <span style="color:#00D4FF; font-size:18px; font-weight:700; letter-spacing:-0.5px;">⚡ QuantTrade AI</span>
+            </div>
+            <div style="padding: 32px;">
+                <p style="color:#94A3B8; font-size:15px; margin:0 0 20px;">Your verification code is:</p>
+                <p style="font-size:36px; font-weight:bold; letter-spacing:8px; color:#00D9FF; background:#0a1628; border:1px solid rgba(0,212,255,0.25); padding:20px; border-radius:12px; text-align:center; margin:0 0 20px; font-family:'Courier New',monospace;">
                     {otp}
                 </p>
-                <p style="color: #8B93A7; font-size: 14px;">
-                    This code expires in {OTP_EXPIRY_MINUTES} minutes. Do not share it with anyone.
+                <p style="color:#64748B; font-size:13px; margin:0 0 8px;">
+                    Expires in <strong style="color:#94A3B8">{OTP_EXPIRY_MINUTES} minutes</strong>. Do not share it with anyone.
                 </p>
-                <hr style="border: none; border-top: 1px solid #1A2332; margin: 24px 0;" />
-                <p style="color: #8B93A7; font-size: 12px;">
-                    If you didn't request this code, you can safely ignore this email.
+                <p style="color:#475569; font-size:12px; margin:0;">
+                    If you didn't request this, you can safely ignore this email.
                 </p>
             </div>
-            """,
-        }
-
-        response = httpx.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=10.0,
+        </div>
+    </div>
+    """
+    ok, err = send_email_sync(email, "QuantTrade AI — Your Verification Code", html)
+    if ok:
+        return True, ""
+    # Local dev: Brevo not configured or failing — log OTP to terminal and allow flow to continue
+    if getattr(settings, "DEBUG", False) and getattr(settings, "EMAIL_DEV_LOG_OTP", False):
+        logger.warning(
+            "[EMAIL_DEV_LOG_OTP] OTP for %s: %s (mail error was: %s)",
+            email,
+            otp,
+            err[:200] if err else "unknown",
         )
-        response.raise_for_status()
-        return True
-    except Exception as exc:
-        logger.exception("Failed to send OTP email via Resend: %s", exc)
-        return False
+        return True, ""
+    return False, err

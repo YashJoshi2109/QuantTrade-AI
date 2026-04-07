@@ -1,7 +1,7 @@
 """
 User model for authentication
 """
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.database import Base
@@ -23,6 +23,10 @@ class User(Base):
     # Phone number (country code + phone)
     country_code = Column(String(10), nullable=True)
     phone_number = Column(String(20), nullable=True)
+
+    # Game profile fields (collected at signup, used for life-stage mapping)
+    date_of_birth = Column(Date, nullable=True)
+    gender = Column(String(20), nullable=True)  # male | female | non-binary | prefer_not_to_say
 
     # Email verification
     email_verified_at = Column(DateTime, nullable=True)

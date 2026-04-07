@@ -1,13 +1,24 @@
 """
 Email verification service using Rapid Email Verifier API
 https://rapid-email-verifier.fly.dev/
+
+When DEBUG=True and the verifier is unreachable, we fall back to basic syntax
+so local dev is not blocked if the third-party service is down.
 """
+import re
 import httpx
 from typing import Optional
 from dataclasses import dataclass
 
+from app.config import settings
 
 RAPID_EMAIL_VERIFIER_URL = "https://rapid-email-verifier.fly.dev"
+
+_LOOSE_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _loose_email_syntax_ok(email: str) -> bool:
+    return bool(_LOOSE_EMAIL.match((email or "").strip()))
 
 
 @dataclass
@@ -38,6 +49,17 @@ async def validate_email(email: str) -> EmailValidationResult:
             response.raise_for_status()
             data = response.json()
     except httpx.HTTPError as e:
+        if settings.DEBUG and _loose_email_syntax_ok(email):
+            return EmailValidationResult(
+                valid=True,
+                status="DEBUG_VERIFIER_SKIPPED",
+                syntax_valid=True,
+                domain_exists=True,
+                mx_records=True,
+                is_disposable=False,
+                is_role_based=False,
+                message="Debug mode: email verifier unreachable; using basic syntax check only.",
+            )
         return EmailValidationResult(
             valid=False,
             status="ERROR",
@@ -49,6 +71,17 @@ async def validate_email(email: str) -> EmailValidationResult:
             message=f"Email validation service unavailable: {str(e)}",
         )
     except Exception as e:
+        if settings.DEBUG and _loose_email_syntax_ok(email):
+            return EmailValidationResult(
+                valid=True,
+                status="DEBUG_VERIFIER_SKIPPED",
+                syntax_valid=True,
+                domain_exists=True,
+                mx_records=True,
+                is_disposable=False,
+                is_role_based=False,
+                message="Debug mode: email verifier error; using basic syntax check only.",
+            )
         return EmailValidationResult(
             valid=False,
             status="ERROR",

@@ -5,7 +5,7 @@ from app.models.watchlist import Watchlist
 from app.models.news import NewsArticle
 from app.models.filing import Filing, FilingChunk
 from app.models.chat_history import ChatHistory
-from app.models.billing import BillingCustomer, Subscription, BillingEvent
+from app.models.billing import BillingCustomer, Subscription, BillingEvent, ConnectedAccount
 
 # Enhanced models
 from app.models.fundamentals import Fundamentals
@@ -44,6 +44,7 @@ __all__ = [
     "BillingCustomer",
     "Subscription",
     "BillingEvent",
+    "ConnectedAccount",
     "Fundamentals",
     "Portfolio",
     "Position",

@@ -2,19 +2,16 @@
 Login notification service: sends a security alert email whenever a user signs in,
 containing their IP address, device info, and timestamp.
 
-Uses the existing Resend API key configured in .env
+Email delivery via Brevo.
 OWASP A09: Security Logging — every authentication event is communicated to user
 """
 import logging
 from datetime import datetime, timezone
 from typing import Optional
-import httpx
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
-
-RESEND_SEND_URL = "https://api.resend.com/emails"
 
 
 def _get_device_label(user_agent: str) -> str:
@@ -157,53 +154,32 @@ async def send_login_notification(
     timestamp: Optional[datetime] = None,
 ) -> bool:
     """
-    Send a login notification email using the Resend API.
+    Send a login notification email via Brevo.
     Fire-and-forget: caller should use asyncio.create_task() to avoid blocking login response.
 
     Returns True on success, False on failure (never raises — login must not be blocked by email failure).
     """
-    if not getattr(settings, "RESEND_API_KEY", None):
-        logger.warning("RESEND_API_KEY not configured — skipping login notification email")
+    brevo_key = getattr(settings, "BREVO_API_KEY", None)
+    if not brevo_key:
+        logger.warning("BREVO_API_KEY not set — skipping login notification")
         return False
-
-    from_email = getattr(settings, "RESEND_FROM_EMAIL", "QuantTrade <security@quanttrade.us>")
 
     if timestamp is None:
         timestamp = datetime.now(timezone.utc)
 
     device = _get_device_label(user_agent)
     html_content = _build_email_html(email, ip_address, device, timestamp)
-
-    payload = {
-        "from": from_email,
-        "to": [email],
-        "subject": f"New sign-in to your QuantTrade AI account from {ip_address}",
-        "html": html_content,
-    }
+    subject = f"New sign-in to your QuantTrade AI account from {ip_address}"
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
-                RESEND_SEND_URL,
-                json=payload,
-                headers={
-                    "Authorization": f"Bearer {settings.RESEND_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-            )
-            if response.status_code in (200, 201):
-                logger.info(
-                    "Login notification email sent",
-                    extra={"email": email, "ip": ip_address},
-                )
-                return True
-            else:
-                logger.warning(
-                    "Login notification email failed",
-                    extra={"status": response.status_code, "body": response.text[:200]},
-                )
-                return False
+        from app.services.email_service import send_email
+        result = await send_email(email, subject, html_content)
+        if result:
+            logger.info("Login notification sent to %s", email)
+        else:
+            logger.warning("Login notification failed for %s", email)
+        return result
     except Exception as exc:
         # OWASP A10: never let email failure block the user login
-        logger.error("Login notification email exception: %s", exc)
+        logger.error("Login notification exception: %s", exc)
         return False

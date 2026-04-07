@@ -18,7 +18,7 @@ export function OtpInput({
   length = 6,
   onComplete,
   onResend,
-  resendCooldown = 60,
+  resendCooldown = 30,
   isVerified = false,
   isLoading = false,
   error,
@@ -99,6 +99,7 @@ export function OtpInput({
   }
 
   const progressPct = (digits.filter(Boolean).length / length) * 100
+  const timerText = `${Math.floor(countdown / 60)}:${String(countdown % 60).padStart(2, '0')}`
 
   return (
     <div className="space-y-4">
@@ -204,7 +205,7 @@ export function OtpInput({
             <p className="text-[#475569] text-xs">
               Resend in{' '}
               <span className="text-[#64748B] font-semibold" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                0:{String(countdown).padStart(2, '0')}
+                {timerText}
               </span>
             </p>
           )}

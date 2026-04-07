@@ -52,3 +52,16 @@ class BillingEvent(Base):
         UniqueConstraint("stripe_event_id", name="uq_billing_events_stripe_event_id"),
     )
 
+
+class ConnectedAccount(Base):
+    __tablename__ = "connected_accounts"
+
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True, index=True)
+    stripe_account_id = Column(String(255), unique=True, nullable=False, index=True)
+    onboarding_complete = Column(Boolean, default=False, nullable=False)
+    card_payments_status = Column(String(64), nullable=True)
+    requirements_status = Column(String(64), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    user = relationship("User", backref="connected_account", uselist=False)

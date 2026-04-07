@@ -3,14 +3,15 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { 
-  LayoutDashboard, 
-  TrendingUp, 
-  Bookmark, 
-  FileText, 
-  Lightbulb, 
+import {
+  LayoutDashboard,
+  TrendingUp,
+  Bookmark,
+  FileText,
+  Lightbulb,
   Settings,
-  User
+  User,
+  Swords,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -28,6 +29,8 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     { id: 'ideas', label: 'Ideas Lab', icon: Lightbulb, href: '/ideas-lab' },
     { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
   ]
+
+  const isGameActive = pathname?.startsWith('/game')
 
   // Determine active tab from pathname
   const currentTab = activeTab || (pathname === '/' ? 'dashboard' : (pathname || '').slice(1))
@@ -68,6 +71,29 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           })}
         </ul>
       </nav>
+
+      {/* QuantTrade Life — Game Entry */}
+      <div className="px-4 pb-3">
+        <Link
+          href="/game"
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all group relative overflow-hidden ${
+            isGameActive
+              ? 'border-amber-500/40 bg-amber-500/10 text-amber-400'
+              : 'border-amber-500/20 bg-amber-500/5 text-amber-500/70 hover:border-amber-500/40 hover:bg-amber-500/10 hover:text-amber-400'
+          }`}
+        >
+          {/* Shimmer on hover */}
+          <span className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+          <Swords className="w-5 h-5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-sm">CoinRealm</div>
+            <div className="text-xs opacity-60 truncate">Financial Sim</div>
+          </div>
+          <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold shrink-0">
+            ⚔️
+          </span>
+        </Link>
+      </div>
 
       {/* User Profile */}
       <div className="p-4 border-t border-gray-700">
