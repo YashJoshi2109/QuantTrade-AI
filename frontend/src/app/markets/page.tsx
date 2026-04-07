@@ -67,13 +67,24 @@ function useContinentMovers(continent: Continent) {
       losers: GlobalMover[]
       actives: GlobalMover[]
     }> => {
-      const res = await fetch(`/api/quotes/movers?continent=${continent}&count=12`)
+      const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+      const endpoint = `${apiBase}/api/v1/market/movers?continent=${continent}&count=12`
+      const res = await fetch(endpoint)
       if (!res.ok) return { gainers: [], losers: [], actives: [] }
       const j = await res.json()
+      const gainers: GlobalMover[] = j.gainers ?? []
+      const losers: GlobalMover[] = j.losers ?? []
+      // Backend mover endpoint does not always return actives; synthesize from available movers.
+      const actives = Array.isArray(j.actives) && j.actives.length > 0
+        ? j.actives
+        : [...gainers, ...losers]
+            .filter((m) => Number.isFinite(m.volume) && m.volume > 0)
+            .sort((a, b) => (b.volume || 0) - (a.volume || 0))
+            .slice(0, 12)
       return {
-        gainers: j.gainers ?? [],
-        losers: j.losers ?? [],
-        actives: j.actives ?? [],
+        gainers,
+        losers,
+        actives,
       }
     },
     refetchInterval: 120_000,
