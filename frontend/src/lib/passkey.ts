@@ -160,6 +160,25 @@ export async function registerPasskey(
   }
 }
 
+export interface PasskeyCredentialSummary {
+  id: number
+  credential_id_suffix: string
+  created_at: string | null
+  sign_count: number
+}
+
+export async function listPasskeys(accessToken: string): Promise<PasskeyCredentialSummary[]> {
+  const res = await fetch(passkeyUrl('/api/v1/auth/passkey/list'), {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+  if (!res.ok) return []
+  const data = await res.json().catch(() => ({ items: [] }))
+  return Array.isArray(data?.items) ? data.items : []
+}
+
 // ─── Authentication (Sign-In) ─────────────────────────────────────────────────
 
 /**
