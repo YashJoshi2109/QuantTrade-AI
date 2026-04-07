@@ -19,6 +19,7 @@ import {
   BarChart3, Percent, DollarSign, Zap, ChevronRight, Filter, Download,
   RefreshCw, CheckCircle, XCircle, Clock, Settings,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 const STRATEGIES = [
   {
@@ -35,7 +36,7 @@ const STRATEGIES = [
   },
 ]
 
-function MetricCard({ label, value, sub, positive, icon: Icon }: { label: string; value: string; sub?: string; positive?: boolean; icon?: React.ElementType }) {
+function MetricCard({ label, value, sub, positive, icon: Icon }: { label: string; value: string; sub?: string; positive?: boolean; icon?: LucideIcon }) {
   return (
     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}
       className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5 backdrop-blur-sm"

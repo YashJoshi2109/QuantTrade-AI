@@ -5,7 +5,7 @@
  * Production-grade, Bloomberg terminal-style settings with animated sections
  */
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import AppLayout from '@/components/AppLayout'
@@ -13,10 +13,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Brain, Bell, CheckCircle, LogIn, Camera, CreditCard, Shield, User,
   ChevronRight, Trash2, Eye, EyeOff, Save, AlertTriangle, Zap, Lock,
-  Settings, Moon, Sun, Globe, Activity,
+  Settings, Moon, Sun, Globe, Activity, Fingerprint,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createBillingPortalSession } from '@/lib/api'
+import { registerPasskey, isPasskeySupported, listPasskeys, type PasskeyCredentialSummary } from '@/lib/passkey'
+import { getToken } from '@/lib/auth'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileSettings from '@/components/layout/MobileSettings'
 
@@ -41,7 +44,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
 
 // ─── Section card ────────────────────────────────────────────────────
 function SettingsCard({ icon: Icon, title, subtitle, children, accent = 'cyan' }: {
-  icon: React.ElementType; title: string; subtitle?: string; children: React.ReactNode; accent?: string
+  icon: LucideIcon; title: string; subtitle?: string; children: React.ReactNode; accent?: string
 }) {
   const colors: Record<string, string> = {
     cyan:   'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
@@ -80,6 +83,35 @@ function DesktopSettingsPage() {
   const [billingError, setBillingError] = useState<string | null>(null)
   const [theme, setTheme] = useState<'dark' | 'system'>('dark')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Passkey state
+  const [passkeySupported, setPasskeySupported] = useState(false)
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [passkeyMsg, setPasskeyMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [savedPasskeys, setSavedPasskeys] = useState<PasskeyCredentialSummary[]>([])
+
+  useEffect(() => {
+    isPasskeySupported().then(setPasskeySupported)
+    const token = getToken()
+    if (token) {
+      listPasskeys(token).then(setSavedPasskeys).catch(() => setSavedPasskeys([]))
+    }
+  }, [])
+
+  async function handleAddPasskey() {
+    if (!user) return
+    setPasskeyLoading(true)
+    setPasskeyMsg(null)
+    const token = getToken() || ''
+    const result = await registerPasskey(user.id, user.email, token)
+    setPasskeyLoading(false)
+    if (result.success) {
+      setPasskeyMsg({ type: 'success', text: 'Passkey added! You can now sign in with biometrics.' })
+      listPasskeys(token).then(setSavedPasskeys).catch(() => {})
+    } else {
+      setPasskeyMsg({ type: 'error', text: result.error || 'Passkey setup failed.' })
+    }
+  }
 
   const displayName = user?.full_name || user?.username || 'Trader'
   const email = user?.email || '—'
@@ -172,6 +204,68 @@ function DesktopSettingsPage() {
                   <div className="text-[11px] text-slate-600 col-span-2">
                     Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
                   </div>
+                </div>
+              </div>
+            </SettingsCard>
+
+            {/* Passkey / Security */}
+            <SettingsCard icon={Fingerprint} title="Passkeys & Security" subtitle="Sign in with biometrics — no password needed" accent="violet">
+              <div className="space-y-4">
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  Passkeys use your device's biometrics (Face ID, Touch ID, Windows Hello) to sign you
+                  in instantly and securely — no password required.
+                </p>
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <button
+                    onClick={handleAddPasskey}
+                    disabled={passkeyLoading}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-500/20 to-purple-500/10 border border-violet-500/30 text-violet-300 text-sm font-bold hover:from-violet-500/30 hover:to-purple-500/20 transition-all disabled:opacity-50"
+                  >
+                    <Fingerprint className="w-4 h-4" />
+                    {passkeyLoading ? 'Setting up…' : 'Add a Passkey to This Device'}
+                  </button>
+                  {!passkeySupported && (
+                    <span className="text-slate-500 text-xs">Your browser may not support biometric passkeys. Try Chrome or Safari.</span>
+                  )}
+                </div>
+
+                {passkeyMsg && (
+                  <motion.p
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`text-xs px-4 py-2.5 rounded-xl border ${
+                      passkeyMsg.type === 'success'
+                        ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                        : 'text-red-400 bg-red-500/10 border-red-500/20'
+                    }`}
+                  >
+                    {passkeyMsg.text}
+                  </motion.p>
+                )}
+
+                <div className="border-t border-slate-800/50 pt-4">
+                  <div className="mb-3">
+                    <p className="text-[11px] text-slate-500 uppercase tracking-wider font-bold">Registered Passkeys</p>
+                    {savedPasskeys.length === 0 ? (
+                      <p className="text-xs text-slate-500 mt-1">No passkeys saved on your account yet.</p>
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        {savedPasskeys.map((pk) => (
+                          <div key={pk.id} className="px-3 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50 text-xs text-slate-300 flex items-center justify-between">
+                            <span>Credential ••••{pk.credential_id_suffix}</span>
+                            <span className="text-slate-500">
+                              {pk.created_at ? new Date(pk.created_at).toLocaleDateString() : '—'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-600">
+                    Each device you use needs its own passkey. You can add passkeys on multiple devices.
+                    Your existing password login continues to work alongside passkeys.
+                  </p>
                 </div>
               </div>
             </SettingsCard>

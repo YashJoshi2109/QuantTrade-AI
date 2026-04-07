@@ -16,6 +16,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { motion, useScroll, useSpring } from 'framer-motion'
 import { TrendingUp, ArrowLeft, ChevronRight, Shield, AlertTriangle, Scale } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 const LAST_UPDATED = 'April 4, 2026'
 const VERSION = '3.1'
@@ -23,7 +24,7 @@ const VERSION = '3.1'
 interface Section {
   id: string
   title: string
-  icon?: React.ElementType
+  icon?: LucideIcon
 }
 
 const SECTIONS: Section[] = [
@@ -235,7 +236,7 @@ export default function TermsPage() {
             These Terms of Service ("Terms") govern your access to and use of QuantTrade AI (the "Platform"), including our website, mobile application, APIs, and all related services operated by QuantTrade Technologies, Inc. ("Company", "we", "us", "our").
           </P>
           <P>
-            By creating an account, accessing the Platform, or clicking "I Agree", you acknowledge that you have read, understood, and agree to be bound by these Terms and our Privacy Policy. If you do not agree, you must not access or use the Platform.
+            By creating an account or accessing the Platform, you acknowledge that you have read, understood, and agree to be bound by these Terms and our Privacy Policy. If you do not agree, you must not access or use the Platform.
           </P>
           <UL>
             <LI>These Terms apply to all visitors, registered users, and subscribers of the Platform.</LI>
@@ -530,7 +531,7 @@ export default function TermsPage() {
                 className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-gradient-to-r from-[#00D4FF] to-[#0A7CFF] text-[#060B12] font-bold text-sm transition-opacity hover:opacity-90"
                 style={{ fontFamily: 'DM Sans, system-ui, sans-serif' }}
               >
-                I Agree — Create Account
+                Back to Sign Up
               </Link>
               <Link
                 href="/"

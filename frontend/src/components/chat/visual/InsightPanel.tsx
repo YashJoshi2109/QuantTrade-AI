@@ -14,6 +14,7 @@ import {
   Minus,
   BarChart3,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { StockAnalysisData } from '../types'
 import MonteCarloPanel from './MonteCarloPanel'
 
@@ -33,7 +34,7 @@ function CollapsibleSection({
   children,
 }: {
   title: string
-  icon: React.ElementType
+  icon: LucideIcon
   defaultOpen?: boolean
   badge?: { text: string; color: string }
   children: React.ReactNode

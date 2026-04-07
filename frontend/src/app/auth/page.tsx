@@ -111,7 +111,7 @@ export default function AuthPage() {
   const [capturedOtp, setCapturedOtp] = useState('')
 
   // ── Loading / Errors ───────────────────────────────────────────────────────
-  const [isLoading, setIsLoading]   = useState(false)
+  const [isSubmitting, setIsSubmitting]   = useState(false)
   const [error, setError]           = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
 
@@ -193,7 +193,7 @@ export default function AuthPage() {
       if (!termsAccepted) { setError('You must accept the Terms of Service'); return }
     }
 
-    setIsLoading(true)
+    setIsSubmitting(true)
     try {
       if (mode === 'signin') {
         await login(email, password)
@@ -211,7 +211,7 @@ export default function AuthPage() {
     } catch (err: any) {
       setError(err.message || 'Authentication failed')
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -827,10 +827,10 @@ export default function AuthPage() {
                   <motion.div initial={fieldInitial()} animate={fieldAnimate()} transition={fieldTransition(mode === 'signup' ? 7 : 3)}>
                     <button
                       type="submit"
-                      disabled={isLoading || (mode === 'signup' && (!termsAccepted || !otpVerified))}
+                      disabled={isSubmitting || (mode === 'signup' && (!termsAccepted || !otpVerified))}
                       className="qt-btn-primary"
                     >
-                      {isLoading ? (
+                      {isSubmitting ? (
                         <><Loader2 className="w-4 h-4 animate-spin" /> {mode === 'signin' ? 'Signing in…' : 'Creating account…'}</>
                       ) : mode === 'signup' ? (
                         <>Step 2: Set Up Passkey <ArrowRight className="w-4 h-4" /></>
