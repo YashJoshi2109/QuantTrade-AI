@@ -60,13 +60,15 @@ export async function register(
   username: string,
   password: string,
   fullName?: string,
-  options?: { countryCode?: string; phoneNumber?: string; otp?: string }
+  options?: { countryCode?: string; phoneNumber?: string; otp?: string; dateOfBirth?: string; gender?: string }
 ): Promise<AuthResponse> {
   const body: Record<string, unknown> = { email, username, password, full_name: fullName }
   if (options) {
     if (options.countryCode) body.country_code = options.countryCode
     if (options.phoneNumber) body.phone_number = options.phoneNumber
     if (options.otp) body.otp = options.otp
+    if (options.dateOfBirth) body.date_of_birth = options.dateOfBirth
+    if (options.gender) body.gender = options.gender
   }
   const response = await fetch(`${API_URL}/api/v1/auth/register`, {
     method: 'POST',

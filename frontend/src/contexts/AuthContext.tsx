@@ -20,7 +20,7 @@ interface AuthContextType {
     username: string,
     password: string,
     fullName?: string,
-    options?: { countryCode?: string; phoneNumber?: string; otp?: string }
+    options?: { countryCode?: string; phoneNumber?: string; otp?: string; dateOfBirth?: string; gender?: string }
   ) => Promise<void>
   googleLogin: (googleId: string, email: string, name: string, avatarUrl?: string) => Promise<void>
   googleVerify: (credential: string) => Promise<void>
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     username: string,
     password: string,
     fullName?: string,
-    options?: { countryCode?: string; phoneNumber?: string; otp?: string }
+    options?: { countryCode?: string; phoneNumber?: string; otp?: string; dateOfBirth?: string; gender?: string }
   ) => {
     const result = await authRegister(email, username, password, fullName, options)
     setUser(result.user)
