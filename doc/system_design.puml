@@ -12,14 +12,13 @@ skinparam defaultFontName Helvetica
 
 title System architecture & data flow — QuantTrade AI
 
-User <--> Nginx : HTTPS/WSS (Inbound Traffic)
+allowmixing
+
+actor "End User\n(Mobile / Desktop)" as User
 
 package "Reverse Proxy Layer" #E0F7FA {
     component "Nginx Reverse Proxy\n(SSL Termination, WebAuthn Routing, Load Balancing)" as Nginx
 }
-
-Nginx <--> PlatformAPIs : Passkey WebAuthn Routing
-Nginx <--> UI : Load Next.js Assets
 
 package "Frontend Ecosystem (Next.js)" #E3F2FD {
     component "Core UI & Animations\n(React, Framer Motion, GSAP)" as UI
@@ -74,7 +73,12 @@ cloud "External Third-Party APIs" #F3E5F5 {
 }
 
 ' --- Interactions ---
-UI --> NextServer : navigation / SSR
+User <--> Nginx : HTTPS/WSS (Inbound Traffic)
+Nginx <--> PlatformAPIs : Passkey WebAuthn Routing
+Nginx <--> UI : Load frontend assets
+Nginx <--> API : Reverse Proxy logic / Load Balance
+Nginx <--> RT : Proxy WebSockets
+
 NextServer --> API : REST requests
 
 UI <--> API : HTTPS REST + JWT

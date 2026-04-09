@@ -390,7 +390,25 @@ export async function GET(request: NextRequest) {
     if (continent === 'global') {
       const actN = Math.min(10, count)
 
-      // Yahoo Finance first
+      // 1. Try our highly-reliable Python backend first
+      try {
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+        const beRes = await fetch(`${backendUrl}/api/v1/market/movers`, { cache: 'no-store', next: { revalidate: 60 } })
+        if (beRes.ok) {
+           const data = await beRes.json()
+           if ((data?.gainers && data.gainers.length > 0) || (data?.losers && data.losers.length > 0)) {
+             return NextResponse.json({
+               gainers: (data.gainers || []).slice(0, count),
+               losers: (data.losers || []).slice(0, count),
+               actives: (data.gainers || []).slice(0, actN), // Fallback active logic to high-volatility
+             })
+           }
+        }
+      } catch (e) {
+        console.warn("Backend movers fetch failed, falling back to external provider:", e)
+      }
+
+      // 2. Yahoo Finance fallback (often blocked on AWS)
       const [yfG, yfL, yfA] = await Promise.all([
         type !== 'losers' ? fetchYFScreener('day_gainers', 'US', count) : Promise.resolve([] as GlobalMover[]),
         type !== 'gainers' ? fetchYFScreener('day_losers', 'US', count) : Promise.resolve([] as GlobalMover[]),
@@ -401,12 +419,12 @@ export async function GET(request: NextRequest) {
       let losers = type !== 'gainers' ? yfL : []
       let actives = wantActives ? yfA : []
 
-      // FMP fallback for thin lists
+      // 3. FMP fallback for thin lists
       if (gainers.length < 1 && type !== 'losers') gainers = await fetchFMPUSMovers('gainers')
       if (losers.length < 1 && type !== 'gainers') losers = await fetchFMPUSMovers('losers')
       if (actives.length < 1 && wantActives) actives = await fetchFMPUSMovers('actives')
 
-      // Twelve Data tertiary if still empty
+      // 4. Twelve Data tertiary if still empty
       if (gainers.length < 1 && type !== 'losers') gainers = await fetchTwelveMovers('NYSE', undefined, 'gainers', count)
       if (losers.length < 1 && type !== 'gainers') losers = await fetchTwelveMovers('NYSE', undefined, 'losers', count)
 

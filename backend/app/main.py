@@ -28,6 +28,7 @@ from app.api import (
     global_monitor,
     game,
     ai_image,
+    voice,
 )
 from app.api import monitor_extended
 from app.db.database import engine, Base
@@ -235,6 +236,7 @@ app.include_router(monitor_extended.router, tags=["global-monitor-extended"])
 # QuantTrade Life — Game engine (all routes JWT-protected server-side)
 app.include_router(game.router, prefix="/api/v1/game", tags=["game"])
 app.include_router(ai_image.router, prefix="/api/v1/ai-image", tags=["ai-image"])
+app.include_router(voice.router, prefix="/api/v1/voice", tags=["voice"])
 
 
 @app.get("/")

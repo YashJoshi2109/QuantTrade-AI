@@ -12,11 +12,10 @@ import Link from 'next/link'
 import {
   Sparkles, TrendingUp, TrendingDown, RefreshCw, AlertTriangle,
   BarChart3, Newspaper, Loader2, Globe, Building2, Users, ExternalLink,
-  DollarSign, Target, Info, SlidersHorizontal, X,
+  DollarSign, Target, Info, SlidersHorizontal, X, Star,
 } from 'lucide-react'
-import { fetchPrices, fetchIndicators, fetchFundamentals, syncSymbol, PriceBar, Indicators, FundamentalsData } from '@/lib/api'
+import { fetchPrices, fetchIndicators, fetchFundamentals, syncSymbol, PriceBar, Indicators, FundamentalsData, addToWatchlist } from '@/lib/api'
 import TechnicalAnalysisGauge from '@/components/TechnicalAnalysisGauge'
-import StockVisual from '@/components/StockVisual'
 import KeyFactorsPanel from '@/components/KeyFactorsPanel'
 import FundamentalsPanel from '@/components/FundamentalsPanel'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
@@ -123,6 +122,7 @@ function GlobalTickerInfoPanel({ symbol }: { symbol: string }) {
             <p className="text-[11px] text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">{info.description}</p>
           )}
         </div>
+        
         {info.website && (
           <a href={info.website} target="_blank" rel="noopener noreferrer"
             className="shrink-0 p-2 rounded-lg border border-slate-700/60 text-slate-400 hover:text-white hover:border-[rgba(0,122,255,0.4)] transition-colors"
@@ -421,6 +421,23 @@ function ResearchContent() {
                   </span>
                   <button
                     type="button"
+                    onClick={async () => {
+                      try {
+                        await addToWatchlist({ symbol: selectedSymbol });
+                        // Could use a toast notification here in the future
+                        // For now we rely on the backend success
+                        alert(`${selectedSymbol.toUpperCase()} added to watchlist!`);
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : 'Failed to add to watchlist');
+                      }
+                    }}
+                    className="hud-card flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-500 hover:text-amber-400 hover:border-amber-500/30 transition-all bg-amber-500/5 group"
+                  >
+                    <Star className="w-4 h-4 group-hover:fill-amber-400" />
+                    Add Watchlist
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleSyncData}
                     disabled={syncing}
                     className="hud-card flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:border-blue-500/30 transition-all disabled:opacity-50"
@@ -469,8 +486,6 @@ function ResearchContent() {
                                 ['3M', '3M'],
                                 ['6M', '6M'],
                                 ['1Y', '1Y'],
-                                ['2Y', '2Y'],
-                                ['5Y', '5Y'],
                               ] as const
                             ).map(([id, label]) => (
                               <button
@@ -717,15 +732,6 @@ function ResearchContent() {
               </div>
             </div>
 
-            {/* AI Visual */}
-            <StockVisual
-              symbol={selectedSymbol}
-              companyName={selectedSymbol}
-              sentiment={
-                priceInfo.percent > 1 ? 'bullish' :
-                priceInfo.percent < -1 ? 'bearish' : 'neutral'
-              }
-            />
           </div>
 
         </div>

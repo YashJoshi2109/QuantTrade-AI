@@ -221,8 +221,8 @@ async def create_checkout_session(
     except stripe.error.StripeError as exc:
         logger.error("Stripe Checkout error for user_id=%s: %s", user.id, exc)
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to create Stripe Checkout session",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Stripe Checkout error: {str(exc)}"
         )
 
     return CheckoutSessionResponse(url=session["url"])

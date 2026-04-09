@@ -16,28 +16,56 @@ function authHeaders(): HeadersInit {
 }
 
 async function gameGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_URL}/api/v1/game${path}`, {
-    method: 'GET',
-    headers: authHeaders(),
-  })
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}/api/v1/game${path}`, {
+      method: 'GET',
+      headers: authHeaders(),
+    })
+  } catch {
+    throw new Error(
+      `Cannot reach game API at ${API_URL}. Is the backend running and NEXT_PUBLIC_API_URL correct?`
+    )
+  }
   if (res.status === 401) throw new Error('UNAUTHENTICATED')
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Unknown error' }))
-    throw new Error(err.detail || `HTTP ${res.status}`)
+    const detail = err.detail
+    const msg =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? JSON.stringify(detail)
+          : `HTTP ${res.status}`
+    throw new Error(msg)
   }
   return res.json()
 }
 
 async function gamePost<T>(path: string, body?: object): Promise<T> {
-  const res = await fetch(`${API_URL}/api/v1/game${path}`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: body ? JSON.stringify(body) : undefined,
-  })
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}/api/v1/game${path}`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: body ? JSON.stringify(body) : undefined,
+    })
+  } catch {
+    throw new Error(
+      `Cannot reach game API at ${API_URL}. Is the backend running and NEXT_PUBLIC_API_URL correct?`
+    )
+  }
   if (res.status === 401) throw new Error('UNAUTHENTICATED')
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Unknown error' }))
-    throw new Error(err.detail || `HTTP ${res.status}`)
+    const detail = err.detail
+    const msg =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? JSON.stringify(detail)
+          : `HTTP ${res.status}`
+    throw new Error(msg)
   }
   return res.json()
 }

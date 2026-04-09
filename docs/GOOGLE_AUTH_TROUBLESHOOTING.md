@@ -34,9 +34,28 @@ The frontend sends the credential to: `{NEXT_PUBLIC_API_URL}/api/v1/auth/google/
 
 Ensure `NEXT_PUBLIC_API_URL` points to your backend (e.g. `https://www.quanttrade.us` if API is on same domain).
 
-### 7. **Testing Checklist**
+### 7. **"Failed to load the initial data" (Google button / One Tap)**
+
+This message comes from **Google Identity Services** (browser), not from our API. Common causes:
+
+- **FedCM / third-party cookies**: Browsers in strict privacy mode may block GIS FedCM. The app sets `use_fedcm_for_prompt: false` to reduce this; try Chrome with default settings or another browser.
+- **Blocked `accounts.google.com`**: Ad blockers, corporate proxies, or VPNs can block the GSI script—check the Network tab for `gsi/client`.
+- **Wrong origin**: JavaScript origins in Google Cloud Console must match exactly (see §2)—no trailing slash.
+- **Stale client ID**: Confirm `NEXT_PUBLIC_GOOGLE_CLIENT_ID` matches the OAuth client you use in production vs local.
+
+Fallback: use **email + password** or **passkeys** if Google keeps failing.
+
+### 8. **Game / API "cannot load" on first screen**
+
+If the **game dashboard** spins then shows an error, open DevTools → Network and confirm:
+
+- `GET {NEXT_PUBLIC_API_URL}/api/v1/game/bootstrap` returns **200** (not CORS failed / connection refused).
+- Backend is running and `DATABASE_URL` is set so bootstrap can hit Postgres.
+
+### 9. **Testing Checklist**
 - [ ] Client ID matches in .env (frontend + backend)
 - [ ] JavaScript origins include your domain
 - [ ] No ad-blockers blocking Google scripts
 - [ ] Console: Check for `Failed to get Google credential` or CORS errors
 - [ ] Try incognito to rule out cached/session issues
+- [ ] If you see "Failed to load the initial data", try another browser or disable strict tracking (see §7)

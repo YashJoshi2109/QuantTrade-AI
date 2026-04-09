@@ -22,7 +22,7 @@
  *   - Framer Motion step machine with AnimatePresence
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -244,19 +244,42 @@ export default function AuthPage() {
     setTimeout(() => router.push('/'), 1200)
   }
 
+  const handleGoogleCredential = useCallback(async (response: any) => {
+    if (!response.credential) { setError('Failed to get Google credential'); return }
+    setGoogleLoading(true)
+    setError('')
+    try {
+      await googleVerify(response.credential)
+      setStep('SUCCESS')
+      setTimeout(() => router.push('/'), 1200)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Google login failed'
+      setError(msg)
+    } finally {
+      setGoogleLoading(false)
+    }
+  }, [googleVerify, router])
+
+  const gsiInitializedRef = useRef(false)
+
   // ── Google GSI ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || typeof window === 'undefined') return
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    script.onload = () => {
-      if (window.google && googleBtnRef.current) {
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: handleGoogleCredential,
-        })
+    if (step !== 'METHOD') return
+
+    const mountButton = () => {
+      if (!window.google?.accounts?.id || !googleBtnRef.current) return false
+      try {
+        if (!gsiInitializedRef.current) {
+          // FedCM can trigger "Failed to load the initial data" in Safari/strict privacy
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleCredential,
+            use_fedcm_for_prompt: false,
+          })
+          gsiInitializedRef.current = true
+        }
+        googleBtnRef.current.innerHTML = ''
         window.google.accounts.id.renderButton(googleBtnRef.current, {
           type: 'standard',
           theme: 'filled_black',
@@ -265,26 +288,44 @@ export default function AuthPage() {
           shape: 'rectangular',
           width: '100%',
         })
+        return true
+      } catch (e) {
+        console.error('Google GSI initialize/render failed:', e)
+        setError('Google Sign-In could not start. Try email login or another browser.')
+        return true
       }
     }
-    document.body.appendChild(script)
-    return () => { if (document.body.contains(script)) document.body.removeChild(script) }
-  }, [GOOGLE_CLIENT_ID, mode])
 
-  const handleGoogleCredential = async (response: any) => {
-    if (!response.credential) { setError('Failed to get Google credential'); return }
-    setGoogleLoading(true)
-    setError('')
-    try {
-      await googleVerify(response.credential)
-      setStep('SUCCESS')
-      setTimeout(() => router.push('/'), 1200)
-    } catch (err: any) {
-      setError(err.message || 'Google login failed')
-    } finally {
-      setGoogleLoading(false)
+    const scheduleMount = () => {
+      requestAnimationFrame(() => {
+        if (!mountButton()) setTimeout(mountButton, 120)
+      })
     }
-  }
+
+    const existing = document.querySelector<HTMLScriptElement>('script[data-qt-gis-client]')
+    if (existing) {
+      if (window.google?.accounts?.id) scheduleMount()
+      else existing.addEventListener('load', scheduleMount, { once: true })
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://accounts.google.com/gsi/client'
+    script.async = true
+    script.defer = true
+    script.dataset.qtGisClient = '1'
+    script.onerror = () => {
+      setError('Could not load Google Sign-In script. Check network, ad blockers, and VPN.')
+    }
+    script.onload = scheduleMount
+    document.body.appendChild(script)
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script)
+        gsiInitializedRef.current = false
+      }
+    }
+  }, [GOOGLE_CLIENT_ID, mode, step, handleGoogleCredential])
 
   const handleGoogleClick = () => {
     if (!GOOGLE_CLIENT_ID) { setError('Google OAuth is not configured.'); return }
@@ -484,42 +525,34 @@ export default function AuthPage() {
                     Continue with Email
                   </button>
 
-                  <div className="qt-divider">or</div>
+                  {/* ── Optional Alternative Auth Methods ── */}
+                  {(GOOGLE_CLIENT_ID || mode === 'signin') && (
+                    <>
+                      <div className="qt-divider">or</div>
 
-                  {/* Google */}
-                  <div className="relative">
-                    {googleLoading ? (
-                      <div className="w-full py-3 flex items-center justify-center gap-2 rounded-xl border border-[#1E293B] bg-[#0D1828] text-[#94A3B8] text-sm">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Signing in with Google…
-                      </div>
-                    ) : GOOGLE_CLIENT_ID ? (
-                      <div ref={googleBtnRef} className="w-full flex justify-center [&>div]:w-full [&>div>div]:w-full" />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleGoogleClick}
-                        className="qt-btn-secondary opacity-50 cursor-not-allowed"
-                        disabled
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24">
-                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                        </svg>
-                        Google OAuth not configured
-                      </button>
-                    )}
-                  </div>
+                      {/* Google */}
+                      {GOOGLE_CLIENT_ID && (
+                        <div className="relative mb-3">
+                          {googleLoading ? (
+                            <div className="w-full py-3 flex items-center justify-center gap-2 rounded-xl border border-[#1E293B] bg-[#0D1828] text-[#94A3B8] text-sm">
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Signing in with Google…
+                            </div>
+                          ) : (
+                            <div ref={googleBtnRef} className="w-full flex justify-center [&>div]:w-full [&>div>div]:w-full" />
+                          )}
+                        </div>
+                      )}
 
-                  {/* Passkey — sign-in only (setup happens post-registration in step 2) */}
-                  {mode === 'signin' && (
-                    <PasskeyButton
-                      label="Sign in with Passkey / Biometrics"
-                      onSuccess={handlePasskeySuccess}
-                      onError={handlePasskeyError}
-                    />
+                      {/* Passkey — sign-in only */}
+                      {mode === 'signin' && (
+                        <PasskeyButton
+                          label="Sign in with Passkey / Biometrics"
+                          onSuccess={handlePasskeySuccess}
+                          onError={handlePasskeyError}
+                        />
+                      )}
+                    </>
                   )}
                 </motion.div>
 

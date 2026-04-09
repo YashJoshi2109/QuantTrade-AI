@@ -246,17 +246,32 @@ function DesktopSettingsPage() {
 
                 <div className="border-t border-slate-800/50 pt-4">
                   <div className="mb-3">
-                    <p className="text-[11px] text-slate-500 uppercase tracking-wider font-bold">Registered Passkeys</p>
+                    <p className="text-[11px] text-slate-500 uppercase tracking-wider font-bold mb-3">Registered Devices</p>
                     {savedPasskeys.length === 0 ? (
-                      <p className="text-xs text-slate-500 mt-1">No passkeys saved on your account yet.</p>
+                      <p className="text-xs text-slate-500">No passkeys saved on your account yet.</p>
                     ) : (
-                      <div className="mt-2 space-y-2">
+                      <div className="space-y-2">
                         {savedPasskeys.map((pk) => (
-                          <div key={pk.id} className="px-3 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50 text-xs text-slate-300 flex items-center justify-between">
-                            <span>Credential ••••{pk.credential_id_suffix}</span>
-                            <span className="text-slate-500">
-                              {pk.created_at ? new Date(pk.created_at).toLocaleDateString() : '—'}
-                            </span>
+                          <div key={pk.id} className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 flex items-center justify-between group hover:bg-slate-800/70 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                                <Fingerprint className="w-4 h-4 text-violet-400" />
+                              </div>
+                              <div>
+                                <div className="font-bold text-sm text-slate-200">
+                                  {pk.device_name || `Unknown Device`}
+                                </div>
+                                <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
+                                  ID: ••••{pk.credential_id_suffix}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[10px] uppercase font-bold text-slate-600 mb-0.5 tracking-wider">Added</div>
+                              <div className="text-xs text-slate-400">
+                                {pk.created_at ? new Date(pk.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
