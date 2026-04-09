@@ -50,30 +50,114 @@ QuantTrade AI is a full-stack financial intelligence platform that combines real
 
 ## Architecture
 
+For the complete, extensive infrastructure layout including Machine Learning pipelines, Reverse Proxy configurations, Edge networks, UI/WebGL boundaries, and persistent cache networks, see the live architecture graph below.
+
+### 🗺 Systems Architecture Blueprint
+
+```mermaid
+flowchart TD
+    User["End User (Mobile📱 / Desktop💻)"]
+
+    subgraph ReverseProxy ["Edge & Load Balancing"]
+        Nginx["Nginx Reverse Proxy\n(SSL, WebAuthn Route, Load Balancing)"]
+    end
+
+    subgraph Frontend ["Frontend Ecosystem (React/Next.js & Godot)"]
+        UI["Core UI & Animations\n(React, Framer Motion, GSAP)"]
+        Godot["Godot Engine\n(godot_ashmarket 3D Export)"]
+        Vis["Financial & 3D Visuals\n(Three.js, globe.gl, lightweight-charts, Remotion)"]
+        LocalCache["State & Caching\n(TanStack Query, Zustand, LocalStorage)"]
+        PlatformAPIs["Hardware APIs\n(WebAuthn Passkeys, Web Audio API)"]
+        NextServer["Server Layer\n(App Router, SSR Data Fetching, BFF)"]
+    end
+
+    subgraph Backend ["Backend Core (FastAPI)"]
+        API["API Gateway\n(Auth, Game, Billing, Chat)"]
+        Services["Domain Services\n(WebAuthn, Billing, Storage, OTP)"]
+        RT["Real-time Broadcaster\n(WebSocket Manager / SSE)"]
+        Jobs["Task Schedulers\n(APScheduler & Celery Pipelines)"]
+    end
+
+    subgraph ML ["Machine Learning & AI Engine"]
+        LangChain["LangChain Orchestrator\n(RAG Pipes, Memory)"]
+        MLModels["Predictive Models\n(XGBoost, LightGBM, scikitlearn, shap)"]
+        TA["Feature Engineering\n(ta Technical Analysis, Pandas)"]
+    end
+
+    subgraph Storage ["Persistent Storage"]
+        DB[("Primary DB (Neon PostgreSQL)\nUsers, Passkeys, Game State\npgvector (Embeddings Index)")]
+    end
+
+    subgraph CacheLayer ["Caching & Queue"]
+        Cache[("Redis / Upstash\nOTP TTL, Rate Limits, Quote Snapshots, Task Queue")]
+    end
+
+    subgraph External ["Cloud & AI External Services"]
+        S3["AWS S3 / MinIO (Object Storage)"]
+        LLMs["LLM Providers (OpenAI, Anthropic Claude)"]
+        MediaAI["Media AI APIs (Fal.ai, ElevenLabs TTS)"]
+        MarketData["Market Data & Scrapers (Finviz lxml, Finnhub, FMP)"]
+        AuthBilling["Identity & Payments (Stripe Webhooks, Google OAuth)"]
+    end
+
+    %% Interactions
+    User <-->|biometrics & audio| PlatformAPIs
+    PlatformAPIs <-->|inject state| UI
+    LocalCache <-->|cache sync| UI
+    Godot -->|export models/textures| Vis
+    UI <-->|render canvas| Vis
+    
+    UI -->|navigation / SSR| NextServer
+    NextServer -->|REST request| Nginx
+
+    UI <-->|REST + JWT| Nginx
+    UI <-->|Live WebSockets| Nginx
+    
+    Nginx <-->|Forward Traffic| API
+    Nginx <-->|Forward WSS| RT
+
+    API -->|business logic| Services
+    API -->|push stream| RT
+
+    Services <-->|ACID read/write| DB
+    Services <-->|Rate limit / throttle| Cache
+
+    Services <-->|AI context| LangChain
+    LangChain <-->|semantic search| DB
+    LangChain -->|inference| LLMs
+    Services -->|scoring| MLModels
+    MLModels <-->|compute features| TA
+
+    Services <-->|Upload/Download| S3
+    Services -->|GenAI Assets| MediaAI
+    Services <-->|Verify Hooks & OAuth| AuthBilling
+
+    Services -->|Enqueue async| Jobs
+    Jobs <-->|Batch writes| DB
+    Jobs -->|Web parsing / polling| MarketData
+    
+    classDef frontend fill:#1e40af,stroke:#60a5fa,color:#fff
+    classDef backend fill:#065f46,stroke:#34d399,color:#fff
+    classDef storage fill:#854d0e,stroke:#facc15,color:#fff
+    classDef cache fill:#5b21b6,stroke:#a78bfa,color:#fff
+    classDef external fill:#374151,stroke:#9ca3af,color:#fff
+    classDef proxy fill:#0f766e,stroke:#5eead4,color:#fff
+    classDef ml fill:#86198f,stroke:#f0abfc,color:#fff
+    
+    class UI,Vis,LocalCache,PlatformAPIs,NextServer,Godot frontend
+    class API,Services,RT,Jobs backend
+    class DB storage
+    class Cache cache
+    class S3,LLMs,MediaAI,MarketData,AuthBilling external
+    class Nginx proxy
+    class LangChain,MLModels,TA ml
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Next.js Frontend                      │
-│  App Router · TypeScript · Tailwind · TanStack Query    │
-│  TradingView Charts · Framer Motion · Zustand           │
-└────────────────────────┬────────────────────────────────┘
-                         │ REST / WebSocket
-┌────────────────────────▼────────────────────────────────┐
-│                   FastAPI Backend                        │
-│  Auth · Markets · Research · Backtest · Monitor         │
-│  APScheduler (nightly universe sync) · Rate limiter     │
-└──────┬──────────────┬──────────────────┬────────────────┘
-       │              │                  │
-┌──────▼──────┐ ┌─────▼──────┐  ┌───────▼──────┐
-│  PostgreSQL  │ │   Vector   │  │  External    │
-│  (Neon)      │ │    Store   │  │  APIs        │
-│              │ │ (LangChain)│  │              │
-│ • symbols    │ │            │  │ • Finnhub    │
-│ • prices     │ │ • SEC RAG  │  │ • FMP        │
-│ • watchlist  │ │ • filings  │  │ • Yahoo Fin. │
-│ • universe   │ │ • news emb │  │ • Finviz     │
-│ • monitor    │ └────────────┘  │ • SEC EDGAR  │
-└─────────────┘                  └──────────────┘
-```
+
+### 🖼 Advanced Visualizations (PlantUML & Excalidraw)
+We supply the source code for producing ultra-high fidelity network mapping in `doc/system_design.puml` and `doc/system_design.md`.
+
+* **To render PlantUML locally**: Requires [Graphviz](https://graphviz.org/download/) to be installed on your target machine. Open `.puml` in any compatible IDE or use the CLI: `java -jar plantuml.jar doc/system_design.puml`.
+* **To map perfectly in Excalidraw**: Open [Excalidraw](https://excalidraw.com/), click the "Insert" toolbar dropdown -> "Mermaid to Excalidraw". Copy and paste the Mermaid block above to generate a 100% mathematically aligned, beautiful, and directly editable DAG node layout.
 
 **Key design principles:**
 - No fake data — every number comes from a live API or cached DB row

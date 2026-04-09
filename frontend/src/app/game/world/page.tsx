@@ -17,6 +17,7 @@ import { BUILDING_CONFIGS } from '@/components/game/world/BuildingMeshes'
 import { NPC_CONFIGS } from '@/components/game/world/Characters'
 import { X, ChevronRight, Scroll } from 'lucide-react'
 import * as THREE from 'three'
+import { playGameVoiceover, playGameSfx } from '@/lib/game-audio'
 
 // Dynamic import — Three.js cannot run server-side
 const AshmarketScene = dynamic(
@@ -88,8 +89,26 @@ function DialogueOverlay({
 }) {
   const { chapter, lineIndex, phase, npcLabel, npcEmoji } = state
   const [typeDone, setTypeDone] = useState(false)
+  const lastSpoken = useRef<string>('')
 
   useEffect(() => { setTypeDone(false) }, [lineIndex, phase])
+
+  // Play Voiceover Effect
+  useEffect(() => {
+    const text = phase === 'story' ? chapter.storyLines[lineIndex]?.text : chapter.lesson
+    if (!text) return
+    const cacheKey = `${chapter.id}-${phase}-${lineIndex}-${text.substring(0, 5)}`
+    
+    // Prevent strict-mode repeating sound
+    if (lastSpoken.current === cacheKey) return
+    lastSpoken.current = cacheKey
+
+    if (phase === 'story') {
+      playGameVoiceover({ text, role: 'character', avatarStyle: 'sage' }).catch(() => {})
+    } else if (phase === 'lesson') {
+      playGameVoiceover({ text, role: 'narrator' }).catch(() => {})
+    }
+  }, [chapter, lineIndex, phase])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -292,8 +311,17 @@ export default function WorldPage() {
   const [outcome, setOutcome] = useState<{ xp: number; gold: number; optimal: boolean } | null>(null)
   const { toasts, addToast } = useWorldToasts()
   const fxRef = useRef<ReturnType<typeof useFXSystem> | null>(null)
-
+  
   const availableBuildings = getAvailableBuildings(completedChapters)
+
+  // ── Enter World / Ambient Sound ─────────────────────────────────────────────
+  useEffect(() => {
+    playGameSfx('welcome').catch(() => {})
+    const t = setTimeout(() => {
+      playGameSfx('ambient').catch(() => {})
+    }, 2000)
+    return () => clearTimeout(t)
+  }, [])
 
   // ── Start chapter ───────────────────────────────────────────────────────────
 

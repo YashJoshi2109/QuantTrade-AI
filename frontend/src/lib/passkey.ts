@@ -74,6 +74,18 @@ export async function getBiometricType(): Promise<'face' | 'fingerprint' | 'devi
   return 'device'
 }
 
+function getDeviceName(): string {
+  if (typeof window === 'undefined') return 'Unknown Device'
+  const ua = navigator.userAgent
+  if (/iphone/i.test(ua)) return 'iPhone'
+  if (/ipad/i.test(ua)) return 'iPad'
+  if (/android/i.test(ua)) return 'Android Device'
+  if (/macintosh|mac os/i.test(ua)) return 'MacBook / Mac'
+  if (/windows/i.test(ua)) return 'Windows PC'
+  if (/linux/i.test(ua)) return 'Linux Machine'
+  return 'Unknown Device'
+}
+
 // ─── Registration (Sign-Up) ───────────────────────────────────────────────────
 
 /**
@@ -142,6 +154,7 @@ export async function registerPasskey(
         credential_id: bufferToBase64url(credential.rawId),
         attestation_object: bufferToBase64url(response.attestationObject),
         client_data_json: bufferToBase64url(response.clientDataJSON),
+        device_name: getDeviceName(),
       }),
     })
 
@@ -165,6 +178,7 @@ export interface PasskeyCredentialSummary {
   credential_id_suffix: string
   created_at: string | null
   sign_count: number
+  device_name?: string | null
 }
 
 export async function listPasskeys(accessToken: string): Promise<PasskeyCredentialSummary[]> {

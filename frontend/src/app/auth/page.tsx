@@ -306,7 +306,7 @@ export default function AuthPage() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#060B12] flex" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div className="min-h-screen bg-[#060B12] flex flex-col lg:flex-row" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       {/* Google font imports */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -403,7 +403,7 @@ export default function AuthPage() {
       `}</style>
 
       {/* ── Left Brand Panel (desktop only) ── */}
-      <div className="w-[480px] shrink-0 border-r border-[#0D1828]" style={{ minHeight: '100vh' }}>
+      <div className="hidden lg:block w-[480px] shrink-0 border-r border-[#0D1828]" style={{ minHeight: '100vh' }}>
         <AuthBrandPanel />
       </div>
 

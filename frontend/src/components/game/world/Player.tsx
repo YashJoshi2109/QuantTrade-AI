@@ -31,10 +31,48 @@ export default function Player({ onNearBuilding, onPositionUpdate }: PlayerProps
   const [moving, setMoving] = useState(false)
   const [nearBuilding, setNearBuilding] = useState<string | null>(null)
   const { gl, camera } = useThree()
+  
+  const keys = useRef<Record<string, boolean>>({})
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => { keys.current[e.code] = true }
+    const handleKeyUp = (e: KeyboardEvent) => { keys.current[e.code] = false }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [])
 
   useFrame((_, delta) => {
     if (!groupRef.current) return
     const pos = groupRef.current.position
+
+    const kb = keys.current
+    let dx = 0
+    let dz = 0
+
+    if (kb['KeyW'] || kb['ArrowUp']) dz -= 1
+    if (kb['KeyS'] || kb['ArrowDown']) dz += 1
+    if (kb['KeyA'] || kb['ArrowLeft']) dx -= 1
+    if (kb['KeyD'] || kb['ArrowRight']) dx += 1
+
+    let isKbMoving = false
+    if (dx !== 0 || dz !== 0) {
+      isKbMoving = true
+      setTarget(null) // cancel point-and-click if manual movement
+      
+      const dir = new THREE.Vector3(dx, 0, dz).normalize()
+      const nextX = pos.x + dir.x * MOVE_SPEED * delta
+      const nextZ = pos.z + dir.z * MOVE_SPEED * delta
+      
+      pos.x = Math.max(-10, Math.min(10, nextX))
+      pos.z = Math.max(-8, Math.min(9, nextZ))
+
+      const angle = Math.atan2(dir.x, dir.z)
+      groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, angle, delta * 12)
+    }
 
     if (target) {
       const flat = new THREE.Vector3(pos.x, 0, pos.z)
@@ -45,14 +83,19 @@ export default function Player({ onNearBuilding, onPositionUpdate }: PlayerProps
         const dir = flatTarget.clone().sub(flat).normalize()
         pos.x += dir.x * MOVE_SPEED * delta
         pos.z += dir.z * MOVE_SPEED * delta
-        setMoving(true)
 
         const angle = Math.atan2(dir.x, dir.z)
         groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, angle, delta * 12)
+        setMoving(true)
       } else {
         setTarget(null)
-        setMoving(false)
       }
+    }
+
+    if (!isKbMoving && !target && moving) {
+      setMoving(false)
+    } else if (isKbMoving && !moving) {
+      setMoving(true)
     }
 
     onPositionUpdate?.(pos)

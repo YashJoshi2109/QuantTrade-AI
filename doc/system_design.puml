@@ -1,0 +1,103 @@
+@startuml system_design
+
+' For perfectly straight, professional, grad-level architectural lines
+skinparam linetype ortho
+skinparam nodesep 70
+skinparam ranksep 70
+skinparam padding 4
+
+skinparam componentStyle rectangle
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName Helvetica
+
+title System architecture & data flow — QuantTrade AI
+
+User <--> Nginx : HTTPS/WSS (Inbound Traffic)
+
+package "Reverse Proxy Layer" #E0F7FA {
+    component "Nginx Reverse Proxy\n(SSL Termination, WebAuthn Routing, Load Balancing)" as Nginx
+}
+
+Nginx <--> PlatformAPIs : Passkey WebAuthn Routing
+Nginx <--> UI : Load Next.js Assets
+
+package "Frontend Ecosystem (Next.js)" #E3F2FD {
+    component "Core UI & Animations\n(React, Framer Motion, GSAP)" as UI
+    component "Godot Game Engine Assets\n(godot_ashmarket exported to Three.js)" as Godot
+    component "Financial & 3D Visuals\n(Three.js, globe.gl, lightweight-charts, Remotion)" as Vis
+    component "State Management & Caching\n(TanStack Query, Zustand, LocalStorage)" as LocalCache
+    component "Hardware / Platform APIs\n(WebAuthn Passkeys, Web Audio API)" as PlatformAPIs
+    component "Server Layer\n(App Router, SSR Data fetching, BFF)" as NextServer
+}
+
+PlatformAPIs <--> UI : injects validated state
+Godot --> Vis : supplies 3D models/textures
+LocalCache <--> UI : volatile & persistent cache sync
+UI <--> Vis : render high-perf canvas
+
+Nginx <--> API : Reverse Proxy API / WS requests
+
+package "Backend Core (FastAPI)" #E8F5E9 {
+    component "API Gateway / Endpoints\n(Auth, Game, Billing, Chat)" as API
+    component "Domain Services\n(Py_WebAuthn, Billing, Storage, OTP)" as Services
+    component "Real-time Broadcaster\n(WebSocket Manager / SSE)" as RT
+    component "Task Schedulers\n(APScheduler & Celery Pipelines)" as Jobs
+}
+
+package "Machine Learning & AI Engine" #FCE4EC {
+    component "LangChain Orchestrator\n(RAG Pipes, Memory)" as LangChain
+    component "Predictive Models & Explainability\n(XGBoost, LightGBM, scikit, shap)" as MLModels
+    component "Feature Engineering\n(ta Technical Analysis, Pandas)" as TA
+}
+
+database "Primary DB (Neon PostgreSQL)" as DB #FFF3E0
+note right of DB
+  **Relational:** Users, Passkeys, Game State, Billing
+  **Vector:** pgvector (Embeddings index for RAG)
+end note
+
+database "Queue & Fast-Cache (Redis / Upstash)" as Cache #EDE7F6
+note right of Cache
+  OTP TTL, API Rate Limits, 
+  Quote Snapshots, Task Queue
+end note
+
+cloud "AWS & Cloud Storage" #FFF9C4 {
+    component "AWS S3 / MinIO\n(Boto3 Object Storage)" as S3
+}
+
+cloud "External Third-Party APIs" #F3E5F5 {
+    component "LLM Providers\n(OpenAI, Anthropic Claude)" as LLMs
+    component "Media AI APIs\n(Fal.ai Image Gen, ElevenLabs TTS)" as MediaAI
+    component "Market Data & Scrapers\n(Finviz lxml, yfinance, Finnhub, FMP)" as MarketData
+    component "Identity & Payments\n(Stripe Webhooks, Google OAuth)" as AuthBilling
+}
+
+' --- Interactions ---
+UI --> NextServer : navigation / SSR
+NextServer --> API : REST requests
+
+UI <--> API : HTTPS REST + JWT
+UI <--> RT : Live WebSockets (Quotes/Events)
+
+API --> Services : trigger business logic
+API --> RT : push stream updates
+
+Services <--> DB : SQLAlchemy (ACID writes)
+Services <--> Cache : Rate limit / fast token verify
+
+Services <--> LangChain : AI context construction
+LangChain <--> DB : pgvector semantic search
+LangChain --> LLMs : execution & inference
+Services --> MLModels : scoring / prediction
+MLModels <--> TA : compute technical features
+
+Services <--> S3 : Boto3 Upload/Download (Assets)
+Services --> MediaAI : Generate GenAI Assets
+Services <--> AuthBilling : Verify Hooks & OAuth
+
+Services --> Jobs : enqueue async sync
+Jobs <--> DB : run batch updates
+Jobs --> MarketData : Web parsing & API polling
+
+@enduml

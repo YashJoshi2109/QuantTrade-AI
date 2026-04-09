@@ -6,11 +6,11 @@ import { useQuery } from '@tanstack/react-query'
 import { Search as SearchIcon, TrendingUp, TrendingDown, Activity } from 'lucide-react'
 import {
   fetchMarketMovers,
-  fetchSectorPerformance,
+  fetchHeatmapData,
   fetchMarketIndices,
   MarketMovers,
   StockPerformance,
-  SectorPerformance,
+  HeatmapData,
   MarketIndex,
 } from '@/lib/api'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
@@ -25,23 +25,22 @@ export default function MobileMarkets() {
   const [sectorView, setSectorView] = useState<'list' | 'heatmap'>('heatmap')
 
   const { data: movers, isLoading, refetch: refetchMovers } = useQuery<MarketMovers>({
-    // Share cache with desktop markets/home pages
     queryKey: ['marketMovers'],
     queryFn: () => fetchMarketMovers(),
     refetchInterval: 120000,
     staleTime: 60000,
   })
 
-  const { data: sectors } = useQuery<SectorPerformance[]>({
-    // Share cache with desktop markets/home pages
-    queryKey: ['sectorPerformance'],
-    queryFn: () => fetchSectorPerformance(),
+  const { data: heatmapData } = useQuery<HeatmapData>({
+    queryKey: ['heatmapData'],
+    queryFn: () => fetchHeatmapData(),
     refetchInterval: 120000,
     staleTime: 60000,
   })
 
+  const sectors = heatmapData?.sectors || []
+
   const { data: indices } = useQuery<MarketIndex[]>({
-    // Share cache with desktop markets page
     queryKey: ['marketIndices'],
     queryFn: () => fetchMarketIndices(),
     refetchInterval: 60000,
@@ -71,11 +70,17 @@ export default function MobileMarkets() {
           (s.name || '').toLowerCase().includes(q)
       )
     }
-    // Asset-type filters would apply here once backend supports asset metadata
     return list
   }, [combined, search])
 
   const marketStats = useMemo(() => {
+    if (heatmapData && heatmapData.total_stocks > 0) {
+      return { 
+        total: heatmapData.total_stocks, 
+        gainers: heatmapData.gainers, 
+        losers: heatmapData.losers 
+      }
+    }
     if (!sectors || sectors.length === 0) {
       return { total: 0, gainers: 0, losers: 0 }
     }
@@ -89,7 +94,7 @@ export default function MobileMarkets() {
       0
     )
     return { total, gainers, losers }
-  }, [sectors])
+  }, [sectors, heatmapData])
 
   return (
     <div className="space-y-4 pb-4">

@@ -240,16 +240,29 @@ export default function MobileSettings() {
               {passkeyMsg.text}
             </p>
           )}
-          <div className="pt-2 border-t border-white/10">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 font-semibold mb-2">Registered passkeys</p>
+          <div className="pt-4 mt-2 border-t border-white/10">
+            <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 font-semibold mb-3">Registered passkeys</p>
             {savedPasskeys.length === 0 ? (
               <p className="text-[11px] text-slate-500">No passkeys saved yet.</p>
             ) : (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {savedPasskeys.map((pk) => (
-                  <div key={pk.id} className="text-[11px] text-slate-300 bg-[#0A0E1A] border border-white/10 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
-                    <span>••••{pk.credential_id_suffix}</span>
-                    <span className="text-slate-500">{pk.created_at ? new Date(pk.created_at).toLocaleDateString() : '—'}</span>
+                  <div key={pk.id} className="group relative overflow-hidden bg-gradient-to-r from-slate-900 to-[#0A0E1A] border border-white/10 rounded-xl p-3 flex items-center justify-between transition-all hover:border-cyan-500/30">
+                    <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex items-center gap-3 relative z-10">
+                      <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center">
+                        <Fingerprint className="w-4 h-4 text-cyan-400" />
+                      </div>
+                      <div>
+                        <p className="text-[12px] font-medium text-white">{pk.device_name || 'Unknown Device'}</p>
+                        <p className="text-[10px] text-slate-500 font-mono">••••{pk.credential_id_suffix}</p>
+                      </div>
+                    </div>
+                    <div className="relative z-10 text-right">
+                      <span className="text-[11px] text-slate-400">
+                        {pk.created_at ? new Date(pk.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
+import BottomNav from '@/components/layout/BottomNav'
 import {
   Send,
   Sparkles,
@@ -181,32 +182,32 @@ function WelcomeScreen({ onPrompt }: { onPrompt: (p: string) => void }) {
   const icons = [Zap, TrendingUp, BarChart3, Shield, Sparkles, RefreshCw]
 
   return (
-    <div className="flex flex-col items-center justify-center h-full px-6 py-10 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-[#007AFF]/15 border border-[#007AFF]/30 flex items-center justify-center mb-4">
-        <Sparkles className="w-7 h-7 text-[#007AFF]" />
+    <div className="flex flex-col items-center justify-start sm:justify-center min-h-full px-4 sm:px-6 py-6 sm:py-10 text-center">
+      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-[#007AFF]/15 border border-[#007AFF]/30 flex items-center justify-center mb-3 sm:mb-4 shrink-0">
+        <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-[#007AFF]" />
       </div>
-      <h2 className="text-xl font-bold text-white font-display mb-2">QuantTrade AI Copilot</h2>
-      <p className="text-sm text-slate-400 max-w-sm mb-8">
+      <h2 className="text-lg sm:text-xl font-bold text-white font-display mb-2">QuantTrade AI Copilot</h2>
+      <p className="text-xs sm:text-sm text-slate-400 max-w-sm mb-6 sm:mb-8">
         Institutional-quality financial analysis. Ask about stocks, sectors, macro, options, risk — anything markets.
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-xl pb-10">
         {QUICK_PROMPTS.map((qp, i) => {
           const Icon = icons[i % icons.length]
           return (
             <button
               key={qp.label}
               onClick={() => onPrompt(qp.prompt)}
-              className="flex items-start gap-3 p-3.5 rounded-xl bg-[#101928] border border-slate-700/50 hover:border-[#007AFF]/40 hover:bg-[#101928]/80 transition-all text-left group"
+              className="flex items-start gap-3 p-3 sm:p-3.5 rounded-xl bg-[#101928] border border-slate-700/50 hover:border-[#007AFF]/40 hover:bg-[#101928]/80 transition-all text-left group"
             >
               <div className="w-8 h-8 rounded-lg bg-[#007AFF]/10 flex items-center justify-center shrink-0 group-hover:bg-[#007AFF]/20 transition-colors">
                 <Icon className="w-4 h-4 text-[#007AFF]" />
               </div>
               <div>
-                <div className="text-sm font-semibold text-white group-hover:text-[#007AFF] transition-colors">
+                <div className="text-sm font-semibold text-white group-hover:text-[#007AFF] transition-colors leading-tight">
                   {qp.label}
                 </div>
-                <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">{qp.prompt}</div>
+                <div className="text-[10px] sm:text-[11px] text-slate-500 line-clamp-1 mt-0.5">{qp.prompt}</div>
               </div>
             </button>
           )
@@ -311,7 +312,7 @@ function ModelSelector({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.15 }}
-            className="absolute top-full left-0 mt-2 w-72 max-h-[min(70vh,380px)] overflow-y-auto rounded-xl bg-[#0D1117] border border-slate-700/60 shadow-2xl shadow-black/50 z-[100] overflow-x-hidden"
+            className="absolute top-full right-0 mt-2 w-[280px] sm:w-72 max-w-[calc(100vw-32px)] max-h-[min(70vh,380px)] overflow-y-auto rounded-xl bg-[#0D1117] border border-slate-700/60 shadow-2xl shadow-black/50 z-[100] overflow-x-hidden"
           >
             {/* GROQ section */}
             <div className="px-3 pt-2.5 pb-1">
@@ -373,7 +374,7 @@ function ModelSelector({
 
 // ─── Main Copilot Desktop ──────────────────────────────────────────────────────
 
-function DesktopCopilot() {
+function CopilotInner() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -473,17 +474,16 @@ function DesktopCopilot() {
   const hasMessages = messages.length > 0
 
   return (
-    <AppLayout>
-      <div className="flex flex-col h-[calc(100vh-6.25rem-48px)] max-h-[900px]">
+    <div className="flex flex-col flex-1 h-full w-full max-w-full md:h-[calc(100vh-6.25rem-48px)] md:max-h-[900px]">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(0,122,255,0.1)] bg-[#0D1117]/80 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#007AFF]/15 border border-[#007AFF]/25 flex items-center justify-center">
+        <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 border-b border-[rgba(0,122,255,0.1)] bg-[#0D1117]/80 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#007AFF]/15 border border-[#007AFF]/25 flex items-center justify-center shrink-0">
               <Sparkles className="w-4 h-4 text-[#007AFF]" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-white font-display">AI Copilot</h1>
-              <p className="text-[10px] text-slate-500 font-mono">
+              <h1 className="text-xs sm:text-sm font-bold text-white font-display">AI Copilot</h1>
+              <p className="text-[10px] text-slate-500 font-mono hidden sm:block">
                 {COPILOT_MODELS.find((m) => m.id === modelId)?.backend === 'groq'
                   ? 'GROQ · Ultra-fast · Free Tier'
                   : 'OpenRouter · Free Tier'}
@@ -586,18 +586,7 @@ function DesktopCopilot() {
             Enter to send · Shift+Enter for new line · AI-generated analysis only, not financial advice
           </p>
         </div>
-      </div>
-    </AppLayout>
-  )
-}
-
-// ─── Mobile stub (reuses desktop for now) ─────────────────────────────────────
-
-function MobileCopilot() {
-  return (
-    <MobileLayout>
-      <DesktopCopilot />
-    </MobileLayout>
+    </div>
   )
 }
 
@@ -622,10 +611,16 @@ export default function CopilotPage() {
   return (
     <>
       <div className="hidden md:block">
-        <DesktopCopilot />
+        <AppLayout>
+          <CopilotInner />
+        </AppLayout>
       </div>
-      <div className="md:hidden">
-        <MobileCopilot />
+      <div className="md:hidden flex flex-col h-[100dvh] bg-[#0A0E1A] overflow-hidden text-white">
+        <div className="flex-1 overflow-hidden flex flex-col pt-safe">
+            <CopilotInner />
+        </div>
+        <div className="shrink-0 h-[80px] pb-safe bg-[#0A0E1A]" />
+        <BottomNav />
       </div>
     </>
   )

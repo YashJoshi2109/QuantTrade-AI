@@ -19,7 +19,6 @@ import {
 import { createCheckoutSession, BillingPlan } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import MobileLayout from '@/components/layout/MobileLayout'
-import MobilePricing from '@/components/layout/MobilePricing'
 
 // ── Feature data ──────────────────────────────────────────────────────────────
 
@@ -75,6 +74,33 @@ const TRUST = [
 // ── Tab selector ──────────────────────────────────────────────────────────────
 
 type Tab = 'trading' | 'game'
+
+// ── Shared Hook ───────────────────────────────────────────────────────────────
+
+function usePricingLogic() {
+  const router = useRouter()
+  const { isAuthenticated } = useAuth()
+  const [tab, setTab] = useState<Tab>('trading')
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly')
+  const [loadingPlan, setLoadingPlan] = useState<BillingPlan | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleCheckout(plan: BillingPlan) {
+    setError(null)
+    if (!isAuthenticated) { router.push('/auth'); return }
+    try {
+      setLoadingPlan(plan)
+      const { url } = await createCheckoutSession({ plan })
+      window.location.href = url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to start checkout')
+    } finally {
+      setLoadingPlan(null)
+    }
+  }
+
+  return { tab, setTab, billingInterval, setBillingInterval, loadingPlan, error, handleCheckout }
+}
 
 // ── Card components ───────────────────────────────────────────────────────────
 
@@ -191,29 +217,213 @@ function ProCard({
   )
 }
 
+// ── Mobile layout components ──────────────────────────────────────────────────
+
+function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic> }) {
+  const { tab, setTab, billingInterval, setBillingInterval, loadingPlan, error, handleCheckout } = state
+
+  return (
+    <div className="space-y-4 pb-4">
+      <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 pt-safe pb-3 px-2">
+        <h1 className="text-[20px] font-bold text-white text-center">Choose Your Plan</h1>
+        <p className="text-[12px] text-slate-400 text-center mb-4">
+          Unlock powerful trading tools on mobile.
+        </p>
+
+        {/* Tab & Billing Toggles */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="inline-flex w-full max-w-[280px] bg-[#1A2332] p-1 rounded-xl">
+            <button
+              onClick={() => setTab('trading')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-lg transition-all ${
+                tab === 'trading' ? 'bg-[#00D9FF] text-[#0A0E1A] shadow-md' : 'text-slate-400'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" /> Trading
+            </button>
+            <button
+              onClick={() => setTab('game')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-lg transition-all ${
+                tab === 'game' ? 'bg-amber-400 text-[#0A0E1A] shadow-md' : 'text-slate-400'
+              }`}
+            >
+              <Swords className="w-3.5 h-3.5" /> Game
+            </button>
+          </div>
+
+          <div className="inline-flex bg-[#1A2332] border border-white/5 rounded-full p-1 shadow-inner">
+            <button
+              onClick={() => setBillingInterval('monthly')}
+              className={`px-5 py-1.5 text-[11px] font-bold rounded-full transition-colors ${
+                billingInterval === 'monthly' ? (tab === 'trading' ? 'bg-[#00D9FF] text-[#0A0E1A]' : 'bg-amber-400 text-[#0A0E1A]') : 'text-slate-400'
+              }`}
+            >Monthly</button>
+             <button
+              onClick={() => setBillingInterval('yearly')}
+              className={`px-4 py-1.5 text-[11px] font-bold rounded-full transition-colors flex items-center gap-1.5 ${
+                billingInterval === 'yearly' ? (tab === 'trading' ? 'bg-[#00D9FF] text-[#0A0E1A]' : 'bg-amber-400 text-[#0A0E1A]') : 'text-slate-400'
+              }`}
+            >
+              Yearly <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Save</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {error && (
+        <section className="px-3">
+          <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-2.5 text-[11px] text-amber-200 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        </section>
+      )}
+
+      {/* Cards mobile block */}
+      <section className="px-3 space-y-4">
+        {tab === 'trading' ? (
+          <>
+            <MobileFreeCard
+              features={TRADING_FREE_FEATURES}
+              cta="Current plan"
+              href="/auth"
+            />
+            <MobileProCard
+              name="Pro"
+              description="For active traders who want the full stack."
+              amount={billingInterval === 'monthly' ? '$8' : '$4'}
+              period={billingInterval === 'monthly' ? 'month' : 'year'}
+              yearlySave={billingInterval === 'yearly' ? 'Billed $80/year' : undefined}
+              features={TRADING_PRO_FEATURES}
+              accent="text-[#00D9FF]"
+              bgClass="bg-gradient-to-br from-[#00D9FF]/15 via-[#0A0E1A] to-[#141B2D]"
+              borderClass="border-[#00D9FF]/50"
+              btnClass="bg-[#00D9FF] text-[#0A0E1A]"
+              icon={Crown}
+              onCheckout={() => handleCheckout(billingInterval === 'monthly' ? 'plus_monthly' : 'plus_yearly')}
+              isLoading={!!loadingPlan}
+            />
+          </>
+        ) : (
+          <>
+            <MobileFreeCard
+              features={GAME_FREE_FEATURES}
+              cta="Current plan"
+              href="/game"
+            />
+            <MobileProCard
+              name="CoinRealm Royal"
+              description="Full immersion. Unlock the harbor & voice AI."
+              amount={billingInterval === 'monthly' ? '$5' : '$4'}
+              period={billingInterval === 'monthly' ? 'month' : 'year'}
+              yearlySave={billingInterval === 'yearly' ? 'Billed $48/year' : undefined}
+              features={GAME_PRO_FEATURES}
+              accent="text-amber-400"
+              bgClass="bg-gradient-to-br from-amber-500/15 via-[#0A0E1A] to-orange-900/20"
+              borderClass="border-amber-500/50"
+              btnClass="bg-amber-400 text-[#0A0E1A]"
+              icon={Crown}
+              onCheckout={() => handleCheckout(billingInterval === 'monthly' ? 'plus_monthly' : 'plus_yearly')}
+              isLoading={!!loadingPlan}
+            />
+          </>
+        )}
+      </section>
+    </div>
+  )
+}
+
+function MobileFreeCard({ features, cta, href }: any) {
+  return (
+    <div className="rounded-2xl border border-white/5 bg-[#1A2332]/60 p-4">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#0A0E1A] border border-white/10 flex items-center justify-center">
+            <Zap className="w-5 h-5 text-slate-300" />
+          </div>
+          <div>
+            <h2 className="text-[16px] font-semibold text-white">Free</h2>
+            <p className="text-[11px] text-slate-400">Explore QuantTrade basics.</p>
+          </div>
+        </div>
+        <div className="text-[22px] font-bold text-white">$0</div>
+      </div>
+      
+      <div className="space-y-2 mb-4">
+        {features.filter((f: any) => f.ok).map((f: any) => (
+          <div key={f.label} className="flex items-start gap-2 text-[12px] text-slate-300">
+            <Check className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+            <span>{f.label}</span>
+          </div>
+        ))}
+        {features.filter((f: any) => !f.ok).slice(0,2).map((f: any) => (
+          <div key={f.label} className="flex items-start gap-2 text-[12px] text-slate-600 line-through">
+            <span className="w-1.5 h-[2px] bg-slate-600 rounded-full mt-2 shrink-0"></span>
+            <span>{f.label}</span>
+          </div>
+        ))}
+      </div>
+      
+      <Link href={href} className="flex items-center justify-center w-full h-11 rounded-xl text-[13px] font-semibold bg-[#0A0E1A] text-slate-300 border border-white/10 active:scale-[0.98] transition-transform">
+        {cta}
+      </Link>
+    </div>
+  )
+}
+
+function MobileProCard({ name, description, amount, period, features, accent, bgClass, borderClass, btnClass, icon: Icon, onCheckout, isLoading, yearlySave }: any) {
+  return (
+    <div className={`rounded-2xl border ${borderClass} ${bgClass} p-5 relative overflow-hidden shadow-2xl`}>
+      <div className="absolute top-0 right-0 bg-gradient-to-l from-white/10 to-transparent w-full h-full opacity-50 pointer-events-none" />
+      
+      <div className="flex items-start justify-between relative z-10 mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-[#0A0E1A] border border-white/10 flex items-center justify-center shadow-lg">
+            <Icon className={`w-5 h-5 ${accent}`} />
+          </div>
+          <div>
+            <div className={`text-[9px] uppercase tracking-[0.18em] mb-1 font-bold ${accent}`}>Most Popular</div>
+            <h2 className="text-[18px] font-bold text-white leading-tight">{name}</h2>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-[26px] font-black text-white">{amount}</div>
+          <div className="text-[10px] text-slate-400">/{period}</div>
+        </div>
+      </div>
+      {yearlySave && <div className="text-right text-[10px] text-emerald-400 font-bold mb-3">{yearlySave}</div>}
+
+      <div className="space-y-2 mb-5 relative z-10">
+        {features.map((f: any) => (
+          <div key={f.label} className="flex items-center gap-2.5 text-[12px] text-slate-100">
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 bg-black/20 ${accent.replace('text-', 'border-')} border`}>
+               <Check className={`w-2.5 h-2.5 ${accent}`} />
+            </div>
+            <span>{f.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        disabled={isLoading}
+        onClick={onCheckout}
+        className={`relative z-10 w-full h-12 rounded-xl text-[14px] font-black transition-all active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100 shadow-xl ${btnClass}`}
+      >
+        {isLoading ? 'Redirecting to Stripe…' : `Join ${name}`}
+      </button>
+      <div className="text-center text-[9px] text-slate-500 mt-3 relative z-10 flex items-center justify-center gap-1.5">
+          <CreditCard className="w-3 h-3" /> Stripe Secured Checkout
+      </div>
+    </div>
+  )
+}
+
+
 // ── Desktop page ──────────────────────────────────────────────────────────────
 
-function DesktopPricingPage() {
-  const router = useRouter()
-  const { isAuthenticated } = useAuth()
-  const [tab, setTab] = useState<Tab>('trading')
-  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly')
-  const [loadingPlan, setLoadingPlan] = useState<BillingPlan | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleCheckout(plan: BillingPlan) {
-    setError(null)
-    if (!isAuthenticated) { router.push('/auth'); return }
-    try {
-      setLoadingPlan(plan)
-      const { url } = await createCheckoutSession({ plan })
-      window.location.href = url
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to start checkout')
-    } finally {
-      setLoadingPlan(null)
-    }
-  }
+function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogic> }) {
+  const { tab, setTab, billingInterval, setBillingInterval, loadingPlan, error, handleCheckout } = state
 
   return (
     <AppLayout>
@@ -384,12 +594,16 @@ function DesktopPricingPage() {
   )
 }
 
+// ── Root Entry ────────────────────────────────────────────────────────────────
+
 export default function PricingClient() {
+  const logic = usePricingLogic()
+
   return (
     <>
-      <div className="hidden md:block"><DesktopPricingPage /></div>
+      <div className="hidden md:block"><DesktopPricingPage state={logic} /></div>
       <div className="md:hidden">
-        <MobileLayout><MobilePricing /></MobileLayout>
+        <MobileLayout><MobilePricingView state={logic} /></MobileLayout>
       </div>
     </>
   )

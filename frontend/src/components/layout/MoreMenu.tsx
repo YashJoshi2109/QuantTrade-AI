@@ -154,10 +154,10 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
         </div>
 
         <div className="px-4 pb-3 space-y-4 max-h-[70vh] overflow-y-auto scrollbar-hide">
-          {/* Trading */}
+          {/* Trading & Game */}
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 mb-1.5">
-              Trading
+              Trading &amp; Game
             </p>
             <MenuItem
               icon={<Bookmark className="w-4 h-4 text-yellow-400" />}
@@ -170,6 +170,12 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
               title="Ideas Lab"
               description="See curated trade setups from AI."
               href="/ideas-lab"
+            />
+            <MenuItem
+              icon={<DollarSign className="w-4 h-4 text-amber-500" />}
+              title="CoinRealm Game"
+              description="Play the financial literacy RPG."
+              href="/game"
             />
           </div>
 

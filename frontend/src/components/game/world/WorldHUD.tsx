@@ -5,6 +5,8 @@ import { Coins, PiggyBank, Zap, CalendarDays, AlertTriangle } from 'lucide-react
 import { useStudentStore } from '@/lib/student-store'
 import { useEffect, useRef, useState } from 'react'
 
+import { playGameSfx } from '@/lib/game-audio'
+
 interface Toast { id: number; text: string; type: 'success' | 'warn' | 'info' }
 
 export function useWorldToasts() {
@@ -54,7 +56,8 @@ export default function WorldHUD({ toasts, nearBuilding, onBuildingInteract, dia
     <>
       {/* Top-left stat panel */}
       <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
-        <div className="bg-stone-900/85 backdrop-blur border border-amber-800/50 rounded-xl px-3 py-2 flex flex-col gap-1.5">
+        <div className="bg-stone-900/85 backdrop-blur border border-amber-800/50 rounded-xl px-3 py-2 flex flex-col gap-1.5 cursor-pointer hover:bg-stone-800/90 transition-colors"
+             onClick={() => playGameSfx('coins').catch(() => {})}>
           <StatRow icon={<Coins size={14} className="text-yellow-400" />} label="Gold" value={gold} color="text-yellow-300" />
           <StatRow icon={<PiggyBank size={14} className="text-green-400" />} label="Savings" value={savings} color="text-green-300" />
           {debt > 0 && (

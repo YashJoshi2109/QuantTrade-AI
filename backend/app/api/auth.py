@@ -574,6 +574,7 @@ class PasskeyRegisterVerifyRequest(BaseModel):
     credential_id: str       # base64url-encoded credential id
     attestation_object: str  # base64url-encoded CBOR attestation object
     client_data_json: str    # base64url-encoded client data JSON
+    device_name: Optional[str] = None
 
 
 class PasskeyAuthChallengeResponse(BaseModel):
@@ -587,6 +588,7 @@ class PasskeySummaryResponse(BaseModel):
     credential_id_suffix: str
     created_at: Optional[str] = None
     sign_count: int
+    device_name: Optional[str] = None
 
 
 class PasskeyAuthVerifyRequest(BaseModel):
@@ -691,6 +693,7 @@ async def passkey_register_verify(
             credential_id=req.credential_id,
             public_key=verification.credential_public_key,
             sign_count=verification.sign_count,
+            device_name=req.device_name,
         )
         db.add(passkey)
         db.commit()
@@ -734,6 +737,7 @@ async def passkey_list(
             credential_id_suffix=(row.credential_id[-10:] if row.credential_id else ""),
             created_at=row.created_at.isoformat() if row.created_at else None,
             sign_count=row.sign_count or 0,
+            device_name=row.device_name,
         ).model_dump()
         for row in rows
     ]

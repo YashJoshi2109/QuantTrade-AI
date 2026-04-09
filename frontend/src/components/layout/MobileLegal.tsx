@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { FileText, ChevronRight, ShieldAlert, Shield } from 'lucide-react'
 
 const docs = [
@@ -7,21 +8,25 @@ const docs = [
     title: 'Terms of Service',
     desc: 'Rules and conditions for using QuantTrade AI.',
     updated: 'Updated Feb 2026',
+    href: '/terms#overview',
   },
   {
     title: 'Privacy Policy',
     desc: 'How we handle your data and account information.',
     updated: 'Updated Feb 2026',
+    href: '/terms#privacy',
   },
   {
     title: 'Cookie Policy',
     desc: 'How cookies are used to improve the experience.',
     updated: 'Updated Feb 2026',
+    href: '/terms#data',
   },
   {
     title: 'Disclaimer',
     desc: 'Trading risk warnings and limitations.',
     updated: 'Updated Feb 2026',
+    href: '/terms#risk',
   },
 ]
 
@@ -48,9 +53,10 @@ export default function MobileLegal() {
 
       <section className="px-1 space-y-2">
         {docs.map((d) => (
-          <div
+          <Link
             key={d.title}
-            className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-4 flex items-center justify-between"
+            href={d.href}
+            className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-4 flex items-center justify-between active:scale-[0.98] transition-transform block"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="h-10 w-10 rounded-full bg-[#0A0E1A] border border-white/10 flex items-center justify-center">
@@ -63,7 +69,7 @@ export default function MobileLegal() {
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-slate-500" />
-          </div>
+          </Link>
         ))}
       </section>
 

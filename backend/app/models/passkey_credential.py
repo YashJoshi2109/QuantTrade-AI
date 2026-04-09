@@ -14,6 +14,7 @@ class PasskeyCredential(Base):
     credential_id = Column(String(512), unique=True, nullable=False, index=True)
     public_key = Column(LargeBinary, nullable=False)
     sign_count = Column(Integer, default=0, nullable=False)
+    device_name = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     def __repr__(self):

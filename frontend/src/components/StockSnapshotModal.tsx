@@ -376,34 +376,57 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
               </div>
 
               {/* ── BODY ────────────────────────────────────────────────────── */}
-              <div className="flex flex-1 overflow-hidden">
+              <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
 
                 {/* LEFT: Chart */}
-                <div className="flex-1 min-w-0 flex flex-col border-r border-white/[0.06]">
+                <div className="flex-1 min-w-0 flex flex-col min-h-[300px] md:min-h-0 border-b md:border-b-0 md:border-r border-white/[0.06]">
 
                   {/* Chart toolbar */}
-                  <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/[0.05] shrink-0">
-                    {/* Time tabs */}
-                    <div className="flex items-center gap-0.5">
+                  <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-white/[0.05] shrink-0 overflow-x-auto mac-scrollbar">
+                    {/* Time tabs (Segmented Style) */}
+                    <div className="flex items-center bg-[#060A16]/60 p-1 rounded-xl border border-white/[0.04] shadow-inner shrink-0">
                       {CHART_TABS.map(tab => (
                         <button key={tab} onClick={() => setChartTab(tab)}
-                          className={`mac-btn mac-btn-pill py-1 px-2.5 text-[10px] font-mono ${chartTab === tab ? 'mac-btn-active' : ''}`}>
+                          className={`relative flex items-center justify-center min-w-[34px] px-2 h-7 rounded-lg text-[10px] font-mono font-black transition-all ${
+                            chartTab === tab 
+                              ? 'bg-gradient-to-b from-[#1E293B] to-[#0F172A] text-white shadow-[0_1px_3px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] border border-white/[0.08]' 
+                              : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                          }`}>
+                          {chartTab === tab && (
+                            <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#00D4FF] to-transparent opacity-80" />
+                          )}
                           {tab}
                         </button>
                       ))}
                     </div>
-                    {/* Chart type */}
-                    <div className="flex items-center gap-0.5">
-                      <button onClick={() => setChartType('line')}
-                        className={`mac-btn mac-btn-icon ${chartType === 'line' ? 'mac-btn-active' : ''}`}>
-                        <LineChart className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => setChartType('candle')}
-                        className={`mac-btn mac-btn-icon ${chartType === 'candle' ? 'mac-btn-active' : ''}`}>
-                        <BarChart2 className="w-3.5 h-3.5" />
-                      </button>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      {/* Chart type (Segmented Style) */}
+                      <div className="flex items-center bg-[#060A16]/60 p-1 rounded-xl border border-white/[0.04] shadow-inner">
+                        <button onClick={() => setChartType('line')}
+                          className={`relative flex items-center justify-center w-[34px] h-7 rounded-lg transition-all ${
+                            chartType === 'line' 
+                               ? 'bg-gradient-to-b from-[#1E293B] to-[#0F172A] text-[#00D4FF] shadow-[0_1px_3px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] border border-white/[0.08]' 
+                              : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                          }`}>
+                          {chartType === 'line' && <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#00D4FF] to-transparent opacity-80" />}
+                          <LineChart className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => setChartType('candle')}
+                          className={`relative flex items-center justify-center w-[34px] h-7 rounded-lg transition-all ${
+                            chartType === 'candle' 
+                               ? 'bg-gradient-to-b from-[#1E293B] to-[#0F172A] text-[#00D4FF] shadow-[0_1px_3px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] border border-white/[0.08]' 
+                              : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                          }`}>
+                          {chartType === 'candle' && <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#00D4FF] to-transparent opacity-80" />}
+                          <BarChart2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Open in Research */}
                       <Link href={`/research?symbol=${stock.symbol}`}
-                        className="mac-btn mac-btn-icon ml-1" title="Open in Research">
+                        className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-b from-slate-800 to-slate-900 border border-white/[0.08] text-slate-300 hover:text-[#00D4FF] hover:border-[#00D4FF]/30 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.3)]" 
+                        title="Open in Research">
                         <ExternalLink className="w-3.5 h-3.5" />
                       </Link>
                     </div>
@@ -454,7 +477,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                 </div>
 
                 {/* RIGHT: Quick Stats */}
-                <div className="w-52 shrink-0 flex flex-col">
+                <div className="w-full md:w-52 shrink-0 flex flex-col">
                   <div className="px-4 py-3 border-b border-white/[0.05] shrink-0">
                     <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-600">Quick Stats</span>
                   </div>

@@ -178,19 +178,29 @@ class VoiceoverRequest(BaseModel):
 
 
 def _resolve_voice_id(role: str, avatar_style: Optional[str]) -> Optional[str]:
+    # Default public ElevenLabs voice IDs
+    fallback_narrator = "tx3xeVAKrQ2k1B3OAnR5"  # Josh
+    fallback_knight = "VR6AewLTigWG4xSOukaG"    # Arnold
+    fallback_scholar = "21m00Tcm4TlvDq8ikWAM"   # Rachel
+    fallback_merchant = "ErXwobaYiN019PkySvjV"  # Antoni
+    fallback_noble = "MF3mGyEYCl7XYWbV9V6O"     # Elli
+    fallback_sage = "pNInz6obpgDQGcFmaJcg"      # Adam
+
+    narrator = settings.ELEVENLABS_VOICE_NARRATOR or fallback_narrator
+
     if role == "character":
         style = (avatar_style or "").lower()
         if style == "knight":
-            return settings.ELEVENLABS_VOICE_KNIGHT or settings.ELEVENLABS_VOICE_NARRATOR
+            return settings.ELEVENLABS_VOICE_KNIGHT or fallback_knight
         if style == "scholar":
-            return settings.ELEVENLABS_VOICE_SCHOLAR or settings.ELEVENLABS_VOICE_NARRATOR
+            return settings.ELEVENLABS_VOICE_SCHOLAR or fallback_scholar
         if style == "merchant":
-            return settings.ELEVENLABS_VOICE_MERCHANT or settings.ELEVENLABS_VOICE_NARRATOR
+            return settings.ELEVENLABS_VOICE_MERCHANT or fallback_merchant
         if style == "noble":
-            return settings.ELEVENLABS_VOICE_NOBLE or settings.ELEVENLABS_VOICE_NARRATOR
+            return settings.ELEVENLABS_VOICE_NOBLE or fallback_noble
         if style == "sage":
-            return settings.ELEVENLABS_VOICE_SAGE or settings.ELEVENLABS_VOICE_NARRATOR
-    return settings.ELEVENLABS_VOICE_NARRATOR
+            return settings.ELEVENLABS_VOICE_SAGE or fallback_sage
+    return narrator
 
 
 @router.post("/mission/complete")

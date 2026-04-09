@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
 
 // Routes where the floating AI Copilot button should NOT appear
-const HIDDEN_ON: string[] = ['/auth', '/terms', '/legal', '/game']
+const HIDDEN_ON: string[] = ['/auth', '/terms', '/legal', '/game', '/copilot']
 
 export default function ChatWidget() {
   const pathname = usePathname()
@@ -14,7 +14,7 @@ export default function ChatWidget() {
   return (
     <Link
       href="/copilot"
-      className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 group"
+      className="fixed bottom-24 right-6 md:bottom-8 md:right-8 z-[60] group"
       aria-label="Open AI Copilot"
     >
       {/* Pulse ring */}
