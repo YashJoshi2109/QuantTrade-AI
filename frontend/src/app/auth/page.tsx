@@ -346,6 +346,16 @@ export default function AuthPage() {
   const handlePasskeyError = (msg: string) => { setError(msg) }
 
   // ─────────────────────────────────────────────────────────────────────────
+
+  // Block auth page for already-authenticated users
+  if (isLoading || isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#0A0E1A] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-[#007AFF] animate-spin" />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#060B12] flex flex-col lg:flex-row" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       {/* Google font imports */}

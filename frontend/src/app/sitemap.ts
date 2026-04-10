@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-const BASE = 'https://quanttrade.us'
+const BASE = 'https://www.quanttrade.us'
 const now = new Date()
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -52,6 +52,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: 'daily',
       priority: 0.75,
+    },
+    {
+      url: `${BASE}/copilot`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    {
+      url: `${BASE}/game`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.6,
     },
     {
       url: `${BASE}/help`,

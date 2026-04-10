@@ -17,7 +17,7 @@ import { BUILDING_CONFIGS } from '@/components/game/world/BuildingMeshes'
 import { NPC_CONFIGS } from '@/components/game/world/Characters'
 import { X, ChevronRight, Scroll } from 'lucide-react'
 import * as THREE from 'three'
-import { playGameVoiceover, playGameSfx } from '@/lib/game-audio'
+import { playGameVoiceover, stopVoiceover, playGameSfx } from '@/lib/game-audio'
 
 // Dynamic import — Three.js cannot run server-side
 const AshmarketScene = dynamic(
@@ -40,9 +40,11 @@ function getBuildingPosition(buildingId: string): THREE.Vector3 {
 
 // ── Typewriter ────────────────────────────────────────────────────────────────
 
-function TypewriterText({ text, speed = 22, onDone }: { text: string; speed?: number; onDone?: () => void }) {
+function TypewriterText({ text, speed = 38, onDone }: { text: string; speed?: number; onDone?: () => void }) {
   const [displayed, setDisplayed] = useState('')
   const idx = useRef(0)
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
 
   useEffect(() => {
     idx.current = 0
@@ -52,16 +54,18 @@ function TypewriterText({ text, speed = 22, onDone }: { text: string; speed?: nu
       setDisplayed(text.slice(0, idx.current))
       if (idx.current >= text.length) {
         clearInterval(interval)
-        onDone?.()
+        onDoneRef.current?.()
       }
     }, speed)
     return () => clearInterval(interval)
-  }, [text, speed, onDone])
+  }, [text, speed])
+
+  const done = displayed.length >= text.length
 
   return (
     <p className="text-stone-100 text-sm leading-relaxed tracking-wide">
       {displayed}
-      <span className="animate-pulse text-amber-400">▌</span>
+      {!done && <span className="animate-pulse text-amber-400 ml-0.5">▌</span>}
     </p>
   )
 }
@@ -89,26 +93,40 @@ function DialogueOverlay({
 }) {
   const { chapter, lineIndex, phase, npcLabel, npcEmoji } = state
   const [typeDone, setTypeDone] = useState(false)
+  const [typeSpeed, setTypeSpeed] = useState(38) // ms per char, synced to audio
   const lastSpoken = useRef<string>('')
 
   useEffect(() => { setTypeDone(false) }, [lineIndex, phase])
 
-  // Play Voiceover Effect
+  // Play Voiceover + sync typewriter speed to audio duration
   useEffect(() => {
     const text = phase === 'story' ? chapter.storyLines[lineIndex]?.text : chapter.lesson
     if (!text) return
-    const cacheKey = `${chapter.id}-${phase}-${lineIndex}-${text.substring(0, 5)}`
-    
-    // Prevent strict-mode repeating sound
+    const cacheKey = `${chapter.id}-${phase}-${lineIndex}`
+
+    // Prevent strict-mode double-fire
     if (lastSpoken.current === cacheKey) return
     lastSpoken.current = cacheKey
 
-    if (phase === 'story') {
-      playGameVoiceover({ text, role: 'character', avatarStyle: 'sage' }).catch(() => {})
-    } else if (phase === 'lesson') {
-      playGameVoiceover({ text, role: 'narrator' }).catch(() => {})
-    }
-  }, [chapter, lineIndex, phase])
+    // Stop any previous voice before starting new one
+    stopVoiceover()
+
+    const voiceRole = phase === 'story' ? 'character' as const : 'narrator' as const
+    const avatarStyle = phase === 'story' ? 'sage' : undefined
+
+    playGameVoiceover({ text, role: voiceRole, avatarStyle })
+      .then((durationMs) => {
+        // Sync: typewriter should finish just before audio ends
+        // speed = duration / num_chars, with min/max bounds
+        const charSpeed = Math.max(25, Math.min(65, Math.floor(durationMs / text.length)))
+        setTypeSpeed(charSpeed)
+      })
+      .catch(() => {
+        setTypeSpeed(38) // Fallback speed
+      })
+
+    return () => { stopVoiceover() }
+  }, [chapter.id, lineIndex, phase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -169,8 +187,9 @@ function DialogueOverlay({
                   <p className="text-amber-500/70 text-xs mb-1 font-medium">{currentLine.npc}</p>
                 )}
                 <TypewriterText
-                  key={`${lineIndex}-${phase}`}
+                  key={`${chapter.id}-${lineIndex}-story`}
                   text={currentLine.text}
+                  speed={typeSpeed}
                   onDone={() => setTypeDone(true)}
                 />
               </div>
@@ -181,9 +200,9 @@ function DialogueOverlay({
                   <Scroll size={16} className="text-amber-400" />
                 </div>
                 <TypewriterText
-                  key="lesson"
+                  key={`${chapter.id}-lesson`}
                   text={chapter.lesson}
-                  speed={18}
+                  speed={typeSpeed}
                   onDone={() => setTypeDone(true)}
                 />
               </div>

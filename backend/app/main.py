@@ -31,6 +31,8 @@ from app.api import (
     voice,
 )
 from app.api import monitor_extended
+from app.api import copilot_stream
+from app.api import ideas
 from app.db.database import engine, Base
 
 # Import all models to ensure they're registered with SQLAlchemy
@@ -63,6 +65,7 @@ from app.models.game import (
     GameCommunityGroup, GameCharacterCommunity,
     GamePortfolioHolding, GameEventLog,
 )
+from app.models.api_usage import APIUsage
 from app.models.global_monitor import (
     GlobalEvent,
     CountryInstability,
@@ -237,6 +240,12 @@ app.include_router(monitor_extended.router, tags=["global-monitor-extended"])
 app.include_router(game.router, prefix="/api/v1/game", tags=["game"])
 app.include_router(ai_image.router, prefix="/api/v1/ai-image", tags=["ai-image"])
 app.include_router(voice.router, prefix="/api/v1/voice", tags=["voice"])
+
+# AI Ideas Lab — Trade idea generation
+app.include_router(ideas.router, prefix="/api/v1/ideas", tags=["ideas"])
+
+# AI Copilot — Streaming SSE endpoint (RAG + Quant + LLM pipeline)
+app.include_router(copilot_stream.router, prefix="/api/v1", tags=["copilot"])
 
 
 @app.get("/")

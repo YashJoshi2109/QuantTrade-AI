@@ -1,6 +1,7 @@
 import { gameApi } from '@/lib/game-api'
 
 let audioCtx: AudioContext | null = null
+let currentVoice: HTMLAudioElement | null = null
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
@@ -24,7 +25,6 @@ export async function playGameSfx(kind: 'loading' | 'mission_complete' | 'click'
   gain.connect(ctx.destination)
 
   if (kind === 'coins') {
-    // Tumbling coins effect - rapid high pitched pings
     osc.type = 'triangle'
     osc.frequency.setValueAtTime(1200, now)
     osc.frequency.setValueAtTime(1600, now + 0.05)
@@ -38,11 +38,10 @@ export async function playGameSfx(kind: 'loading' | 'mission_complete' | 'click'
   }
 
   if (kind === 'welcome') {
-    // Grand medieval horn/chord (synthesized as a warm triangle swell)
     osc.type = 'triangle'
-    osc.frequency.setValueAtTime(261.63, now) // middle C
-    osc.frequency.setValueAtTime(329.63, now + 0.3) // E
-    osc.frequency.setValueAtTime(392.00, now + 0.6) // G
+    osc.frequency.setValueAtTime(261.63, now)
+    osc.frequency.setValueAtTime(329.63, now + 0.3)
+    osc.frequency.setValueAtTime(392.00, now + 0.6)
     gain.gain.setValueAtTime(0.0001, now)
     gain.gain.linearRampToValueAtTime(0.1, now + 0.2)
     gain.gain.linearRampToValueAtTime(0.08, now + 0.6)
@@ -65,9 +64,8 @@ export async function playGameSfx(kind: 'loading' | 'mission_complete' | 'click'
   }
 
   if (kind === 'ambient') {
-    // Very quiet low drone
     osc.type = 'sine'
-    osc.frequency.setValueAtTime(55, now) // Low fundamental
+    osc.frequency.setValueAtTime(55, now)
     gain.gain.setValueAtTime(0.0001, now)
     gain.gain.linearRampToValueAtTime(0.02, now + 2)
     gain.gain.linearRampToValueAtTime(0.0001, now + 8)
@@ -109,11 +107,32 @@ export async function playGameSfx(kind: 'loading' | 'mission_complete' | 'click'
   osc.stop(now + 0.11)
 }
 
+/**
+ * Stop any currently playing voiceover
+ */
+export function stopVoiceover(): void {
+  if (currentVoice) {
+    currentVoice.pause()
+    currentVoice.currentTime = 0
+    currentVoice = null
+  }
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    window.speechSynthesis.cancel()
+  }
+}
+
+/**
+ * Play voiceover with ElevenLabs (backend) or native speech fallback.
+ * Returns the estimated duration in ms so the caller can sync typewriter speed.
+ */
 export async function playGameVoiceover(params: {
   text: string
   role?: 'narrator' | 'character'
   avatarStyle?: string
-}): Promise<void> {
+}): Promise<number> {
+  // Stop any previous voice
+  stopVoiceover()
+
   try {
     const blob = await gameApi.generateVoiceover({
       text: params.text,
@@ -122,41 +141,65 @@ export async function playGameVoiceover(params: {
     })
     const url = URL.createObjectURL(blob)
     const audio = new Audio(url)
-    audio.volume = 0.9
-    await audio.play()
-    audio.onended = () => URL.revokeObjectURL(url)
-  } catch (err) {
-    // Fallback to native browser speech synthesis if ElevenLabs fails / missing keys
+    audio.volume = 0.85
+    currentVoice = audio
+
+    // Wait for metadata to get duration
+    return new Promise<number>((resolve) => {
+      audio.onloadedmetadata = () => {
+        const durationMs = (audio.duration || 3) * 1000
+        audio.play().catch(() => {})
+        resolve(durationMs)
+      }
+      audio.onended = () => {
+        URL.revokeObjectURL(url)
+        currentVoice = null
+      }
+      audio.onerror = () => {
+        URL.revokeObjectURL(url)
+        currentVoice = null
+        // Fallback duration estimate: ~130ms per word
+        resolve(params.text.split(/\s+/).length * 130)
+      }
+      // Timeout fallback if metadata doesn't load
+      setTimeout(() => resolve(params.text.split(/\s+/).length * 130), 3000)
+    })
+  } catch {
+    // Fallback to native browser speech synthesis
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel() // Cancel any ongoing speech
-      
+      window.speechSynthesis.cancel()
+
       const utterance = new SpeechSynthesisUtterance(params.text)
       const voices = window.speechSynthesis.getVoices()
       let preferredVoice = undefined
-      
+
       if (params.role === 'narrator') {
-        preferredVoice = voices.find(v => v.name.includes('Grandpa') || (v.lang.startsWith('en-GB') && v.name.includes('Male')))
-        if (!preferredVoice) preferredVoice = voices.find(v => v.lang.startsWith('en'))
-        utterance.pitch = 0.8
-        utterance.rate = 0.9
+        // Deep, gravelly narrator voice
+        preferredVoice = voices.find(v => v.name.includes('Daniel') || v.name.includes('Alex') || (v.lang.startsWith('en-GB') && v.name.includes('Male')))
+        if (!preferredVoice) preferredVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Male'))
+        utterance.pitch = 0.65 // Deeper
+        utterance.rate = 0.82  // Slower, more deliberate
       } else {
-        if (params.avatarStyle === 'merchant' || params.text.includes('Sera') || params.text.includes('Elara')) {
-           preferredVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Female'))
-           utterance.pitch = 1.15
-           utterance.rate = 1.05
-        } else if (params.avatarStyle === 'sage' || params.text.includes('Rafiq') || params.text.includes('Aldric') || params.text.includes('Oswin')) {
+        if (params.avatarStyle === 'merchant') {
+          preferredVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Male'))
+          utterance.pitch = 0.9
+          utterance.rate = 0.95
+        } else if (params.avatarStyle === 'sage') {
           preferredVoice = voices.find(v => v.lang.startsWith('en-GB')) || voices.find(v => v.lang.startsWith('en') && v.name.includes('Male'))
-          utterance.pitch = 0.7
-          utterance.rate = 0.9
+          utterance.pitch = 0.6  // Very deep sage voice
+          utterance.rate = 0.78  // Slow, wise pacing
         } else {
           preferredVoice = voices.find(v => v.lang.startsWith('en'))
+          utterance.pitch = 0.8
+          utterance.rate = 0.88
         }
       }
-      
+
       if (preferredVoice) utterance.voice = preferredVoice
       window.speechSynthesis.speak(utterance)
-    } else {
-      console.warn("TTS failed and no native speech synthesis available", err)
     }
+
+    // Estimate duration: ~130ms per word
+    return params.text.split(/\s+/).length * 130
   }
 }

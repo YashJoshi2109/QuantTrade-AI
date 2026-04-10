@@ -46,24 +46,60 @@ export function PlayerMesh({ gender = 'male', skinTone = 0, moving = false }: Pl
   const capeMat = useMat('#6d1a1a', '#7a1e1e', 0.1)
   const hatMat  = useMat('#1a1032')
 
+  const armsRef = useRef<THREE.Group>(null!)
+  const headRef = useRef<THREE.Group>(null!)
+
   useFrame((_, delta) => {
     if (!rootRef.current) return
     tick.current += delta
+    const t = tick.current
 
-    // Gentle breathing bob
-    rootRef.current.position.y = Math.sin(tick.current * 1.5) * 0.015
+    // Breathing — subtle chest rise + body sway
+    rootRef.current.position.y = Math.sin(t * 1.5) * 0.012 + Math.sin(t * 0.7) * 0.005
+    rootRef.current.rotation.z = Math.sin(t * 0.8) * 0.008 // Idle sway
 
-    // Walk animation
+    // Walking — realistic leg + arm + head bob
     if (moving && legsRef.current) {
-      const swing = Math.sin(tick.current * 8) * 0.25
+      const walkSpeed = 8
+      const legSwing = Math.sin(t * walkSpeed) * 0.35  // Larger leg range
       const legs = legsRef.current.children
-      if (legs[0]) (legs[0] as THREE.Mesh).rotation.x = swing
-      if (legs[1]) (legs[1] as THREE.Mesh).rotation.x = -swing
+      if (legs[0]) (legs[0] as THREE.Mesh).rotation.x = legSwing
+      if (legs[1]) (legs[1] as THREE.Mesh).rotation.x = -legSwing
+
+      // Arm counter-swing (opposite to legs for realism)
+      if (armsRef.current) {
+        const arms = armsRef.current.children
+        if (arms[0]) (arms[0] as THREE.Mesh).rotation.x = -legSwing * 0.6
+        if (arms[1]) (arms[1] as THREE.Mesh).rotation.x = legSwing * 0.6
+      }
+
+      // Walk bounce (vertical bob on each step)
+      rootRef.current.position.y += Math.abs(Math.sin(t * walkSpeed)) * 0.025
+
+      // Head slight nod when walking
+      if (headRef.current) {
+        headRef.current.rotation.x = Math.sin(t * walkSpeed * 2) * 0.03
+        headRef.current.rotation.z = Math.sin(t * walkSpeed) * 0.02
+      }
+    } else {
+      // Idle — subtle arm sway + head look-around
+      if (armsRef.current) {
+        const arms = armsRef.current.children
+        if (arms[0]) (arms[0] as THREE.Mesh).rotation.x = Math.sin(t * 1.2) * 0.03
+        if (arms[1]) (arms[1] as THREE.Mesh).rotation.x = Math.sin(t * 1.2 + 0.5) * 0.03
+      }
+      if (headRef.current) {
+        headRef.current.rotation.y = Math.sin(t * 0.4) * 0.06 // Slow head turn
+        headRef.current.rotation.x = Math.sin(t * 0.6) * 0.02
+      }
     }
 
-    // Cape sway
+    // Cape physics — more dramatic when moving
     if (capeRef.current) {
-      capeRef.current.rotation.x = Math.sin(tick.current * 2) * 0.05 + (moving ? 0.15 : 0)
+      const windBase = Math.sin(t * 2.5) * 0.06
+      const moveBoost = moving ? 0.2 + Math.sin(t * 6) * 0.05 : 0
+      capeRef.current.rotation.x = windBase + moveBoost
+      capeRef.current.rotation.z = Math.sin(t * 1.8) * 0.03
     }
   })
 
@@ -98,6 +134,7 @@ export function PlayerMesh({ gender = 'male', skinTone = 0, moving = false }: Pl
       </mesh>
 
       {/* Arms */}
+      <group ref={armsRef}>
       <mesh position={[-0.21, 0.82, 0]} material={tuneMat} castShadow>
         <boxGeometry args={[0.1, 0.35, 0.1]} />
       </mesh>
@@ -112,12 +149,15 @@ export function PlayerMesh({ gender = 'male', skinTone = 0, moving = false }: Pl
       <mesh position={[0.21, 0.62, 0]} material={skinMat} castShadow>
         <sphereGeometry args={[0.055, 6, 6]} />
       </mesh>
+      </group>
 
       {/* Cape */}
       <mesh ref={capeRef} position={[0, 0.8, -0.1]} material={capeMat} castShadow>
         <boxGeometry args={[0.28, 0.5, 0.04]} />
       </mesh>
 
+      {/* Head group (for head animations) */}
+      <group ref={headRef}>
       {/* Neck */}
       <mesh position={[0, 1.07, 0]} material={skinMat} castShadow>
         <cylinderGeometry args={[0.065, 0.075, 0.1, 8]} />
@@ -157,6 +197,7 @@ export function PlayerMesh({ gender = 'male', skinTone = 0, moving = false }: Pl
         <boxGeometry args={[0.04, 0.22, 0.02]} />
         <meshStandardMaterial color="#e8c84e" emissive="#c9a82a" emissiveIntensity={0.3} />
       </mesh>
+      </group>
     </group>
   )
 }

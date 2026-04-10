@@ -25,9 +25,9 @@ export default function robots(): MetadataRoute.Robots {
           '/api/',
         ],
       },
-      // Explicitly allow AI crawlers to index all public pages
+      // Explicitly allow AI crawlers for AI Overviews, ChatGPT, Perplexity visibility
       {
-        userAgent: ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'Anthropic-AI', 'Google-Extended'],
+        userAgent: ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'PerplexityBot', 'Anthropic-AI', 'Google-Extended'],
         allow: [
           '/',
           '/pricing',
@@ -35,6 +35,7 @@ export default function robots(): MetadataRoute.Robots {
           '/research',
           '/backtest',
           '/ideas-lab',
+          '/copilot',
           '/about',
           '/help',
           '/legal',
@@ -42,7 +43,12 @@ export default function robots(): MetadataRoute.Robots {
         ],
         disallow: ['/auth', '/settings', '/billing', '/api/'],
       },
+      // Block training-only crawlers
+      {
+        userAgent: ['CCBot', 'Bytespider'],
+        disallow: ['/'],
+      },
     ],
-    sitemap: 'https://quanttrade.us/sitemap.xml',
+    sitemap: 'https://www.quanttrade.us/sitemap.xml',
   }
 }

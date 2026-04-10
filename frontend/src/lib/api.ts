@@ -743,27 +743,86 @@ export async function updateWatchlistNote(symbol: string, note: string | null): 
   return response.json()
 }
 
-// Phase 4: Backtesting
+// Phase 4: Pro-Level Backtesting
 export interface BacktestRequest {
   symbol: string
   start_date: string
   end_date: string
   strategy: string
   initial_capital: number
+  strategy_params?: Record<string, number>
+  position_sizing?: string
+  commission_rate?: number
+  slippage_rate?: number
+  stop_loss_pct?: number | null
+  take_profit_pct?: number | null
+  trailing_stop_pct?: number | null
+  max_pyramiding?: number
+  walk_forward?: boolean
+  walk_forward_train_pct?: number
+  monte_carlo?: boolean
+  monte_carlo_sims?: number
+}
+
+export interface BacktestTrade {
+  entry_date: string
+  exit_date: string | null
+  entry_price: number
+  exit_price: number | null
+  quantity: number
+  pnl: number | null
+  return_pct: number | null
+  commission: number
+  exit_reason: string
+  bars_held: number
+}
+
+export interface MonteCarloResult {
+  median_return: number
+  mean_return: number
+  p5_return: number
+  p25_return: number
+  p75_return: number
+  p95_return: number
+  probability_of_profit: number
+  probability_of_ruin: number
+  max_seen_drawdown: number
+  avg_max_drawdown: number
+  distribution: { range_start: number; range_end: number; count: number; frequency: number }[]
+  n_simulations: number
 }
 
 export interface BacktestResult {
   symbol: string
   strategy: string
+  strategy_params: Record<string, number>
   initial_capital: number
   final_equity: number
   total_return: number
+  annualized_return: number
+  annualized_volatility: number
+  sharpe_ratio: number
+  sortino_ratio: number
+  calmar_ratio: number
+  max_drawdown: number
+  max_drawdown_duration: number
   total_trades: number
   win_rate: number
-  max_drawdown: number
-  sharpe_ratio: number
+  profit_factor: number
+  avg_win: number
+  avg_loss: number
+  expectancy: number
+  avg_trade_duration: number
+  total_commission: number
+  commission_rate: number
+  slippage_rate: number
   equity_curve: number[]
-  trades: any[]
+  drawdown_curve: number[]
+  monthly_returns: { month: number; return_pct: number }[]
+  rolling_sharpe: number[]
+  trades: BacktestTrade[]
+  monte_carlo: MonteCarloResult | null
+  walk_forward: { enabled: boolean; train_bars?: number; test_bars?: number; train_pct?: number }
 }
 
 export async function runBacktest(request: BacktestRequest): Promise<BacktestResult> {
@@ -775,7 +834,8 @@ export async function runBacktest(request: BacktestRequest): Promise<BacktestRes
     body: JSON.stringify(request),
   })
   if (!response.ok) {
-    throw new Error('Failed to run backtest')
+    const errData = await response.json().catch(() => null)
+    throw new Error(errData?.detail || 'Failed to run backtest')
   }
   return response.json()
 }
@@ -1482,5 +1542,84 @@ export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
     throw new Error(message)
   }
 
+  return response.json()
+}
+
+// ── Ideas Lab ────────────────────────────────────────────────────────────────
+
+export interface TradeIdea {
+  symbol: string
+  company_name: string
+  idea_type: 'long' | 'short'
+  entry_price: number | null
+  target_price: number | null
+  stop_loss: number | null
+  risk_reward: number | null
+  confidence: number
+  timeframe: string
+  catalyst: string
+  sector: string
+  rsi: number | null
+  change_percent: string | null
+  volume_ratio: number | null
+}
+
+export interface IdeasResponse {
+  ideas: TradeIdea[]
+  generated_at: string
+  market_pulse: {
+    total_scanned?: number
+    total_ideas?: number
+    bullish_count?: number
+    bearish_count?: number
+    avg_confidence?: number
+    top_bullish?: { symbol: string; confidence: number; catalyst: string }[]
+    top_bearish?: { symbol: string; confidence: number; catalyst: string }[]
+    sector_rotation?: Record<string, { bullish: number; bearish: number }>
+  }
+}
+
+export async function generateIdeas(): Promise<IdeasResponse> {
+  const headers = await getAuthJsonHeaders()
+  const response = await fetch(`${API_URL}/api/v1/ideas/generate`, { headers })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to generate ideas')
+  }
+  return response.json()
+}
+
+export async function getTrendingIdeas(): Promise<IdeasResponse> {
+  const response = await fetch(`${API_URL}/api/v1/ideas/trending`)
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to fetch trending ideas')
+  }
+  return response.json()
+}
+
+// ── Copilot API Usage ─────────────────────────────────────────────────
+
+export interface CopilotUsage {
+  today_requests: number
+  today_input_tokens: number
+  today_output_tokens: number
+  today_cost_usd: number
+  daily_budget_usd: number
+  budget_remaining_usd: number
+  budget_ok: boolean
+  is_pro: boolean
+  free_limit: number
+  free_remaining: number
+}
+
+export async function getCopilotUsage(): Promise<CopilotUsage> {
+  const headers = await getAuthHeadersClient()
+  const response = await fetch(`${API_URL}/api/v1/copilot/usage`, { headers })
+  if (!response.ok) return {
+    today_requests: 0, today_input_tokens: 0, today_output_tokens: 0,
+    today_cost_usd: 0, daily_budget_usd: 2.0, budget_remaining_usd: 2.0, budget_ok: true,
+    is_pro: false, free_limit: 5, free_remaining: 5,
+  }
   return response.json()
 }

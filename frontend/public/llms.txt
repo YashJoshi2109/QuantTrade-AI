@@ -1,6 +1,7 @@
 # QuantTrade AI
 
 > AI-powered stock trading research, backtesting, and geopolitical market intelligence platform.
+> Last updated: 2026-04-10
 
 QuantTrade AI is a professional-grade trading research platform built for active traders, quant developers, and portfolio managers. It combines real-time financial data, AI-powered analysis, global geopolitical event monitoring, and strategy backtesting into a single terminal-style interface.
 
@@ -11,8 +12,9 @@ QuantTrade AI is a professional-grade trading research platform built for active
 - **Strategy Backtester**: Rule-based backtesting engine with Monte Carlo simulations. Supports crossover, RSI, MACD, and custom multi-condition strategies across configurable time windows.
 - **Global Monitor**: Bloomberg-style geopolitical intelligence dashboard with an interactive 3D globe. Tracks 400+ data sources including GDELT, ACLED, OpenSky, NASA FIRMS, USGS, and Cloudflare Radar. Shows which stocks are impacted by global events in real time.
 - **Markets Dashboard**: S&P 500 sector heatmap, real-time top gainers/losers, market indices, and sector performance powered by Finnhub and Alpha Vantage.
-- **Ideas Lab**: AI-generated investment theses with confidence scores and sector tagging.
+- **Ideas Lab**: AI-generated investment theses with confidence scores and sector tagging. Scans 80+ stocks across 6 sectors with RSI, momentum, and analyst target scoring.
 - **Watchlist**: Personalized portfolio tracker with AI commentary and risk analysis.
+- **QuantTrade Life (CoinRealm)**: Financial literacy RPG game where players learn investing through medieval-themed quests, NPC dialogue with voice acting, and real financial decision-making scenarios across 5 life stages.
 
 ## Data Sources
 
@@ -32,12 +34,23 @@ QuantTrade AI is a professional-grade trading research platform built for active
 
 QuantTrade AI was built by Yash Joshi, a software engineer and quantitative trading enthusiast. The platform is designed to give independent traders access to institutional-grade tools without Bloomberg Terminal pricing.
 
-Contact: yashjosh7486@gmail.com
+Website: https://www.quanttrade.us
 GitHub: https://github.com/YashJoshi2109
+Twitter: https://twitter.com/quanttradeai
+
+## Key Pages
+
+- [AI Copilot](/copilot): Multi-model AI financial analyst with RAG pipeline
+- [Research](/research): Deep stock analysis with technical indicators
+- [Backtesting](/backtest): 8 strategies with Monte Carlo validation
+- [Global Monitor](/monitor): Geopolitical intelligence dashboard
+- [Ideas Lab](/ideas-lab): AI-generated trade ideas with confidence scoring
+- [Markets](/markets): Real-time market data and sector heatmaps
+- [Pricing](/pricing): Free tier and Pro subscription details
 
 ## Technical Architecture
 
-- Frontend: Next.js 16 (App Router), React 18, Tailwind CSS, TradingView Lightweight Charts
+- Frontend: Next.js 15 (App Router), React 19, Tailwind CSS, TradingView Lightweight Charts, Three.js
 - Backend: FastAPI (Python), SQLAlchemy, Neon PostgreSQL, Celery, Upstash Redis
 - AI: Anthropic Claude, OpenAI GPT-4, RAG with vector embeddings, Groq for low-latency inference
 - Deployment: Vercel (frontend), Render (backend), Neon (database)
