@@ -1,17 +1,18 @@
 'use client'
 
-import { useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { useId, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Activity, Minus, Radio, TrendingDown, TrendingUp } from 'lucide-react'
 import { Indicators } from '@/lib/api'
 import { isNumber } from '@/lib/format'
 
 /* ────────────────── Premium Signal Colors (Glowing Palette) ────────────────── */
 const SIGNAL_COLORS = {
-  STRONG_BUY:  '#00FF88', // Electric Emerald
-  BUY:         '#00D4FF', // Cyan Glow
-  NEUTRAL:     '#94A3B8', // Slate Grey
-  SELL:        '#FF9F43', // Warning Orange
-  STRONG_SELL: '#FF3366', // Neon Crimson
+  STRONG_BUY: '#00FF88',
+  BUY: '#00D4FF',
+  NEUTRAL: '#94A3B8',
+  SELL: '#FF9F43',
+  STRONG_SELL: '#FF3366',
 } as const
 
 type SignalLevel = 'Strong Buy' | 'Buy' | 'Neutral' | 'Sell' | 'Strong Sell'
@@ -26,11 +27,11 @@ interface SignalResult {
 /* ────────────────── Signal computation ────────────────── */
 
 function classifyValue(val: number): SignalResult {
-  if (val >= 0.5)  return { label: 'Strong Buy',  value: val, color: SIGNAL_COLORS.STRONG_BUY }
-  if (val >= 0.1)  return { label: 'Buy',          value: val, color: SIGNAL_COLORS.BUY }
-  if (val > -0.1)  return { label: 'Neutral',      value: val, color: SIGNAL_COLORS.NEUTRAL }
-  if (val > -0.5)  return { label: 'Sell',          value: val, color: SIGNAL_COLORS.SELL }
-  return               { label: 'Strong Sell', value: val, color: SIGNAL_COLORS.STRONG_SELL }
+  if (val >= 0.5) return { label: 'Strong Buy', value: val, color: SIGNAL_COLORS.STRONG_BUY }
+  if (val >= 0.1) return { label: 'Buy', value: val, color: SIGNAL_COLORS.BUY }
+  if (val > -0.1) return { label: 'Neutral', value: val, color: SIGNAL_COLORS.NEUTRAL }
+  if (val > -0.5) return { label: 'Sell', value: val, color: SIGNAL_COLORS.SELL }
+  return { label: 'Strong Sell', value: val, color: SIGNAL_COLORS.STRONG_SELL }
 }
 
 function computeMovingAverages(
@@ -43,11 +44,7 @@ function computeMovingAverages(
   let sell = 0
   let total = 0
 
-  const smas: (number | undefined)[] = [
-    indicators.sma_20,
-    indicators.sma_50,
-    indicators.sma_200,
-  ]
+  const smas: (number | undefined)[] = [indicators.sma_20, indicators.sma_50, indicators.sma_200]
 
   for (const sma of smas) {
     if (!isNumber(sma)) continue
@@ -67,7 +64,7 @@ function computeTechnicalIndicators(
 ): SignalResult {
   if (!indicators) return classifyValue(0)
 
-  let signals: number[] = []
+  const signals: number[] = []
 
   const rsi = indicators.rsi
   if (isNumber(rsi)) {
@@ -115,22 +112,31 @@ function computeSummary(tech: SignalResult, ma: SignalResult): SignalResult {
 interface GaugeProps {
   signal: SignalResult
   title: string
+  subtitle?: string
   delay?: number
 }
 
-function Gauge({ signal, title, delay = 0 }: GaugeProps) {
-  const cx = 100
-  const cy = 90
-  const r = 70
+function Gauge({ signal, title, subtitle, delay = 0 }: GaugeProps) {
+  const reactId = useId().replace(/:/g, '')
+  const filterId = `glow-${reactId}`
+  const needleGradId = `needle-grad-${reactId}`
+  const trackGradId = `track-${reactId}`
 
-  const needleAngle = 180 - ((signal.value + 1) / 2) * 180
+  const cx = 100
+  const cy = 94
+  const rTrack = 62
+  const rColor = 56
+  const needleLen = 46
+  /** Semicircle: sell (left) = -90°, buy (right) = +90°, neutral = 0° (up) */
+  const needleRotate = signal.value * 90
+  const biasScore = Math.round(signal.value * 50)
 
   const zones = [
     { start: 180, end: 144, color: SIGNAL_COLORS.STRONG_SELL },
     { start: 144, end: 108, color: SIGNAL_COLORS.SELL },
-    { start: 108, end: 72,  color: SIGNAL_COLORS.NEUTRAL },
-    { start: 72,  end: 36,  color: SIGNAL_COLORS.BUY },
-    { start: 36,  end: 0,   color: SIGNAL_COLORS.STRONG_BUY },
+    { start: 108, end: 72, color: SIGNAL_COLORS.NEUTRAL },
+    { start: 72, end: 36, color: SIGNAL_COLORS.BUY },
+    { start: 36, end: 0, color: SIGNAL_COLORS.STRONG_BUY },
   ]
 
   const arcPath = (startDeg: number, endDeg: number, radius: number) => {
@@ -144,105 +150,133 @@ function Gauge({ signal, title, delay = 0 }: GaugeProps) {
     return `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 0 ${x2} ${y2}`
   }
 
+  const dialTicks = [180, 135, 90, 45, 0]
+
   return (
-    <div className="flex flex-col items-center relative group">
-      <div className="text-[10px] font-bold text-slate-400 tracking-widest mb-2 uppercase drop-shadow-md">
-        {title}
+    <div className="flex flex-col items-center relative group rounded-xl bg-slate-950/40 border border-slate-700/35 px-2 pt-3 pb-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors duration-500 hover:border-slate-600/45">
+      <div className="text-center mb-1">
+        <div className="text-[10px] font-bold text-slate-400 tracking-[0.18em] uppercase">{title}</div>
+        {subtitle ? <div className="text-[9px] text-slate-500 mt-0.5 leading-snug px-1">{subtitle}</div> : null}
       </div>
-      
-      <div className="relative w-full max-w-[180px]">
-        <svg viewBox="0 0 200 110" className="w-full drop-shadow-2xl overflow-visible">
+
+      <div className="relative w-full max-w-[188px]">
+        <svg
+          viewBox="0 0 200 108"
+          className="w-full overflow-hidden"
+          role="img"
+          aria-label={`${title}: ${signal.label}, bias ${biasScore >= 0 ? '+' : ''}${biasScore}`}
+        >
           <defs>
-            <filter id={`glow-${title.replace(/\s+/g, '')}`}>
-              <feGaussianBlur stdDeviation="3.5" result="coloredBlur"/>
+            <linearGradient id={trackGradId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#020617" />
+              <stop offset="50%" stopColor="#0f172a" />
+              <stop offset="100%" stopColor="#020617" />
+            </linearGradient>
+            <filter id={filterId}>
+              <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
               <feMerge>
-                <feMergeNode in="coloredBlur"/>
-                <feMergeNode in="SourceGraphic"/>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
-            <linearGradient id="needle-grad" x1="0%" y1="100%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#CBD5E1" />
-              <stop offset="100%" stopColor="#FFFFFF" />
+            <linearGradient id={needleGradId} x1="0%" y1="100%" x2="0%" y2="0%">
+              <stop offset="0%" stopColor="#64748b" />
+              <stop offset="55%" stopColor="#f1f5f9" />
+              <stop offset="100%" stopColor="#ffffff" />
             </linearGradient>
           </defs>
 
-          {/* Premium Glass Track */}
+          {/* Recessed track — reads as one dark slot, not a gray ring */}
           <path
-            d={arcPath(180, 0, r)}
+            d={arcPath(180, 0, rTrack)}
             fill="none"
-            stroke="rgba(30,41,59,0.5)"
-            strokeWidth="14"
+            stroke={`url(#${trackGradId})`}
+            strokeWidth="20"
             strokeLinecap="round"
+            opacity={0.92}
           />
 
-          {/* Animated Glow Arcs */}
           {zones.map((z, i) => (
             <motion.path
               key={i}
-              d={arcPath(z.start, z.end, r)}
+              d={arcPath(z.start, z.end, rColor)}
               fill="none"
               stroke={z.color}
-              strokeWidth="14"
+              strokeWidth="9"
               strokeLinecap="butt"
-              opacity={0.8}
+              opacity={0.88}
               initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ pathLength: 1, opacity: 0.8 }}
-              transition={{ duration: 1.2, delay: delay + i * 0.1, ease: 'easeOut' }}
-              filter={signal.color === z.color ? `url(#glow-${title.replace(/\s+/g, '')})` : undefined}
+              animate={{ pathLength: 1, opacity: 0.88 }}
+              transition={{ duration: 1.05, delay: delay + i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+              filter={signal.color === z.color ? `url(#${filterId})` : undefined}
             />
           ))}
 
-          {/* Tick marks */}
-          {[180, 144, 108, 72, 36, 0].map((deg) => {
+          {dialTicks.map((deg) => {
             const rad = (deg * Math.PI) / 180
+            const tx = cx + (rColor - 2) * Math.cos(rad)
+            const ty = cy - (rColor - 2) * Math.sin(rad)
             return (
-              <line
+              <circle
                 key={deg}
-                x1={cx + (r - 10) * Math.cos(rad)}
-                y1={cy - (r - 10) * Math.sin(rad)}
-                x2={cx + (r + 10) * Math.cos(rad)}
-                y2={cy - (r + 10) * Math.sin(rad)}
-                stroke="#020617"
-                strokeWidth="2.5"
+                cx={tx}
+                cy={ty}
+                r={deg === 90 ? 2.2 : 1.5}
+                fill={deg === 90 ? 'rgba(148,163,184,0.5)' : 'rgba(51,65,85,0.85)'}
               />
             )
           })}
 
-          {/* Animated Needle */}
-          <motion.g
-            initial={{ rotate: -90 }}
-            animate={{ rotate: 90 - needleAngle }}
-            transition={{ duration: 1.5, delay: delay + 0.5, type: 'spring', bounce: 0.4 }}
-            style={{ originX: '100px', originY: '90px' }}
-          >
-            <line
-              x1={cx}
-              y1={cy}
-              x2={cx}
-              y2={cy - 55}
-              stroke="url(#needle-grad)"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-            />
-            {/* Center Hub */}
-            <circle cx={cx} cy={cy} r="6" fill="#0F172A" stroke="#FFFFFF" strokeWidth="2.5" />
-          </motion.g>
+          <g transform={`translate(${cx} ${cy})`}>
+            <motion.g
+              style={{ transformOrigin: '0px 0px' }}
+              initial={{ rotate: -90 }}
+              animate={{ rotate: needleRotate }}
+              transition={{
+                type: 'spring',
+                stiffness: 118,
+                damping: 16,
+                mass: 0.85,
+                delay: delay + 0.2,
+              }}
+            >
+              <path
+                d={`M -2.2 1.5 L 0 ${-needleLen} L 2.2 1.5 Z`}
+                fill={`url(#${needleGradId})`}
+                stroke="rgba(255,255,255,0.35)"
+                strokeWidth="0.5"
+                strokeLinejoin="round"
+              />
+              <circle r="8" fill="#070b12" stroke="rgba(226,232,240,0.9)" strokeWidth="2" />
+              <circle r="3.5" fill={signal.color} opacity={0.9} />
+            </motion.g>
+          </g>
         </svg>
 
-        {/* Floating Glowing Pill */}
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: delay + 1.2 }}
-          className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[11px] font-extrabold px-4 py-1.5 rounded-full backdrop-blur-md shadow-lg"
-          style={{
-            backgroundColor: `${signal.color}15`,
-            color: signal.color,
-            border: `1px solid ${signal.color}40`,
-            boxShadow: `0 0 15px ${signal.color}20`,
-          }}
+          transition={{ duration: 0.45, delay: delay + 0.65 }}
+          className="mt-0.5 flex flex-col items-center gap-1"
         >
-          {signal.label}
+          <div className="flex items-baseline justify-center gap-1.5">
+            <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider">Bias</span>
+            <span className="text-xs font-black tabular-nums text-slate-200">
+              {biasScore >= 0 ? '+' : ''}
+              {biasScore}
+            </span>
+          </div>
+          <div
+            className="text-[10px] font-extrabold px-3 py-1 rounded-full backdrop-blur-md max-w-[min(100%,12rem)] truncate text-center border"
+            style={{
+              backgroundColor: `${signal.color}14`,
+              color: signal.color,
+              borderColor: `${signal.color}40`,
+              boxShadow: `0 0 14px ${signal.color}18`,
+            }}
+          >
+            {signal.label}
+          </div>
         </motion.div>
       </div>
     </div>
@@ -254,18 +288,30 @@ function Gauge({ signal, title, delay = 0 }: GaugeProps) {
 function ZoneLabels() {
   const labels: { text: string; color: string }[] = [
     { text: 'Strong\nSell', color: SIGNAL_COLORS.STRONG_SELL },
-    { text: 'Sell',          color: SIGNAL_COLORS.SELL },
-    { text: 'Neutral',      color: SIGNAL_COLORS.NEUTRAL },
-    { text: 'Buy',           color: SIGNAL_COLORS.BUY },
-    { text: 'Strong\nBuy',  color: SIGNAL_COLORS.STRONG_BUY },
+    { text: 'Sell', color: SIGNAL_COLORS.SELL },
+    { text: 'Neutral', color: SIGNAL_COLORS.NEUTRAL },
+    { text: 'Buy', color: SIGNAL_COLORS.BUY },
+    { text: 'Strong\nBuy', color: SIGNAL_COLORS.STRONG_BUY },
   ]
 
   return (
-    <div className="flex items-center justify-between w-full max-w-md mx-auto px-4 mt-6">
+    <div
+      className="flex items-stretch justify-between w-full max-w-md mx-auto px-1 sm:px-4 mt-5 gap-0.5 sm:gap-1"
+      aria-hidden
+    >
       {labels.map((l, i) => (
-        <div key={i} className="flex flex-col items-center gap-1.5 transition-transform hover:scale-110">
-          <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: l.color, boxShadow: `0 0 8px ${l.color}` }} />
-          <span className="text-[10px] font-bold text-center leading-tight whitespace-pre-line" style={{ color: l.color }}>
+        <div
+          key={i}
+          className="flex flex-col items-center gap-1 min-w-0 flex-1 transition-transform hover:scale-105"
+        >
+          <div
+            className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0"
+            style={{ backgroundColor: l.color, boxShadow: `0 0 8px ${l.color}` }}
+          />
+          <span
+            className="text-[8px] sm:text-[10px] font-bold text-center leading-tight whitespace-pre-line"
+            style={{ color: l.color }}
+          >
             {l.text}
           </span>
         </div>
@@ -290,16 +336,19 @@ export default function TechnicalAnalysisGauge({
   const indData = indicators?.indicators
 
   const techSignal = useMemo(() => computeTechnicalIndicators(price, indData), [price, indData])
-  const maSignal   = useMemo(() => computeMovingAverages(price, indData), [price, indData])
-  const summary    = useMemo(() => computeSummary(techSignal, maSignal), [techSignal, maSignal])
+  const maSignal = useMemo(() => computeMovingAverages(price, indData), [price, indData])
+  const summary = useMemo(() => computeSummary(techSignal, maSignal), [techSignal, maSignal])
+
+  const panelId = useId()
 
   if (loading) {
     return (
-      <div className="hud-panel p-6 h-full bg-slate-900/50 flex flex-col justify-center">
-        <div className="h-4 w-40 bg-slate-800/80 rounded mb-8 animate-pulse" />
-        <div className="grid grid-cols-3 gap-6">
+      <div className="hud-panel p-6 h-full bg-slate-900/50 flex flex-col justify-center min-h-[320px]">
+        <div className="h-4 w-48 bg-slate-800/80 rounded mb-4 animate-pulse" />
+        <div className="h-16 w-full bg-slate-800/40 rounded-xl mb-6 animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="flex flex-col items-center gap-4 animate-pulse">
+            <div key={i} className="flex flex-col items-center gap-4 animate-pulse rounded-xl border border-slate-800/80 p-4">
               <div className="w-[140px] h-[70px] bg-slate-800/60 rounded-t-full" />
               <div className="h-4 w-20 bg-slate-800/60 rounded-full" />
             </div>
@@ -310,59 +359,127 @@ export default function TechnicalAnalysisGauge({
   }
 
   return (
-    <div className="hud-panel p-6 h-full relative overflow-hidden group">
-      {/* Dynamic Background Gradient */}
-      <div 
-        className="absolute inset-0 opacity-10 transition-colors duration-1000 ease-in-out"
+    <section
+      className="hud-panel p-5 sm:p-6 h-full relative overflow-hidden group noise"
+      aria-labelledby={`${panelId}-heading`}
+    >
+      {/* Slow conic wash — “magic” ambient motion */}
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[140%] opacity-[0.11]"
         style={{
-          background: `radial-gradient(circle at top right, ${summary.color}, transparent 60%)`
+          background: `conic-gradient(from 0deg, transparent 0%, ${summary.color} 18%, transparent 42%, transparent 100%)`,
+        }}
+        animate={{ rotate: 360 }}
+        transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
+      />
+
+      <div
+        aria-hidden
+        className="absolute inset-0 opacity-[0.14] transition-colors duration-1000 ease-out"
+        style={{
+          background: `
+            radial-gradient(ellipse 85% 70% at 100% 0%, ${summary.color} 0%, transparent 55%),
+            radial-gradient(ellipse 60% 50% at 0% 100%, rgba(0, 212, 255, 0.35) 0%, transparent 50%)
+          `,
         }}
       />
 
-      <div className="relative z-10">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-extrabold text-white tracking-wider flex items-center gap-2 drop-shadow-md">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#00D4FF]"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-            Technical Analysis
-          </h3>
-          <span className="text-[10px] font-mono font-bold text-slate-300 bg-slate-800/80 border border-slate-700 px-2.5 py-1 rounded-md shadow-inner">
-            LIVE
-          </span>
+      <div className="ta-gauge-magic-sheen" aria-hidden />
+
+      <div className="relative z-10 flex flex-col gap-5">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div>
+            <h3
+              id={`${panelId}-heading`}
+              className="text-base font-extrabold text-white tracking-wide flex items-center gap-2 drop-shadow-md"
+            >
+              <Activity className="w-[18px] h-[18px] text-[#00D4FF] shrink-0" aria-hidden />
+              Technical analysis
+            </h3>
+            <p className="text-[11px] text-slate-500 mt-1 max-w-md leading-relaxed">
+              Gauges blend RSI, MACD, Bollinger position, and SMA alignment into a single readable bias.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-40" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <span className="text-[10px] font-mono font-bold text-slate-200 bg-slate-800/90 border border-slate-600/60 px-2.5 py-1 rounded-md shadow-inner tracking-wide">
+              LIVE
+            </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mt-6">
-          <Gauge signal={techSignal} title="Oscillators" delay={0.1} />
-          <Gauge signal={summary}    title="Summary" delay={0.3} />
-          <Gauge signal={maSignal}   title="Moving Averages" delay={0.5} />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={summary.label}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="rounded-xl border border-slate-700/50 bg-slate-950/40 backdrop-blur-sm px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                <Radio className="w-3.5 h-3.5 text-slate-400" aria-hidden />
+                Composite signal
+              </div>
+              <div
+                className="text-xl sm:text-2xl font-black tracking-tight"
+                style={{
+                  color: summary.color,
+                  textShadow: `0 0 28px ${summary.color}33`,
+                }}
+              >
+                {summary.label}
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-2 leading-snug border-t border-slate-700/40 pt-2">
+              Mid-gauge is the weighted blend; side gauges isolate oscillators vs. moving-average trend.
+            </p>
+          </motion.div>
+        </AnimatePresence>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-2">
+          <Gauge
+            signal={techSignal}
+            title="Oscillators"
+            subtitle="RSI · MACD · Bands"
+            delay={0.1}
+          />
+          <Gauge signal={summary} title="Summary" subtitle="Blended bias" delay={0.3} />
+          <Gauge signal={maSignal} title="Moving averages" subtitle="Price vs SMAs" delay={0.5} />
         </div>
 
         <ZoneLabels />
 
-        <div className="mt-8 grid grid-cols-3 gap-3">
-          <SignalCounts signal={techSignal} indicators={indData} price={price} type="oscillators" />
-          <SignalCounts signal={summary} indicators={indData} price={price} type="summary" />
-          <SignalCounts signal={maSignal} indicators={indData} price={price} type="ma" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <SignalCounts indicators={indData} price={price} type="oscillators" />
+          <SignalCounts indicators={indData} price={price} type="summary" />
+          <SignalCounts indicators={indData} price={price} type="ma" />
         </div>
       </div>
-    </div>
+    </section>
   )
 }
 
 /* ────────────────── Signal detail mini-counts ────────────────── */
 
 interface SignalCountsProps {
-  signal: SignalResult
   indicators: Indicators['indicators'] | undefined
   price: number | undefined
   type: 'oscillators' | 'ma' | 'summary'
 }
 
-function SignalCounts({ signal, indicators, price, type }: SignalCountsProps) {
+function SignalCounts({ indicators, price, type }: SignalCountsProps) {
   const counts = useMemo(() => {
     if (!indicators) return { buy: 0, neutral: 0, sell: 0 }
 
     if (type === 'ma') {
-      let buy = 0, sell = 0
+      let buy = 0,
+        sell = 0
       const smas = [indicators.sma_20, indicators.sma_50, indicators.sma_200]
       for (const s of smas) {
         if (!isNumber(s) || !isNumber(price)) continue
@@ -373,7 +490,9 @@ function SignalCounts({ signal, indicators, price, type }: SignalCountsProps) {
     }
 
     if (type === 'oscillators') {
-      let buy = 0, sell = 0, neutral = 0
+      let buy = 0,
+        sell = 0,
+        neutral = 0
       if (isNumber(indicators.rsi)) {
         if (indicators.rsi > 60) sell++
         else if (indicators.rsi < 40) buy++
@@ -400,7 +519,9 @@ function SignalCounts({ signal, indicators, price, type }: SignalCountsProps) {
       return { buy, neutral, sell }
     }
 
-    let buy = 0, sell = 0, neutral = 0
+    let buy = 0,
+      sell = 0,
+      neutral = 0
     const smas = [indicators.sma_20, indicators.sma_50, indicators.sma_200]
     for (const s of smas) {
       if (!isNumber(s) || !isNumber(price)) continue
@@ -419,16 +540,34 @@ function SignalCounts({ signal, indicators, price, type }: SignalCountsProps) {
     return { buy, neutral, sell }
   }, [indicators, price, type])
 
+  const typeLabel =
+    type === 'oscillators' ? 'Oscillator votes' : type === 'ma' ? 'MA alignment' : 'Mixed tally'
+
   return (
-    <div className="flex items-center justify-center gap-3 bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/50 backdrop-blur-sm shadow-inner mt-2">
-      <div className="flex flex-col items-center min-w-[28px]">
-        <span className="text-[#FF3366] font-extrabold text-sm drop-shadow-[0_0_5px_rgba(255,51,102,0.4)]">{counts.sell}</span>
-      </div>
-      <div className="flex flex-col items-center min-w-[28px]">
-        <span className="text-slate-400 font-extrabold text-sm">{counts.neutral}</span>
-      </div>
-      <div className="flex flex-col items-center min-w-[28px]">
-        <span className="text-[#00FF88] font-extrabold text-sm drop-shadow-[0_0_5px_rgba(0,255,136,0.4)]">{counts.buy}</span>
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[9px] uppercase tracking-wider text-slate-500 font-semibold text-center">
+        {typeLabel}
+      </span>
+      <div className="flex items-center justify-center gap-2 sm:gap-3 bg-slate-800/35 p-2.5 rounded-xl border border-slate-700/45 backdrop-blur-sm shadow-inner">
+        <div className="flex flex-col items-center min-w-[36px] gap-0.5">
+          <TrendingDown className="w-3.5 h-3.5 text-[#FF3366]/80" aria-hidden />
+          <span className="text-[9px] text-slate-500 font-medium">Sell</span>
+          <span className="text-[#FF3366] font-extrabold text-sm tabular-nums drop-shadow-[0_0_5px_rgba(255,51,102,0.35)]">
+            {counts.sell}
+          </span>
+        </div>
+        <div className="flex flex-col items-center min-w-[36px] gap-0.5">
+          <Minus className="w-3.5 h-3.5 text-slate-500" aria-hidden />
+          <span className="text-[9px] text-slate-500 font-medium">Neutral</span>
+          <span className="text-slate-400 font-extrabold text-sm tabular-nums">{counts.neutral}</span>
+        </div>
+        <div className="flex flex-col items-center min-w-[36px] gap-0.5">
+          <TrendingUp className="w-3.5 h-3.5 text-[#00FF88]/80" aria-hidden />
+          <span className="text-[9px] text-slate-500 font-medium">Buy</span>
+          <span className="text-[#00FF88] font-extrabold text-sm tabular-nums drop-shadow-[0_0_5px_rgba(0,255,136,0.35)]">
+            {counts.buy}
+          </span>
+        </div>
       </div>
     </div>
   )

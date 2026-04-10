@@ -1261,7 +1261,7 @@ html {
 /* ===== Toast Animations ===== */
 @keyframes slide-in {
   from {
-    transform: translateX(100%);
+    transform: translateX(16px);
     opacity: 0;
   }
 
@@ -1278,7 +1278,7 @@ html {
   }
 
   to {
-    transform: translateX(100%);
+    transform: translateX(16px);
     opacity: 0;
   }
 }
@@ -1510,4 +1510,39 @@ html {
 
 .animate-fade-in-up {
   animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Technical Analysis gauge — slow “magic” sheen + accent ring (Magic UI–style motion, no extra deps) */
+@keyframes ta-gauge-sheen {
+  0% {
+    transform: translateX(-120%) skewX(-14deg);
+  }
+
+  100% {
+    transform: translateX(280%) skewX(-14deg);
+  }
+}
+
+.ta-gauge-magic-sheen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.ta-gauge-magic-sheen::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: 0;
+  width: 55%;
+  height: 140%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.045) 45%,
+    transparent 90%
+  );
+  animation: ta-gauge-sheen 14s ease-in-out infinite;
 }

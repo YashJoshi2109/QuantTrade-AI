@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileResearch from '@/components/layout/MobileResearch'
@@ -14,13 +14,26 @@ import {
   BarChart3, Newspaper, Loader2, Globe, Building2, Users, ExternalLink,
   DollarSign, Target, Info, SlidersHorizontal, X, Star,
 } from 'lucide-react'
-import { fetchPrices, fetchIndicators, fetchFundamentals, syncSymbol, PriceBar, Indicators, FundamentalsData, addToWatchlist } from '@/lib/api'
+import {
+  fetchPrices,
+  fetchIndicators,
+  fetchFundamentals,
+  syncSymbol,
+  PriceBar,
+  Indicators,
+  FundamentalsData,
+  addToWatchlist,
+  getWatchlist,
+  removeFromWatchlist,
+  type WatchlistItem,
+} from '@/lib/api'
 import TechnicalAnalysisGauge from '@/components/TechnicalAnalysisGauge'
 import KeyFactorsPanel from '@/components/KeyFactorsPanel'
 import FundamentalsPanel from '@/components/FundamentalsPanel'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { QuoteActivityFlash } from '@/components/QuoteActivityFlash'
+import { useToast } from '@/components/Toast'
 import { SkeletonChart, SkeletonIndicators, SkeletonText, Skeleton } from '@/components/Skeleton'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 
@@ -167,7 +180,9 @@ function GlobalTickerInfoPanel({ symbol }: { symbol: string }) {
 function ResearchContent() {
   const searchParams = useSearchParams()
   const symbolParam = searchParams?.get('symbol') || null
-  
+  const queryClient = useQueryClient()
+  const toast = useToast()
+
   const [selectedSymbol, setSelectedSymbol] = useState(symbolParam || 'NVDA')
   const [priceData, setPriceData] = useState<PriceBar[]>([])
   const [indicators, setIndicators] = useState<Indicators | null>(null)
@@ -180,6 +195,19 @@ function ResearchContent() {
   const [chartShowMa, setChartShowMa] = useState(true)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const advancedRef = useRef<HTMLDivElement>(null)
+  const [watchlistBusy, setWatchlistBusy] = useState(false)
+
+  const { data: watchlistItems = [] } = useQuery<WatchlistItem[]>({
+    queryKey: ['watchlist'],
+    queryFn: getWatchlist,
+    staleTime: 60_000,
+    retry: false,
+  })
+
+  const inWatchlist = useMemo(
+    () => watchlistItems.some((i) => i.symbol.toUpperCase() === selectedSymbol.toUpperCase()),
+    [watchlistItems, selectedSymbol],
+  )
 
   // Real-time quote with HIGH PRIORITY for research page and 5-second updates
   const { data: realtimeQuote, isLoading: quoteLoading } = useRealtimeQuote({ 
@@ -289,6 +317,27 @@ function ResearchContent() {
     }
   }
 
+  const handleWatchlistToggle = async () => {
+    if (watchlistBusy) return
+    setWatchlistBusy(true)
+    try {
+      if (inWatchlist) {
+        await removeFromWatchlist(selectedSymbol)
+        toast.success(`${selectedSymbol.toUpperCase()} removed from watchlist`)
+      } else {
+        await addToWatchlist({ symbol: selectedSymbol })
+        toast.success(`${selectedSymbol.toUpperCase()} added to watchlist`)
+      }
+      await queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Watchlist action failed'
+      if (/already/i.test(msg)) toast.warning(msg)
+      else toast.error(msg)
+    } finally {
+      setWatchlistBusy(false)
+    }
+  }
+
   const getPriceInfo = () => {
     // Ignore realtime rows that are placeholders (fetchQuote returns zeros on failure)
     if (realtimeQuote && isNumber(realtimeQuote.price) && realtimeQuote.price > 0) {
@@ -331,14 +380,103 @@ function ResearchContent() {
     ((priceInfo.price || 0) * 1000 + (priceInfo.percent || 0) * 10000) / 10
   ) / 100
 
-  const aiReport = {
-    sentiment: indicators?.indicators?.rsi && indicators.indicators.rsi > 50 ? 'Bullish' : 'Neutral',
-    rsiSignal: indicators?.indicators?.rsi ? (
-      indicators.indicators.rsi > 70 ? 'Overbought' :
-      indicators.indicators.rsi < 30 ? 'Oversold' : 'Neutral'
-    ) : 'N/A',
-    trendSignal: priceInfo.price > (indicators?.indicators?.sma_50 || 0) ? 'Above SMA50' : 'Below SMA50',
-  }
+  const aiReport = useMemo(() => {
+    const ind = indicators?.indicators
+    const rsi = ind?.rsi
+    const macdObj = ind?.macd
+    const bb = ind?.bollinger_bands
+    const p = priceInfo.price
+    const sma20 = ind?.sma_20
+    const sma50 = ind?.sma_50
+    const sma200 = ind?.sma_200
+
+    let macdText = 'MACD is not available for this symbol yet — sync data if you expect it.'
+    if (macdObj && isNumber(macdObj.macd) && isNumber(macdObj.signal)) {
+      const d = macdObj.macd - macdObj.signal
+      macdText =
+        d > 0
+          ? 'MACD line sits above its signal line, which often accompanies bullish momentum shifts.'
+          : d < 0
+            ? 'MACD line sits below its signal line, which often accompanies bearish momentum shifts.'
+            : 'MACD and signal are effectively tied — short-term momentum is in balance.'
+    }
+
+    let bbText = 'Bollinger Band width and position are unavailable.'
+    if (bb && isNumber(bb.upper) && isNumber(bb.lower) && isNumber(bb.middle) && isNumber(p)) {
+      const range = bb.upper - bb.lower
+      if (range > 0) {
+        const pos = (p - bb.lower) / range
+        const pct = (pos * 100).toFixed(0)
+        if (pos > 0.85) {
+          bbText = `Price is in the upper fifth of the band (${pct}% of the range) — watch for extension vs. mean reversion.`
+        } else if (pos < 0.15) {
+          bbText = `Price is in the lower fifth of the band (${pct}% of the range) — bounce risk or trend continuation depending on volume.`
+        } else {
+          bbText = `Price trades near the middle of the bands (${pct}% of range), away from volatility extremes.`
+        }
+      }
+    }
+
+    const parts: string[] = []
+    if (isNumber(p) && isNumber(sma20)) parts.push(p > sma20 ? 'above the 20-day SMA' : 'at or under the 20-day SMA')
+    if (isNumber(p) && isNumber(sma50)) parts.push(p > sma50 ? 'above the 50-day SMA' : 'at or under the 50-day SMA')
+    if (isNumber(p) && isNumber(sma200)) {
+      parts.push(p > sma200 ? 'above the 200-day SMA (long-term bid often intact)' : 'under the 200-day SMA (long-term trend pressure)')
+    }
+
+    let stackNote = ''
+    if (isNumber(sma20) && isNumber(sma50) && isNumber(sma200)) {
+      if (sma20 > sma50 && sma50 > sma200) stackNote = ' SMAs stack bullish (20 over 50 over 200).'
+      else if (sma20 < sma50 && sma50 < sma200) stackNote = ' SMAs stack bearish (20 under 50 under 200).'
+      else stackNote = ' SMA alignment is mixed — the trend regime looks transitional.'
+    }
+
+    const maSummary =
+      parts.length > 0 ? `Relative to moving averages, price is ${parts.join(', ')}.${stackNote}` : 'Moving-average context needs synced indicator data.'
+
+    let sentiment: 'Bullish' | 'Bearish' | 'Neutral' = 'Neutral'
+    if (isNumber(rsi) && isNumber(p) && isNumber(sma50)) {
+      let bull = 0
+      let bear = 0
+      if (rsi > 52) bull += 1
+      else if (rsi < 48) bear += 1
+      if (p > sma50) bull += 1
+      else bear += 1
+      if (macdObj && isNumber(macdObj.macd) && isNumber(macdObj.signal)) {
+        if (macdObj.macd > macdObj.signal) bull += 1
+        else if (macdObj.macd < macdObj.signal) bear += 1
+      }
+      if (bull >= 2 && bull > bear) sentiment = 'Bullish'
+      else if (bear >= 2 && bear > bull) sentiment = 'Bearish'
+    }
+
+    const bullets: string[] = []
+    if (isNumber(rsi)) {
+      bullets.push(
+        `RSI(14) is ${formatNumber(rsi, 1)} — ${
+          rsi > 70 ? 'stretched toward overbought' : rsi < 30 ? 'stretched toward oversold' : 'in a neutral band'
+        }.`,
+      )
+    }
+    if (isNumber(priceInfo.percent)) {
+      bullets.push(
+        `Change vs prior close: ${priceInfo.percent >= 0 ? '+' : ''}${formatPercent(priceInfo.percent, 2)}.`,
+      )
+    }
+    if (isNumber(priceInfo.volume) && priceInfo.volume > 0) {
+      bullets.push(`Volume: about ${formatNumber(priceInfo.volume / 1e6, 2)}M shares on this print.`)
+    }
+
+    return {
+      sentiment,
+      rsiSignal: isNumber(rsi) ? (rsi > 70 ? 'Overbought' : rsi < 30 ? 'Oversold' : 'Neutral') : 'N/A',
+      trendSignal: isNumber(p) && isNumber(sma50) ? (p > sma50 ? 'Above SMA 50' : 'Below SMA 50') : 'N/A',
+      macdText,
+      bbText,
+      maSummary,
+      bullets,
+    }
+  }, [indicators, priceInfo])
 
   const technicalData = [
     { label: 'SMA 20', value: indicators?.indicators?.sma_20, format: 'price' },
@@ -421,20 +559,20 @@ function ResearchContent() {
                   </span>
                   <button
                     type="button"
-                    onClick={async () => {
-                      try {
-                        await addToWatchlist({ symbol: selectedSymbol });
-                        // Could use a toast notification here in the future
-                        // For now we rely on the backend success
-                        alert(`${selectedSymbol.toUpperCase()} added to watchlist!`);
-                      } catch (err) {
-                        alert(err instanceof Error ? err.message : 'Failed to add to watchlist');
-                      }
-                    }}
-                    className="hud-card flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-500 hover:text-amber-400 hover:border-amber-500/30 transition-all bg-amber-500/5 group"
+                    onClick={handleWatchlistToggle}
+                    disabled={watchlistBusy}
+                    aria-pressed={inWatchlist}
+                    className={`hud-card group flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all disabled:opacity-50 ${
+                      inWatchlist
+                        ? 'text-amber-300 border-amber-500/40 bg-amber-500/15 hover:bg-amber-500/20'
+                        : 'text-amber-500 hover:text-amber-400 hover:border-amber-500/30 bg-amber-500/5'
+                    }`}
                   >
-                    <Star className="w-4 h-4 group-hover:fill-amber-400" />
-                    Add Watchlist
+                    <Star
+                      className={`w-4 h-4 shrink-0 ${inWatchlist ? 'fill-amber-400 text-amber-300' : 'text-amber-500 group-hover:fill-amber-400/40'}`}
+                      aria-hidden
+                    />
+                    {watchlistBusy ? 'Saving…' : inWatchlist ? 'In watchlist' : 'Add watchlist'}
                   </button>
                   <button
                     type="button"
@@ -630,30 +768,54 @@ function ResearchContent() {
 
           {/* AI Analysis Panel */}
           <div className="col-span-12 lg:col-span-6">
-            <div className="hud-panel p-5 h-full">
-              <div className="flex items-center justify-between mb-4">
+            <div className="hud-panel p-5 h-full flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-blue-400" />
-                  <h3 className="font-bold text-sm text-white">AI Analysis</h3>
+                  <h3 className="font-bold text-sm text-white">AI-style read</h3>
                 </div>
-                <span className={`text-xs font-bold px-3 py-1 rounded-lg ${
-                  aiReport.sentiment === 'Bullish' 
-                    ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
-                    : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-                }`}>
-                  {aiReport.sentiment}
-                </span>
+                <div className="flex flex-wrap items-center gap-2 justify-end">
+                  <span
+                    className={`text-xs font-bold px-3 py-1 rounded-lg border ${
+                      aiReport.sentiment === 'Bullish'
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                        : aiReport.sentiment === 'Bearish'
+                          ? 'bg-red-500/10 text-red-400 border-red-500/25'
+                          : 'bg-amber-500/10 text-amber-300 border-amber-500/25'
+                    }`}
+                  >
+                    {aiReport.sentiment}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-500 px-2 py-1 rounded bg-slate-800/60 border border-slate-700/50">
+                    RSI: {aiReport.rsiSignal} · Trend: {aiReport.trendSignal}
+                  </span>
+                </div>
               </div>
-              
-              <p className="text-sm text-slate-400 leading-relaxed mb-4">
-                Based on technical analysis of <span className="text-blue-400 font-bold">{selectedSymbol}</span>, 
-                the current RSI is <span className="text-white font-mono">{formatNumber(indicators?.indicators?.rsi, 1)}</span> and 
-                the stock is trading {priceInfo.price > (indicators?.indicators?.sma_50 || 0) ? 'above' : 'below'} its 50-day moving average.
-                {(priceInfo.percent ?? 0) > 0 ? ' Positive momentum detected.' : ' Caution advised on entry.'}
-              </p>
-              
+
+              <div className="space-y-3 text-sm text-slate-400 leading-relaxed">
+                <p>
+                  Snapshot for <span className="text-blue-400 font-semibold">{selectedSymbol}</span> combines
+                  momentum (RSI, MACD) with structure (moving averages and Bollinger position). It is a rules-based
+                  synthesis, not a prediction — use it as a starting point alongside your own process.
+                </p>
+                <p>{aiReport.macdText}</p>
+                <p>{aiReport.bbText}</p>
+                <p>{aiReport.maSummary}</p>
+                {aiReport.bullets.length > 0 && (
+                  <ul className="list-disc pl-5 space-y-1.5 text-slate-300 text-[13px]">
+                    {aiReport.bullets.map((b, i) => (
+                      <li key={i}>{b}</li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-[11px] text-slate-500 border-t border-slate-700/40 pt-3 leading-snug">
+                  Not investment advice. Markets discount news quickly; verify levels on your chart and risk limits
+                  before acting.
+                </p>
+              </div>
+
               {priceData.length > 0 && (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-3 mt-auto">
                   <div className="hud-stat p-3 text-center">
                     <div
                       className={`text-lg font-bold text-white hud-value ${
@@ -670,13 +832,15 @@ function ResearchContent() {
                   </div>
                   <div className="hud-stat p-3 text-center">
                     <div className={`text-lg font-bold hud-value ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-                      {isPositive ? '+' : ''}{formatNumber(priceInfo.change, 2)}
+                      {isPositive ? '+' : ''}
+                      {formatNumber(priceInfo.change, 2)}
                     </div>
                     <div className="text-[10px] text-slate-500">CHANGE</div>
                   </div>
                   <div className="hud-stat p-3 text-center">
                     <div className={`text-lg font-bold hud-value ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-                      {isPositive ? '+' : ''}{formatPercent(priceInfo.percent, 2)}
+                      {isPositive ? '+' : ''}
+                      {formatPercent(priceInfo.percent, 2)}
                     </div>
                     <div className="text-[10px] text-slate-500">PERCENT</div>
                   </div>
