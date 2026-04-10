@@ -65,7 +65,6 @@ services:
       # Server-side Next routes (e.g. /api/ai-analysis) use OPENROUTER_API_KEY; client copilot uses NEXT_PUBLIC_*
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - NEXT_PUBLIC_OPENROUTER_API_KEY=${NEXT_PUBLIC_OPENROUTER_API_KEY:-}
-      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY:-}
       # Stock market data API keys (server-side Next.js routes)
       - FMP_API_KEY=${FMP_API_KEY:-}
       - TWELVE_DATA_API_KEY=${TWELVEDATA_API_KEY:-}

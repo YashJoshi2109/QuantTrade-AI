@@ -108,6 +108,13 @@ class Settings(BaseSettings):
     APP_URL: str = os.getenv("APP_URL", "https://quanttrade.us")
     STRIPE_PRICE_PLUS_MONTHLY: Optional[str] = None
     STRIPE_PRICE_PLUS_YEARLY: Optional[str] = None
+    # Welcome email + Checkout: customer-facing promotion code (not the promo_ API id)
+    STRIPE_WELCOME_PROMO_CUSTOMER_CODE: str = os.getenv(
+        "STRIPE_WELCOME_PROMO_CUSTOMER_CODE", "QUANTTRADE"
+    )
+    STRIPE_WELCOME_PROMO_AMOUNT_LABEL: str = os.getenv(
+        "STRIPE_WELCOME_PROMO_AMOUNT_LABEL", "$15"
+    )
     
     # Vector DB
     VECTOR_STORE_BACKEND: str = "pgvector"  # or "qdrant"

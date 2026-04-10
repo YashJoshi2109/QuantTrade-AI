@@ -2,7 +2,7 @@
 
 /**
  * QuantTrade Pro pricing — single subscription (platform + CoinRealm game for Pro users).
- * Checkout: Stripe Payment Links + optional Buy Button embed (env-configured).
+ * Checkout: Stripe Payment Links (hosted checkout).
  */
 
 import { useState } from 'react'
@@ -30,18 +30,18 @@ import {
   Activity,
   Swords,
   Crown,
+  Tag,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import MobileLayout from '@/components/layout/MobileLayout'
-import { StripeBuyButton } from '@/components/StripeBuyButton'
 import {
-  STRIPE_BUY_BUTTON_MONTHLY_ID,
-  STRIPE_BUY_BUTTON_YEARLY_ID,
-  STRIPE_PUBLISHABLE_KEY,
   STRIPE_PAYMENT_LINK_MONTHLY,
   STRIPE_PAYMENT_LINK_YEARLY,
+  STRIPE_PROMO_CUSTOMER_CODE,
   buildStripePaymentLinkUrl,
 } from '@/lib/stripe-payment'
+
+const WELCOME_PROMO_AMOUNT_LABEL = '$15'
 
 const PRO_MONTHLY = 29.99
 const PRO_YEARLY_TOTAL = 299
@@ -49,17 +49,18 @@ const YEARLY_PER_MONTH_LABEL = (Math.round((PRO_YEARLY_TOTAL / 12) * 100) / 100)
 const ANNUAL_SAVINGS = Math.round(PRO_MONTHLY * 12 - PRO_YEARLY_TOTAL)
 const SAVE_PERCENT_LABEL = Math.round((1 - PRO_YEARLY_TOTAL / (PRO_MONTHLY * 12)) * 100)
 
-const TRADING_FREE_FEATURES = [
-  { label: 'Markets dashboard & indices', ok: true },
-  { label: 'Basic symbol research', ok: true },
-  { label: '3 AI Copilot queries/day', ok: true },
-  { label: 'Watchlist (up to 5 symbols)', ok: true },
-  { label: 'CoinRealm — Apprentice Quarter (10 chapters)', ok: true },
-  { label: 'Unlimited AI Copilot', ok: false },
-  { label: 'Full backtesting engine', ok: false },
-  { label: 'Global Monitor', ok: false },
-  { label: 'SEC filing analysis', ok: false },
-  { label: 'Full CoinRealm game', ok: false },
+const FREE_INCLUDED = [
+  'Markets dashboard & major indices',
+  'Basic symbol research',
+  '3 Copilot messages per day',
+  'Watchlist (5 symbols)',
+  'CoinRealm starter — first 10 chapters',
+]
+
+const FREE_LOCKED = [
+  'Unlimited Copilot & full backtests',
+  'Global monitor & SEC filing depth',
+  'Full CoinRealm (all districts, voice mentor)',
 ]
 
 const TRADING_PRO_FEATURES = [
@@ -118,46 +119,70 @@ function usePricingLogic() {
 }
 
 function FreeCard({
-  features,
+  included,
+  locked,
   cta,
   href,
 }: {
-  features: { label: string; ok: boolean }[]
+  included: string[]
+  locked: string[]
   cta: string
   href: string
 }) {
   return (
-    <div className="relative rounded-2xl border border-slate-700/50 bg-slate-900/60 backdrop-blur-sm p-8 flex flex-col h-full">
-      <div className="mb-6">
-        <div className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2">Free Forever</div>
-        <div className="flex items-baseline gap-2 mb-3">
+    <div className="relative rounded-2xl border border-slate-700/50 bg-gradient-to-b from-slate-900/75 to-slate-950/90 backdrop-blur-sm p-8 flex flex-col h-full overflow-hidden">
+      <div className="pointer-events-none absolute -right-8 -top-8 h-36 w-36 rounded-full bg-cyan-500/[0.06] blur-2xl" />
+      <div className="relative mb-5">
+        <div className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2">Free</div>
+        <div className="flex items-baseline gap-2 mb-2">
           <span className="text-4xl font-black text-white">$0</span>
           <span className="text-slate-500 text-sm">/month</span>
         </div>
-        <p className="text-slate-400 text-sm">Get started at no cost — trading tools + CoinRealm intro.</p>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          Enough to explore the product. Upgrade when you want the heavy tools and the full game.
+        </p>
       </div>
-      <ul className="space-y-3 flex-1 mb-8">
-        {features.map(f => (
-          <li
-            key={f.label}
-            className={`flex items-center gap-3 text-sm ${f.ok ? 'text-slate-300' : 'text-slate-600 line-through'}`}
-          >
-            <div
-              className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${f.ok ? 'bg-slate-700' : 'bg-slate-800'}`}
-            >
-              {f.ok ? (
-                <Check className="w-2.5 h-2.5 text-slate-300" />
-              ) : (
-                <span className="w-1.5 h-0.5 bg-slate-600 rounded-full" />
-              )}
-            </div>
-            {f.label}
-          </li>
-        ))}
-      </ul>
+
+      <div className="relative flex-1 space-y-5 mb-6">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3">What you get</p>
+          <ul className="space-y-2.5">
+            {included.map(label => (
+              <li key={label} className="flex items-start gap-3 text-sm text-slate-200">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-md border border-cyan-500/25 bg-cyan-500/10">
+                  <Check className="h-2.5 w-2.5 text-cyan-400" />
+                </span>
+                <span>{label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-3 border-t border-slate-800/90 pt-4">
+            Unlocks with Pro
+          </p>
+          <ul className="space-y-2">
+            {locked.map(label => (
+              <li key={label} className="flex items-start gap-3 text-sm text-slate-500">
+                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-600" />
+                <span>{label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div className="relative mb-5 rounded-xl border border-slate-700/50 bg-slate-950/50 px-3 py-2.5">
+        <p className="text-[11px] leading-snug text-slate-400">
+          Sign in and we&apos;ll email you code{' '}
+          <span className="font-mono text-cyan-400/90">{STRIPE_PROMO_CUSTOMER_CODE}</span> for{' '}
+          <span className="text-slate-300">{WELCOME_PROMO_AMOUNT_LABEL} off</span> Pro (monthly or yearly) at checkout.
+        </p>
+      </div>
+
       <Link
         href={href}
-        className="block text-center py-3 px-6 rounded-xl border border-slate-700 text-slate-300 font-bold text-sm hover:border-slate-500 hover:text-white transition-all"
+        className="relative block text-center py-3 px-6 rounded-xl border border-slate-600 text-slate-200 font-bold text-sm hover:border-cyan-500/40 hover:bg-slate-800/40 hover:text-white transition-all"
       >
         {cta}
       </Link>
@@ -177,9 +202,6 @@ function ProCard({
   loadingInterval: 'monthly' | 'yearly' | null
 }) {
   const loading = loadingInterval !== null
-  const activeBuyButtonId =
-    billingInterval === 'monthly' ? STRIPE_BUY_BUTTON_MONTHLY_ID : STRIPE_BUY_BUTTON_YEARLY_ID
-  const showBuyButtonEmbed = Boolean(STRIPE_PUBLISHABLE_KEY && activeBuyButtonId)
 
   return (
     <div className="relative rounded-2xl overflow-hidden flex flex-col h-full">
@@ -260,14 +282,14 @@ function ProCard({
           </span>
         </button>
 
-        {showBuyButtonEmbed && (
-          <div className="mt-4 rounded-xl border border-slate-700/60 bg-slate-950/40 p-3">
-            <p className="text-[10px] text-center text-slate-500 uppercase tracking-wider mb-2">
-              Express checkout (Apple Pay, Link, …)
-            </p>
-            <StripeBuyButton buyButtonId={activeBuyButtonId} publishableKey={STRIPE_PUBLISHABLE_KEY} />
-          </div>
-        )}
+        <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-950/25 px-3 py-2.5">
+          <p className="text-center text-[11px] leading-snug text-emerald-100/85">
+            <Tag className="mb-0.5 inline h-3 w-3 align-text-bottom text-emerald-400" />{' '}
+            At Stripe checkout, use{' '}
+            <span className="font-mono font-semibold text-emerald-200">{STRIPE_PROMO_CUSTOMER_CODE}</span> for{' '}
+            {WELCOME_PROMO_AMOUNT_LABEL} off (same code we send by email after you sign in).
+          </p>
+        </div>
 
         <p className="text-center text-[10px] text-slate-600 mt-3 flex items-center justify-center gap-1">
           <CreditCard className="w-3 h-3" /> Powered by Stripe · Cancel anytime
@@ -284,8 +306,8 @@ function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic
     <div className="space-y-4 pb-4">
       <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 pt-safe pb-3 px-2">
         <h1 className="text-[20px] font-bold text-white text-center">Choose Your Plan</h1>
-        <p className="text-[12px] text-slate-400 text-center mb-4">
-          One Pro subscription — full platform + CoinRealm game.
+        <p className="text-[12px] text-slate-400 text-center mb-4 px-1 leading-relaxed">
+          Pro is one bill for research tools and the full CoinRealm game—nothing extra for the game.
         </p>
 
         <div className="flex flex-col items-center gap-3">
@@ -330,7 +352,7 @@ function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic
       )}
 
       <section className="px-3 space-y-4">
-        <MobileFreeCard features={TRADING_FREE_FEATURES} cta="Get started" href="/auth" />
+        <MobileFreeCard included={FREE_INCLUDED} locked={FREE_LOCKED} cta="Get started" href="/auth" />
         <MobileProCard
           billingInterval={billingInterval}
           features={TRADING_PRO_FEATURES}
@@ -342,45 +364,61 @@ function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic
   )
 }
 
-function MobileFreeCard({ features, cta, href }: { features: { label: string; ok: boolean }[]; cta: string; href: string }) {
+function MobileFreeCard({
+  included,
+  locked,
+  cta,
+  href,
+}: {
+  included: string[]
+  locked: string[]
+  cta: string
+  href: string
+}) {
   return (
-    <div className="rounded-2xl border border-white/5 bg-[#1A2332]/60 p-4">
-      <div className="flex items-start justify-between mb-4">
+    <div className="rounded-2xl border border-white/5 bg-[#1A2332]/70 p-4">
+      <div className="mb-3 flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#0A0E1A] border border-white/10 flex items-center justify-center">
-            <Zap className="w-5 h-5 text-slate-300" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#0A0E1A]">
+            <Zap className="h-5 w-5 text-slate-300" />
           </div>
           <div>
             <h2 className="text-[16px] font-semibold text-white">Free</h2>
-            <p className="text-[11px] text-slate-400">Explore QuantTrade + CoinRealm intro.</p>
+            <p className="text-[11px] leading-snug text-slate-400">Try the core experience before you pay.</p>
           </div>
         </div>
         <div className="text-[22px] font-bold text-white">$0</div>
       </div>
 
-      <div className="space-y-2 mb-4">
-        {features
-          .filter(f => f.ok)
-          .map(f => (
-            <div key={f.label} className="flex items-start gap-2 text-[12px] text-slate-300">
-              <Check className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-              <span>{f.label}</span>
-            </div>
-          ))}
-        {features
-          .filter(f => !f.ok)
-          .slice(0, 3)
-          .map(f => (
-            <div key={f.label} className="flex items-start gap-2 text-[12px] text-slate-600 line-through">
-              <span className="w-1.5 h-[2px] bg-slate-600 rounded-full mt-2 shrink-0" />
-              <span>{f.label}</span>
-            </div>
-          ))}
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Included</p>
+      <div className="mb-3 space-y-1.5">
+        {included.map(label => (
+          <div key={label} className="flex items-start gap-2 text-[12px] text-slate-200">
+            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-500/80" />
+            <span>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-600">With Pro</p>
+      <div className="mb-3 space-y-1.5">
+        {locked.slice(0, 4).map(label => (
+          <div key={label} className="flex items-start gap-2 text-[12px] text-slate-500">
+            <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-600" />
+            <span>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-3 rounded-lg border border-white/5 bg-black/20 px-2.5 py-2">
+        <p className="text-[10px] leading-snug text-slate-400">
+          Code <span className="font-mono text-cyan-400/90">{STRIPE_PROMO_CUSTOMER_CODE}</span> → {WELCOME_PROMO_AMOUNT_LABEL} off Pro (emailed after sign-in).
+        </p>
       </div>
 
       <Link
         href={href}
-        className="flex items-center justify-center w-full h-11 rounded-xl text-[13px] font-semibold bg-[#0A0E1A] text-slate-300 border border-white/10 active:scale-[0.98] transition-transform"
+        className="flex h-11 w-full items-center justify-center rounded-xl border border-white/10 bg-[#0A0E1A] text-[13px] font-semibold text-slate-300 transition-transform active:scale-[0.98]"
       >
         {cta}
       </Link>
@@ -404,9 +442,6 @@ function MobileProCard({
   const periodLabel = 'month'
   const yearlySave =
     billingInterval === 'yearly' ? `Billed $${PRO_YEARLY_TOTAL}/year · Save $${ANNUAL_SAVINGS}` : undefined
-  const activeBuyButtonId =
-    billingInterval === 'monthly' ? STRIPE_BUY_BUTTON_MONTHLY_ID : STRIPE_BUY_BUTTON_YEARLY_ID
-  const showBuyButtonEmbed = Boolean(STRIPE_PUBLISHABLE_KEY && activeBuyButtonId)
 
   return (
     <div className="rounded-2xl border border-[#00D9FF]/50 bg-gradient-to-br from-[#00D9FF]/15 via-[#0A0E1A] to-[#141B2D] p-5 relative overflow-hidden shadow-2xl">
@@ -452,14 +487,13 @@ function MobileProCard({
         {loadingInterval === billingInterval ? 'Opening Stripe…' : 'Subscribe with Stripe'}
       </button>
 
-      {showBuyButtonEmbed && (
-        <div className="relative z-10 mt-3 rounded-lg border border-white/10 bg-black/20 p-2">
-          <StripeBuyButton buyButtonId={activeBuyButtonId} publishableKey={STRIPE_PUBLISHABLE_KEY} />
-        </div>
-      )}
+      <p className="relative z-10 mt-2.5 text-center text-[10px] leading-snug text-emerald-200/80">
+        <Tag className="mr-0.5 inline h-3 w-3 text-emerald-400" />
+        {STRIPE_PROMO_CUSTOMER_CODE} at checkout → {WELCOME_PROMO_AMOUNT_LABEL} off
+      </p>
 
-      <div className="text-center text-[9px] text-slate-500 mt-3 relative z-10 flex items-center justify-center gap-1.5">
-        <CreditCard className="w-3 h-3" /> Stripe checkout
+      <div className="relative z-10 mt-2 flex items-center justify-center gap-1.5 text-center text-[9px] text-slate-500">
+        <CreditCard className="h-3 w-3" /> Stripe checkout
       </div>
     </div>
   )
@@ -481,19 +515,16 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
                 QuantTrade AI
               </span>
             </div>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold uppercase tracking-widest mb-6">
-              <Zap className="w-3 h-3" /> Simple, Transparent Pricing
-            </div>
-            <h1 className="text-4xl md:text-5xl font-black text-white mb-4 leading-tight">
+            <h1 className="text-4xl md:text-5xl font-black text-white mb-5 leading-tight">
               Choose Your
               <br />
               <span className="bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 bg-clip-text text-transparent">
                 QuantTrade Pro Plan
               </span>
             </h1>
-            <p className="text-slate-400 max-w-lg mx-auto text-base leading-relaxed">
-              One subscription unlocks the full trading platform <strong className="text-slate-300">and</strong> the full{' '}
-              <strong className="text-amber-200/90">CoinRealm</strong> game — no separate game plan.
+            <p className="text-slate-400 max-w-xl mx-auto text-base leading-relaxed">
+              Free tier gets you real usage: markets, a small Copilot allowance, and the opening arc of CoinRealm. Pro is
+              when you want the full research stack and the rest of the game—still a single subscription, not two.
             </p>
           </motion.div>
 
@@ -549,7 +580,7 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
             transition={{ duration: 0.3 }}
             className="grid md:grid-cols-2 gap-6 mb-14 items-stretch"
           >
-            <FreeCard features={TRADING_FREE_FEATURES} cta="Get Started Free" href="/auth" />
+            <FreeCard included={FREE_INCLUDED} locked={FREE_LOCKED} cta="Get Started Free" href="/auth" />
             <ProCard
               billingInterval={billingInterval}
               features={TRADING_PRO_FEATURES}

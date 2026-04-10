@@ -12,6 +12,12 @@
 #   - EC2_USER: SSH username (ubuntu)
 #   - EC2_SSH_KEY: Private SSH key for EC2
 #   - GHCR_TOKEN: GitHub token for container registry (or use GITHUB_TOKEN)
+#   - BREVO_API_KEY + BREVO_FROM_EMAIL: transactional email (OTP, login alert, welcome promo)
+#
+# Production behavior:
+#   - Frontend image: NEXT_PUBLIC_STRIPE_* + promo code baked in at build (see build-args below).
+#   - Backend: APP_URL + welcome promo defaults via docker-compose.prod.yml + .env; DB column
+#     welcome_promo_email_sent_at applied automatically after deploy (idempotent script).
 # ============================================
 
 name: Deploy to Production
@@ -111,9 +117,7 @@ jobs:
             NEXT_PUBLIC_GA_MEASUREMENT_ID=G-7X19HSHVQD
             NEXT_PUBLIC_STRIPE_PAYMENT_LINK_MONTHLY=https://buy.stripe.com/dRmbJ2ae80Y2aw36KU7Re01
             NEXT_PUBLIC_STRIPE_PAYMENT_LINK_YEARLY=https://buy.stripe.com/4gM3cwae8bCG7jRd9i7Re02
-            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_51SxjkTLE7UInSceyarwxLjQgunNCgmWGGHCh0HUV4dgPueuosn78J8jqirYBtaLMIaXtJMFad9LKqceMy0J29VbO004j9MBZ1S
-            NEXT_PUBLIC_STRIPE_BUY_BUTTON_MONTHLY_ID=buy_btn_1TKnKFLE7UInSceyCOcBlA1i
-            NEXT_PUBLIC_STRIPE_BUY_BUTTON_YEARLY_ID=buy_btn_1TKnLOLE7UInSceysCcGa6aM
+            NEXT_PUBLIC_STRIPE_PROMO_CODE=QUANTTRADE
 
   # ==========================================
   # Deploy to EC2
@@ -283,6 +287,10 @@ jobs:
             echo "WEBAUTHN_RP_ID=quanttrade.us" >> .env
             echo "WEBAUTHN_ORIGIN=https://www.quanttrade.us" >> .env
             echo "WEBAUTHN_ORIGINS=https://www.quanttrade.us,https://quanttrade.us" >> .env
+            echo "" >> .env
+            echo "# === Welcome promo email (matches Stripe promotion code QUANTTRADE) ===" >> .env
+            echo "STRIPE_WELCOME_PROMO_CUSTOMER_CODE=QUANTTRADE" >> .env
+            echo 'STRIPE_WELCOME_PROMO_AMOUNT_LABEL=$15' >> .env
 
             chmod 600 .env
             echo "✅ .env written with $(wc -l < .env) lines"
@@ -379,6 +387,12 @@ jobs:
               docker logs --tail=50 quanttrade-backend
               exit 1
             fi
+
+            # ===== DB: welcome promo dedupe column (idempotent; required for welcome email) =====
+            echo "🧱 Applying DB migration welcome_promo_email_sent_at (if missing)..."
+            docker compose -f docker-compose.prod.yml exec -T quanttrade-backend \
+              python scripts/add_welcome_promo_email_column.py \
+              || echo "⚠️ Migration script failed — run on Neon: ALTER TABLE users ADD COLUMN IF NOT EXISTS welcome_promo_email_sent_at TIMESTAMP;"
             
             # ===== POST-DEPLOY CLEANUP =====
             echo "🧹 Post-deploy cleanup..."

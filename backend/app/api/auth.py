@@ -2,6 +2,7 @@
 Authentication API endpoints
 """
 import asyncio
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -23,11 +24,19 @@ from app.services.otp_service import (
     set_rate_limit,
     send_otp_email,
 )
+logger = logging.getLogger(__name__)
+
 try:
     from app.services.login_notification_service import send_login_notification
     LOGIN_NOTIFY_AVAILABLE = True
 except ImportError:
     LOGIN_NOTIFY_AVAILABLE = False
+
+try:
+    from app.services.welcome_promo_email_service import schedule_welcome_promo_email
+    WELCOME_PROMO_AVAILABLE = True
+except ImportError:
+    WELCOME_PROMO_AVAILABLE = False
 
 # Google OAuth
 try:
@@ -294,6 +303,12 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    if WELCOME_PROMO_AVAILABLE:
+        try:
+            schedule_welcome_promo_email(user.id)
+        except Exception as exc:
+            logger.debug("welcome promo schedule skipped: %s", exc)
     
     # Generate token
     token = create_access_token(user.id)
@@ -340,6 +355,12 @@ async def login(credentials: UserLogin, request: Request, db: Session = Depends(
                 user_agent=user_agent,
             )
         )
+
+    if WELCOME_PROMO_AVAILABLE:
+        try:
+            schedule_welcome_promo_email(user.id)
+        except Exception as exc:
+            logger.debug("welcome promo schedule skipped: %s", exc)
     
     # Generate token
     token = create_access_token(user.id)
@@ -428,6 +449,12 @@ async def google_verify_token(
         user.last_login = datetime.utcnow()
         db.commit()
         db.refresh(user)
+
+        if WELCOME_PROMO_AVAILABLE:
+            try:
+                schedule_welcome_promo_email(user.id)
+            except Exception as exc:
+                logger.debug("welcome promo schedule skipped: %s", exc)
         
         # Generate token
         token = create_access_token(user.id)
@@ -484,6 +511,12 @@ async def google_auth(google_data: GoogleLogin, db: Session = Depends(get_db)):
     user.last_login = datetime.utcnow()
     db.commit()
     db.refresh(user)
+
+    if WELCOME_PROMO_AVAILABLE:
+        try:
+            schedule_welcome_promo_email(user.id)
+        except Exception as exc:
+            logger.debug("welcome promo schedule skipped: %s", exc)
     
     # Generate token
     token = create_access_token(user.id)
