@@ -4,12 +4,12 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional
-from elevenlabs.client import ElevenLabs
 
 router = APIRouter()
 
 # Initialize the ElevenLabs client. Will throw if key is missing/invalid when requested.
 try:
+    from elevenlabs.client import ElevenLabs
     client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY", ""))
 except Exception as e:
     client = None

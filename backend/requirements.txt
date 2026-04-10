@@ -76,3 +76,4 @@ websockets
 # PyPI package is "webauthn" (duo-labs/py_webauthn); "py-webauthn" is a different project (0.0.x only).
 webauthn>=2.1.0
 APScheduler>=3.10.0
+elevenlabs>=2.42.0
