@@ -109,6 +109,11 @@ jobs:
             NEXT_PUBLIC_API_URL=https://www.quanttrade.us
             NEXT_PUBLIC_GTM_ID=GTM-KWMSXH37
             NEXT_PUBLIC_GA_MEASUREMENT_ID=G-7X19HSHVQD
+            NEXT_PUBLIC_STRIPE_PAYMENT_LINK_MONTHLY=https://buy.stripe.com/dRmbJ2ae80Y2aw36KU7Re01
+            NEXT_PUBLIC_STRIPE_PAYMENT_LINK_YEARLY=https://buy.stripe.com/4gM3cwae8bCG7jRd9i7Re02
+            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_51SxjkTLE7UInSceyarwxLjQgunNCgmWGGHCh0HUV4dgPueuosn78J8jqirYBtaLMIaXtJMFad9LKqceMy0J29VbO004j9MBZ1S
+            NEXT_PUBLIC_STRIPE_BUY_BUTTON_MONTHLY_ID=buy_btn_1TKnKFLE7UInSceyCOcBlA1i
+            NEXT_PUBLIC_STRIPE_BUY_BUTTON_YEARLY_ID=buy_btn_1TKnLOLE7UInSceysCcGa6aM
 
   # ==========================================
   # Deploy to EC2
@@ -359,7 +364,7 @@ jobs:
             # Fallback to backend direct port in case nginx route is not ready yet.
             for i in 1 2 3 4 5 6 7 8 9 10; do
               if curl -sS -L -f http://localhost/health || curl -sS -L -f http://localhost:8000/health; then
-                echo "✅ Health check passed!"
+                echo "✅ Bhai Health check passed Hogaya!"
                 break
               fi
               echo "Waiting for services... (attempt $i/10)"

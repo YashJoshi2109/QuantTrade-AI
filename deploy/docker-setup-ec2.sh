@@ -42,7 +42,7 @@ JWT_SECRET_KEY=your-super-secret-jwt-key-change-this
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
-# Stripe
+# Stripe (use Live keys + recurring price IDs from Dashboard; see deploy/.env.production.template)
 STRIPE_SECRET_KEY=sk_test_xxx
 STRIPE_WEBHOOK_SECRET=whsec_xxx
 STRIPE_PRICE_PLUS_MONTHLY=price_xxx

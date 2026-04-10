@@ -14,7 +14,7 @@ def test_webhook_signature_happy_path():
     secret = "whsec_test_secret"
     payload = b'{"id":"evt_test","object":"event"}'
     timestamp = int(time.time())
-    signed_payload = f"{timestamp}.{payload.decode()}".encode()
+    signed_payload = f"{timestamp}.{payload.decode()}"
 
     signature = stripe.WebhookSignature._compute_signature(signed_payload, secret)
     header = f"t={timestamp},v1={signature}"

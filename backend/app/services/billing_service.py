@@ -96,25 +96,28 @@ def upsert_subscription_from_stripe(
     return subscription
 
 
-def record_billing_event(db: Session, stripe_event_id: str, event_type: str) -> bool:
-    """
-    Idempotency helper for webhook processing.
-
-    Returns True if the event is new and should be processed,
-    False if the event was already seen.
-    """
-    existing = (
+def billing_event_exists(db: Session, stripe_event_id: str) -> bool:
+    """True if this Stripe event id was already fully processed (row present)."""
+    return (
         db.query(BillingEvent)
         .filter(BillingEvent.stripe_event_id == stripe_event_id)
         .one_or_none()
+        is not None
     )
-    if existing:
-        return False
 
+
+def mark_billing_event_processed(
+    db: Session, stripe_event_id: str, event_type: str
+) -> None:
+    """
+    Persist webhook completion after handlers succeed.
+
+    Must only be called after subscription/customer updates commit successfully.
+    Concurrent duplicate deliveries may raise IntegrityError (unique stripe_event_id).
+    """
     event = BillingEvent(stripe_event_id=stripe_event_id, type=event_type)
     db.add(event)
     db.commit()
-    return True
 
 
 def is_premium(db: Session, user_id: int) -> bool:

@@ -22,7 +22,8 @@ Endpoints:
 - POST /api/v1/billing/webhook
   - Stripe webhook endpoint.
   - Verifies signature with STRIPE_WEBHOOK_SECRET using the raw request body.
-  - Uses billing_events table for idempotency (stripe_event_id).
+  - Uses billing_events table for idempotency (stripe_event_id), recorded only after
+  handlers succeed so Stripe retries are not incorrectly skipped.
 
 Webhook Events Mapping:
 - checkout.session.completed
@@ -58,9 +59,12 @@ from app.config import settings
 from app.db.database import get_db
 from app.models.billing import BillingCustomer, Subscription
 from app.models.user import User
+from sqlalchemy.exc import IntegrityError
+
 from app.services.billing_service import (
+    billing_event_exists,
     get_or_create_billing_customer,
-    record_billing_event,
+    mark_billing_event_processed,
     upsert_subscription_from_stripe,
 )
 
@@ -108,6 +112,30 @@ class SubscriptionStatusResponse(BaseModel):
     price_id: Optional[str] = None
     current_period_end: Optional[datetime] = None
     cancel_at_period_end: Optional[bool] = None
+
+
+def _validate_recurring_subscription_price(price_id: str) -> None:
+    """
+    Subscription Checkout requires recurring prices. One-time prices fail at Stripe
+    with a vague error if misconfigured in STRIPE_PRICE_PLUS_*.
+    """
+    try:
+        price = stripe.Price.retrieve(price_id)
+    except stripe.error.StripeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid or inaccessible Stripe price: {exc}",
+        ) from exc
+    if price.get("type") != "recurring":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Configured Stripe price is not recurring. Subscription checkout "
+                "needs a recurring monthly/yearly price, not a one-time price. "
+                "Update STRIPE_PRICE_PLUS_MONTHLY / STRIPE_PRICE_PLUS_YEARLY to the "
+                "recurring price IDs from the Stripe Dashboard."
+            ),
+        )
 
 
 def _resolve_price_id(body: CheckoutSessionRequest) -> str:
@@ -201,6 +229,7 @@ async def create_checkout_session(
         )
 
     price_id = _resolve_price_id(body)
+    _validate_recurring_subscription_price(price_id)
     billing_customer = _get_stripe_customer_for_user(db, user)
 
     try:
@@ -401,11 +430,7 @@ async def stripe_webhook(
     event_id = event["id"]
     event_type = event["type"]
 
-    # Idempotency: skip if we've already processed this event
-    should_process = record_billing_event(
-        db=db, stripe_event_id=event_id, event_type=event_type
-    )
-    if not should_process:
+    if billing_event_exists(db, event_id):
         return {"received": True, "idempotent": True}
 
     data_object = event.get("data", {}).get("object", {})
@@ -480,6 +505,11 @@ async def stripe_webhook(
                 db=db, user=user, stripe_subscription=subscription_obj
             )
 
-    # Acknowledge receipt
+    try:
+        mark_billing_event_processed(db, event_id, event_type)
+    except IntegrityError:
+        # Concurrent duplicate delivery finished first
+        db.rollback()
+
     return {"received": True}
 
