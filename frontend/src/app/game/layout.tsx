@@ -21,8 +21,8 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     // Attempt to lock screen to landscape mode on mobile devices for better game feel
-    if (typeof screen !== 'undefined' && screen.orientation && screen.orientation.lock) {
-      screen.orientation.lock('landscape').catch(() => {
+    if (typeof screen !== 'undefined' && screen.orientation && 'lock' in screen.orientation) {
+      ;(screen.orientation as { lock: (orientation: string) => Promise<void> }).lock('landscape').catch(() => {
         // often fails without explicit user interaction or on desktop
       })
     }
