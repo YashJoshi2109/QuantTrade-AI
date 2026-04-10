@@ -1114,7 +1114,18 @@ function DesktopHome() {
     }
     return s
   }, [regionMovers])
-  const breadth = (regionMovers?.gainers?.length || 0) - (regionMovers?.losers?.length || 0)
+  /** Full-universe breadth from sector heatmap (covers all tracked stocks, not just top 10 movers) */
+  const sectorAdvancers = useMemo(
+    () => sectors.reduce((sum, s) => sum + s.stocks.filter((st) => st.change_percent > 0).length, 0),
+    [sectors],
+  )
+  const sectorDecliners = useMemo(
+    () => sectors.reduce((sum, s) => sum + s.stocks.filter((st) => st.change_percent < 0).length, 0),
+    [sectors],
+  )
+  const sectorTotal = sectorAdvancers + sectorDecliners
+  const breadth = sectorTotal > 0 ? sectorAdvancers - sectorDecliners
+    : (regionMovers?.gainers?.length || 0) - (regionMovers?.losers?.length || 0)
   const breadthTone = breadth > 0 ? 'Risk-On' : breadth < 0 ? 'Risk-Off' : 'Balanced'
   const breadthColor = breadth > 0 ? 'text-emerald-400' : breadth < 0 ? 'text-red-400' : 'text-yellow-400'
 
@@ -1208,8 +1219,16 @@ function DesktopHome() {
           <div>
             <h1 className="text-lg font-bold text-white flex items-center gap-2">
               <Layers className="w-4 h-4 text-[#007AFF]" />
-              {isAuthenticated && user?.email ? (
-                <>Dashboard — <span className="text-[#007AFF] font-mono text-sm">{user.email.split('@')[0]}</span></>
+              {isAuthenticated && user ? (
+                <>
+                  Dashboard —{' '}
+                  <span className="text-[#007AFF] font-semibold text-sm capitalize">
+                    {(user as { full_name?: string; username?: string; email?: string }).full_name?.split(' ')[0] ||
+                     (user as { full_name?: string; username?: string; email?: string }).username ||
+                     user.email?.split('@')[0] ||
+                     'you'}
+                  </span>
+                </>
               ) : (
                 <>Dashboard</>
               )}
@@ -1226,10 +1245,19 @@ function DesktopHome() {
                 <>
                   {' · '}
                   <span className={breadthColor + ' font-bold'}>{breadthTone}</span>
-                  {!regionMoversLoading && (
+                  {(sectorTotal > 0 || !regionMoversLoading) && (
                     <>
                       {' · '}
-                      {regionMovers?.gainers?.length || 0}↑ {regionMovers?.losers?.length || 0}↓
+                      <span className="text-emerald-400">
+                        {sectorTotal > 0 ? sectorAdvancers : regionMovers?.gainers?.length || 0}↑
+                      </span>
+                      {' '}
+                      <span className="text-red-400">
+                        {sectorTotal > 0 ? sectorDecliners : regionMovers?.losers?.length || 0}↓
+                      </span>
+                      {sectorTotal > 0 && (
+                        <span className="text-slate-600"> /{sectorTotal}</span>
+                      )}
                     </>
                   )}
                 </>

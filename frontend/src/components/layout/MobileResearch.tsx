@@ -40,6 +40,7 @@ import Chart from '@/components/Chart'
 import LiveNews from '@/components/LiveNews'
 import KeyFactorsPanel from '@/components/KeyFactorsPanel'
 import FundamentalsPanel from '@/components/FundamentalsPanel'
+import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 
 const TIMEFRAMES = ['1D', '1W', '1M', '3M', '1Y', 'All'] as const
 type Timeframe = (typeof TIMEFRAMES)[number]
@@ -677,6 +678,8 @@ export default function MobileResearch() {
 
         {/* === NEWS TAB === */}
         {activeTab === 'news' && (
+          <div className="space-y-3">
+            <MobileCompanyProfile symbol={symbolFromUrl} />
           <div className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-3 text-[12px] text-slate-200">
             <div className="space-y-2">
               <div className="flex items-center gap-2 mb-1">
@@ -694,8 +697,121 @@ export default function MobileResearch() {
               </div>
             </div>
           </div>
+          </div>
         )}
       </section>
+    </div>
+  )
+}
+
+// ─── Mobile Company Profile ───────────────────────────────────────────────────
+
+function MobileCompanyProfile({ symbol }: { symbol: string }) {
+  const { data: info, isLoading } = useQuery<TickerInfo>({
+    queryKey: ['tickerInfo', symbol],
+    queryFn: async () => {
+      const res = await fetch(`/api/quotes/ticker?symbol=${encodeURIComponent(symbol)}`)
+      if (!res.ok) throw new Error('Not found')
+      return res.json()
+    },
+    staleTime: 300_000,
+    retry: 1,
+  })
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-4 animate-pulse space-y-2">
+        <div className="h-4 bg-slate-700/60 rounded w-40" />
+        <div className="h-3 bg-slate-700/40 rounded w-64" />
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          {[0,1,2,3].map(i => <div key={i} className="h-10 bg-slate-700/30 rounded-lg" />)}
+        </div>
+      </div>
+    )
+  }
+
+  if (!info?.name) return null
+
+  const fmtBig = (n: number) => {
+    if (!n || !isFinite(n)) return '—'
+    if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`
+    if (n >= 1e9)  return `$${(n / 1e9).toFixed(2)}B`
+    if (n >= 1e6)  return `$${(n / 1e6).toFixed(2)}M`
+    return `$${n.toFixed(0)}`
+  }
+  const fmtN = (n: number, d = 2) => (n && isFinite(n) ? formatNumber(n, d) : '—')
+  const fmtP = (n: number) => (n && isFinite(n) ? `${n.toFixed(2)}%` : '—')
+
+  const recColor = (r: string) =>
+    r === 'buy' || r === 'strongBuy'
+      ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+      : r === 'sell' || r === 'strongSell'
+        ? 'text-red-400 bg-red-500/10 border-red-500/20'
+        : 'text-amber-300 bg-amber-500/10 border-amber-500/20'
+
+  return (
+    <div className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-4 space-y-3">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-[14px] font-bold text-white truncate">{info.name}</h3>
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            {info.sector && (
+              <span className="text-[10px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-full border border-slate-700/40">
+                {info.sector}
+              </span>
+            )}
+            {info.exchange_display && (
+              <span className="text-[10px] font-mono text-slate-500 bg-slate-800/40 px-2 py-0.5 rounded-full">
+                {info.exchange_display}
+              </span>
+            )}
+            {info.recommendation && (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${recColor(info.recommendation)}`}>
+                {info.recommendation.replace('strongBuy', 'Strong Buy').replace('strongSell', 'Strong Sell').replace('buy','Buy').replace('sell','Sell').replace('hold','Hold')}
+              </span>
+            )}
+          </div>
+        </div>
+        {info.website && (
+          <a href={info.website} target="_blank" rel="noopener noreferrer"
+            className="shrink-0 p-2 rounded-xl bg-slate-800/60 border border-slate-700/40 text-slate-400">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        )}
+      </div>
+
+      {info.description && (
+        <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-3">{info.description}</p>
+      )}
+
+      {/* Key metrics */}
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          { label: 'Market Cap', value: fmtBig(info.market_cap) },
+          { label: 'P/E Ratio',  value: fmtN(info.pe_ratio) },
+          { label: 'EPS',        value: info.eps ? `$${fmtN(info.eps)}` : '—' },
+          { label: 'Beta',       value: fmtN(info.beta) },
+          { label: '52W High',   value: info.week_52_high ? `$${fmtN(info.week_52_high)}` : '—' },
+          { label: '52W Low',    value: info.week_52_low  ? `$${fmtN(info.week_52_low)}`  : '—' },
+          { label: 'Div Yield',  value: fmtP(info.dividend_yield) },
+          { label: 'ROE',        value: fmtP(info.return_on_equity) },
+        ].map((m) => (
+          <div key={m.label} className="rounded-xl bg-[#0A0E1A] border border-white/5 px-3 py-2">
+            <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">{m.label}</div>
+            <div className="text-[13px] font-mono font-semibold text-white">{m.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {info.target_price && (
+        <div className="flex items-center justify-between bg-[#007AFF]/8 border border-[#007AFF]/20 rounded-xl px-3 py-2">
+          <span className="text-[11px] text-slate-400">Analyst target</span>
+          <span className="text-[13px] font-mono font-bold text-[#007AFF]">${fmtN(info.target_price)}</span>
+        </div>
+      )}
     </div>
   )
 }

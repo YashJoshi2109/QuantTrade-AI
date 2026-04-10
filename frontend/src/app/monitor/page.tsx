@@ -308,9 +308,6 @@ function MonitorDesktop() {
                         </span>
                       )}
                     </div>
-                    <div className="text-[9px] text-slate-500 font-mono mt-0.5">
-                      ACLED · GDELT · USGS · OpenSky ADS-B · AIS Stream · EIA · Polymarket
-                    </div>
                   </div>
                 </div>
 

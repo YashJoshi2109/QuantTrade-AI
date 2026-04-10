@@ -1154,13 +1154,10 @@ function CopilotInner() {
     refetchInterval: 60_000,
   })
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((force = false) => {
+    if (!force) return
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages, scrollToBottom])
 
   // Load conversation messages when selecting a conversation
   const loadConversation = useCallback(async (conversationId: string) => {
@@ -1225,6 +1222,7 @@ function CopilotInner() {
       setMessages((prev) => [...prev, userMsg, assistantMsg])
       setInput('')
       setStreaming(true)
+      setTimeout(() => scrollToBottom(true), 80)
       setPipelineStage('intent')
       setAnalysisData(null)
       setCurrentIntent(undefined)
@@ -1558,7 +1556,7 @@ export default function CopilotPage() {
   return (
     <>
       <div className="hidden md:block">
-        <AppLayout>
+        <AppLayout hideFooter>
           <CopilotInner />
         </AppLayout>
       </div>

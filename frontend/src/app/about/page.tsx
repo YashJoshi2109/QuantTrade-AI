@@ -10,6 +10,7 @@ import { useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import AppLayout from '@/components/AppLayout'
+import BottomNav from '@/components/layout/BottomNav'
 import { motion, useInView } from 'framer-motion'
 import {
   Globe, BarChart3, Brain, Zap, TrendingUp, Layers, Database,
@@ -81,8 +82,13 @@ function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
 
 export default function AboutPage() {
   return (
+    <>
+      {/* ─── Mobile view ─────────────────────────────── */}
+      <MobileAbout />
+
+      {/* ─── Desktop / tablet view ───────────────────── */}
     <AppLayout>
-      <div className="min-h-screen bg-[#020617] -mx-4 md:-mx-6 -my-4 md:-my-6">
+      <div className="hidden md:block min-h-screen bg-[#020617] -mx-4 md:-mx-6 -my-4 md:-my-6">
         <div className="max-w-4xl mx-auto px-6 py-16">
 
           {/* HERO */}
@@ -299,5 +305,156 @@ export default function AboutPage() {
         </div>
       </div>
     </AppLayout>
+    </>
+  )
+}
+
+// ─── Mobile About ─────────────────────────────────────────────────────────────
+
+function MobileAbout() {
+  const capabs = [
+    { icon: BarChart3, title: 'Research', body: 'Real-time charts, 20+ indicators, AI analysis', color: '#00D4FF' },
+    { icon: Globe,    title: 'Monitor',  body: 'Geopolitical globe · 12 intelligence layers',  color: '#00FF88' },
+    { icon: TrendingUp, title: 'Backtest', body: 'Strategy engine · Sharpe · Monte Carlo',     color: '#FF9F43' },
+    { icon: Brain,    title: 'AI Copilot', body: 'RAG analysis grounded in real filings',      color: '#A78BFA' },
+    { icon: Zap,      title: 'Ideas Lab', body: 'AI setups scored 0–100% confidence',          color: '#FBBF24' },
+    { icon: Layers,   title: 'Markets',   body: 'Sector heatmaps · gainers · indices',         color: '#F472B6' },
+  ]
+
+  const stats = [
+    { label: 'Data Sources', value: '14+' },
+    { label: 'Assets',       value: '12K+' },
+    { label: 'Markets',      value: '60+' },
+    { label: 'AI Queries',   value: '∞ Pro' },
+  ]
+
+  return (
+    <div className="md:hidden min-h-screen bg-[#020617] text-white flex flex-col pb-28">
+      {/* Hero */}
+      <div className="relative overflow-hidden px-5 pt-14 pb-10">
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-64 bg-cyan-500 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 right-0 w-64 h-48 bg-blue-600 rounded-full blur-3xl" />
+        </div>
+        <motion.div
+          className="relative"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-cyan-500/25 overflow-hidden shadow-lg shadow-cyan-500/15">
+              <Image src="/logo.png" alt="QuantTrade AI" width={48} height={48} className="object-contain" />
+            </div>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600">QuantTrade Technologies</p>
+              <h1 className="text-xl font-black text-white">QuantTrade AI</h1>
+            </div>
+          </div>
+          <p className="text-lg font-light text-slate-300 leading-relaxed mb-3">
+            Institutional-grade intelligence at <span className="text-white font-semibold">retail price.</span>
+          </p>
+          <p className="text-[13px] text-slate-500 leading-relaxed">
+            Real-time data, geopolitical risk, AI research, and strategy backtesting in one tool. Built by a single engineer for serious discretionary traders.
+          </p>
+        </motion.div>
+      </div>
+
+      {/* Stats row */}
+      <div className="px-5 mb-6">
+        <div className="grid grid-cols-4 gap-2">
+          {stats.map((s, i) => (
+            <motion.div
+              key={s.label}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.07 }}
+              className="bg-slate-900/70 border border-slate-800/60 rounded-2xl p-3 text-center"
+            >
+              <div className="text-[17px] font-black text-white">{s.value}</div>
+              <div className="text-[9px] text-slate-500 uppercase tracking-wider mt-0.5 leading-tight">{s.label}</div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Capabilities */}
+      <div className="px-5 mb-6 space-y-2">
+        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-3">Capabilities</p>
+        {capabs.map((c, i) => {
+          const Icon = c.icon
+          return (
+            <motion.div
+              key={c.title}
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 + i * 0.06 }}
+              className="flex items-center gap-3 bg-slate-900/60 border border-slate-800/60 rounded-2xl px-4 py-3"
+            >
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: `${c.color}18`, border: `1px solid ${c.color}25` }}
+              >
+                <Icon className="w-4 h-4" style={{ color: c.color }} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[13px] font-bold text-white">{c.title}</div>
+                <div className="text-[11px] text-slate-500 truncate">{c.body}</div>
+              </div>
+            </motion.div>
+          )
+        })}
+      </div>
+
+      {/* Tech stack */}
+      <div className="px-5 mb-6">
+        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-3">Tech Stack</p>
+        <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 space-y-2.5">
+          {[
+            { label: 'Frontend', value: 'Next.js 15, React 18, Framer Motion, Three.js' },
+            { label: 'Backend',  value: 'FastAPI, SQLAlchemy, Celery, WebSockets' },
+            { label: 'AI / ML',  value: 'GPT-4o, LangChain RAG, pgvector embeddings' },
+            { label: 'Data',     value: 'PostgreSQL (Neon), Redis, 14 live APIs' },
+            { label: 'Infra',    value: 'Vercel Edge, Railway, Cloudflare CDN' },
+          ].map((s) => (
+            <div key={s.label} className="flex gap-2">
+              <span className="text-[11px] text-slate-600 w-16 shrink-0 font-bold">{s.label}</span>
+              <span className="text-[11px] text-slate-400 leading-snug">{s.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Disclaimer */}
+      <div className="px-5 mb-6">
+        <div className="bg-amber-500/5 border border-amber-500/15 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="text-[11px] font-bold text-amber-300">Not investment advice</span>
+          </div>
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            All data is sourced from third parties and provided "as is". Market data may be delayed. QuantTrade AI is not a registered investment adviser or broker-dealer.
+          </p>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="px-5 mb-6 flex flex-col gap-3">
+        <Link
+          href="/pricing"
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 text-white font-bold text-[14px]"
+        >
+          <Zap className="w-4 h-4" /> View Pricing
+        </Link>
+        <Link
+          href="/"
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-slate-700 text-slate-300 font-bold text-[14px]"
+        >
+          Open Dashboard
+        </Link>
+      </div>
+
+      <BottomNav />
+    </div>
   )
 }

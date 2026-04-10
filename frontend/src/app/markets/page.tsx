@@ -820,14 +820,6 @@ function DesktopMarketsPage() {
               <Globe className="w-6 h-6 sm:w-7 sm:h-7 text-[#007AFF]" />
               Markets Overview
             </h1>
-            <p className="text-slate-400 text-xs sm:text-sm mt-1 max-w-2xl">
-              Real-time global data · US sector heatmap covers{' '}
-              {coverage?.heatmap_universe_count ?? marketStats.totalStocks}+ large-cap stocks
-              {coverage && coverage.symbols_master_active > 0
-                ? ` · ${formatNumber(coverage.symbols_master_active, 0)} symbols in search DB`
-                : ''}
-              {' '}· Americas tab: 300 US · 50 Canada · 15 Brazil · Exchange tabs: 100 India · 50 Japan · 40 HK · 40 China · 20 Korea · 20 Australia.
-            </p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <CurrencySelector value={displayCurrency} onChange={setDisplayCurrency} />
@@ -1013,15 +1005,8 @@ function DesktopMarketsPage() {
                   : marketStats.totalStocks}
               </div>
               <div className="text-xs text-slate-500 leading-snug">
-                {coverage && coverage.symbols_master_active > 0
-                  ? 'Symbols in database (search)'
-                  : 'Heatmap quotes (sample)'}
+                Stocks tracked
               </div>
-              {coverage && coverage.symbols_master_active > 0 ? (
-                <div className="text-[10px] text-slate-600 mt-0.5">
-                  Heatmap sample: {marketStats.totalStocks}
-                </div>
-              ) : null}
             </div>
           </div>
           <div className="hud-panel p-4 flex items-center gap-3">

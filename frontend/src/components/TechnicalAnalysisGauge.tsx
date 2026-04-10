@@ -120,162 +120,204 @@ function Gauge({ signal, title, subtitle, delay = 0 }: GaugeProps) {
   const reactId = useId().replace(/:/g, '')
   const filterId = `glow-${reactId}`
   const needleGradId = `needle-grad-${reactId}`
-  const trackGradId = `track-${reactId}`
 
+  /** 
+   * Coordinate system: pivot is at (100, 100) so the whole
+   * semicircle fits cleanly inside a 200×110 viewBox (leaves 10px below pivot).
+   */
   const cx = 100
-  const cy = 94
-  const rTrack = 62
-  const rColor = 56
-  const needleLen = 46
-  /** Semicircle: sell (left) = -90°, buy (right) = +90°, neutral = 0° (up) */
+  const cy = 100
+  const rOuter = 80   // outer edge of color band
+  const rInner = 64   // inner edge of color band (band width = 16)
+  const rMid   = 72   // midline used for tick marks
+  const needleLen = 72
+
+  /** value ∈ [-1, 1] → rotation ∈ [-90°, +90°] (0° = pointing up) */
   const needleRotate = signal.value * 90
   const biasScore = Math.round(signal.value * 50)
 
   const zones = [
     { start: 180, end: 144, color: SIGNAL_COLORS.STRONG_SELL },
     { start: 144, end: 108, color: SIGNAL_COLORS.SELL },
-    { start: 108, end: 72, color: SIGNAL_COLORS.NEUTRAL },
-    { start: 72, end: 36, color: SIGNAL_COLORS.BUY },
-    { start: 36, end: 0, color: SIGNAL_COLORS.STRONG_BUY },
+    { start: 108, end: 72,  color: SIGNAL_COLORS.NEUTRAL },
+    { start: 72,  end: 36,  color: SIGNAL_COLORS.BUY },
+    { start: 36,  end: 0,   color: SIGNAL_COLORS.STRONG_BUY },
   ]
 
+  /** SVG arc path for a semicircular segment at given radius between startDeg→endDeg */
   const arcPath = (startDeg: number, endDeg: number, radius: number) => {
-    const startRad = (startDeg * Math.PI) / 180
-    const endRad = (endDeg * Math.PI) / 180
-    const x1 = cx + radius * Math.cos(startRad)
-    const y1 = cy - radius * Math.sin(startRad)
-    const x2 = cx + radius * Math.cos(endRad)
-    const y2 = cy - radius * Math.sin(endRad)
+    const s = (startDeg * Math.PI) / 180
+    const e = (endDeg   * Math.PI) / 180
+    const x1 = cx + radius * Math.cos(s)
+    const y1 = cy - radius * Math.sin(s)
+    const x2 = cx + radius * Math.cos(e)
+    const y2 = cy - radius * Math.sin(e)
     const largeArc = startDeg - endDeg > 180 ? 1 : 0
     return `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 0 ${x2} ${y2}`
   }
 
-  const dialTicks = [180, 135, 90, 45, 0]
+  /** Filled arc segment between two radii (for a solid band) */
+  const bandPath = (startDeg: number, endDeg: number, rOut: number, rIn: number) => {
+    const s = (startDeg * Math.PI) / 180
+    const e = (endDeg   * Math.PI) / 180
+    const x1o = cx + rOut * Math.cos(s); const y1o = cy - rOut * Math.sin(s)
+    const x2o = cx + rOut * Math.cos(e); const y2o = cy - rOut * Math.sin(e)
+    const x1i = cx + rIn  * Math.cos(e); const y1i = cy - rIn  * Math.sin(e)
+    const x2i = cx + rIn  * Math.cos(s); const y2i = cy - rIn  * Math.sin(s)
+    const lA   = startDeg - endDeg > 180 ? 1 : 0
+    return [
+      `M ${x1o} ${y1o}`,
+      `A ${rOut} ${rOut} 0 ${lA} 0 ${x2o} ${y2o}`,
+      `L ${x1i} ${y1i}`,
+      `A ${rIn}  ${rIn}  0 ${lA} 1 ${x2i} ${y2i}`,
+      'Z',
+    ].join(' ')
+  }
+
+  const tickDegs = [180, 144, 108, 72, 36, 0]
 
   return (
-    <div className="flex flex-col items-center relative group rounded-xl bg-slate-950/40 border border-slate-700/35 px-2 pt-3 pb-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors duration-500 hover:border-slate-600/45">
-      <div className="text-center mb-1">
+    <div className="flex flex-col items-center relative rounded-xl bg-slate-950/40 border border-slate-700/35 px-2 pt-3 pb-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors duration-500 hover:border-slate-600/45">
+      <div className="text-center mb-1.5">
         <div className="text-[10px] font-bold text-slate-400 tracking-[0.18em] uppercase">{title}</div>
         {subtitle ? <div className="text-[9px] text-slate-500 mt-0.5 leading-snug px-1">{subtitle}</div> : null}
       </div>
 
-      <div className="relative w-full max-w-[188px]">
+      <div className="w-full max-w-[200px]">
         <svg
-          viewBox="0 0 200 108"
-          className="w-full overflow-hidden"
+          viewBox="0 0 200 110"
+          className="w-full"
+          overflow="visible"
           role="img"
           aria-label={`${title}: ${signal.label}, bias ${biasScore >= 0 ? '+' : ''}${biasScore}`}
         >
           <defs>
-            <linearGradient id={trackGradId} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#020617" />
-              <stop offset="50%" stopColor="#0f172a" />
-              <stop offset="100%" stopColor="#020617" />
-            </linearGradient>
             <filter id={filterId}>
-              <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
               <feMerge>
                 <feMergeNode in="coloredBlur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
             <linearGradient id={needleGradId} x1="0%" y1="100%" x2="0%" y2="0%">
-              <stop offset="0%" stopColor="#64748b" />
-              <stop offset="55%" stopColor="#f1f5f9" />
+              <stop offset="0%" stopColor="#334155" />
+              <stop offset="40%" stopColor="#e2e8f0" />
               <stop offset="100%" stopColor="#ffffff" />
             </linearGradient>
           </defs>
 
-          {/* Recessed track — reads as one dark slot, not a gray ring */}
+          {/* Background track arc */}
           <path
-            d={arcPath(180, 0, rTrack)}
+            d={arcPath(180, 0, rMid)}
             fill="none"
-            stroke={`url(#${trackGradId})`}
-            strokeWidth="20"
+            stroke="rgba(15,23,42,0.95)"
+            strokeWidth={rOuter - rInner + 4}
             strokeLinecap="round"
-            opacity={0.92}
           />
 
+          {/* Color band segments as filled arcs */}
           {zones.map((z, i) => (
             <motion.path
               key={i}
-              d={arcPath(z.start, z.end, rColor)}
-              fill="none"
-              stroke={z.color}
-              strokeWidth="9"
-              strokeLinecap="butt"
-              opacity={0.88}
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ pathLength: 1, opacity: 0.88 }}
-              transition={{ duration: 1.05, delay: delay + i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+              d={bandPath(z.start, z.end, rOuter, rInner)}
+              fill={z.color}
+              opacity={0}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: signal.color === z.color ? 0.95 : 0.35 }}
+              transition={{ duration: 0.8, delay: delay + i * 0.07, ease: 'easeOut' }}
               filter={signal.color === z.color ? `url(#${filterId})` : undefined}
             />
           ))}
 
-          {dialTicks.map((deg) => {
+          {/* Gap lines between segments for clean separation */}
+          {[144, 108, 72, 36].map((deg) => {
             const rad = (deg * Math.PI) / 180
-            const tx = cx + (rColor - 2) * Math.cos(rad)
-            const ty = cy - (rColor - 2) * Math.sin(rad)
             return (
-              <circle
+              <line
                 key={deg}
-                cx={tx}
-                cy={ty}
-                r={deg === 90 ? 2.2 : 1.5}
-                fill={deg === 90 ? 'rgba(148,163,184,0.5)' : 'rgba(51,65,85,0.85)'}
+                x1={cx + rInner * Math.cos(rad)}
+                y1={cy - rInner * Math.sin(rad)}
+                x2={cx + rOuter * Math.cos(rad)}
+                y2={cy - rOuter * Math.sin(rad)}
+                stroke="rgba(2,6,23,0.8)"
+                strokeWidth="1.5"
               />
             )
           })}
 
+          {/* Tick marks */}
+          {tickDegs.map((deg) => {
+            const rad = (deg * Math.PI) / 180
+            const r0 = rOuter + 3
+            const r1 = rOuter + 9
+            return (
+              <line
+                key={deg}
+                x1={cx + r0 * Math.cos(rad)}
+                y1={cy - r0 * Math.sin(rad)}
+                x2={cx + r1 * Math.cos(rad)}
+                y2={cy - r1 * Math.sin(rad)}
+                stroke="rgba(71,85,105,0.7)"
+                strokeWidth={deg === 90 ? 2 : 1.2}
+                strokeLinecap="round"
+              />
+            )
+          })}
+
+          {/* Needle group — pivot at (cx, cy) */}
           <g transform={`translate(${cx} ${cy})`}>
             <motion.g
               style={{ transformOrigin: '0px 0px' }}
               initial={{ rotate: -90 }}
               animate={{ rotate: needleRotate }}
-              transition={{
-                type: 'spring',
-                stiffness: 118,
-                damping: 16,
-                mass: 0.85,
-                delay: delay + 0.2,
-              }}
+              transition={{ type: 'spring', stiffness: 130, damping: 18, mass: 0.8, delay: delay + 0.15 }}
             >
-              <path
-                d={`M -2.2 1.5 L 0 ${-needleLen} L 2.2 1.5 Z`}
+              {/* Needle shaft — slim tapered polygon */}
+              <polygon
+                points={`0,${-needleLen} 2.8,4 -2.8,4`}
                 fill={`url(#${needleGradId})`}
-                stroke="rgba(255,255,255,0.35)"
+                stroke="rgba(255,255,255,0.2)"
                 strokeWidth="0.5"
                 strokeLinejoin="round"
               />
-              <circle r="8" fill="#070b12" stroke="rgba(226,232,240,0.9)" strokeWidth="2" />
-              <circle r="3.5" fill={signal.color} opacity={0.9} />
+              {/* Tail balance weight */}
+              <polygon
+                points={`0,10 2,4 -2,4`}
+                fill="rgba(71,85,105,0.8)"
+              />
             </motion.g>
+            {/* Hub cap */}
+            <circle r="9" fill="#030712" stroke="rgba(148,163,184,0.6)" strokeWidth="1.5" />
+            <circle r="4" fill={signal.color} opacity={0.9} />
           </g>
         </svg>
 
+        {/* Label below the dial */}
         <motion.div
-          initial={{ opacity: 0, y: 6 }}
+          initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, delay: delay + 0.65 }}
-          className="mt-0.5 flex flex-col items-center gap-1"
+          transition={{ duration: 0.4, delay: delay + 0.6 }}
+          className="flex flex-col items-center gap-1 mt-0.5"
         >
-          <div className="flex items-baseline justify-center gap-1.5">
-            <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider">Bias</span>
-            <span className="text-xs font-black tabular-nums text-slate-200">
-              {biasScore >= 0 ? '+' : ''}
-              {biasScore}
-            </span>
-          </div>
           <div
-            className="text-[10px] font-extrabold px-3 py-1 rounded-full backdrop-blur-md max-w-[min(100%,12rem)] truncate text-center border"
+            className="text-[10px] font-extrabold px-3 py-1 rounded-full text-center border tracking-wide"
             style={{
-              backgroundColor: `${signal.color}14`,
+              backgroundColor: `${signal.color}12`,
               color: signal.color,
-              borderColor: `${signal.color}40`,
-              boxShadow: `0 0 14px ${signal.color}18`,
+              borderColor: `${signal.color}38`,
+              boxShadow: `0 0 12px ${signal.color}16`,
             }}
           >
             {signal.label}
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-[9px] font-mono text-slate-600 uppercase">bias</span>
+            <span
+              className="text-[10px] font-black tabular-nums"
+              style={{ color: signal.color }}
+            >
+              {biasScore >= 0 ? '+' : ''}{biasScore}
+            </span>
           </div>
         </motion.div>
       </div>

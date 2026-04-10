@@ -37,6 +37,7 @@ import { useQuery } from '@tanstack/react-query'
 interface AppLayoutProps {
   children: ReactNode
   symbol?: string
+  hideFooter?: boolean
 }
 
 function HeaderTooltip({
@@ -110,7 +111,7 @@ function MarketStatusIndicator({ compact = false }: { compact?: boolean }) {
   )
 }
 
-export default function AppLayout({ children, symbol }: AppLayoutProps) {
+export default function AppLayout({ children, symbol, hideFooter }: AppLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { user, isAuthenticated, logout, isLoading: authLoading } = useAuth()
@@ -532,7 +533,7 @@ export default function AppLayout({ children, symbol }: AppLayoutProps) {
       >
         <div className="h-full overflow-y-auto px-4 md:px-6 py-4 md:py-6">
           {children}
-          <SiteFooter />
+          {!hideFooter && <SiteFooter />}
         </div>
       </main>
 

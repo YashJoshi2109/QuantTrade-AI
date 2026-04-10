@@ -298,7 +298,9 @@ export default function MobileBacktest() {
                             {new Date(trade.entry_date).toLocaleDateString()}
                           </span>
                           <span className="text-[10px] text-slate-500">
-                            {trade.side || 'TRADE'}
+                            {trade.exit_reason
+                              ? trade.exit_reason.replace(/_/g, ' ').toUpperCase()
+                              : 'TRADE'}
                           </span>
                         </div>
                         <div className="text-right">

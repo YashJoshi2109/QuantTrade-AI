@@ -92,10 +92,10 @@ git commit --amend -S --no-edit
 
 ## Quick checklist
 
-| Goal | Action |
-|------|--------|
-| Match “PRs only” | Push feature branches; open PRs into `main`. |
-| Code Scanning | Merge `codeql.yml`; enable scanning under **Code security and analysis**; check **Security → Code scanning**. |
-| Verified commits | `commit.gpgsign true` + SSH or GPG key registered on GitHub as signing key. |
+| Goal             | Action                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| Match “PRs only” | Push feature branches; open PRs into `main`.                                                                  |
+| Code Scanning    | Merge `codeql.yml`; enable scanning under **Code security and analysis**; check **Security → Code scanning**. |
+| Verified commits | `commit.gpgsign true` + SSH or GPG key registered on GitHub as signing key.                                   |
 
 Questions about repo-specific conventions can go into an issue or the PR description.

@@ -196,6 +196,9 @@ function ResearchContent() {
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const advancedRef = useRef<HTMLDivElement>(null)
   const [watchlistBusy, setWatchlistBusy] = useState(false)
+  const [aiText, setAiText] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const aiAbortRef = useRef<AbortController | null>(null)
 
   const { data: watchlistItems = [] } = useQuery<WatchlistItem[]>({
     queryKey: ['watchlist'],
@@ -290,6 +293,47 @@ function ResearchContent() {
   useEffect(() => {
     loadSymbolData()
   }, [loadSymbolData])
+
+  const fetchAiAnalysis = useCallback(async (ind?: Indicators | null, price?: number, changePct?: number, volume?: number) => {
+    if (aiAbortRef.current) aiAbortRef.current.abort()
+    aiAbortRef.current = new AbortController()
+    setAiText('')
+    setAiLoading(true)
+    try {
+      const body = {
+        symbol: selectedSymbol,
+        price,
+        change_pct: changePct,
+        rsi: ind?.indicators?.rsi,
+        macd: ind?.indicators?.macd?.macd,
+        macd_signal: ind?.indicators?.macd?.signal,
+        sma_20: ind?.indicators?.sma_20,
+        sma_50: ind?.indicators?.sma_50,
+        sma_200: ind?.indicators?.sma_200,
+        bb_upper: ind?.indicators?.bollinger_bands?.upper,
+        bb_lower: ind?.indicators?.bollinger_bands?.lower,
+        volume,
+      }
+      const res = await fetch('/api/ai-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: aiAbortRef.current.signal,
+      })
+      if (!res.ok || !res.body) { setAiLoading(false); return }
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        setAiText((prev) => prev + decoder.decode(value, { stream: true }))
+      }
+    } catch (e: unknown) {
+      if ((e as { name?: string }).name !== 'AbortError') setAiText('')
+    } finally {
+      setAiLoading(false)
+    }
+  }, [selectedSymbol])
 
   const handleSyncData = async () => {
     setSyncing(true)
@@ -772,7 +816,12 @@ function ResearchContent() {
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-blue-400" />
-                  <h3 className="font-bold text-sm text-white">AI-style read</h3>
+                  <h3 className="font-bold text-sm text-white">AI Analysis</h3>
+                  {aiText && !aiLoading && (
+                    <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                      Gemini Flash
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 justify-end">
                   <span
@@ -786,31 +835,63 @@ function ResearchContent() {
                   >
                     {aiReport.sentiment}
                   </span>
-                  <span className="text-[10px] font-mono text-slate-500 px-2 py-1 rounded bg-slate-800/60 border border-slate-700/50">
-                    RSI: {aiReport.rsiSignal} · Trend: {aiReport.trendSignal}
-                  </span>
+                  <button
+                    onClick={() => fetchAiAnalysis(indicators, priceInfo.price ?? undefined, priceInfo.percent ?? undefined, priceInfo.volume ?? undefined)}
+                    disabled={aiLoading}
+                    className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border border-blue-500/30 bg-blue-500/8 text-blue-400 hover:bg-blue-500/15 transition-colors disabled:opacity-50"
+                    title="Refresh with real-time AI analysis"
+                  >
+                    {aiLoading
+                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                      : <RefreshCw className="w-3 h-3" />}
+                    {aiLoading ? 'Generating…' : 'AI Refresh'}
+                  </button>
                 </div>
               </div>
 
-              <div className="space-y-3 text-sm text-slate-400 leading-relaxed">
-                <p>
-                  Snapshot for <span className="text-blue-400 font-semibold">{selectedSymbol}</span> combines
-                  momentum (RSI, MACD) with structure (moving averages and Bollinger position). It is a rules-based
-                  synthesis, not a prediction — use it as a starting point alongside your own process.
-                </p>
-                <p>{aiReport.macdText}</p>
-                <p>{aiReport.bbText}</p>
-                <p>{aiReport.maSummary}</p>
-                {aiReport.bullets.length > 0 && (
-                  <ul className="list-disc pl-5 space-y-1.5 text-slate-300 text-[13px]">
-                    {aiReport.bullets.map((b, i) => (
-                      <li key={i}>{b}</li>
-                    ))}
-                  </ul>
+              <div className="space-y-3 text-sm text-slate-400 leading-relaxed flex-1">
+                {/* OpenRouter AI text — shown when available */}
+                {aiText ? (
+                  <div className="space-y-3">
+                    <p className="text-slate-300 leading-relaxed text-[13px]">
+                      {aiText}
+                      {aiLoading && <span className="inline-block w-1.5 h-4 bg-blue-400 ml-0.5 animate-pulse align-middle rounded-sm" />}
+                    </p>
+                    <div className="flex flex-wrap gap-2 text-[10px]">
+                      <span className="px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/50 text-slate-500">
+                        RSI: {aiReport.rsiSignal}
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/50 text-slate-500">
+                        Trend: {aiReport.trendSignal}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  /* Rules-based fallback */
+                  <>
+                    <p>
+                      Snapshot for <span className="text-blue-400 font-semibold">{selectedSymbol}</span> combines
+                      momentum (RSI, MACD) with structure (moving averages and Bollinger position). It is a rules-based
+                      synthesis, not a prediction — use it as a starting point alongside your own process.
+                    </p>
+                    <p>{aiReport.macdText}</p>
+                    <p>{aiReport.bbText}</p>
+                    <p>{aiReport.maSummary}</p>
+                    {aiReport.bullets.length > 0 && (
+                      <ul className="list-disc pl-5 space-y-1.5 text-slate-300 text-[13px]">
+                        {aiReport.bullets.map((b, i) => (
+                          <li key={i}>{b}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="text-[11px] text-slate-600 flex items-center gap-1.5 mt-1">
+                      <Sparkles className="w-3 h-3" />
+                      Click "AI Refresh" above for a real-time Gemini-powered read
+                    </div>
+                  </>
                 )}
                 <p className="text-[11px] text-slate-500 border-t border-slate-700/40 pt-3 leading-snug">
-                  Not investment advice. Markets discount news quickly; verify levels on your chart and risk limits
-                  before acting.
+                  Not investment advice. Verify levels on your chart before acting.
                 </p>
               </div>
 

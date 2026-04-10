@@ -30,9 +30,11 @@ jobs:
 
       - name: Run backend ML tests
         working-directory: ./backend
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
         run: |
           if [ -d "tests/ml" ]; then
-            pytest tests/ml -q
+            python -m pytest tests/ml -q
           else
             echo "No backend ML tests found (backend/tests/ml). Skipping."
           fi
