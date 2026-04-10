@@ -355,8 +355,10 @@ jobs:
             sleep 25
             
             # Health check with retries (backend has 60s start_period)
+            # -L follows HTTP->HTTPS redirects from nginx if configured.
+            # Fallback to backend direct port in case nginx route is not ready yet.
             for i in 1 2 3 4 5 6 7 8 9 10; do
-              if curl -sf http://localhost/health; then
+              if curl -sS -L -f http://localhost/health || curl -sS -L -f http://localhost:8000/health; then
                 echo "✅ Health check passed!"
                 break
               fi
@@ -365,7 +367,7 @@ jobs:
             done
             
             # Final verification
-            if ! curl -sf http://localhost/health; then
+            if ! (curl -sS -L -f http://localhost/health || curl -sS -L -f http://localhost:8000/health); then
               echo "❌ Health check failed! Showing logs..."
               docker compose -f docker-compose.prod.yml ps
               docker logs --tail=50 quanttrade-nginx
@@ -398,12 +400,14 @@ jobs:
 
       - name: Check Backend Health
         run: |
-          curl -f https://quanttrade.us/health || \
-          curl -f http://${{ secrets.EC2_HOST }}:8000/health || \
+          curl -L -f https://quanttrade.us/health || \
+          curl -L -f http://quanttrade.us/health || \
+          curl -L -f http://${{ secrets.EC2_HOST }}:8000/health || \
           echo "::warning::Backend health check inconclusive"
 
       - name: Check Frontend Health
         run: |
-          curl -f https://quanttrade.us/ || \
-          curl -f http://${{ secrets.EC2_HOST }}:3000/ || \
+          curl -L -f https://quanttrade.us/ || \
+          curl -L -f http://quanttrade.us/ || \
+          curl -L -f http://${{ secrets.EC2_HOST }}:3000/ || \
           echo "::warning::Frontend health check inconclusive"
