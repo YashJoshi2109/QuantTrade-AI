@@ -41,6 +41,7 @@ import {
   Clock,
   Cpu,
   ChevronLeft,
+  ChevronDown,
 } from 'lucide-react'
 import {
   streamCopilotAnalysis,
@@ -903,6 +904,10 @@ function ModelIndicator({ model, isStreaming }: { model: string; isStreaming: bo
 // ─── Usage Badge ──────────────────────────────────────────────────────────────
 
 function UsageBadge() {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const { data } = useQuery({
     queryKey: ['copilot-usage'],
     queryFn: getCopilotUsage,
@@ -910,26 +915,174 @@ function UsageBadge() {
     refetchInterval: 60_000,
   })
 
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const hoverDesktop = useCallback(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(hover: hover) and (pointer: fine)').matches
+  }, [])
+
+  const onZoneEnter = useCallback(() => {
+    if (!hoverDesktop()) return
+    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    setOpen(true)
+  }, [hoverDesktop])
+
+  const onZoneLeave = useCallback(() => {
+    if (!hoverDesktop()) return
+    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    leaveTimer.current = setTimeout(() => setOpen(false), 220)
+  }, [hoverDesktop])
+
   if (!data) return null
+
+  const pctUsed =
+    data.free_limit > 0 ? Math.min(100, (data.today_requests / data.free_limit) * 100) : 0
+  const pctRemaining =
+    data.free_limit > 0 ? Math.min(100, (data.free_remaining / data.free_limit) * 100) : 100
+  const barColor =
+    pctUsed >= 100 ? 'bg-red-500' : pctUsed >= 60 ? 'bg-amber-500' : 'bg-emerald-500'
+
+  const DetailPanel = ({ className }: { className?: string }) => (
+    <div
+      className={`rounded-lg border border-slate-700/80 bg-[#0d1117] p-3 text-left shadow-xl shadow-black/40 ${className ?? ''}`}
+    >
+      <div className="mb-2 flex items-center gap-2 border-b border-slate-800/80 pb-2">
+        <Gauge className="h-4 w-4 shrink-0 text-cyan-400" />
+        <span className="text-xs font-bold text-white">API usage</span>
+        {data.is_pro ? (
+          <span className="ml-auto rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400">
+            PRO
+          </span>
+        ) : (
+          <span className="ml-auto rounded bg-slate-700/50 px-1.5 py-0.5 text-[9px] font-mono text-slate-400">
+            Free
+          </span>
+        )}
+      </div>
+      <div className="space-y-2.5 text-[11px] text-slate-300">
+        <div>
+          <div className="mb-1 flex justify-between font-mono text-[10px] text-slate-500">
+            <span>Daily requests</span>
+            <span className="text-slate-300">
+              {data.today_requests}
+              {!data.is_pro && data.free_limit > 0 ? ` / ${data.free_limit}` : ''}
+            </span>
+          </div>
+          {!data.is_pro && data.free_limit > 0 && (
+            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+              <div
+                className={`h-full rounded-full transition-all ${barColor}`}
+                style={{ width: `${pctUsed}%` }}
+              />
+            </div>
+          )}
+          {!data.is_pro && data.free_limit > 0 && (
+            <p className="mt-1 font-mono text-[10px] text-slate-500">
+              {data.free_remaining} remaining ({pctRemaining.toFixed(0)}% of daily free quota)
+            </p>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2 font-mono text-[10px] text-slate-500">
+          <div>
+            <div className="text-slate-600">Input tokens</div>
+            <div className="text-slate-300">{formatLargeNumber(data.today_input_tokens)}</div>
+          </div>
+          <div>
+            <div className="text-slate-600">Output tokens</div>
+            <div className="text-slate-300">{formatLargeNumber(data.today_output_tokens)}</div>
+          </div>
+        </div>
+        <div className="border-t border-slate-800/80 pt-2 font-mono text-[10px] text-slate-500">
+          <div className="flex justify-between">
+            <span>Est. cost today</span>
+            <span className="text-slate-300">${data.today_cost_usd.toFixed(4)}</span>
+          </div>
+          <div className="mt-1 flex justify-between">
+            <span>Budget left</span>
+            <span className={data.budget_ok ? 'text-emerald-400' : 'text-amber-400'}>
+              ${data.budget_remaining_usd.toFixed(2)} / ${data.daily_budget_usd.toFixed(2)}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 
   if (data.is_pro) {
     return (
-      <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-[10px] font-mono text-emerald-400" title={`Pro · ${data.today_requests} requests today`}>
-        <span className="font-bold">PRO</span>
-        <span className="text-emerald-300/70">{data.today_requests} req</span>
+      <div
+        ref={wrapRef}
+        className="relative shrink-0"
+        onMouseEnter={onZoneEnter}
+        onMouseLeave={onZoneLeave}
+      >
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-mono text-emerald-400 transition-colors hover:bg-emerald-500/15"
+          aria-expanded={open}
+          aria-haspopup="dialog"
+        >
+          <span className="font-bold">PRO</span>
+          <span className="text-emerald-300/80">{data.today_requests} req</span>
+          <ChevronDown className={`h-3 w-3 opacity-70 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && (
+          <div className="absolute right-0 top-full z-[200] w-[min(18rem,calc(100vw-1.25rem))] sm:w-72">
+            <div className="h-2 w-full shrink-0" aria-hidden />
+            <DetailPanel />
+          </div>
+        )}
       </div>
     )
   }
 
-  const pct = data.free_limit > 0 ? (data.today_requests / data.free_limit) * 100 : 0
-  const barColor = pct >= 100 ? 'bg-red-500' : pct >= 60 ? 'bg-amber-500' : 'bg-emerald-500'
-
   return (
-    <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-700/40 bg-slate-800/30 text-[10px] font-mono text-slate-400" title={`Free tier: ${data.free_remaining}/${data.free_limit} requests remaining`}>
-      <div className="w-10 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${Math.min(100, pct)}%` }} />
-      </div>
-      <span>{data.free_remaining}/{data.free_limit}</span>
+    <div
+      ref={wrapRef}
+      className="relative shrink-0"
+      onMouseEnter={onZoneEnter}
+      onMouseLeave={onZoneLeave}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 rounded-lg border border-slate-700/40 bg-slate-800/30 px-2 py-1 text-[10px] font-mono text-slate-400 transition-colors hover:border-slate-600 hover:bg-slate-800/50"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+      >
+        <div className="h-1.5 w-10 overflow-hidden rounded-full bg-slate-700">
+          <div
+            className={`h-full rounded-full ${barColor} transition-all`}
+            style={{ width: `${pctUsed}%` }}
+          />
+        </div>
+        <span>
+          {data.free_remaining}/{data.free_limit}
+        </span>
+        <ChevronDown className={`h-3 w-3 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-[200] w-[min(18rem,calc(100vw-1.25rem))] sm:w-72">
+          <div className="h-2 w-full shrink-0" aria-hidden />
+          <DetailPanel />
+        </div>
+      )}
     </div>
   )
 }

@@ -43,6 +43,7 @@ import { CONTINENTS, DISPLAY_CURRENCIES, type Continent } from '@/lib/world-exch
 import type { IndexQuote } from '@/app/api/quotes/indices/route'
 import type { ExchangeSector } from '@/app/api/exchange/heatmap/route'
 import { useStockSnapshot } from '@/context/StockSnapshotContext'
+import { useExchangeHeatmap } from '@/hooks/useExchangeHeatmap'
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 function useWorldIndices(continent: Continent) {
@@ -89,22 +90,6 @@ function useContinentMovers(continent: Continent) {
     },
     refetchInterval: 120_000,
     staleTime: 60_000,
-    placeholderData: keepPreviousData,
-  })
-}
-
-function useExchangeHeatmap(continent: Continent) {
-  return useQuery({
-    queryKey: ['exchangeHeatmap', continent],
-    queryFn: async (): Promise<{ sectors: ExchangeSector[]; exchangeLabel: string }> => {
-      if (continent === 'global') return { sectors: [], exchangeLabel: 'Global' }
-      const res = await fetch(`/api/exchange/heatmap?continent=${continent}`)
-      if (!res.ok) return { sectors: [], exchangeLabel: continent }
-      return res.json()
-    },
-    enabled: continent !== 'global',
-    refetchInterval: 180_000,
-    staleTime: 120_000,
     placeholderData: keepPreviousData,
   })
 }

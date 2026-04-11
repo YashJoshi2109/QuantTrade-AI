@@ -8,6 +8,7 @@ venv/
 env/
 ENV/
 .venv
+.venv-migrate/
 
 # Node
 node_modules/

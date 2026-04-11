@@ -65,12 +65,40 @@ from app.services.billing_service import (
     billing_event_exists,
     get_or_create_billing_customer,
     mark_billing_event_processed,
+    plan_label_for_price_id,
+    subscription_entitled,
     upsert_subscription_from_stripe,
 )
+from app.services.billing_emails import send_subscription_cancel_requested_email
 
 
 router = APIRouter()
 logger = logging.getLogger("billing")
+
+PORTAL_SETUP_HINT = (
+    "Enable the Customer portal in Stripe Dashboard: Settings → Billing → Customer portal — "
+    "click Save (or create a configuration). Optionally set STRIPE_BILLING_PORTAL_CONFIGURATION_ID "
+    "to your portal configuration ID (bpc_...). See https://docs.stripe.com/customer-management/integrate-customer-portal"
+)
+
+
+def _portal_return_url() -> str:
+    override = getattr(settings, "BILLING_PORTAL_RETURN_URL", None)
+    if override and str(override).strip():
+        url = str(override).strip()
+        if url.startswith("http://") or url.startswith("https://"):
+            return url
+        return f"https://{url.lstrip('/')}"
+    base = (settings.APP_URL or "https://quanttrade.us").rstrip("/")
+    return f"{base}/settings"
+
+
+def _stripe_client_message(exc: stripe.error.StripeError) -> str:
+    um = getattr(exc, "user_message", None)
+    if um and str(um).strip():
+        return str(um).strip()
+    return str(exc).strip() or "Stripe error"
+
 
 if not settings.STRIPE_SECRET_KEY:
     # Stripe will be configured at runtime if keys are provided; otherwise
@@ -108,10 +136,19 @@ class SessionStatusResponse(BaseModel):
 
 class SubscriptionStatusResponse(BaseModel):
     has_active: bool
+    is_pro: bool = False
+    plan_label: str = "Free"
     status: Optional[str] = None
     price_id: Optional[str] = None
     current_period_end: Optional[datetime] = None
     cancel_at_period_end: Optional[bool] = None
+
+
+class CancelSubscriptionBody(BaseModel):
+    at_period_end: bool = Field(
+        default=True,
+        description="If true, cancel at end of billing period; if false, end immediately",
+    )
 
 
 def _validate_recurring_subscription_price(price_id: str) -> None:
@@ -320,12 +357,18 @@ async def get_subscription_status(
     sub = db.query(Subscription).filter(Subscription.user_id == user_id).first()
 
     if not sub:
-        return SubscriptionStatusResponse(has_active=False)
+        return SubscriptionStatusResponse(
+            has_active=False,
+            is_pro=False,
+            plan_label="Free",
+        )
 
-    is_active = sub.status in ("active", "trialing", "past_due")
+    entitled = subscription_entitled(sub)
 
     return SubscriptionStatusResponse(
-        has_active=is_active,
+        has_active=entitled,
+        is_pro=entitled,
+        plan_label=plan_label_for_price_id(sub.price_id) if entitled else "Free",
         status=sub.status,
         price_id=sub.price_id,
         current_period_end=sub.current_period_end,
@@ -359,11 +402,23 @@ async def create_billing_portal_session(
 
     billing_customer = _get_stripe_customer_for_user(db, user)
 
-    try:
-        session = stripe.billing_portal.Session.create(
-            customer=billing_customer.stripe_customer_id,
-            return_url=f"{settings.APP_URL}/settings",
+    return_url = _portal_return_url()
+    if return_url.startswith("http://") and "localhost" not in return_url.lower():
+        logger.warning(
+            "Billing portal return_url uses http:// for a non-local host; Stripe may reject it: %s",
+            return_url,
         )
+
+    portal_kwargs: Dict[str, Any] = {
+        "customer": billing_customer.stripe_customer_id,
+        "return_url": return_url,
+    }
+    cfg = getattr(settings, "STRIPE_BILLING_PORTAL_CONFIGURATION_ID", None)
+    if cfg and str(cfg).strip():
+        portal_kwargs["configuration"] = str(cfg).strip()
+
+    try:
+        session = stripe.billing_portal.Session.create(**portal_kwargs)
     except stripe.error.AuthenticationError:
         logger.error("Stripe authentication failed while creating billing portal for user_id=%s", user.id)
         raise HTTPException(
@@ -371,13 +426,109 @@ async def create_billing_portal_session(
             detail="Billing is temporarily unavailable (invalid Stripe configuration)",
         )
     except stripe.error.StripeError as exc:
-        logger.error("Stripe portal error for user_id=%s: %s", user.id, exc)
+        msg = _stripe_client_message(exc)
+        code = getattr(exc, "code", None)
+        logger.error(
+            "Stripe portal error user_id=%s customer=%s code=%s: %s",
+            user.id,
+            billing_customer.stripe_customer_id,
+            code,
+            exc,
+            exc_info=True,
+        )
+        lower = msg.lower()
+        needs_portal_setup = any(
+            x in lower
+            for x in (
+                "portal",
+                "configuration",
+                "customer portal",
+                "billing portal",
+                "no default",
+            )
+        ) or code in ("resource_missing",)
+        detail = msg
+        if needs_portal_setup:
+            detail = f"{msg} {PORTAL_SETUP_HINT}"
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to create Stripe Billing Portal session",
+            detail=detail,
         )
 
     return PortalSessionResponse(url=session["url"])
+
+
+@router.post(
+    "/cancel-subscription",
+    status_code=status.HTTP_200_OK,
+)
+async def cancel_subscription(
+    body: CancelSubscriptionBody,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Cancel the current Stripe subscription (default: at period end).
+    Sends a confirmation email via Brevo with a feedback link.
+    Local DB state is updated on the next Stripe webhook.
+    """
+    if not stripe.api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Stripe is not configured on the server",
+        )
+
+    user_id = int(current_user["user_id"])
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    sub = db.query(Subscription).filter(Subscription.user_id == user_id).first()
+    if not sub or not sub.stripe_subscription_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active subscription to cancel",
+        )
+
+    if not subscription_entitled(sub):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Subscription is not in a cancellable state",
+        )
+
+    try:
+        if body.at_period_end:
+            stripe.Subscription.modify(
+                sub.stripe_subscription_id,
+                cancel_at_period_end=True,
+            )
+        else:
+            stripe.Subscription.delete(sub.stripe_subscription_id)
+    except stripe.error.StripeError as exc:
+        logger.error("Stripe cancel error user_id=%s: %s", user_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Stripe could not cancel subscription: {exc}",
+        )
+
+    access_until = None
+    if sub.current_period_end:
+        access_until = sub.current_period_end.strftime("%b %d, %Y")
+
+    send_subscription_cancel_requested_email(
+        user.email,
+        plan_label=plan_label_for_price_id(sub.price_id),
+        access_until=access_until,
+        at_period_end=body.at_period_end,
+    )
+
+    return {
+        "ok": True,
+        "at_period_end": body.at_period_end,
+        "message": "Cancellation processed. Check your email for confirmation.",
+    }
 
 
 @router.post(

@@ -1455,10 +1455,19 @@ export interface BillingSessionStatus {
 
 export interface SubscriptionStatus {
   has_active: boolean
+  is_pro?: boolean
+  plan_label?: string
   status?: string
   price_id?: string
   current_period_end?: string | null
   cancel_at_period_end?: boolean | null
+}
+
+export interface UserPreferences {
+  analyst_personality?: string
+  data_sources?: { sec?: boolean; social?: boolean; technical?: boolean }
+  notifications?: Record<string, boolean>
+  pro_alerts?: { watchlist_price?: boolean; watchlist_news?: boolean }
 }
 
 async function getAuthJsonHeaders() {
@@ -1542,6 +1551,77 @@ export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
     throw new Error(message)
   }
 
+  return response.json()
+}
+
+export async function cancelSubscriptionAtPeriodEnd(
+  atPeriodEnd: boolean = true
+): Promise<{ ok: boolean; message?: string }> {
+  const headers = await getAuthJsonHeaders()
+  const response = await fetch(`${API_URL}/api/v1/billing/cancel-subscription`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ at_period_end: atPeriodEnd }),
+  })
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}))
+    const message =
+      (errorBody && (errorBody.detail || errorBody.message)) ||
+      'Failed to cancel subscription'
+    throw new Error(typeof message === 'string' ? message : 'Failed to cancel subscription')
+  }
+  return response.json()
+}
+
+export async function getUserPreferences(): Promise<UserPreferences> {
+  const headers = await getAuthJsonHeaders()
+  const response = await fetch(`${API_URL}/api/v1/user/preferences`, { headers })
+  if (!response.ok) {
+    throw new Error('Failed to load preferences')
+  }
+  return response.json()
+}
+
+export async function putUserPreferences(
+  patch: Partial<UserPreferences>
+): Promise<UserPreferences> {
+  const headers = await getAuthJsonHeaders()
+  const response = await fetch(`${API_URL}/api/v1/user/preferences`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(patch),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to save preferences')
+  }
+  return response.json()
+}
+
+export async function requestAccountDeletionOtp(): Promise<{ ok: boolean; message?: string }> {
+  const headers = await getAuthJsonHeaders()
+  const response = await fetch(`${API_URL}/api/v1/account/delete-request`, {
+    method: 'POST',
+    headers,
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to send verification email')
+  }
+  return response.json()
+}
+
+export async function confirmAccountDeletion(otp: string): Promise<{ ok: boolean }> {
+  const headers = await getAuthJsonHeaders()
+  const response = await fetch(`${API_URL}/api/v1/account/delete-confirm`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ otp: otp.trim() }),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.detail || 'Invalid or expired code')
+  }
   return response.json()
 }
 

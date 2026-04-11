@@ -6,6 +6,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 from datetime import datetime, timedelta, date
@@ -465,10 +466,10 @@ async def google_verify_token(
         )
         
     except ValueError as e:
-        # Invalid token
+        logger.info("Google token verification failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid Google token: {str(e)}"
+            detail="Invalid or expired Google sign-in. Please try again.",
         )
 
 
@@ -733,8 +734,20 @@ async def passkey_register_verify(
 
         return {"success": True, "message": "Passkey registered successfully"}
 
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Registration failed: {str(exc)}")
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        logger.exception("Passkey registration database error")
+        raise HTTPException(
+            status_code=503,
+            detail="Could not save your passkey right now. Please try again in a moment.",
+        )
+    except Exception:
+        logger.exception("Passkey registration failed")
+        raise HTTPException(
+            status_code=400,
+            detail="Passkey registration could not be completed. Please try again.",
+        )
 
 
 @router.get("/passkey/status")
@@ -856,8 +869,18 @@ async def passkey_auth_verify(req: PasskeyAuthVerifyRequest, db: Session = Depen
 
     except HTTPException:
         raise
-    except Exception as exc:
-        raise HTTPException(status_code=401, detail=f"Authentication failed: {str(exc)}")
+    except SQLAlchemyError:
+        logger.exception("Passkey auth database error")
+        raise HTTPException(
+            status_code=503,
+            detail="Sign-in is temporarily unavailable. Use email and password, or try again shortly.",
+        )
+    except Exception:
+        logger.exception("Passkey authentication failed")
+        raise HTTPException(
+            status_code=401,
+            detail="Passkey sign-in failed. Please try again or use your password.",
+        )
 
 
 # ─── Forgot / Reset Password ──────────────────────────────────────────────────
@@ -977,6 +1000,7 @@ async def test_email(req: TestEmailRequest):
     import os
 
     brevo_key_set = bool(getattr(_cfg, "BREVO_API_KEY", None))
+    resend_key_set = bool(getattr(_cfg, "RESEND_API_KEY", None))
     from_email = getattr(_cfg, "BREVO_FROM_EMAIL", "NOT SET")
 
     html = """
@@ -990,9 +1014,13 @@ async def test_email(req: TestEmailRequest):
         "success": ok,
         "error": detail if not ok else None,
         "brevo_key_set": brevo_key_set,
+        "resend_key_set": resend_key_set,
         "from_email": from_email,
         "hint": (
             "Email sent successfully." if ok
-            else "Check that BREVO_FROM_EMAIL sender is verified in Brevo dashboard → Senders & IPs."
+            else (
+                "Check BREVO_FROM_EMAIL in Brevo (Senders & IPs) and/or RESEND_FROM_EMAIL in Resend; "
+                "at least one provider must succeed."
+            )
         ),
     }

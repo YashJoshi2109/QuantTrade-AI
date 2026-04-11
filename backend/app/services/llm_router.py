@@ -227,14 +227,11 @@ FREE_DAILY_LIMIT = 5  # Free users get 5 copilot requests per day
 
 
 def is_pro_user(db: Session, user_id: int) -> bool:
-    """Check if user has an active pro subscription."""
+    """Check if user has Pro entitlement (active, trialing, or past_due within period)."""
     try:
-        from app.models.billing import Subscription
-        sub = db.query(Subscription).filter(
-            Subscription.user_id == user_id,
-            Subscription.status == "active",
-        ).first()
-        return sub is not None
+        from app.services.billing_service import is_premium
+
+        return is_premium(db, user_id)
     except Exception:
         return False
 

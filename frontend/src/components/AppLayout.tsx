@@ -30,7 +30,7 @@ import MarketTicker from './MarketTicker'
 import SiteFooter from './SiteFooter'
 import PredictionAlertCenter from './PredictionAlertCenter'
 import HelpDialog from './HelpDialog'
-import { fetchSymbols, Symbol, syncSymbol, fetchMarketStatus, MarketStatus } from '@/lib/api'
+import { fetchSymbols, Symbol, syncSymbol, fetchMarketStatus, MarketStatus, getSubscriptionStatus } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { useQuery } from '@tanstack/react-query'
 
@@ -115,6 +115,7 @@ export default function AppLayout({ children, symbol, hideFooter }: AppLayoutPro
   const pathname = usePathname()
   const router = useRouter()
   const { user, isAuthenticated, logout, isLoading: authLoading } = useAuth()
+  const [planPro, setPlanPro] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Symbol[]>([])
   const [globalResults, setGlobalResults] = useState<Array<{ symbol: string; name: string; exchange_display: string; country: string }>>([])
@@ -163,19 +164,38 @@ export default function AppLayout({ children, symbol, hideFooter }: AppLayoutPro
 
   const isGameActive = pathname?.startsWith('/game')
 
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/' },
-    { id: 'copilot', label: 'AI Copilot', icon: Sparkles, href: '/copilot' },
-    { id: 'monitor', label: 'Global Monitor', icon: Globe, href: '/monitor' },
-    { id: 'markets', label: 'Markets', icon: TrendingUp, href: '/markets' },
-    { id: 'watchlist', label: 'Watchlist', icon: Bookmark, href: '/watchlist' },
-    { id: 'research', label: 'Research', icon: FileText, href: '/research' },
-    { id: 'backtest', label: 'Backtest', icon: Activity, href: '/backtest' },
-    { id: 'ideas', label: 'Ideas Lab', icon: Lightbulb, href: '/ideas-lab' },
-    { id: 'game', label: 'CoinRealm', icon: Swords, href: '/game', amber: true },
-    { id: 'pricing', label: 'Pricing', icon: Zap, href: '/pricing' },
-    { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
-  ]
+  useEffect(() => {
+    if (!isAuthenticated || authLoading) {
+      setPlanPro(false)
+      return
+    }
+    getSubscriptionStatus()
+      .then((s) => setPlanPro(!!s.is_pro))
+      .catch(() => setPlanPro(false))
+  }, [isAuthenticated, authLoading])
+
+  const menuItems = useMemo(
+    () => [
+      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/' },
+      { id: 'copilot', label: 'AI Copilot', icon: Sparkles, href: '/copilot' },
+      { id: 'monitor', label: 'Global Monitor', icon: Globe, href: '/monitor' },
+      { id: 'markets', label: 'Markets', icon: TrendingUp, href: '/markets' },
+      { id: 'watchlist', label: 'Watchlist', icon: Bookmark, href: '/watchlist' },
+      { id: 'research', label: 'Research', icon: FileText, href: '/research' },
+      { id: 'backtest', label: 'Backtest', icon: Activity, href: '/backtest' },
+      { id: 'ideas', label: 'Ideas Lab', icon: Lightbulb, href: '/ideas-lab' },
+      { id: 'game', label: 'CoinRealm', icon: Swords, href: '/game', amber: true },
+      {
+        id: 'pricing',
+        label: 'Pricing',
+        icon: Zap,
+        href: '/pricing',
+        badge: planPro ? 'Pro' : undefined,
+      },
+      { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
+    ],
+    [planPro]
+  )
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {

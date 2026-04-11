@@ -27,6 +27,22 @@ export interface GlobalMover {
   currency: string
 }
 
+/** When Yahoo day_gainers/day_losers are empty but most_actives has quotes, derive lists from % change. */
+function synthesizeGainersLosersFromActives(
+  actives: GlobalMover[],
+  count: number
+): { gainers: GlobalMover[]; losers: GlobalMover[] } {
+  const gainers = actives
+    .filter((m) => m.change_percent > 0)
+    .sort((a, b) => b.change_percent - a.change_percent)
+    .slice(0, count)
+  const losers = actives
+    .filter((m) => m.change_percent < 0)
+    .sort((a, b) => a.change_percent - b.change_percent)
+    .slice(0, count)
+  return { gainers, losers }
+}
+
 // ─── Continent → Yahoo Finance region codes ────────────────────────────────
 const CONTINENT_REGIONS: Record<string, string[]> = {
   global: ['US'],
@@ -222,10 +238,18 @@ function dedupeMovers(rows: GlobalMover[]): GlobalMover[] {
 }
 
 // ─── Yahoo Finance continent movers (primary) ─────────────────────────────
+function yahooPerRegionCount(continent: string, count: number): number {
+  const regions = CONTINENT_REGIONS[continent] ?? CONTINENT_REGIONS.global
+  const n = regions.length
+  // Avoid huge parallel Yahoo calls (timeouts); spread budget across regions.
+  return Math.min(80, Math.max(12, Math.ceil(count / Math.max(1, n))))
+}
+
 async function yfContinentMovers(continent: string, count: number, type: 'gainers' | 'losers'): Promise<GlobalMover[]> {
   const regions = CONTINENT_REGIONS[continent] ?? CONTINENT_REGIONS.global
   const scrId = type === 'gainers' ? 'day_gainers' : 'day_losers'
-  const batches = await Promise.all(regions.map((r) => fetchYFScreener(scrId, r, count)))
+  const per = yahooPerRegionCount(continent, count)
+  const batches = await Promise.all(regions.map((r) => fetchYFScreener(scrId, r, per)))
   const merged = dedupeMovers(batches.flat())
   merged.sort((a, b) =>
     type === 'gainers' ? b.change_percent - a.change_percent : a.change_percent - b.change_percent
@@ -235,7 +259,8 @@ async function yfContinentMovers(continent: string, count: number, type: 'gainer
 
 async function yfContinentActives(continent: string, count: number): Promise<GlobalMover[]> {
   const regions = CONTINENT_REGIONS[continent] ?? CONTINENT_REGIONS.global
-  const batches = await Promise.all(regions.map((r) => fetchYFScreener('most_actives', r, count)))
+  const per = Math.min(80, Math.max(12, Math.ceil(count / Math.max(1, regions.length))))
+  const batches = await Promise.all(regions.map((r) => fetchYFScreener('most_actives', r, per)))
   const merged = dedupeMovers(batches.flat())
   merged.sort((a, b) => (b.volume || 0) - (a.volume || 0))
   return merged.slice(0, count)
@@ -315,7 +340,8 @@ async function twelveContinentMovers(continent: string, count: number, type: 'ga
 async function getContinentMovers(continent: string, count: number, type: 'gainers' | 'losers'): Promise<GlobalMover[]> {
   // 1. Yahoo Finance screener (accept partial — Yahoo often rate-limits in cloud)
   const yf = await yfContinentMovers(continent, count, type)
-  if (yf.length >= 1) return yf
+  // Require a few rows; a single stray quote should not skip FMP/Twelve fallbacks.
+  if (yf.length >= 3) return yf
 
   // 2. FMP fallback
   const fmp = await fmpContinentMovers(continent, count, type)
@@ -323,7 +349,9 @@ async function getContinentMovers(continent: string, count: number, type: 'gaine
 
   // 3. Twelve Data tertiary
   const twelve = await twelveContinentMovers(continent, count, type)
-  return twelve
+  if (twelve.length >= 1) return twelve
+
+  return yf.length >= 1 ? yf : []
 }
 
 async function getContinentActives(continent: string, count: number): Promise<GlobalMover[]> {
@@ -338,7 +366,7 @@ export async function GET(request: NextRequest) {
   const continent = searchParams.get('continent') || 'global'
   const exchangeId = searchParams.get('exchange')
   const type = (searchParams.get('type') || 'both') as 'gainers' | 'losers' | 'both'
-  const count = Math.min(parseInt(searchParams.get('count') ?? '12', 10), 25)
+  const count = Math.min(parseInt(searchParams.get('count') ?? '12', 10), 500)
   const wantActives = searchParams.get('actives') !== '0'
 
   const empty = { gainers: [] as GlobalMover[], losers: [] as GlobalMover[], actives: [] as GlobalMover[] }
@@ -376,12 +404,23 @@ export async function GET(request: NextRequest) {
         }
       }
       if (wantActives) {
-        const raw = await fetchYFScreener('most_actives', region, count * 2)
+        const raw = await fetchYFScreener('most_actives', region, Math.min(120, count * 2))
         actives = (filterMoversByExchange(raw, ex) as GlobalMover[]).slice(0, actN)
         if (actives.length < 2 && FMP_KEY) {
           const fmpRaw = await fmpContinentActives(continent, actN)
           actives = fmpRaw.slice(0, actN)
         }
+      }
+      if (
+        wantActives &&
+        gainers.length === 0 &&
+        losers.length === 0 &&
+        actives.length > 0 &&
+        type === 'both'
+      ) {
+        const syn = synthesizeGainersLosersFromActives(actives, count)
+        gainers = syn.gainers
+        losers = syn.losers
       }
       return NextResponse.json({ gainers, losers, actives })
     }
@@ -393,7 +432,11 @@ export async function GET(request: NextRequest) {
       // 1. Try our highly-reliable Python backend first
       try {
         const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
-        const beRes = await fetch(`${backendUrl}/api/v1/market/movers`, { cache: 'no-store', next: { revalidate: 60 } })
+        const beLimit = Math.min(count, 500)
+        const beRes = await fetch(
+          `${backendUrl}/api/v1/market/movers?limit=${beLimit}`,
+          { cache: 'no-store', next: { revalidate: 60 } }
+        )
         if (beRes.ok) {
            const data = await beRes.json()
            if ((data?.gainers && data.gainers.length > 0) || (data?.losers && data.losers.length > 0)) {
@@ -428,20 +471,45 @@ export async function GET(request: NextRequest) {
       if (gainers.length < 1 && type !== 'losers') gainers = await fetchTwelveMovers('NYSE', undefined, 'gainers', count)
       if (losers.length < 1 && type !== 'gainers') losers = await fetchTwelveMovers('NYSE', undefined, 'losers', count)
 
+      let gOut = gainers.slice(0, count)
+      let lOut = losers.slice(0, count)
+      const aOut = actives.slice(0, actN)
+      if (
+        wantActives &&
+        gOut.length === 0 &&
+        lOut.length === 0 &&
+        aOut.length > 0 &&
+        type === 'both'
+      ) {
+        const syn = synthesizeGainersLosersFromActives(aOut, count)
+        gOut = syn.gainers
+        lOut = syn.losers
+      }
       return NextResponse.json({
-        gainers: gainers.slice(0, count),
-        losers: losers.slice(0, count),
-        actives: actives.slice(0, actN),
+        gainers: gOut,
+        losers: lOut,
+        actives: aOut,
       })
     }
 
     // ── Non-global continent movers ─────────────────────────────────────
     const actN = Math.min(12, count)
-    const [gainers, losers, actives] = await Promise.all([
+    let [gainers, losers, actives] = await Promise.all([
       type !== 'losers' ? getContinentMovers(continent, count, 'gainers') : Promise.resolve([] as GlobalMover[]),
       type !== 'gainers' ? getContinentMovers(continent, count, 'losers') : Promise.resolve([] as GlobalMover[]),
       wantActives ? getContinentActives(continent, actN) : Promise.resolve([] as GlobalMover[]),
     ])
+    if (
+      wantActives &&
+      gainers.length === 0 &&
+      losers.length === 0 &&
+      actives.length > 0 &&
+      type === 'both'
+    ) {
+      const syn = synthesizeGainersLosersFromActives(actives, count)
+      gainers = syn.gainers
+      losers = syn.losers
+    }
     return NextResponse.json({ gainers, losers, actives })
   } catch {
     return NextResponse.json(empty, { status: 200 })

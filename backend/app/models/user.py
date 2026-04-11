@@ -43,6 +43,9 @@ class User(Base):
 
     # One-time welcome email with Stripe promo (deduped; see welcome_promo_email_service)
     welcome_promo_email_sent_at = Column(DateTime, nullable=True)
+
+    # JSON preferences: analyst_personality, data_sources, notifications, pro_watchlist_email_alerts, etc.
+    preferences_json = Column(Text, nullable=True)
     
     # Relationships
     watchlists = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan", uselist=True)

@@ -30,6 +30,7 @@ from app.config import settings
 from app.models.symbol import Symbol
 from app.models.chat_history import ChatHistory, Conversation
 from app.models.user import User
+from app.models.billing import Subscription
 from app.services.rag_service import RAGService
 from app.services.stock_analysis_client import fetch_stock_prediction
 from app.services.fmp_client import get_fundamentals_snapshot
@@ -360,6 +361,37 @@ async def _copilot_stream_generator(
     request_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
 
+    from app.services.billing_service import subscription_entitled
+    from app.services.user_preferences_service import load_preferences
+
+    sub = (
+        db.query(Subscription).filter(Subscription.user_id == user.id).one_or_none()
+    )
+    is_pro = subscription_entitled(sub)
+    prefs = load_preferences(user) if is_pro else {}
+    if is_pro:
+        ds = prefs.get("data_sources") or {}
+        include_news = bool(ds.get("social", True)) and req.include_news
+        include_filings = bool(ds.get("sec", True)) and req.include_filings
+        personality = (prefs.get("analyst_personality") or "balanced").lower()
+        persona_addon = {
+            "conservative": "Risk-averse framing; emphasize downside, quality, and margin of safety.",
+            "balanced": "Balanced framing; weigh upside and downside with equal rigor.",
+            "aggressive": "Opportunistic framing; emphasize momentum and upside while still listing material risks.",
+        }.get(
+            personality,
+            "Balanced framing; weigh upside and downside with equal rigor.",
+        )
+        system_prompt = (
+            COPILOT_SYSTEM_PROMPT
+            + "\n\n## User preference (Pro)\n"
+            + persona_addon
+        )
+    else:
+        include_news = req.include_news
+        include_filings = req.include_filings
+        system_prompt = COPILOT_SYSTEM_PROMPT
+
     # --- 1) Resolve symbols ---
     primary_obj, all_symbols = _resolve_symbols(req.message, req.symbol, db)
     resolved_symbol = primary_obj.symbol.upper() if primary_obj else None
@@ -506,8 +538,8 @@ async def _copilot_stream_generator(
             query=req.message,
             symbol=resolved_symbol,
             symbol_id=symbol_id,
-            include_news=req.include_news,
-            include_filings=req.include_filings,
+            include_news=include_news,
+            include_filings=include_filings,
             top_k=req.top_k,
         )
         # We only want the context docs, not the LLM response from RAG
@@ -515,7 +547,7 @@ async def _copilot_stream_generator(
         rag_sources = rag_result.get("sources", [])
 
         # Get raw docs for context
-        if req.include_news and symbol_id:
+        if include_news and symbol_id:
             news_docs = rag_service.retrieve_news(db, req.message, symbol_id, req.top_k)
             if news_docs:
                 rag_context += "\n[RECENT NEWS]\n"
@@ -526,7 +558,7 @@ async def _copilot_stream_generator(
                     if content:
                         rag_context += f"    {content}\n"
 
-        if req.include_filings and symbol_id:
+        if include_filings and symbol_id:
             filing_docs = rag_service.retrieve_filing_chunks(db, req.message, symbol_id, req.top_k)
             if filing_docs:
                 rag_context += "\n[SEC FILINGS]\n"
@@ -549,7 +581,7 @@ async def _copilot_stream_generator(
 Provide your analysis following the mandatory output format. Use the real data above — do NOT hallucinate numbers."""
 
     llm_messages = [
-        {"role": "system", "content": COPILOT_SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
     ]
 

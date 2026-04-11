@@ -11,6 +11,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.billing import BillingCustomer, Subscription, BillingEvent
 from app.models.user import User
 
@@ -120,25 +121,39 @@ def mark_billing_event_processed(
     db.commit()
 
 
+def subscription_entitled(subscription: Optional[Subscription]) -> bool:
+    """
+    True when the user should be treated as having a paid subscription (Pro UI, alerts).
+    Aligns with GET /billing/subscription has_active: active, trialing, or past_due
+    within the current period.
+    """
+    if not subscription:
+        return False
+    if subscription.status not in ("active", "trialing", "past_due"):
+        return False
+    if subscription.current_period_end is None:
+        return True
+    return subscription.current_period_end > datetime.now(timezone.utc)
+
+
+def plan_label_for_price_id(price_id: Optional[str]) -> str:
+    if not price_id:
+        return "QuantTrade Pro"
+    mid = getattr(settings, "STRIPE_PRICE_PLUS_MONTHLY", None) or ""
+    yr = getattr(settings, "STRIPE_PRICE_PLUS_YEARLY", None) or ""
+    if mid and price_id == mid:
+        return "QuantTrade Pro — Monthly"
+    if yr and price_id == yr:
+        return "QuantTrade Pro — Yearly"
+    return "QuantTrade Pro"
+
+
 def is_premium(db: Session, user_id: int) -> bool:
-    """
-    Returns True if the user has an active or trialing subscription that
-    is not expired.
-    """
+    """Pro entitlement for quotas and premium features (includes trialing and past_due in-period)."""
     subscription = (
         db.query(Subscription)
         .filter(Subscription.user_id == user_id)
         .one_or_none()
     )
-    if not subscription:
-        return False
-
-    if subscription.status not in ("active", "trialing"):
-        return False
-
-    if subscription.current_period_end is None:
-        return True
-
-    now = datetime.now(timezone.utc)
-    return subscription.current_period_end > now
+    return subscription_entitled(subscription)
 

@@ -5,7 +5,7 @@
  * Checkout: Stripe Payment Links (hosted checkout).
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -40,6 +40,7 @@ import {
   STRIPE_PROMO_CUSTOMER_CODE,
   buildStripePaymentLinkUrl,
 } from '@/lib/stripe-payment'
+import { getSubscriptionStatus, type SubscriptionStatus } from '@/lib/api'
 
 const WELCOME_PROMO_AMOUNT_LABEL = '$15'
 
@@ -88,6 +89,17 @@ function usePricingLogic() {
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly')
   const [loadingInterval, setLoadingInterval] = useState<'monthly' | 'yearly' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [subStatus, setSubStatus] = useState<SubscriptionStatus | null>(null)
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setSubStatus(null)
+      return
+    }
+    getSubscriptionStatus()
+      .then(setSubStatus)
+      .catch(() => setSubStatus(null))
+  }, [isAuthenticated])
 
   function handleSubscribe(interval: 'monthly' | 'yearly') {
     setError(null)
@@ -115,6 +127,7 @@ function usePricingLogic() {
     loadingInterval,
     error,
     handleSubscribe,
+    subStatus,
   }
 }
 
@@ -195,11 +208,13 @@ function ProCard({
   features,
   onSubscribe,
   loadingInterval,
+  alreadyPro,
 }: {
   billingInterval: 'monthly' | 'yearly'
   features: { label: string; icon: React.FC<{ className?: string }> }[]
   onSubscribe: (interval: 'monthly' | 'yearly') => void
   loadingInterval: 'monthly' | 'yearly' | null
+  alreadyPro?: boolean
 }) {
   const loading = loadingInterval !== null
 
@@ -256,31 +271,40 @@ function ProCard({
           })}
         </ul>
 
-        <button
-          type="button"
-          onClick={() => onSubscribe(billingInterval)}
-          disabled={loading}
-          className="relative group w-full py-4 px-6 rounded-xl font-black text-sm text-white transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 shadow-cyan-500/30 hover:shadow-cyan-500/50"
-        >
-          <span className="flex items-center justify-center gap-2">
-            {loadingInterval === billingInterval ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Opening Stripe…
-              </>
-            ) : billingInterval === 'monthly' ? (
-              <>
-                Subscribe — ${PRO_MONTHLY.toFixed(2)}/mo
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </>
-            ) : (
-              <>
-                Start trial — ${PRO_YEARLY_TOTAL}/yr
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </>
-            )}
-          </span>
-        </button>
+        {alreadyPro ? (
+          <Link
+            href="/settings"
+            className="relative flex w-full items-center justify-center gap-2 py-4 px-6 rounded-xl font-black text-sm text-cyan-100 border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 transition-colors"
+          >
+            <Crown className="w-4 h-4" /> Your current plan — manage billing
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onSubscribe(billingInterval)}
+            disabled={loading}
+            className="relative group w-full py-4 px-6 rounded-xl font-black text-sm text-white transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 shadow-cyan-500/30 hover:shadow-cyan-500/50"
+          >
+            <span className="flex items-center justify-center gap-2">
+              {loadingInterval === billingInterval ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Opening Stripe…
+                </>
+              ) : billingInterval === 'monthly' ? (
+                <>
+                  Subscribe — ${PRO_MONTHLY.toFixed(2)}/mo
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </>
+              ) : (
+                <>
+                  Start trial — ${PRO_YEARLY_TOTAL}/yr
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
+            </span>
+          </button>
+        )}
 
         <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-950/25 px-3 py-2.5">
           <p className="text-center text-[11px] leading-snug text-emerald-100/85">
@@ -300,7 +324,8 @@ function ProCard({
 }
 
 function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic> }) {
-  const { billingInterval, setBillingInterval, loadingInterval, error, handleSubscribe } = state
+  const { billingInterval, setBillingInterval, loadingInterval, error, handleSubscribe, subStatus } = state
+  const onPro = !!(subStatus?.is_pro ?? subStatus?.has_active)
 
   return (
     <div className="space-y-4 pb-4">
@@ -309,6 +334,14 @@ function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic
         <p className="text-[12px] text-slate-400 text-center mb-4 px-1 leading-relaxed">
           Pro is one bill for research tools and the full CoinRealm game—nothing extra for the game.
         </p>
+        {onPro && (
+          <div className="mx-2 mb-2 rounded-xl border border-cyan-500/35 bg-cyan-500/10 px-3 py-2.5 text-center text-[11px] text-cyan-100">
+            You&apos;re on <strong>{subStatus?.plan_label || 'QuantTrade Pro'}</strong>.
+            <Link href="/settings" className="block mt-1 text-cyan-300 font-semibold underline">
+              Manage billing
+            </Link>
+          </div>
+        )}
 
         <div className="flex flex-col items-center gap-3">
           <div className="inline-flex bg-[#1A2332] border border-white/5 rounded-full p-1 shadow-inner">
@@ -358,6 +391,7 @@ function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic
           features={TRADING_PRO_FEATURES}
           onSubscribe={handleSubscribe}
           loadingInterval={loadingInterval}
+          alreadyPro={onPro}
         />
       </section>
     </div>
@@ -431,11 +465,13 @@ function MobileProCard({
   features,
   onSubscribe,
   loadingInterval,
+  alreadyPro,
 }: {
   billingInterval: 'monthly' | 'yearly'
   features: { label: string; icon: React.FC<{ className?: string }> }[]
   onSubscribe: (interval: 'monthly' | 'yearly') => void
   loadingInterval: 'monthly' | 'yearly' | null
+  alreadyPro?: boolean
 }) {
   const amountLabel =
     billingInterval === 'monthly' ? `$${PRO_MONTHLY.toFixed(2)}` : `$${YEARLY_PER_MONTH_LABEL}`
@@ -478,14 +514,23 @@ function MobileProCard({
         })}
       </div>
 
-      <button
-        type="button"
-        disabled={loadingInterval !== null}
-        onClick={() => onSubscribe(billingInterval)}
-        className="relative z-10 w-full h-12 rounded-xl text-[14px] font-black transition-all active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100 shadow-xl bg-[#00D9FF] text-[#0A0E1A]"
-      >
-        {loadingInterval === billingInterval ? 'Opening Stripe…' : 'Subscribe with Stripe'}
-      </button>
+      {alreadyPro ? (
+        <Link
+          href="/settings"
+          className="relative z-10 flex w-full h-12 items-center justify-center gap-2 rounded-xl text-[13px] font-black border border-[#00D9FF]/50 bg-[#00D9FF]/10 text-[#00D9FF]"
+        >
+          <Crown className="h-4 w-4" /> Current plan — billing
+        </Link>
+      ) : (
+        <button
+          type="button"
+          disabled={loadingInterval !== null}
+          onClick={() => onSubscribe(billingInterval)}
+          className="relative z-10 w-full h-12 rounded-xl text-[14px] font-black transition-all active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100 shadow-xl bg-[#00D9FF] text-[#0A0E1A]"
+        >
+          {loadingInterval === billingInterval ? 'Opening Stripe…' : 'Subscribe with Stripe'}
+        </button>
+      )}
 
       <p className="relative z-10 mt-2.5 text-center text-[10px] leading-snug text-emerald-200/80">
         <Tag className="mr-0.5 inline h-3 w-3 text-emerald-400" />
@@ -500,7 +545,8 @@ function MobileProCard({
 }
 
 function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogic> }) {
-  const { billingInterval, setBillingInterval, loadingInterval, error, handleSubscribe } = state
+  const { billingInterval, setBillingInterval, loadingInterval, error, handleSubscribe, subStatus } = state
+  const onPro = !!(subStatus?.is_pro ?? subStatus?.has_active)
 
   return (
     <AppLayout>
@@ -526,6 +572,19 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
               Free tier gets you real usage: markets, a small Copilot allowance, and the opening arc of CoinRealm. Pro is
               when you want the full research stack and the rest of the game—still a single subscription, not two.
             </p>
+            {onPro && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-6 max-w-lg mx-auto rounded-xl border border-cyan-500/35 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100"
+              >
+                You&apos;re subscribed to <strong>{subStatus?.plan_label || 'QuantTrade Pro'}</strong>.{' '}
+                <Link href="/settings" className="text-cyan-300 font-semibold underline hover:text-cyan-200">
+                  Manage billing
+                </Link>{' '}
+                in Settings.
+              </motion.div>
+            )}
           </motion.div>
 
           <motion.div
@@ -586,6 +645,7 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
               features={TRADING_PRO_FEATURES}
               onSubscribe={handleSubscribe}
               loadingInterval={loadingInterval}
+              alreadyPro={onPro}
             />
           </motion.div>
 

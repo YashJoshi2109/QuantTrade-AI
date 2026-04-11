@@ -92,9 +92,11 @@ class Settings(BaseSettings):
     # Comma-separated allowed origins for verify_registration_response / verify_authentication_response
     WEBAUTHN_ORIGINS: str = os.getenv("WEBAUTHN_ORIGINS", "")
 
-    # Email — Brevo only (https://www.brevo.com — verify sender in dashboard)
+    # Email — Brevo (https://www.brevo.com) + optional Resend fallback (https://resend.com)
     BREVO_API_KEY: Optional[str] = None
     BREVO_FROM_EMAIL: str = "QuantTrade AI <noreply@quanttrade.us>"
+    RESEND_API_KEY: Optional[str] = None
+    RESEND_FROM_EMAIL: Optional[str] = None  # e.g. QuantTrade AI <notify@yourdomain.com>
     
     # Neon Auth
     NEON_AUTH_URL: Optional[str] = None
@@ -106,8 +108,14 @@ class Settings(BaseSettings):
 
     # Billing / Pricing
     APP_URL: str = os.getenv("APP_URL", "https://quanttrade.us")
+    # Optional HTTPS URL for Stripe Customer Portal return (e.g. https://www.quanttrade.us/settings).
+    # Use when APP_URL is http://localhost but Stripe (live) rejects non-HTTPS return_url.
+    BILLING_PORTAL_RETURN_URL: Optional[str] = None
     STRIPE_PRICE_PLUS_MONTHLY: Optional[str] = None
     STRIPE_PRICE_PLUS_YEARLY: Optional[str] = None
+    # Optional: Dashboard → Settings → Billing → Customer portal → copy Configuration ID (bpc_...)
+    # Required if the default portal was never saved / activated for this Stripe account.
+    STRIPE_BILLING_PORTAL_CONFIGURATION_ID: Optional[str] = None
     # Welcome email + Checkout: customer-facing promotion code (not the promo_ API id)
     STRIPE_WELCOME_PROMO_CUSTOMER_CODE: str = os.getenv(
         "STRIPE_WELCOME_PROMO_CUSTOMER_CODE", "QUANTTRADE"

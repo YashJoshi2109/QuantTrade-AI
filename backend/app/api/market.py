@@ -118,14 +118,16 @@ SP500_STOCKS = {
         ("RBLX", "Roblox Corp"), ("SPOT", "Spotify Technology"),
     ],
     "Industrials": [
-        ("GE", "GE Aerospace"), ("CAT", "Caterpillar Inc"), ("UNP", "Union Pacific"),
-        ("HON", "Honeywell Intl"), ("BA", "Boeing Co"), ("RTX", "RTX Corp"),
-        ("UPS", "United Parcel Service"), ("DE", "Deere & Co"), ("LMT", "Lockheed Martin"),
-        ("MMM", "3M Company"), ("GD", "General Dynamics"), ("CSX", "CSX Corp"),
-        ("NSC", "Norfolk Southern"), ("FDX", "FedEx Corp"), ("EMR", "Emerson Electric"),
+        ("GE", "GE Aerospace"), ("CAT", "Caterpillar Inc"), ("HON", "Honeywell Intl"),
+        ("BA", "Boeing Co"), ("RTX", "RTX Corp"), ("DE", "Deere & Co"), ("LMT", "Lockheed Martin"),
+        ("MMM", "3M Company"), ("GD", "General Dynamics"), ("EMR", "Emerson Electric"),
         ("ITW", "Illinois Tool Works"), ("ETN", "Eaton Corp"), ("PH", "Parker-Hannifin"),
         ("ROK", "Rockwell Automation"), ("AME", "AMETEK Inc"), ("CTAS", "Cintas Corp"),
-        ("RSG", "Republic Services"), ("WM", "Waste Management"), ("EXPD", "Expeditors Intl"),
+        ("RSG", "Republic Services"), ("WM", "Waste Management"),
+    ],
+    "Transportation": [
+        ("UNP", "Union Pacific"), ("CSX", "CSX Corp"), ("NSC", "Norfolk Southern"),
+        ("UPS", "United Parcel Service"), ("FDX", "FedEx Corp"), ("EXPD", "Expeditors Intl"),
         ("CHRW", "CH Robinson"), ("XPO", "XPO Inc"), ("JBHT", "JB Hunt Transport"),
         ("ODFL", "Old Dominion Freight"), ("SAIA", "Saia Inc"),
     ],
@@ -315,13 +317,17 @@ def _fast_mover_symbol_rows(limit: int = 140) -> List[Tuple[str, str, str]]:
 
 def _load_cached_mover_rows(
     db: Session,
-    limit: int = 160,
+    max_symbols: Optional[int] = None,
 ) -> List[StockPerformance]:
     """
     Fastest path for movers: use cached quote_snapshots only (no network).
+    By default loads the full heatmap universe (all SP500_STOCKS rows).
     """
-    rows = _fast_mover_symbol_rows(limit=limit)
-    symbol_meta = {s: (n, sec) for s, n, sec in rows}
+    flat = _flatten_sp500_symbol_rows()
+    if max_symbols is not None:
+        flat = flat[:max_symbols]
+    rows = flat
+    symbol_meta = {s[0]: (s[1], s[2]) for s in rows}
     symbols = list(symbol_meta.keys())
     snapshots = (
         db.query(QuoteSnapshot)
@@ -697,7 +703,13 @@ async def get_top_losers(
 @router.get("/market/movers")
 async def get_market_movers(
     force_refresh: bool = Query(False, description="Force refresh quotes"),
-    db: Session = Depends(get_db)
+    limit: int = Query(
+        10,
+        ge=1,
+        le=500,
+        description="Max gainers and max losers to return (each list is capped separately)",
+    ),
+    db: Session = Depends(get_db),
 ) -> dict:
     """
     Get market movers (gainers and losers combined) with real data.
@@ -711,14 +723,14 @@ async def get_market_movers(
         all_stocks = await _load_movers_universe(db, force_refresh=force_refresh)
 
     sorted_up = sorted(all_stocks, key=lambda x: x.change_percent, reverse=True)
-    gainers = [s for s in sorted_up if s.change_percent > 0][:10]
+    gainers = [s for s in sorted_up if s.change_percent > 0][:limit]
     if not gainers and all_stocks:
-        gainers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:10]
+        gainers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:limit]
 
     sorted_down = sorted(all_stocks, key=lambda x: x.change_percent)
-    losers = [s for s in sorted_down if s.change_percent < 0][:10]
+    losers = [s for s in sorted_down if s.change_percent < 0][:limit]
     if not losers and all_stocks:
-        losers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:10]
+        losers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:limit]
 
     return {
         "gainers": gainers,

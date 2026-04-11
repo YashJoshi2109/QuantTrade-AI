@@ -1,9 +1,12 @@
 """
 Main FastAPI application entry point
 """
+import logging
 import threading
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.api import (
@@ -29,6 +32,8 @@ from app.api import (
     game,
     ai_image,
     voice,
+    account,
+    user_preferences,
 )
 from app.api import monitor_extended
 from app.api import copilot_stream
@@ -130,11 +135,29 @@ def _start_scheduler():
             finally:
                 db.close()
 
+        def _pro_watchlist_alerts():
+            db = SessionLocal()
+            try:
+                from app.services.watchlist_alert_service import run_watchlist_alerts_sync
+
+                run_watchlist_alerts_sync(db)
+            except Exception as e:
+                print(f"⚠️ Pro watchlist alerts error: {e}")
+            finally:
+                db.close()
+
         sched = BackgroundScheduler(timezone="UTC")
         # Nightly at 00:30 UTC — refresh universe
         sched.add_job(_nightly_sync, CronTrigger(hour=0, minute=30), id="exchange_nightly_sync", replace_existing=True)
         # Weekly cleanup — Sunday 03:00 UTC
         sched.add_job(_weekly_cleanup, CronTrigger(day_of_week="sun", hour=3, minute=0), id="exchange_weekly_cleanup", replace_existing=True)
+        # Pro watchlist price + news emails — every 20 minutes UTC
+        sched.add_job(
+            _pro_watchlist_alerts,
+            CronTrigger(minute="*/20"),
+            id="pro_watchlist_alerts",
+            replace_existing=True,
+        )
         sched.start()
         _scheduler = sched
         print("✅ APScheduler started — exchange universe batch jobs scheduled")
@@ -165,6 +188,24 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+_db_logger = logging.getLogger("api.database")
+
+
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
+    """Never return raw SQL / schema details to clients (OWASP: error handling)."""
+    _db_logger.exception(
+        "Database error %s %s",
+        request.method,
+        request.url.path,
+    )
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": "Service temporarily unavailable. Please try again shortly.",
+        },
+    )
 
 
 # Cache control middleware for market data endpoints
@@ -227,6 +268,10 @@ app.include_router(chat_history.router, prefix="/api/v1", tags=["chat-history"])
 app.include_router(enhanced_endpoints.router, prefix="/api/v1/enhanced", tags=["enhanced"])
 app.include_router(quotes.router, prefix="/api/v1", tags=["quotes"])
 app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
+app.include_router(account.router, prefix="/api/v1/account", tags=["account"])
+app.include_router(
+    user_preferences.router, prefix="/api/v1/user", tags=["user-preferences"]
+)
 app.include_router(connect.router, prefix="/api/v1/connect", tags=["connect"])
 
 # Finviz stock data endpoint

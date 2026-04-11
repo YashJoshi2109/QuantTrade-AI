@@ -36,7 +36,10 @@ import {
   getWatchlist,
   SectorPerformance,
   QuoteData,
+  StockPerformance,
 } from '@/lib/api'
+import { useExchangeHeatmap } from '@/hooks/useExchangeHeatmap'
+import type { ExchangeSector } from '@/app/api/exchange/heatmap/route'
 import MarketNewsGrid from '@/components/MarketNewsGrid'
 import MiniWorldMonitorSnapshot from '@/components/MiniWorldMonitorSnapshot'
 import LiveNewsChannelPanel from '@/components/LiveNewsChannelPanel'
@@ -60,6 +63,14 @@ import {
 import type { IndexQuote } from '@/app/api/quotes/indices/route'
 import { buildMarketTape, type MarketTapeItem } from '@/lib/market-tape'
 import { QuoteActivityFlash, moversActivityFingerprint } from '@/components/QuoteActivityFlash'
+
+/** Local clock: morning 5–11, afternoon 12–16, evening otherwise. */
+function getTimeBasedGreeting(d = new Date()): string {
+  const h = d.getHours()
+  if (h >= 5 && h < 12) return 'Good morning'
+  if (h >= 12 && h < 17) return 'Good afternoon'
+  return 'Good evening'
+}
 
 // ─── World Indices Hook ───────────────────────────────────────────────────────
 function useWorldIndices(continent: Continent) {
@@ -85,7 +96,7 @@ function useDashboardRegionMovers(continent: Continent, exchangeId: string | nul
       losers: GlobalMover[]
       actives: GlobalMover[]
     }> => {
-      const p = new URLSearchParams({ count: '14' })
+      const p = new URLSearchParams({ count: '300' })
       if (exchangeId) p.set('exchange', exchangeId)
       else p.set('continent', continent)
       const res = await fetch(`/api/quotes/movers?${p}`)
@@ -744,22 +755,64 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
   )
 }
 
-// ─── Sector Heatmap Widget ────────────────────────────────────────────────────
-function SectorHeatmap({ sectors }: { sectors: SectorPerformance[]; loading: boolean }) {
-  if (sectors.length === 0) return null
+function mapExchangeHeatmapToSectors(raw: ExchangeSector[]): SectorPerformance[] {
+  return raw.map((sec) => ({
+    sector: sec.sector,
+    change_percent: sec.change_percent,
+    stocks: sec.stocks.map(
+      (st): StockPerformance => ({
+        symbol: st.symbol,
+        name: st.name,
+        price: st.price,
+        change: st.change,
+        change_percent: st.change_percent,
+        volume: st.volume,
+        market_cap: st.market_cap > 0 ? st.market_cap : undefined,
+        sector: sec.sector,
+      })
+    ),
+  }))
+}
 
-  const max = Math.max(...sectors.map((s) => Math.abs(s.change_percent || 0)), 1)
+// ─── Sector Heatmap Widget ────────────────────────────────────────────────────
+function SectorHeatmap({
+  sectors,
+  loading,
+  emptyLabel = 'No sector performance data yet.',
+}: {
+  sectors: SectorPerformance[]
+  loading: boolean
+  emptyLabel?: string
+}) {
+  if (loading) return null
+
+  if (sectors.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 px-2 py-8 text-center">
+        <BarChart3 className="mx-auto h-8 w-8 text-slate-700" />
+        <p className="text-[11px] leading-snug text-slate-500">{emptyLabel}</p>
+      </div>
+    )
+  }
+
+  const sorted = [...sectors].sort(
+    (a, b) => (b.change_percent || 0) - (a.change_percent || 0)
+  )
+  const max = Math.max(...sorted.map((s) => Math.abs(s.change_percent || 0)), 1)
+  const compact = sorted.length > 10
 
   return (
     <div className="grid grid-cols-2 gap-1.5">
-      {sectors.slice(0, 8).map((s, i) => {
+      {sorted.map((s, i) => {
         const pct = s.change_percent || 0
         const up = pct >= 0
         const intensity = Math.min(Math.abs(pct) / max, 1)
         return (
           <div
             key={s.sector || i}
-            className="relative rounded overflow-hidden h-12 flex flex-col justify-center px-2.5"
+            className={`relative flex flex-col justify-center overflow-hidden rounded px-2.5 ${
+              compact ? 'h-10' : 'h-12'
+            }`}
             style={{
               background: up
                 ? `rgba(34,197,94,${0.06 + intensity * 0.18})`
@@ -970,8 +1023,24 @@ function ContinentMoversPanel({
   exchangeId: string | null
 }) {
   const { data, isLoading } = useDashboardRegionMovers(continent, exchangeId)
-  const gainers = data?.gainers ?? []
-  const losers = data?.losers ?? []
+  const rawGainers = data?.gainers ?? []
+  const rawLosers = data?.losers ?? []
+  const actives = data?.actives ?? []
+
+  const gainers = useMemo(() => {
+    if (rawGainers.length > 0) return rawGainers
+    return actives
+      .filter((m) => m.change_percent > 0)
+      .sort((a, b) => b.change_percent - a.change_percent)
+  }, [rawGainers, actives])
+
+  const losers = useMemo(() => {
+    if (rawLosers.length > 0) return rawLosers
+    return actives
+      .filter((m) => m.change_percent < 0)
+      .sort((a, b) => a.change_percent - b.change_percent)
+  }, [rawLosers, actives])
+
   const scopeLabel = exchangeId
     ? getExchangeById(exchangeId)?.shortName ?? exchangeId
     : continent === 'global'
@@ -995,7 +1064,7 @@ function ContinentMoversPanel({
           ) : gainers.length === 0 ? (
             <div className="flex items-center justify-center h-20 text-slate-500 text-xs">No data</div>
           ) : (
-            gainers.slice(0, 8).map((s, i) => (
+            gainers.map((s, i) => (
               <Link
                 key={s.symbol}
                 href={`/research?symbol=${s.symbol}`}
@@ -1033,7 +1102,7 @@ function ContinentMoversPanel({
           ) : losers.length === 0 ? (
             <div className="flex items-center justify-center h-20 text-slate-500 text-xs">No data</div>
           ) : (
-            losers.slice(0, 8).map((s, i) => (
+            losers.map((s, i) => (
               <Link
                 key={s.symbol}
                 href={`/research?symbol=${s.symbol}`}
@@ -1089,6 +1158,16 @@ function DesktopHome() {
     placeholderData: keepPreviousData,
   })
 
+  const {
+    data: exchangeHeatmapData,
+    isLoading: exchangeHeatmapLoading,
+  } = useExchangeHeatmap(activeContinent, selectedExchangeId)
+
+  const continentalSectorHeatmap = useMemo(
+    () => mapExchangeHeatmapToSectors(exchangeHeatmapData?.sectors ?? []),
+    [exchangeHeatmapData]
+  )
+
   const newsContext = useMemo(
     () => ({ continent: activeContinent, exchangeId: selectedExchangeId }),
     [activeContinent, selectedExchangeId]
@@ -1109,12 +1188,26 @@ function DesktopHome() {
   const topLosers = regionMovers?.losers?.slice(0, 10) || []
   const alertContextSymbols = useMemo(() => {
     const s = new Set<string>()
+    if (selectedExchangeId) {
+      for (const m of [...(regionMovers?.gainers ?? []), ...(regionMovers?.losers ?? [])]) {
+        if (m.symbol) s.add(m.symbol)
+      }
+      return s
+    }
+    if (activeContinent === 'global' && sectors.length > 0) {
+      for (const sec of sectors) {
+        for (const st of sec.stocks) {
+          if (st.symbol) s.add(st.symbol)
+        }
+      }
+      return s
+    }
     for (const m of [...(regionMovers?.gainers ?? []), ...(regionMovers?.losers ?? [])]) {
-      s.add(m.symbol)
+      if (m.symbol) s.add(m.symbol)
     }
     return s
-  }, [regionMovers])
-  /** Full-universe breadth from sector heatmap (covers all tracked stocks, not just top 10 movers) */
+  }, [regionMovers, sectors, selectedExchangeId, activeContinent])
+  /** Full-universe breadth from sector heatmap (covers all tracked stocks, not just top movers) */
   const sectorAdvancers = useMemo(
     () => sectors.reduce((sum, s) => sum + s.stocks.filter((st) => st.change_percent > 0).length, 0),
     [sectors],
@@ -1124,8 +1217,63 @@ function DesktopHome() {
     [sectors],
   )
   const sectorTotal = sectorAdvancers + sectorDecliners
-  const breadth = sectorTotal > 0 ? sectorAdvancers - sectorDecliners
-    : (regionMovers?.gainers?.length || 0) - (regionMovers?.losers?.length || 0)
+  /** US heatmap sectors are global-only; avoid mixing US breadth with regional mover tabs */
+  const useSectorBreadth = activeContinent === 'global' && sectorTotal > 0
+
+  /** Regional tabs: Yahoo often fills actives while gainers/losers stay empty — count from merged quotes. */
+  const regionalMoverBreadth = useMemo(() => {
+    if (useSectorBreadth) return null
+    const seen = new Set<string>()
+    const rows: GlobalMover[] = []
+    const push = (m: GlobalMover) => {
+      if (!m?.symbol || seen.has(m.symbol)) return
+      seen.add(m.symbol)
+      rows.push(m)
+    }
+    for (const m of regionMovers?.gainers ?? []) push(m)
+    for (const m of regionMovers?.losers ?? []) push(m)
+    for (const m of regionMovers?.actives ?? []) push(m)
+    let up = 0
+    let down = 0
+    for (const m of rows) {
+      if (m.change_percent > 0) up++
+      else if (m.change_percent < 0) down++
+    }
+    return { up, down, total: rows.length }
+  }, [regionMovers, useSectorBreadth])
+
+  const breadth = useSectorBreadth
+    ? sectorAdvancers - sectorDecliners
+    : (regionalMoverBreadth ? regionalMoverBreadth.up - regionalMoverBreadth.down : 0)
+
+  const pulseBreadthUp = useSectorBreadth
+    ? sectorAdvancers
+    : (regionalMoverBreadth?.up ?? regionMovers?.gainers?.length ?? 0)
+  const pulseBreadthDown = useSectorBreadth
+    ? sectorDecliners
+    : (regionalMoverBreadth?.down ?? regionMovers?.losers?.length ?? 0)
+  const pulseBreadthTotal = pulseBreadthUp + pulseBreadthDown
+
+  /** All heatmap-quoted names for Market Pulse (same universe as sector tiles) */
+  const heatmapUniverseStocks = useMemo(() => {
+    const rows: { symbol: string; name: string; change_percent: number; price: number; sector: string }[] = []
+    const seen = new Set<string>()
+    for (const sec of sectors) {
+      for (const st of sec.stocks) {
+        if (!st.symbol || seen.has(st.symbol)) continue
+        seen.add(st.symbol)
+        rows.push({
+          symbol: st.symbol,
+          name: st.name,
+          change_percent: st.change_percent,
+          price: st.price,
+          sector: sec.sector,
+        })
+      }
+    }
+    rows.sort((a, b) => b.change_percent - a.change_percent)
+    return rows
+  }, [sectors])
   const breadthTone = breadth > 0 ? 'Risk-On' : breadth < 0 ? 'Risk-Off' : 'Balanced'
   const breadthColor = breadth > 0 ? 'text-emerald-400' : breadth < 0 ? 'text-red-400' : 'text-yellow-400'
 
@@ -1191,7 +1339,7 @@ function DesktopHome() {
     for (const m of regionMovers?.losers ?? []) push(m)
     for (const m of regionMovers?.actives ?? []) push(m)
     out.sort((a, b) => Math.abs(b.change_percent) - Math.abs(a.change_percent))
-    return out.slice(0, 36)
+    return out
   }, [regionMovers])
 
   return (
@@ -1221,12 +1369,12 @@ function DesktopHome() {
               <Layers className="w-4 h-4 text-[#007AFF]" />
               {isAuthenticated && user ? (
                 <>
-                  Dashboard —{' '}
+                  {getTimeBasedGreeting()},{' '}
                   <span className="text-[#007AFF] font-semibold text-sm capitalize">
                     {(user as { full_name?: string; username?: string; email?: string }).full_name?.split(' ')[0] ||
                      (user as { full_name?: string; username?: string; email?: string }).username ||
                      user.email?.split('@')[0] ||
-                     'you'}
+                     'there'}
                   </span>
                 </>
               ) : (
@@ -1245,17 +1393,12 @@ function DesktopHome() {
                 <>
                   {' · '}
                   <span className={breadthColor + ' font-bold'}>{breadthTone}</span>
-                  {(sectorTotal > 0 || !regionMoversLoading) && (
+                  {(useSectorBreadth || !regionMoversLoading) && (
                     <>
                       {' · '}
-                      <span className="text-emerald-400">
-                        {sectorTotal > 0 ? sectorAdvancers : regionMovers?.gainers?.length || 0}↑
-                      </span>
-                      {' '}
-                      <span className="text-red-400">
-                        {sectorTotal > 0 ? sectorDecliners : regionMovers?.losers?.length || 0}↓
-                      </span>
-                      {sectorTotal > 0 && (
+                      <span className="text-emerald-400">{pulseBreadthUp}↑</span>{' '}
+                      <span className="text-red-400">{pulseBreadthDown}↓</span>
+                      {useSectorBreadth && (
                         <span className="text-slate-600"> /{sectorTotal}</span>
                       )}
                     </>
@@ -1354,7 +1497,9 @@ function DesktopHome() {
                         <Zap className="w-2.5 h-2.5" />
                         LIVE NEWS
                       </span>
-                      <span className="text-[10px] text-slate-500 font-mono hidden sm:inline shrink-0">Top 20</span>
+                      <span className="text-[10px] text-slate-500 font-mono hidden sm:inline shrink-0">
+                        Top 7 + scroll
+                      </span>
                       <QuoteActivityFlash fingerprint={newsActivityFingerprint} />
                       {newsFetching && !newsPending && (
                         <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">Syncing…</span>
@@ -1370,9 +1515,9 @@ function DesktopHome() {
                     </button>
                   </div>
 
-                  <div className="flex-1 min-h-0 overflow-y-auto relative">
+                  <div className="flex flex-1 min-h-0 flex-col overflow-hidden relative">
                     {newsPending ? (
-                      <BrandedNewsLoading rows={14} />
+                      <BrandedNewsLoading rows={10} />
                     ) : newsError ? (
                       <div className="flex flex-col items-center justify-center h-full py-10 text-center px-4">
                         <Activity className="w-8 h-8 text-amber-500/60 mb-3" />
@@ -1386,72 +1531,148 @@ function DesktopHome() {
                         </button>
                       </div>
                     ) : liveNews.length > 0 ? (
-                      <div className="p-2 sm:p-3 grid grid-cols-1 xl:grid-cols-2 gap-2">
-                        {liveNews.slice(0, 20).map((news, idx) => {
-                          const key = news.id ?? news.url ?? `${news.title}-${idx}`
-                          const isBullish = news.sentiment === 'Bullish'
-                          const isBearish = news.sentiment === 'Bearish'
-                          const Inner = (
-                            <div className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-lg border border-slate-800/50 bg-slate-950/30 hover:bg-blue-500/5 hover:border-slate-700/60 transition-colors group/item h-full">
-                              <div
-                                className={`mt-0.5 p-1.5 rounded shrink-0 ${
-                                  isBullish
-                                    ? 'bg-green-500/15'
-                                    : isBearish
-                                    ? 'bg-red-500/15'
-                                    : 'bg-slate-700/40'
-                                }`}
-                              >
-                                {isBullish ? (
-                                  <TrendingUp className="w-3 h-3 text-green-400" />
-                                ) : isBearish ? (
-                                  <TrendingDown className="w-3 h-3 text-red-400" />
-                                ) : (
-                                  <Minus className="w-3 h-3 text-slate-400" />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[13px] sm:text-sm text-white font-medium group-hover/item:text-blue-300 transition-colors line-clamp-3 leading-snug">
-                                  {news.title}
-                                </p>
-                                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                  <span className="text-[10px] text-slate-500 flex items-center gap-1 min-w-0">
-                                    <Clock className="w-2.5 h-2.5 shrink-0" />
-                                    <span className="truncate">{news.source}</span>
-                                  </span>
-                                  {news.related_tickers && news.related_tickers.length > 0 && (
-                                    <div className="flex gap-1 flex-wrap">
-                                      {news.related_tickers.slice(0, 3).map((t) => (
-                                        <span
-                                          key={t}
-                                          className="px-1.5 py-0.5 text-[9px] bg-blue-500/15 text-blue-400 rounded font-mono"
-                                        >
-                                          {t}
-                                        </span>
-                                      ))}
+                      <>
+                        <div className="shrink-0 border-b border-slate-800/50 p-2 sm:p-3">
+                          <p className="mb-2 px-0.5 text-[10px] font-mono text-slate-500">Featured</p>
+                          <div className="space-y-2">
+                            {liveNews.slice(0, 7).map((news, idx) => {
+                              const key = news.id ?? news.url ?? `${news.title}-${idx}`
+                              const isBullish = news.sentiment === 'Bullish'
+                              const isBearish = news.sentiment === 'Bearish'
+                              const Inner = (
+                                <div className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-lg border border-slate-800/50 bg-slate-950/30 hover:bg-blue-500/5 hover:border-slate-700/60 transition-colors group/item h-full">
+                                  <div
+                                    className={`mt-0.5 p-1.5 rounded shrink-0 ${
+                                      isBullish
+                                        ? 'bg-green-500/15'
+                                        : isBearish
+                                          ? 'bg-red-500/15'
+                                          : 'bg-slate-700/40'
+                                    }`}
+                                  >
+                                    {isBullish ? (
+                                      <TrendingUp className="w-3 h-3 text-green-400" />
+                                    ) : isBearish ? (
+                                      <TrendingDown className="w-3 h-3 text-red-400" />
+                                    ) : (
+                                      <Minus className="w-3 h-3 text-slate-400" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[13px] sm:text-sm text-white font-medium group-hover/item:text-blue-300 transition-colors line-clamp-3 leading-snug">
+                                      {news.title}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                      <span className="text-[10px] text-slate-500 flex items-center gap-1 min-w-0">
+                                        <Clock className="w-2.5 h-2.5 shrink-0" />
+                                        <span className="truncate">{news.source}</span>
+                                      </span>
+                                      {news.related_tickers && news.related_tickers.length > 0 && (
+                                        <div className="flex gap-1 flex-wrap">
+                                          {news.related_tickers.slice(0, 3).map((t) => (
+                                            <span
+                                              key={t}
+                                              className="px-1.5 py-0.5 text-[9px] bg-blue-500/15 text-blue-400 rounded font-mono"
+                                            >
+                                              {t}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
+                                  </div>
                                 </div>
-                              </div>
+                              )
+                              return news.url ? (
+                                <a
+                                  key={key}
+                                  href={news.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block min-w-0"
+                                >
+                                  {Inner}
+                                </a>
+                              ) : (
+                                <div key={key} className="min-w-0">
+                                  {Inner}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                        {liveNews.length > 7 && (
+                          <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-3">
+                            <p className="mb-2 px-0.5 text-[10px] font-mono text-slate-500">More headlines</p>
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
+                              {liveNews.slice(7, 20).map((news, idx) => {
+                                const key = news.id ?? news.url ?? `more-${news.title}-${idx}`
+                                const isBullish = news.sentiment === 'Bullish'
+                                const isBearish = news.sentiment === 'Bearish'
+                                const Inner = (
+                                  <div className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-lg border border-slate-800/50 bg-slate-950/30 hover:bg-blue-500/5 hover:border-slate-700/60 transition-colors group/item h-full">
+                                    <div
+                                      className={`mt-0.5 p-1.5 rounded shrink-0 ${
+                                        isBullish
+                                          ? 'bg-green-500/15'
+                                          : isBearish
+                                            ? 'bg-red-500/15'
+                                            : 'bg-slate-700/40'
+                                      }`}
+                                    >
+                                      {isBullish ? (
+                                        <TrendingUp className="w-3 h-3 text-green-400" />
+                                      ) : isBearish ? (
+                                        <TrendingDown className="w-3 h-3 text-red-400" />
+                                      ) : (
+                                        <Minus className="w-3 h-3 text-slate-400" />
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[13px] sm:text-sm text-white font-medium group-hover/item:text-blue-300 transition-colors line-clamp-3 leading-snug">
+                                        {news.title}
+                                      </p>
+                                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                        <span className="text-[10px] text-slate-500 flex items-center gap-1 min-w-0">
+                                          <Clock className="w-2.5 h-2.5 shrink-0" />
+                                          <span className="truncate">{news.source}</span>
+                                        </span>
+                                        {news.related_tickers && news.related_tickers.length > 0 && (
+                                          <div className="flex gap-1 flex-wrap">
+                                            {news.related_tickers.slice(0, 3).map((t) => (
+                                              <span
+                                                key={t}
+                                                className="px-1.5 py-0.5 text-[9px] bg-blue-500/15 text-blue-400 rounded font-mono"
+                                              >
+                                                {t}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                                return news.url ? (
+                                  <a
+                                    key={key}
+                                    href={news.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block min-w-0"
+                                  >
+                                    {Inner}
+                                  </a>
+                                ) : (
+                                  <div key={key} className="min-w-0">
+                                    {Inner}
+                                  </div>
+                                )
+                              })}
                             </div>
-                          )
-                          return news.url ? (
-                            <a
-                              key={key}
-                              href={news.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block min-w-0"
-                            >
-                              {Inner}
-                            </a>
-                          ) : (
-                            <div key={key} className="min-w-0">
-                              {Inner}
-                            </div>
-                          )
-                        })}
-                      </div>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="flex flex-col items-center justify-center h-full py-10 text-center px-4">
                         <Activity className="w-8 h-8 text-slate-700 mb-3" />
@@ -1670,12 +1891,16 @@ function DesktopHome() {
                   <div className={dashToolbar}>
                     <div className="flex min-w-0 items-center gap-2">
                       <BarChart3 className="h-4 w-4 shrink-0 text-blue-400" />
-                      <h3 className="truncate text-sm font-bold text-white">
-                        {activeContinent === 'global' ? 'Sector Heatmap' : '1D movers map'}
-                      </h3>
-                      {activeContinent !== 'global' && (
-                        <span className="max-w-[88px] truncate font-mono text-[9px] text-slate-500">
-                          {continentInfo?.label}
+                      <h3 className="truncate text-sm font-bold text-white">Sector heatmap</h3>
+                      {activeContinent === 'global' ? (
+                        <span className="max-w-[72px] truncate font-mono text-[9px] text-slate-500">
+                          US
+                        </span>
+                      ) : (
+                        <span className="max-w-[100px] truncate font-mono text-[9px] text-slate-500">
+                          {selectedExchangeId
+                            ? getExchangeById(selectedExchangeId)?.shortName ?? selectedExchangeId
+                            : continentInfo?.label}
                         </span>
                       )}
                     </div>
@@ -1691,12 +1916,35 @@ function DesktopHome() {
                       sectorsLoading ? (
                         <SkeletonSectorPerformance count={4} />
                       ) : (
-                        <SectorHeatmap sectors={sectors} loading={sectorsLoading} />
+                        <SectorHeatmap
+                          sectors={sectors}
+                          loading={false}
+                          emptyLabel="No US sector data yet. Confirm the backend is running and sector quotes are available, then refresh."
+                        />
                       )
+                    ) : exchangeHeatmapLoading ? (
+                      <SkeletonSectorPerformance count={4} />
+                    ) : continentalSectorHeatmap.length > 0 ? (
+                      <SectorHeatmap
+                        sectors={continentalSectorHeatmap}
+                        loading={false}
+                        emptyLabel="No sector breakdown for this region."
+                      />
                     ) : regionMoversLoading ? (
                       <SkeletonSectorPerformance count={4} />
+                    ) : regionalHeatRows.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="px-0.5 text-[9px] leading-snug text-slate-500">
+                          Sector quotes unavailable — showing movers until FMP/Yahoo data loads.
+                        </p>
+                        <MoversHeatmap rows={regionalHeatRows} emptyLabel="No regional movers" />
+                      </div>
                     ) : (
-                      <MoversHeatmap rows={regionalHeatRows} emptyLabel="No regional movers loaded yet" />
+                      <SectorHeatmap
+                        sectors={[]}
+                        loading={false}
+                        emptyLabel="No sector heatmap for this region yet (configure FMP for universe quotes) and no movers loaded."
+                      />
                     )}
                   </div>
                 </div>
@@ -1712,9 +1960,7 @@ function DesktopHome() {
                 className="h-full min-h-[260px] lg:min-h-[280px] w-full flex flex-col"
               >
                 <PredictionAlertsWidget
-                  contextSymbols={
-                    selectedExchangeId && alertContextSymbols.size > 0 ? alertContextSymbols : undefined
-                  }
+                  contextSymbols={alertContextSymbols.size > 0 ? alertContextSymbols : undefined}
                 />
               </motion.div>
             </div>
@@ -1755,22 +2001,18 @@ function DesktopHome() {
                             <div
                               className="h-full bg-gradient-to-r from-emerald-500 via-cyan-500/90 to-emerald-400 transition-all duration-700"
                               style={{
-                                width: regionMoversLoading
-                                  ? '50%'
-                                  : `${Math.round(
-                                      ((regionMovers?.gainers?.length || 0) /
-                                        Math.max(
-                                          1,
-                                          (regionMovers?.gainers?.length || 0) +
-                                            (regionMovers?.losers?.length || 0)
-                                        )) *
-                                        100
-                                    )}%`,
+                                width:
+                                  (useSectorBreadth && sectorsLoading) ||
+                                  (!useSectorBreadth && regionMoversLoading)
+                                    ? '50%'
+                                    : pulseBreadthTotal <= 0
+                                      ? '50%'
+                                      : `${Math.round((pulseBreadthUp / pulseBreadthTotal) * 100)}%`,
                               }}
                             />
                           </div>
                           <span className="shrink-0 font-mono text-[10px] tabular-nums text-slate-500">
-                            {regionMovers?.gainers?.length || 0}↑ {regionMovers?.losers?.length || 0}↓
+                            {pulseBreadthUp}↑ {pulseBreadthDown}↓
                           </span>
                         </div>
                       </ProCard>
@@ -1829,6 +2071,60 @@ function DesktopHome() {
                           </ul>
                         )}
                       </ProCard>
+
+                      {(activeContinent === 'global' && heatmapUniverseStocks.length > 0) ||
+                      (activeContinent !== 'global' && regionalHeatRows.length > 0) ? (
+                        <ProCard className="flex min-h-0 max-h-[min(240px,32vh)] flex-1 flex-col p-2.5 sm:p-3">
+                          <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-1.5">
+                              <Layers className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                              <span className="truncate text-[11px] font-bold text-white">
+                                {activeContinent === 'global' ? 'Full heatmap universe' : 'Regional movers'}
+                              </span>
+                            </div>
+                            <span className="shrink-0 font-mono text-[9px] text-slate-500">
+                              {activeContinent === 'global'
+                                ? heatmapUniverseStocks.length
+                                : regionalHeatRows.length}{' '}
+                              names
+                            </span>
+                          </div>
+                          <div className="min-h-0 flex-1 space-y-0 overflow-y-auto overscroll-contain rounded-md border border-slate-800/40 bg-slate-950/30">
+                            {(activeContinent === 'global' ? heatmapUniverseStocks : regionalHeatRows).map(
+                              (st) => {
+                                const pct = st.change_percent ?? 0
+                                const up = pct >= 0
+                                return (
+                                  <Link
+                                    key={st.symbol}
+                                    href={`/research?symbol=${encodeURIComponent(st.symbol)}`}
+                                    className="flex items-center justify-between gap-2 border-b border-slate-800/25 px-2 py-1.5 last:border-b-0 hover:bg-slate-800/40"
+                                  >
+                                    <div className="min-w-0 flex-1">
+                                      <div className="truncate font-mono text-[10px] font-bold text-slate-200">
+                                        {st.symbol}
+                                      </div>
+                                      {activeContinent === 'global' &&
+                                      'sector' in st &&
+                                      typeof st.sector === 'string' ? (
+                                        <div className="truncate text-[9px] text-slate-600">{st.sector}</div>
+                                      ) : null}
+                                    </div>
+                                    <span
+                                      className={`shrink-0 font-mono text-[10px] font-bold ${
+                                        up ? 'text-emerald-400' : 'text-red-400'
+                                      }`}
+                                    >
+                                      {up ? '+' : ''}
+                                      {formatPercent(pct, 2)}
+                                    </span>
+                                  </Link>
+                                )
+                              }
+                            )}
+                          </div>
+                        </ProCard>
+                      ) : null}
 
                       <ProCard className="p-2.5 sm:p-3">
                         <div className="flex items-center gap-1.5 mb-1">

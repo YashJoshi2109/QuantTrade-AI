@@ -1,7 +1,7 @@
 """
 OTP (One-Time Password) service for email verification.
 Uses Redis when available, with an in-memory fallback for local dev.
-Email delivery via Brevo.
+Email delivery via Brevo with optional Resend fallback / dual send for account deletion.
 """
 import random
 import string
@@ -27,6 +27,10 @@ _redis_client: Optional[redis.Redis] = None
 # In-memory fallback stores (used when Redis is unavailable)
 _memory_otp_store: Dict[str, Tuple[str, float]] = {}
 _memory_rate_limit: Dict[str, float] = {}
+_memory_delete_otp_store: Dict[str, Tuple[str, float]] = {}
+
+DELETE_OTP_REDIS_PREFIX = "acct_del_otp:"
+DELETE_OTP_EXPIRY_MINUTES = 15
 
 logger = logging.getLogger("otp_service")
 
@@ -197,7 +201,16 @@ def send_otp_email(email: str, otp: str) -> tuple[bool, str]:
         </div>
     </div>
     """
-    ok, err = send_email_sync(email, "QuantTrade AI — Your Verification Code", html)
+    text_plain = (
+        f"Your QuantTrade AI verification code is {otp}. "
+        f"It expires in {OTP_EXPIRY_MINUTES} minutes. Do not share it with anyone."
+    )
+    ok, err = send_email_sync(
+        email,
+        "QuantTrade AI - Your verification code",
+        html,
+        text_plain=text_plain,
+    )
     if ok:
         return True, ""
     # Local dev: Brevo not configured or failing — log OTP to terminal and allow flow to continue
@@ -208,5 +221,91 @@ def send_otp_email(email: str, otp: str) -> tuple[bool, str]:
             otp,
             err[:200] if err else "unknown",
         )
+        return True, ""
+    return False, err
+
+
+def store_delete_account_otp(user_id: int, otp: str) -> bool:
+    """Store account-deletion OTP keyed by user id (separate from email verification OTP)."""
+    key = str(user_id)
+    r = _get_redis()
+    if r:
+        try:
+            redis_key = f"{DELETE_OTP_REDIS_PREFIX}{key}"
+            r.setex(redis_key, timedelta(minutes=DELETE_OTP_EXPIRY_MINUTES), otp)
+            return True
+        except Exception:
+            pass
+    expiry = time.time() + DELETE_OTP_EXPIRY_MINUTES * 60
+    _memory_delete_otp_store[key] = (otp, expiry)
+    return True
+
+
+def verify_delete_account_otp(user_id: int, otp: str) -> bool:
+    key = str(user_id)
+    r = _get_redis()
+    if r:
+        try:
+            redis_key = f"{DELETE_OTP_REDIS_PREFIX}{key}"
+            stored = r.get(redis_key)
+            if stored and stored == otp:
+                r.delete(redis_key)
+                return True
+            return False
+        except Exception:
+            pass
+    data = _memory_delete_otp_store.get(key)
+    if not data:
+        return False
+    stored_otp, expiry = data
+    if time.time() > expiry:
+        _memory_delete_otp_store.pop(key, None)
+        return False
+    if stored_otp == otp:
+        _memory_delete_otp_store.pop(key, None)
+        return True
+    return False
+
+
+def send_delete_account_otp_email(email: str, otp: str) -> tuple[bool, str]:
+    """Email for account deletion confirmation (Brevo + optional Resend redundancy)."""
+    from app.services.email_service import send_redundant_transactional_email_sync
+
+    html = f"""
+    <div style="font-family: -apple-system, 'Segoe UI', sans-serif; max-width: 440px; margin: 0 auto; background: #060B12; padding: 40px 20px;">
+        <div style="background: #0D1828; border: 1px solid rgba(239,68,68,0.3); border-radius: 16px; overflow: hidden;">
+            <div style="padding: 28px 32px; border-bottom: 1px solid rgba(239,68,68,0.2);">
+                <span style="color:#f87171; font-size:18px; font-weight:700;">Account deletion — verification</span>
+            </div>
+            <div style="padding: 32px;">
+                <p style="color:#94A3B8; font-size:15px; margin:0 0 16px;">
+                  Someone requested to <strong style="color:#fca5a5;">permanently delete</strong> your QuantTrade AI account.
+                  Enter this code in the app to confirm:
+                </p>
+                <p style="font-size:32px; font-weight:bold; letter-spacing:6px; color:#f87171; background:#1c1917; border:1px solid rgba(248,113,113,0.35); padding:18px; border-radius:12px; text-align:center; margin:0 0 20px; font-family:monospace;">
+                    {otp}
+                </p>
+                <p style="color:#64748B; font-size:13px; margin:0;">
+                  Expires in {DELETE_OTP_EXPIRY_MINUTES} minutes. If this wasn't you, secure your account and change your password.
+                </p>
+            </div>
+        </div>
+    </div>
+    """
+    text_plain = (
+        f"Account deletion was requested for your QuantTrade AI account. "
+        f"Your confirmation code is {otp}. It expires in {DELETE_OTP_EXPIRY_MINUTES} minutes. "
+        f"If you did not request this, secure your account."
+    )
+    ok, err = send_redundant_transactional_email_sync(
+        email,
+        "QuantTrade AI - Confirm account deletion",
+        html,
+        text_plain=text_plain,
+    )
+    if ok:
+        return True, ""
+    if getattr(settings, "DEBUG", False) and getattr(settings, "EMAIL_DEV_LOG_OTP", False):
+        logger.warning("[EMAIL_DEV_LOG_OTP] Delete-account OTP for %s: %s", email, otp)
         return True, ""
     return False, err
