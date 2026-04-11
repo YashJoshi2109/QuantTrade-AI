@@ -38,6 +38,7 @@ from app.api import (
 from app.api import monitor_extended
 from app.api import copilot_stream
 from app.api import ideas
+from app.api import model_index as model_index_api
 from app.db.database import engine, Base
 
 # Import all models to ensure they're registered with SQLAlchemy
@@ -79,6 +80,11 @@ from app.models.global_monitor import (
     TickerImpact,
     DataIngestionLog,
     MarketImpactHistory,
+)
+from app.models.model_index import (
+    ModelIndexSnapshot,
+    BasketHolding,
+    FactorScoreHistory,
 )
 
 
@@ -219,6 +225,9 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
         "/api/v1/enhanced/market-indices": 30,  # 30 second cache for indices
         "/api/v1/market/sectors": 60,  # 60 second cache for sectors
         "/api/v1/market/movers": 60,  # 60 second cache for movers
+        "/api/v1/model-index/batch": 120,  # 2 min cache for batch endpoint
+        "/api/v1/model-index/indices": 120,  # 2 min cache for index list
+        "/api/v1/model-index/regime": 60,  # 1 min cache for regime
     }
     
     async def dispatch(self, request: Request, call_next):
@@ -288,6 +297,9 @@ app.include_router(voice.router, prefix="/api/v1/voice", tags=["voice"])
 
 # AI Ideas Lab — Trade idea generation
 app.include_router(ideas.router, prefix="/api/v1/ideas", tags=["ideas"])
+
+# Model Index Engine — AI basket intelligence
+app.include_router(model_index_api.router, prefix="/api/v1/model-index", tags=["model-index"])
 
 # AI Copilot — Streaming SSE endpoint (RAG + Quant + LLM pipeline)
 app.include_router(copilot_stream.router, prefix="/api/v1", tags=["copilot"])

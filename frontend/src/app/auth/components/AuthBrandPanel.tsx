@@ -2,24 +2,7 @@
 
 import { motion, type Variants } from 'framer-motion'
 import { TrendingUp, Shield, Zap, Globe, Lock } from 'lucide-react'
-
-// Animated candlestick data for the brand panel
-const CANDLES = [
-  { open: 60, close: 80, high: 85, low: 55 },
-  { open: 80, close: 70, high: 88, low: 65 },
-  { open: 70, close: 95, high: 100, low: 68 },
-  { open: 95, close: 85, high: 102, low: 80 },
-  { open: 85, close: 110, high: 115, low: 82 },
-  { open: 110, close: 105, high: 120, low: 100 },
-  { open: 105, close: 130, high: 135, low: 102 },
-  { open: 130, close: 120, high: 138, low: 115 },
-  { open: 120, close: 145, high: 150, low: 118 },
-]
-
-const CHART_H = 120
-const PRICE_MIN = 50
-const PRICE_MAX = 160
-const scale = (v: number) => ((v - PRICE_MIN) / (PRICE_MAX - PRICE_MIN)) * CHART_H
+import { AuthLiveTickerCard } from './AuthLiveTickerCard'
 
 const TRUST_BADGES = [
   { icon: Shield, label: 'Bank-grade encryption' },
@@ -50,7 +33,7 @@ const itemVariants: Variants = {
 
 export function AuthBrandPanel() {
   return (
-    <div className="relative hidden lg:flex flex-col justify-between h-full overflow-hidden px-10 py-12">
+    <div className="relative hidden lg:flex flex-col w-full h-full min-h-0 overflow-y-auto overflow-x-hidden px-10 py-8 lg:py-10">
       {/* Deep layered background */}
       <div className="absolute inset-0 bg-[#060B12]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(0,212,255,0.08)_0%,transparent_60%)]" />
@@ -75,13 +58,13 @@ export function AuthBrandPanel() {
       />
 
       <motion.div
-        className="relative z-10 flex flex-col h-full"
+        className="relative z-10 flex flex-col flex-1 min-h-0"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        {/* Logo */}
-        <motion.div variants={itemVariants} className="flex items-center gap-3 mb-auto">
+        {/* Logo — avoid mb-auto (creates a huge dead zone on tall viewports) */}
+        <motion.div variants={itemVariants} className="flex items-center gap-3 mb-5 shrink-0">
           <div className="relative">
             <div className="w-9 h-9 rounded-xl bg-[#00D4FF]/10 border border-[#00D4FF]/30 flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-[#00D4FF]" />
@@ -99,7 +82,7 @@ export function AuthBrandPanel() {
         </motion.div>
 
         {/* Main headline */}
-        <motion.div variants={itemVariants} className="my-8">
+        <motion.div variants={itemVariants} className="mb-5 shrink-0">
           <p className="text-[10px] font-semibold tracking-[3px] text-[#00D4FF]/60 uppercase mb-3">
             Institutional Intelligence
           </p>
@@ -116,65 +99,12 @@ export function AuthBrandPanel() {
           </p>
         </motion.div>
 
-        {/* Live Chart */}
-        <motion.div
-          variants={itemVariants}
-          className="rounded-2xl border border-[#00D4FF]/10 bg-[#08101E]/80 backdrop-blur-sm p-4 mb-8"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-[10px] text-[#475569] tracking-widest uppercase">NVDA · LIVE</p>
-              <p className="text-xl font-bold text-white" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                $875.48
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-[#00E5A0] text-sm font-semibold">+4.21%</p>
-              <p className="text-[#475569] text-xs">+$35.28 today</p>
-            </div>
-          </div>
-
-          {/* Animated SVG candlestick chart */}
-          <svg width="100%" height={CHART_H} viewBox={`0 0 ${CANDLES.length * 30} ${CHART_H}`} className="overflow-visible">
-            {/* Grid lines */}
-            {[0.25, 0.5, 0.75].map((p) => (
-              <line
-                key={p}
-                x1="0"
-                x2={CANDLES.length * 30}
-                y1={CHART_H * (1 - p)}
-                y2={CHART_H * (1 - p)}
-                stroke="rgba(0,212,255,0.08)"
-                strokeWidth="1"
-              />
-            ))}
-            {CANDLES.map((c, i) => {
-              const x = i * 30 + 15
-              const isGreen = c.close >= c.open
-              const color = isGreen ? '#00E5A0' : '#FF4757'
-              const bodyTop = CHART_H - scale(Math.max(c.open, c.close))
-              const bodyBot = CHART_H - scale(Math.min(c.open, c.close))
-              const bodyH = Math.max(bodyBot - bodyTop, 2)
-              return (
-                <motion.g
-                  key={i}
-                  initial={{ opacity: 0, scaleY: 0 }}
-                  animate={{ opacity: 1, scaleY: 1 }}
-                  transition={{ delay: i * 0.07, duration: 0.4, ease: 'easeOut' }}
-                  style={{ transformOrigin: `${x}px ${CHART_H}px` }}
-                >
-                  {/* Wick */}
-                  <line x1={x} x2={x} y1={CHART_H - scale(c.high)} y2={CHART_H - scale(c.low)} stroke={color} strokeWidth="1.5" opacity="0.6" />
-                  {/* Body */}
-                  <rect x={x - 6} y={bodyTop} width={12} height={bodyH} fill={color} rx="2" />
-                </motion.g>
-              )
-            })}
-          </svg>
+        <motion.div variants={itemVariants}>
+          <AuthLiveTickerCard />
         </motion.div>
 
         {/* Stats row */}
-        <motion.div variants={itemVariants} className="grid grid-cols-3 gap-3 mb-8">
+        <motion.div variants={itemVariants} className="grid grid-cols-3 gap-3 mb-3 shrink-0">
           {STATS.map((s) => (
             <div
               key={s.label}
@@ -189,7 +119,7 @@ export function AuthBrandPanel() {
         </motion.div>
 
         {/* Trust badges */}
-        <motion.div variants={itemVariants} className="grid grid-cols-2 gap-2">
+        <motion.div variants={itemVariants} className="grid grid-cols-2 gap-2 shrink-0 pb-1">
           {TRUST_BADGES.map(({ icon: Icon, label }) => (
             <div
               key={label}

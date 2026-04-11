@@ -65,6 +65,8 @@ services:
       # Server-side Next routes (e.g. /api/ai-analysis) use OPENROUTER_API_KEY; client copilot uses NEXT_PUBLIC_*
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - NEXT_PUBLIC_OPENROUTER_API_KEY=${NEXT_PUBLIC_OPENROUTER_API_KEY:-}
+      # Cloudflare Turnstile CAPTCHA
+      - NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
       # Stock market data API keys (server-side Next.js routes)
       - FMP_API_KEY=${FMP_API_KEY:-}
       - TWELVE_DATA_API_KEY=${TWELVEDATA_API_KEY:-}
@@ -123,6 +125,7 @@ services:
       - FRED_API_KEY=${FRED_API_KEY:-}
       - EIA_API_KEY=${EIA_API_KEY:-}
       - CLOUDFLARE_RADAR_TOKEN=${CLOUDFLARE_RADAR_TOKEN:-}
+      - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - NASA_API_KEY=${NASA_API_KEY:-}

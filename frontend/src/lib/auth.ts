@@ -60,7 +60,7 @@ export async function register(
   username: string,
   password: string,
   fullName?: string,
-  options?: { countryCode?: string; phoneNumber?: string; otp?: string; dateOfBirth?: string; gender?: string }
+  options?: { countryCode?: string; phoneNumber?: string; otp?: string; dateOfBirth?: string; gender?: string; turnstileToken?: string }
 ): Promise<AuthResponse> {
   const body: Record<string, unknown> = { email, username, password, full_name: fullName }
   if (options) {
@@ -69,6 +69,7 @@ export async function register(
     if (options.otp) body.otp = options.otp
     if (options.dateOfBirth) body.date_of_birth = options.dateOfBirth
     if (options.gender) body.gender = options.gender
+    if (options.turnstileToken) body.turnstile_token = options.turnstileToken
   }
   const response = await fetch(`${API_URL}/api/v1/auth/register`, {
     method: 'POST',
@@ -87,11 +88,13 @@ export async function register(
   return data
 }
 
-export async function login(email: string, password: string): Promise<AuthResponse> {
+export async function login(email: string, password: string, turnstileToken?: string): Promise<AuthResponse> {
+  const body: Record<string, unknown> = { email, password }
+  if (turnstileToken) body.turnstile_token = turnstileToken
   const response = await fetch(`${API_URL}/api/v1/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify(body)
   })
   
   if (!response.ok) {
