@@ -152,16 +152,28 @@ def _detect_intent(msg: str, resolved_symbol: Optional[str], resolved_symbols: L
 
 
 def _resolve_symbols(message: str, explicit_symbol: Optional[str], db: Session):
-    """Resolve symbol(s) from explicit field or free text."""
+    """Resolve symbol(s) from explicit field or free text.
+
+    All matching is done against the symbols DB table (seeded with 800+ tickers
+    including company names). No hardcoded aliases needed.
+
+    Strategy (priority order):
+    1. Explicit symbol parameter
+    2. UPPERCASE tickers (1-5 chars) → exact DB symbol match
+    3. Capitalized words → DB name ilike search (by market cap)
+    4. Lowercase words (not stop words) → DB name ilike search
+    """
     all_resolved = []
     primary_obj = None
 
     def _resolve(candidate: str) -> Optional[Symbol]:
         if not candidate:
             return None
+        # Exact ticker match first
         obj = db.query(Symbol).filter(Symbol.symbol == candidate.upper()).first()
         if obj:
             return obj
+        # Fuzzy company name match (prioritize by market cap)
         return (
             db.query(Symbol)
             .filter(Symbol.name.ilike(f"%{candidate}%"))
@@ -185,7 +197,9 @@ def _resolve_symbols(message: str, explicit_symbol: Optional[str], db: Session):
             seen.add(t.lower())
             obj = _resolve(t)
             if obj:
-                all_resolved.append(obj.symbol.upper())
+                sym_upper = obj.symbol.upper()
+                if sym_upper not in all_resolved:
+                    all_resolved.append(sym_upper)
                 if not primary_obj:
                     primary_obj = obj
 

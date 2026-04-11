@@ -32,6 +32,9 @@ from app.models.passkey_credential import PasskeyCredential
 # Exchange universe (ranked stock batch ingestion)
 from app.models.exchange_ranked_symbol import ExchangeRankedSymbol
 
+# Model Index Engine
+from app.models.model_index import ModelIndexSnapshot, BasketHolding, FactorScoreHistory
+
 __all__ = [
     "User",
     "Symbol",
@@ -64,4 +67,7 @@ __all__ = [
     "SecAPIUsage",
     "PasskeyCredential",
     "ExchangeRankedSymbol",
+    "ModelIndexSnapshot",
+    "BasketHolding",
+    "FactorScoreHistory",
 ]

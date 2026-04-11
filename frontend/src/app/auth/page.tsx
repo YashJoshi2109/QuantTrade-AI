@@ -38,6 +38,8 @@ import { AuthBrandPanel } from './components/AuthBrandPanel'
 import { OtpInput } from './components/OtpInput'
 import { PasskeyButton } from './components/PasskeyButton'
 import { PasswordStrength, isPasswordStrong } from './components/PasswordStrength'
+import TurnstileWidget from '@/components/TurnstileWidget'
+import { usePrefetchAuthPages } from '@/components/loading/PrefetchEngine'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -84,6 +86,7 @@ const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
 export default function AuthPage() {
   const router = useRouter()
   const { login, register, googleVerify, loginWithToken, user, isAuthenticated, isLoading } = useAuth()
+  const prefetchAuth = usePrefetchAuthPages()
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -104,6 +107,13 @@ export default function AuthPage() {
   const [dateOfBirth, setDateOfBirth] = useState('')
   const [gender, setGender]       = useState('')
 
+  // ── Prefetch auth-required pages when email looks valid ─────────────────
+  useEffect(() => {
+    if (email.includes('@') && email.includes('.')) {
+      prefetchAuth()
+    }
+  }, [email, prefetchAuth])
+
   // ── OTP ────────────────────────────────────────────────────────────────────
   const [otpSent, setOtpSent]     = useState(false)
   const [otpVerified, setOtpVerified] = useState(false)
@@ -117,6 +127,9 @@ export default function AuthPage() {
 
   // ── Terms ──────────────────────────────────────────────────────────────────
   const [termsAccepted, setTermsAccepted] = useState(false)
+
+  // ── Turnstile CAPTCHA ─────────────────────────────────────────────────────
+  const [turnstileToken, setTurnstileToken] = useState('')
 
   // ── Google Button Ref ──────────────────────────────────────────────────────
   const googleBtnRef = useRef<HTMLDivElement>(null)
@@ -196,7 +209,7 @@ export default function AuthPage() {
     setIsSubmitting(true)
     try {
       if (mode === 'signin') {
-        await login(email, password)
+        await login(email, password, turnstileToken || undefined)
         setStep('SUCCESS')
         setTimeout(() => router.push('/'), 1200)
       } else {
@@ -204,6 +217,7 @@ export default function AuthPage() {
           otp: capturedOtp || undefined,
           dateOfBirth: dateOfBirth || undefined,
           gender: gender || undefined,
+          turnstileToken: turnstileToken || undefined,
         })
         // Step 2: offer passkey setup for the new account
         setStep('PASSKEY_SETUP')
@@ -357,7 +371,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060B12] flex flex-col lg:flex-row" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div className="min-h-[100dvh] bg-[#060B12] flex flex-col lg:flex-row lg:items-stretch" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       {/* Google font imports */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -454,17 +468,17 @@ export default function AuthPage() {
       `}</style>
 
       {/* ── Left Brand Panel (desktop only) ── */}
-      <div className="hidden lg:block w-[480px] shrink-0 border-r border-[#0D1828]" style={{ minHeight: '100vh' }}>
+      <div className="hidden lg:flex w-[480px] shrink-0 border-r border-[#0D1828] lg:min-h-0 lg:h-[100dvh] lg:sticky lg:top-0">
         <AuthBrandPanel />
       </div>
 
-      {/* ── Right Auth Panel ── */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 relative overflow-hidden">
+      {/* ── Right Auth Panel (scroll when signup form is tall — avoid vertical centering gap + clipping) ── */}
+      <div className="flex-1 flex flex-col w-full min-h-[100dvh] lg:min-h-0 overflow-y-auto overflow-x-hidden p-6 pb-10 lg:p-10 lg:py-8 relative">
         {/* Background ambient glow */}
         <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-[#00D4FF]/4 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-[#0A7CFF]/4 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="w-full max-w-[420px] relative z-10">
+        <div className="w-full max-w-[420px] relative z-10 mx-auto flex-1 flex flex-col justify-start">
 
           {/* ── Mobile logo ── */}
           <div className="lg:hidden flex items-center gap-2 mb-8">
@@ -477,7 +491,7 @@ export default function AuthPage() {
           </div>
 
           {/* ── Mode tab switcher ── */}
-          <div className="flex gap-2 p-1 bg-[#0D1828] border border-[#1E293B] rounded-2xl mb-8">
+          <div className="flex gap-2 p-1 bg-[#0D1828] border border-[#1E293B] rounded-2xl mb-5 lg:mb-6">
             {(['signin', 'signup'] as const).map((m) => (
               <button
                 key={m}
@@ -586,11 +600,11 @@ export default function AuthPage() {
               <motion.div key="email-form" variants={pageVariants} initial="initial" animate="animate" exit="exit">
 
                 {/* Back + Heading */}
-                <motion.div initial={fieldInitial()} animate={fieldAnimate()} transition={fieldTransition(0)} className="mb-6">
+                <motion.div initial={fieldInitial()} animate={fieldAnimate()} transition={fieldTransition(0)} className="mb-5">
                   <button
                     type="button"
                     onClick={() => { setStep('METHOD'); setError('') }}
-                    className="flex items-center gap-1.5 text-[#475569] text-sm mb-4 hover:text-[#94A3B8] transition-colors"
+                    className="flex items-center gap-1.5 text-[#475569] text-sm mb-3 hover:text-[#94A3B8] transition-colors"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     Back
@@ -613,7 +627,7 @@ export default function AuthPage() {
                   )}
                 </AnimatePresence>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-3.5 lg:space-y-4">
 
                   {/* Sign-up extra fields */}
                   {mode === 'signup' && (
@@ -866,8 +880,17 @@ export default function AuthPage() {
                     </motion.div>
                   )}
 
-                  {/* Submit */}
+                  {/* Cloudflare Turnstile CAPTCHA */}
                   <motion.div initial={fieldInitial()} animate={fieldAnimate()} transition={fieldTransition(mode === 'signup' ? 7 : 3)}>
+                    <TurnstileWidget
+                      onVerify={(token) => setTurnstileToken(token)}
+                      onExpire={() => setTurnstileToken('')}
+                      onError={() => setTurnstileToken('')}
+                    />
+                  </motion.div>
+
+                  {/* Submit */}
+                  <motion.div initial={fieldInitial()} animate={fieldAnimate()} transition={fieldTransition(mode === 'signup' ? 8 : 4)}>
                     <button
                       type="submit"
                       disabled={isSubmitting || (mode === 'signup' && (!termsAccepted || !otpVerified))}
@@ -1031,7 +1054,7 @@ export default function AuthPage() {
 
           {/* ── Footer nav ── */}
           {step !== 'SUCCESS' && step !== 'PASSKEY_SETUP' && (
-            <div className="mt-8 pt-6 border-t border-[#0D1828] flex items-center justify-center gap-4 text-xs text-[#334155]">
+            <div className="mt-6 pt-5 border-t border-[#0D1828] flex items-center justify-center gap-4 text-xs text-[#334155] shrink-0">
               <Link href="/" className="hover:text-[#64748B] transition-colors">← Dashboard</Link>
               <span>·</span>
               <Link href="/terms" className="hover:text-[#64748B] transition-colors">Terms</Link>

@@ -14,13 +14,13 @@ interface AuthContextType {
   authMethod: AuthMethod | null
   
   // JWT auth methods
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string, turnstileToken?: string) => Promise<void>
   register: (
     email: string,
     username: string,
     password: string,
     fullName?: string,
-    options?: { countryCode?: string; phoneNumber?: string; otp?: string; dateOfBirth?: string; gender?: string }
+    options?: { countryCode?: string; phoneNumber?: string; otp?: string; dateOfBirth?: string; gender?: string; turnstileToken?: string }
   ) => Promise<void>
   googleLogin: (googleId: string, email: string, name: string, avatarUrl?: string) => Promise<void>
   googleVerify: (credential: string) => Promise<void>
@@ -85,8 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // JWT Auth Methods
-  const login = async (email: string, password: string) => {
-    const result = await authLogin(email, password)
+  const login = async (email: string, password: string, turnstileToken?: string) => {
+    const result = await authLogin(email, password, turnstileToken)
     setUser(result.user)
     setNeonUser(null)
     setAuthMethod('jwt')
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     username: string,
     password: string,
     fullName?: string,
-    options?: { countryCode?: string; phoneNumber?: string; otp?: string; dateOfBirth?: string; gender?: string }
+    options?: { countryCode?: string; phoneNumber?: string; otp?: string; dateOfBirth?: string; gender?: string; turnstileToken?: string }
   ) => {
     const result = await authRegister(email, username, password, fullName, options)
     setUser(result.user)

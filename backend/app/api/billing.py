@@ -100,6 +100,113 @@ def _stripe_client_message(exc: stripe.error.StripeError) -> str:
     return str(exc).strip() or "Stripe error"
 
 
+def _stripe_error_corpus(exc: stripe.error.StripeError) -> str:
+    """All text Stripe attached to the error (SDK + API JSON). Used for reliable matching."""
+    parts: list[str] = [str(exc)]
+    um = getattr(exc, "user_message", None)
+    if um:
+        parts.append(str(um))
+    jb = getattr(exc, "json_body", None)
+    if isinstance(jb, dict):
+        err = jb.get("error")
+        if isinstance(err, dict):
+            for k in ("message", "type", "code", "param", "doc_url"):
+                v = err.get(k)
+                if v is not None:
+                    parts.append(str(v))
+    hb = getattr(exc, "http_body", None)
+    if hb:
+        parts.append(str(hb))
+    return " ".join(parts)
+
+
+def _is_stripe_environment_mismatch(exc: stripe.error.StripeError) -> bool:
+    """
+    True when Stripe reports a test vs live key mismatch (local DB has IDs from the other environment).
+    """
+    msg = _stripe_error_corpus(exc).lower()
+    if "test mode" in msg and "live mode" in msg:
+        return True
+    if "similar object exists" in msg and ("test mode" in msg or "live mode" in msg):
+        return True
+    return False
+
+
+def _is_stripe_customer_missing_error(exc: stripe.error.StripeError) -> bool:
+    """Stored customer id is invalid in the current Stripe mode (deleted, or test id with live key)."""
+    corpus = _stripe_error_corpus(exc).lower()
+    if "no such customer" in corpus:
+        return True
+    if getattr(exc, "code", None) == "resource_missing" and getattr(exc, "param", None) == "customer":
+        return True
+    return False
+
+
+def _should_heal_stripe_customer_mapping(exc: stripe.error.StripeError) -> bool:
+    return _is_stripe_environment_mismatch(exc) or _is_stripe_customer_missing_error(exc)
+
+
+def _ensure_stripe_customer_row_valid(
+    db: Session, user: User, billing_customer: BillingCustomer, *, context: str
+) -> BillingCustomer:
+    """
+    Confirm the mapped Stripe customer exists for the current API key; if not, heal DB and create a new customer.
+    Avoids a failing portal/checkout call when the row points at a test-mode or deleted customer.
+    """
+    try:
+        stripe.Customer.retrieve(billing_customer.stripe_customer_id)
+        return billing_customer
+    except stripe.error.StripeError as exc:
+        if _should_heal_stripe_customer_mapping(exc):
+            logger.warning(
+                "Stripe customer preflight failed for user_id=%s context=%s; healing: %s",
+                user.id,
+                context,
+                exc,
+            )
+            _heal_billing_mapping_wrong_stripe_environment(db, user, context=context)
+            return _get_stripe_customer_for_user(db, user)
+        logger.error(
+            "Stripe customer retrieve failed user_id=%s customer=%s: %s",
+            user.id,
+            billing_customer.stripe_customer_id,
+            exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_stripe_client_message(exc),
+        ) from exc
+
+
+def _heal_billing_mapping_wrong_stripe_environment(
+    db: Session, user: User, *, context: str
+) -> None:
+    """
+    Remove billing_customers row and any local subscription row that Stripe rejects
+    for the current API key mode, so the next call can create a live customer.
+    """
+    logger.warning(
+        "Stripe test/live mismatch — healing billing mapping for user_id=%s context=%s",
+        user.id,
+        context,
+    )
+    db.query(BillingCustomer).filter(BillingCustomer.user_id == user.id).delete(
+        synchronize_session=False
+    )
+    sub = db.query(Subscription).filter(Subscription.user_id == user.id).first()
+    if sub:
+        try:
+            stripe.Subscription.retrieve(sub.stripe_subscription_id)
+        except stripe.error.InvalidRequestError as exc:
+            err_s = str(exc).lower()
+            if "no such subscription" in err_s or _is_stripe_environment_mismatch(exc):
+                db.delete(sub)
+        except stripe.error.StripeError as exc:
+            if _is_stripe_environment_mismatch(exc):
+                db.delete(sub)
+    db.commit()
+
+
 if not settings.STRIPE_SECRET_KEY:
     # Stripe will be configured at runtime if keys are provided; otherwise
     # endpoints will raise at call time.
@@ -268,30 +375,44 @@ async def create_checkout_session(
     price_id = _resolve_price_id(body)
     _validate_recurring_subscription_price(price_id)
     billing_customer = _get_stripe_customer_for_user(db, user)
+    billing_customer = _ensure_stripe_customer_row_valid(
+        db, user, billing_customer, context="checkout_session_preflight"
+    )
 
-    try:
-        session = stripe.checkout.Session.create(
-            mode="subscription",
-            customer=billing_customer.stripe_customer_id,
-            client_reference_id=str(user.id),
-            line_items=[{"price": price_id, "quantity": 1}],
-            success_url=f"{settings.APP_URL}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{settings.APP_URL}/billing/cancel",
-        )
-    except stripe.error.AuthenticationError:
-        logger.error("Stripe authentication failed while creating checkout for user_id=%s", user.id)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Billing is temporarily unavailable (invalid Stripe configuration)",
-        )
-    except stripe.error.StripeError as exc:
-        logger.error("Stripe Checkout error for user_id=%s: %s", user.id, exc)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Stripe Checkout error: {str(exc)}"
-        )
-
-    return CheckoutSessionResponse(url=session["url"])
+    for attempt in range(2):
+        try:
+            session = stripe.checkout.Session.create(
+                mode="subscription",
+                customer=billing_customer.stripe_customer_id,
+                client_reference_id=str(user.id),
+                line_items=[{"price": price_id, "quantity": 1}],
+                success_url=f"{settings.APP_URL}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{settings.APP_URL}/billing/cancel",
+            )
+            return CheckoutSessionResponse(url=session["url"])
+        except stripe.error.AuthenticationError:
+            logger.error(
+                "Stripe authentication failed while creating checkout for user_id=%s", user.id
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Billing is temporarily unavailable (invalid Stripe configuration)",
+            )
+        except stripe.error.StripeError as exc:
+            if attempt == 0 and _should_heal_stripe_customer_mapping(exc):
+                _heal_billing_mapping_wrong_stripe_environment(
+                    db, user, context="checkout_session"
+                )
+                billing_customer = _get_stripe_customer_for_user(db, user)
+                billing_customer = _ensure_stripe_customer_row_valid(
+                    db, user, billing_customer, context="checkout_session_retry"
+                )
+                continue
+            logger.error("Stripe Checkout error for user_id=%s: %s", user.id, exc)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Stripe Checkout error: {str(exc)}",
+            ) from exc
 
 
 @router.get(
@@ -401,6 +522,9 @@ async def create_billing_portal_session(
         )
 
     billing_customer = _get_stripe_customer_for_user(db, user)
+    billing_customer = _ensure_stripe_customer_row_valid(
+        db, user, billing_customer, context="billing_portal_preflight"
+    )
 
     return_url = _portal_return_url()
     if return_url.startswith("http://") and "localhost" not in return_url.lower():
@@ -417,45 +541,65 @@ async def create_billing_portal_session(
     if cfg and str(cfg).strip():
         portal_kwargs["configuration"] = str(cfg).strip()
 
-    try:
-        session = stripe.billing_portal.Session.create(**portal_kwargs)
-    except stripe.error.AuthenticationError:
-        logger.error("Stripe authentication failed while creating billing portal for user_id=%s", user.id)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Billing is temporarily unavailable (invalid Stripe configuration)",
-        )
-    except stripe.error.StripeError as exc:
-        msg = _stripe_client_message(exc)
-        code = getattr(exc, "code", None)
-        logger.error(
-            "Stripe portal error user_id=%s customer=%s code=%s: %s",
-            user.id,
-            billing_customer.stripe_customer_id,
-            code,
-            exc,
-            exc_info=True,
-        )
-        lower = msg.lower()
-        needs_portal_setup = any(
-            x in lower
-            for x in (
-                "portal",
-                "configuration",
-                "customer portal",
-                "billing portal",
-                "no default",
+    for attempt in range(2):
+        try:
+            session = stripe.billing_portal.Session.create(**portal_kwargs)
+            return PortalSessionResponse(url=session["url"])
+        except stripe.error.AuthenticationError:
+            logger.error(
+                "Stripe authentication failed while creating billing portal for user_id=%s",
+                user.id,
             )
-        ) or code in ("resource_missing",)
-        detail = msg
-        if needs_portal_setup:
-            detail = f"{msg} {PORTAL_SETUP_HINT}"
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=detail,
-        )
-
-    return PortalSessionResponse(url=session["url"])
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Billing is temporarily unavailable (invalid Stripe configuration)",
+            )
+        except stripe.error.StripeError as exc:
+            if attempt == 0 and _should_heal_stripe_customer_mapping(exc):
+                _heal_billing_mapping_wrong_stripe_environment(
+                    db, user, context="billing_portal"
+                )
+                billing_customer = _get_stripe_customer_for_user(db, user)
+                billing_customer = _ensure_stripe_customer_row_valid(
+                    db, user, billing_customer, context="billing_portal_retry"
+                )
+                portal_kwargs["customer"] = billing_customer.stripe_customer_id
+                continue
+            msg = _stripe_client_message(exc)
+            code = getattr(exc, "code", None)
+            param = getattr(exc, "param", None)
+            logger.error(
+                "Stripe portal error user_id=%s customer=%s code=%s: %s",
+                user.id,
+                billing_customer.stripe_customer_id,
+                code,
+                exc,
+                exc_info=True,
+            )
+            lower = msg.lower()
+            customer_gone = _is_stripe_customer_missing_error(
+                exc
+            ) or _is_stripe_environment_mismatch(exc)
+            needs_portal_setup = not customer_gone and (
+                any(
+                    x in lower
+                    for x in (
+                        "portal",
+                        "configuration",
+                        "customer portal",
+                        "billing portal",
+                        "no default",
+                    )
+                )
+                or (code == "resource_missing" and param != "customer")
+            )
+            detail = msg
+            if needs_portal_setup:
+                detail = f"{msg} {PORTAL_SETUP_HINT}"
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=detail,
+            ) from exc
 
 
 @router.post(

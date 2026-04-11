@@ -56,36 +56,10 @@ function chartPeriodRange(period: ChartPeriod): { start: Date; end: Date; barLim
 }
 
 // ─── Global Ticker Info Panel ─────────────────────────────────────────────────
-function GlobalTickerInfoPanel({ symbol }: { symbol: string }) {
-  const { data: info, isLoading } = useQuery<TickerInfo>({
-    queryKey: ['tickerInfo', symbol],
-    queryFn: async () => {
-      const res = await fetch(`/api/quotes/ticker?symbol=${encodeURIComponent(symbol)}`)
-      if (!res.ok) throw new Error('Not found')
-      return res.json()
-    },
-    staleTime: 300_000,
-    retry: 1,
-  })
-
-  if (isLoading) {
-    return (
-      <div className="hud-panel p-4 col-span-12">
-        <div className="animate-pulse space-y-2">
-          <div className="h-4 bg-slate-800/60 rounded w-48" />
-          <div className="grid grid-cols-4 gap-3 mt-3">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-14 bg-slate-800/40 rounded-lg" />
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
+function CompanyBioSection({ info }: { info: TickerInfo | undefined }) {
+  const [bioExpanded, setBioExpanded] = useState(false)
 
   if (!info || !info.name) return null
-
-  const isPositive = info.change_percent >= 0
 
   const fmtBig = (n: number) => {
     if (!n || !isFinite(n)) return '—'
@@ -94,84 +68,242 @@ function GlobalTickerInfoPanel({ symbol }: { symbol: string }) {
     if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`
     return `$${formatNumber(n, 0)}`
   }
-
   const fmtPct = (n: number) => (n && isFinite(n) ? `${n.toFixed(2)}%` : '—')
   const fmtNum = (n: number, d = 2) => (n && isFinite(n) ? formatNumber(n, d) : '—')
 
   const recColor = (r: string) =>
     r === 'buy' || r === 'strongBuy'
-      ? 'text-emerald-400 bg-emerald-500/10'
+      ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
       : r === 'sell' || r === 'strongSell'
-      ? 'text-red-400 bg-red-500/10'
-      : 'text-yellow-400 bg-yellow-500/10'
+      ? 'text-red-400 bg-red-500/10 border-red-500/20'
+      : 'text-amber-400 bg-amber-500/10 border-amber-500/20'
 
-  return (
-    <div className="col-span-12 hud-panel overflow-hidden">
-      {/* Company header */}
-      <div className="p-4 border-b border-slate-700/30 flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h3 className="text-base font-bold text-white">{info.name}</h3>
-            <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-800/60 text-slate-400 rounded">{info.exchange_display}</span>
-            <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-800/60 text-slate-400 rounded">{info.currency}</span>
-            {info.country && (
-              <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                <Globe className="w-3 h-3" />{info.country}
-              </span>
-            )}
-            {info.sector && (
-              <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                <Building2 className="w-3 h-3" />{info.sector}
-              </span>
-            )}
-            {info.recommendation && (
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${recColor(info.recommendation)}`}>
-                {info.recommendation.replace('strong', 'Strong ').replace('Buy', 'Buy').replace('Sell', 'Sell')}
-                {info.analyst_count ? ` (${info.analyst_count})` : ''}
-              </span>
-            )}
-          </div>
-          {info.description && (
-            <p className="text-[11px] text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">{info.description}</p>
-          )}
+  const marginBar = (label: string, value: number) => {
+    const isValid = value && isFinite(value)
+    const color = value > 20 ? 'bg-emerald-500' : value > 10 ? 'bg-cyan-500' : value > 0 ? 'bg-amber-500' : 'bg-red-500'
+    return (
+      <div>
+        <div className="flex justify-between mb-0.5">
+          <span className="text-[10px] text-slate-500">{label}</span>
+          <span className={`text-[10px] font-bold font-mono ${value > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {isValid ? `${value.toFixed(1)}%` : '—'}
+          </span>
         </div>
-        
-        {info.website && (
-          <a href={info.website} target="_blank" rel="noopener noreferrer"
-            className="shrink-0 p-2 rounded-lg border border-slate-700/60 text-slate-400 hover:text-white hover:border-[rgba(0,122,255,0.4)] transition-colors"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+        {isValid && (
+          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(Math.abs(value), 100)}%` }} />
+          </div>
         )}
       </div>
+    )
+  }
 
-      {/* Key metrics grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 divide-x divide-y divide-slate-800/40">
-        {[
-          { label: 'Market Cap', value: fmtBig(info.market_cap) },
-          { label: 'Revenue', value: fmtBig(info.revenue) },
-          { label: 'Net Income', value: fmtBig(info.net_income) },
-          { label: 'Free Cash Flow', value: fmtBig(info.free_cash_flow) },
-          { label: 'P/E Ratio', value: fmtNum(info.pe_ratio) },
-          { label: 'Fwd P/E', value: fmtNum(info.forward_pe) },
-          { label: 'EPS', value: info.eps ? `$${fmtNum(info.eps)}` : '—' },
-          { label: 'Beta', value: fmtNum(info.beta) },
-          { label: '52W High', value: info.week_52_high ? `$${fmtNum(info.week_52_high)}` : '—' },
-          { label: '52W Low', value: info.week_52_low ? `$${fmtNum(info.week_52_low)}` : '—' },
-          { label: 'Avg Volume', value: info.avg_volume ? `${(info.avg_volume / 1e6).toFixed(1)}M` : '—' },
-          { label: 'Div Yield', value: fmtPct(info.dividend_yield) },
-          { label: 'P/B Ratio', value: fmtNum(info.price_to_book) },
-          { label: 'D/E Ratio', value: fmtNum(info.debt_to_equity) },
-          { label: 'ROE', value: fmtPct(info.return_on_equity) },
-          { label: 'Target Price', value: info.target_price ? `$${fmtNum(info.target_price)}` : '—', highlight: true },
-        ].map((m) => (
-          <div key={m.label} className="p-3 flex flex-col gap-0.5">
-            <span className="text-[9px] text-slate-500 uppercase tracking-wider">{m.label}</span>
-            <span className={`text-xs font-bold font-mono ${(m as { highlight?: boolean }).highlight ? 'text-[#007AFF]' : 'text-white'}`}>
-              {m.value}
-            </span>
+  return (
+    <div className="col-span-12 space-y-4">
+
+      {/* ── Company Profile Card ──────────────────────────────────── */}
+      <div className="hud-panel overflow-hidden">
+        <div className="p-4 border-b border-slate-700/30">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3 flex-wrap mb-2">
+                <Building2 className="w-5 h-5 text-[#007AFF]" />
+                <h3 className="text-base font-bold text-white">About {info.name}</h3>
+                {info.recommendation && (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${recColor(info.recommendation)}`}>
+                    {info.recommendation.replace('strong', 'Strong ').toUpperCase()}
+                    {info.analyst_count ? ` (${info.analyst_count})` : ''}
+                  </span>
+                )}
+              </div>
+
+              {/* Tags row */}
+              <div className="flex items-center gap-2 flex-wrap mb-3">
+                {info.sector && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 bg-violet-500/10 border border-violet-500/20 text-violet-400 rounded-md">
+                    {info.sector}
+                  </span>
+                )}
+                {info.industry && (
+                  <span className="text-[10px] px-2 py-0.5 bg-slate-800/60 text-slate-400 rounded-md">
+                    {info.industry}
+                  </span>
+                )}
+                {info.country && (
+                  <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                    <Globe className="w-3 h-3" />{info.country}
+                  </span>
+                )}
+                {info.employees > 0 && (
+                  <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                    <Users className="w-3 h-3" />{info.employees.toLocaleString()} employees
+                  </span>
+                )}
+                {info.exchange_display && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-800/60 text-slate-500 rounded-md">
+                    {info.exchange_display} · {info.currency}
+                  </span>
+                )}
+              </div>
+
+              {/* Description */}
+              {info.description && (
+                <div>
+                  <p className={`text-[11px] text-slate-400 leading-relaxed ${bioExpanded ? '' : 'line-clamp-3'}`}>
+                    {info.description}
+                  </p>
+                  {info.description.length > 200 && (
+                    <button
+                      onClick={() => setBioExpanded(e => !e)}
+                      className="text-[10px] text-[#007AFF] hover:text-blue-300 mt-1 transition-colors"
+                    >
+                      {bioExpanded ? 'Show less' : 'Read more'}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {info.website && (
+              <a href={info.website} target="_blank" rel="noopener noreferrer"
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700/60 text-[11px] text-slate-400 hover:text-white hover:border-[rgba(0,122,255,0.4)] transition-colors"
+              >
+                <ExternalLink className="w-3 h-3" /> Website
+              </a>
+            )}
           </div>
-        ))}
+        </div>
+
+        {/* ── Leadership Team ──────────────────────────────── */}
+        {info.officers && info.officers.length > 0 && (
+          <div className="px-4 py-3 border-b border-slate-800/40">
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 font-bold">Leadership</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {info.officers.slice(0, 4).map((o, i) => (
+                <div key={i} className="flex items-center gap-2 px-2.5 py-2 bg-slate-800/20 rounded-lg">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500/20 to-violet-500/20 border border-slate-700/50 flex items-center justify-center text-[10px] font-bold text-slate-300">
+                    {o.name?.split(' ').map(w => w[0]).join('').slice(0, 2)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold text-white truncate">{o.name}</div>
+                    <div className="text-[9px] text-slate-500 truncate">{o.title}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Financials Grid ────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 divide-x divide-y divide-slate-800/40">
+          {[
+            { label: 'Market Cap', value: fmtBig(info.market_cap), icon: '📊' },
+            { label: 'Enterprise Val', value: fmtBig(info.enterprise_value) },
+            { label: 'Revenue', value: fmtBig(info.revenue) },
+            { label: 'Rev Growth', value: fmtPct(info.revenue_growth), highlight: info.revenue_growth > 0 },
+            { label: 'Net Income', value: fmtBig(info.net_income) },
+            { label: 'EBITDA', value: fmtBig(info.ebitda) },
+            { label: 'Free Cash Flow', value: fmtBig(info.free_cash_flow) },
+            { label: 'Op. Cash Flow', value: fmtBig(info.operating_cashflow) },
+            { label: 'P/E Ratio', value: fmtNum(info.pe_ratio) },
+            { label: 'Fwd P/E', value: fmtNum(info.forward_pe) },
+            { label: 'PEG Ratio', value: fmtNum(info.peg_ratio) },
+            { label: 'EPS', value: info.eps ? `$${fmtNum(info.eps)}` : '—' },
+            { label: 'P/B', value: fmtNum(info.price_to_book) },
+            { label: 'EV/EBITDA', value: fmtNum(info.enterprise_to_ebitda) },
+            { label: 'EV/Revenue', value: fmtNum(info.enterprise_to_revenue) },
+            { label: 'D/E Ratio', value: fmtNum(info.debt_to_equity) },
+          ].map((m) => (
+            <div key={m.label} className="p-3 flex flex-col gap-0.5">
+              <span className="text-[9px] text-slate-600 uppercase tracking-wider">{m.label}</span>
+              <span className={`text-xs font-bold font-mono ${(m as { highlight?: boolean }).highlight ? 'text-emerald-400' : 'text-white'}`}>
+                {m.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Margins + Returns + Balance Sheet — 3-column ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* Profitability Margins */}
+        <div className="hud-panel p-4">
+          <h4 className="text-xs font-bold text-white mb-3 flex items-center gap-2">
+            <BarChart3 className="w-3.5 h-3.5 text-cyan-400" /> Profitability Margins
+          </h4>
+          <div className="space-y-2.5">
+            {marginBar('Gross Margin', info.gross_margins)}
+            {marginBar('Operating Margin', info.operating_margins)}
+            {marginBar('EBITDA Margin', info.ebitda_margins)}
+            {marginBar('Profit Margin', info.profit_margins)}
+          </div>
+        </div>
+
+        {/* Returns + Efficiency */}
+        <div className="hud-panel p-4">
+          <h4 className="text-xs font-bold text-white mb-3 flex items-center gap-2">
+            <Target className="w-3.5 h-3.5 text-emerald-400" /> Returns & Efficiency
+          </h4>
+          <div className="space-y-2">
+            {[
+              { label: 'Return on Equity', value: fmtPct(info.return_on_equity) },
+              { label: 'Return on Assets', value: fmtPct(info.return_on_assets) },
+              { label: 'Revenue Growth', value: fmtPct(info.revenue_growth) },
+              { label: 'Beta', value: fmtNum(info.beta) },
+            ].map(m => (
+              <div key={m.label} className="flex justify-between items-center py-1.5 border-b border-slate-800/30 last:border-0">
+                <span className="text-[11px] text-slate-500">{m.label}</span>
+                <span className="text-[11px] font-bold font-mono text-white">{m.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Balance Sheet + Ownership */}
+        <div className="hud-panel p-4">
+          <h4 className="text-xs font-bold text-white mb-3 flex items-center gap-2">
+            <DollarSign className="w-3.5 h-3.5 text-amber-400" /> Balance Sheet & Ownership
+          </h4>
+          <div className="space-y-2">
+            {[
+              { label: 'Total Cash', value: fmtBig(info.total_cash) },
+              { label: 'Total Debt', value: fmtBig(info.total_debt) },
+              { label: 'Shares Outstanding', value: info.shares_outstanding ? `${(info.shares_outstanding / 1e9).toFixed(2)}B` : '—' },
+              { label: 'Insider Ownership', value: fmtPct(info.held_percent_insiders) },
+              { label: 'Institutional', value: fmtPct(info.held_percent_institutions) },
+              { label: 'Short % Float', value: fmtPct(info.short_percent_of_float) },
+            ].map(m => (
+              <div key={m.label} className="flex justify-between items-center py-1.5 border-b border-slate-800/30 last:border-0">
+                <span className="text-[11px] text-slate-500">{m.label}</span>
+                <span className="text-[11px] font-bold font-mono text-white">{m.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Price Range + Dividends + Analyst — full width ─ */}
+      <div className="hud-panel overflow-hidden">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 divide-x divide-y divide-slate-800/40">
+          {[
+            { label: '52W High', value: info.week_52_high ? `$${fmtNum(info.week_52_high)}` : '—' },
+            { label: '52W Low', value: info.week_52_low ? `$${fmtNum(info.week_52_low)}` : '—' },
+            { label: 'Avg Volume', value: info.avg_volume ? `${(info.avg_volume / 1e6).toFixed(1)}M` : '—' },
+            { label: 'Div Yield', value: fmtPct(info.dividend_yield) },
+            { label: 'Div Rate', value: info.dividend_rate ? `$${fmtNum(info.dividend_rate)}` : '—' },
+            { label: 'Target High', value: info.target_high ? `$${fmtNum(info.target_high)}` : '—' },
+            { label: 'Target Low', value: info.target_low ? `$${fmtNum(info.target_low)}` : '—' },
+            { label: 'Target Avg', value: info.target_price ? `$${fmtNum(info.target_price)}` : '—', highlight: true },
+          ].map((m) => (
+            <div key={m.label} className="p-3 flex flex-col gap-0.5">
+              <span className="text-[9px] text-slate-600 uppercase tracking-wider">{m.label}</span>
+              <span className={`text-xs font-bold font-mono ${(m as { highlight?: boolean }).highlight ? 'text-[#007AFF]' : 'text-white'}`}>
+                {m.value}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -205,6 +337,18 @@ function ResearchContent() {
     queryFn: getWatchlist,
     staleTime: 60_000,
     retry: false,
+  })
+
+  // Company ticker info (Yahoo Finance — name, sector, description, officers, financials)
+  const { data: tickerInfo } = useQuery<TickerInfo>({
+    queryKey: ['tickerInfo', selectedSymbol],
+    queryFn: async () => {
+      const res = await fetch(`/api/quotes/ticker?symbol=${encodeURIComponent(selectedSymbol)}`)
+      if (!res.ok) throw new Error('Not found')
+      return res.json()
+    },
+    staleTime: 300_000,
+    retry: 1,
   })
 
   const inWatchlist = useMemo(
@@ -542,33 +686,55 @@ function ResearchContent() {
           {/* Main Chart - Large Panel */}
           <div className="col-span-12 lg:col-span-9 row-span-2">
             <div className="hud-panel h-full flex flex-col">
-              {/* Chart Header */}
+              {/* Chart Header — Redesigned */}
               <div className="p-4 border-b border-blue-500/10 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div>
+                    {/* Ticker + Company Name */}
                     <div className="flex items-center gap-3">
-                      <h2 className="text-xl font-bold text-white">{selectedSymbol}</h2>
-                      <span className="text-xs text-slate-500 font-mono px-2 py-0.5 bg-slate-800/50 rounded">NASDAQ</span>
+                      <h2 className="text-2xl font-black text-white tracking-tight">{selectedSymbol}</h2>
+                      {tickerInfo?.exchange_display && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-md">
+                          {tickerInfo.exchange_display}
+                        </span>
+                      )}
                       {realtimeQuote && !quoteLoading && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <QuoteActivityFlash fingerprint={quoteActivityFingerprint} />
                           {priceInfo.dataSource && (
-                            <span className="text-xs text-emerald-400 font-mono px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
+                            <span className="text-[10px] text-emerald-400 font-mono px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-md">
                               {priceInfo.dataSource}
                             </span>
                           )}
                           {priceInfo.latency && priceInfo.latency < 500 && (
-                            <span className="text-xs text-blue-400 font-mono px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded">
+                            <span className="text-[10px] text-blue-400 font-mono px-1.5 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded-md">
                               {priceInfo.latency}ms
                             </span>
                           )}
                         </div>
                       )}
                     </div>
+                    {/* Company name + sector */}
+                    {tickerInfo?.name && (
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-sm text-slate-400">{tickerInfo.name}</span>
+                        {tickerInfo.sector && (
+                          <span className="text-[10px] text-slate-500 px-1.5 py-0.5 bg-slate-800/60 rounded">
+                            {tickerInfo.sector}
+                          </span>
+                        )}
+                        {tickerInfo.industry && (
+                          <span className="text-[10px] text-slate-600 hidden lg:inline">
+                            {tickerInfo.industry}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {/* Price row */}
                     {(priceInfo.price > 0 || quoteLoading || priceData.length > 0) && (
-                      <div className="flex items-center gap-3 mt-1">
+                      <div className="flex items-center gap-3 mt-1.5">
                         <span
-                          className={`text-2xl font-bold text-white hud-value transition-colors duration-300 ${
+                          className={`text-2xl font-black text-white hud-value transition-colors duration-300 font-mono ${
                             priceTick === 'up'
                               ? 'quote-price-flash-up'
                               : priceTick === 'down'
@@ -579,17 +745,22 @@ function ResearchContent() {
                           ${formatNumber(priceInfo.price, 2)}
                           {quoteLoading && <Loader2 className="inline w-4 h-4 ml-2 animate-spin text-blue-400" />}
                         </span>
-                        <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold ${
-                          isPositive 
-                            ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
+                        <span className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-bold ${
+                          isPositive
+                            ? 'bg-green-500/10 text-green-400 border border-green-500/20'
                             : 'bg-red-500/10 text-red-400 border border-red-500/20'
                         }`}>
-                          {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                          {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                           {isPositive ? '+' : ''}{formatPercent(priceInfo.percent, 2)}
                         </span>
                         {isNumber(priceInfo.volume) && priceInfo.volume > 0 && (
-                          <span className="text-xs text-slate-400 font-mono">
+                          <span className="text-[11px] text-slate-500 font-mono">
                             Vol: {formatNumber(priceInfo.volume / 1000000, 2)}M
+                          </span>
+                        )}
+                        {tickerInfo && tickerInfo.target_price > 0 && (
+                          <span className="text-[11px] text-[#007AFF] font-mono hidden sm:inline">
+                            PT: ${formatNumber(tickerInfo.target_price, 2)}
                           </span>
                         )}
                       </div>
@@ -960,8 +1131,8 @@ function ResearchContent() {
             />
           </div>
 
-          {/* Global Ticker Info (Yahoo Finance — works for all 53K+ stocks) */}
-          <GlobalTickerInfoPanel symbol={selectedSymbol} />
+          {/* Company Bio + Financials (Yahoo Finance) */}
+          <CompanyBioSection info={tickerInfo} />
 
           {/* Live News Section */}
           <div className="col-span-12">

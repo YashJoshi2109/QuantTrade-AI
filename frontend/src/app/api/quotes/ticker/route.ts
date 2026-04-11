@@ -4,7 +4,17 @@ import { NextRequest, NextResponse } from 'next/server'
  * Universal Ticker Info API
  * Fetches comprehensive data for any global stock/index via Yahoo Finance
  * Covers all 53,795+ publicly listed companies
+ *
+ * Includes full company profile: officers, address, financials, margins,
+ * cash flow, shareholders for the Company Bio section.
  */
+
+export interface CompanyOfficer {
+  name: string
+  title: string
+  age: number | null
+  totalPay: number | null
+}
 
 export interface TickerInfo {
   symbol: string
@@ -19,6 +29,13 @@ export interface TickerInfo {
   employees: number
   description: string
   website: string
+  // Company profile
+  address: string
+  city: string
+  state: string
+  zip: string
+  phone: string
+  officers: CompanyOfficer[]
   // Price data
   price: number
   change: number
@@ -45,15 +62,37 @@ export interface TickerInfo {
   return_on_equity: number
   return_on_assets: number
   revenue: number
+  revenue_growth: number
   gross_profit: number
+  gross_margins: number
+  operating_margins: number
+  profit_margins: number
   ebitda: number
+  ebitda_margins: number
   net_income: number
+  operating_cashflow: number
   free_cash_flow: number
+  total_cash: number
+  total_debt: number
   beta: number
+  enterprise_value: number
+  enterprise_to_revenue: number
+  enterprise_to_ebitda: number
+  shares_outstanding: number
+  float_shares: number
+  held_percent_insiders: number
+  held_percent_institutions: number
+  short_ratio: number
+  short_percent_of_float: number
   // Analyst data
   target_price: number
+  target_high: number
+  target_low: number
   recommendation: string
   analyst_count: number
+  // Dates
+  ex_dividend_date: string
+  earnings_date: string
 }
 
 async function fetchYahooQuoteSummary(symbol: string): Promise<TickerInfo | null> {
@@ -65,6 +104,7 @@ async function fetchYahooQuoteSummary(symbol: string): Promise<TickerInfo | null
       'assetProfile',
       'price',
       'summaryProfile',
+      'calendarEvents',
     ].join(',')
 
     const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`
@@ -74,7 +114,7 @@ async function fetchYahooQuoteSummary(symbol: string): Promise<TickerInfo | null
         'User-Agent': 'Mozilla/5.0 (compatible; QuantTradeAI/1.0)',
         Accept: 'application/json',
       },
-      next: { revalidate: 300 }, // cache 5 min
+      next: { revalidate: 300 },
     })
 
     if (!res.ok) return null
@@ -88,6 +128,7 @@ async function fetchYahooQuoteSummary(symbol: string): Promise<TickerInfo | null
     const financial = result.financialData ?? {}
     const keyStats = result.defaultKeyStatistics ?? {}
     const profile = result.assetProfile ?? result.summaryProfile ?? {}
+    const calendar = result.calendarEvents ?? {}
 
     const getVal = (obj: Record<string, unknown>, key: string): number => {
       const v = (obj as Record<string, { raw?: number } | number | undefined>)[key]
@@ -109,6 +150,31 @@ async function fetchYahooQuoteSummary(symbol: string): Promise<TickerInfo | null
     const change = regularPrice - prevClose
     const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0
 
+    // Parse company officers
+    const officers: CompanyOfficer[] = []
+    if (Array.isArray(profile.companyOfficers)) {
+      for (const o of profile.companyOfficers.slice(0, 8)) {
+        officers.push({
+          name: String(o.name ?? ''),
+          title: String(o.title ?? ''),
+          age: o.age ?? null,
+          totalPay: o.totalPay?.raw ?? null,
+        })
+      }
+    }
+
+    // Parse earnings date
+    let earningsDate = ''
+    const earningsDates = calendar?.earnings?.earningsDate
+    if (Array.isArray(earningsDates) && earningsDates.length > 0) {
+      const ed = earningsDates[0]
+      earningsDate = ed?.fmt ?? ''
+    }
+
+    // Parse ex-dividend date
+    const exDivRaw = summary.exDividendDate ?? keyStats.lastDividendDate
+    const exDividendDate = exDivRaw?.fmt ?? ''
+
     return {
       symbol: String(price.symbol ?? symbol),
       name: String(price.longName ?? price.shortName ?? symbol),
@@ -122,6 +188,13 @@ async function fetchYahooQuoteSummary(symbol: string): Promise<TickerInfo | null
       employees: getVal(profile as unknown as Record<string, unknown>, 'fullTimeEmployees'),
       description: String(profile.longBusinessSummary ?? ''),
       website: String(profile.website ?? ''),
+      // Company profile
+      address: String(profile.address1 ?? ''),
+      city: String(profile.city ?? ''),
+      state: String(profile.state ?? ''),
+      zip: String(profile.zip ?? ''),
+      phone: String(profile.phone ?? ''),
+      officers,
       // Price
       price: regularPrice,
       change,
@@ -148,15 +221,37 @@ async function fetchYahooQuoteSummary(symbol: string): Promise<TickerInfo | null
       return_on_equity: getVal(financial, 'returnOnEquity') * 100,
       return_on_assets: getVal(financial, 'returnOnAssets') * 100,
       revenue: getVal(financial, 'totalRevenue'),
+      revenue_growth: getVal(financial, 'revenueGrowth') * 100,
       gross_profit: getVal(financial, 'grossProfits'),
+      gross_margins: getVal(financial, 'grossMargins') * 100,
+      operating_margins: getVal(financial, 'operatingMargins') * 100,
+      profit_margins: getVal(financial, 'profitMargins') * 100,
       ebitda: getVal(financial, 'ebitda'),
+      ebitda_margins: getVal(financial, 'ebitdaMargins') * 100,
       net_income: getVal(keyStats, 'netIncomeToCommon'),
+      operating_cashflow: getVal(financial, 'operatingCashflow'),
       free_cash_flow: getVal(financial, 'freeCashflow'),
+      total_cash: getVal(financial, 'totalCash'),
+      total_debt: getVal(financial, 'totalDebt'),
       beta: getVal(summary, 'beta') || getVal(keyStats, 'beta'),
+      enterprise_value: getVal(keyStats, 'enterpriseValue'),
+      enterprise_to_revenue: getVal(keyStats, 'enterpriseToRevenue'),
+      enterprise_to_ebitda: getVal(keyStats, 'enterpriseToEbitda'),
+      shares_outstanding: getVal(keyStats, 'sharesOutstanding'),
+      float_shares: getVal(keyStats, 'floatShares'),
+      held_percent_insiders: getVal(keyStats, 'heldPercentInsiders') * 100,
+      held_percent_institutions: getVal(keyStats, 'heldPercentInstitutions') * 100,
+      short_ratio: getVal(keyStats, 'shortRatio'),
+      short_percent_of_float: getVal(keyStats, 'shortPercentOfFloat') * 100,
       // Analyst
       target_price: getVal(financial, 'targetMeanPrice'),
+      target_high: getVal(financial, 'targetHighPrice'),
+      target_low: getVal(financial, 'targetLowPrice'),
       recommendation: getStr(financial, 'recommendationKey'),
       analyst_count: getVal(financial, 'numberOfAnalystOpinions'),
+      // Dates
+      ex_dividend_date: exDividendDate,
+      earnings_date: earningsDate,
     }
   } catch {
     return null

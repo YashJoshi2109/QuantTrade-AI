@@ -25,6 +25,8 @@ from app.services.otp_service import (
     set_rate_limit,
     send_otp_email,
 )
+from app.services.turnstile_service import verify_turnstile
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -67,11 +69,13 @@ class UserRegister(BaseModel):
     otp: Optional[str] = None  # Optional code for email verification
     date_of_birth: Optional[date] = None
     gender: Optional[str] = None  # male | female | non-binary | prefer_not_to_say
+    turnstile_token: Optional[str] = None  # Cloudflare Turnstile CAPTCHA token
 
 
 class UserLogin(BaseModel):
     email: str
     password: str
+    turnstile_token: Optional[str] = None  # Cloudflare Turnstile CAPTCHA token
 
 
 class GoogleLogin(BaseModel):
@@ -262,8 +266,14 @@ async def verify_otp_endpoint(req: VerifyOtpRequest):
 
 # Endpoints
 @router.post("/register", response_model=TokenResponse)
-async def register(user_data: UserRegister, db: Session = Depends(get_db)):
+async def register(user_data: UserRegister, request: Request, db: Session = Depends(get_db)):
     """Register a new user with optional email verification and phone"""
+    # Cloudflare Turnstile verification
+    if user_data.turnstile_token:
+        ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (request.client.host if request.client else None)
+        if not await verify_turnstile(user_data.turnstile_token, ip):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="CAPTCHA verification failed. Please try again.")
+
     # Optional: require OTP verification if OTP provided
     if user_data.otp:
         if not verify_otp(user_data.email, user_data.otp):
@@ -323,6 +333,12 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 async def login(credentials: UserLogin, request: Request, db: Session = Depends(get_db)):
     """Login with email and password"""
+    # Cloudflare Turnstile verification
+    if credentials.turnstile_token:
+        ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (request.client.host if request.client else None)
+        if not await verify_turnstile(credentials.turnstile_token, ip):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="CAPTCHA verification failed. Please try again.")
+
     user = db.query(User).filter(User.email == credentials.email).first()
     
     if not user or not user.hashed_password:

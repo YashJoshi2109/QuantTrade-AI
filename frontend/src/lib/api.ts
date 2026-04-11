@@ -1703,3 +1703,181 @@ export async function getCopilotUsage(): Promise<CopilotUsage> {
   }
   return response.json()
 }
+
+
+// ── Model Index Engine (AI Basket Intelligence) ─────────────────────────────
+
+export interface BasketHolding {
+  ticker: string
+  company_name: string | null
+  sector: string | null
+  industry: string | null
+  weight_pct: number
+  overall_ai_score: number
+  confidence_score: number
+  grade: string
+  fundamental_score: number
+  valuation_score: number
+  quality_score: number
+  technical_score: number
+  sentiment_score: number
+  macro_fit_score: number
+  geopolitical_resilience_score: number
+  risk_score: number
+  diversification_score: number
+  analyst_score: number
+  role: { role_id: string; role_label: string; role_description: string }
+  suggested_weight_pct: number
+  data_completeness: number
+}
+
+export interface IndexSnapshot {
+  index_id: string
+  index_name: string
+  short_name: string
+  description: string
+  category: string
+  methodology: string
+  benchmark: string
+  rebalance_cadence: string
+  risk_profile: string
+  regime_label: string
+  regime: string
+  regime_confidence: number
+  strategy_type: string
+  num_holdings: number
+  avg_ai_score: number
+  avg_confidence: number
+  weighting_method: string
+  holdings: BasketHolding[]
+  rejected: { ticker: string; exclusion_reason: string }[]
+  sector_allocation: Record<string, number>
+  factor_exposure: Record<string, number>
+  risk_level: string
+  risk_score: number
+  portfolio_volatility_ann: number
+  portfolio_beta: number
+  max_drawdown_estimate_pct: number
+  var_95_daily_pct: number
+  concentration: {
+    hhi: number
+    max_single_weight_pct: number
+    top5_weight_pct: number
+    max_sector_weight_pct: number
+    num_sectors: number
+    avg_pairwise_correlation: number
+  }
+  expected_return_range: {
+    low_pct: number
+    high_pct: number
+    expected_pct: number
+    horizon_days: number
+  } | null
+  monte_carlo: {
+    expected_return_pct: number
+    return_std_pct: number
+    percentiles: Record<string, number>
+    probabilities: Record<string, number>
+    bull_case: { return_pct: number; description: string }
+    base_case: { return_pct: number; description: string }
+    bear_case: { return_pct: number; description: string }
+  } | null
+  scenarios: {
+    scenario_label: string
+    projected_basket_return_pct: number
+    scenario_description: string
+  }[] | null
+  explanation: {
+    basket_thesis: string
+    why_this_basket_now: string
+    top_supporting_signals: { factor: string; label: string; score: number }[]
+    top_risks: string[]
+    allocation_methodology: string
+    risk_summary: { level: string; score: number; volatility: number; beta: number }
+  }
+  model_version: string
+  generated_at: string
+}
+
+export interface IndexDefinition {
+  index_id: string
+  name: string
+  short_name: string
+  description: string
+  category: string
+  risk_profile: string
+  benchmark: string
+  rebalance_cadence: string
+  target_holdings: [number, number]
+}
+
+export interface RegimeData {
+  regime: string
+  regime_label: string
+  regime_description: string
+  confidence: number
+  signals: {
+    vix: number | null
+    vix_signal: string
+    breadth_sma200_pct: number
+    breadth_sma50_pct: number
+    momentum_breadth_pct: number
+    breadth_signal: string
+    momentum_signal: string
+  }
+  secondary_regime: string | null
+}
+
+export async function fetchModelIndices(): Promise<{ indices: IndexDefinition[]; total: number }> {
+  const response = await fetch(`${API_URL}/api/v1/model-index/indices`)
+  if (!response.ok) throw new Error('Failed to fetch model indices')
+  return response.json()
+}
+
+export async function fetchIndexSnapshot(indexId: string): Promise<IndexSnapshot> {
+  const response = await fetch(`${API_URL}/api/v1/model-index/indices/${indexId}`)
+  if (!response.ok) throw new Error('Failed to fetch index snapshot')
+  return response.json()
+}
+
+export interface BatchLoadResponse {
+  indices: IndexDefinition[]
+  snapshots: Record<string, IndexSnapshot>
+  regime: RegimeData | null
+  total: number
+  cached: number
+}
+
+export async function fetchBatchLoad(): Promise<BatchLoadResponse> {
+  const response = await fetch(`${API_URL}/api/v1/model-index/batch`)
+  if (!response.ok) throw new Error('Failed to batch load')
+  return response.json()
+}
+
+export async function refreshIndex(indexId: string, sync = true): Promise<IndexSnapshot> {
+  const headers = await getAuthHeadersClient()
+  const response = await fetch(`${API_URL}/api/v1/model-index/indices/${indexId}/refresh?sync=${sync}`, {
+    method: 'POST',
+    headers,
+  })
+  if (!response.ok) throw new Error('Failed to refresh index')
+  return response.json()
+}
+
+export async function fetchRegime(): Promise<RegimeData> {
+  const response = await fetch(`${API_URL}/api/v1/model-index/regime`)
+  if (!response.ok) throw new Error('Failed to fetch regime')
+  return response.json()
+}
+
+export async function fetchStockDeepDive(ticker: string): Promise<any> {
+  const response = await fetch(`${API_URL}/api/v1/model-index/stock/${ticker.toUpperCase()}`)
+  if (!response.ok) throw new Error('Failed to fetch stock analysis')
+  return response.json()
+}
+
+export async function fetchUniverseRankings(indexType = 'balanced_core'): Promise<any> {
+  const response = await fetch(`${API_URL}/api/v1/model-index/rankings?index_type=${indexType}`)
+  if (!response.ok) throw new Error('Failed to fetch rankings')
+  return response.json()
+}
