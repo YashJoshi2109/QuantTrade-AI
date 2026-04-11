@@ -16,7 +16,7 @@ function makeQueryClient() {
         refetchOnWindowFocus: false,
         refetchOnReconnect: true,
         // Don't refetch on mount if data is still fresh (prevents duplicate calls)
-        refetchOnMount: 'always',
+        refetchOnMount: true,
         retry: 2,
         retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
         structuralSharing: true,
