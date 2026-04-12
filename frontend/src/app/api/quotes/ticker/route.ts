@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sanitizeQuoteSummaryCompanyName } from '@/lib/company-display-name'
 
 /**
  * Universal Ticker Info API
@@ -93,6 +94,8 @@ export interface TickerInfo {
   // Dates
   ex_dividend_date: string
   earnings_date: string
+  /** Year or label when available from Yahoo asset profile */
+  founded: string
 }
 
 async function fetchYahooQuoteSummary(symbol: string): Promise<TickerInfo | null> {
@@ -129,6 +132,14 @@ async function fetchYahooQuoteSummary(symbol: string): Promise<TickerInfo | null
     const keyStats = result.defaultKeyStatistics ?? {}
     const profile = result.assetProfile ?? result.summaryProfile ?? {}
     const calendar = result.calendarEvents ?? {}
+    const prof = profile as Record<string, unknown>
+    const foundedRaw = prof.yearFounded ?? prof.founded
+    const founded =
+      typeof foundedRaw === 'number' && foundedRaw > 0
+        ? String(Math.round(foundedRaw))
+        : typeof foundedRaw === 'string'
+          ? foundedRaw.trim()
+          : ''
 
     const getVal = (obj: Record<string, unknown>, key: string): number => {
       const v = (obj as Record<string, { raw?: number } | number | undefined>)[key]
@@ -175,9 +186,12 @@ async function fetchYahooQuoteSummary(symbol: string): Promise<TickerInfo | null
     const exDivRaw = summary.exDividendDate ?? keyStats.lastDividendDate
     const exDividendDate = exDivRaw?.fmt ?? ''
 
+    const rawName = String(price.longName ?? price.shortName ?? symbol)
+    const displayName = sanitizeQuoteSummaryCompanyName(rawName, symbol)
+
     return {
       symbol: String(price.symbol ?? symbol),
-      name: String(price.longName ?? price.shortName ?? symbol),
+      name: displayName,
       exchange: String(price.exchange ?? ''),
       exchange_display: String(price.exchangeName ?? price.exchange ?? ''),
       currency: String(price.currency ?? summary.currency ?? 'USD'),
@@ -252,6 +266,7 @@ async function fetchYahooQuoteSummary(symbol: string): Promise<TickerInfo | null
       // Dates
       ex_dividend_date: exDividendDate,
       earnings_date: earningsDate,
+      founded,
     }
   } catch {
     return null
@@ -266,7 +281,96 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing symbol parameter' }, { status: 400 })
   }
 
-  const data = await fetchYahooQuoteSummary(symbol)
+  let data = await fetchYahooQuoteSummary(symbol)
+
+  // Fallback: if Yahoo fails, try FMP for basic price data
+  if (!data) {
+    const fmpKey = process.env.FMP_API_KEY
+    if (fmpKey) {
+      try {
+        const fmpRes = await fetch(
+          `https://financialmodelingprep.com/api/v3/quote/${encodeURIComponent(symbol)}?apikey=${fmpKey}`,
+          { next: { revalidate: 120 } },
+        )
+        if (fmpRes.ok) {
+          const fmpData = await fmpRes.json()
+          const q = Array.isArray(fmpData) ? fmpData[0] : null
+          if (q?.price) {
+            data = {
+              symbol,
+              name: q.name || symbol,
+              exchange: q.exchange || '',
+              exchange_display: q.exchange || '',
+              currency: 'USD',
+              country: '',
+              sector: '',
+              industry: '',
+              market_cap: q.marketCap || 0,
+              employees: 0,
+              description: '',
+              website: '',
+              address: '', city: '', state: '', zip: '', phone: '',
+              officers: [],
+              price: q.price || 0,
+              change: q.change || 0,
+              change_percent: q.changesPercentage || 0,
+              open: q.open || 0,
+              high: q.dayHigh || 0,
+              low: q.dayLow || 0,
+              prev_close: q.previousClose || 0,
+              volume: q.volume || 0,
+              avg_volume: q.avgVolume || 0,
+              pe_ratio: q.pe || 0,
+              forward_pe: 0,
+              eps: q.eps || 0,
+              forward_eps: 0,
+              dividend_yield: 0,
+              dividend_rate: 0,
+              peg_ratio: 0,
+              price_to_sales: 0,
+              price_to_book: 0,
+              debt_to_equity: 0,
+              return_on_equity: 0,
+              return_on_assets: 0,
+              revenue: 0,
+              revenue_growth: 0,
+              gross_profit: 0,
+              gross_margins: 0,
+              operating_margins: 0,
+              profit_margins: 0,
+              ebitda: 0,
+              ebitda_margins: 0,
+              net_income: 0,
+              operating_cashflow: 0,
+              free_cash_flow: 0,
+              total_cash: 0,
+              total_debt: 0,
+              beta: 0,
+              enterprise_value: 0,
+              enterprise_to_revenue: 0,
+              enterprise_to_ebitda: 0,
+              shares_outstanding: q.sharesOutstanding || 0,
+              float_shares: 0,
+              held_percent_insiders: 0,
+              held_percent_institutions: 0,
+              short_ratio: 0,
+              short_percent_of_float: 0,
+              target_price: 0,
+              target_high: 0,
+              target_low: 0,
+              recommendation: '',
+              analyst_count: 0,
+              week_52_high: q.yearHigh || 0,
+              week_52_low: q.yearLow || 0,
+              ex_dividend_date: '',
+              earnings_date: '',
+              founded: '',
+            } as TickerInfo
+          }
+        }
+      } catch { /* FMP fallback failed silently */ }
+    }
+  }
 
   if (!data) {
     return NextResponse.json({ error: `No data found for ${symbol}` }, { status: 404 })

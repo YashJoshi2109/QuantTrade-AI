@@ -185,8 +185,8 @@ export async function validateEmail(email: string): Promise<{ valid: boolean; me
   return { valid: data.valid, message: data.message || '', status: data.status || 'UNKNOWN' }
 }
 
-export async function sendOtp(email: string): Promise<void> {
-  const response = await fetch(`${API_URL}/api/v1/auth/send-otp`, {
+export async function sendOtp(email: string, purpose: 'register' | 'reset' = 'register'): Promise<void> {
+  const response = await fetch(`${API_URL}/api/v1/auth/send-otp?purpose=${purpose}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email })
