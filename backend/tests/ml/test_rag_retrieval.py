@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -26,7 +28,7 @@ def test_rag_service_basic_retrieval():
         symbol_id=symbol.id,
         filing_type="10-K",
         form_type="10-K",
-        filing_date="2024-01-01",
+        filing_date=datetime(2024, 1, 1),
     )
     db.add(filing)
     db.flush()

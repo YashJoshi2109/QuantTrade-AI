@@ -43,6 +43,7 @@ import type { ExchangeSector } from '@/app/api/exchange/heatmap/route'
 import MarketNewsGrid from '@/components/MarketNewsGrid'
 import MiniWorldMonitorSnapshot from '@/components/MiniWorldMonitorSnapshot'
 import LiveNewsChannelPanel from '@/components/LiveNewsChannelPanel'
+import TickerLogo from '@/components/TickerLogo'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { SkeletonMoversSection, SkeletonSectorPerformance } from '@/components/Skeleton'
 import BrandedNewsLoading from '@/components/loading/BrandedNewsLoading'
@@ -236,9 +237,7 @@ function WorldIndicesBar({
                       href={`/research?symbol=${encodeURIComponent(m.symbol)}`}
                       className="shrink-0 flex items-center gap-2 px-3 py-2 border-r border-slate-800/40 text-left transition-colors hover:bg-emerald-500/5 group"
                     >
-                      <span className="text-[8px] font-black text-amber-400/90 font-mono w-5 text-center">
-                        {roleLabel(it.role)}
-                      </span>
+                      <TickerLogo symbol={m.symbol} size={22} />
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="text-[10px] font-bold text-white font-mono group-hover:text-[#007AFF]">
@@ -584,17 +583,18 @@ function PredictionAlertsWidget({ contextSymbols }: { contextSymbols?: Set<strin
               href={`/research?symbol=${alert.symbol}`}
               className="flex items-start gap-2.5 p-3 hover:bg-slate-800/30 transition-colors group"
             >
-              <div
-                className={`mt-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded border ${severityColor(
-                  alert.severity
-                )}`}
-              >
-                {alert.severity.toUpperCase()}
-              </div>
+              <TickerLogo symbol={alert.symbol} size={24} className="mt-0.5" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-white text-xs group-hover:text-violet-400 transition-colors font-mono">
                     {alert.symbol}
+                  </span>
+                  <span
+                    className={`px-1 py-0.5 text-[8px] font-bold rounded border ${severityColor(
+                      alert.severity
+                    )}`}
+                  >
+                    {alert.severity.toUpperCase()}
                   </span>
                   <span
                     className={`text-[9px] font-bold ${
@@ -712,15 +712,18 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
                   href={`/research?symbol=${item.symbol}`}
                   className="flex items-center justify-between p-3 hover:bg-cyan-500/5 transition-colors group"
                 >
-                  <div>
-                    <div className="font-bold text-white text-xs font-mono group-hover:text-cyan-400 transition-colors">
-                      {item.symbol}
-                    </div>
-                    {item.name && (
-                      <div className="text-[10px] text-slate-500 truncate max-w-[100px]">
-                        {item.name}
+                  <div className="flex items-center gap-2.5">
+                    <TickerLogo symbol={item.symbol} size={28} />
+                    <div>
+                      <div className="font-bold text-white text-xs font-mono group-hover:text-cyan-400 transition-colors">
+                        {item.symbol}
                       </div>
-                    )}
+                      {item.name && (
+                        <div className="text-[10px] text-slate-500 truncate max-w-[100px]">
+                          {item.name}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right">
                     {q ? (
@@ -1072,6 +1075,7 @@ function ContinentMoversPanel({
               >
                 <div className="flex items-center gap-2">
                   <span className="w-4 text-[10px] text-slate-600 font-mono text-right">{i + 1}</span>
+                  <TickerLogo symbol={s.symbol} size={24} />
                   <div>
                     <span className="font-bold text-white group-hover:text-emerald-400 transition-colors text-xs font-mono">{s.symbol}</span>
                     <div className="text-[10px] text-slate-500 truncate max-w-[110px]">{s.name}</div>
@@ -1110,6 +1114,7 @@ function ContinentMoversPanel({
               >
                 <div className="flex items-center gap-2">
                   <span className="w-4 text-[10px] text-slate-600 font-mono text-right">{i + 1}</span>
+                  <TickerLogo symbol={s.symbol} size={24} />
                   <div>
                     <span className="font-bold text-white group-hover:text-red-400 transition-colors text-xs font-mono">{s.symbol}</span>
                     <div className="text-[10px] text-slate-500 truncate max-w-[110px]">{s.name}</div>

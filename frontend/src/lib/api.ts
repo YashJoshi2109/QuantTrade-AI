@@ -825,19 +825,45 @@ export interface BacktestResult {
   walk_forward: { enabled: boolean; train_bars?: number; test_bars?: number; train_pct?: number }
 }
 
-export async function runBacktest(request: BacktestRequest): Promise<BacktestResult> {
-  const response = await fetch(`${API_URL}/api/v1/backtest`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(request),
-  })
-  if (!response.ok) {
-    const errData = await response.json().catch(() => null)
-    throw new Error(errData?.detail || 'Failed to run backtest')
+export async function runBacktest(
+  request: BacktestRequest,
+  signal?: AbortSignal,
+): Promise<BacktestResult> {
+  const token = typeof window !== 'undefined' ? getToken() : null
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(new DOMException('Backtest timed out', 'TimeoutError')), 120_000)
+
+  // Combine user-provided signal with our timeout signal
+  const combinedSignal = signal
+    ? (AbortSignal as any).any?.([signal, controller.signal]) ?? controller.signal
+    : controller.signal
+
+  try {
+    const response = await fetch(`${API_URL}/api/v1/backtest`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(request),
+      signal: combinedSignal,
+    })
+    if (!response.ok) {
+      const errData = await response.json().catch(() => null)
+      throw new Error(errData?.detail || `Backtest failed (${response.status})`)
+    }
+    return response.json()
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Backtest was cancelled')
+    }
+    if (err instanceof DOMException && err.name === 'TimeoutError') {
+      throw new Error('Backtest timed out after 2 minutes. Try a shorter date range or disable Monte Carlo.')
+    }
+    throw err
+  } finally {
+    clearTimeout(timeout)
   }
-  return response.json()
 }
 
 // Live News API

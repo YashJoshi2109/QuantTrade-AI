@@ -43,9 +43,21 @@ module.exports = {
       spacing: {
         safe: 'env(safe-area-inset-bottom)',
       },
+      keyframes: {
+        researchFlow: {
+          '0%, 100%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+        },
+        researchSheen: {
+          '0%': { transform: 'translateX(-100%) skewX(-12deg)' },
+          '100%': { transform: 'translateX(200%) skewX(-12deg)' },
+        },
+      },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-out',
         'slide-up': 'slideUp 0.4s ease-out',
+        'research-flow': 'researchFlow 16s ease-in-out infinite',
+        'research-sheen': 'researchSheen 4.5s ease-in-out infinite',
       },
     },
   },

@@ -55,9 +55,7 @@ class SymbolsMaster(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     __table_args__ = (
-        # Primary symbol index (btree for exact/prefix)
-        Index('ix_symbols_master_symbol', 'symbol'),
-        # Name index for prefix search
+        # Name index for prefix search (symbol index auto-created by Column index=True)
         Index('ix_symbols_master_name', 'name'),
         # Composite for common queries
         Index('ix_symbols_master_exchange', 'exchange'),

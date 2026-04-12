@@ -5,7 +5,7 @@
  * 8 strategies, advanced metrics, Monte Carlo, walk-forward, equity/drawdown charts
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import AppLayout from '@/components/AppLayout'
@@ -328,6 +328,9 @@ function DesktopBacktestPage() {
   const [result, setResult] = useState<BacktestResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [elapsedSec, setElapsedSec] = useState(0)
+  const abortRef = useRef<AbortController | null>(null)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const selectedStrat = STRATEGIES.find(s => s.id === strategy)!
   const [stratParams, setStratParams] = useState<Record<string, number>>(() => {
@@ -344,15 +347,35 @@ function DesktopBacktestPage() {
     setStratParams(p)
   }
 
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    setLoading(false)
+    setElapsedSec(0)
+  }, [])
+
   const handleRunBacktest = async () => {
+    // Abort any in-flight request
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setLoading(true)
     setError(null)
     setResult(null)
+    setElapsedSec(0)
+
+    // Elapsed timer
+    const startTime = Date.now()
+    timerRef.current = setInterval(() => setElapsedSec(Math.floor((Date.now() - startTime) / 1000)), 1000)
+
     try {
+      // Use date string directly (YYYY-MM-DD) to avoid timezone offset issues
       const req: BacktestRequest = {
         symbol: symbol.toUpperCase(),
-        start_date: new Date(startDate).toISOString(),
-        end_date: new Date(endDate).toISOString(),
+        start_date: startDate + 'T00:00:00',
+        end_date: endDate + 'T23:59:59',
         strategy,
         initial_capital: initialCapital,
         strategy_params: stratParams,
@@ -365,11 +388,15 @@ function DesktopBacktestPage() {
         walk_forward: walkForward,
         monte_carlo: monteCarlo,
       }
-      setResult(await runBacktest(req))
+      setResult(await runBacktest(req, controller.signal))
     } catch (err: any) {
-      setError(err.message || 'Failed to run backtest')
+      if (!controller.signal.aborted) {
+        setError(err.message || 'Failed to run backtest')
+      }
     } finally {
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
       setLoading(false)
+      setElapsedSec(0)
     }
   }
 
@@ -542,14 +569,24 @@ function DesktopBacktestPage() {
               </div>
 
               {/* Run button */}
-              <motion.button
-                whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-                onClick={handleRunBacktest}
-                disabled={loading || !symbol}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-black text-sm shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Running Simulation...</> : <><Play className="w-4 h-4" /> Run Backtest</>}
-              </motion.button>
+              {loading ? (
+                <motion.button
+                  whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+                  onClick={handleCancel}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-slate-700 to-slate-600 text-white font-black text-sm shadow-lg transition-all"
+                >
+                  <Loader2 className="w-4 h-4 animate-spin" /> Cancel Simulation{elapsedSec > 0 ? ` (${elapsedSec}s)` : '...'}
+                </motion.button>
+              ) : (
+                <motion.button
+                  whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+                  onClick={handleRunBacktest}
+                  disabled={!symbol}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-black text-sm shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Play className="w-4 h-4" /> Run Backtest
+                </motion.button>
+              )}
             </div>
 
             {/* ── Right: Results ─────────────────────────────────────── */}
@@ -561,7 +598,11 @@ function DesktopBacktestPage() {
                   <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                     className="p-4 bg-red-500/10 border border-red-500/25 rounded-xl text-red-400 flex items-center gap-3">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
-                    <span className="text-sm">{error}</span>
+                    <span className="text-sm flex-1">{error}</span>
+                    <button onClick={handleRunBacktest}
+                      className="shrink-0 px-3 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold transition-colors">
+                      Retry
+                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -583,7 +624,14 @@ function DesktopBacktestPage() {
                   <div className="text-center">
                     <Loader2 className="w-8 h-8 text-cyan-400 animate-spin mx-auto mb-3" />
                     <p className="text-sm text-slate-400 font-semibold">Running backtest simulation...</p>
-                    <p className="text-xs text-slate-600 mt-1">Computing signals, executing trades, Monte Carlo analysis</p>
+                    <p className="text-xs text-slate-600 mt-1">Computing signals, executing trades{monteCarlo ? ', Monte Carlo analysis' : ''}...</p>
+                    {elapsedSec > 0 && (
+                      <p className="text-xs text-slate-600 font-mono mt-2">{elapsedSec}s elapsed</p>
+                    )}
+                    <button onClick={handleCancel}
+                      className="mt-4 px-4 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-400 hover:text-white hover:border-slate-500 transition-colors">
+                      Cancel
+                    </button>
                   </div>
                 </div>
               )}
@@ -768,18 +816,32 @@ function MobileBacktestPage() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<BacktestResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setLoading(false)
+  }, [])
 
   const handleRun = async () => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     setLoading(true); setError(null); setResult(null)
     try {
       const req: BacktestRequest = {
         symbol: symbol.toUpperCase(),
-        start_date: new Date(startDate).toISOString(),
-        end_date: new Date(endDate).toISOString(),
+        start_date: startDate + 'T00:00:00',
+        end_date: endDate + 'T23:59:59',
         strategy, initial_capital: initialCapital, monte_carlo: true,
       }
-      setResult(await runBacktest(req))
-    } catch (err: any) { setError(err.message || 'Failed') }
+      setResult(await runBacktest(req, controller.signal))
+    } catch (err: any) {
+      if (!controller.signal.aborted) {
+        setError(err.message || 'Failed')
+      }
+    }
     finally { setLoading(false) }
   }
 
@@ -810,14 +872,26 @@ function MobileBacktestPage() {
           </select>
         </div>
 
-        <button onClick={handleRun} disabled={loading || !symbol}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-black text-sm disabled:opacity-50">
-          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Running...</> : <><Play className="w-4 h-4" /> Run Backtest</>}
-        </button>
+        {loading ? (
+          <button onClick={handleCancel}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-slate-700 to-slate-600 text-white font-black text-sm">
+            <Loader2 className="w-4 h-4 animate-spin" /> Cancel
+          </button>
+        ) : (
+          <button onClick={handleRun} disabled={!symbol}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-black text-sm disabled:opacity-50">
+            <Play className="w-4 h-4" /> Run Backtest
+          </button>
+        )}
 
         {error && (
           <div className="p-3 bg-red-500/10 border border-red-500/25 rounded-xl text-red-400 flex items-center gap-2 text-xs">
-            <AlertTriangle className="w-4 h-4" /> {error}
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span className="flex-1">{error}</span>
+            <button onClick={handleRun}
+              className="shrink-0 px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 text-[10px] font-bold transition-colors">
+              Retry
+            </button>
           </div>
         )}
 

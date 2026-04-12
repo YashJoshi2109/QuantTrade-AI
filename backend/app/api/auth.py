@@ -3,7 +3,7 @@ Authentication API endpoints
 """
 import asyncio
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -220,8 +220,26 @@ class SendOtpRequest(BaseModel):
 
 
 @router.post("/send-otp")
-async def send_otp_endpoint(req: SendOtpRequest, db: Session = Depends(get_db)):
-    """Send OTP to email for verification. Rate limited to 1 per minute."""
+async def send_otp_endpoint(
+    req: SendOtpRequest,
+    purpose: str = Query("register", regex="^(register|reset)$"),
+    db: Session = Depends(get_db),
+):
+    """Send OTP to email for verification. Rate limited to 1 per minute.
+    For registration: rejects if email is already registered.
+    For password reset: rejects if email is NOT registered.
+    """
+    # Check email existence based on purpose
+    existing_user = db.query(User).filter(User.email == req.email).first()
+    if purpose == "register" and existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This email is already registered. Please sign in instead.",
+        )
+    if purpose == "reset" and not existing_user:
+        # Anti-enumeration: still return 200-like response
+        return {"message": "Verification code sent to your email"}
+
     if not check_rate_limit(req.email):
         wait_seconds = get_rate_limit_remaining_seconds(req.email)
         raise HTTPException(
@@ -920,69 +938,54 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    token: str
     new_password: str
+    token: Optional[str] = None  # Legacy link-based reset
+    email: Optional[EmailStr] = None  # OTP-based reset
+    otp: Optional[str] = None  # OTP code for verification
 
 
 @router.post("/forgot-password")
 async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     """
-    Send a password-reset link to the registered email address.
+    Send OTP to email for password reset.
     Always returns 200 to prevent email enumeration (OWASP A07).
+    Uses the same OTP service as registration verification.
     """
-    _clean_reset_tokens()
     user = db.query(User).filter(User.email == req.email.lower()).first()
     if user:
-        token = _pw_secrets.token_urlsafe(32)
-        _reset_tokens[token] = (user.email, _pw_time.time() + _RESET_TOKEN_TTL)
+        if not check_rate_limit(req.email):
+            # Still return 200 for anti-enumeration
+            return {"message": "If that email is registered, you'll receive a verification code shortly."}
 
-        app_url = getattr(settings, "APP_URL", "https://quanttrade.us")
-        reset_link = f"{app_url}/auth/forgot-password?token={token}"
+        otp = generate_otp()
+        store_otp(req.email, otp)
+        await asyncio.to_thread(send_otp_email, req.email, otp)
+        set_rate_limit(req.email)
 
-        html = f"""
-        <div style="font-family:-apple-system,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;background:#060B12;padding:40px 20px;">
-          <div style="background:#0D1828;border:1px solid rgba(0,212,255,0.2);border-radius:16px;overflow:hidden;">
-            <div style="background:linear-gradient(135deg,#060B12,#0a1628);padding:28px 32px;border-bottom:1px solid rgba(0,212,255,0.15);">
-              <span style="color:#00D4FF;font-size:18px;font-weight:700;">⚡ QuantTrade AI</span>
-              <h1 style="margin:12px 0 0;color:#F0F6FF;font-size:20px;font-weight:600;">Password Reset Request</h1>
-            </div>
-            <div style="padding:32px;">
-              <p style="color:#94A3B8;font-size:15px;margin:0 0 24px;">
-                We received a request to reset the password for your account (<strong style="color:#E2E8F0">{user.email}</strong>).
-                Click the button below to set a new password.
-              </p>
-              <a href="{reset_link}"
-                 style="display:inline-block;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:700;margin-bottom:24px;">
-                Reset My Password →
-              </a>
-              <p style="color:#64748B;font-size:13px;margin:0 0 8px;">
-                This link expires in <strong style="color:#94A3B8">1 hour</strong>.
-                If you didn't request a reset, you can safely ignore this email — your password won't change.
-              </p>
-            </div>
-          </div>
-        </div>
-        """
-
-        try:
-            from app.services.email_service import send_email
-            await send_email(user.email, "QuantTrade AI — Reset Your Password", html)
-        except Exception:
-            pass  # Never block — anti-enumeration
-
-    return {"message": "If that email is registered, you'll receive a reset link shortly."}
+    return {"message": "If that email is registered, you'll receive a verification code shortly."}
 
 
 @router.post("/reset-password")
 async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
-    """Validate the reset token and update the user's password."""
-    _clean_reset_tokens()
-    entry = _reset_tokens.get(req.token)
-    if not entry or _pw_time.time() > entry[1]:
-        raise HTTPException(status_code=400, detail="Reset link is invalid or has expired. Please request a new one.")
+    """Verify OTP and update the user's password."""
+    # Support both legacy token-based and new OTP-based reset
+    if req.otp and req.email:
+        # OTP-based reset
+        if not verify_otp(req.email, req.otp):
+            raise HTTPException(status_code=400, detail="Invalid or expired verification code. Please request a new one.")
+        user = db.query(User).filter(User.email == req.email).first()
+    elif req.token:
+        # Legacy token-based reset
+        _clean_reset_tokens()
+        entry = _reset_tokens.get(req.token)
+        if not entry or _pw_time.time() > entry[1]:
+            raise HTTPException(status_code=400, detail="Reset link is invalid or has expired. Please request a new one.")
+        email, _ = entry
+        user = db.query(User).filter(User.email == email).first()
+        del _reset_tokens[req.token]
+    else:
+        raise HTTPException(status_code=400, detail="Verification code or reset token required.")
 
-    email, _ = entry
-    user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=400, detail="Account not found.")
 
@@ -991,9 +994,6 @@ async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db
 
     user.hashed_password = hash_password(req.new_password)
     db.commit()
-
-    # Invalidate the token after use
-    del _reset_tokens[req.token]
 
     return {"message": "Password updated successfully. You can now sign in with your new password."}
 

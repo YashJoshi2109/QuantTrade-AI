@@ -33,19 +33,32 @@ interface ApiStatsMonitorProps {
   compact?: boolean
 }
 
+interface FmpStats {
+  used: number
+  limit: number
+  date: string
+  percent: number
+}
+
 export default function ApiStatsMonitor({ isInSidebar = false, compact = false }: ApiStatsMonitorProps) {
   const [stats, setStats] = useState<ApiStats | null>(null)
+  const [fmpStats, setFmpStats] = useState<FmpStats | null>(null)
   const [isExpanded, setIsExpanded] = useState(false)
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/enhanced/api-stats`
-        )
-        if (response.ok) {
-          const data = await response.json()
+        const [apiRes, fmpRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/enhanced/api-stats`).catch(() => null),
+          fetch('/api/stats').catch(() => null),
+        ])
+        if (apiRes?.ok) {
+          const data = await apiRes.json()
           setStats(data)
+        }
+        if (fmpRes?.ok) {
+          const data = await fmpRes.json()
+          if (data?.fmp) setFmpStats(data.fmp)
         }
       } catch {
         // Silently fail — endpoint may not be available
@@ -53,7 +66,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
     }
 
     fetchStats()
-    // Poll every 2 minutes in production (was 10s — caused 6 req/min overhead)
+    // Poll every 2 minutes
     const interval = setInterval(fetchStats, 120_000)
     return () => clearInterval(interval)
   }, [])
@@ -66,22 +79,99 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
   const usagePercent = maxCalls > 0 ? ((maxCalls - remainingCalls) / maxCalls) * 100 : 0
   const isRateLimited = rate_limit.status === 'rate_limited'
 
-  // Header compact view
+  // Header compact view — clickable with hover popover
   if (compact) {
+    const fmpPct = fmpStats ? fmpStats.percent : 0
+    const fmpColor = fmpPct > 80 ? 'text-red-400' : fmpPct > 50 ? 'text-amber-400' : 'text-emerald-400'
+    const fmpBarColor = fmpPct > 80 ? 'bg-red-500' : fmpPct > 50 ? 'bg-amber-500' : 'bg-emerald-500'
+
     return (
-      <div
-        className={`hidden lg:flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-mono ${
-          isRateLimited
-            ? 'bg-red-500/10 border-red-500/30 text-red-300'
-            : 'bg-slate-800/50 border-slate-700/60 text-slate-300'
-        }`}
-        title={`API limit ${formatNumber(rate_limit.remaining_calls, 0)} / ${formatNumber(rate_limit.max_calls_per_minute, 0)}`}
-      >
-        <Activity className={`w-3.5 h-3.5 ${isRateLimited ? 'text-red-400 animate-pulse' : 'text-cyan-300'}`} />
-        <span className="uppercase tracking-wider text-[10px] text-slate-400">API</span>
-        <span className="font-bold tabular-nums">
-          {formatNumber(rate_limit.remaining_calls, 0)}/{formatNumber(rate_limit.max_calls_per_minute, 0)}
-        </span>
+      <div className="hidden lg:flex items-center gap-1.5 relative group">
+        {/* Finnhub badge */}
+        <div
+          className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-xs font-mono cursor-pointer transition-colors hover:bg-slate-700/40 ${
+            isRateLimited
+              ? 'bg-red-500/10 border-red-500/30 text-red-300'
+              : 'bg-slate-800/50 border-slate-700/60 text-slate-300'
+          }`}
+        >
+          <Activity className={`w-3 h-3 ${isRateLimited ? 'text-red-400 animate-pulse' : 'text-cyan-300'}`} />
+          <span className="font-bold tabular-nums text-[10px]">
+            {formatNumber(rate_limit.remaining_calls, 0)}/{formatNumber(rate_limit.max_calls_per_minute, 0)}
+          </span>
+        </div>
+
+        {/* FMP badge */}
+        {fmpStats && (
+          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border bg-slate-800/50 border-slate-700/60 text-xs font-mono cursor-pointer transition-colors hover:bg-slate-700/40">
+            <Database className={`w-3 h-3 ${fmpColor}`} />
+            <span className="font-bold tabular-nums text-[10px] text-slate-300">
+              {fmpStats.used}/{fmpStats.limit}
+            </span>
+          </div>
+        )}
+
+        {/* Hover popover */}
+        <div className="absolute top-full right-0 mt-2 w-64 rounded-xl border border-slate-700/60 bg-[#0b0f14] p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+          <div className="text-xs font-bold text-white mb-3">API Usage</div>
+
+          {/* Finnhub */}
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                <Activity className="w-3 h-3 text-cyan-400" /> Finnhub
+              </span>
+              <span className="text-[10px] font-mono text-slate-300">
+                {formatNumber(rate_limit.remaining_calls, 0)}/{formatNumber(rate_limit.max_calls_per_minute, 0)}/min
+              </span>
+            </div>
+            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  isRateLimited ? 'bg-red-500' : usagePercent > 80 ? 'bg-amber-500' : 'bg-cyan-500'
+                }`}
+                style={{ width: `${Math.min(usagePercent, 100)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* FMP */}
+          {fmpStats && (
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                  <Database className="w-3 h-3 text-violet-400" /> FMP (daily)
+                </span>
+                <span className="text-[10px] font-mono text-slate-300">
+                  {fmpStats.used}/{fmpStats.limit}
+                </span>
+              </div>
+              <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${fmpBarColor}`}
+                  style={{ width: `${Math.min(fmpPct, 100)}%` }}
+                />
+              </div>
+              <div className="text-[9px] text-slate-600 mt-0.5">
+                Resets daily · {fmpStats.date}
+              </div>
+            </div>
+          )}
+
+          {/* Cache */}
+          {cache.entries != null && (
+            <div className="flex items-center justify-between text-[10px] border-t border-slate-800/60 pt-2 mt-2">
+              <span className="text-slate-500">Cache entries</span>
+              <span className="text-slate-300 font-mono">{cache.entries}</span>
+            </div>
+          )}
+          {cache.hit_ratio && (
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="text-slate-500">Hit ratio</span>
+              <span className="text-emerald-400 font-mono font-bold">{cache.hit_ratio}</span>
+            </div>
+          )}
+        </div>
       </div>
     )
   }
