@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
+import asyncio
+from functools import partial
 
 from app.db.database import get_db
 from app.models.symbol import Symbol
@@ -1000,15 +1002,18 @@ async def get_prediction_alerts(
     """
     symbols: List[str] = []
     if current_user:
-        watch_items = (
-            db.query(Watchlist, Symbol)
-            .join(Symbol, Symbol.id == Watchlist.symbol_id)
-            .filter(Watchlist.user_id == current_user.id)
-            .order_by(Watchlist.created_at.desc())
-            .limit(max_symbols)
-            .all()
-        )
-        symbols = [s.symbol.upper() for _, s in watch_items if s and s.symbol]
+        try:
+            watch_items = (
+                db.query(Watchlist, Symbol)
+                .join(Symbol, Symbol.id == Watchlist.symbol_id)
+                .filter(Watchlist.user_id == current_user.id)
+                .order_by(Watchlist.created_at.desc())
+                .limit(max_symbols)
+                .all()
+            )
+            symbols = [s.symbol.upper() for _, s in watch_items if s and s.symbol]
+        except Exception:
+            symbols = []
 
     if not symbols:
         symbols = list(_DEFAULT_ALERT_SYMBOLS[:max_symbols])
@@ -1021,7 +1026,10 @@ async def get_prediction_alerts(
         sym_u = sym.upper().strip()
         had_ml = False
 
-        payload = fetch_stock_prediction_payload(sym_u, horizons=[1, 7, 30])
+        # Run blocking HTTP call in thread pool to avoid blocking the event loop
+        payload = await asyncio.get_running_loop().run_in_executor(
+            None, partial(fetch_stock_prediction_payload, sym_u, horizons=[1, 7, 30])
+        )
         if payload:
             for p in payload.get("predictions", []) or []:
                 try:

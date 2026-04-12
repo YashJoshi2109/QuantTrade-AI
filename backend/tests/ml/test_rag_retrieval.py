@@ -1,7 +1,8 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.models import Base, Filing, FilingChunk, Symbol
+from app.db.database import Base
+from app.models import Filing, FilingChunk, Symbol
 from app.services.rag_service import RAGService
 
 

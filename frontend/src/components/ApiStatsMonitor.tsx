@@ -53,7 +53,8 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
     }
 
     fetchStats()
-    const interval = setInterval(fetchStats, 10000) // Update every 10 seconds
+    // Poll every 2 minutes in production (was 10s — caused 6 req/min overhead)
+    const interval = setInterval(fetchStats, 120_000)
     return () => clearInterval(interval)
   }, [])
 

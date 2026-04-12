@@ -45,7 +45,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https: http:",
-              "connect-src 'self' https://www.quanttrade.us https://quanttrade.us https://challenges.cloudflare.com https://www.google-analytics.com https://accounts.google.com https://apis.google.com wss:",
+              `connect-src 'self' ${process.env.NODE_ENV === 'development' ? 'http://localhost:8000 http://127.0.0.1:8000 http://localhost:3000' : ''} https://www.quanttrade.us https://quanttrade.us https://challenges.cloudflare.com https://www.google-analytics.com https://analytics.google.com https://accounts.google.com https://apis.google.com https://gamma-api.polymarket.com wss:`,
               "frame-src 'self' https://challenges.cloudflare.com https://accounts.google.com https://js.stripe.com",
               "worker-src 'self' blob:",
               "media-src 'self' blob:",

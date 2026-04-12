@@ -102,25 +102,43 @@ export interface RiskData {
   }
 }
 
+interface MCForecast {
+  median?: number
+  mean?: number
+  p10?: number
+  p25?: number
+  p75?: number
+  p90?: number
+  prob_above_current?: number
+  expected_price?: number
+  expected_return_pct?: number
+  percentiles?: {
+    p5?: number
+    p10?: number
+    p25?: number
+    p50?: number
+    p75?: number
+    p90?: number
+    p95?: number
+  }
+  probabilities?: {
+    price_up?: number
+    price_down?: number
+    gain_5pct?: number
+    gain_10pct?: number
+    gain_20pct?: number
+    loss_5pct?: number
+    loss_10pct?: number
+    loss_20pct?: number
+  }
+  confidence_intervals?: {
+    [key: string]: { lower: number; upper: number }
+  }
+}
+
 export interface MonteCarloData {
-  forecast_30d?: {
-    median?: number
-    mean?: number
-    p10?: number
-    p25?: number
-    p75?: number
-    p90?: number
-    prob_above_current?: number
-  }
-  forecast_90d?: {
-    median?: number
-    mean?: number
-    p10?: number
-    p25?: number
-    p75?: number
-    p90?: number
-    prob_above_current?: number
-  }
+  forecast_30d?: MCForecast
+  forecast_90d?: MCForecast
 }
 
 export interface CompanyData {

@@ -58,10 +58,43 @@ class RiskScorer:
         market_symbol: str = "SPY",
         period_days: int = 252
     ) -> Optional[float]:
-        """Calculate beta vs market (simplified - would need market data)"""
-        # For Phase 3, return a placeholder
-        # In production, fetch market data and calculate covariance
-        return 1.0
+        """Calculate beta vs market benchmark (SPY)."""
+        try:
+            # Get stock prices
+            stock_df = IndicatorService.get_price_dataframe(db, symbol_id, limit=period_days)
+            if stock_df.empty or len(stock_df) < 30:
+                return 1.0
+
+            # Get market benchmark prices
+            market_sym = db.query(Symbol).filter(Symbol.symbol == market_symbol).first()
+            if not market_sym:
+                return 1.0
+
+            market_df = IndicatorService.get_price_dataframe(db, market_sym.id, limit=period_days)
+            if market_df.empty or len(market_df) < 30:
+                return 1.0
+
+            stock_returns = stock_df["close"].pct_change().dropna()
+            market_returns = market_df["close"].pct_change().dropna()
+
+            # Align on common dates
+            min_len = min(len(stock_returns), len(market_returns))
+            sr = stock_returns.values[-min_len:]
+            mr = market_returns.values[-min_len:]
+
+            if len(sr) < 20:
+                return 1.0
+
+            cov = np.cov(sr, mr)[0][1]
+            var_market = np.var(mr)
+            if var_market == 0:
+                return 1.0
+
+            beta = float(cov / var_market)
+            # Clamp to reasonable range
+            return round(max(-3.0, min(5.0, beta)), 3)
+        except Exception:
+            return 1.0
     
     @staticmethod
     def calculate_risk_score(

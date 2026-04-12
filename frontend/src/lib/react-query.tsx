@@ -9,14 +9,14 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // 2min stale — data stays fresh across tab switches
-        staleTime: 1000 * 120,
+        // 3min stale — data stays fresh across navigations + tab switches
+        staleTime: 1000 * 180,
         // 45min cache — data survives multiple navigations
         gcTime: 1000 * 60 * 45,
         refetchOnWindowFocus: false,
         refetchOnReconnect: true,
         // Don't refetch on mount if data is still fresh (prevents duplicate calls)
-        refetchOnMount: true,
+        refetchOnMount: false,
         retry: 2,
         retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
         structuralSharing: true,

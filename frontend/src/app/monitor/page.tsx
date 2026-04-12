@@ -226,11 +226,11 @@ function MonitorDesktop() {
   const { data: rawMapData, isLoading, refetch } = useQuery<MapData>({
     queryKey: ['monitor-map-data', timeWindow],
     queryFn: () => fetchMapData(timeWindow, true),
-    refetchInterval: 45000,
+    refetchInterval: 120_000,
     staleTime: 25000,
   })
 
-  useQuery({ queryKey: ['monitor-stats'], queryFn: fetchMonitorStats, refetchInterval: 60000 })
+  useQuery({ queryKey: ['monitor-stats'], queryFn: fetchMonitorStats, refetchInterval: 300_000 })
 
   const needsAcledFallback = !isLoading && (!rawMapData?.events || rawMapData.events.length === 0)
   const { data: acledData } = useQuery({

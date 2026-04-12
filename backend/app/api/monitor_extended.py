@@ -976,6 +976,68 @@ def _parse_polymarket_event(ev: dict, category: str) -> Optional[PolymarketFinan
         return None
 
 
+def _yes_price_from_gamma_event(ev: dict) -> float:
+    """Implied Yes price 0–1 from first market (Gamma uses JSON strings; use _parse_outcomes)."""
+    markets = ev.get("markets") or []
+    if not markets or not isinstance(markets[0], dict):
+        return 0.0
+    parsed = _parse_outcomes(markets[0])
+    for o in parsed:
+        if str(o.name).lower() == "yes":
+            return float(o.price)
+    return float(parsed[0].price) if parsed else 0.0
+
+
+def _normalize_event_for_stock_card(ev: dict) -> dict:
+    """JSON shape expected by copilot PolymarketStockCard (outcomes as [{name, price}])."""
+    eid = str(ev.get("id") or ev.get("slug") or "")
+    markets_raw = ev.get("markets") or []
+    markets_out: List[dict] = []
+    vol_event = _extract_volume_24h(ev)
+
+    for m in markets_raw[:1]:
+        if not isinstance(m, dict):
+            continue
+        parsed = _parse_outcomes(m)
+        outcomes = [{"name": o.name, "price": float(o.price)} for o in parsed]
+        v_m = m.get("volume24hr") or m.get("volume_24hr")
+        try:
+            v_m_f = float(v_m) if v_m is not None else None
+        except (TypeError, ValueError):
+            v_m_f = None
+        markets_out.append({
+            "outcomes": outcomes,
+            "volume_24hr": v_m_f if v_m_f else None,
+            "slug": m.get("slug"),
+        })
+
+    if markets_out and vol_event and not markets_out[0].get("volume_24hr"):
+        markets_out[0]["volume_24hr"] = vol_event
+
+    return {
+        "id": eid,
+        "slug": ev.get("slug"),
+        "title": ev.get("title"),
+        "question": ev.get("question"),
+        "markets": markets_out,
+    }
+
+
+class PolymarketStockEventsResponse(BaseModel):
+    events: List[Dict[str, Any]]
+
+
+class PolymarketBrowseItem(BaseModel):
+    id: str
+    question: str
+    yes_price: Optional[float] = None
+    volume_24h: Optional[float] = None
+
+
+class PolymarketBrowseResponse(BaseModel):
+    tiles: List[PolymarketBrowseItem]
+
+
 # ─── Polymarket Finance Endpoint ───────────────────────────────
 
 @router.get("/polymarket-finance", response_model=PolymarketFinanceResponse)
@@ -1045,6 +1107,108 @@ async def get_polymarket_finance():
         trending=trending[:_POLYMARKET_RETURN_LIMIT],
         updated_at=datetime.now(timezone.utc).isoformat(),
     )
+
+
+@router.get("/polymarket-stock-events", response_model=PolymarketStockEventsResponse)
+async def get_polymarket_stock_events(
+    symbol: str = Query(..., min_length=1, max_length=32, description="Ticker, e.g. MSFT"),
+    company: Optional[str] = Query(None, max_length=128, description="Company name (first word used as extra search)"),
+):
+    """
+    Proxy Gamma API title search for a symbol/company.
+    Browsers cannot call gamma-api.polymarket.com directly (no CORS); use this from the UI.
+    """
+    sym = symbol.strip().upper()
+    queries = [sym]
+    if company:
+        short = company.split()[0].strip() if company.strip() else ""
+        if len(short) > 2 and short.lower() != sym.lower():
+            queries.append(short)
+
+    seen: set[str] = set()
+    merged: List[dict] = []
+
+    async with httpx.AsyncClient(timeout=_POLYMARKET_TIMEOUT) as client:
+        for q in queries:
+            try:
+                resp = await client.get(
+                    _POLYMARKET_BASE,
+                    params={
+                        "active": "true",
+                        "closed": "false",
+                        "limit": "5",
+                        "title": q,
+                    },
+                )
+                if resp.status_code != 200:
+                    continue
+                raw = resp.json()
+                events = raw if isinstance(raw, list) else raw.get("data", [])
+                if not isinstance(events, list):
+                    continue
+                for ev in events:
+                    if not isinstance(ev, dict):
+                        continue
+                    eid = str(ev.get("id") or ev.get("slug") or "")
+                    if not eid or eid in seen:
+                        continue
+                    seen.add(eid)
+                    merged.append(_normalize_event_for_stock_card(ev))
+            except Exception as exc:
+                logger.debug("polymarket-stock-events query=%r: %s", q, exc)
+
+    return PolymarketStockEventsResponse(events=merged[:4])
+
+
+@router.get("/polymarket-events-browse", response_model=PolymarketBrowseResponse)
+async def get_polymarket_events_browse(
+    limit: int = Query(24, ge=1, le=50),
+):
+    """
+    Top active events by 24h volume — server proxy for heatmap / prediction panels (avoids CORS).
+    """
+    tiles: List[PolymarketBrowseItem] = []
+
+    async with httpx.AsyncClient(timeout=_POLYMARKET_TIMEOUT) as client:
+        try:
+            resp = await client.get(
+                _POLYMARKET_BASE,
+                params={
+                    "active": "true",
+                    "closed": "false",
+                    "order": "volume_24hr",
+                    "ascending": "false",
+                    "limit": str(limit),
+                },
+            )
+            if resp.status_code != 200:
+                return PolymarketBrowseResponse(tiles=[])
+
+            raw = resp.json()
+            events = raw if isinstance(raw, list) else raw.get("data", [])
+            if not isinstance(events, list):
+                return PolymarketBrowseResponse(tiles=[])
+
+            for ev in events:
+                if not isinstance(ev, dict):
+                    continue
+                yp = _yes_price_from_gamma_event(ev)
+                vol = _extract_volume_24h(ev)
+                q = str(ev.get("question") or ev.get("title") or "Market").strip()
+                if not q:
+                    continue
+                tiles.append(
+                    PolymarketBrowseItem(
+                        id=str(ev.get("id") or ev.get("slug") or q)[:128],
+                        question=q[:200],
+                        yes_price=round(yp, 4) if yp > 0 else None,
+                        volume_24h=vol if vol > 0 else None,
+                    )
+                )
+        except Exception as exc:
+            logger.warning("polymarket-events-browse failed: %s", exc)
+
+    return PolymarketBrowseResponse(tiles=tiles)
 
 
 # ─── ACLED Conflict Data ───────────────────────────────────────

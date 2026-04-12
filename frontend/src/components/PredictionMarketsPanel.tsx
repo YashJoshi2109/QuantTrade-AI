@@ -2,54 +2,24 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { Sparkles, Activity, AlertTriangle } from 'lucide-react'
+import { fetchPolymarketBrowseTiles } from '@/lib/monitor-extended-api'
 
 interface PolymarketEvent {
   id: string
   question: string
   probability?: number
   volume_24hr?: number
-  markets?: {
-    outcomes?: {
-      name?: string
-      price?: number
-    }[]
-  }[]
 }
 
 async function fetchPolymarketEvents(): Promise<PolymarketEvent[]> {
   try {
-    const url =
-      'https://gamma-api.polymarket.com/events?active=true&closed=false&order=volume_24hr&ascending=false&limit=10'
-    const res = await fetch(url, {
-      headers: {
-        Accept: 'application/json',
-      },
-    })
-    if (!res.ok) {
-      throw new Error(`Polymarket HTTP ${res.status}`)
-    }
-    const data = await res.json()
-    const events: any[] = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
-
-    return events.slice(0, 6).map((ev) => {
-      const firstMarket = (ev.markets && ev.markets[0]) || {}
-      const outcomes: any[] = Array.isArray(firstMarket.outcomes) ? firstMarket.outcomes : []
-      // Pick the highest priced outcome as the "market view"
-      const bestOutcome = outcomes.reduce(
-        (best, cur) => {
-          const price = typeof cur.price === 'number' ? cur.price : best.price
-          return price > best.price ? { name: cur.name, price } : best
-        },
-        { name: 'Yes', price: 0 },
-      )
-
-      return {
-        id: String(ev.id ?? ev.slug ?? ev.question),
-        question: String(ev.question ?? ev.title ?? 'Prediction market'),
-        probability: typeof bestOutcome.price === 'number' ? bestOutcome.price : undefined,
-        volume_24hr: typeof ev.volume_24hr === 'number' ? ev.volume_24hr : undefined,
-      }
-    })
+    const tiles = await fetchPolymarketBrowseTiles(10)
+    return tiles.slice(0, 6).map((t) => ({
+      id: t.id,
+      question: t.question,
+      probability: typeof t.yes_price === 'number' ? t.yes_price : undefined,
+      volume_24hr: typeof t.volume_24h === 'number' ? t.volume_24h : undefined,
+    }))
   } catch (err) {
     console.error('Polymarket fetch failed', err)
     return []

@@ -86,8 +86,14 @@ def _persist_snapshot(db: Session, index_id: str, snapshot: dict):
         logger.error(f"Failed to persist snapshot for {index_id}: {e}")
 
 
-async def _run_pipeline_background(db: Session, index_id: str):
-    """Background task to run full pipeline and cache result."""
+async def _run_pipeline_background(index_id: str):
+    """Background task: use a fresh DB session (request-scoped session is closed after response)."""
+    from app.db.database import SessionLocal
+
+    if SessionLocal is None:
+        logger.error("Background pipeline skipped: DATABASE_URL not configured")
+        return
+    db = SessionLocal()
     try:
         orchestrator = Orchestrator(db)
         snapshot = await orchestrator.run_full_pipeline(index_id)
@@ -96,6 +102,8 @@ async def _run_pipeline_background(db: Session, index_id: str):
             _persist_snapshot(db, index_id, snapshot)
     except Exception as e:
         logger.error(f"Background pipeline failed for {index_id}: {e}", exc_info=True)
+    finally:
+        db.close()
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
@@ -152,13 +160,12 @@ async def batch_load(db: Session = Depends(get_db)):
             except json.JSONDecodeError:
                 pass
 
-    # Quick regime (from cache or lightweight detection)
+    # Regime: use previously cached value only — never compute live on batch endpoint.
+    # Computing regime live calls collect_universe() which fetches 166 stocks
+    # and blocks all Gunicorn workers for 30-120 seconds.
     regime = None
-    try:
-        orchestrator = Orchestrator(db)
-        regime = await orchestrator.get_regime()
-    except Exception:
-        pass
+    if _batch_cache.get("data"):
+        regime = _batch_cache["data"].get("regime")
 
     result = {
         "indices": indices,
@@ -222,6 +229,10 @@ async def refresh_index(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
     sync: bool = Query(False, description="Run synchronously (slower but returns result)"),
+    fast: bool = Query(
+        True,
+        description="Skip Monte Carlo + scenario sims (much faster; recommended for sync refresh from UI)",
+    ),
 ):
     """
     Trigger a full pipeline run for an index.
@@ -233,14 +244,18 @@ async def refresh_index(
 
     if sync:
         orchestrator = Orchestrator(db)
-        snapshot = await orchestrator.run_full_pipeline(index_id)
+        snapshot = await orchestrator.run_full_pipeline(
+            index_id,
+            skip_monte_carlo=fast,
+            skip_scenarios=fast,
+        )
         if "error" not in snapshot:
             _snapshot_cache[index_id] = snapshot
             _persist_snapshot(db, index_id, snapshot)
         return snapshot
 
-    # Run in background
-    background_tasks.add_task(_run_pipeline_background, db, index_id)
+    # Run in background (full pipeline; uses its own DB session)
+    background_tasks.add_task(_run_pipeline_background, index_id)
     return {
         "status": "accepted",
         "index_id": index_id,
@@ -251,12 +266,11 @@ async def refresh_index(
 @router.post("/indices/refresh-all")
 async def refresh_all_indices(
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     """Trigger pipeline for all indices (background)."""
     for index_id in INDEX_DEFINITIONS:
-        background_tasks.add_task(_run_pipeline_background, db, index_id)
+        background_tasks.add_task(_run_pipeline_background, index_id)
 
     return {
         "status": "accepted",

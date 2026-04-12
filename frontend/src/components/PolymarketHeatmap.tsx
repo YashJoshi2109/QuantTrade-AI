@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { BarChart3, Activity, AlertTriangle } from 'lucide-react'
+import { fetchPolymarketBrowseTiles } from '@/lib/monitor-extended-api'
 
 interface PolymarketTile {
   id: string
@@ -12,26 +13,16 @@ interface PolymarketTile {
 
 async function fetchPolymarketForHeatmap(): Promise<PolymarketTile[]> {
   try {
-    const url =
-      'https://gamma-api.polymarket.com/events?active=true&closed=false&order=volume_24hr&ascending=false&limit=24'
-    const res = await fetch(url, { headers: { Accept: 'application/json' } })
-    if (!res.ok) throw new Error(`Polymarket HTTP ${res.status}`)
-    const data = await res.json()
-    const events: any[] = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
-
-    return events.slice(0, 20).map((ev) => {
-      const firstMarket = (ev.markets && ev.markets[0]) || {}
-      const outcomes: any[] = Array.isArray(firstMarket.outcomes) ? firstMarket.outcomes : []
-      const yesOutcome = outcomes.find((o: any) => String(o.name).toLowerCase() === 'yes') || outcomes[0]
-      const yesPrice = typeof yesOutcome?.price === 'number' ? yesOutcome.price : 0
-      const vol = typeof ev.volume_24hr === 'number' ? ev.volume_24hr : null
-      return {
-        id: String(ev.id ?? ev.slug ?? ev.question),
-        question: String(ev.question ?? ev.title ?? 'Market').slice(0, 60),
-        yesPercent: yesPrice > 0 ? Math.round(yesPrice * 100) : null,
-        volume24h: vol,
-      }
-    })
+    const rows = await fetchPolymarketBrowseTiles(24)
+    return rows.slice(0, 20).map((t) => ({
+      id: t.id,
+      question: t.question.slice(0, 60),
+      yesPercent:
+        typeof t.yes_price === 'number' && t.yes_price > 0
+          ? Math.round(t.yes_price * 100)
+          : null,
+      volume24h: typeof t.volume_24h === 'number' ? t.volume_24h : null,
+    }))
   } catch (err) {
     console.error('Polymarket heatmap fetch failed', err)
     return []
@@ -67,7 +58,7 @@ export default function PolymarketHeatmap() {
               Polymarket Heatmap
             </span>
             <span className="text-[10px] text-slate-500">
-              Yes % by contract · volume order · gamma-api.polymarket.com
+              Yes % by contract · volume order · via QuantTrade API
             </span>
           </div>
         </div>

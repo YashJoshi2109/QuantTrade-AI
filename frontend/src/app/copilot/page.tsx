@@ -67,6 +67,7 @@ import {
   type StoredMessage,
   type CopilotUsage,
 } from '@/lib/api'
+import PolymarketStockCard from '@/components/chat/visual/PolymarketStockCard'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -533,26 +534,71 @@ function MonteCarloCard({ data }: { data: StockAnalysisData }) {
       <div className="space-y-3">
         {periods.map((p) => {
           const d = p.data!
+          // Backend returns nested: percentiles.p10/p50/p90, probabilities.price_up
+          const pct = d.percentiles || {}
+          const probs = d.probabilities || {}
+          const p10 = pct.p10 ?? d.p10
+          const median = pct.p50 ?? d.median
+          const p90 = pct.p90 ?? d.p90
+          const probUp = probs.price_up != null ? probs.price_up / 100 : d.prob_above_current
+          const expectedReturn = d.expected_return_pct
           return (
             <div key={p.key}>
-              <div className="text-[10px] text-slate-400 mb-1">{p.label}</div>
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-[10px] text-slate-400">{p.label}</div>
+                {expectedReturn != null && (
+                  <div className={`text-[10px] font-bold font-mono ${expectedReturn >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    E[R]: {expectedReturn > 0 ? '+' : ''}{expectedReturn.toFixed(2)}%
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-red-500/5 border border-red-500/10 rounded-lg p-2 text-center">
                   <div className="text-[9px] text-red-400">P10 (Bear)</div>
-                  <div className="text-xs text-red-300 font-mono">{formatPrice(d.p10)}</div>
+                  <div className="text-xs text-red-300 font-mono">{formatPrice(p10)}</div>
                 </div>
                 <div className="bg-cyan-500/5 border border-cyan-500/10 rounded-lg p-2 text-center">
                   <div className="text-[9px] text-cyan-400">Median</div>
-                  <div className="text-xs text-cyan-300 font-mono">{formatPrice(d.median)}</div>
+                  <div className="text-xs text-cyan-300 font-mono">{formatPrice(median)}</div>
                 </div>
                 <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-lg p-2 text-center">
                   <div className="text-[9px] text-emerald-400">P90 (Bull)</div>
-                  <div className="text-xs text-emerald-300 font-mono">{formatPrice(d.p90)}</div>
+                  <div className="text-xs text-emerald-300 font-mono">{formatPrice(p90)}</div>
                 </div>
               </div>
-              {d.prob_above_current != null && (
+              {probUp != null && (
                 <div className="text-[10px] text-slate-500 mt-1 text-center">
-                  {(d.prob_above_current * 100).toFixed(1)}% probability above current price
+                  {(probUp * 100).toFixed(1)}% probability above current price
+                </div>
+              )}
+              {/* Confidence intervals */}
+              {d.confidence_intervals && (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {d.confidence_intervals['80'] && (
+                    <div className="bg-slate-800/40 rounded-lg px-2 py-1 text-center">
+                      <div className="text-[8px] text-slate-600 uppercase">80% CI</div>
+                      <div className="text-[10px] text-slate-300 font-mono">
+                        {formatPrice(d.confidence_intervals['80'].lower)} – {formatPrice(d.confidence_intervals['80'].upper)}
+                      </div>
+                    </div>
+                  )}
+                  {d.confidence_intervals['95'] && (
+                    <div className="bg-slate-800/40 rounded-lg px-2 py-1 text-center">
+                      <div className="text-[8px] text-slate-600 uppercase">95% CI</div>
+                      <div className="text-[10px] text-slate-300 font-mono">
+                        {formatPrice(d.confidence_intervals['95'].lower)} – {formatPrice(d.confidence_intervals['95'].upper)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Key probabilities */}
+              {probs.gain_5pct != null && (
+                <div className="flex items-center gap-3 mt-2 text-[10px]">
+                  <span className="text-emerald-400">+5%: {probs.gain_5pct?.toFixed(0)}%</span>
+                  <span className="text-emerald-400">+10%: {probs.gain_10pct?.toFixed(0)}%</span>
+                  <span className="text-red-400">-5%: {probs.loss_5pct?.toFixed(0)}%</span>
+                  <span className="text-red-400">-10%: {probs.loss_10pct?.toFixed(0)}%</span>
                 </div>
               )}
             </div>
@@ -643,6 +689,7 @@ function AnalysisDashboard({
         <RiskCard data={data} />
         <SentimentCard data={data} />
         <MonteCarloCard data={data} />
+        <PolymarketStockCard symbol={data.symbol} companyName={data.company?.name} />
         <ConfidenceBreakdownCard data={data} />
       </div>
     </div>
@@ -843,7 +890,7 @@ function LiveQuoteStrip() {
     queryKey: ['copilot-header-quote', 'SPY'],
     queryFn: () => fetchFinnhubQuote('SPY', 'normal'),
     staleTime: 12_000,
-    refetchInterval: 25_000,
+    refetchInterval: 60_000,
   })
 
   const price = data?.price ?? 0

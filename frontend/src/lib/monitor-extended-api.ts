@@ -143,6 +143,48 @@ export async function fetchPolymarketFinance(): Promise<PolymarketFinanceData> {
   return res.json()
 }
 
+/** Copilot stock card — Gamma search proxied (browser CORS blocks gamma-api.polymarket.com). */
+export interface PolymarketStockEvent {
+  id: string
+  slug?: string
+  title?: string
+  question?: string
+  markets?: {
+    outcomes?: PolymarketOutcome[]
+    volume_24hr?: number
+    slug?: string
+  }[]
+}
+
+export async function fetchPolymarketStockEvents(
+  symbol: string,
+  companyName?: string,
+): Promise<PolymarketStockEvent[]> {
+  const u = new URL(`${API_URL}/api/v1/monitor/polymarket-stock-events`)
+  u.searchParams.set('symbol', symbol)
+  if (companyName?.trim()) u.searchParams.set('company', companyName.trim())
+  const res = await fetch(u.toString(), { headers: { Accept: 'application/json' } })
+  if (!res.ok) throw new Error('Failed to fetch Polymarket events')
+  const data = (await res.json()) as { events?: PolymarketStockEvent[] }
+  return Array.isArray(data.events) ? data.events : []
+}
+
+export interface PolymarketBrowseTile {
+  id: string
+  question: string
+  yes_price?: number | null
+  volume_24h?: number | null
+}
+
+export async function fetchPolymarketBrowseTiles(limit = 24): Promise<PolymarketBrowseTile[]> {
+  const u = new URL(`${API_URL}/api/v1/monitor/polymarket-events-browse`)
+  u.searchParams.set('limit', String(limit))
+  const res = await fetch(u.toString(), { headers: { Accept: 'application/json' } })
+  if (!res.ok) throw new Error('Failed to fetch Polymarket browse')
+  const data = (await res.json()) as { tiles?: PolymarketBrowseTile[] }
+  return Array.isArray(data.tiles) ? data.tiles : []
+}
+
 // ─── ACLED Conflicts ─────────────────────────────────────────
 
 export interface ACLEDEvent {

@@ -14,7 +14,9 @@ import {
  *  3. Twelve Data (individual fallback)
  */
 
-export const dynamic = 'force-dynamic'
+// In-memory response cache — prevents 40+ Yahoo Finance calls per request
+const responseCache = new Map<string, { data: unknown; expires: number }>()
+const CACHE_TTL_MS = 45_000 // 45 seconds
 
 const FMP_KEY = process.env.FMP_API_KEY ?? ''
 const TWELVE_KEY =
@@ -231,6 +233,18 @@ export async function GET(request: NextRequest) {
   const exchangeId = searchParams.get('exchange')
   const symbolsParam = searchParams.get('symbols')
 
+  // Check in-memory cache
+  const cacheKey = `${continent}:${exchangeId || ''}:${symbolsParam || ''}`
+  const cached = responseCache.get(cacheKey)
+  if (cached && Date.now() < cached.expires) {
+    return NextResponse.json(cached.data, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        'X-Cache': 'HIT',
+      },
+    })
+  }
+
   // Build index info map
   const indexInfoMap: Record<string, ReturnType<typeof macroMeta>> = {}
   for (const ex of WORLD_EXCHANGES) {
@@ -346,9 +360,18 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Store in cache
+  responseCache.set(cacheKey, { data: quotes, expires: Date.now() + CACHE_TTL_MS })
+  // Evict stale entries (prevent memory leak)
+  if (responseCache.size > 50) {
+    const now = Date.now()
+    responseCache.forEach((v, k) => { if (now > v.expires) responseCache.delete(k) })
+  }
+
   return NextResponse.json(quotes, {
     headers: {
       'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      'X-Cache': 'MISS',
     },
   })
 }

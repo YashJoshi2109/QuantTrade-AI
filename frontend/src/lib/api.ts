@@ -1849,19 +1849,60 @@ export interface BatchLoadResponse {
 }
 
 export async function fetchBatchLoad(): Promise<BatchLoadResponse> {
-  const response = await fetch(`${API_URL}/api/v1/model-index/batch`)
-  if (!response.ok) throw new Error('Failed to batch load')
-  return response.json()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30_000)
+  try {
+    const response = await fetch(`${API_URL}/api/v1/model-index/batch`, { signal: controller.signal })
+    if (!response.ok) throw new Error('Failed to batch load')
+    return response.json()
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Loading baskets timed out — please refresh the page.')
+    }
+    throw err
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
-export async function refreshIndex(indexId: string, sync = true): Promise<IndexSnapshot> {
+export async function refreshIndex(
+  indexId: string,
+  sync = true,
+  /** Skip Monte Carlo + scenarios — faster; avoids proxy/worker timeouts in production */
+  fast = true,
+): Promise<IndexSnapshot & { error?: string }> {
   const headers = await getAuthHeadersClient()
-  const response = await fetch(`${API_URL}/api/v1/model-index/indices/${indexId}/refresh?sync=${sync}`, {
-    method: 'POST',
-    headers,
-  })
-  if (!response.ok) throw new Error('Failed to refresh index')
-  return response.json()
+  const q = new URLSearchParams({ sync: String(sync), fast: String(fast) })
+
+  // AbortController with 90s timeout — Cloudflare free-tier proxy kills at ~100s
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 90_000)
+
+  try {
+    const response = await fetch(
+      `${API_URL}/api/v1/model-index/indices/${encodeURIComponent(indexId)}/refresh?${q}`,
+      { method: 'POST', headers, signal: controller.signal },
+    )
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({})) as { detail?: string | { msg?: string }[] }
+      const d = err.detail
+      const msg =
+        typeof d === 'string'
+          ? d
+          : Array.isArray(d)
+            ? d.map((x) => (typeof x === 'object' && x && 'msg' in x ? String((x as { msg: string }).msg) : '')).filter(Boolean).join('; ')
+            : 'Failed to refresh index'
+      throw new Error(msg || 'Failed to refresh index')
+    }
+    return response.json()
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Basket generation timed out. The market data pipeline is still running — try again in 30 seconds.')
+    }
+    throw err
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 export async function fetchRegime(): Promise<RegimeData> {
