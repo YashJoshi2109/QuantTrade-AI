@@ -290,6 +290,7 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
         "/api/v1/market/ipo-calendar": 300,
         "/api/v1/market/sectors": 60,
         "/api/v1/market/movers": 60,
+        "/api/v1/market/yahoo-screener": 60,
         "/api/v1/market/": 30,
         # Model index / AI baskets
         "/api/v1/model-index/batch": 120,

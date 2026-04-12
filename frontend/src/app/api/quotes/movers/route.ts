@@ -76,11 +76,51 @@ const CONTINENT_TWELVE_PARAMS: Record<string, { exchange: string; country?: stri
 }
 
 // ─── Yahoo Finance screener ────────────────────────────────────────────────
+/** Prefer backend proxy: Yahoo often blocks or rate-limits Next.js/AWS egress; Python backend usually succeeds. */
+async function fetchYFScreenerViaBackend(
+  scrId: 'day_gainers' | 'day_losers' | 'most_actives',
+  region: string,
+  count: number,
+): Promise<GlobalMover[] | null> {
+  const base = (process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+  if (!base) return null
+  try {
+    const u = new URL(`${base}/api/v1/market/yahoo-screener`)
+    u.searchParams.set('scrId', scrId)
+    u.searchParams.set('region', region)
+    u.searchParams.set('count', String(count))
+    const res = await fetch(u.toString(), {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+    const j = (await res.json()) as { quotes?: Record<string, unknown>[] }
+    const quotes = j?.quotes
+    if (!Array.isArray(quotes) || quotes.length === 0) return null
+    return quotes.map((q) => ({
+      symbol: String(q.symbol ?? ''),
+      name: String(q.name ?? ''),
+      price: Number(q.price ?? 0),
+      change: Number(q.change ?? 0),
+      change_percent: Number(q.change_percent ?? 0),
+      volume: Number(q.volume ?? 0),
+      market_cap: Number(q.market_cap ?? 0),
+      exchange: String(q.exchange ?? ''),
+      currency: String(q.currency ?? 'USD'),
+    }))
+  } catch {
+    return null
+  }
+}
+
 async function fetchYFScreener(
   scrId: 'day_gainers' | 'day_losers' | 'most_actives',
   region: string,
   count = 10
 ): Promise<GlobalMover[]> {
+  const viaBackend = await fetchYFScreenerViaBackend(scrId, region, count)
+  if (viaBackend && viaBackend.length > 0) return viaBackend
+
   try {
     const url = new URL('https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved')
     url.searchParams.set('formatted', 'false')
@@ -340,10 +380,10 @@ async function twelveContinentMovers(continent: string, count: number, type: 'ga
 
 // ─── Unified mover fetch with fallback chain ───────────────────────────────
 async function getContinentMovers(continent: string, count: number, type: 'gainers' | 'losers'): Promise<GlobalMover[]> {
-  // 1. Yahoo Finance screener (accept partial — Yahoo often rate-limits in cloud)
+  // 1. Yahoo (via backend proxy first inside fetchYFScreener) + direct Yahoo fallback
   const yf = await yfContinentMovers(continent, count, type)
-  // Require a few rows; a single stray quote should not skip FMP/Twelve fallbacks.
-  if (yf.length >= 3) return yf
+  // Accept any non-empty Yahoo batch — empty cloud responses should fall through to FMP/Twelve.
+  if (yf.length >= 1) return yf
 
   // 2. FMP fallback
   const fmp = await fmpContinentMovers(continent, count, type)
@@ -522,7 +562,10 @@ export async function GET(request: NextRequest) {
       losers = syn.losers
     }
     const result = { gainers, losers, actives }
-    responseCache.set(cacheKey, { data: result, expires: Date.now() + CACHE_TTL_MS })
+    // Do not cache empty payloads — avoids a long "No data" stick after a transient Yahoo block.
+    if (gainers.length > 0 || losers.length > 0 || actives.length > 0) {
+      responseCache.set(cacheKey, { data: result, expires: Date.now() + CACHE_TTL_MS })
+    }
     if (responseCache.size > 50) {
       const now = Date.now()
       responseCache.forEach((v, k) => { if (now > v.expires) responseCache.delete(k) })

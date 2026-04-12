@@ -50,6 +50,8 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=https://www.quanttrade.us
+      # Server-side Next routes call Yahoo via backend (Yahoo often blocks Next/AWS egress directly)
+      - BACKEND_INTERNAL_URL=http://backend:8000
       # Server-side Next routes (e.g. /api/ai-analysis) use OPENROUTER_API_KEY; client copilot uses NEXT_PUBLIC_*
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - NEXT_PUBLIC_OPENROUTER_API_KEY=${NEXT_PUBLIC_OPENROUTER_API_KEY:-}

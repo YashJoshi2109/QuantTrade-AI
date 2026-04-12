@@ -8,7 +8,7 @@ MVP Lean Implementation:
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 import asyncio
 import logging
@@ -698,6 +698,86 @@ async def get_top_losers(
         losers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:limit]
 
     return losers[:limit]
+
+
+@router.get("/market/yahoo-screener")
+async def yahoo_screener_proxy(
+    scr_id: str = Query(
+        "day_gainers",
+        alias="scrId",
+        description="Yahoo predefined screener id",
+    ),
+    region: str = Query("US", max_length=12, description="Yahoo region code, e.g. US, GB, DE"),
+    count: int = Query(10, ge=1, le=80),
+):
+    """
+    Server-side Yahoo Finance screener proxy.
+
+    Next.js on AWS/Vercel often gets empty or blocked responses from Yahoo; the backend
+    egress path is usually more reliable. Used by /api/quotes/movers on the frontend.
+    """
+    allowed = {"day_gainers", "day_losers", "most_actives"}
+    if scr_id not in allowed:
+        raise HTTPException(status_code=400, detail=f"scrId must be one of: {sorted(allowed)}")
+
+    url = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved"
+    params = {
+        "formatted": "false",
+        "scrIds": scr_id,
+        "count": str(count),
+        "region": region,
+        "lang": "en-US",
+    }
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://finance.yahoo.com/",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=18.0) as client:
+            r = await client.get(url, params=params, headers=headers)
+    except Exception as exc:
+        logger.warning("yahoo-screener httpx error: %s", exc)
+        return {"quotes": [], "error": "upstream_timeout"}
+
+    if r.status_code != 200:
+        logger.warning("yahoo-screener HTTP %s region=%s scr=%s", r.status_code, region, scr_id)
+        return {"quotes": [], "error": f"yahoo_http_{r.status_code}"}
+
+    try:
+        data = r.json()
+    except Exception:
+        return {"quotes": [], "error": "invalid_json"}
+
+    quotes_raw = data.get("finance", {}).get("result", [{}])
+    quotes = quotes_raw[0].get("quotes", []) if quotes_raw else []
+    if not isinstance(quotes, list):
+        return {"quotes": [], "error": "no_quotes"}
+
+    out: List[Dict[str, Any]] = []
+    for q in quotes:
+        if not isinstance(q, dict):
+            continue
+        out.append(
+            {
+                "symbol": str(q.get("symbol") or ""),
+                "name": str(q.get("longName") or q.get("shortName") or q.get("symbol") or ""),
+                "price": float(q.get("regularMarketPrice") or 0),
+                "change": float(q.get("regularMarketChange") or 0),
+                "change_percent": float(q.get("regularMarketChangePercent") or 0),
+                "volume": int(q.get("regularMarketVolume") or 0),
+                "market_cap": float(q.get("marketCap") or 0),
+                "exchange": str(q.get("fullExchangeName") or q.get("exchange") or ""),
+                "currency": str(q.get("currency") or "USD"),
+            }
+        )
+
+    return {"quotes": out, "region": region, "scr_id": scr_id}
 
 
 @router.get("/market/movers")
