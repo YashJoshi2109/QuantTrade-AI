@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sanitizeQuoteSummaryCompanyName } from '@/lib/company-display-name'
+import { incrementFmpUsage } from '@/lib/fmp-usage'
 
 /**
  * Universal Ticker Info API
@@ -313,6 +314,8 @@ async function fetchFmpFullProfile(sym: string): Promise<TickerInfo | null> {
 
   try {
     // Parallel: profile + quote + ratios-ttm + key-executives
+    // 4 parallel FMP calls — count towards 250/day limit
+    incrementFmpUsage(4)
     const [profileRes, quoteRes, ratiosRes, execsRes] = await Promise.all([
       fetch(`${base}/profile?symbol=${sym}&${qs}`, { next: { revalidate: 900 } }).catch(() => null),
       fetch(`${base}/quote?symbol=${sym}&${qs}`, { next: { revalidate: 120 } }).catch(() => null),
