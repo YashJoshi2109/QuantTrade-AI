@@ -1,8 +1,10 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { formatNumber, isNumber } from '@/lib/format'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
+import type { EarningsQuarter } from '@/app/api/quotes/earnings/route'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -11,6 +13,9 @@ import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 interface EarningsShortInterestPanelProps {
   symbol: string
   tickerInfo: TickerInfo | undefined
+  loading?: boolean
+  error?: boolean
+  onRetry?: () => void
 }
 
 /* ------------------------------------------------------------------ */
@@ -88,7 +93,23 @@ function fmtPercent(val: unknown): string {
 export default function EarningsShortInterestPanel({
   symbol,
   tickerInfo,
+  loading = false,
+  error = false,
+  onRetry,
 }: EarningsShortInterestPanelProps) {
+  // Fetch quarterly earnings history from Finnhub
+  const { data: earningsData } = useQuery<{ quarters: EarningsQuarter[] }>({
+    queryKey: ['earnings-history', symbol],
+    queryFn: async () => {
+      const res = await fetch(`/api/quotes/earnings?symbol=${encodeURIComponent(symbol)}`)
+      if (!res.ok) throw new Error('Failed')
+      return res.json()
+    },
+    staleTime: 60 * 60_000,
+    enabled: !!symbol,
+  })
+  const earningsQuarters = earningsData?.quarters ?? []
+
   const earningsDate = tickerInfo?.earnings_date
   const hasEarnings = earningsDate && earningsDate !== 'N/A' && earningsDate !== ''
 
@@ -110,11 +131,52 @@ export default function EarningsShortInterestPanel({
     ]
   }, [tickerInfo])
 
+  if (loading && !tickerInfo) {
+    return (
+      <div className="hud-panel rounded-xl border border-slate-800/50 p-6">
+        <div className="flex h-32 flex-col items-center justify-center gap-2 text-slate-500">
+          <span className="text-sm">Loading data for {symbol}…</span>
+          <span className="text-[11px] text-slate-600">Fetching quote summary…</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (error && !tickerInfo) {
+    return (
+      <div className="hud-panel rounded-xl border border-amber-500/20 bg-amber-950/10 p-6">
+        <div className="flex h-32 flex-col items-center justify-center gap-3 text-center">
+          <p className="text-sm text-slate-300">
+            Could not load earnings &amp; short interest for <span className="font-mono text-white">{symbol}</span>.
+          </p>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-lg border border-blue-500/40 bg-blue-500/15 px-4 py-2 text-sm font-medium text-blue-300 hover:bg-blue-500/25"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   if (!tickerInfo) {
     return (
       <div className="hud-panel rounded-xl border border-slate-800/50 p-6">
-        <div className="flex items-center justify-center h-32 text-slate-500 text-sm">
-          Loading data for {symbol}...
+        <div className="flex h-32 flex-col items-center justify-center gap-2 text-slate-500">
+          <span className="text-sm">No quote data for {symbol}.</span>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="text-xs text-blue-400 underline hover:text-blue-300"
+            >
+              Try again
+            </button>
+          )}
         </div>
       </div>
     )
@@ -177,6 +239,65 @@ export default function EarningsShortInterestPanel({
           <p className="text-slate-500 text-sm">No upcoming earnings date available.</p>
         )}
       </div>
+
+      {/* ---- Earnings History Chart (Finnhub) ---- */}
+      {earningsQuarters.length > 0 && (
+        <div className="hud-panel rounded-xl border border-slate-800/50 p-5">
+          <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-4">
+            Earnings History — EPS Actual vs Estimate
+          </h3>
+          <div className="flex items-end gap-3 justify-center h-32">
+            {earningsQuarters.slice(0, 8).reverse().map((q, i) => {
+              const maxEps = Math.max(
+                ...earningsQuarters.map((e) => Math.max(Math.abs(e.actual ?? 0), Math.abs(e.estimate ?? 0))),
+                0.01,
+              )
+              const actualH = q.actual != null ? Math.abs(q.actual / maxEps) * 100 : 0
+              const estH = q.estimate != null ? Math.abs(q.estimate / maxEps) * 100 : 0
+              const beat = q.actual != null && q.estimate != null && q.actual >= q.estimate
+              return (
+                <div key={`${q.period}-${i}`} className="flex flex-col items-center gap-1 flex-1 max-w-[60px]">
+                  <div className="flex items-end gap-0.5 h-20">
+                    {q.estimate != null && (
+                      <div
+                        className="w-3 rounded-t bg-slate-600/60 transition-all"
+                        style={{ height: `${Math.max(estH, 4)}%` }}
+                        title={`Est: $${q.estimate.toFixed(2)}`}
+                      />
+                    )}
+                    {q.actual != null && (
+                      <div
+                        className={`w-3 rounded-t transition-all ${beat ? 'bg-emerald-500' : 'bg-red-400'}`}
+                        style={{ height: `${Math.max(actualH, 4)}%` }}
+                        title={`Actual: $${q.actual.toFixed(2)}`}
+                      />
+                    )}
+                  </div>
+                  <span className="text-[9px] text-slate-500 text-center leading-tight">
+                    Q{q.quarter} {String(q.year).slice(-2)}
+                  </span>
+                  {q.actual != null && (
+                    <span className={`text-[9px] font-mono font-bold ${beat ? 'text-emerald-400' : 'text-red-400'}`}>
+                      ${q.actual.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          <div className="flex items-center justify-center gap-4 mt-3 text-[10px] text-slate-500">
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-sm bg-slate-600/60" /> Estimate
+            </span>
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-sm bg-emerald-500" /> Beat
+            </span>
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-sm bg-red-400" /> Miss
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* ---- Short Interest ---- */}
       <div className="hud-panel rounded-xl border border-slate-800/50 p-5">
