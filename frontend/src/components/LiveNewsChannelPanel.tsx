@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Radio, CircleDot, Settings2 } from 'lucide-react'
+import { Radio, CircleDot, Settings2, AlertTriangle } from 'lucide-react'
 import { fetchLiveMarketHeadlines } from '@/lib/api'
 import type { Continent } from '@/lib/world-exchanges'
 
@@ -12,90 +12,91 @@ type LiveChannelId =
   | 'euronews'
   | 'dw'
   | 'france24'
-  | 'alarabiya'
+  | 'wion'
   | 'aljazeera'
-  | 'foxbusiness'
-  | 'cgtn'
+  | 'yahoo_finance'
+  | 'trt_world'
   | 'japan'
 
 interface LiveChannel {
   id: LiveChannelId
   label: string
-  embedUrl?: string
+  embedUrl: string
+  fallbackId?: LiveChannelId // channel to try if this one fails
 }
 
-/** YouTube sometimes blocks embeds when `si` share-id params are present */
-function sanitizeYoutubeEmbed(url: string): string {
-  try {
-    const u = new URL(url)
-    u.searchParams.delete('si')
-    return u.toString()
-  } catch {
-    return url
-  }
-}
-
-// Bloomberg: specific live stream video ID (more reliable than live_stream?channel=)
+// All channels use live_stream?channel= format so embeds auto-resolve to
+// the current live stream (hardcoded video IDs expire when streams restart).
 const CHANNELS: LiveChannel[] = [
   {
     id: 'bloomberg',
     label: 'Bloomberg',
     embedUrl:
-      'https://www.youtube.com/embed/iEpJwprxDdk?autoplay=1&mute=1',
+      'https://www.youtube.com/embed/live_stream?channel=UCIALMKvObZNtJ6AmdCLP7Lg&autoplay=1&mute=1',
+    fallbackId: 'yahoo_finance',
   },
   {
     id: 'skynews',
-    label: 'SkyNews',
+    label: 'Sky News',
     embedUrl:
-      'https://www.youtube.com/embed/YDvsBbKfLPA?autoplay=1&mute=1',
+      'https://www.youtube.com/embed/live_stream?channel=UCoMdktPbSTixAyNGwb-UYkQ&autoplay=1&mute=1',
+    fallbackId: 'euronews',
   },
   {
     id: 'euronews',
     label: 'Euronews',
     embedUrl:
-      'https://www.youtube.com/embed/pykpO5kQJ98?autoplay=1&mute=1',
+      'https://www.youtube.com/embed/live_stream?channel=UCSrZ3UV4jOidv8ppoVuvW9Q&autoplay=1&mute=1',
+    fallbackId: 'dw',
   },
   {
     id: 'dw',
-    label: 'DW',
+    label: 'DW News',
     embedUrl:
       'https://www.youtube.com/embed/live_stream?channel=UCknLrEdhRCp1aegoMqRaCZg&autoplay=1&mute=1',
+    fallbackId: 'euronews',
   },
   {
     id: 'france24',
     label: 'FRANCE24',
     embedUrl:
       'https://www.youtube.com/embed/live_stream?channel=UCQfwfsi5VrQ8yKZ-UWmAEFg&autoplay=1&mute=1',
+    fallbackId: 'euronews',
   },
   {
-    id: 'alarabiya',
-    label: 'AlArabiya',
+    id: 'wion',
+    label: 'WION',
     embedUrl:
-      'https://www.youtube.com/embed/n7eQejkXbnM?autoplay=1&mute=1',
+      'https://www.youtube.com/embed/live_stream?channel=UCZWMsonUZkvFyKDo4Q0HkRg&autoplay=1&mute=1',
+    fallbackId: 'aljazeera',
   },
   {
     id: 'aljazeera',
-    label: 'AlJazeera',
+    label: 'Al Jazeera',
     embedUrl:
       'https://www.youtube.com/embed/live_stream?channel=UCNye-wNBqNL5ZzHSJj3l8Bg&autoplay=1&mute=1',
+    fallbackId: 'dw',
   },
   {
-    id: 'foxbusiness',
-    label: 'Fox Business',
+    id: 'yahoo_finance',
+    label: 'Yahoo Finance',
     embedUrl:
-      'https://www.youtube.com/embed/gfEwymG-6GI?autoplay=1&mute=1',
+      'https://www.youtube.com/embed/live_stream?channel=UCEAZeUIeJs6chDjCLnzuCpg&autoplay=1&mute=1',
+    fallbackId: 'bloomberg',
   },
   {
-    id: 'cgtn',
-    label: 'CGTN (China)',
+    id: 'trt_world',
+    label: 'TRT World',
     embedUrl:
-      'https://www.youtube.com/embed/BOy2xDU1LC8?autoplay=1&mute=1',
+      'https://www.youtube.com/embed/live_stream?channel=UCg2PvMeQR3V-L48R0oNciAg&autoplay=1&mute=1',
+    fallbackId: 'aljazeera',
   },
   {
     id: 'japan',
     label: 'NHK Japan',
     embedUrl:
-      'https://www.youtube.com/embed/f0lYkdA-Gtw?autoplay=1&mute=1',
+      'https://www.youtube.com/embed/live_stream?channel=UCSPEjw8F2nQDtmUKPFNF7_A&autoplay=1&mute=1',
+    fallbackId: 'bloomberg',
   },
 ]
 
@@ -105,7 +106,7 @@ const DEFAULT_CHANNEL_BY_CONTINENT: Partial<Record<Continent, LiveChannelId>> = 
   global: 'bloomberg',
   americas: 'bloomberg',
   europe: 'euronews',
-  asia: 'cgtn',
+  asia: 'wion',
   africa: 'aljazeera',
   oceania: 'skynews',
 }
@@ -114,11 +115,20 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
   const defaultChannel =
     (continent && DEFAULT_CHANNEL_BY_CONTINENT[continent]) || 'bloomberg'
   const [activeId, setActiveId] = useState<LiveChannelId>(defaultChannel)
-  const [streamError, setStreamError] = useState(false)
+  const [failedChannels, setFailedChannels] = useState<Set<LiveChannelId>>(new Set())
+  const [usingFallback, setUsingFallback] = useState(false)
 
   useEffect(() => {
     setActiveId((continent && DEFAULT_CHANNEL_BY_CONTINENT[continent]) || 'bloomberg')
+    setFailedChannels(new Set())
+    setUsingFallback(false)
   }, [continent])
+
+  // Reset error state when user manually switches channel
+  const handleChannelSwitch = useCallback((id: LiveChannelId) => {
+    setActiveId(id)
+    setUsingFallback(false)
+  }, [])
 
   const headlineContext = useMemo(
     () => (continent ? { continent } : undefined),
@@ -137,29 +147,35 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
     ? breakingNews.map((n) => n.title).filter(Boolean)
     : FALLBACK_HEADLINES) as string[]
 
-  useEffect(() => {
-    setStreamError(false)
+  // Resolve which channel to actually show (handle fallback chain)
+  const activeChannel = useMemo(() => {
+    const primary = CHANNELS.find((c) => c.id === activeId) ?? CHANNELS[0]
+
+    if (!failedChannels.has(primary.id)) return primary
+
+    // Walk the fallback chain (max 3 hops to avoid loops)
+    let candidate = primary
+    for (let i = 0; i < 3; i++) {
+      if (!candidate.fallbackId) break
+      const next = CHANNELS.find((c) => c.id === candidate.fallbackId)
+      if (!next || failedChannels.has(next.id)) break
+      candidate = next
+    }
+
+    return failedChannels.has(candidate.id) ? primary : candidate
+  }, [activeId, failedChannels])
+
+  const showingFallback = activeChannel.id !== activeId && failedChannels.has(activeId)
+
+  // When iframe fails to load (fires error or takes too long)
+  const handleStreamError = useCallback(() => {
+    setFailedChannels((prev) => {
+      const next = new Set(prev)
+      next.add(activeId)
+      return next
+    })
+    setUsingFallback(true)
   }, [activeId])
-
-  const channelsEmbedSafe = useMemo(
-    () =>
-      CHANNELS.map((c) =>
-        c.embedUrl ? { ...c, embedUrl: sanitizeYoutubeEmbed(c.embedUrl) } : c
-      ),
-    []
-  )
-
-  const baseChannel =
-    channelsEmbedSafe.find((c) => c.id === activeId) ?? channelsEmbedSafe[0]
-
-  const effectiveChannel =
-    baseChannel.id === 'bloomberg' && streamError
-      ? channelsEmbedSafe.find((c) => c.id === 'foxbusiness') ?? baseChannel
-      : baseChannel
-
-  const iframeSrc = effectiveChannel.embedUrl
-    ? sanitizeYoutubeEmbed(effectiveChannel.embedUrl)
-    : undefined
 
   return (
     <div className="hud-panel p-0 overflow-hidden">
@@ -194,17 +210,20 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
       </div>
 
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-800/60 bg-[#050816]/95 px-3 py-2">
-        {channelsEmbedSafe.map((ch) => {
+        {CHANNELS.map((ch) => {
           const isActive = ch.id === activeId
+          const hasFailed = failedChannels.has(ch.id)
           return (
             <button
               key={ch.id}
               type="button"
-              onClick={() => setActiveId(ch.id)}
+              onClick={() => handleChannelSwitch(ch.id)}
               className={`rounded-md px-2.5 py-1 text-[10px] font-medium transition-all ${
                 isActive
                   ? 'bg-slate-100 text-slate-900 shadow-sm'
-                  : 'bg-slate-900/70 text-slate-300 hover:bg-slate-800'
+                  : hasFailed
+                    ? 'bg-slate-900/70 text-slate-500 line-through hover:bg-slate-800'
+                    : 'bg-slate-900/70 text-slate-300 hover:bg-slate-800'
               }`}
             >
               {ch.label}
@@ -213,40 +232,53 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
         })}
       </div>
 
+      {/* Fallback banner */}
+      {showingFallback && (
+        <div className="flex items-center gap-2 bg-amber-500/10 border-b border-amber-500/20 px-3 py-1.5">
+          <AlertTriangle className="h-3 w-3 text-amber-400 shrink-0" />
+          <span className="text-[10px] text-amber-300">
+            {CHANNELS.find((c) => c.id === activeId)?.label} stream unavailable — showing{' '}
+            {activeChannel.label} instead
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setFailedChannels((prev) => {
+                const next = new Set(prev)
+                next.delete(activeId)
+                return next
+              })
+              setUsingFallback(false)
+            }}
+            className="ml-auto text-[10px] text-amber-400 hover:text-amber-200 underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       <div className="relative bg-black">
-        {activeId === 'bloomberg' && (
-          <div className="absolute top-2 left-2 z-10">
-            <button
-              type="button"
-              onClick={() => setStreamError(true)}
-              className="rounded bg-slate-800/90 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-600/50"
-            >
-              Video unavailable? Switch to Fox Business
-            </button>
-          </div>
-        )}
+        {/* Manual fallback trigger for any channel */}
+        <div className="absolute top-2 left-2 z-10">
+          <button
+            type="button"
+            onClick={handleStreamError}
+            className="rounded bg-slate-800/90 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-600/50"
+          >
+            Video unavailable? Try backup
+          </button>
+        </div>
+
         <div className="relative w-full overflow-hidden bg-black pt-[56.25%]">
-          {iframeSrc ? (
-            <iframe
-              src={iframeSrc}
-              title={`${effectiveChannel.label} Live`}
-              className="absolute inset-0 h-full w-full border-0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              loading="lazy"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900">
-              <div className="text-center">
-                <p className="text-xs font-medium text-slate-200 mb-1">
-                  {effectiveChannel.label} stream
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  Stream URL not configured yet. Add an embed later.
-                </p>
-              </div>
-            </div>
-          )}
+          <iframe
+            key={activeChannel.id} // force remount on channel change
+            src={activeChannel.embedUrl}
+            title={`${activeChannel.label} Live`}
+            className="absolute inset-0 h-full w-full border-0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            loading="lazy"
+          />
         </div>
       </div>
 
