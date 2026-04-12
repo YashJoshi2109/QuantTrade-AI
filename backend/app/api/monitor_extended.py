@@ -1115,49 +1115,72 @@ async def get_polymarket_stock_events(
     company: Optional[str] = Query(None, max_length=128, description="Company name (first word used as extra search)"),
 ):
     """
-    Proxy Gamma API title search for a symbol/company.
-    Browsers cannot call gamma-api.polymarket.com directly (no CORS); use this from the UI.
+    Fetch active Polymarket stock prediction markets for a specific ticker.
+    Uses tag_slug=stocks to get all stock events, then filters by symbol/company.
+    Falls back to showing top stock events if no exact matches found.
     """
     sym = symbol.strip().upper()
-    queries = [sym]
-    if company:
-        short = company.split()[0].strip() if company.strip() else ""
-        if len(short) > 2 and short.lower() != sym.lower():
-            queries.append(short)
+    sym_lower = sym.lower()
 
+    # Build search terms for matching
+    match_terms = [sym_lower]
+    if company:
+        company_clean = company.strip()
+        if company_clean:
+            match_terms.append(company_clean.lower())
+            # Also try first word (e.g. "Apple" from "Apple Inc.")
+            first_word = company_clean.split()[0].lower()
+            if len(first_word) > 2 and first_word != sym_lower:
+                match_terms.append(first_word)
+
+    matched: List[dict] = []
+    fallback: List[dict] = []
     seen: set[str] = set()
-    merged: List[dict] = []
 
     async with httpx.AsyncClient(timeout=_POLYMARKET_TIMEOUT) as client:
-        for q in queries:
-            try:
-                resp = await client.get(
-                    _POLYMARKET_BASE,
-                    params={
-                        "active": "true",
-                        "closed": "false",
-                        "limit": "5",
-                        "title": q,
-                    },
-                )
-                if resp.status_code != 200:
-                    continue
+        try:
+            resp = await client.get(
+                _POLYMARKET_BASE,
+                params={
+                    "active": "true",
+                    "closed": "false",
+                    "limit": "100",
+                    "tag_slug": "stocks",
+                },
+            )
+            if resp.status_code == 200:
                 raw = resp.json()
                 events = raw if isinstance(raw, list) else raw.get("data", [])
-                if not isinstance(events, list):
-                    continue
-                for ev in events:
-                    if not isinstance(ev, dict):
-                        continue
-                    eid = str(ev.get("id") or ev.get("slug") or "")
-                    if not eid or eid in seen:
-                        continue
-                    seen.add(eid)
-                    merged.append(_normalize_event_for_stock_card(ev))
-            except Exception as exc:
-                logger.debug("polymarket-stock-events query=%r: %s", q, exc)
+                if isinstance(events, list):
+                    for ev in events:
+                        if not isinstance(ev, dict):
+                            continue
+                        eid = str(ev.get("id") or ev.get("slug") or "")
+                        if not eid or eid in seen:
+                            continue
+                        seen.add(eid)
 
-    return PolymarketStockEventsResponse(events=merged[:4])
+                        title = str(ev.get("title") or "").lower()
+                        slug = str(ev.get("slug") or "").lower()
+                        haystack = f"{title} {slug}"
+
+                        # Check if this event matches the requested symbol
+                        is_match = any(term in haystack for term in match_terms)
+
+                        normalized = _normalize_event_for_stock_card(ev)
+                        if is_match:
+                            matched.append(normalized)
+                        else:
+                            fallback.append(normalized)
+        except Exception as exc:
+            logger.debug("polymarket-stock-events tag_slug=stocks: %s", exc)
+
+    # Return matched events first, pad with top stock events as fallback
+    results = matched[:6]
+    if len(results) < 4:
+        results.extend(fallback[: 4 - len(results)])
+
+    return PolymarketStockEventsResponse(events=results)
 
 
 @router.get("/polymarket-events-browse", response_model=PolymarketBrowseResponse)
