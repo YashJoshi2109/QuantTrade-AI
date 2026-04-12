@@ -14,7 +14,7 @@ TTL Strategy:
 - Weekends/holidays: 600 seconds (10 min)
 """
 from sqlalchemy import Column, String, DateTime, Integer, Index, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON
 from sqlalchemy.sql import func
 from app.db.database import Base
 
@@ -30,7 +30,7 @@ class QuoteSnapshot(Base):
     symbol = Column(String(10), unique=True, nullable=False, index=True)
     
     # Cached quote data
-    payload = Column(JSONB, nullable=False, default={})
+    payload = Column(JSON, nullable=False, default={})
     
     # Cache metadata
     fetched_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

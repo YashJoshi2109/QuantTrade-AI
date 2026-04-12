@@ -2,8 +2,7 @@
 Monitoring tables for ML models (feature drift + prediction stats).
 """
 
-from sqlalchemy import Column, Date, DateTime, Float, Integer, String
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, Date, DateTime, Float, Integer, JSON, String
 from sqlalchemy.sql import func
 
 from app.db.database import Base
@@ -36,6 +35,6 @@ class MLPredictionStat(Base):
   up_ratio = Column(Float, nullable=True)
   avg_expected_return = Column(Float, nullable=True)
   realized_return = Column(Float, nullable=True)
-  extra = Column(JSONB, nullable=True)
+  extra = Column(JSON, nullable=True)
   created_at = Column(DateTime(timezone=True), server_default=func.now())
 

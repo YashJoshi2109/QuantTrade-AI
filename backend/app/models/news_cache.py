@@ -14,7 +14,7 @@ Image Extraction:
 - Fallback to first <img> in article body as secondary sourceßß
 """
 from sqlalchemy import Column, String, DateTime, Integer, Index, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON
 from sqlalchemy.sql import func
 from app.db.database import Base
 
@@ -41,13 +41,13 @@ class NewsCache(Base):
     image_url = Column(String(2000))
     
     # Related symbols
-    symbols = Column(JSONB, default=[])  # ['AAPL', 'MSFT']
+    symbols = Column(JSON, default=[])  # ['AAPL', 'MSFT']
     
     # Sentiment analysis result
     sentiment = Column(String(20))  # 'Bullish', 'Bearish', 'Neutral'
     
     # Full payload from provider
-    payload = Column(JSONB, default={})
+    payload = Column(JSON, default={})
     
     # Cache metadata
     fetched_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

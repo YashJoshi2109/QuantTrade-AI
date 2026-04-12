@@ -4,7 +4,7 @@ Tracks global events, threats, anomalies, and their impact on financial markets
 """
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, JSON, Text, Index, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON as JSONB  # Alias for cross-DB compat (SQLite tests)
 from app.db.database import Base
 import enum
 
