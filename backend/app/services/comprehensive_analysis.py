@@ -223,19 +223,36 @@ def _compute_regime(indicators: Dict, risk_data: Dict, fundamentals: Optional[Fu
     }
 
 
-def _compute_enhanced_risk(risk_data: Dict, indicators: Dict) -> Dict[str, Any]:
-    """Enhance risk data with additional metrics."""
+def _compute_enhanced_risk(risk_data: Dict, indicators: Dict, annualized_return: Optional[float] = None) -> Dict[str, Any]:
+    """Enhance risk data with additional metrics.
+
+    Args:
+        risk_data: Base risk scoring output
+        indicators: Technical indicators dict
+        annualized_return: Actual annualized stock return (if available)
+    """
     base = dict(risk_data) if risk_data else {}
 
     volatility = _sf(base.get("factors", {}).get("volatility"), 0) / 100
     max_dd = _sf(base.get("factors", {}).get("max_drawdown"), 0) / 100
     beta = _sf(base.get("factors", {}).get("beta"), 1.0)
 
-    sharpe = 0.0
-    if volatility > 0:
-        sharpe = round((0.08 - 0.04) / volatility, 2)
+    # Sharpe ratio: (annualized_return - risk_free_rate) / volatility
+    # Use actual return if available, otherwise estimate from beta * market premium
+    risk_free_rate = 0.043  # ~4.3% current T-bill rate
+    if annualized_return is not None and volatility > 0:
+        sharpe = round((annualized_return - risk_free_rate) / volatility, 2)
+    elif volatility > 0:
+        # Estimate return from CAPM: Rf + beta * (Rm - Rf)
+        market_premium = 0.06  # ~6% historical equity risk premium
+        estimated_return = risk_free_rate + beta * market_premium
+        sharpe = round((estimated_return - risk_free_rate) / volatility, 2)
+    else:
+        sharpe = 0.0
 
-    var_95 = round(-1.645 * (volatility / np.sqrt(252)) * 100, 2) if volatility > 0 else 0
+    # Daily VaR at 95% confidence (parametric)
+    daily_vol = volatility / np.sqrt(252) if volatility > 0 else 0
+    var_95 = round(1.645 * daily_vol * 100, 2)  # Positive number = potential loss %
 
     base["enhanced"] = {
         "sharpe_ratio": sharpe,
@@ -447,11 +464,25 @@ async def build_comprehensive_analysis(
 
     # --- Risk ---
     risk_data: Dict = {}
+    annualized_return: Optional[float] = None
     if db_sym:
         try:
             risk_data = RiskScorer.calculate_risk_score(db, db_sym.id)
+            # Compute actual annualized return from price history for Sharpe ratio
+            try:
+                from app.services.indicators import IndicatorService
+                price_df = IndicatorService.get_price_dataframe(db, db_sym.id, limit=252)
+                if not price_df.empty and len(price_df) >= 30:
+                    first_close = float(price_df["close"].iloc[0])
+                    last_close = float(price_df["close"].iloc[-1])
+                    trading_days = len(price_df)
+                    if first_close > 0 and trading_days > 1:
+                        total_return = (last_close - first_close) / first_close
+                        annualized_return = (1 + total_return) ** (252 / trading_days) - 1
+            except Exception:
+                pass
             if risk_data:
-                data["risk"] = _compute_enhanced_risk(risk_data, indicators)
+                data["risk"] = _compute_enhanced_risk(risk_data, indicators, annualized_return)
         except Exception as e:
             logger.warning(f"Risk scoring failed for {symbol}: {e}")
 

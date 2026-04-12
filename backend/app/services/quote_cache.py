@@ -374,29 +374,34 @@ class QuoteCacheService:
 
         return None
     
-    def _update_cache(self, symbol: str, data: Dict[str, Any], ttl: int) -> QuoteSnapshot:
-        """Update or create cache entry"""
-        snapshot = self.db.query(QuoteSnapshot).filter(
-            QuoteSnapshot.symbol == symbol.upper()
-        ).first()
-        
-        if snapshot:
-            snapshot.payload = data
-            snapshot.fetched_at = datetime.now(timezone.utc)
-            snapshot.ttl_seconds = ttl
-            snapshot.data_source = data.get('data_source')
-        else:
-            snapshot = QuoteSnapshot(
-                symbol=symbol.upper(),
-                payload=data,
-                ttl_seconds=ttl,
-                data_source=data.get('data_source')
-            )
-            self.db.add(snapshot)
-        
-        self.db.commit()
-        self.db.refresh(snapshot)
-        return snapshot
+    def _update_cache(self, symbol: str, data: Dict[str, Any], ttl: int) -> Optional[QuoteSnapshot]:
+        """Update or create cache entry. Returns None on DB error (non-fatal)."""
+        try:
+            snapshot = self.db.query(QuoteSnapshot).filter(
+                QuoteSnapshot.symbol == symbol.upper()
+            ).first()
+
+            if snapshot:
+                snapshot.payload = data
+                snapshot.fetched_at = datetime.now(timezone.utc)
+                snapshot.ttl_seconds = ttl
+                snapshot.data_source = data.get('data_source')
+            else:
+                snapshot = QuoteSnapshot(
+                    symbol=symbol.upper(),
+                    payload=data,
+                    ttl_seconds=ttl,
+                    data_source=data.get('data_source')
+                )
+                self.db.add(snapshot)
+
+            self.db.commit()
+            self.db.refresh(snapshot)
+            return snapshot
+        except Exception as e:
+            self.db.rollback()
+            print(f"Cache update failed for {symbol}: {e}")
+            return None
     
     async def get_quote(self, symbol: str, force_refresh: bool = False) -> Dict[str, Any]:
         """

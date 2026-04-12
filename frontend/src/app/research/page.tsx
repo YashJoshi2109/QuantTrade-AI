@@ -359,7 +359,7 @@ function ResearchContent() {
   // Real-time quote with HIGH PRIORITY for research page and 5-second updates
   const { data: realtimeQuote, isLoading: quoteLoading } = useRealtimeQuote({ 
     symbol: selectedSymbol,
-    refetchInterval: 5000, // Update every 5 seconds
+    refetchInterval: 15_000, // Update every 15 seconds
     priority: 'high', // High priority - will wait if rate limited
     useFinnhub: true // Use Finnhub for real-time data
   })

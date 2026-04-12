@@ -9,7 +9,9 @@ import { filterMoversByExchange, getExchangeById } from '@/lib/world-exchanges'
  *  3. Twelve Data (800 credits/day — gainers/losers endpoint)
  */
 
-export const dynamic = 'force-dynamic'
+// In-memory response cache
+const responseCache = new Map<string, { data: unknown; expires: number }>()
+const CACHE_TTL_MS = 45_000
 
 const FMP_KEY = process.env.FMP_API_KEY ?? ''
 const TWELVE_KEY =
@@ -369,6 +371,15 @@ export async function GET(request: NextRequest) {
   const count = Math.min(parseInt(searchParams.get('count') ?? '12', 10), 500)
   const wantActives = searchParams.get('actives') !== '0'
 
+  // Check in-memory cache
+  const cacheKey = `${continent}:${exchangeId || ''}:${type}:${count}:${wantActives}`
+  const cached = responseCache.get(cacheKey)
+  if (cached && Date.now() < cached.expires) {
+    return NextResponse.json(cached.data, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120', 'X-Cache': 'HIT' },
+    })
+  }
+
   const empty = { gainers: [] as GlobalMover[], losers: [] as GlobalMover[], actives: [] as GlobalMover[] }
 
   try {
@@ -510,7 +521,15 @@ export async function GET(request: NextRequest) {
       gainers = syn.gainers
       losers = syn.losers
     }
-    return NextResponse.json({ gainers, losers, actives })
+    const result = { gainers, losers, actives }
+    responseCache.set(cacheKey, { data: result, expires: Date.now() + CACHE_TTL_MS })
+    if (responseCache.size > 50) {
+      const now = Date.now()
+      responseCache.forEach((v, k) => { if (now > v.expires) responseCache.delete(k) })
+    }
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120', 'X-Cache': 'MISS' },
+    })
   } catch {
     return NextResponse.json(empty, { status: 200 })
   }

@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import AppLayout from '@/components/AppLayout'
+import BasketSnapshotModal from '@/components/BasketSnapshotModal'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sparkles, TrendingUp, TrendingDown, RefreshCw, Activity,
@@ -45,34 +46,41 @@ const TIMEFRAME_MAP: Record<string, string> = {
 // ── AI Basket Loader (engaging animated loader) ─────────────────────────────
 
 const LOADER_STEPS = [
-  { label: 'Scanning market universe', icon: '🔍', duration: 2000 },
-  { label: 'Detecting market regime', icon: '📊', duration: 1800 },
-  { label: 'Computing factor scores', icon: '🧮', duration: 2200 },
-  { label: 'Analyzing 166 stocks across 10 sectors', icon: '📈', duration: 2500 },
-  { label: 'Building AI baskets', icon: '🧠', duration: 2000 },
-  { label: 'Running risk analysis', icon: '🛡️', duration: 1500 },
-  { label: 'Almost ready...', icon: '✨', duration: 3000 },
+  { label: 'Scanning market universe', icon: '🔍' },
+  { label: 'Detecting market regime', icon: '📊' },
+  { label: 'Computing factor scores', icon: '🧮' },
+  { label: 'Analyzing 166 stocks across 10 sectors', icon: '📈' },
+  { label: 'Building AI baskets', icon: '🧠' },
+  { label: 'Running risk analysis', icon: '🛡️' },
+  { label: 'Almost ready...', icon: '✨' },
 ]
 
-function BasketLoader() {
+function BasketLoader({ progress: externalProgress }: { progress?: number }) {
   const [step, setStep] = useState(0)
-  const [progress, setProgress] = useState(0)
+  // Use external progress if provided (synced with API), otherwise internal animation
+  const [internalProgress, setInternalProgress] = useState(0)
+  const progress = externalProgress ?? internalProgress
 
   useEffect(() => {
-    const totalDuration = LOADER_STEPS.reduce((s, l) => s + l.duration, 0)
+    // When no external progress, animate internally (capped at 90%)
+    if (externalProgress != null) return
     let elapsed = 0
     const interval = setInterval(() => {
       elapsed += 100
-      setProgress(Math.min((elapsed / totalDuration) * 100, 95))
-
-      let acc = 0
-      for (let i = 0; i < LOADER_STEPS.length; i++) {
-        acc += LOADER_STEPS[i].duration
-        if (elapsed < acc) { setStep(i); break }
-      }
+      // Asymptotic approach to 90% — never finishes without external signal
+      setInternalProgress(Math.min(90 * (1 - Math.exp(-elapsed / 12000)), 90))
     }, 100)
     return () => clearInterval(interval)
-  }, [])
+  }, [externalProgress])
+
+  useEffect(() => {
+    // Map progress to step
+    const stepIndex = Math.min(
+      Math.floor((progress / 100) * LOADER_STEPS.length),
+      LOADER_STEPS.length - 1
+    )
+    setStep(stepIndex)
+  }, [progress])
 
   const currentStep = LOADER_STEPS[step] || LOADER_STEPS[LOADER_STEPS.length - 1]
 
@@ -561,13 +569,14 @@ function BasketCard({
   snapshot,
   onRefresh,
   refreshing,
+  onViewDetails,
 }: {
   index: IndexDefinition
   snapshot: IndexSnapshot | null
   onRefresh: (id: string) => void
   refreshing: boolean
+  onViewDetails?: (index: IndexDefinition, snapshot: IndexSnapshot) => void
 }) {
-  const [expanded, setExpanded] = useState(false)
   const hasData = snapshot && snapshot.holdings && snapshot.holdings.length > 0
 
   const riskColors: Record<string, string> = {
@@ -658,15 +667,15 @@ function BasketCard({
           </div>
         )}
 
-        {/* Expand / Generate buttons */}
+        {/* View Details / Generate buttons */}
         <div className="flex items-center gap-2">
           {hasData ? (
             <button
-              onClick={() => setExpanded(e => !e)}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/30 text-xs font-bold text-slate-300 hover:bg-slate-700/50 transition-all"
+              onClick={() => onViewDetails?.(index, snapshot!)}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/30 text-xs font-bold text-slate-300 hover:bg-slate-700/50 hover:border-cyan-500/20 transition-all"
             >
-              {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-              {expanded ? 'Collapse' : `View ${snapshot!.num_holdings} Holdings`}
+              <Layers className="w-3.5 h-3.5" />
+              View {snapshot!.num_holdings} Holdings
             </button>
           ) : (
             <motion.button
@@ -711,131 +720,6 @@ function BasketCard({
           )}
         </div>
 
-        {/* Expanded: Holdings Table */}
-        <AnimatePresence>
-          {expanded && hasData && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="overflow-hidden"
-            >
-              <div className="mt-4 border-t border-slate-800/50 pt-4">
-                {/* Factor exposure */}
-                {snapshot!.factor_exposure && (
-                  <div className="mb-4">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Factor Exposure</div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                      {Object.entries(snapshot!.factor_exposure).map(([factor, score]) => (
-                        <FactorBar key={factor} label={factor.replace(/_/g, ' ')} score={score} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Thesis */}
-                {snapshot!.explanation?.basket_thesis && (
-                  <div className="mb-3 px-3 py-2 bg-violet-500/5 border border-violet-500/15 rounded-xl">
-                    <div className="text-[10px] text-violet-400 font-bold uppercase mb-1">AI Thesis</div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">{snapshot!.explanation.basket_thesis}</p>
-                  </div>
-                )}
-
-                {/* Monte Carlo */}
-                {snapshot!.monte_carlo && (
-                  <div className="grid grid-cols-3 gap-2 mb-3">
-                    <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-2 py-1.5 text-center">
-                      <div className="text-[8px] text-slate-600 uppercase">Bull Case</div>
-                      <div className="text-xs font-black text-emerald-400 font-mono">+{snapshot!.monte_carlo.bull_case.return_pct}%</div>
-                    </div>
-                    <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg px-2 py-1.5 text-center">
-                      <div className="text-[8px] text-slate-600 uppercase">Base Case</div>
-                      <div className="text-xs font-black text-blue-400 font-mono">{snapshot!.monte_carlo.base_case.return_pct > 0 ? '+' : ''}{snapshot!.monte_carlo.base_case.return_pct}%</div>
-                    </div>
-                    <div className="bg-red-500/5 border border-red-500/10 rounded-lg px-2 py-1.5 text-center">
-                      <div className="text-[8px] text-slate-600 uppercase">Bear Case</div>
-                      <div className="text-xs font-black text-red-400 font-mono">{snapshot!.monte_carlo.bear_case.return_pct}%</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Holdings list */}
-                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Holdings ({snapshot!.num_holdings})</div>
-                <div className="space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar">
-                  {snapshot!.holdings.map((h, i) => (
-                    <div
-                      key={h.ticker}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-800/20 hover:bg-slate-800/40 transition-colors group"
-                    >
-                      <span className="text-[10px] text-slate-600 font-mono w-4">{i + 1}</span>
-                      <Link
-                        href={`/research?symbol=${h.ticker}`}
-                        className="text-xs font-black text-white group-hover:text-cyan-300 transition-colors font-mono min-w-[50px]"
-                      >
-                        {h.ticker}
-                      </Link>
-                      <span className="text-[10px] text-slate-500 flex-1 truncate">{h.company_name}</span>
-                      <span className="text-[10px] text-slate-500">{h.sector}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        h.grade?.startsWith('A') ? 'bg-emerald-500/10 text-emerald-400' :
-                        h.grade?.startsWith('B') ? 'bg-cyan-500/10 text-cyan-400' :
-                        h.grade?.startsWith('C') ? 'bg-amber-500/10 text-amber-400' :
-                        'bg-red-500/10 text-red-400'
-                      }`}>
-                        {h.grade}
-                      </span>
-                      <span className="text-[10px] font-bold text-cyan-400 font-mono w-8 text-right">{h.overall_ai_score?.toFixed(0)}</span>
-                      <span className="text-[10px] text-slate-400 font-mono w-12 text-right">{h.weight_pct?.toFixed(1)}%</span>
-                      {h.role?.role_label && (
-                        <span className="text-[9px] text-slate-600 hidden lg:inline">{h.role.role_label}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Risks */}
-                {snapshot!.explanation?.top_risks && snapshot!.explanation.top_risks.length > 0 && (
-                  <div className="mt-3 px-3 py-2 bg-red-500/5 border border-red-500/15 rounded-xl">
-                    <div className="text-[10px] text-red-400 font-bold uppercase mb-1">Key Risks</div>
-                    <ul className="space-y-0.5">
-                      {snapshot!.explanation.top_risks.slice(0, 3).map((r, i) => (
-                        <li key={i} className="text-[10px] text-slate-500 flex items-start gap-1.5">
-                          <AlertTriangle className="w-3 h-3 text-red-400/50 shrink-0 mt-0.5" />
-                          {r}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Scenarios */}
-                {snapshot!.scenarios && snapshot!.scenarios.length > 0 && (
-                  <div className="mt-3">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1.5">Stress Scenarios</div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {snapshot!.scenarios.slice(0, 4).map(s => (
-                        <div key={s.scenario_label} className="bg-slate-800/30 rounded-lg px-2 py-1.5">
-                          <div className="text-[9px] text-slate-500 truncate">{s.scenario_label}</div>
-                          <div className={`text-xs font-black font-mono ${s.projected_basket_return_pct > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {s.projected_basket_return_pct > 0 ? '+' : ''}{s.projected_basket_return_pct?.toFixed(1)}%
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Generated timestamp */}
-                {snapshot!.generated_at && (
-                  <div className="mt-3 text-[9px] text-slate-700 text-right">
-                    Generated {new Date(snapshot!.generated_at).toLocaleString()}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </motion.div>
   )
@@ -863,7 +747,9 @@ function DesktopIdeasLab() {
   const [snapshots, setSnapshots] = useState<Record<string, IndexSnapshot>>({})
   const [regime, setRegime] = useState<RegimeData | null>(null)
   const [basketLoading, setBasketLoading] = useState(true)
+  const [basketLoadProgress, setBasketLoadProgress] = useState(0)
   const [refreshingIndex, setRefreshingIndex] = useState<string | null>(null)
+  const [modalBasket, setModalBasket] = useState<{ index: IndexDefinition; snapshot: IndexSnapshot } | null>(null)
   const qc = useQueryClient()
 
   // Load basket data — uses React Query cache (prefetched by PrefetchEngine)
@@ -873,10 +759,22 @@ function DesktopIdeasLab() {
 
   const loadBasketData = async () => {
     setBasketLoading(true)
+    setBasketLoadProgress(10)
     try {
       // Check if PrefetchEngine already warmed the cache
       const cached = qc.getQueryData<{ indices: IndexDefinition[]; snapshots: Record<string, IndexSnapshot>; regime: RegimeData | null }>(['modelIndexBatch'])
-      const batch = cached || await fetchBatchLoad()
+      setBasketLoadProgress(cached ? 80 : 30)
+
+      let batch: { indices: IndexDefinition[]; snapshots: Record<string, IndexSnapshot>; regime: RegimeData | null }
+      try {
+        batch = cached || await fetchBatchLoad()
+      } catch {
+        // Batch failed — fall back to just loading index definitions
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/model-index/indices`)
+        const data = await res.json()
+        batch = { indices: data.indices || [], snapshots: {}, regime: null }
+      }
+      setBasketLoadProgress(90)
 
       setIndices(batch.indices)
       if (batch.regime) setRegime(batch.regime)
@@ -885,8 +783,10 @@ function DesktopIdeasLab() {
         if (snap?.holdings?.length > 0) validSnaps[id] = snap
       }
       setSnapshots(validSnaps)
+      setBasketLoadProgress(100)
     } catch (err) {
       console.error('Failed to load basket data:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load baskets — please refresh.')
     } finally {
       setBasketLoading(false)
     }
@@ -897,14 +797,21 @@ function DesktopIdeasLab() {
       setError('Sign in to generate AI baskets')
       return
     }
+    setError(null)
     setRefreshingIndex(indexId)
     try {
-      const snap = await refreshIndex(indexId, true)
-      if (snap && !('error' in snap)) {
-        setSnapshots(prev => ({ ...prev, [indexId]: snap }))
+      const snap = await refreshIndex(indexId, true, true)
+      if (snap && 'error' in snap && snap.error) {
+        setError(typeof snap.error === 'string' ? snap.error : 'Basket generation failed')
+        return
+      }
+      if (snap && Array.isArray(snap.holdings) && snap.holdings.length > 0) {
+        setSnapshots(prev => ({ ...prev, [indexId]: snap as IndexSnapshot }))
+      } else {
+        setError('No holdings returned — check market data and database seed.')
       }
     } catch (err) {
-      setError('Failed to generate basket. Please try again.')
+      setError(err instanceof Error ? err.message : 'Failed to generate basket. Please try again.')
     } finally {
       setRefreshingIndex(null)
     }
@@ -1123,9 +1030,9 @@ function DesktopIdeasLab() {
           )}
 
           {/* ── Tab Content ──────────────────────────── */}
-          {activeTab === 'baskets' ? (
-            /* ── AI BASKETS TAB ─────────────────────────── */
-            <div>
+          {/* Use display:none instead of conditional render to prevent remount/progress reset on tab switch */}
+          <div style={{ display: activeTab === 'baskets' ? undefined : 'none' }}>
+            {/* ── AI BASKETS TAB ─────────────────────────── */}
               {/* Regime indicator */}
               <div className="flex items-center gap-3 mb-6">
                 <RegimeBadge regime={regime} />
@@ -1139,7 +1046,7 @@ function DesktopIdeasLab() {
               </div>
 
               {basketLoading ? (
-                <BasketLoader />
+                <BasketLoader progress={basketLoadProgress} />
               ) : indices.length === 0 ? (
                 <div className="text-center py-20">
                   <Layers className="w-10 h-10 text-slate-700 mx-auto mb-3" />
@@ -1154,10 +1061,22 @@ function DesktopIdeasLab() {
                       snapshot={snapshots[idx.index_id] || null}
                       onRefresh={handleRefreshIndex}
                       refreshing={refreshingIndex === idx.index_id}
+                      onViewDetails={(i, s) => setModalBasket({ index: i, snapshot: s })}
                     />
                   ))}
                 </div>
               )}
+
+              {/* Basket Snapshot Modal */}
+              <AnimatePresence>
+                {modalBasket && (
+                  <BasketSnapshotModal
+                    index={modalBasket.index}
+                    snapshot={modalBasket.snapshot as any}
+                    onClose={() => setModalBasket(null)}
+                  />
+                )}
+              </AnimatePresence>
 
               {/* Disclaimer */}
               <div className="flex items-start gap-2 px-4 py-3 mt-6 bg-amber-500/5 border border-amber-500/15 rounded-xl">
@@ -1167,9 +1086,9 @@ function DesktopIdeasLab() {
                   Multi-factor scoring uses real market data but past performance does not guarantee future results.
                 </span>
               </div>
-            </div>
-          ) : (
-            /* ── TRADE IDEAS TAB ─────────────────────────── */
+          </div>
+          <div style={{ display: activeTab === 'ideas' ? undefined : 'none' }}>
+            {/* ── TRADE IDEAS TAB ─────────────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* Ideas grid — 3 cols */}
               <div className="lg:col-span-3">
@@ -1219,7 +1138,7 @@ function DesktopIdeasLab() {
                 </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </AppLayout>
@@ -1244,7 +1163,9 @@ function MobileIdeasLab() {
   const [snapshots, setSnapshots] = useState<Record<string, IndexSnapshot>>({})
   const [regime, setRegime] = useState<RegimeData | null>(null)
   const [basketLoading, setBasketLoading] = useState(true)
+  const [basketLoadProgress, setBasketLoadProgress] = useState(0)
   const [refreshingIndex, setRefreshingIndex] = useState<string | null>(null)
+  const [modalBasket, setModalBasket] = useState<{ index: IndexDefinition; snapshot: IndexSnapshot } | null>(null)
 
   useEffect(() => {
     loadTrending()
@@ -1253,10 +1174,21 @@ function MobileIdeasLab() {
 
   const loadBaskets = async () => {
     setBasketLoading(true)
+    setBasketLoadProgress(10)
     try {
       // Check PrefetchEngine cache first
       const cached = mqc.getQueryData<{ indices: IndexDefinition[]; snapshots: Record<string, IndexSnapshot>; regime: RegimeData | null }>(['modelIndexBatch'])
-      const batch = cached || await fetchBatchLoad()
+      setBasketLoadProgress(cached ? 80 : 30)
+
+      let batch: { indices: IndexDefinition[]; snapshots: Record<string, IndexSnapshot>; regime: RegimeData | null }
+      try {
+        batch = cached || await fetchBatchLoad()
+      } catch {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/model-index/indices`)
+        const data = await res.json()
+        batch = { indices: data.indices || [], snapshots: {}, regime: null }
+      }
+      setBasketLoadProgress(90)
       setIndices(batch.indices)
       if (batch.regime) setRegime(batch.regime)
       const validSnaps: Record<string, IndexSnapshot> = {}
@@ -1264,17 +1196,30 @@ function MobileIdeasLab() {
         if (snap?.holdings?.length > 0) validSnaps[id] = snap
       }
       setSnapshots(validSnaps)
-    } catch {} finally { setBasketLoading(false) }
+      setBasketLoadProgress(100)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load baskets — please refresh.')
+    } finally { setBasketLoading(false) }
   }
 
   const handleRefreshIndex = async (indexId: string) => {
     if (!isAuthed) { setError('Sign in to generate AI baskets'); return }
+    setError(null)
     setRefreshingIndex(indexId)
     try {
-      const snap = await refreshIndex(indexId, true)
-      if (snap && !('error' in snap)) setSnapshots(prev => ({ ...prev, [indexId]: snap }))
-    } catch { setError('Failed to generate basket') }
-    finally { setRefreshingIndex(null) }
+      const snap = await refreshIndex(indexId, true, true)
+      if (snap && 'error' in snap && snap.error) {
+        setError(typeof snap.error === 'string' ? snap.error : 'Basket generation failed')
+        return
+      }
+      if (snap && Array.isArray(snap.holdings) && snap.holdings.length > 0) {
+        setSnapshots(prev => ({ ...prev, [indexId]: snap as IndexSnapshot }))
+      } else {
+        setError('No holdings returned — check market data and database seed.')
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to generate basket')
+    } finally { setRefreshingIndex(null) }
   }
 
   const loadTrending = async () => {
@@ -1350,29 +1295,39 @@ function MobileIdeasLab() {
           </div>
         )}
 
-        {mobileTab === 'baskets' ? (
-          /* Baskets tab */
-          <div>
+        <div style={{ display: mobileTab === 'baskets' ? undefined : 'none' }}>
+          {/* Baskets tab */}
             <RegimeBadge regime={regime} />
             <div className="mt-4 space-y-4">
               {basketLoading ? (
-                <BasketLoader />
+                <BasketLoader progress={basketLoadProgress} />
               ) : (
-                indices.map(idx => (
-                  <BasketCard
-                    key={idx.index_id}
-                    index={idx}
-                    snapshot={snapshots[idx.index_id] || null}
-                    onRefresh={handleRefreshIndex}
-                    refreshing={refreshingIndex === idx.index_id}
-                  />
-                ))
+                <>
+                  {indices.map(idx => (
+                    <BasketCard
+                      key={idx.index_id}
+                      index={idx}
+                      snapshot={snapshots[idx.index_id] || null}
+                      onRefresh={handleRefreshIndex}
+                      refreshing={refreshingIndex === idx.index_id}
+                      onViewDetails={(i, s) => setModalBasket({ index: i, snapshot: s })}
+                    />
+                  ))}
+                  <AnimatePresence>
+                    {modalBasket && (
+                      <BasketSnapshotModal
+                        index={modalBasket.index}
+                        snapshot={modalBasket.snapshot as any}
+                        onClose={() => setModalBasket(null)}
+                      />
+                    )}
+                  </AnimatePresence>
+                </>
               )}
             </div>
-          </div>
-        ) : (
-          /* Ideas tab */
-          <div>
+        </div>
+        <div style={{ display: mobileTab === 'ideas' ? undefined : 'none' }}>
+          {/* Ideas tab */}
             {/* Generate button */}
             <div className="flex justify-end mb-3">
               <button
@@ -1444,8 +1399,7 @@ function MobileIdeasLab() {
             <MarketPulse pulse={pulse} loading={false} />
           </div>
         )}
-          </div>
-        )}
+        </div>
 
         {/* Disclaimer */}
         <div className="flex items-start gap-2 px-3 py-2.5 mt-4 bg-amber-500/5 border border-amber-500/15 rounded-xl">

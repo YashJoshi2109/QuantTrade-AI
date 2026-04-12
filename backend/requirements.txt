@@ -77,3 +77,4 @@ websockets
 webauthn>=2.1.0
 APScheduler>=3.10.0
 elevenlabs>=2.42.0
+defusedxml>=0.7.1

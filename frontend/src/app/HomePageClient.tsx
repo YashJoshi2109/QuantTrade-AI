@@ -81,7 +81,7 @@ function useWorldIndices(continent: Continent) {
       if (!res.ok) return []
       return res.json()
     },
-    refetchInterval: 60_000,
+    refetchInterval: 120_000,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   })
@@ -645,7 +645,7 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
         .map((r) => r.value)
     },
     enabled: symbols.length > 0,
-    refetchInterval: 60_000,
+    refetchInterval: 120_000,
     staleTime: 30_000,
   })
 

@@ -4,6 +4,14 @@ Main FastAPI application entry point
 import logging
 import threading
 from contextlib import asynccontextmanager
+
+# Inject AWS Secrets Manager values BEFORE any app imports read os.environ
+try:
+    from app.config_aws import inject_aws_secrets
+    inject_aws_secrets()
+except Exception as _aws_err:
+    print(f"⚠️ AWS secrets load skipped: {_aws_err}")
+
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
@@ -175,16 +183,74 @@ def _start_scheduler():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize Redis connection for API caching
+    import os
+    redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    try:
+        import redis.asyncio as aioredis
+        redis_client = aioredis.from_url(redis_url, decode_responses=True, socket_connect_timeout=5)
+        await redis_client.ping()
+        app.state.redis = redis_client
+        print(f"✅ Redis connected: {redis_url.split('@')[-1] if '@' in redis_url else redis_url}")
+
+        # Register Redis cache middleware
+        from app.middleware.redis_cache import RedisCacheMiddleware
+        app.add_middleware(RedisCacheMiddleware, redis_client=redis_client)
+    except Exception as e:
+        app.state.redis = None
+        print(f"⚠️ Redis cache disabled: {e}")
+
     # Run table creation in a thread so /health is available immediately
     t = threading.Thread(target=_create_db_tables, daemon=True)
     t.start()
     # Start background scheduler
     sched_t = threading.Thread(target=_start_scheduler, daemon=True)
     sched_t.start()
+
+    # Warm caches after DB is ready (non-blocking)
+    def _warm_caches():
+        import time
+        time.sleep(8)  # Wait for DB tables
+        try:
+            from app.db.database import SessionLocal
+            if SessionLocal is None:
+                return
+            db = SessionLocal()
+            try:
+                # Pre-load model index snapshots into memory cache
+                from app.api.model_index import _snapshot_cache, _batch_cache
+                from app.models.model_index import ModelIndexSnapshot
+                from app.services.model_index.model_index import INDEX_DEFINITIONS
+                import json as _json
+                loaded = 0
+                for index_id in INDEX_DEFINITIONS:
+                    snap = (
+                        db.query(ModelIndexSnapshot)
+                        .filter(ModelIndexSnapshot.index_id == index_id)
+                        .order_by(ModelIndexSnapshot.created_at.desc())
+                        .first()
+                    )
+                    if snap and snap.snapshot_data:
+                        try:
+                            _snapshot_cache[index_id] = _json.loads(snap.snapshot_data)
+                            loaded += 1
+                        except Exception:
+                            pass
+                print(f"✅ Cache warmed: {loaded} model index snapshots pre-loaded")
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"⚠️ Cache warming failed: {e}")
+
+    warm_t = threading.Thread(target=_warm_caches, daemon=True)
+    warm_t.start()
+
     yield
     # Shutdown
     if _scheduler and _scheduler.running:
         _scheduler.shutdown(wait=False)
+    if hasattr(app.state, 'redis') and app.state.redis:
+        await app.state.redis.close()
     t.join(timeout=1.0)
 
 
@@ -216,29 +282,49 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
 
 # Cache control middleware for market data endpoints
 class CacheControlMiddleware(BaseHTTPMiddleware):
-    """Add cache headers for specific endpoints to improve performance"""
-    
+    """Add Cache-Control + stale-while-revalidate headers for GET endpoints."""
+
     # More specific paths first (startswith matches first hit)
     CACHE_PATHS = {
-        "/api/v1/market/ipo-calendar": 300,  # IPO list changes slowly
-        "/api/v1/market/": 30,  # 30 second cache for market data
-        "/api/v1/enhanced/market-indices": 30,  # 30 second cache for indices
-        "/api/v1/market/sectors": 60,  # 60 second cache for sectors
-        "/api/v1/market/movers": 60,  # 60 second cache for movers
-        "/api/v1/model-index/batch": 120,  # 2 min cache for batch endpoint
-        "/api/v1/model-index/indices": 120,  # 2 min cache for index list
-        "/api/v1/model-index/regime": 60,  # 1 min cache for regime
+        # Market data
+        "/api/v1/market/ipo-calendar": 300,
+        "/api/v1/market/sectors": 60,
+        "/api/v1/market/movers": 60,
+        "/api/v1/market/": 30,
+        # Model index / AI baskets
+        "/api/v1/model-index/batch": 120,
+        "/api/v1/model-index/indices": 120,
+        "/api/v1/model-index/regime": 60,
+        # Enhanced endpoints
+        "/api/v1/enhanced/market-indices": 30,
+        "/api/v1/enhanced/news/": 120,
+        "/api/v1/enhanced/api-stats": 30,
+        "/api/v1/enhanced/prediction-alerts": 60,
+        "/api/v1/enhanced/quote/": 30,
+        # Quotes
+        "/api/v1/quotes": 30,
+        # Monitor / geopolitical
+        "/api/v1/monitor/economic-indicators": 300,
+        "/api/v1/monitor/trade-policies": 300,
+        "/api/v1/monitor/": 120,
+        # Ideas
+        "/api/v1/ideas/trending": 120,
     }
-    
+
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
-        
+
+        if request.method != "GET":
+            return response
+
         path = request.url.path
         for cache_path, max_age in self.CACHE_PATHS.items():
             if path.startswith(cache_path):
-                response.headers["Cache-Control"] = f"public, max-age={max_age}"
+                response.headers["Cache-Control"] = (
+                    f"public, max-age={max_age}, stale-while-revalidate={max_age * 2}"
+                )
                 break
-        
+
         return response
 
 
