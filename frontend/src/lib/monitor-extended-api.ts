@@ -4,7 +4,7 @@
  * Polymarket Finance, ACLED, Energy, Internet Outages
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 // ─── Market Radar ────────────────────────────────────────────
 

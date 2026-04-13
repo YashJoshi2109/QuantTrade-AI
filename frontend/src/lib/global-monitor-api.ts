@@ -3,7 +3,7 @@
  * Handles all API calls for global monitoring data
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 export interface GlobalEvent {
   id: number

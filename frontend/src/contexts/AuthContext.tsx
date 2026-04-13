@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const loginWithToken = async (token: string) => {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
     setToken(token)
     const res = await fetch(`${API_URL}/api/v1/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },

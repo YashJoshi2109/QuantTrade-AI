@@ -148,10 +148,9 @@ function ResearchContent() {
 
       if (prices.length === 0) {
         try {
-          const syncUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/prices/${selectedSymbol}/sync`)
-          syncUrl.searchParams.append('start', startDate.toISOString())
-          syncUrl.searchParams.append('end', endDate.toISOString())
-          await fetch(syncUrl.toString(), { method: 'POST' })
+          const apiBase = process.env.NEXT_PUBLIC_API_URL || ''
+          const syncParams = new URLSearchParams({ start: startDate.toISOString(), end: endDate.toISOString() })
+          await fetch(`${apiBase}/api/v1/prices/${selectedSymbol}/sync?${syncParams}`, { method: 'POST' })
 
           await new Promise((resolve) => setTimeout(resolve, 2000))
           prices = await fetchPrices(
@@ -239,10 +238,9 @@ function ResearchContent() {
       const { start: startDate, end: endDate } = chartPeriodRange(chartPeriod)
 
       try {
-        const syncUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/prices/${selectedSymbol}/sync`)
-        syncUrl.searchParams.append('start', startDate.toISOString())
-        syncUrl.searchParams.append('end', endDate.toISOString())
-        await fetch(syncUrl.toString(), { method: 'POST' })
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || ''
+        const syncParams = new URLSearchParams({ start: startDate.toISOString(), end: endDate.toISOString() })
+        await fetch(`${apiBase}/api/v1/prices/${selectedSymbol}/sync?${syncParams}`, { method: 'POST' })
       } catch (syncErr) {
         console.warn('Price sync failed, continuing with regular fetch:', syncErr)
       }

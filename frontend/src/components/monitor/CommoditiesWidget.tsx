@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, TrendingDown, Minus, BarChart2 } from 'lucide-react'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 interface CommodityQuote {
   name: string

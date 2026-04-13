@@ -1,6 +1,6 @@
 import { getAuthHeaders } from '@/lib/auth'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 async function authFetch(path: string, init?: RequestInit): Promise<Response> {
   const headers: HeadersInit = {

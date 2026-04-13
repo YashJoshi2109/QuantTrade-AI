@@ -304,6 +304,14 @@ async function fetchYahooQuoteSummaryViaBackend(sym: string): Promise<TickerInfo
 }
 
 // ─── FMP Stable API (primary data source) ──────────────────────────────────────
+//
+// One ticker load uses up to four parallel /stable requests (each returns a different slice):
+//   profile        — sector, description, address, CEO name, employees, …
+//   quote          — live price, change, volume, shares outstanding, 52W range
+//   ratios-ttm     — margins, ROE, P/E, EV multiples, dividend yield (TTM)
+//   key-executives — officer list for the Company Folio strip
+// FMP does not expose one URL that returns this full depth for arbitrary symbols, so four
+// HTTP calls are intentional. Usage is incremented only for responses that return HTTP 200.
 
 async function fetchFmpFullProfile(sym: string): Promise<TickerInfo | null> {
   const fmpKey = process.env.FMP_API_KEY
@@ -313,15 +321,15 @@ async function fetchFmpFullProfile(sym: string): Promise<TickerInfo | null> {
   const qs = `apikey=${fmpKey}`
 
   try {
-    // Parallel: profile + quote + ratios-ttm + key-executives
-    // 4 parallel FMP calls — count towards 250/day limit
-    incrementFmpUsage(4)
     const [profileRes, quoteRes, ratiosRes, execsRes] = await Promise.all([
       fetch(`${base}/profile?symbol=${sym}&${qs}`, { next: { revalidate: 900 } }).catch(() => null),
       fetch(`${base}/quote?symbol=${sym}&${qs}`, { next: { revalidate: 120 } }).catch(() => null),
       fetch(`${base}/ratios-ttm?symbol=${sym}&${qs}`, { next: { revalidate: 900 } }).catch(() => null),
       fetch(`${base}/key-executives?symbol=${sym}&${qs}`, { next: { revalidate: 3600 } }).catch(() => null),
     ])
+
+    const fmpSuccessCount = [profileRes, quoteRes, ratiosRes, execsRes].filter((r) => r?.ok).length
+    if (fmpSuccessCount > 0) incrementFmpUsage(fmpSuccessCount)
 
     const profileArr = profileRes?.ok ? await profileRes.json().catch(() => []) : []
     const quoteArr = quoteRes?.ok ? await quoteRes.json().catch(() => []) : []

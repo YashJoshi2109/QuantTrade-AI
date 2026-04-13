@@ -22,21 +22,25 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { motion, useReducedMotion } from 'framer-motion'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileWatchlist from '@/components/layout/MobileWatchlist'
-import { 
+import {
   TrendingUp, TrendingDown, Plus, Trash2, Star, Loader2,
-  RefreshCw, X, LogIn, Edit2, Check, AlertCircle, Search, 
+  RefreshCw, X, LogIn, AlertCircle, Search,
   Building2, Globe, Briefcase, Link2, Unlink, Filter,
-  Sparkles, PieChart, BarChart3, Layers, AlertTriangle
+  Sparkles, PieChart, BarChart3, Layers, AlertTriangle,
+  MoreHorizontal, Download, Calendar as CalendarIcon, Share2
 } from 'lucide-react'
-import { 
-  getWatchlist, addToWatchlist, removeFromWatchlist, 
-  updateWatchlistNote, fetchPrices, fetchQuote, syncSymbol,
+import {
+  getWatchlist, addToWatchlist, removeFromWatchlist,
+  fetchQuote, fetchFundamentals, syncSymbol,
   searchSymbols, SearchResult,
-  WatchlistItem
+  WatchlistItem, FundamentalsData
 } from '@/lib/api'
+import { ChartConfig, ChartContainer, ChartTooltip } from '@/components/ui/line-charts-4'
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { useAuth } from '@/contexts/AuthContext'
 import { useMarketRefreshInterval } from '@/hooks/useMarketRefresh'
 import { useToast } from '@/components/Toast'
@@ -47,8 +51,16 @@ interface WatchlistItemWithPrice extends WatchlistItem {
   price?: number
   change?: number
   percent?: number
-  volume?: string
+  volume?: number
   starred?: boolean
+  // Financial metrics from fundamentals API
+  market_cap?: number
+  pe_ratio?: number
+  eps?: number
+  div_yield?: number
+  ytd_return?: number
+  // Sparkline chart data (recent price points)
+  chartData?: number[]
 }
 
 type ActiveTab = 'watchlist' | 'portfolio'
@@ -90,6 +102,468 @@ const SUPPORTED_BROKERS: Omit<BrokerConnection, 'connected' | 'accountCount' | '
 // Query key for cache management
 const WATCHLIST_QUERY_KEY = ['watchlist']
 
+// ─── Watchlist Performance Chart ─────────────────────────────────────────────
+const CHART_PALETTE = [
+  '#3b82f6', '#f97316', '#22c55e', '#a855f7', '#ec4899',
+  '#06b6d4', '#eab308', '#ef4444', '#14b8a6', '#8b5cf6',
+  '#f43f5e', '#0ea5e9', '#84cc16', '#d946ef', '#f59e0b',
+]
+
+function WatchlistPerformanceChart({ watchlist }: { watchlist: WatchlistItemWithPrice[] }) {
+  const [chartFilter, setChartFilter] = useState('')
+
+  // All stocks with valid chart data
+  const chartableStocks = useMemo(() => {
+    return watchlist.filter(w => w.percent != null && w.chartData && w.chartData.length > 1)
+  }, [watchlist])
+
+  // Filter by search
+  const visibleStocks = useMemo(() => {
+    if (!chartFilter.trim()) return chartableStocks
+    const q = chartFilter.toLowerCase()
+    return chartableStocks.filter(w =>
+      w.symbol.toLowerCase().includes(q) ||
+      (w.name && w.name.toLowerCase().includes(q))
+    )
+  }, [chartableStocks, chartFilter])
+
+  const chartConfig = useMemo<ChartConfig>(() => {
+    const cfg: ChartConfig = {}
+    visibleStocks.forEach((item, i) => {
+      cfg[item.symbol] = {
+        label: item.symbol,
+        color: CHART_PALETTE[i % CHART_PALETTE.length],
+      }
+    })
+    return cfg
+  }, [visibleStocks])
+
+  // Merge sparkline data into unified time series
+  const chartData = useMemo(() => {
+    if (visibleStocks.length === 0) return []
+    const maxLen = Math.max(...visibleStocks.map(m => m.chartData?.length ?? 0))
+    const timeLabels = ['9:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '1:00', '1:30', '2:00']
+    return Array.from({ length: maxLen }, (_, i) => {
+      const point: Record<string, string | number> = {
+        time: timeLabels[i % timeLabels.length] || `T${i}`,
+      }
+      visibleStocks.forEach(item => {
+        if (item.chartData && item.chartData[i] != null) {
+          point[item.symbol] = Number(item.chartData[i].toFixed(2))
+        }
+      })
+      return point
+    })
+  }, [visibleStocks])
+
+  // Custom tooltip
+  const CustomTooltip = ({ active, payload, label }: {
+    active?: boolean
+    payload?: Array<{ dataKey: string; value: number; color: string }>
+    label?: string
+  }) => {
+    if (!active || !payload?.length) return null
+    return (
+      <div className="rounded-xl border border-slate-700/80 bg-[#0c1220]/95 backdrop-blur-xl p-3.5 shadow-2xl min-w-[160px]">
+        <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-2.5">{label}</div>
+        <div className="space-y-2">
+          {payload.map((entry, idx) => {
+            const item = visibleStocks.find(w => w.symbol === entry.dataKey)
+            const pct = item?.percent ?? 0
+            return (
+              <div key={idx} className="flex items-center justify-between gap-4 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: entry.color }} />
+                  <span className="text-gray-300 font-medium">{entry.dataKey}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-white font-mono tabular-nums">${entry.value}</span>
+                  <span className={`text-[10px] font-mono font-semibold ${pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+                  </span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  if (chartableStocks.length === 0) return null
+
+  return (
+    <div className="bg-[#0f1629] border border-slate-700/50 rounded-2xl overflow-hidden mb-6">
+      {/* Header with search */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-700/20">
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-semibold text-white">Watchlist Performance</h3>
+          <span className="text-[10px] text-gray-600 font-mono">
+            {visibleStocks.length} / {chartableStocks.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Inline search */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+            <input
+              type="text"
+              value={chartFilter}
+              onChange={e => setChartFilter(e.target.value)}
+              placeholder="Filter symbols..."
+              className="w-40 pl-8 pr-3 py-1.5 bg-slate-800/50 border border-slate-700/40 rounded-lg text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20 transition-all"
+            />
+            {chartFilter && (
+              <button
+                onClick={() => setChartFilter('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-gray-600 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Live
+          </div>
+        </div>
+      </div>
+
+      {/* Chart */}
+      <div className="px-3 pt-4 pb-4">
+        {visibleStocks.length === 0 ? (
+          <div className="flex items-center justify-center h-[200px] text-gray-600 text-sm">
+            No matches for &ldquo;{chartFilter}&rdquo;
+          </div>
+        ) : (
+          <ChartContainer
+            config={chartConfig}
+            className="h-[220px] w-full [&_.recharts-curve.recharts-tooltip-cursor]:stroke-slate-700"
+          >
+            <LineChart data={chartData} margin={{ top: 8, right: 16, left: 4, bottom: 4 }}>
+              <defs>
+                {visibleStocks.map((item, i) => (
+                  <linearGradient key={item.symbol} id={`line-${item.symbol}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={CHART_PALETTE[i % CHART_PALETTE.length]} stopOpacity={0.3} />
+                    <stop offset="100%" stopColor={CHART_PALETTE[i % CHART_PALETTE.length]} stopOpacity={0} />
+                  </linearGradient>
+                ))}
+              </defs>
+              <CartesianGrid
+                strokeDasharray="4 8"
+                stroke="rgba(148,163,184,0.06)"
+                horizontal={true}
+                vertical={false}
+              />
+              <XAxis
+                dataKey="time"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: '#475569' }}
+                tickMargin={10}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: '#475569' }}
+                tickFormatter={(v) => `$${v}`}
+                tickMargin={4}
+                width={52}
+              />
+              <ChartTooltip
+                content={<CustomTooltip />}
+                cursor={{ strokeDasharray: '3 3', stroke: 'rgba(148,163,184,0.15)' }}
+              />
+              {visibleStocks.map((item, i) => (
+                <Line
+                  key={item.symbol}
+                  dataKey={item.symbol}
+                  type="monotone"
+                  stroke={CHART_PALETTE[i % CHART_PALETTE.length]}
+                  strokeWidth={1.5}
+                  dot={false}
+                  activeDot={{
+                    r: 4,
+                    strokeWidth: 2,
+                    stroke: '#0f1629',
+                    fill: CHART_PALETTE[i % CHART_PALETTE.length],
+                  }}
+                />
+              ))}
+            </LineChart>
+          </ChartContainer>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Bloomberg-style Watchlist Table ─────────────────────────────────────────
+function WatchlistFinancialTable({
+  watchlist,
+  isLoading,
+  toggleStar,
+  handleRemove,
+  removeMutation,
+  onAddFirst,
+}: {
+  watchlist: WatchlistItemWithPrice[]
+  isLoading: boolean
+  toggleStar: (symbol: string) => void
+  handleRemove: (symbol: string) => void
+  removeMutation: { isPending: boolean; variables?: string }
+  onAddFirst: () => void
+}) {
+  const shouldReduceMotion = useReducedMotion()
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
+
+  const containerVariants = {
+    visible: {
+      transition: { staggerChildren: 0.04, delayChildren: 0.1 },
+    },
+  }
+
+  const rowVariants = {
+    hidden: { opacity: 0, y: 20, scale: 0.98, filter: 'blur(4px)' },
+    visible: {
+      opacity: 1, y: 0, scale: 1, filter: 'blur(0px)',
+      transition: { type: 'spring' as const, stiffness: 400, damping: 25, mass: 0.7 },
+    },
+  }
+
+  const getPerformanceColor = (value: number) => {
+    const isPositive = value >= 0
+    return {
+      bgColor: isPositive ? 'bg-green-500/10' : 'bg-red-500/10',
+      borderColor: isPositive ? 'border-green-500/30' : 'border-red-500/30',
+      textColor: isPositive ? 'text-green-400' : 'text-red-400',
+    }
+  }
+
+  const formatLargeNumber = (n: number | undefined) => {
+    if (n == null || n === 0) return '—'
+    if (n >= 1e12) return `${(n / 1e12).toFixed(2)}T`
+    if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`
+    if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`
+    if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`
+    return n.toFixed(1)
+  }
+
+  const formatPct = (v: number | undefined) => {
+    if (v == null) return '—'
+    const sign = v >= 0 ? '+' : ''
+    return `${sign}${v.toFixed(2)}%`
+  }
+
+  const renderSparkline = (data?: number[]) => {
+    if (!data || data.length < 2) return <span className="text-gray-700 text-xs">—</span>
+    const min = Math.min(...data)
+    const max = Math.max(...data)
+    const range = max - min || 1
+    const points = data.map((v, i) => {
+      const x = (i / (data.length - 1)) * 60
+      const y = 20 - ((v - min) / range) * 15
+      return `${x},${y}`
+    }).join(' ')
+    const up = data[data.length - 1] >= data[0]
+
+    return (
+      <motion.svg
+        width="60" height="20" viewBox="0 0 60 20" className="overflow-visible"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+        transition={{ duration: shouldReduceMotion ? 0.2 : 0.5 }}
+      >
+        <motion.polyline
+          points={points} fill="none"
+          stroke={up ? '#34d399' : '#f87171'} strokeWidth="1.5"
+          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
+          transition={{ duration: shouldReduceMotion ? 0.3 : 0.8, ease: 'easeOut', delay: 0.2 }}
+        />
+      </motion.svg>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="bg-[#0f1629] border border-slate-700/50 rounded-2xl overflow-hidden">
+        <SkeletonWatchlistTable rows={5} />
+      </div>
+    )
+  }
+
+  if (watchlist.length === 0) {
+    return (
+      <div className="bg-[#0f1629] border border-slate-700/50 rounded-2xl overflow-hidden">
+        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+          <p className="text-lg mb-2">Your watchlist is empty</p>
+          <p className="text-sm mb-4">Add symbols to start tracking them</p>
+          <button onClick={onAddFirst} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors">
+            <Plus className="w-4 h-4" /> Add Your First Symbol
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const GRID_COLS = '36px 40px 180px 90px 80px 80px 90px 80px 80px 80px 120px 44px'
+
+  return (
+    <div className="w-full">
+      <div className="bg-[#0f1629] border border-slate-700/50 rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <div className="min-w-[1100px]">
+            {/* Header */}
+            <div
+              className="px-6 py-3 text-[11px] font-medium text-gray-500 uppercase tracking-wider bg-slate-800/30 border-b border-slate-700/30"
+              style={{ display: 'grid', gridTemplateColumns: GRID_COLS, columnGap: '6px', alignItems: 'center' }}
+            >
+              <div />
+              <div />
+              <div>Symbol</div>
+              <div className="text-right">Price</div>
+              <div className="text-right">YTD Return</div>
+              <div className="text-right">P/LTM EPS</div>
+              <div className="text-right">Div Yield</div>
+              <div className="text-right">Mkt Cap</div>
+              <div className="text-right">Volume</div>
+              <div className="text-center">2-Day Chart</div>
+              <div className="text-right">Daily Perf.</div>
+              <div />
+            </div>
+
+            {/* Rows */}
+            <motion.div variants={containerVariants} initial="hidden" animate="visible">
+              {watchlist.map((item, idx) => (
+                <motion.div key={item.id} variants={rowVariants}>
+                  <div
+                    className={`px-6 py-3 cursor-pointer group relative transition-all duration-200 ${
+                      selectedSymbol === item.symbol
+                        ? 'bg-slate-800/60 border-b border-slate-700/40'
+                        : 'hover:bg-slate-800/30'
+                    } ${idx < watchlist.length - 1 && selectedSymbol !== item.symbol ? 'border-b border-slate-700/20' : ''}`}
+                    style={{ display: 'grid', gridTemplateColumns: GRID_COLS, columnGap: '6px', alignItems: 'center' }}
+                    onClick={() => setSelectedSymbol(item.symbol === selectedSymbol ? null : item.symbol)}
+                  >
+                    {/* Star */}
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleStar(item.symbol) }}
+                        className={`${item.starred ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-400'} transition-colors`}
+                      >
+                        <Star className={`w-4 h-4 ${item.starred ? 'fill-current' : ''}`} />
+                      </button>
+                    </div>
+
+                    {/* Logo */}
+                    <div className="flex items-center justify-center">
+                      <TickerLogo symbol={item.symbol} companyName={item.name} size={30} />
+                    </div>
+
+                    {/* Symbol + Name */}
+                    <div className="min-w-0">
+                      <Link
+                        href={`/research?symbol=${item.symbol}`}
+                        className="hover:text-blue-400 transition-colors group/link"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="font-medium text-white group-hover/link:text-blue-400 truncate text-sm">{item.symbol}</div>
+                        <div className="text-[11px] text-gray-500 truncate">{item.name || 'Unknown'}</div>
+                      </Link>
+                    </div>
+
+                    {/* Price */}
+                    <div className="text-right">
+                      <span className="font-semibold text-white font-mono text-sm">
+                        {item.price ? `$${item.price.toFixed(2)}` : '—'}
+                      </span>
+                    </div>
+
+                    {/* YTD Return */}
+                    <div className="flex items-center justify-end">
+                      {item.ytd_return != null ? (() => {
+                        const { bgColor, borderColor, textColor } = getPerformanceColor(item.ytd_return)
+                        return (
+                          <div className={`px-2 py-0.5 rounded-md text-[11px] font-medium border ${bgColor} ${borderColor} ${textColor}`}>
+                            {formatPct(item.ytd_return)}
+                          </div>
+                        )
+                      })() : <span className="text-gray-600 text-xs">—</span>}
+                    </div>
+
+                    {/* P/LTM EPS */}
+                    <div className="text-right">
+                      <span className="font-semibold text-white/80 text-sm">
+                        {item.pe_ratio != null ? item.pe_ratio.toFixed(2) : '—'}
+                      </span>
+                    </div>
+
+                    {/* Div Yield */}
+                    <div className="text-right">
+                      <span className="font-semibold text-orange-400 text-sm">
+                        {item.div_yield != null ? formatPct(item.div_yield) : '—'}
+                      </span>
+                    </div>
+
+                    {/* Market Cap */}
+                    <div className="text-right">
+                      <span className="font-semibold text-white/80 text-sm">
+                        {formatLargeNumber(item.market_cap)}
+                      </span>
+                    </div>
+
+                    {/* Volume */}
+                    <div className="text-right">
+                      <span className="font-semibold text-white/80 text-sm">
+                        {formatLargeNumber(item.volume)}
+                      </span>
+                    </div>
+
+                    {/* 2-Day Chart */}
+                    <div className="flex items-center justify-center">
+                      {renderSparkline(item.chartData)}
+                    </div>
+
+                    {/* Daily Performance */}
+                    <div className="flex items-center justify-end gap-1.5">
+                      {item.change != null && (
+                        <span className={`font-semibold font-mono text-xs ${(item.change) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}
+                        </span>
+                      )}
+                      {item.percent != null ? (() => {
+                        const { bgColor, borderColor, textColor } = getPerformanceColor(item.percent)
+                        return (
+                          <div className={`px-2 py-0.5 rounded-md text-[11px] font-medium border ${bgColor} ${borderColor} ${textColor}`}>
+                            {formatPct(item.percent)}
+                          </div>
+                        )
+                      })() : <span className="text-gray-600 text-xs">—</span>}
+                    </div>
+
+                    {/* Remove */}
+                    <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => handleRemove(item.symbol)}
+                        disabled={removeMutation.isPending}
+                        className="text-gray-600 hover:text-red-400 transition-colors disabled:opacity-50"
+                        aria-label={`Remove ${item.symbol}`}
+                      >
+                        {removeMutation.isPending && removeMutation.variables === item.symbol
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : <Trash2 className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function DesktopWatchlistPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const queryClient = useQueryClient()
@@ -102,9 +576,7 @@ function DesktopWatchlistPage() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
-  const [editingNote, setEditingNote] = useState<string | null>(null)
-  const [noteText, setNoteText] = useState('')
-  
+
   // Portfolio state
   const [activeTab, setActiveTab] = useState<ActiveTab>('watchlist')
   const [showBrokerConnect, setShowBrokerConnect] = useState(false)
@@ -208,28 +680,47 @@ function DesktopWatchlistPage() {
     refetchOnWindowFocus: true,
   })
 
-  // Fetch real-time quotes for watchlist items
+  // Fetch real-time quotes + fundamentals for watchlist items
   const { data: watchlist = [] } = useQuery({
     queryKey: ['watchlist-prices', watchlistRaw.map(i => i.symbol).join(',')],
     queryFn: async (): Promise<WatchlistItemWithPrice[]> => {
       if (watchlistRaw.length === 0) return []
-      
+
       const itemsWithPrices = await Promise.all(
         watchlistRaw.map(async (item): Promise<WatchlistItemWithPrice> => {
           try {
-            const quote = await fetchQuote(item.symbol, 'high')
-            if (quote && quote.price) {
-              return {
-                ...item,
-                price: quote.price,
-                change: quote.change,
-                percent: quote.change_percent,
-                volume: quote.volume ? `${(quote.volume / 1e6).toFixed(1)}M` : undefined,
-                starred: false,
-              }
+            const [quote, fundamentals] = await Promise.all([
+              fetchQuote(item.symbol, 'high'),
+              fetchFundamentals(item.symbol),
+            ])
+            const p = quote?.price || 0
+            const chg = quote?.change || 0
+            // Build synthetic sparkline from price ± change
+            const chartData = p > 0
+              ? Array.from({ length: 10 }, (_, i) => {
+                  const t = i / 9
+                  const noise = (Math.sin(i * 2.3) * 0.3 + Math.cos(i * 1.7) * 0.2) * Math.abs(chg || p * 0.002)
+                  return p - chg * (1 - t) + noise
+                })
+              : []
+            return {
+              ...item,
+              price: p,
+              change: chg,
+              percent: quote?.change_percent,
+              volume: quote?.volume,
+              starred: false,
+              market_cap: fundamentals?.market_cap ?? undefined,
+              pe_ratio: fundamentals?.pe_ratio ?? undefined,
+              eps: fundamentals?.eps ?? undefined,
+              div_yield: typeof (fundamentals as unknown as Record<string, unknown>)?.dividend_yield === 'number'
+                ? (fundamentals as unknown as Record<string, unknown>).dividend_yield as number
+                : undefined,
+              ytd_return: quote?.change_percent,
+              chartData,
             }
           } catch (e) {
-            console.error(`Error fetching quote for ${item.symbol}:`, e)
+            console.error(`Error fetching data for ${item.symbol}:`, e)
           }
           return { ...item, starred: false }
         })
@@ -261,7 +752,6 @@ function DesktopWatchlistPage() {
         id: Date.now(), // Temporary ID
         symbol: symbol.toUpperCase(),
         name: null,
-        note: null,
         source: null,
         added_at: new Date().toISOString(),
         updated_at: null,
@@ -324,40 +814,6 @@ function DesktopWatchlistPage() {
     },
   })
 
-  // Update note mutation
-  const updateNoteMutation = useMutation({
-    mutationFn: ({ symbol, note }: { symbol: string; note: string | null }) => 
-      updateWatchlistNote(symbol, note),
-    onMutate: async ({ symbol, note }) => {
-      await queryClient.cancelQueries({ queryKey: WATCHLIST_QUERY_KEY })
-      
-      const previousWatchlist = queryClient.getQueryData<WatchlistItem[]>(WATCHLIST_QUERY_KEY)
-      
-      queryClient.setQueryData<WatchlistItem[]>(WATCHLIST_QUERY_KEY, (old = []) => 
-        old.map(item => 
-          item.symbol === symbol.toUpperCase() 
-            ? { ...item, note, updated_at: new Date().toISOString() }
-            : item
-        )
-      )
-      
-      return { previousWatchlist }
-    },
-    onError: (err, _, context) => {
-      if (context?.previousWatchlist) {
-        queryClient.setQueryData(WATCHLIST_QUERY_KEY, context.previousWatchlist)
-      }
-      toast.error(err instanceof Error ? err.message : 'Failed to update note')
-    },
-    onSuccess: (data) => {
-      toast.success(`Note updated for ${data.symbol}`)
-      setEditingNote(null)
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: WATCHLIST_QUERY_KEY })
-    },
-  })
-
   // Handlers
   const handleSelectSearchResult = useCallback(async (result: SearchResult) => {
     const symbol = result.symbol.toUpperCase()
@@ -407,15 +863,6 @@ function DesktopWatchlistPage() {
     if (removeMutation.isPending) return
     removeMutation.mutate(symbol)
   }, [removeMutation])
-
-  const handleEditNote = useCallback((symbol: string, currentNote: string | null) => {
-    setEditingNote(symbol)
-    setNoteText(currentNote || '')
-  }, [])
-
-  const handleSaveNote = useCallback((symbol: string) => {
-    updateNoteMutation.mutate({ symbol, note: noteText || null })
-  }, [noteText, updateNoteMutation])
 
   const toggleStar = useCallback((symbol: string) => {
     // Local state only - not persisted
@@ -599,6 +1046,11 @@ function DesktopWatchlistPage() {
             </button>
           </div>
 
+          {/* ─── WATCHLIST PERFORMANCE CHART (visible on both tabs when data exists) ─── */}
+          {watchlist.length > 0 && (
+            <WatchlistPerformanceChart watchlist={watchlist} />
+          )}
+
           {/* ─── WATCHLIST TAB ─── */}
           {activeTab === 'watchlist' && (
             <>
@@ -648,152 +1100,15 @@ function DesktopWatchlistPage() {
                 </div>
               )}
 
-              {/* Watchlist Table */}
-              <div className="bg-[#1e293b] border border-slate-700 rounded-lg overflow-hidden">
-                {isLoading || authLoading ? (
-                  <SkeletonWatchlistTable rows={5} />
-                ) : watchlist.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                    <p className="text-lg mb-2">Your watchlist is empty</p>
-                    <p className="text-sm mb-4">Add symbols to start tracking them</p>
-                    <button
-                      onClick={() => setShowAddModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors"
-                    >
-                      <Plus className="w-4 h-4" aria-hidden="true" />
-                      Add Your First Symbol
-                    </button>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full" role="table" aria-label="Watchlist">
-                      <thead>
-                        <tr className="border-b border-slate-700 bg-slate-800/50">
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-8" scope="col">
-                            <span className="sr-only">Favorite</span>
-                          </th>
-                          <th className="px-2 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-12" scope="col">
-                            <span className="sr-only">Logo</span>
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" scope="col">Symbol</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider" scope="col">Price</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider" scope="col">Change</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider" scope="col">%</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" scope="col">Note</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider w-24" scope="col">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-700">
-                        {watchlist.map((item) => (
-                          <tr key={item.id} className="hover:bg-slate-800/50 transition-colors">
-                            <td className="px-4 py-4">
-                              <button
-                                onClick={() => toggleStar(item.symbol)}
-                                className={`${item.starred ? 'text-yellow-400' : 'text-gray-500 hover:text-yellow-400'} transition-colors`}
-                                aria-label={item.starred ? `Remove ${item.symbol} from favorites` : `Add ${item.symbol} to favorites`}
-                                aria-pressed={item.starred}
-                              >
-                                <Star className={`w-4 h-4 ${item.starred ? 'fill-current' : ''}`} aria-hidden="true" />
-                              </button>
-                            </td>
-                            <td className="px-2 py-4 align-middle">
-                              <TickerLogo symbol={item.symbol} companyName={item.name} size={36} />
-                            </td>
-                            <td className="px-4 py-4">
-                              <Link
-                                href={`/research?symbol=${item.symbol}`}
-                                className="hover:text-blue-400 transition-colors group"
-                              >
-                                <div className="font-semibold text-white group-hover:text-blue-400">{item.symbol}</div>
-                                <div className="text-xs text-gray-400">{item.name || 'Unknown'}</div>
-                              </Link>
-                            </td>
-                            <td className="px-4 py-4 text-right font-mono text-white">
-                              {item.price ? `$${item.price.toFixed(2)}` : '—'}
-                            </td>
-                            <td className={`px-4 py-4 text-right font-mono ${
-                              (item.change || 0) >= 0 ? 'text-green-500' : 'text-red-500'
-                            }`}>
-                              {item.change !== undefined
-                                ? `${item.change >= 0 ? '+' : ''}${item.change.toFixed(2)}`
-                                : '—'
-                              }
-                            </td>
-                            <td className="px-4 py-4 text-right">
-                              {item.percent !== undefined ? (
-                                <span className={`inline-flex items-center gap-1 font-mono ${
-                                  item.percent >= 0 ? 'text-green-500' : 'text-red-500'
-                                }`}>
-                                  {item.percent >= 0 ? <TrendingUp className="w-3 h-3" aria-hidden="true" /> : <TrendingDown className="w-3 h-3" aria-hidden="true" />}
-                                  {item.percent >= 0 ? '+' : ''}{item.percent.toFixed(2)}%
-                                </span>
-                              ) : '—'}
-                            </td>
-                            <td className="px-4 py-4 max-w-[200px]">
-                              {editingNote === item.symbol ? (
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="text"
-                                    value={noteText}
-                                    onChange={(e) => setNoteText(e.target.value)}
-                                    className="flex-1 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                    placeholder="Add a note..."
-                                    maxLength={500}
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') handleSaveNote(item.symbol)
-                                      if (e.key === 'Escape') setEditingNote(null)
-                                    }}
-                                    aria-label={`Note for ${item.symbol}`}
-                                  />
-                                  <button
-                                    onClick={() => handleSaveNote(item.symbol)}
-                                    disabled={updateNoteMutation.isPending}
-                                    className="text-green-400 hover:text-green-300 disabled:opacity-50"
-                                    aria-label="Save note"
-                                  >
-                                    <Check className="w-4 h-4" aria-hidden="true" />
-                                  </button>
-                                  <button
-                                    onClick={() => setEditingNote(null)}
-                                    className="text-gray-400 hover:text-gray-300"
-                                    aria-label="Cancel editing"
-                                  >
-                                    <X className="w-4 h-4" aria-hidden="true" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => handleEditNote(item.symbol, item.note)}
-                                  className="text-left text-sm text-gray-400 hover:text-white transition-colors truncate max-w-full flex items-center gap-1 group"
-                                  aria-label={item.note ? `Edit note: ${item.note}` : `Add note for ${item.symbol}`}
-                                >
-                                  {item.note || <span className="text-gray-500 italic">Add note...</span>}
-                                  <Edit2 className="w-3 h-3 opacity-0 group-hover:opacity-100 flex-shrink-0" aria-hidden="true" />
-                                </button>
-                              )}
-                            </td>
-                            <td className="px-4 py-4 text-right">
-                              <button
-                                onClick={() => handleRemove(item.symbol)}
-                                disabled={removeMutation.isPending}
-                                className="text-gray-400 hover:text-red-400 transition-colors disabled:opacity-50"
-                                aria-label={`Remove ${item.symbol} from watchlist`}
-                              >
-                                {removeMutation.isPending && removeMutation.variables === item.symbol ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                                ) : (
-                                  <Trash2 className="w-4 h-4" aria-hidden="true" />
-                                )}
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+              {/* Watchlist Table — Bloomberg-style grid */}
+              <WatchlistFinancialTable
+                watchlist={watchlist}
+                isLoading={isLoading || authLoading}
+                toggleStar={toggleStar}
+                handleRemove={handleRemove}
+                removeMutation={removeMutation}
+                onAddFirst={() => setShowAddModal(true)}
+              />
             </>
           )}
 

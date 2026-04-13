@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, TrendingUp, TrendingDown, Star, StarOff, BarChart2, LineChart,
@@ -8,6 +8,8 @@ import {
   ChevronDown, ChevronUp, ArrowUpRight, ArrowDownRight, Info,
 } from 'lucide-react'
 import Link from 'next/link'
+import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/line-charts-1'
+import { Area, ComposedChart, XAxis, YAxis } from 'recharts'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface SnapshotStock {
@@ -50,49 +52,75 @@ function fmtVol(n: number | undefined) {
   return String(n)
 }
 
-// ── Sparkline canvas (renders real close-price array or falls back to flat) ───
-function SparklineCanvas({ positive, prices }: { positive: boolean; prices: number[] }) {
-  const ref = useRef<HTMLCanvasElement>(null)
+// ── Recharts-based stock area chart ──────────────────────────────────────────
+function StockAreaChart({ positive, prices }: { positive: boolean; prices: number[] }) {
+  const color = positive ? '#34d399' : '#f87171'
+  const gradId = positive ? 'stockGradGreen' : 'stockGradRed'
 
-  useEffect(() => {
-    const canvas = ref.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const W = canvas.offsetWidth * devicePixelRatio
-    const H = canvas.offsetHeight * devicePixelRatio
-    canvas.width = W; canvas.height = H; ctx.scale(devicePixelRatio, devicePixelRatio)
-    const w = canvas.offsetWidth, h = canvas.offsetHeight
+  const chartConfig: ChartConfig = {
+    price: { label: 'Price', color },
+  }
 
+  const data = useMemo(() => {
     const raw = prices.length >= 2 ? prices : [1, 1]
-    const min = Math.min(...raw)
-    const max = Math.max(...raw)
-    const range = max - min || 1
-    const pts: [number, number][] = raw.map((v, i) => [
-      i * (w / (raw.length - 1)),
-      h * 0.1 + (1 - (v - min) / range) * h * 0.8,
-    ])
+    // Sample down to ~80 points for performance
+    const step = Math.max(1, Math.floor(raw.length / 80))
+    return raw
+      .filter((_, i) => i % step === 0 || i === raw.length - 1)
+      .map((v, i) => ({ idx: i, price: v }))
+  }, [prices])
 
-    const color = positive ? '#34d399' : '#f87171'
-    const gradColor = positive ? 'rgba(52,211,153,' : 'rgba(248,113,113,'
+  const [minPrice, maxPrice] = useMemo(() => {
+    if (!data.length) return [0, 1]
+    const vals = data.map(d => d.price)
+    const min = Math.min(...vals)
+    const max = Math.max(...vals)
+    const pad = (max - min) * 0.08 || 1
+    return [min - pad, max + pad]
+  }, [data])
 
-    ctx.clearRect(0, 0, w, h)
-    const grad = ctx.createLinearGradient(0, 0, 0, h)
-    grad.addColorStop(0, gradColor + '0.25)')
-    grad.addColorStop(1, gradColor + '0)')
-    ctx.fillStyle = grad
-    ctx.beginPath()
-    ctx.moveTo(pts[0][0], h)
-    pts.forEach(([x, y]) => ctx.lineTo(x, y))
-    ctx.lineTo(pts[pts.length - 1][0], h)
-    ctx.closePath(); ctx.fill()
+  if (data.length < 2) return null
 
-    ctx.beginPath()
-    pts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y))
-    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.stroke()
-  }, [positive, prices])
-
-  return <canvas ref={ref} className="w-full h-full" />
+  return (
+    <ChartContainer
+      config={chartConfig}
+      className="h-full w-full !aspect-auto [&_.recharts-curve.recharts-tooltip-cursor]:stroke-initial"
+    >
+      <ComposedChart data={data} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.30} />
+            <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <XAxis dataKey="idx" hide />
+        <YAxis domain={[minPrice, maxPrice]} hide />
+        <ChartTooltip
+          content={({ active, payload }) => {
+            if (!active || !payload?.length) return null
+            const val = payload[0].value as number
+            return (
+              <div className="rounded-lg border border-white/10 bg-[#0f172a] px-3 py-1.5 text-xs shadow-xl">
+                <span className="font-mono font-bold" style={{ color }}>
+                  ${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            )
+          }}
+          cursor={{ stroke: 'rgba(255,255,255,0.15)', strokeWidth: 1 }}
+        />
+        <Area
+          type="monotone"
+          dataKey="price"
+          stroke={color}
+          strokeWidth={1.5}
+          fill={`url(#${gradId})`}
+          dot={false}
+          activeDot={{ r: 3, fill: color, stroke: '#0f172a', strokeWidth: 2 }}
+        />
+      </ComposedChart>
+    </ChartContainer>
+  )
 }
 
 // ── Chart tab → Yahoo Finance range/interval ───────────────────────────────────
@@ -436,7 +464,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                   <div className="flex-1 relative p-4 min-h-0">
                     <div className="h-full w-full rounded-2xl overflow-hidden relative"
                       style={{ background: 'rgba(4,8,20,0.6)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <SparklineCanvas positive={up} prices={sparkPrices} />
+                      <StockAreaChart positive={up} prices={sparkPrices} />
 
                       {/* Price labels */}
                       <div className="absolute top-3 left-3 text-[10px] font-mono text-slate-600 font-bold">

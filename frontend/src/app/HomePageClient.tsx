@@ -50,6 +50,7 @@ import BrandedNewsLoading from '@/components/loading/BrandedNewsLoading'
 import IndicesBarSkeleton from '@/components/loading/IndicesBarSkeleton'
 import { ProCard } from '@/components/ui/pro'
 import IpoRadarWidget from '@/components/IpoRadarWidget'
+import EconomicCalendarStrip from '@/components/EconomicCalendarStrip'
 import MoversHeatmap from '@/components/MoversHeatmap'
 import {
   CONTINENTS,
@@ -1435,6 +1436,11 @@ function DesktopHome() {
             currency={displayCurrency}
             rates={currencyRates}
           />
+        </div>
+
+        {/* Economic calendar — today's macro events */}
+        <div className="px-4 mt-3">
+          <EconomicCalendarStrip />
         </div>
 
         {/* Main bento grid */}

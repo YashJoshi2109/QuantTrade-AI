@@ -2,7 +2,7 @@
  * Authentication utilities
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000' || 'https://www.quanttrade.us'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 export interface User {
   id: number

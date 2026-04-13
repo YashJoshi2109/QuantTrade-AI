@@ -4,7 +4,9 @@ const nextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://www.quanttrade.us',
+    // Empty string = same origin. Client-side fetches go to the frontend domain,
+    // then Next.js rewrites (Vercel) or nginx (Docker) proxy /api/v1/* to the backend.
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '',
   },
   images: {
     unoptimized: false,
@@ -13,6 +15,19 @@ const nextConfig = {
   compress: true,
   // Powered-by header removal (security best practice)
   poweredByHeader: false,
+  // Proxy /api/v1/* to backend (replaces nginx when deployed on Vercel/serverless).
+  // Set BACKEND_URL env var on Vercel (e.g. https://quanttrade-backend.onrender.com).
+  // In Docker, nginx handles this so BACKEND_URL can be omitted.
+  async rewrites() {
+    const backendUrl = process.env.BACKEND_URL || process.env.BACKEND_INTERNAL_URL
+    if (!backendUrl) return []
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: `${backendUrl.replace(/\/$/, '')}/api/v1/:path*`,
+      },
+    ]
+  },
   // Security headers
   async headers() {
     return [
@@ -41,12 +56,12 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://accounts.google.com https://apis.google.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://accounts.google.com https://apis.google.com https://embed.polymarket.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https: http:",
               `connect-src 'self' ${process.env.NODE_ENV === 'development' ? 'http://localhost:8000 http://127.0.0.1:8000 http://localhost:3000' : ''} https://www.quanttrade.us https://quanttrade.us https://challenges.cloudflare.com https://www.google-analytics.com https://analytics.google.com https://accounts.google.com https://apis.google.com https://gamma-api.polymarket.com wss:`,
-              "frame-src 'self' https://challenges.cloudflare.com https://accounts.google.com https://js.stripe.com https://www.youtube.com",
+              "frame-src 'self' https://challenges.cloudflare.com https://accounts.google.com https://js.stripe.com https://www.youtube.com https://embed.polymarket.com https://polymarket.com",
               "worker-src 'self' blob:",
               "media-src 'self' blob:",
               "object-src 'none'",

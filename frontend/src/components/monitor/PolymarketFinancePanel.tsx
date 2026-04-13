@@ -3,108 +3,50 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, Activity, Flame } from 'lucide-react'
-import { fetchPolymarketFinance, type PolymarketFinanceData, type PolymarketOutcome } from '@/lib/monitor-extended-api'
+import { fetchPolymarketFinance, type PolymarketFinanceData, type PolymarketFinanceItem } from '@/lib/monitor-extended-api'
+import { PredictionMarketCard } from '@/components/ui/prediction-market-card'
 
-/* ── Outcome bar (shows name + colored fill + %) ────────── */
-function OutcomeBar({ outcome, rank }: { outcome: PolymarketOutcome; rank: number }) {
-  const pct = Math.round(outcome.price * 100)
-  const colors = [
-    'from-sky-500/60 to-sky-400/30',
-    'from-violet-500/50 to-violet-400/25',
-    'from-amber-500/50 to-amber-400/25',
-    'from-emerald-500/50 to-emerald-400/25',
-    'from-slate-600/50 to-slate-500/25',
-  ]
-  const color = colors[rank] || colors[4]
-
+/* ── Live Polymarket embed iframe ────────────────────────── */
+function PolymarketEmbed({ slug }: { slug: string }) {
   return (
-    <div className="relative flex items-center gap-1.5 w-full" title={`${outcome.name}: ${pct}%`}>
-      <div className="relative flex-1 h-5 rounded-md overflow-hidden bg-slate-800/60">
-        <div
-          className={`absolute inset-y-0 left-0 rounded-md bg-gradient-to-r ${color} transition-all duration-500`}
-          style={{ width: `${Math.max(pct, 3)}%` }}
-        />
-        <div className="absolute inset-0 flex items-center justify-between px-2">
-          <span className="text-[9px] font-medium text-slate-200 truncate max-w-[60%] z-10">
-            {outcome.name}
-          </span>
-          <span className="text-[9px] font-bold font-mono text-slate-200 z-10">
-            {pct}%
-          </span>
-        </div>
-      </div>
+    <div className="relative rounded-lg overflow-hidden border border-slate-800/40 bg-slate-950/60">
+      <iframe
+        title={`Polymarket — ${slug}`}
+        src={`https://embed.polymarket.com/market?event=${encodeURIComponent(slug)}&rotate=true&theme=dark&liveactivity=true&height=280`}
+        width="100%"
+        height={280}
+        frameBorder="0"
+        allowTransparency
+        className="block w-full"
+        loading="lazy"
+      />
+      <a
+        href={`https://polymarket.com/event/${slug}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute top-3 right-4 w-[100px] h-[22px] z-10"
+        aria-label="View on Polymarket"
+      />
     </div>
   )
 }
 
-/* ── Single prediction card ──────────────────────────────── */
-function PredictionCard({ item }: { item: { question: string; outcomes?: PolymarketOutcome[]; yes_price?: number | null; no_price?: number | null; volume?: string; slug?: string } }) {
-  const outcomes = item.outcomes || []
-  const isBinary = outcomes.length === 2 && outcomes.some(o => o.name.toLowerCase() === 'yes')
-
+/* ── Render item: live embed if slug exists, else fallback card ── */
+function PredictionItem({ item, index }: { item: PolymarketFinanceItem; index: number }) {
+  if (item.slug) {
+    return <PolymarketEmbed slug={item.slug} />
+  }
   return (
-    <div className="px-4 py-3 hover:bg-slate-800/20 transition-colors group">
-      {item.slug ? (
-        <a
-          href={`https://polymarket.com/event/${item.slug}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[11px] font-medium text-slate-300 leading-snug line-clamp-2 mb-2 group-hover:text-sky-400 transition-colors block"
-        >
-          {item.question}
-        </a>
-      ) : (
-        <p className="text-[11px] font-medium text-slate-300 leading-snug line-clamp-2 mb-2">
-          {item.question}
-        </p>
-      )}
-
-      <div className="space-y-1">
-        {isBinary ? (
-          <div className="flex gap-1.5">
-            {outcomes.map((o, i) => {
-              const pct = Math.round(o.price * 100)
-              const isYes = o.name.toLowerCase() === 'yes'
-              return (
-                <div
-                  key={i}
-                  className={`flex items-center justify-center px-2 py-1 rounded text-[10px] font-bold font-mono ${
-                    isYes
-                      ? pct > 50 ? 'bg-emerald-500/25 text-emerald-400' : 'bg-slate-700/50 text-slate-400'
-                      : pct > 50 ? 'bg-red-500/25 text-red-400' : 'bg-slate-700/50 text-slate-400'
-                  }`}
-                  style={{ flex: Math.max(pct, 10) }}
-                  title={`${o.name}: ${pct}%`}
-                >
-                  {o.name} {pct}%
-                </div>
-              )
-            })}
-          </div>
-        ) : outcomes.length > 0 ? (
-          <div className="space-y-0.5">
-            {outcomes.slice(0, 4).map((o, i) => (
-              <OutcomeBar key={i} outcome={o} rank={i} />
-            ))}
-            {outcomes.length > 4 && (
-              <span className="text-[8px] text-slate-600 pl-1">+{outcomes.length - 4} more</span>
-            )}
-          </div>
-        ) : item.yes_price != null ? (
-          <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
-            item.yes_price > 0.5 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700/50 text-slate-400'
-          }`}>
-            Yes {Math.round(item.yes_price * 100)}%
-          </span>
-        ) : null}
-      </div>
-
-      {item.volume && item.volume !== '—' && (
-        <div className="mt-1.5 text-right">
-          <span className="text-[9px] text-slate-500 font-mono">Vol: {item.volume}</span>
-        </div>
-      )}
-    </div>
+    <PredictionMarketCard
+      question={item.question}
+      outcomes={item.outcomes}
+      yesPrice={item.yes_price}
+      noPrice={item.no_price}
+      volume={item.volume}
+      slug={item.slug}
+      category={item.category}
+      delay={index * 0.05}
+    />
   )
 }
 
@@ -160,11 +102,11 @@ export default function PolymarketFinancePanel() {
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-800/30">
+      <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2">
         {isLoading ? (
-          <div className="p-4 space-y-2">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-16 bg-slate-800/50 rounded animate-pulse" />
+          <div className="space-y-2">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-[280px] bg-slate-800/50 rounded-lg animate-pulse" />
             ))}
           </div>
         ) : items.length === 0 ? (
@@ -172,7 +114,7 @@ export default function PolymarketFinancePanel() {
             No predictions found
           </div>
         ) : items.map((item, i) => (
-          <PredictionCard key={`${tab}-${i}`} item={item} />
+          <PredictionItem key={`${tab}-${i}`} item={item} index={i} />
         ))}
       </div>
     </div>
