@@ -58,6 +58,26 @@ export async function fetchEconomicIndicators(
   return res.json()
 }
 
+// ─── Economic Calendar ──────────────────────────────────────────
+
+export interface EconomicCalendarEvent {
+  country: string
+  country_code: string
+  time: string
+  event_name: string
+  actual: string | null
+  forecast: string | null
+  prior: string | null
+  impact: string
+  unit?: string | null
+}
+
+export async function fetchEconomicCalendar(): Promise<{ events: EconomicCalendarEvent[]; updated_at: string }> {
+  const res = await fetch(`${API_URL}/api/v1/monitor/economic-calendar`)
+  if (!res.ok) return { events: [], updated_at: new Date().toISOString() }
+  return res.json()
+}
+
 // ─── Trade Policy ────────────────────────────────────────────
 
 export interface TradePolicy {
