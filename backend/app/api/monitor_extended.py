@@ -11,12 +11,18 @@ import json
 import logging
 import httpx
 import asyncio
+import re
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.config import settings
+from app.db.database import get_db
+from app.models.symbols_master import SymbolsMaster
+from app.models.symbol import Symbol as SymbolModel
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +65,21 @@ class EconomicIndicatorsResponse(BaseModel):
     indicators: List[EconomicIndicator]
     updated_at: str
 
+class EconomicCalendarEvent(BaseModel):
+    country: str
+    country_code: str
+    time: str
+    event_name: str
+    actual: Optional[str] = None
+    forecast: Optional[str] = None
+    prior: Optional[str] = None
+    impact: str  # high, medium, low
+    unit: Optional[str] = None
+
+class EconomicCalendarResponse(BaseModel):
+    events: List[EconomicCalendarEvent]
+    updated_at: str
+
 class TradePolicy(BaseModel):
     title: str
     country: Optional[str] = None
@@ -77,10 +98,268 @@ class ContinentNews(BaseModel):
     title: str
     source: str
     url: Optional[str] = None
+    image_url: Optional[str] = None
     time_ago: str
     tags: List[str] = []
+    tickers: List[str] = []
     threat_level: Optional[str] = None
     category: Optional[str] = None
+
+
+# Map of keywords (lowercase) -> ticker symbols for extracting related tickers from headlines
+_TICKER_KEYWORDS: Dict[str, List[str]] = {
+    # Tech
+    "apple": ["AAPL"], "iphone": ["AAPL"], "ipad": ["AAPL"],
+    "google": ["GOOGL"], "alphabet": ["GOOGL"],
+    "microsoft": ["MSFT"], "azure": ["MSFT"],
+    "amazon": ["AMZN"], "aws": ["AMZN"],
+    "meta": ["META"], "facebook": ["META"], "instagram": ["META"], "whatsapp": ["META"],
+    "nvidia": ["NVDA"], "tesla": ["TSLA"], "spacex": ["TSLA"],
+    "netflix": ["NFLX"], "disney": ["DIS"],
+    "intel": ["INTC"], "amd": ["AMD"], "qualcomm": ["QCOM"],
+    "samsung": ["005930.KS"], "tsmc": ["TSM"],
+    "openai": ["MSFT"], "chatgpt": ["MSFT"],
+    "tiktok": ["META", "GOOGL"], "bytedance": ["META"],
+    "uber": ["UBER"], "airbnb": ["ABNB"], "spotify": ["SPOT"],
+    "salesforce": ["CRM"], "oracle": ["ORCL"], "ibm": ["IBM"],
+    "snap": ["SNAP"], "snapchat": ["SNAP"], "twitter": ["TWTR"], "x corp": ["TWTR"],
+    # Finance
+    "jpmorgan": ["JPM"], "jp morgan": ["JPM"], "goldman sachs": ["GS"], "goldman": ["GS"],
+    "morgan stanley": ["MS"], "bank of america": ["BAC"], "citigroup": ["C"], "citi": ["C"],
+    "wells fargo": ["WFC"], "blackrock": ["BLK"], "visa": ["V"], "mastercard": ["MA"],
+    "paypal": ["PYPL"], "square": ["SQ"], "block inc": ["SQ"],
+    "berkshire": ["BRK.B"], "buffett": ["BRK.B"],
+    "hsbc": ["HSBC"], "barclays": ["BCS"], "deutsche bank": ["DB"], "ubs": ["UBS"],
+    "credit suisse": ["UBS"],
+    # Energy
+    "exxon": ["XOM"], "exxonmobil": ["XOM"], "chevron": ["CVX"],
+    "shell": ["SHEL"], "bp": ["BP"], "conocophillips": ["COP"],
+    "opec": ["XLE", "USO"], "crude oil": ["USO", "XLE"], "oil price": ["USO", "XLE"],
+    "natural gas": ["UNG", "XLE"], "lng": ["LNG"],
+    "saudi aramco": ["2222.SR"],
+    # Pharma / Health
+    "pfizer": ["PFE"], "moderna": ["MRNA"], "johnson & johnson": ["JNJ"],
+    "unitedhealth": ["UNH"], "abbvie": ["ABBV"], "merck": ["MRK"],
+    "eli lilly": ["LLY"], "novo nordisk": ["NVO"], "ozempic": ["NVO"],
+    # Defense
+    "lockheed": ["LMT"], "raytheon": ["RTX"], "northrop": ["NOC"],
+    "boeing": ["BA"], "general dynamics": ["GD"], "bae systems": ["BAESY"],
+    # Retail / Consumer
+    "walmart": ["WMT"], "costco": ["COST"], "target": ["TGT"],
+    "nike": ["NKE"], "starbucks": ["SBUX"], "mcdonald": ["MCD"],
+    "coca-cola": ["KO"], "coca cola": ["KO"], "pepsi": ["PEP"],
+    "procter": ["PG"], "unilever": ["UL"],
+    # Auto
+    "toyota": ["TM"], "volkswagen": ["VWAGY"], "ford": ["F"],
+    "general motors": ["GM"], "gm": ["GM"], "bmw": ["BMWYY"],
+    "rivian": ["RIVN"], "lucid": ["LCID"],
+    # Commodities / indices
+    "gold": ["GLD"], "silver": ["SLV"], "bitcoin": ["BTC-USD"],
+    "crypto": ["BTC-USD", "ETH-USD"], "ethereum": ["ETH-USD"],
+    # Sectors / broad
+    "semiconductor": ["SMH"], "chip": ["SMH"],
+    "airline": ["JETS"], "aviation": ["JETS"],
+    "real estate": ["VNQ"], "housing": ["XHB"],
+    "bank": ["XLF"], "banking": ["XLF"],
+    "pharma": ["XLV"], "healthcare": ["XLV"],
+    "defense": ["ITA"], "military": ["ITA"],
+    # Countries / macro
+    "china": ["FXI", "KWEB"], "chinese": ["FXI"],
+    "japan": ["EWJ"], "japanese": ["EWJ"],
+    "india": ["INDA"], "indian": ["INDA"],
+    "brazil": ["EWZ"], "russia": ["RSX"],
+    "fed": ["SPY"], "federal reserve": ["SPY", "TLT"],
+    "interest rate": ["TLT"], "treasury": ["TLT"],
+    "tariff": ["SPY"], "sanctions": ["SPY"],
+    "wall street": ["SPY"], "s&p": ["SPY"], "nasdaq": ["QQQ"], "dow jones": ["DIA"],
+}
+
+
+def _extract_tickers(title: str) -> List[str]:
+    """Extract up to 5 related tickers from a headline by keyword matching."""
+    title_lower = title.lower()
+    found: List[str] = []
+    seen: set = set()
+    for keyword, symbols in _TICKER_KEYWORDS.items():
+        if keyword in title_lower:
+            for sym in symbols:
+                if sym not in seen:
+                    seen.add(sym)
+                    found.append(sym)
+                    if len(found) >= 5:
+                        return found
+    return found
+
+
+_TITLE_TICKER_RE = re.compile(r"(?:^|[^A-Z0-9])(?:\\$)?([A-Z]{1,5})(?:\\b)")
+_CAP_PHRASE_RE = re.compile(r"\\b([A-Z][a-z]{2,}(?:\\s+[A-Z][a-z]{2,}){0,2})\\b")
+_STOP_PHRASES = {
+    "The", "A", "An", "And", "Or", "Of", "In", "On", "For", "To", "As",
+    "With", "From", "By", "At", "After", "Before", "Over", "Under",
+    "US", "U.S", "UK", "EU", "UN",
+}
+
+# Yahoo Finance search cache (best-effort)
+_YAHOO_SEARCH_CACHE: Dict[str, Dict[str, Any]] = {}
+_YAHOO_SEARCH_TTL_S = 60 * 60 * 24  # 24h
+_YAHOO_SEARCH_MAX_CALLS_PER_REQUEST = 12
+
+
+def _pick_yahoo_query_from_title(title: str) -> Optional[str]:
+    """
+    Pick a reasonable Yahoo search query from a headline:
+    - Prefer longest capitalized phrase (likely company/org)
+    - Otherwise fallback to the first capitalized phrase
+    """
+    phrases: List[str] = []
+    for m in _CAP_PHRASE_RE.finditer(title or ""):
+        phrase = (m.group(1) or "").strip()
+        if not phrase or phrase in _STOP_PHRASES:
+            continue
+        phrases.append(phrase)
+    if not phrases:
+        return None
+    phrases.sort(key=lambda s: len(s), reverse=True)
+    return phrases[0]
+
+
+async def _yahoo_search_symbol(client: httpx.AsyncClient, query: str) -> List[str]:
+    """
+    Yahoo Finance search (best-effort). Returns a small list of symbols ordered by Yahoo relevance.
+    Uses caching to avoid repeated calls.
+    """
+    q = (query or "").strip()
+    if not q:
+        return []
+    cache_key = q.lower()
+    now = datetime.now(timezone.utc).timestamp()
+    cached = _YAHOO_SEARCH_CACHE.get(cache_key)
+    if cached and (now - cached.get("ts", 0)) < _YAHOO_SEARCH_TTL_S:
+        return cached.get("symbols", []) or []
+
+    symbols: List[str] = []
+    try:
+        resp = await client.get(
+            "https://query1.finance.yahoo.com/v1/finance/search",
+            params={"q": q, "quotesCount": 8, "newsCount": 0, "listsCount": 0, "enableFuzzyQuery": "true"},
+            timeout=6,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        if resp.status_code == 200:
+            data = resp.json() or {}
+            for item in (data.get("quotes") or [])[:8]:
+                sym = (item.get("symbol") or "").strip()
+                qtype = (item.get("quoteType") or "").lower()
+                if not sym:
+                    continue
+                # Prefer equities/etfs; skip futures/crypto in this context
+                if qtype and qtype not in {"equity", "etf", "mutualfund"}:
+                    continue
+                symbols.append(sym)
+    except Exception:
+        symbols = []
+
+    # cache regardless (including empty) to prevent hammering
+    _YAHOO_SEARCH_CACHE[cache_key] = {"ts": now, "symbols": symbols[:5]}
+    return symbols[:5]
+
+
+def _resolve_tickers_from_db(db: Session, title: str, limit: int = 5) -> List[str]:
+    """
+    Resolve related tickers using the local symbol database (symbols_master preferred).
+    This is best-effort and intentionally capped to keep responses lightweight.
+    """
+    if not title:
+        return []
+
+    out: List[str] = []
+    seen: set = set()
+
+    # 1) Direct ticker mentions: $AAPL or AAPL
+    for m in _TITLE_TICKER_RE.finditer(title):
+        sym = (m.group(1) or "").upper().strip()
+        if not sym or sym in seen:
+            continue
+        # Avoid overly common false positives (e.g., \"US\") and too-short tokens
+        if sym in {"US", "UK", "EU", "UN"}:
+            continue
+        seen.add(sym)
+        out.append(sym)
+        if len(out) >= limit:
+            return out
+
+    # 2) Capitalized phrases (company/org names) -> symbol lookup
+    phrases = []
+    for m in _CAP_PHRASE_RE.finditer(title):
+        phrase = (m.group(1) or "").strip()
+        if not phrase or phrase in _STOP_PHRASES:
+            continue
+        phrases.append(phrase)
+
+    # Deduplicate phrases while preserving order
+    phrase_seen = set()
+    phrases = [p for p in phrases if not (p in phrase_seen or phrase_seen.add(p))]
+
+    def add_symbol(sym: Optional[str]) -> None:
+        if not sym:
+            return
+        s = sym.upper().strip()
+        if not s or s in seen:
+            return
+        seen.add(s)
+        out.append(s)
+
+    # Prefer symbols_master (richer and indexed)
+    for phrase in phrases:
+        if len(out) >= limit:
+            break
+        pl = phrase.lower()
+        try:
+            row = (
+                db.query(SymbolsMaster)
+                .filter(SymbolsMaster.is_active == "Y")
+                .filter(
+                    func.lower(SymbolsMaster.name).like(f"{pl}%")
+                    | (func.upper(SymbolsMaster.symbol) == phrase.upper())
+                )
+                .order_by(SymbolsMaster.symbol)
+                .first()
+            )
+            if not row:
+                row = (
+                    db.query(SymbolsMaster)
+                    .filter(SymbolsMaster.is_active == "Y")
+                    .filter(func.lower(SymbolsMaster.name).like(f"%{pl}%"))
+                    .order_by(SymbolsMaster.symbol)
+                    .first()
+                )
+            if row:
+                add_symbol(row.symbol)
+        except Exception:
+            # Fallback to the smaller symbols table
+            try:
+                row2 = (
+                    db.query(SymbolModel)
+                    .filter(
+                        func.lower(SymbolModel.name).like(f"{pl}%")
+                        | (func.upper(SymbolModel.symbol) == phrase.upper())
+                    )
+                    .order_by(SymbolModel.symbol)
+                    .first()
+                )
+                if not row2:
+                    row2 = (
+                        db.query(SymbolModel)
+                        .filter(func.lower(SymbolModel.name).like(f"%{pl}%"))
+                        .order_by(SymbolModel.symbol)
+                        .first()
+                    )
+                if row2:
+                    add_symbol(row2.symbol)
+            except Exception:
+                pass
+
+    return out[:limit]
 
 class ContinentNewsFeed(BaseModel):
     continent: str
@@ -483,6 +762,105 @@ async def _fetch_fred_series(client: httpx.AsyncClient, name: str, series_id: st
     )
 
 
+# ─── Economic Calendar (Finnhub) ───────────────────────────────
+
+_FINNHUB_BASE = "https://finnhub.io/api/v1"
+
+@router.get("/economic-calendar", response_model=EconomicCalendarResponse)
+async def get_economic_calendar():
+    """
+    Today's macro-economic events from Finnhub — CPI, NFP, Fed speeches, etc.
+    Maps Finnhub importance (1–3) to high/medium/low impact.
+    """
+    finnhub_key = getattr(settings, "FINNHUB_API_KEY", None)
+    if not finnhub_key:
+        return EconomicCalendarResponse(events=[], updated_at=datetime.now(timezone.utc).isoformat())
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    tomorrow = (datetime.now(timezone.utc) + __import__("datetime").timedelta(days=1)).strftime("%Y-%m-%d")
+
+    events: List[EconomicCalendarEvent] = []
+    try:
+        async with httpx.AsyncClient(timeout=12) as client:
+            resp = await client.get(
+                f"{_FINNHUB_BASE}/calendar/economic",
+                params={"from": today, "to": tomorrow, "token": finnhub_key},
+            )
+            if resp.status_code == 200:
+                raw = resp.json()
+                for ev in (raw.get("economicCalendar") or raw.get("result") or []):
+                    importance = ev.get("impact", 1)
+                    if isinstance(importance, str):
+                        importance = {"high": 3, "medium": 2, "low": 1}.get(importance.lower(), 1)
+                    impact = "high" if importance >= 3 else "medium" if importance >= 2 else "low"
+
+                    country_name = ev.get("country", "")
+                    cc = _country_to_code(country_name)
+
+                    actual_val = ev.get("actual")
+                    forecast_val = ev.get("estimate")
+                    prior_val = ev.get("prev")
+                    unit = ev.get("unit", "")
+
+                    def _fmt(v: Any) -> Optional[str]:
+                        if v is None or v == "":
+                            return None
+                        try:
+                            n = float(v)
+                            return f"{n:g}{unit}" if unit else f"{n:g}"
+                        except (ValueError, TypeError):
+                            return str(v)
+
+                    time_str = ev.get("time", "")
+                    if not time_str:
+                        time_str = "—"
+
+                    events.append(EconomicCalendarEvent(
+                        country=country_name,
+                        country_code=cc,
+                        time=time_str,
+                        event_name=ev.get("event", "Unknown"),
+                        actual=_fmt(actual_val),
+                        forecast=_fmt(forecast_val),
+                        prior=_fmt(prior_val),
+                        impact=impact,
+                        unit=unit,
+                    ))
+    except Exception as exc:
+        logger.warning("economic-calendar fetch error: %s", exc)
+
+    events.sort(key=lambda e: ({"high": 0, "medium": 1, "low": 2}[e.impact], e.time))
+
+    return EconomicCalendarResponse(events=events, updated_at=datetime.now(timezone.utc).isoformat())
+
+
+_COUNTRY_CODE_MAP = {
+    "US": "us", "United States": "us", "USA": "us",
+    "EU": "eu", "Euro Area": "eu", "EMU": "eu", "Eurozone": "eu",
+    "GB": "gb", "United Kingdom": "gb", "UK": "gb",
+    "JP": "jp", "Japan": "jp",
+    "CN": "cn", "China": "cn",
+    "CA": "ca", "Canada": "ca",
+    "AU": "au", "Australia": "au",
+    "NZ": "nz", "New Zealand": "nz",
+    "CH": "ch", "Switzerland": "ch",
+    "DE": "de", "Germany": "de",
+    "FR": "fr", "France": "fr",
+    "IN": "in", "India": "in",
+    "BR": "br", "Brazil": "br",
+    "KR": "kr", "South Korea": "kr",
+    "MX": "mx", "Mexico": "mx",
+    "SE": "se", "Sweden": "se",
+    "NO": "no", "Norway": "no",
+    "SG": "sg", "Singapore": "sg",
+    "HK": "hk", "Hong Kong": "hk",
+    "ZA": "za", "South Africa": "za",
+}
+
+def _country_to_code(name: str) -> str:
+    return _COUNTRY_CODE_MAP.get(name, name.lower()[:2])
+
+
 # ─── Trade Policy (WTO API) ────────────────────────────────────
 
 @router.get("/trade-policy", response_model=TradePolicyResponse)
@@ -617,7 +995,7 @@ _GDELT_CONTINENT_QUERIES = {
 }
 
 @router.get("/continent-news", response_model=ContinentNewsResponse)
-async def get_continent_news():
+async def get_continent_news(db: Session = Depends(get_db)):
     """
     Continent-wise news feed — like the Bloomberg/WorldMonitor grid.
     Primary: The Guardian Open Platform. Per-column GDELT when a category is empty.
@@ -676,6 +1054,49 @@ async def get_continent_news():
     order = list(_GUARDIAN_CONTINENT_QUERIES.keys())
     feeds.sort(key=lambda f: order.index(f.continent) if f.continent in order else 99)
 
+    # Enrich with DB-resolved tickers (up to 5), keeping any existing tickers first.
+    for f in feeds:
+        for a in f.articles:
+            try:
+                existing = a.tickers or []
+                resolved = _resolve_tickers_from_db(db, a.title, limit=5)
+                merged: List[str] = []
+                for t in existing + resolved:
+                    if t and t not in merged:
+                        merged.append(t)
+                    if len(merged) >= 5:
+                        break
+                a.tickers = merged
+            except Exception:
+                continue
+
+    # Yahoo fallback (only if still empty) — strict per-request cap + caching
+    yahoo_calls = 0
+    sem = asyncio.Semaphore(4)
+    async with httpx.AsyncClient() as client:
+        async def enrich_one(article: ContinentNews) -> None:
+            nonlocal yahoo_calls
+            if article.tickers and len(article.tickers) > 0:
+                return
+            if yahoo_calls >= _YAHOO_SEARCH_MAX_CALLS_PER_REQUEST:
+                return
+            q = _pick_yahoo_query_from_title(article.title)
+            if not q:
+                return
+            yahoo_calls += 1
+            async with sem:
+                syms = await _yahoo_search_symbol(client, q)
+            if syms:
+                article.tickers = (syms or [])[:5]
+
+        tasks: List[asyncio.Task] = []
+        for f in feeds:
+            for a in f.articles:
+                if not a.tickers:
+                    tasks.append(asyncio.create_task(enrich_one(a)))
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
     return ContinentNewsResponse(
         feeds=feeds,
         updated_at=datetime.now(timezone.utc).isoformat(),
@@ -694,9 +1115,9 @@ async def _fetch_continent_news_guardian(
                 "q": params["q"],
                 "section": params.get("section", "world"),
                 "api-key": _GUARDIAN_KEY,
-                "page-size": 15,
+                "page-size": 35,
                 "order-by": "newest",
-                "show-fields": "trailText",
+                "show-fields": "trailText,thumbnail",
             },
         )
         if resp.status_code == 200:
@@ -724,12 +1145,18 @@ async def _fetch_continent_news_guardian(
                 elif "MILITARY" in tags:
                     threat = "medium"
 
+                fields = art.get("fields") or {}
+                thumbnail = fields.get("thumbnail")
+                tickers = _extract_tickers(title)
+
                 articles.append(ContinentNews(
                     title=title,
                     source="The Guardian",
                     url=art.get("webUrl"),
+                    image_url=thumbnail,
                     time_ago=time_ago,
                     tags=tags,
+                    tickers=tickers,
                     threat_level=threat,
                     category=continent,
                 ))
@@ -755,7 +1182,7 @@ async def _fetch_continent_news_gdelt(
             params={
                 "query": query,
                 "mode": "artlist",
-                "maxrecords": 15,
+                "maxrecords": 35,
                 "format": "json",
                 "sort": "datedesc",
             },
@@ -763,7 +1190,7 @@ async def _fetch_continent_news_gdelt(
         )
         if resp.status_code == 200:
             data = resp.json()
-            for art in data.get("articles", [])[:15]:
+            for art in data.get("articles", [])[:35]:
                 seen = art.get("seendate", "")
                 time_ago = _gdelt_time_ago(seen) if seen else "recently"
 
@@ -790,12 +1217,18 @@ async def _fetch_continent_news_gdelt(
                 elif tone < -2:
                     threat = "medium"
 
+                social_img = art.get("socialimage") or None
+                gdelt_title = art.get("title", "")
+                tickers = _extract_tickers(gdelt_title)
+
                 articles.append(ContinentNews(
-                    title=art.get("title", ""),
+                    title=gdelt_title,
                     source=art.get("domain", ""),
                     url=art.get("url"),
+                    image_url=social_img,
                     time_ago=time_ago,
                     tags=tags,
+                    tickers=tickers,
                     threat_level=threat,
                     category=continent,
                 ))
