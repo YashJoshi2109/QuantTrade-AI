@@ -269,7 +269,7 @@ export default function AppLayout({ children, symbol, hideFooter }: AppLayoutPro
         <MarketTicker />
       </div>
 
-      {/* Fixed Header — md:top-11 clears ticker a bit more so the alert bell badge does not crowd API quota */}
+      {/* Fixed Header — md:top-11 clears ticker a bit more so the alert bell badge does not crowd API usage chip */}
       <header className="fixed top-0 md:top-11 left-0 right-0 h-14 z-50">
         <div className="absolute inset-0 bg-[#0d1321]/90 backdrop-blur-xl border-b border-blue-500/10" />
         <div className="relative h-full flex items-center px-4 md:px-6 gap-2 md:gap-4 md:pt-1">
@@ -382,14 +382,9 @@ export default function AppLayout({ children, symbol, hideFooter }: AppLayoutPro
 
           {/* Actions — extra gap before bell so badge does not overlap API chip */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 md:ml-1">
-            <HeaderTooltip
-              label="API Quota"
-              detail="Live remaining request budget for market data adapters."
-            >
-              <div className="shrink-0 max-w-[min(11rem,32vw)]">
-                <ApiStatsMonitor compact={true} />
-              </div>
-            </HeaderTooltip>
+            <div className="shrink-0 max-w-[min(8rem,28vw)]">
+              <ApiStatsMonitor compact={true} />
+            </div>
             <MarketStatusIndicator compact={true} />
             <HeaderTooltip
               label="About QuantTrade"

@@ -351,6 +351,7 @@ export interface PredictionAlert {
   confidence: number
   severity: 'high' | 'medium' | 'low'
   message: string
+  name?: string | null
 }
 
 export async function fetchPredictionAlerts(
@@ -1679,8 +1680,18 @@ export interface IdeasResponse {
     bullish_count?: number
     bearish_count?: number
     avg_confidence?: number
-    top_bullish?: { symbol: string; confidence: number; catalyst: string }[]
-    top_bearish?: { symbol: string; confidence: number; catalyst: string }[]
+    top_bullish?: {
+      symbol: string
+      company_name?: string | null
+      confidence: number
+      catalyst: string
+    }[]
+    top_bearish?: {
+      symbol: string
+      company_name?: string | null
+      confidence: number
+      catalyst: string
+    }[]
     sector_rotation?: Record<string, { bullish: number; bearish: number }>
   }
 }

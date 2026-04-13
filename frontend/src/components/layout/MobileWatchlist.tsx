@@ -29,6 +29,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import TickerLogo from '@/components/TickerLogo'
 import {
   addToWatchlist,
   getWatchlist,
@@ -390,19 +391,22 @@ export default function MobileWatchlist() {
                     key={q.symbol}
                     className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-4 flex items-center justify-between"
                   >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/research?symbol=${encodeURIComponent(q.symbol)}`}
-                          className="text-[16px] font-semibold text-white"
-                        >
-                          {q.symbol}
-                        </Link>
-                        <ArrowUpRight className="w-4 h-4 text-slate-500" />
+                    <div className="min-w-0 flex items-center gap-3">
+                      <TickerLogo symbol={q.symbol} companyName={q.name} size={40} className="shrink-0" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/research?symbol=${encodeURIComponent(q.symbol)}`}
+                            className="text-[16px] font-semibold text-white"
+                          >
+                            {q.symbol}
+                          </Link>
+                          <ArrowUpRight className="w-4 h-4 text-slate-500" />
+                        </div>
+                        <p className="text-[11px] text-slate-500 truncate max-w-[200px]">
+                          {q.name || '—'}
+                        </p>
                       </div>
-                      <p className="text-[11px] text-slate-500 truncate max-w-[220px]">
-                        {q.name || '—'}
-                      </p>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">

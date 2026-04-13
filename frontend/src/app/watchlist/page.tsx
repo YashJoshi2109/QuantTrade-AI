@@ -41,6 +41,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useMarketRefreshInterval } from '@/hooks/useMarketRefresh'
 import { useToast } from '@/components/Toast'
 import { SkeletonWatchlistTable, SkeletonText } from '@/components/Skeleton'
+import TickerLogo from '@/components/TickerLogo'
 
 interface WatchlistItemWithPrice extends WatchlistItem {
   price?: number
@@ -671,6 +672,9 @@ function DesktopWatchlistPage() {
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-8" scope="col">
                             <span className="sr-only">Favorite</span>
                           </th>
+                          <th className="px-2 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-12" scope="col">
+                            <span className="sr-only">Logo</span>
+                          </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" scope="col">Symbol</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider" scope="col">Price</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider" scope="col">Change</th>
@@ -691,6 +695,9 @@ function DesktopWatchlistPage() {
                               >
                                 <Star className={`w-4 h-4 ${item.starred ? 'fill-current' : ''}`} aria-hidden="true" />
                               </button>
+                            </td>
+                            <td className="px-2 py-4 align-middle">
+                              <TickerLogo symbol={item.symbol} companyName={item.name} size={36} />
                             </td>
                             <td className="px-4 py-4">
                               <Link

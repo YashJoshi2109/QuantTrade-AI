@@ -330,6 +330,7 @@ class PredictionAlertResponse(BaseModel):
     confidence: float
     severity: str
     message: str
+    name: Optional[str] = None
 
 
 @router.get("/news/{symbol}/realtime", response_model=List[NewsArticleResponse])
@@ -1018,6 +1019,16 @@ async def get_prediction_alerts(
     if not symbols:
         symbols = list(_DEFAULT_ALERT_SYMBOLS[:max_symbols])
 
+    sym_upper = [s.upper().strip() for s in symbols if s]
+    name_map: dict[str, Optional[str]] = {}
+    if sym_upper:
+        try:
+            for row in db.query(Symbol).filter(Symbol.symbol.in_(sym_upper)).all():
+                nm = (row.name or "").strip()
+                name_map[row.symbol.upper()] = nm or None
+        except Exception:
+            pass
+
     cache = QuoteCacheService(db)
     alerts: List[PredictionAlertResponse] = []
     min_pulse_pct = 0.55
@@ -1062,6 +1073,7 @@ async def get_prediction_alerts(
                         confidence=confidence,
                         severity=severity,
                         message=f"{sym_u} may {movement} ({expected_return:+.2f}%) on {tf} horizon (model)",
+                        name=name_map.get(sym_u),
                     )
                 )
                 had_ml = True
@@ -1093,6 +1105,7 @@ async def get_prediction_alerts(
                     confidence=round(conf, 2),
                     severity=severity,
                     message=f"{sym_u} session {pct:+.2f}% (live quote)",
+                    name=name_map.get(sym_u),
                 )
             )
         except Exception:

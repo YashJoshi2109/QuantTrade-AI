@@ -156,7 +156,12 @@ export function ResearchChartHeader({
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <TickerLogo symbol={selectedSymbol} size={40} className="rounded-xl border border-blue-500/20 hidden sm:block" />
+            <TickerLogo
+              symbol={selectedSymbol}
+              companyName={companyName || undefined}
+              size={40}
+              className="rounded-xl border border-blue-500/20 hidden sm:block"
+            />
             <div className="min-w-0">
             <h2 className="font-display text-2xl font-black leading-[1.15] tracking-tight text-white sm:text-3xl">
               <span className="block break-words">{headline}</span>

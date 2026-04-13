@@ -82,12 +82,15 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
   // Header compact view — clickable with hover popover
   if (compact) {
     const fmpPct = fmpStats ? fmpStats.percent : 0
-    const fmpColor = fmpPct > 80 ? 'text-red-400' : fmpPct > 50 ? 'text-amber-400' : 'text-emerald-400'
     const fmpBarColor = fmpPct > 80 ? 'bg-red-500' : fmpPct > 50 ? 'bg-amber-500' : 'bg-emerald-500'
 
     return (
-      <div className="hidden lg:flex items-center gap-1.5 relative group">
-        {/* Finnhub badge */}
+      <div
+        className="hidden lg:flex items-center gap-1.5 relative group"
+        role="group"
+        aria-label="API usage — hover for Finnhub rate limit, FMP daily quota, and cache stats"
+      >
+        {/* Finnhub badge (FMP shown in popover only) */}
         <div
           className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-xs font-mono cursor-pointer transition-colors hover:bg-slate-700/40 ${
             isRateLimited
@@ -101,15 +104,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
           </span>
         </div>
 
-        {/* FMP badge */}
-        {fmpStats && (
-          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border bg-slate-800/50 border-slate-700/60 text-xs font-mono cursor-pointer transition-colors hover:bg-slate-700/40">
-            <Database className={`w-3 h-3 ${fmpColor}`} />
-            <span className="font-bold tabular-nums text-[10px] text-slate-300">
-              {fmpStats.used}/{fmpStats.limit}
-            </span>
-          </div>
-        )}
+        {/* FMP daily quota: details only in hover popover (avoids second header chip + tooltip overlap) */}
 
         {/* Hover popover */}
         <div className="absolute top-full right-0 mt-2 w-64 rounded-xl border border-slate-700/60 bg-[#0b0f14] p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">

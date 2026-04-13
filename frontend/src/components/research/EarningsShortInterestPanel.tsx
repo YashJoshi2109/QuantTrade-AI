@@ -113,6 +113,11 @@ export default function EarningsShortInterestPanel({
   const earningsDate = tickerInfo?.earnings_date
   const hasEarnings = earningsDate && earningsDate !== 'N/A' && earningsDate !== ''
 
+  const showShortInterest =
+    !!tickerInfo &&
+    ((isNumber(tickerInfo.short_ratio) && tickerInfo.short_ratio > 0) ||
+      (isNumber(tickerInfo.short_percent_of_float) && tickerInfo.short_percent_of_float > 0))
+
   const keyStats = useMemo(() => {
     if (!tickerInfo) return []
     return [
@@ -184,15 +189,14 @@ export default function EarningsShortInterestPanel({
 
   return (
     <div className="space-y-4">
-      {/* ---- Earnings Card ---- */}
-      <div className="hud-panel rounded-xl border border-slate-800/50 p-5">
-        <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-3">
-          Earnings
-        </h3>
+      {/* ---- Earnings Card (only when next date is known) ---- */}
+      {hasEarnings && (
+        <div className="hud-panel rounded-xl border border-slate-800/50 p-5">
+          <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-3">
+            Earnings
+          </h3>
 
-        {hasEarnings ? (
           <div className="flex items-start gap-4">
-            {/* Calendar icon + date */}
             <div className="flex flex-col items-center justify-center rounded-xl bg-blue-600/10 border border-blue-500/20 px-4 py-3 min-w-[90px]">
               <svg
                 className="w-5 h-5 text-blue-400 mb-1"
@@ -212,7 +216,6 @@ export default function EarningsShortInterestPanel({
               </span>
             </div>
 
-            {/* EPS data */}
             <div className="flex-1 space-y-2">
               <p className="text-slate-300 text-sm font-medium">
                 Next Earnings Report
@@ -235,10 +238,8 @@ export default function EarningsShortInterestPanel({
               </div>
             </div>
           </div>
-        ) : (
-          <p className="text-slate-500 text-sm">No upcoming earnings date available.</p>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ---- Earnings History Chart (Finnhub) ---- */}
       {earningsQuarters.length > 0 && (
@@ -299,42 +300,43 @@ export default function EarningsShortInterestPanel({
         </div>
       )}
 
-      {/* ---- Short Interest ---- */}
-      <div className="hud-panel rounded-xl border border-slate-800/50 p-5">
-        <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-4">
-          Short Interest
-        </h3>
+      {/* ---- Short Interest (omit when feed has no non-zero figures) ---- */}
+      {showShortInterest && (
+        <div className="hud-panel rounded-xl border border-slate-800/50 p-5">
+          <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-4">
+            Short Interest
+          </h3>
 
-        <div className="space-y-4">
-          <GaugeBar
-            label="Short Ratio (Days to Cover)"
-            value={tickerInfo.short_ratio}
-            max={10}
-            color="#f59e0b"
-          />
-          <GaugeBar
-            label="Short % of Float"
-            value={
-              isNumber(tickerInfo.short_percent_of_float)
-                ? tickerInfo.short_percent_of_float * 100
-                : undefined
-            }
-            max={50}
-            color="#ef4444"
-            suffix="%"
-          />
-        </div>
+          <div className="space-y-4">
+            <GaugeBar
+              label="Short Ratio (Days to Cover)"
+              value={tickerInfo.short_ratio}
+              max={10}
+              color="#f59e0b"
+            />
+            <GaugeBar
+              label="Short % of Float"
+              value={
+                isNumber(tickerInfo.short_percent_of_float)
+                  ? tickerInfo.short_percent_of_float * 100
+                  : undefined
+              }
+              max={50}
+              color="#ef4444"
+              suffix="%"
+            />
+          </div>
 
-        {/* Contextual note */}
-        <div className="mt-4 rounded-lg bg-slate-900/40 px-3 py-2">
-          <p className="text-[10px] text-slate-500 leading-relaxed">
-            {isNumber(tickerInfo.short_percent_of_float) &&
-            tickerInfo.short_percent_of_float > 0.2
-              ? 'Elevated short interest may indicate bearish sentiment or potential squeeze conditions.'
-              : 'Short interest is within typical range for this stock.'}
-          </p>
+          <div className="mt-4 rounded-lg bg-slate-900/40 px-3 py-2">
+            <p className="text-[10px] text-slate-500 leading-relaxed">
+              {isNumber(tickerInfo.short_percent_of_float) &&
+              tickerInfo.short_percent_of_float > 0.2
+                ? 'Elevated short interest may indicate bearish sentiment or potential squeeze conditions.'
+                : 'Short interest is within typical range for this stock.'}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ---- Key Statistics Grid ---- */}
       <div className="hud-panel rounded-xl border border-slate-800/50 p-5">

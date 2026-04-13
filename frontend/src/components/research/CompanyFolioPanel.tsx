@@ -133,6 +133,38 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
   const ceo = pickCeo(info.officers ?? [])
   const addressLine = [info.address, info.city, info.state, info.zip].filter(Boolean).join(', ')
 
+  const hasBalanceSheetData =
+    !!(info.total_cash && isFinite(info.total_cash)) ||
+    !!(info.total_debt && isFinite(info.total_debt)) ||
+    !!(info.shares_outstanding && isFinite(info.shares_outstanding) && info.shares_outstanding > 0) ||
+    !!(info.held_percent_insiders && isFinite(info.held_percent_insiders)) ||
+    !!(info.held_percent_institutions && isFinite(info.held_percent_institutions)) ||
+    !!(info.short_percent_of_float && isFinite(info.short_percent_of_float))
+
+  const hasAnalystPriceTargets =
+    !!(info.target_high && isFinite(info.target_high)) ||
+    !!(info.target_low && isFinite(info.target_low)) ||
+    !!(info.target_price && isFinite(info.target_price))
+
+  const priceTargetStrip = [
+    { label: '52W High', value: info.week_52_high ? `$${fmtNum(info.week_52_high)}` : '—' },
+    { label: '52W Low', value: info.week_52_low ? `$${fmtNum(info.week_52_low)}` : '—' },
+    { label: 'Avg Volume', value: info.avg_volume ? `${(info.avg_volume / 1e6).toFixed(1)}M` : '—' },
+    { label: 'Div Yield', value: fmtPct(info.dividend_yield) },
+    { label: 'Div Rate', value: info.dividend_rate ? `$${fmtNum(info.dividend_rate)}` : '—' },
+    ...(hasAnalystPriceTargets
+      ? [
+          { label: 'Target High', value: info.target_high ? `$${fmtNum(info.target_high)}` : '—' },
+          { label: 'Target Low', value: info.target_low ? `$${fmtNum(info.target_low)}` : '—' },
+          {
+            label: 'Target Avg',
+            value: info.target_price ? `$${fmtNum(info.target_price)}` : '—',
+            highlight: true as const,
+          },
+        ]
+      : []),
+  ]
+
   return (
     <div className="col-span-12">
       <motion.section
@@ -155,7 +187,12 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
           {/* Title rail */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-500/15 bg-slate-950/30 px-4 py-3 sm:px-5">
             <div className="flex items-center gap-2.5">
-              <TickerLogo symbol={symbol} size={36} className="rounded-lg border border-blue-500/20" />
+              <TickerLogo
+                symbol={symbol}
+                companyName={info?.name}
+                size={36}
+                className="rounded-lg border border-blue-500/20"
+              />
               <div>
                 <h3 className="font-display text-sm font-bold tracking-tight text-white sm:text-base">
                   {info?.name || 'Company Folio'}
@@ -246,17 +283,6 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
                     )}
                   </div>
                 )}
-
-                <div className="mt-4 rounded-lg border border-slate-800/60 bg-slate-900/30 p-3">
-                  <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Business &amp; customers
-                  </div>
-                  <p className="text-[11px] leading-snug text-slate-500">
-                    Free market data APIs rarely publish a structured &quot;major customers&quot; list. Use the narrative
-                    above and filings for customer concentration. Cash flow and ownership below are from the same live
-                    profile as your chart header.
-                  </p>
-                </div>
               </div>
 
               <div className="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:min-w-[220px]">
@@ -368,7 +394,12 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
             ))}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-3 lg:p-5">
+          <div
+            className={cn(
+              'grid grid-cols-1 gap-4 p-4 lg:p-5',
+              hasBalanceSheetData ? 'lg:grid-cols-3' : 'lg:grid-cols-2',
+            )}
+          >
             <div className="rounded-lg border border-slate-800/50 bg-slate-950/30 p-4">
               <h5 className="mb-3 flex items-center gap-2 text-xs font-bold text-white">
                 <BarChart3 className="h-3.5 w-3.5 text-cyan-400" /> Profitability margins
@@ -401,45 +432,47 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
                 ))}
               </div>
             </div>
-            <div className="rounded-lg border border-slate-800/50 bg-slate-950/30 p-4">
-              <h5 className="mb-3 flex items-center gap-2 text-xs font-bold text-white">
-                <DollarSign className="h-3.5 w-3.5 text-amber-400" /> Balance sheet &amp; ownership
-              </h5>
-              <div className="space-y-2">
-                {[
-                  { label: 'Total Cash', value: fmtBig(info.total_cash) },
-                  { label: 'Total Debt', value: fmtBig(info.total_debt) },
-                  {
-                    label: 'Shares Out',
-                    value: info.shares_outstanding ? `${(info.shares_outstanding / 1e9).toFixed(2)}B` : '—',
-                  },
-                  { label: 'Insider %', value: fmtPct(info.held_percent_insiders) },
-                  { label: 'Institutional %', value: fmtPct(info.held_percent_institutions) },
-                  { label: 'Short % Float', value: fmtPct(info.short_percent_of_float) },
-                ].map((m) => (
-                  <div
-                    key={m.label}
-                    className="flex items-center justify-between border-b border-slate-800/30 py-1.5 last:border-0"
-                  >
-                    <span className="text-[11px] text-slate-500">{m.label}</span>
-                    <span className="font-mono text-[11px] font-bold text-white">{m.value}</span>
-                  </div>
-                ))}
+            {hasBalanceSheetData && (
+              <div className="rounded-lg border border-slate-800/50 bg-slate-950/30 p-4">
+                <h5 className="mb-3 flex items-center gap-2 text-xs font-bold text-white">
+                  <DollarSign className="h-3.5 w-3.5 text-amber-400" /> Balance sheet &amp; ownership
+                </h5>
+                <div className="space-y-2">
+                  {[
+                    { label: 'Total Cash', value: fmtBig(info.total_cash) },
+                    { label: 'Total Debt', value: fmtBig(info.total_debt) },
+                    {
+                      label: 'Shares Out',
+                      value: info.shares_outstanding ? `${(info.shares_outstanding / 1e9).toFixed(2)}B` : '—',
+                    },
+                    { label: 'Insider %', value: fmtPct(info.held_percent_insiders) },
+                    { label: 'Institutional %', value: fmtPct(info.held_percent_institutions) },
+                    { label: 'Short % Float', value: fmtPct(info.short_percent_of_float) },
+                  ].map((m) => (
+                    <div
+                      key={m.label}
+                      className="flex items-center justify-between border-b border-slate-800/30 py-1.5 last:border-0"
+                    >
+                      <span className="text-[11px] text-slate-500">{m.label}</span>
+                      <span className="font-mono text-[11px] font-bold text-white">{m.value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 divide-x divide-y divide-slate-800/40 border-t border-slate-800/40 sm:grid-cols-4 lg:grid-cols-8">
-            {[
-              { label: '52W High', value: info.week_52_high ? `$${fmtNum(info.week_52_high)}` : '—' },
-              { label: '52W Low', value: info.week_52_low ? `$${fmtNum(info.week_52_low)}` : '—' },
-              { label: 'Avg Volume', value: info.avg_volume ? `${(info.avg_volume / 1e6).toFixed(1)}M` : '—' },
-              { label: 'Div Yield', value: fmtPct(info.dividend_yield) },
-              { label: 'Div Rate', value: info.dividend_rate ? `$${fmtNum(info.dividend_rate)}` : '—' },
-              { label: 'Target High', value: info.target_high ? `$${fmtNum(info.target_high)}` : '—' },
-              { label: 'Target Low', value: info.target_low ? `$${fmtNum(info.target_low)}` : '—' },
-              { label: 'Target Avg', value: info.target_price ? `$${fmtNum(info.target_price)}` : '—', highlight: true },
-            ].map((m) => (
+          <div
+            className={cn(
+              'grid divide-x divide-y divide-slate-800/40 border-t border-slate-800/40',
+              priceTargetStrip.length <= 4
+                ? 'grid-cols-2 sm:grid-cols-4'
+                : priceTargetStrip.length <= 6
+                  ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
+                  : 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-8',
+            )}
+          >
+            {priceTargetStrip.map((m) => (
               <div key={m.label} className="flex flex-col gap-0.5 p-3">
                 <span className="text-[9px] uppercase tracking-wider text-slate-600">{m.label}</span>
                 <span

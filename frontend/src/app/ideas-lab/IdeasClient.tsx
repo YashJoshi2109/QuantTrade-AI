@@ -286,7 +286,7 @@ function IdeaCard({ idea, index }: { idea: TradeIdea; index: number }) {
               </div>
               {/* Symbol + name */}
               <div className="flex items-center gap-2.5">
-                <TickerLogo symbol={idea.symbol} size={32} />
+                <TickerLogo symbol={idea.symbol} companyName={idea.company_name} size={32} />
                 <div className="flex items-baseline gap-2 min-w-0">
                   <Link
                     href={`/research?symbol=${idea.symbol}`}
@@ -449,7 +449,7 @@ function MarketPulse({
           <div className="space-y-1.5">
             {pulse.top_bullish.map((s, i) => (
               <div key={i} className="flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-3 py-2">
-                <TickerLogo symbol={s.symbol} size={20} />
+                <TickerLogo symbol={s.symbol} companyName={s.company_name} size={20} />
                 <span className="text-xs font-black text-emerald-400 font-mono w-12">{s.symbol}</span>
                 <span className="text-[11px] text-slate-400 flex-1 truncate">{s.catalyst}</span>
                 <span className="text-xs font-bold text-emerald-400 font-mono">{s.confidence}%</span>
@@ -468,7 +468,7 @@ function MarketPulse({
           <div className="space-y-1.5">
             {pulse.top_bearish.map((s, i) => (
               <div key={i} className="flex items-center gap-2 bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2">
-                <TickerLogo symbol={s.symbol} size={20} />
+                <TickerLogo symbol={s.symbol} companyName={s.company_name} size={20} />
                 <span className="text-xs font-black text-red-400 font-mono w-12">{s.symbol}</span>
                 <span className="text-[11px] text-slate-400 flex-1 truncate">{s.catalyst}</span>
                 <span className="text-xs font-bold text-red-400 font-mono">{s.confidence}%</span>

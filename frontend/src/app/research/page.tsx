@@ -732,8 +732,16 @@ function ResearchContent() {
                 <div className="absolute inset-0 animate-research-flow bg-[length:400%_400%] bg-gradient-to-r from-slate-800/40 via-blue-950/30 to-slate-800/40" />
               </div>
               <div className="relative flex flex-wrap items-center gap-2 border-b border-blue-500/10 p-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-500/25 bg-blue-500/10">
-                  <Newspaper className="h-5 w-5 text-blue-400" />
+                <div className="flex items-center gap-2">
+                  <TickerLogo
+                    symbol={selectedSymbol}
+                    companyName={tickerInfo?.name}
+                    size={36}
+                    className="rounded-lg border border-blue-500/20"
+                  />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-500/25 bg-blue-500/10">
+                    <Newspaper className="h-5 w-5 text-blue-400" />
+                  </div>
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="font-display font-bold text-white">

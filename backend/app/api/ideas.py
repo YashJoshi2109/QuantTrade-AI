@@ -414,11 +414,21 @@ def generate_ideas(
         "bearish_count": len(bearish),
         "avg_confidence": round(sum(i.confidence for i in ideas) / max(len(ideas), 1), 1),
         "top_bullish": [
-            {"symbol": i.symbol, "confidence": i.confidence, "catalyst": i.catalyst}
+            {
+                "symbol": i.symbol,
+                "company_name": i.company_name,
+                "confidence": i.confidence,
+                "catalyst": i.catalyst,
+            }
             for i in bullish[:5]
         ],
         "top_bearish": [
-            {"symbol": i.symbol, "confidence": i.confidence, "catalyst": i.catalyst}
+            {
+                "symbol": i.symbol,
+                "company_name": i.company_name,
+                "confidence": i.confidence,
+                "catalyst": i.catalyst,
+            }
             for i in bearish[:5]
         ],
         "sector_rotation": sector_sentiment,
@@ -469,11 +479,21 @@ def get_trending_ideas(
             "bearish_count": len(bearish),
             "avg_confidence": round(sum(i.confidence for i in combined) / max(len(combined), 1), 1),
             "top_bullish": [
-                {"symbol": i.symbol, "confidence": i.confidence, "catalyst": i.catalyst}
+                {
+                    "symbol": i.symbol,
+                    "company_name": i.company_name,
+                    "confidence": i.confidence,
+                    "catalyst": i.catalyst,
+                }
                 for i in bullish[:5]
             ],
             "top_bearish": [
-                {"symbol": i.symbol, "confidence": i.confidence, "catalyst": i.catalyst}
+                {
+                    "symbol": i.symbol,
+                    "company_name": i.company_name,
+                    "confidence": i.confidence,
+                    "catalyst": i.catalyst,
+                }
                 for i in bearish[:5]
             ],
             "sector_rotation": sector_sentiment,

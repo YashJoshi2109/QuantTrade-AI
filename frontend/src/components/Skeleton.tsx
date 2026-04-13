@@ -217,6 +217,7 @@ export function SkeletonWatchlistTable({ rows = 5 }: { rows?: number }) {
         <thead>
           <tr className="border-b border-slate-700 bg-slate-800/50">
             <th className="px-4 py-3 text-left"><Skeleton className="h-3 w-4" /></th>
+            <th className="px-2 py-3 text-left"><Skeleton className="h-8 w-8 rounded-lg" /></th>
             <th className="px-4 py-3 text-left"><Skeleton className="h-3 w-14" /></th>
             <th className="px-4 py-3 text-right"><Skeleton className="h-3 w-10" /></th>
             <th className="px-4 py-3 text-right"><Skeleton className="h-3 w-12" /></th>
@@ -229,6 +230,7 @@ export function SkeletonWatchlistTable({ rows = 5 }: { rows?: number }) {
           {Array.from({ length: rows }).map((_, i) => (
             <tr key={i}>
               <td className="px-4 py-4"><Skeleton className="h-4 w-4" /></td>
+              <td className="px-2 py-4"><Skeleton className="h-9 w-9 rounded-lg" /></td>
               <td className="px-4 py-4">
                 <div className="space-y-1">
                   <Skeleton className="h-4 w-14" />
