@@ -138,7 +138,8 @@ const StrategicRiskPanel = lazy(() => import('@/components/monitor/StrategicRisk
 const CommoditiesWidget = lazy(() => import('@/components/monitor/CommoditiesWidget'))
 const SecurityAdvisoriesPanel = lazy(() => import('@/components/monitor/SecurityAdvisoriesPanel'))
 const LiveEventsFeed = lazy(() => import('@/components/monitor/LiveEventsFeed'))
-const FlatWorldMap   = lazy(() => import('@/components/monitor/FlatWorldMap'))
+const CobeMonitorGlobe = lazy(() => import('@/components/monitor/CobeMonitorGlobe'))
+const DottedFlatMap    = lazy(() => import('@/components/monitor/DottedFlatMap'))
 
 function PanelShimmer({ height = 'h-48' }: { height?: string }) {
   return (
@@ -218,7 +219,7 @@ function MonitorDesktop() {
   const [showFilters, setShowFilters] = useState(false)
   const [autoRotate, setAutoRotate] = useState(true)
   const [globeExpanded, setGlobeExpanded] = useState(false)
-  const [viewMode, setViewMode] = useState<'globe' | 'map'>('globe')
+  const [viewMode, setViewMode] = useState<'globe' | 'cobe' | 'dotted'>('cobe')
   const [activeThreats, setActiveThreats] = useState<Set<string>>(new Set(THREAT_LEVELS.map(t => t.value)))
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set(CATEGORIES.map(c => c.value)))
   const [activeLayers, setActiveLayers] = useState<Set<string>>(new Set(WORLD_LAYERS.map(l => l.id)))
@@ -337,10 +338,14 @@ function MonitorDesktop() {
                 </div>
                 {/* View mode toggle */}
                 <div className="flex items-center gap-0.5 mac-btn p-0.5 rounded-xl">
-                  {(['globe', 'map'] as const).map(m => (
-                    <button key={m} onClick={() => setViewMode(m)}
-                      className={`mac-btn mac-btn-pill text-[10px] py-1 px-2.5 ${viewMode === m ? 'mac-btn-active' : ''}`}>
-                      {m === 'globe' ? '🌐 Globe' : '🗺 Map'}
+                  {([
+                    { key: 'cobe', label: '🌐 Globe' },
+                    { key: 'dotted', label: '🗺 Map' },
+                    { key: 'globe', label: '🌍 HD' },
+                  ] as const).map(m => (
+                    <button key={m.key} onClick={() => setViewMode(m.key)}
+                      className={`mac-btn mac-btn-pill text-[10px] py-1 px-2.5 ${viewMode === m.key ? 'mac-btn-active' : ''}`}>
+                      {m.label}
                     </button>
                   ))}
                 </div>
@@ -503,138 +508,124 @@ function MonitorDesktop() {
 
             {/* ── HERO ROW: Events | Globe | Impact ─────────────── */}
             <motion.div
-              className="grid gap-4"
+              className="space-y-4"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, ease: 'easeOut' }}
-              style={{
-                gridTemplateColumns: globeExpanded
-                  ? '0px 1fr 0px'
-                  : 'minmax(260px, 0.85fr) minmax(0, 1.5fr) minmax(300px, 1fr)',
-                minHeight: '540px',
-              }}
             >
-              {/* LEFT: Live events feed */}
-              {!globeExpanded && (
-                <div className="bg-slate-950/90 border border-slate-800/60 rounded-2xl overflow-hidden flex flex-col" style={{ height: '540px' }}>
-                  <div className="px-4 py-3 border-b border-slate-800/50 flex items-center justify-between shrink-0">
-                    <div className="flex items-center gap-2">
-                      <Radio className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Live Events</span>
-                    </div>
-                    <div className="text-[10px] font-mono text-slate-600">{filteredEvents.length} active</div>
-                  </div>
-                  <Suspense fallback={<PanelShimmer height="h-full" />}>
-                    <LiveEventsFeed events={filteredEvents} onEventClick={handleEventClick} maxItems={80} />
-                  </Suspense>
-                </div>
-              )}
-
-              {/* CENTER: Globe / Flat Map */}
-              <div className="relative bg-slate-950 border border-slate-800/60 rounded-2xl overflow-hidden" style={{ height: '540px' }}>
-
-                {/* View mode tabs — macOS glass pills */}
-                {!isLoading && mapData && (
-                  <div className="absolute top-3 left-3 z-20 flex gap-1">
-                    <button onClick={() => setViewMode('globe')}
-                      className={`mac-btn mac-btn-pill text-[9px] py-1 px-2.5 ${viewMode === 'globe' ? 'mac-btn-active' : ''}`}>
-                      🌐 3D Globe
-                    </button>
-                    <button onClick={() => setViewMode('map')}
-                      className={`mac-btn mac-btn-pill text-[9px] py-1 px-2.5 ${viewMode === 'map' ? 'mac-btn-active' : ''}`}>
-                      🗺 Flat Map
-                    </button>
-                  </div>
-                )}
-
-                {/* Expand button */}
-                <div className="absolute top-3 right-3 z-20">
-                  <button onClick={() => setGlobeExpanded(e => !e)} className="mac-btn mac-btn-icon" aria-label={globeExpanded ? 'Shrink' : 'Expand'}>
-                    {globeExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-
-                {/* Loading */}
-                {isLoading ? (
-                  <div className="flex items-center justify-center h-full flex-col gap-4">
-                    <div className="relative w-16 h-16">
-                      <div className="absolute inset-0 rounded-full border-2 border-sky-500/20 animate-ping" />
-                      <div className="absolute inset-2 rounded-full border-2 border-cyan-400/30 animate-spin" style={{ borderTopColor: '#00d4ff' }} />
-                      <Globe className="absolute inset-0 m-auto w-6 h-6 text-cyan-400" />
-                    </div>
-                    <p className="text-slate-500 text-[11px] font-mono tracking-wider animate-pulse">LOADING INTELLIGENCE DATA</p>
-                  </div>
-                ) : mapData ? (
-                  <AnimatePresence mode="wait">
-                    {viewMode === 'globe' ? (
-                      <motion.div key="globe" className="w-full h-full"
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-                        <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="w-10 h-10 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" /></div>}>
-                          <GlobalMonitorGlobe
-                            events={filteredEvents} clusters={mapData.clusters} instability={mapData.instability}
-                            onEventClick={handleEventClick} onCountryClick={handleCountryClick}
-                            autoRotate={autoRotate} showLabels={true}
-                          />
-                        </Suspense>
-                      </motion.div>
-                    ) : (
-                      <motion.div key="map" className="w-full h-full"
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-                        <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="w-10 h-10 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" /></div>}>
-                          <FlatWorldMap events={filteredEvents} onEventClick={handleEventClick} />
-                        </Suspense>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full gap-3">
-                    <AlertTriangle className="w-10 h-10 text-yellow-500" />
-                    <p className="text-slate-400 text-sm">Intelligence data unavailable</p>
-                  </div>
-                )}
-
-                {/* Status badges */}
-                {mapData && !isLoading && (
-                  <>
-                    <div className="absolute bottom-3 left-3 z-20 flex flex-wrap gap-1.5">
-                      <div className="frosted-chip px-2.5 py-1 flex items-center gap-1.5">
-                        <Activity className="w-3 h-3 text-cyan-400" />
-                        <span className="text-[9px] font-bold text-slate-200">{filteredEvents.length} Events</span>
+              <div
+                className="grid gap-4"
+                style={{
+                  gridTemplateColumns: globeExpanded
+                    ? '1fr'
+                    : 'minmax(260px, 0.85fr) minmax(0, 1.5fr) minmax(300px, 1fr)',
+                }}
+              >
+                {/* LEFT: Live events feed */}
+                {!globeExpanded && (
+                  <div className="bg-slate-950/90 border border-slate-800/60 rounded-2xl overflow-hidden flex flex-col" style={{ height: '540px' }}>
+                    <div className="px-4 py-3 border-b border-slate-800/50 flex items-center justify-between shrink-0">
+                      <div className="flex items-center gap-2">
+                        <Radio className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Live Events</span>
                       </div>
-                      {criticalCount > 0 && (
-                        <motion.div animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1.2, repeat: Infinity }}
-                          className="frosted-chip px-2.5 py-1 flex items-center gap-1.5" style={{ borderColor: 'rgba(239,68,68,0.4)' }}>
-                          <AlertTriangle className="w-3 h-3 text-red-400" />
-                          <span className="text-[9px] font-bold text-red-200">{criticalCount} Critical</span>
+                      <div className="text-[10px] font-mono text-slate-600">{filteredEvents.length} active</div>
+                    </div>
+                    <Suspense fallback={<PanelShimmer height="h-full" />}>
+                      <LiveEventsFeed events={filteredEvents} onEventClick={handleEventClick} maxItems={80} />
+                    </Suspense>
+                  </div>
+                )}
+
+                {/* CENTER: Globe / Flat Map */}
+                <div className="relative bg-slate-950 border border-slate-800/60 rounded-2xl overflow-hidden" style={{ height: globeExpanded ? '620px' : '540px' }}>
+                  {/* Expand button */}
+                  <div className="absolute top-3 right-3 z-20">
+                    <button onClick={() => setGlobeExpanded(e => !e)} className="mac-btn mac-btn-icon" aria-label={globeExpanded ? 'Shrink' : 'Expand'}>
+                      {globeExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  {isLoading ? (
+                    <div className="flex items-center justify-center h-full flex-col gap-4">
+                      <div className="relative w-16 h-16">
+                        <div className="absolute inset-0 rounded-full border-2 border-sky-500/20 animate-ping" />
+                        <div className="absolute inset-2 rounded-full border-2 border-cyan-400/30 animate-spin" style={{ borderTopColor: '#00d4ff' }} />
+                        <Globe className="absolute inset-0 m-auto w-6 h-6 text-cyan-400" />
+                      </div>
+                      <p className="text-slate-500 text-[11px] font-mono tracking-wider animate-pulse">LOADING INTELLIGENCE DATA</p>
+                    </div>
+                  ) : mapData ? (
+                    <AnimatePresence mode="wait">
+                      {viewMode === 'cobe' ? (
+                        <motion.div key="cobe" className="w-full h-full"
+                          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                          <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="w-10 h-10 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" /></div>}>
+                            <CobeMonitorGlobe
+                              events={filteredEvents} clusters={mapData.clusters} instability={mapData.instability}
+                              onEventClick={handleEventClick} onCountryClick={handleCountryClick}
+                              autoRotate={autoRotate} showLabels={true}
+                            />
+                          </Suspense>
                         </motion.div>
-                      )}
-                      {selectedCountry && (
-                        <div className="frosted-chip px-2.5 py-1 flex items-center gap-1.5" style={{ borderColor: 'rgba(0,212,255,0.35)' }}>
-                          <Globe className="w-3 h-3 text-cyan-400" />
-                          <span className="text-[9px] font-bold text-cyan-200">{selectedCountry.name}</span>
-                        </div>
-                      )}
+                      ) : viewMode === 'dotted' ? (
+                        <motion.div key="dotted" className="w-full h-full"
+                          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                          <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="w-10 h-10 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" /></div>}>
+                            <DottedFlatMap events={filteredEvents} onEventClick={handleEventClick} />
+                          </Suspense>
+                        </motion.div>
+                      ) : viewMode === 'globe' ? (
+                        <motion.div key="globe" className="w-full h-full"
+                          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                          <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="w-10 h-10 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" /></div>}>
+                            <GlobalMonitorGlobe
+                              events={filteredEvents} clusters={mapData.clusters} instability={mapData.instability}
+                              onEventClick={handleEventClick} onCountryClick={handleCountryClick}
+                              autoRotate={autoRotate} showLabels={true}
+                            />
+                          </Suspense>
+                        </motion.div>
+                      ) : null}
+                    </AnimatePresence>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full gap-3">
+                      <AlertTriangle className="w-10 h-10 text-yellow-500" />
+                      <p className="text-slate-400 text-sm">Intelligence data unavailable</p>
                     </div>
-                    {/* Legend */}
-                    <div className="absolute bottom-3 right-3 z-20 glass-panel-strong rounded-xl px-3 py-2" style={{ borderRadius: 12 }}>
-                      <div className="text-[8px] font-bold uppercase tracking-widest text-slate-600 mb-1.5">LEGEND</div>
-                      {[{ label: 'Critical', c: '#ef4444' }, { label: 'High', c: '#f97316' }, { label: 'Medium', c: '#eab308' }, { label: 'Hotspot', c: '#a78bfa' }].map(l => (
-                        <div key={l.label} className="flex items-center gap-1.5 mb-1 last:mb-0">
-                          <div className="w-2 h-2 rounded-full" style={{ background: l.c, boxShadow: `0 0 6px ${l.c}` }} />
-                          <span className="text-[8px] text-slate-500 font-mono">{l.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
+                  )}
+                </div>
+
+                {/* RIGHT: Event Impact Panel */}
+                {!globeExpanded && (
+                  <div style={{ height: '540px' }}>
+                    <Suspense fallback={<PanelShimmer height="h-full" />}>
+                      <EventImpactPanel selectedEvent={selectedEvent} selectedCountry={selectedCountry} mapData={mapData ?? null} onClear={handleClearSelection} />
+                    </Suspense>
+                  </div>
                 )}
               </div>
 
-              {/* RIGHT: Event Impact Panel */}
-              {!globeExpanded && (
-                <div style={{ height: '540px' }}>
-                  <Suspense fallback={<PanelShimmer height="h-full" />}>
-                    <EventImpactPanel selectedEvent={selectedEvent} selectedCountry={selectedCountry} mapData={mapData ?? null} onClear={handleClearSelection} />
-                  </Suspense>
+              {/* Expanded mode: Live Events + Event Impact side by side below map */}
+              {globeExpanded && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-950/90 border border-slate-800/60 rounded-2xl overflow-hidden flex flex-col" style={{ height: '400px' }}>
+                    <div className="px-4 py-3 border-b border-slate-800/50 flex items-center justify-between shrink-0">
+                      <div className="flex items-center gap-2">
+                        <Radio className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Live Events</span>
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-600">{filteredEvents.length} active</div>
+                    </div>
+                    <Suspense fallback={<PanelShimmer height="h-full" />}>
+                      <LiveEventsFeed events={filteredEvents} onEventClick={handleEventClick} maxItems={80} />
+                    </Suspense>
+                  </div>
+                  <div style={{ height: '400px' }}>
+                    <Suspense fallback={<PanelShimmer height="h-full" />}>
+                      <EventImpactPanel selectedEvent={selectedEvent} selectedCountry={selectedCountry} mapData={mapData ?? null} onClear={handleClearSelection} />
+                    </Suspense>
+                  </div>
                 </div>
               )}
             </motion.div>
@@ -667,11 +658,14 @@ function MonitorDesktop() {
                 </div>
               ))}
 
-              {/* Continent news - full width */}
-              <div className="md:col-span-2 rounded-2xl overflow-hidden h-[36rem] border border-slate-800/50 bg-slate-950/60 backdrop-blur-sm">
+              {/* Continent news - full width below all panels */}
+              <div className="col-span-full rounded-2xl overflow-hidden h-[36rem] border border-slate-800/50 bg-slate-950/60 backdrop-blur-sm">
                 <div className="px-4 py-2.5 border-b border-slate-800/50 flex items-center gap-2 shrink-0">
                   <Globe className="w-3.5 h-3.5 text-sky-400" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Continental News Feed</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">World News</span>
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[8px] text-emerald-400 font-bold ml-1">
+                    LIVE
+                  </span>
                 </div>
                 <div className="h-[calc(100%-2.5rem)] overflow-y-auto">
                   <Suspense fallback={<PanelShimmer height="h-full" />}><ContinentNewsFeedGrid /></Suspense>

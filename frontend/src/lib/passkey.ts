@@ -12,12 +12,12 @@ const CONFIGURED_API = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, ''
  */
 function passkeyApiBase(): string {
   if (typeof window === 'undefined') {
-    return CONFIGURED_API || 'http://localhost:8000'
+    return CONFIGURED_API || ''
   }
   const host = window.location.hostname
   const isLocal = host === 'localhost' || host === '127.0.0.1'
   if (isLocal) {
-    return CONFIGURED_API || 'http://localhost:8000'
+    return CONFIGURED_API || ''
   }
   return ''
 }

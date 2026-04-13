@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Mail, Lock, Eye, EyeOff, CheckCircle, Loader2, KeyRound } from 'lucide-react'
 import { sendOtp } from '@/lib/auth'
 
-const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+const API = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
 
 type Step = 'email' | 'otp' | 'new-password' | 'done'
 

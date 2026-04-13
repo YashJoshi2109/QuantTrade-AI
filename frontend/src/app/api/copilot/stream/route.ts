@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server'
  * Forwards auth token and streams back SSE events
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || ''
 
 export const runtime = 'edge'
 export const maxDuration = 120

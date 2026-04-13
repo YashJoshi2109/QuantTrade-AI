@@ -10,15 +10,25 @@ import {
   Globe,
   MapPin,
   Phone,
-  Sparkles,
   Target,
   Users,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { CompanyOfficer, TickerInfo } from '@/app/api/quotes/ticker/route'
-import { formatNumber, isNumber } from '@/lib/format'
+import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import TickerLogo from '@/components/TickerLogo'
+
+/** Display string is treated as “no data” (hide row/cell). */
+function isMissingStatDisplay(value: string): boolean {
+  const t = value.trim()
+  return t === '' || t === '—' || t === '–' || t === 'N/A'
+}
+
+/** Margin as percent points (e.g. 67.9 = 67.9%). Omit near-zero junk from feeds. */
+function isMeaningfulMarginPct(value: number): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && Math.abs(value) >= 0.01
+}
 
 function pickCeo(officers: CompanyOfficer[]): CompanyOfficer | null {
   if (!officers.length) return null
@@ -32,6 +42,103 @@ function pickCeo(officers: CompanyOfficer[]): CompanyOfficer | null {
     )
   })
   return hit ?? officers[0]
+}
+
+/* ────────────── Returns & efficiency — rich data-viz card ────────────── */
+
+interface ReturnMetric {
+  label: string
+  rawValue: number
+  displayValue: string
+  maxScale: number
+  colors: readonly [string, string]
+  thresholds: Readonly<{ good: number; great: number }>
+  suffix: string
+  invertThreshold?: boolean
+}
+
+function qualityTag(
+  value: number,
+  thresholds: Readonly<{ good: number; great: number }>,
+  invert?: boolean,
+): { text: string; bg: string; fg: string } {
+  if (!value || !isFinite(value)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-slate-500' }
+  const v = Math.abs(value)
+  if (invert) {
+    if (v <= thresholds.great) return { text: 'Excellent', bg: 'bg-emerald-500/15', fg: 'text-emerald-400' }
+    if (v <= thresholds.good) return { text: 'Good', bg: 'bg-cyan-500/15', fg: 'text-cyan-400' }
+    return { text: 'High', bg: 'bg-amber-500/15', fg: 'text-amber-400' }
+  }
+  if (v >= thresholds.great) return { text: 'Strong', bg: 'bg-emerald-500/15', fg: 'text-emerald-400' }
+  if (v >= thresholds.good) return { text: 'Good', bg: 'bg-cyan-500/15', fg: 'text-cyan-400' }
+  return { text: 'Low', bg: 'bg-amber-500/15', fg: 'text-amber-400' }
+}
+
+function ReturnsCard({ metrics }: { metrics: ReturnMetric[] }) {
+  const uid = useId().replace(/:/g, '')
+
+  return (
+    <div className="rounded-lg border border-slate-800/50 bg-slate-950/30 p-4 overflow-hidden">
+      <h5 className="mb-4 flex items-center gap-2 text-xs font-bold text-white">
+        <Target className="h-3.5 w-3.5 text-emerald-400" /> Returns &amp; efficiency
+      </h5>
+      <div className="space-y-3.5">
+        {metrics.map((m, i) => {
+          const pct = m.rawValue && isFinite(m.rawValue)
+            ? Math.min(Math.abs(m.rawValue) / m.maxScale, 1) * 100
+            : 0
+          const tag = qualityTag(m.rawValue, m.thresholds, m.invertThreshold)
+          const gradId = `ret-grad-${uid}-${i}`
+          return (
+            <div key={m.label}>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-400">{m.label}</span>
+                <div className="flex items-center gap-2">
+                  <span className={cn('rounded-full px-2 py-0.5 text-[9px] font-bold', tag.bg, tag.fg)}>
+                    {tag.text}
+                  </span>
+                  <span
+                    className="font-mono text-xs font-extrabold tabular-nums"
+                    style={{ color: m.colors[1] }}
+                  >
+                    {m.displayValue}
+                  </span>
+                </div>
+              </div>
+              <div className="relative h-2.5 overflow-hidden rounded-full bg-slate-800/80">
+                <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor={m.colors[0]} stopOpacity="0.6" />
+                      <stop offset="100%" stopColor={m.colors[1]} stopOpacity="1" />
+                    </linearGradient>
+                  </defs>
+                  <rect
+                    x="0"
+                    y="0"
+                    width={`${pct}%`}
+                    height="100%"
+                    rx="5"
+                    fill={`url(#${gradId})`}
+                    className="transition-all duration-700 ease-out"
+                  />
+                </svg>
+                {pct > 6 && (
+                  <div
+                    className="absolute top-0 h-full rounded-full opacity-40 blur-sm"
+                    style={{
+                      width: `${pct}%`,
+                      background: `linear-gradient(90deg, ${m.colors[0]}60, ${m.colors[1]}80)`,
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 export interface CompanyFolioPanelProps {
@@ -102,7 +209,6 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
         : 'border-amber-500/20 bg-amber-500/10 text-amber-400'
 
   const marginBar = (label: string, value: number) => {
-    const isValid = value && isFinite(value)
     const color =
       value > 20 ? 'bg-emerald-500' : value > 10 ? 'bg-cyan-500' : value > 0 ? 'bg-amber-500' : 'bg-red-500'
     return (
@@ -112,20 +218,18 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
           <span
             className={cn(
               'font-mono text-[10px] font-bold',
-              value > 0 ? 'text-emerald-400' : 'text-red-400',
+              value > 0 ? 'text-emerald-400' : value < 0 ? 'text-red-400' : 'text-slate-400',
             )}
           >
-            {isValid ? `${value.toFixed(1)}%` : '—'}
+            {value.toFixed(1)}%
           </span>
         </div>
-        {isValid && (
-          <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-            <div
-              className={cn('h-full rounded-full', color)}
-              style={{ width: `${Math.min(Math.abs(value), 100)}%` }}
-            />
-          </div>
-        )}
+        <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+          <div
+            className={cn('h-full rounded-full', color)}
+            style={{ width: `${Math.min(Math.abs(value), 100)}%` }}
+          />
+        </div>
       </div>
     )
   }
@@ -133,13 +237,91 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
   const ceo = pickCeo(info.officers ?? [])
   const addressLine = [info.address, info.city, info.state, info.zip].filter(Boolean).join(', ')
 
-  const hasBalanceSheetData =
-    !!(info.total_cash && isFinite(info.total_cash)) ||
-    !!(info.total_debt && isFinite(info.total_debt)) ||
-    !!(info.shares_outstanding && isFinite(info.shares_outstanding) && info.shares_outstanding > 0) ||
-    !!(info.held_percent_insiders && isFinite(info.held_percent_insiders)) ||
-    !!(info.held_percent_institutions && isFinite(info.held_percent_institutions)) ||
-    !!(info.short_percent_of_float && isFinite(info.short_percent_of_float))
+  const balanceSheetRows = [
+    { label: 'Total Cash', value: fmtBig(info.total_cash) },
+    { label: 'Total Debt', value: fmtBig(info.total_debt) },
+    {
+      label: 'Shares Out',
+      value: info.shares_outstanding ? `${(info.shares_outstanding / 1e9).toFixed(2)}B` : '—',
+    },
+    { label: 'Insider %', value: fmtPct(info.held_percent_insiders) },
+    { label: 'Institutional %', value: fmtPct(info.held_percent_institutions) },
+    { label: 'Short % Float', value: fmtPct(info.short_percent_of_float) },
+  ].filter((m) => !isMissingStatDisplay(m.value))
+  const showBalanceSheetCard = balanceSheetRows.length > 0
+
+  const financialStripMetrics = [
+    { label: 'Market Cap', value: fmtBig(info.market_cap) },
+    { label: 'Enterprise Val', value: fmtBig(info.enterprise_value) },
+    { label: 'Revenue', value: fmtBig(info.revenue) },
+    { label: 'Rev Growth', value: fmtPct(info.revenue_growth), highlight: info.revenue_growth > 0 },
+    { label: 'Net Income', value: fmtBig(info.net_income) },
+    { label: 'EBITDA', value: fmtBig(info.ebitda) },
+    { label: 'Free Cash Flow', value: fmtBig(info.free_cash_flow) },
+    { label: 'Op. Cash Flow', value: fmtBig(info.operating_cashflow) },
+    { label: 'P/E Ratio', value: fmtNum(info.pe_ratio) },
+    { label: 'Fwd P/E', value: fmtNum(info.forward_pe) },
+    { label: 'PEG Ratio', value: fmtNum(info.peg_ratio) },
+    { label: 'EPS', value: info.eps ? `$${fmtNum(info.eps)}` : '—' },
+    { label: 'P/B', value: fmtNum(info.price_to_book) },
+    { label: 'EV/EBITDA', value: fmtNum(info.enterprise_to_ebitda) },
+    { label: 'EV/Revenue', value: fmtNum(info.enterprise_to_revenue) },
+    { label: 'D/E Ratio', value: fmtNum(info.debt_to_equity) },
+  ].filter((m) => !isMissingStatDisplay(m.value))
+
+  const marginEntries = (
+    [
+      ['Gross Margin', info.gross_margins] as const,
+      ['Operating Margin', info.operating_margins] as const,
+      ['EBITDA Margin', info.ebitda_margins] as const,
+      ['Profit Margin', info.profit_margins] as const,
+    ] as const
+  ).filter(([, v]) => isMeaningfulMarginPct(v))
+
+  const returnsMetrics = [
+    {
+      label: 'Return on Equity',
+      rawValue: info.return_on_equity,
+      displayValue: fmtPct(info.return_on_equity),
+      maxScale: 60,
+      colors: ['#F59E0B', '#FBBF24'] as const,
+      thresholds: { good: 15, great: 25 } as const,
+      suffix: '%',
+    },
+    {
+      label: 'Return on Assets',
+      rawValue: info.return_on_assets,
+      displayValue: fmtPct(info.return_on_assets),
+      maxScale: 30,
+      colors: ['#10B981', '#34D399'] as const,
+      thresholds: { good: 5, great: 10 } as const,
+      suffix: '%',
+    },
+    {
+      label: 'Revenue Growth',
+      rawValue: info.revenue_growth,
+      displayValue: fmtPct(info.revenue_growth),
+      maxScale: 50,
+      colors: ['#06B6D4', '#22D3EE'] as const,
+      thresholds: { good: 10, great: 20 } as const,
+      suffix: '%',
+    },
+    {
+      label: 'Beta',
+      rawValue: info.beta,
+      displayValue: fmtNum(info.beta),
+      maxScale: 3,
+      colors: ['#8B5CF6', '#A78BFA'] as const,
+      thresholds: { good: 1.2, great: 0.8 } as const,
+      suffix: '',
+      invertThreshold: true,
+    },
+  ].filter((m) => !isMissingStatDisplay(m.displayValue))
+
+  const returnsRows = returnsMetrics.map((m) => ({
+    label: m.label,
+    value: m.displayValue,
+  }))
 
   const hasAnalystPriceTargets =
     !!(info.target_high && isFinite(info.target_high)) ||
@@ -163,7 +345,10 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
           },
         ]
       : []),
-  ]
+  ].filter((m) => !isMissingStatDisplay(m.value))
+
+  const bottomCardsCount =
+    (marginEntries.length > 0 ? 1 : 0) + (returnsRows.length > 0 ? 1 : 0) + (showBalanceSheetCard ? 1 : 0)
 
   return (
     <div className="col-span-12">
@@ -360,119 +545,82 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
             </div>
           )}
 
-          {/* Financials strip */}
-          <div className="grid grid-cols-2 divide-x divide-y divide-slate-800/40 sm:grid-cols-4 lg:grid-cols-8">
-            {[
-              { label: 'Market Cap', value: fmtBig(info.market_cap) },
-              { label: 'Enterprise Val', value: fmtBig(info.enterprise_value) },
-              { label: 'Revenue', value: fmtBig(info.revenue) },
-              { label: 'Rev Growth', value: fmtPct(info.revenue_growth), highlight: info.revenue_growth > 0 },
-              { label: 'Net Income', value: fmtBig(info.net_income) },
-              { label: 'EBITDA', value: fmtBig(info.ebitda) },
-              { label: 'Free Cash Flow', value: fmtBig(info.free_cash_flow) },
-              { label: 'Op. Cash Flow', value: fmtBig(info.operating_cashflow) },
-              { label: 'P/E Ratio', value: fmtNum(info.pe_ratio) },
-              { label: 'Fwd P/E', value: fmtNum(info.forward_pe) },
-              { label: 'PEG Ratio', value: fmtNum(info.peg_ratio) },
-              { label: 'EPS', value: info.eps ? `$${fmtNum(info.eps)}` : '—' },
-              { label: 'P/B', value: fmtNum(info.price_to_book) },
-              { label: 'EV/EBITDA', value: fmtNum(info.enterprise_to_ebitda) },
-              { label: 'EV/Revenue', value: fmtNum(info.enterprise_to_revenue) },
-              { label: 'D/E Ratio', value: fmtNum(info.debt_to_equity) },
-            ].map((m) => (
-              <div key={m.label} className="flex flex-col gap-0.5 p-3">
-                <span className="text-[9px] uppercase tracking-wider text-slate-600">{m.label}</span>
-                <span
-                  className={cn(
-                    'font-mono text-xs font-bold',
-                    (m as { highlight?: boolean }).highlight ? 'text-emerald-400' : 'text-white',
-                  )}
-                >
-                  {m.value}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div
-            className={cn(
-              'grid grid-cols-1 gap-4 p-4 lg:p-5',
-              hasBalanceSheetData ? 'lg:grid-cols-3' : 'lg:grid-cols-2',
-            )}
-          >
-            <div className="rounded-lg border border-slate-800/50 bg-slate-950/30 p-4">
-              <h5 className="mb-3 flex items-center gap-2 text-xs font-bold text-white">
-                <BarChart3 className="h-3.5 w-3.5 text-cyan-400" /> Profitability margins
-              </h5>
-              <div className="space-y-2.5">
-                {marginBar('Gross Margin', info.gross_margins)}
-                {marginBar('Operating Margin', info.operating_margins)}
-                {marginBar('EBITDA Margin', info.ebitda_margins)}
-                {marginBar('Profit Margin', info.profit_margins)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-slate-800/50 bg-slate-950/30 p-4">
-              <h5 className="mb-3 flex items-center gap-2 text-xs font-bold text-white">
-                <Target className="h-3.5 w-3.5 text-emerald-400" /> Returns &amp; efficiency
-              </h5>
-              <div className="space-y-2">
-                {[
-                  { label: 'Return on Equity', value: fmtPct(info.return_on_equity) },
-                  { label: 'Return on Assets', value: fmtPct(info.return_on_assets) },
-                  { label: 'Revenue Growth', value: fmtPct(info.revenue_growth) },
-                  { label: 'Beta', value: fmtNum(info.beta) },
-                ].map((m) => (
-                  <div
-                    key={m.label}
-                    className="flex items-center justify-between border-b border-slate-800/30 py-1.5 last:border-0"
+          {/* Financials strip — only cells with real values */}
+          {financialStripMetrics.length > 0 && (
+            <div className="grid grid-cols-2 divide-x divide-y divide-slate-800/40 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))]">
+              {financialStripMetrics.map((m) => (
+                <div key={m.label} className="flex flex-col gap-0.5 p-3">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-600">{m.label}</span>
+                  <span
+                    className={cn(
+                      'font-mono text-xs font-bold',
+                      (m as { highlight?: boolean }).highlight ? 'text-emerald-400' : 'text-white',
+                    )}
                   >
-                    <span className="text-[11px] text-slate-500">{m.label}</span>
-                    <span className="font-mono text-[11px] font-bold text-white">{m.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {hasBalanceSheetData && (
-              <div className="rounded-lg border border-slate-800/50 bg-slate-950/30 p-4">
-                <h5 className="mb-3 flex items-center gap-2 text-xs font-bold text-white">
-                  <DollarSign className="h-3.5 w-3.5 text-amber-400" /> Balance sheet &amp; ownership
-                </h5>
-                <div className="space-y-2">
-                  {[
-                    { label: 'Total Cash', value: fmtBig(info.total_cash) },
-                    { label: 'Total Debt', value: fmtBig(info.total_debt) },
-                    {
-                      label: 'Shares Out',
-                      value: info.shares_outstanding ? `${(info.shares_outstanding / 1e9).toFixed(2)}B` : '—',
-                    },
-                    { label: 'Insider %', value: fmtPct(info.held_percent_insiders) },
-                    { label: 'Institutional %', value: fmtPct(info.held_percent_institutions) },
-                    { label: 'Short % Float', value: fmtPct(info.short_percent_of_float) },
-                  ].map((m) => (
-                    <div
-                      key={m.label}
-                      className="flex items-center justify-between border-b border-slate-800/30 py-1.5 last:border-0"
-                    >
-                      <span className="text-[11px] text-slate-500">{m.label}</span>
-                      <span className="font-mono text-[11px] font-bold text-white">{m.value}</span>
-                    </div>
-                  ))}
+                    {m.value}
+                  </span>
                 </div>
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
 
-          <div
-            className={cn(
-              'grid divide-x divide-y divide-slate-800/40 border-t border-slate-800/40',
-              priceTargetStrip.length <= 4
-                ? 'grid-cols-2 sm:grid-cols-4'
-                : priceTargetStrip.length <= 6
-                  ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
-                  : 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-8',
-            )}
-          >
-            {priceTargetStrip.map((m) => (
+          {bottomCardsCount > 0 && (
+            <div
+              className={cn(
+                'grid grid-cols-1 gap-4 p-4 lg:p-5',
+                bottomCardsCount === 1 && 'lg:grid-cols-1',
+                bottomCardsCount === 2 && 'lg:grid-cols-2',
+                bottomCardsCount >= 3 && 'lg:grid-cols-3',
+              )}
+            >
+              {marginEntries.length > 0 && (
+                <div className="rounded-lg border border-slate-800/50 bg-slate-950/30 p-4">
+                  <h5 className="mb-3 flex items-center gap-2 text-xs font-bold text-white">
+                    <BarChart3 className="h-3.5 w-3.5 text-cyan-400" /> Profitability margins
+                  </h5>
+                  <div className="space-y-2.5">
+                    {marginEntries.map(([label, v]) => (
+                      <div key={label}>{marginBar(label, v)}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {returnsMetrics.length > 0 && (
+                <ReturnsCard metrics={returnsMetrics} />
+              )}
+              {showBalanceSheetCard && (
+                <div className="rounded-lg border border-slate-800/50 bg-slate-950/30 p-4">
+                  <h5 className="mb-3 flex items-center gap-2 text-xs font-bold text-white">
+                    <DollarSign className="h-3.5 w-3.5 text-amber-400" /> Balance sheet &amp; ownership
+                  </h5>
+                  <div className="space-y-2">
+                    {balanceSheetRows.map((m) => (
+                      <div
+                        key={m.label}
+                        className="flex items-center justify-between border-b border-slate-800/30 py-1.5 last:border-0"
+                      >
+                        <span className="text-[11px] text-slate-500">{m.label}</span>
+                        <span className="font-mono text-[11px] font-bold text-white">{m.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {priceTargetStrip.length > 0 && (
+            <div
+              className={cn(
+                'grid divide-x divide-y divide-slate-800/40 border-t border-slate-800/40',
+                priceTargetStrip.length <= 4
+                  ? 'grid-cols-2 sm:grid-cols-4'
+                  : priceTargetStrip.length <= 6
+                    ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
+                    : 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-8',
+              )}
+            >
+              {priceTargetStrip.map((m) => (
               <div key={m.label} className="flex flex-col gap-0.5 p-3">
                 <span className="text-[9px] uppercase tracking-wider text-slate-600">{m.label}</span>
                 <span
@@ -484,8 +632,9 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
                   {m.value}
                 </span>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </motion.section>
     </div>

@@ -21,7 +21,7 @@ function limitForTimeframe(tf: Timeframe): number {
   }
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 export default function ChartSnapshot({ symbol, data }: Props) {
   const [timeframe, setTimeframe] = useState<Timeframe>('1M')

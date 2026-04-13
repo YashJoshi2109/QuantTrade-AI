@@ -9,7 +9,7 @@ import {
   type Continent,
 } from '@/lib/world-exchanges'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
@@ -569,7 +569,6 @@ export interface WatchlistItem {
   id: number
   symbol: string
   name: string | null
-  note: string | null
   source: string | null
   added_at: string
   updated_at: string | null
@@ -577,7 +576,6 @@ export interface WatchlistItem {
 
 export interface AddWatchlistParams {
   symbol: string
-  note?: string
   source?: string
 }
 
@@ -644,7 +642,6 @@ export async function addToWatchlist(params: AddWatchlistParams): Promise<Watchl
     },
     body: JSON.stringify({
       symbol: params.symbol.trim().toUpperCase(),
-      note: params.note,
       source: params.source
     }),
   })
@@ -705,43 +702,6 @@ export async function removeFromWatchlist(symbol: string): Promise<void> {
   }
   
   // 204 No Content - no body to parse
-}
-
-/**
- * Update note for a watchlist item
- * @throws Error with message for UI display
- */
-export async function updateWatchlistNote(symbol: string, note: string | null): Promise<WatchlistItem> {
-  if (typeof window === 'undefined') {
-    throw new Error('Client-side only')
-  }
-  
-  const { getAuthHeaders } = await import('./auth')
-  const headers = getAuthHeaders()
-  
-  if (!headers.Authorization) {
-    throw new Error('Please sign in to manage your watchlist')
-  }
-  
-  const response = await fetch(`${API_URL}/api/v1/watchlist/${encodeURIComponent(symbol.toUpperCase())}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers
-    },
-    body: JSON.stringify({ note })
-  })
-  
-  if (!response.ok) {
-    const error: WatchlistError = await response.json().catch(() => ({ detail: 'Failed to update note' }))
-    
-    if (response.status === 404) {
-      throw new Error(`${symbol.toUpperCase()} is not in your watchlist`)
-    }
-    throw new Error(error.detail || 'Failed to update note')
-  }
-  
-  return response.json()
 }
 
 // Phase 4: Pro-Level Backtesting

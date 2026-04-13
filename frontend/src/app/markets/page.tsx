@@ -8,6 +8,7 @@ import MobileMarkets from '@/components/layout/MobileMarkets'
 import MarketMoversPanel from '@/components/MarketMoversPanel'
 import MarketHeatmap from '@/components/MarketHeatmap'
 import MoversHeatmap from '@/components/MoversHeatmap'
+import EconomicCalendarStrip from '@/components/EconomicCalendarStrip'
 import { QuoteActivityFlash, moversActivityFingerprint } from '@/components/QuoteActivityFlash'
 import {
   SkeletonMarketIndices,
@@ -853,6 +854,11 @@ function DesktopMarketsPage() {
             <QuoteActivityFlash fingerprint={marketsActivityFingerprint} className="scale-90" />
           </div>
           <WorldIndicesGrid continent={activeContinent} currency={displayCurrency} rates={currencyRates} />
+        </div>
+
+        {/* Economic calendar — today's macro events */}
+        <div className="mb-4">
+          <EconomicCalendarStrip />
         </div>
 
         {/* Continent-specific movers (non-global) */}

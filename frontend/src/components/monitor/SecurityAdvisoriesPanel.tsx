@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Shield, Wifi, WifiOff, Flame, Satellite, AlertOctagon } from 'lucide-react'
 import { fetchInternetOutages, fetchEnergyData, type OutageData, type EnergyData } from '@/lib/monitor-extended-api'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 interface QuoteRow {
   name: string

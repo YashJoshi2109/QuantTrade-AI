@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useId, useMemo } from 'react'
 import { FundamentalsData } from '@/lib/api'
 import { isNumber, formatNumber } from '@/lib/format'
 import { Zap, RefreshCw, Loader2 } from 'lucide-react'
@@ -268,7 +268,7 @@ function MarginRings({
   )
 }
 
-/* ────────────────── Metric Bar ────────────────── */
+/* ────────────────── Gradient Metric Bar ────────────────── */
 
 function MetricBar({
   label,
@@ -277,6 +277,7 @@ function MetricBar({
   color,
   suffix = '%',
   displayValue,
+  colorEnd,
 }: {
   label: string
   value: number | undefined
@@ -284,28 +285,195 @@ function MetricBar({
   color: string
   suffix?: string
   displayValue?: string
+  colorEnd?: string
 }) {
+  const uid = useId().replace(/:/g, '')
   const pct = isNumber(value)
     ? Math.min(Math.max(Math.abs(value) / maxValue, 0), 1) * 100
     : 0
   const display =
     displayValue ??
     (isNumber(value) ? `${formatNumber(value, 1)}${suffix}` : '\u2014')
+  const endColor = colorEnd ?? color
 
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[11px] text-slate-500">{label}</span>
-        <span className="text-[11px] font-mono text-white">{display}</span>
+        <span className="text-[11px] text-slate-400">{label}</span>
+        <span className="text-[11px] font-mono font-bold" style={{ color: endColor }}>{display}</span>
       </div>
-      <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{
-            width: `${pct}%`,
-            background: `linear-gradient(90deg, ${color}80, ${color})`,
-          }}
+      <div className="relative h-2 bg-slate-800/80 rounded-full overflow-hidden">
+        <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id={`mb-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={color} stopOpacity="0.5" />
+              <stop offset="100%" stopColor={endColor} stopOpacity="1" />
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width={`${pct}%`} height="100%" rx="4" fill={`url(#mb-${uid})`} className="transition-all duration-700 ease-out" />
+        </svg>
+        {pct > 8 && (
+          <div
+            className="absolute top-0 h-full rounded-full opacity-30 blur-sm"
+            style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}50, ${endColor}70)` }}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ────────────────── Mini Arc Gauge (for Risk stats) ────────────────── */
+
+function MiniArcGauge({
+  value,
+  maxValue,
+  label,
+  displayValue,
+  color,
+  colorEnd,
+  zones,
+}: {
+  value: number | undefined
+  maxValue: number
+  label: string
+  displayValue: string
+  color: string
+  colorEnd?: string
+  zones?: { from: number; to: number; color: string }[]
+}) {
+  const uid = useId().replace(/:/g, '')
+  const cx = 50
+  const cy = 50
+  const r = 36
+  const strokeW = 7
+  const halfCircumference = Math.PI * r
+
+  const fraction = isNumber(value) ? Math.min(Math.abs(value) / maxValue, 1) : 0
+  const filled = fraction * halfCircumference
+
+  const arcPath = (startDeg: number, endDeg: number, radius: number) => {
+    const s = (startDeg * Math.PI) / 180
+    const e = (endDeg * Math.PI) / 180
+    return `M ${cx + radius * Math.cos(s)} ${cy - radius * Math.sin(s)} A ${radius} ${radius} 0 ${startDeg - endDeg > 180 ? 1 : 0} 0 ${cx + radius * Math.cos(e)} ${cy - radius * Math.sin(e)}`
+  }
+
+  return (
+    <div className="flex flex-col items-center">
+      <svg viewBox="0 0 100 60" className="w-[100px] h-[60px]">
+        <defs>
+          <linearGradient id={`ag-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={color} stopOpacity="0.6" />
+            <stop offset="100%" stopColor={colorEnd ?? color} stopOpacity="1" />
+          </linearGradient>
+          <filter id={`aggl-${uid}`}>
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+
+        {/* Background semicircle */}
+        <path d={arcPath(180, 0, r)} fill="none" stroke="#1e293b" strokeWidth={strokeW} strokeLinecap="round" />
+
+        {/* Optional color zones */}
+        {zones?.map((z, i) => {
+          const zStart = 180 - (z.from / maxValue) * 180
+          const zEnd = 180 - (z.to / maxValue) * 180
+          return <path key={i} d={arcPath(zStart, zEnd, r)} fill="none" stroke={z.color} strokeWidth={strokeW} opacity="0.2" />
+        })}
+
+        {/* Filled arc */}
+        <path
+          d={arcPath(180, 0, r)}
+          fill="none"
+          stroke={`url(#ag-${uid})`}
+          strokeWidth={strokeW}
+          strokeLinecap="round"
+          strokeDasharray={`${filled} ${halfCircumference}`}
+          filter={`url(#aggl-${uid})`}
+          className="transition-all duration-700 ease-out"
         />
+
+        {/* Center value */}
+        <text x={cx} y={cy - 2} textAnchor="middle" fill={colorEnd ?? color} fontSize="14" fontWeight="bold" fontFamily="monospace">{displayValue}</text>
+        <text x={cx} y={cy + 10} textAnchor="middle" fill="#64748b" fontSize="7" fontWeight="600" letterSpacing="0.5">{label.toUpperCase()}</text>
+      </svg>
+    </div>
+  )
+}
+
+/* ────────────────── Risk Stat Row (label + badge + gradient bar) ────────────── */
+
+interface TagInfo { text: string; bg: string; fg: string }
+
+function betaTag(v: number | undefined): TagInfo {
+  if (!isNumber(v)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-slate-500' }
+  const b = Math.abs(v)
+  if (b <= 0.8) return { text: 'Low Vol', bg: 'bg-emerald-500/15', fg: 'text-emerald-400' }
+  if (b <= 1.3) return { text: 'Normal', bg: 'bg-cyan-500/15', fg: 'text-cyan-400' }
+  return { text: 'High Vol', bg: 'bg-amber-500/15', fg: 'text-amber-400' }
+}
+
+function deTag(v: number | undefined): TagInfo {
+  if (!isNumber(v)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-slate-500' }
+  if (v <= 0.5) return { text: 'Low', bg: 'bg-emerald-500/15', fg: 'text-emerald-400' }
+  if (v <= 1.5) return { text: 'Moderate', bg: 'bg-cyan-500/15', fg: 'text-cyan-400' }
+  if (v <= 3) return { text: 'High', bg: 'bg-amber-500/15', fg: 'text-amber-400' }
+  return { text: 'Very High', bg: 'bg-red-500/15', fg: 'text-red-400' }
+}
+
+function ratioTag(v: number | undefined): TagInfo {
+  if (!isNumber(v)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-slate-500' }
+  if (v >= 2) return { text: 'Strong', bg: 'bg-emerald-500/15', fg: 'text-emerald-400' }
+  if (v >= 1) return { text: 'Adequate', bg: 'bg-cyan-500/15', fg: 'text-cyan-400' }
+  return { text: 'Weak', bg: 'bg-red-500/15', fg: 'text-red-400' }
+}
+
+function RiskStatRow({
+  label,
+  value,
+  displayValue,
+  maxValue,
+  color,
+  colorEnd,
+  tag,
+}: {
+  label: string
+  value: number | undefined
+  displayValue: string
+  maxValue: number
+  color: string
+  colorEnd: string
+  tag: TagInfo
+}) {
+  const uid = useId().replace(/:/g, '')
+  const pct = isNumber(value) ? Math.min(Math.abs(value) / maxValue, 1) * 100 : 0
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11px] text-slate-400">{label}</span>
+        <div className="flex items-center gap-2">
+          <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${tag.bg} ${tag.fg}`}>{tag.text}</span>
+          <span className="text-xs font-mono font-bold" style={{ color: colorEnd }}>{displayValue}</span>
+        </div>
+      </div>
+      <div className="relative h-2 bg-slate-800/80 rounded-full overflow-hidden">
+        <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id={`rs-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={color} stopOpacity="0.5" />
+              <stop offset="100%" stopColor={colorEnd} stopOpacity="1" />
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width={`${pct}%`} height="100%" rx="4" fill={`url(#rs-${uid})`} className="transition-all duration-700 ease-out" />
+        </svg>
+        {pct > 8 && (
+          <div
+            className="absolute top-0 h-full rounded-full opacity-30 blur-sm"
+            style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}50, ${colorEnd}70)` }}
+          />
+        )}
       </div>
     </div>
   )
@@ -454,85 +622,52 @@ export default function FundamentalsPanel({
         {/* Returns */}
         <div>
           <p className="hud-label mb-2">RETURNS</p>
-          <div className="space-y-2.5">
-            <MetricBar
-              label="ROE"
-              value={f?.roe}
-              maxValue={50}
-              color="#F59E0B"
-            />
-            <MetricBar
-              label="ROA"
-              value={f?.roa}
-              maxValue={30}
-              color="#84CC16"
-            />
-            <MetricBar
-              label="ROI"
-              value={roi}
-              maxValue={40}
-              color="#D946EF"
-            />
+          <div className="space-y-3">
+            <MetricBar label="ROE" value={f?.roe} maxValue={50} color="#F59E0B" colorEnd="#FBBF24" />
+            <MetricBar label="ROA" value={f?.roa} maxValue={30} color="#22C55E" colorEnd="#84CC16" />
+            <MetricBar label="ROI" value={roi} maxValue={40} color="#A855F7" colorEnd="#D946EF" />
           </div>
         </div>
 
         {/* Risk & Liquidity */}
         <div>
           <p className="hud-label mb-2">RISK &amp; LIQUIDITY</p>
-          <div className="grid grid-cols-3 gap-2 mb-2">
-            <div className="bg-slate-800/30 rounded-lg p-2.5 text-center">
-              <div className="text-[10px] text-slate-500 mb-0.5">Beta</div>
-              <div className="text-sm font-mono text-white font-bold">
-                {isNumber(f?.beta) ? formatNumber(f!.beta, 2) : '\u2014'}
-              </div>
-            </div>
-            <div className="bg-slate-800/30 rounded-lg p-2.5 text-center">
-              <div className="text-[10px] text-slate-500 mb-0.5">D/E</div>
-              <div className="text-sm font-mono text-white font-bold">
-                {isNumber(f?.debt_to_equity)
-                  ? formatNumber(f!.debt_to_equity, 2)
-                  : '\u2014'}
-              </div>
-            </div>
-            <div className="bg-slate-800/30 rounded-lg p-2.5 text-center">
-              <div className="text-[10px] text-slate-500 mb-0.5">
-                Cur / Quick
-              </div>
-              <div className="text-sm font-mono text-white font-bold">
-                {isNumber(f?.current_ratio)
-                  ? formatNumber(f!.current_ratio, 1)
-                  : '\u2014'}
-                <span className="text-slate-600">/</span>
-                {isNumber(f?.quick_ratio)
-                  ? formatNumber(f!.quick_ratio, 1)
-                  : '\u2014'}
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <MetricBar
+          <div className="space-y-3">
+            <RiskStatRow
+              label="Beta"
+              value={f?.beta}
+              displayValue={isNumber(f?.beta) ? formatNumber(f!.beta, 2) : '\u2014'}
+              maxValue={3}
+              color="#8B5CF6"
+              colorEnd="#A78BFA"
+              tag={betaTag(f?.beta)}
+            />
+            <RiskStatRow
+              label="Debt / Equity"
+              value={f?.debt_to_equity}
+              displayValue={isNumber(f?.debt_to_equity) ? formatNumber(f!.debt_to_equity, 2) : '\u2014'}
+              maxValue={5}
+              color="#F59E0B"
+              colorEnd="#FBBF24"
+              tag={deTag(f?.debt_to_equity)}
+            />
+            <RiskStatRow
               label="Current Ratio"
               value={f?.current_ratio}
+              displayValue={isNumber(f?.current_ratio) ? formatNumber(f!.current_ratio, 2) : '\u2014'}
               maxValue={5}
-              color="#22D3EE"
-              suffix=""
-              displayValue={
-                isNumber(f?.current_ratio)
-                  ? formatNumber(f!.current_ratio, 2)
-                  : '\u2014'
-              }
+              color="#06B6D4"
+              colorEnd="#22D3EE"
+              tag={ratioTag(f?.current_ratio)}
             />
-            <MetricBar
+            <RiskStatRow
               label="Quick Ratio"
               value={f?.quick_ratio}
+              displayValue={isNumber(f?.quick_ratio) ? formatNumber(f!.quick_ratio, 2) : '\u2014'}
               maxValue={5}
-              color="#818CF8"
-              suffix=""
-              displayValue={
-                isNumber(f?.quick_ratio)
-                  ? formatNumber(f!.quick_ratio, 2)
-                  : '\u2014'
-              }
+              color="#6366F1"
+              colorEnd="#818CF8"
+              tag={ratioTag(f?.quick_ratio)}
             />
           </div>
         </div>
