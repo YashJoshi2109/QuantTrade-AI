@@ -68,7 +68,7 @@ export interface EconomicCalendarEvent {
   actual: string | null
   forecast: string | null
   prior: string | null
-  impact: string
+  impact: 'high' | 'medium' | 'low'
   unit?: string | null
 }
 
