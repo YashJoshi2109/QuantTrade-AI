@@ -108,6 +108,7 @@ export interface ContinentNewsArticle {
   title: string
   source: string
   url?: string
+  image_url?: string
   time_ago: string
   tags: string[]
   threat_level?: string
