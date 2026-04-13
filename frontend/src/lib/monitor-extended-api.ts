@@ -111,6 +111,7 @@ export interface ContinentNewsArticle {
   image_url?: string
   time_ago: string
   tags: string[]
+  tickers?: string[]
   threat_level?: string
   category?: string
 }
