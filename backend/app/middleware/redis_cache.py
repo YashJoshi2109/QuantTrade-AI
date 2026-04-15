@@ -35,7 +35,8 @@ CACHE_PATHS: dict[str, int] = {
     "/api/v1/enhanced/api-stats": 30,
     "/api/v1/enhanced/prediction-alerts": 60,
     "/api/v1/monitor/": 120,
-    "/api/v1/ideas/trending": 120,
+    "/api/v1/ideas/trending": 60,
+    "/api/v1/ideas/generate": 60,
 }
 
 # Never cache these

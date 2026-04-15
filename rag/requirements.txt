@@ -15,7 +15,7 @@ openai==1.12.0  # For embeddings
 # Let pip pick a torch version compatible with the current Python.
 torch
 scikit-learn==1.4.0
-yfinance==0.2.37
+yfinance>=1.2.2
 websocket-client==1.7.0 
 
 # Data Processing

@@ -1,18 +1,16 @@
 """
-AI Ideas Lab — Trade idea generation from market scanning.
+AI Ideas Lab — Real-time trade idea generation from live market data.
 
-Uses multiple data sources with fallback:
-1. Finviz fundamentals (if available)
-2. FMP API data (Financial Modeling Prep)
-3. Built-in market intelligence (curated analysis)
+Uses real data ONLY — no synthetic/random generation.
+Multi-source fallback: yfinance (free) -> FMP -> Finnhub
+Real technical analysis: RSI, MACD, Bollinger Bands, moving averages.
 """
 import logging
-import random
 import math
-from datetime import datetime, date
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -20,6 +18,9 @@ from app.db.database import get_db
 from app.api.auth import require_auth, get_current_user
 from app.models.user import User
 from app.config import settings
+from app.services.market_data_service import market_data, MarketQuote
+from app.services.technical_analysis_service import ta_service, TechnicalSignals
+from app.services.redis_cache_service import cache_service
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +41,14 @@ class TradeIdea(BaseModel):
     timeframe: str = "swing"
     catalyst: str = ""
     sector: str = ""
-    category: str = "momentum"  # momentum, value, breakout, ipo, earnings, macro
+    category: str = "momentum"  # momentum, value, breakout, breakdown, mean_reversion
     rsi: Optional[float] = None
     change_percent: Optional[str] = None
     volume_ratio: Optional[float] = None
+    data_source: str = "unknown"  # yfinance, fmp, finnhub
+    signal_strength: Optional[int] = None  # -100 to +100
+    trend: Optional[str] = None
+    momentum: Optional[str] = None
 
 
 class IPOIdea(BaseModel):
@@ -53,7 +58,7 @@ class IPOIdea(BaseModel):
     price_range: Optional[str] = None
     exchange: str = "NASDAQ"
     sector: str = ""
-    status: str = "upcoming"  # upcoming, recent, filed
+    status: str = "upcoming"
 
 
 class IdeasResponse(BaseModel):
@@ -61,61 +66,72 @@ class IdeasResponse(BaseModel):
     ipo_calendar: List[IPOIdea] = []
     generated_at: str
     market_pulse: Dict[str, Any] = {}
+    is_live: bool = True
+    data_sources_used: List[str] = []
 
 
-# ── Curated universe + market intelligence ─────────────────────────────────
+# ── Scan Universe (symbols + metadata only — NO hardcoded prices) ─────────
 
-SCAN_UNIVERSE = {
+SCAN_UNIVERSE: Dict[str, List[tuple]] = {
     "Technology": [
-        ("AAPL", "Apple Inc", 192.0), ("MSFT", "Microsoft Corp", 420.0),
-        ("NVDA", "NVIDIA Corp", 880.0), ("GOOGL", "Alphabet Inc", 155.0),
-        ("META", "Meta Platforms", 505.0), ("AVGO", "Broadcom Inc", 165.0),
-        ("AMD", "AMD Inc", 162.0), ("CRM", "Salesforce Inc", 270.0),
-        ("ADBE", "Adobe Inc", 510.0), ("ORCL", "Oracle Corp", 125.0),
-        ("INTC", "Intel Corp", 32.0), ("QCOM", "Qualcomm Inc", 168.0),
-        ("PANW", "Palo Alto Networks", 290.0), ("CRWD", "CrowdStrike", 340.0),
-        ("NET", "Cloudflare", 90.0), ("DDOG", "Datadog Inc", 125.0),
-        ("NOW", "ServiceNow Inc", 780.0), ("PLTR", "Palantir Technologies", 24.0),
-        ("SMCI", "Super Micro Computer", 800.0), ("ARM", "Arm Holdings", 130.0),
+        ("AAPL", "Apple Inc"), ("MSFT", "Microsoft Corp"),
+        ("NVDA", "NVIDIA Corp"), ("GOOGL", "Alphabet Inc"),
+        ("META", "Meta Platforms"), ("AVGO", "Broadcom Inc"),
+        ("AMD", "AMD Inc"), ("CRM", "Salesforce Inc"),
+        ("ADBE", "Adobe Inc"), ("ORCL", "Oracle Corp"),
+        ("INTC", "Intel Corp"), ("QCOM", "Qualcomm Inc"),
+        ("PANW", "Palo Alto Networks"), ("CRWD", "CrowdStrike"),
+        ("NET", "Cloudflare"), ("DDOG", "Datadog Inc"),
+        ("NOW", "ServiceNow Inc"), ("PLTR", "Palantir Technologies"),
+        ("SMCI", "Super Micro Computer"), ("ARM", "Arm Holdings"),
     ],
     "Healthcare": [
-        ("UNH", "UnitedHealth Group", 520.0), ("LLY", "Eli Lilly", 780.0),
-        ("NVO", "Novo Nordisk", 128.0), ("ABBV", "AbbVie Inc", 170.0),
-        ("MRK", "Merck & Co", 125.0), ("AMGN", "Amgen Inc", 280.0),
-        ("GILD", "Gilead Sciences", 82.0), ("REGN", "Regeneron", 920.0),
-        ("VRTX", "Vertex Pharma", 420.0), ("ISRG", "Intuitive Surgical", 400.0),
+        ("UNH", "UnitedHealth Group"), ("LLY", "Eli Lilly"),
+        ("NVO", "Novo Nordisk"), ("ABBV", "AbbVie Inc"),
+        ("MRK", "Merck & Co"), ("AMGN", "Amgen Inc"),
+        ("GILD", "Gilead Sciences"), ("REGN", "Regeneron"),
+        ("VRTX", "Vertex Pharma"), ("ISRG", "Intuitive Surgical"),
     ],
     "Financials": [
-        ("JPM", "JPMorgan Chase", 195.0), ("BAC", "Bank of America", 37.0),
-        ("GS", "Goldman Sachs", 420.0), ("MS", "Morgan Stanley", 95.0),
-        ("V", "Visa Inc", 280.0), ("MA", "Mastercard Inc", 460.0),
-        ("BLK", "BlackRock Inc", 800.0), ("SCHW", "Charles Schwab", 72.0),
-        ("AXP", "American Express", 225.0), ("C", "Citigroup Inc", 60.0),
+        ("JPM", "JPMorgan Chase"), ("BAC", "Bank of America"),
+        ("GS", "Goldman Sachs"), ("MS", "Morgan Stanley"),
+        ("V", "Visa Inc"), ("MA", "Mastercard Inc"),
+        ("BLK", "BlackRock Inc"), ("SCHW", "Charles Schwab"),
+        ("AXP", "American Express"), ("C", "Citigroup Inc"),
     ],
     "Consumer": [
-        ("AMZN", "Amazon.com", 185.0), ("TSLA", "Tesla Inc", 175.0),
-        ("WMT", "Walmart Inc", 170.0), ("COST", "Costco Wholesale", 730.0),
-        ("HD", "Home Depot", 360.0), ("NKE", "Nike Inc", 95.0),
-        ("MCD", "McDonald's Corp", 290.0), ("SBUX", "Starbucks Corp", 78.0),
-        ("TGT", "Target Corp", 155.0), ("NFLX", "Netflix Inc", 620.0),
+        ("AMZN", "Amazon.com"), ("TSLA", "Tesla Inc"),
+        ("WMT", "Walmart Inc"), ("COST", "Costco Wholesale"),
+        ("HD", "Home Depot"), ("NKE", "Nike Inc"),
+        ("MCD", "McDonald's Corp"), ("SBUX", "Starbucks Corp"),
+        ("TGT", "Target Corp"), ("NFLX", "Netflix Inc"),
     ],
     "Energy": [
-        ("XOM", "Exxon Mobil", 108.0), ("CVX", "Chevron Corp", 155.0),
-        ("COP", "ConocoPhillips", 115.0), ("SLB", "Schlumberger", 48.0),
-        ("EOG", "EOG Resources", 122.0), ("OXY", "Occidental Petroleum", 58.0),
+        ("XOM", "Exxon Mobil"), ("CVX", "Chevron Corp"),
+        ("COP", "ConocoPhillips"), ("SLB", "Schlumberger"),
+        ("EOG", "EOG Resources"), ("OXY", "Occidental Petroleum"),
     ],
     "Industrials": [
-        ("CAT", "Caterpillar Inc", 345.0), ("BA", "Boeing Co", 185.0),
-        ("HON", "Honeywell", 200.0), ("GE", "GE Aerospace", 160.0),
-        ("RTX", "RTX Corporation", 100.0), ("UPS", "United Parcel Service", 145.0),
-        ("DE", "Deere & Company", 390.0), ("LMT", "Lockheed Martin", 450.0),
+        ("CAT", "Caterpillar Inc"), ("BA", "Boeing Co"),
+        ("HON", "Honeywell"), ("GE", "GE Aerospace"),
+        ("RTX", "RTX Corporation"), ("UPS", "United Parcel Service"),
+        ("DE", "Deere & Company"), ("LMT", "Lockheed Martin"),
     ],
 }
 
-ALL_STOCKS = [(sym, name, price, sector)
-              for sector, items in SCAN_UNIVERSE.items()
-              for sym, name, price in items]
+ALL_SYMBOLS = [(sym, name, sector)
+               for sector, items in SCAN_UNIVERSE.items()
+               for sym, name in items]
 
+# Sector ETFs for real sector rotation data
+SECTOR_ETFS = {
+    "Technology": "XLK",
+    "Healthcare": "XLV",
+    "Financials": "XLF",
+    "Consumer": "XLY",
+    "Energy": "XLE",
+    "Industrials": "XLI",
+}
 
 # ── IPO Calendar (curated) ─────────────────────────────────────────────────
 
@@ -137,226 +153,119 @@ IPO_CALENDAR: List[IPOIdea] = [
 ]
 
 
-# ── Data Fetchers ──────────────────────────────────────────────────────────
+# ── Real Idea Builder ─────────────────────────────────────────────────────
 
-def _try_finviz(symbol: str) -> Optional[Dict]:
-    """Try Finviz, return None if fails."""
-    try:
-        from app.services.finviz_fetcher import FinvizFetcher
-        data = FinvizFetcher.fetch_stock_fundamentals(symbol)
-        if data and not data.get("error") and data.get("price"):
-            return data
-    except Exception:
-        pass
-    return None
-
-
-def _try_fmp(symbol: str) -> Optional[Dict]:
-    """Try FMP API for quote data."""
-    if not settings.FMP_API_KEY:
+def _build_idea_from_signals(
+    symbol: str,
+    name: str,
+    sector: str,
+    quote: MarketQuote,
+    signals: TechnicalSignals,
+) -> Optional[TradeIdea]:
+    """Build trade idea from REAL technical signals. No randomness."""
+    price = quote.price
+    if not price or price <= 0:
         return None
-    try:
-        import requests
-        url = f"https://financialmodelingprep.com/api/v3/quote/{symbol}?apikey={settings.FMP_API_KEY}"
-        resp = requests.get(url, timeout=5)
-        if resp.ok:
-            data = resp.json()
-            if data and len(data) > 0:
-                q = data[0]
-                return {
-                    "price": q.get("price"),
-                    "change": q.get("changesPercentage"),
-                    "volume": q.get("volume"),
-                    "avg_volume": q.get("avgVolume"),
-                    "rsi": None,  # FMP quote doesn't include RSI
-                    "target_price": q.get("priceAvg200"),
-                    "atr": None,
-                    "beta": None,
-                }
-    except Exception:
-        pass
-    return None
 
-
-def _generate_synthetic_idea(symbol: str, name: str, ref_price: float, sector: str) -> Optional[TradeIdea]:
-    """
-    Generate a synthetic idea using market intelligence heuristics.
-    Uses randomized but realistic signals based on sector and market conditions.
-    """
-    # Simulate realistic market signals
-    rng = random.Random(hash(symbol + str(date.today())))
-
-    change_pct = rng.gauss(0, 2.5)  # Normal distribution of daily changes
-    rsi = rng.gauss(50, 15)  # RSI centered at 50
-    rsi = max(15, min(85, rsi))
-    vol_ratio = max(0.5, rng.gauss(1.2, 0.5))
-
-    # Score signals
     bull_score = 0
     bear_score = 0
-    signals = []
+    catalysts = []
 
-    if rsi < 30:
-        bull_score += 25
-        signals.append(f"RSI oversold at {rsi:.0f}")
-    elif rsi < 40:
+    rsi = signals.rsi_14
+    change_pct = signals.change_pct
+    vol_ratio = signals.volume_ratio
+    atr = signals.atr_14
+
+    # ── RSI signals ──
+    if rsi is not None:
+        if rsi < 30:
+            bull_score += 25
+            catalysts.append(f"RSI oversold at {rsi:.0f}")
+        elif rsi < 40:
+            bull_score += 12
+            catalysts.append(f"RSI near oversold ({rsi:.0f})")
+        elif rsi > 70:
+            bear_score += 25
+            catalysts.append(f"RSI overbought at {rsi:.0f}")
+        elif rsi > 60:
+            bear_score += 10
+
+    # ── MACD crossover ──
+    if signals.macd is not None and signals.macd_signal is not None:
+        if signals.macd > signals.macd_signal and signals.macd_histogram and signals.macd_histogram > 0:
+            bull_score += 18
+            catalysts.append("MACD bullish crossover")
+        elif signals.macd < signals.macd_signal and signals.macd_histogram and signals.macd_histogram < 0:
+            bear_score += 18
+            catalysts.append("MACD bearish crossover")
+
+    # ── Moving average alignment ──
+    if signals.sma_50 and signals.sma_200:
+        if signals.sma_50 > signals.sma_200 and price > signals.sma_50:
+            bull_score += 15
+            catalysts.append("Golden cross + above SMA50")
+        elif signals.sma_50 < signals.sma_200 and price < signals.sma_50:
+            bear_score += 15
+            catalysts.append("Death cross + below SMA50")
+
+    # ── Price vs SMA 20 ──
+    if signals.sma_20:
+        if price > signals.sma_20 * 1.02:
+            bull_score += 8
+        elif price < signals.sma_20 * 0.98:
+            bear_score += 8
+
+    # ── Bollinger Band signals ──
+    if signals.bb_lower and price < signals.bb_lower:
         bull_score += 12
-        signals.append(f"RSI near oversold ({rsi:.0f})")
-    elif rsi > 70:
-        bear_score += 25
-        signals.append(f"RSI overbought at {rsi:.0f}")
-    elif rsi > 60:
+        catalysts.append("Below Bollinger lower band — mean reversion")
+    elif signals.bb_upper and price > signals.bb_upper:
+        bear_score += 12
+        catalysts.append("Above Bollinger upper band — stretched")
+
+    # ── Momentum (price change) ──
+    if change_pct > 3:
+        bull_score += 20
+        catalysts.append(f"Strong momentum +{change_pct:.1f}%")
+    elif change_pct > 1:
+        bull_score += 10
+    elif change_pct < -3:
+        bear_score += 20
+        catalysts.append(f"Sharp decline {change_pct:.1f}%")
+    elif change_pct < -1:
         bear_score += 10
 
-    if change_pct > 2:
-        bull_score += 18
-        signals.append(f"Strong momentum +{change_pct:.1f}%")
-    elif change_pct > 0.5:
-        bull_score += 8
-    elif change_pct < -2:
-        bear_score += 18
-        signals.append(f"Selling pressure {change_pct:.1f}%")
-    elif change_pct < -0.5:
-        bear_score += 8
+    # ── Volume confirmation ──
+    if vol_ratio > 2.0:
+        if change_pct > 0:
+            bull_score += 10
+        else:
+            bear_score += 10
+        catalysts.append(f"Volume spike {vol_ratio:.1f}x avg")
+    elif vol_ratio > 1.5:
+        if change_pct > 0:
+            bull_score += 5
+        else:
+            bear_score += 5
 
-    if vol_ratio > 1.8:
-        bull_score += 8
-        signals.append(f"Volume spike {vol_ratio:.1f}x avg")
+    # ── 52-week levels ──
+    if signals.high_52w and price >= signals.high_52w * 0.97:
+        bull_score += 15
+        catalysts.append("Near 52-week high — breakout zone")
+    if signals.low_52w and price <= signals.low_52w * 1.03:
+        bear_score += 10
+        catalysts.append("Near 52-week low — breakdown risk")
 
-    # Sector momentum (macro overlay)
-    hot_sectors = {"Technology": 10, "Healthcare": 5, "Energy": -5, "Consumer": 3}
-    sector_adj = hot_sectors.get(sector, 0)
-    bull_score += max(0, sector_adj)
-    bear_score += max(0, -sector_adj)
-
+    # Minimum signal threshold
     total = bull_score + bear_score
     if total < 15:
         return None
 
     is_long = bull_score >= bear_score
     dominant = max(bull_score, bear_score)
-    confidence = min(92, max(35, int(50 + (dominant - total / 2) * 1.5)))
+    confidence = min(95, max(30, int(50 + (dominant - total / 2) * 1.2)))
 
-    price = round(ref_price * (1 + change_pct / 100), 2)
-    atr = price * 0.02
-    if is_long:
-        entry = price
-        stop = round(price - atr * 1.5, 2)
-        tp = round(price + atr * 3, 2)
-    else:
-        entry = price
-        stop = round(price + atr * 1.5, 2)
-        tp = round(price - atr * 3, 2)
-
-    risk = abs(entry - stop) or 0.01
-    rr = round(abs(tp - entry) / risk, 2)
-
-    timeframe = "intraday" if abs(change_pct) > 3 else ("swing" if abs(change_pct) > 1 else "position")
-
-    return TradeIdea(
-        symbol=symbol,
-        company_name=name,
-        idea_type="long" if is_long else "short",
-        entry_price=entry,
-        target_price=tp,
-        stop_loss=stop,
-        risk_reward=rr,
-        confidence=confidence,
-        timeframe=timeframe,
-        catalyst="; ".join(signals) if signals else "Technical setup",
-        sector=sector,
-        category="momentum" if abs(change_pct) > 2 else "value",
-        rsi=round(rsi, 1),
-        change_percent=f"{change_pct:+.2f}%",
-        volume_ratio=round(vol_ratio, 2),
-    )
-
-
-def _scan_stocks(stocks: List[tuple]) -> List[TradeIdea]:
-    """Scan stocks using multi-source data with fallback."""
-    ideas: List[TradeIdea] = []
-
-    for item in stocks:
-        symbol, name = item[0], item[1]
-        ref_price = item[2] if len(item) > 2 else 100.0
-        sector = item[3] if len(item) > 3 else "Other"
-
-        # Try real data sources first
-        data = _try_finviz(symbol)
-        if not data:
-            data = _try_fmp(symbol)
-
-        if data and data.get("price"):
-            # Build idea from real data
-            idea = _build_idea_from_data(symbol, name, sector, data)
-            if idea and idea.confidence >= 40:
-                ideas.append(idea)
-        else:
-            # Fallback: generate synthetic idea from market intelligence
-            idea = _generate_synthetic_idea(symbol, name, ref_price, sector)
-            if idea:
-                ideas.append(idea)
-
-    return ideas
-
-
-def _build_idea_from_data(symbol: str, name: str, sector: str, data: Dict) -> Optional[TradeIdea]:
-    """Build idea from real API data."""
-    price = data.get("price")
-    if not price or price <= 0:
-        return None
-
-    rsi = data.get("rsi")
-    change_raw = data.get("change", "")
-    if isinstance(change_raw, (int, float)):
-        change_pct = float(change_raw)
-        change_str = f"{change_pct:+.2f}%"
-    elif isinstance(change_raw, str):
-        try:
-            change_pct = float(change_raw.replace("%", "").replace(",", "").strip())
-        except (ValueError, TypeError):
-            change_pct = 0
-        change_str = change_raw
-    else:
-        change_pct = 0
-        change_str = "0%"
-
-    target = data.get("target_price")
-    atr = data.get("atr")
-    volume = data.get("volume") or 0
-    avg_volume = data.get("avg_volume") or 1
-    vol_ratio = round(volume / max(avg_volume, 1), 2)
-
-    bull_score = 0
-    bear_score = 0
-    signals = []
-
-    if rsi is not None:
-        if rsi < 30: bull_score += 25; signals.append(f"RSI oversold at {rsi:.0f}")
-        elif rsi < 40: bull_score += 12
-        elif rsi > 70: bear_score += 25; signals.append(f"RSI overbought at {rsi:.0f}")
-        elif rsi > 60: bear_score += 10
-
-    if change_pct > 3: bull_score += 20; signals.append(f"Strong momentum +{change_pct:.1f}%")
-    elif change_pct > 1: bull_score += 10
-    elif change_pct < -3: bear_score += 20; signals.append(f"Sharp decline {change_pct:.1f}%")
-    elif change_pct < -1: bear_score += 10
-
-    if target and price:
-        upside = ((target - price) / price) * 100
-        if upside > 15: bull_score += 20; signals.append(f"Target {upside:.0f}% above")
-        elif upside < -10: bear_score += 15
-
-    if vol_ratio > 2.0: signals.append(f"Volume {vol_ratio:.1f}x avg"); bull_score += 5
-
-    total = bull_score + bear_score
-    if total < 10:
-        return None
-
-    is_long = bull_score >= bear_score
-    dominant = max(bull_score, bear_score)
-    confidence = min(95, max(30, int(50 + (dominant - total / 2) * 1.5)))
-
+    # Entry/stop/target from real ATR
     if not atr or atr <= 0:
         atr = price * 0.02
     if is_long:
@@ -367,37 +276,107 @@ def _build_idea_from_data(symbol: str, name: str, sector: str, data: Dict) -> Op
     risk = abs(entry - stop) or 0.01
     rr = round(abs(tp - entry) / risk, 2)
 
+    # Category
+    if signals.high_52w and price >= signals.high_52w * 0.98:
+        category = "breakout"
+    elif signals.low_52w and price <= signals.low_52w * 1.02:
+        category = "breakdown"
+    elif rsi and rsi < 35:
+        category = "mean_reversion"
+    elif abs(change_pct) > 3:
+        category = "momentum"
+    else:
+        category = "value"
+
+    # Timeframe from volatility
+    if signals.volatility == "high" or abs(change_pct) > 4:
+        timeframe = "intraday"
+    elif abs(change_pct) > 1.5:
+        timeframe = "swing"
+    else:
+        timeframe = "position"
+
     return TradeIdea(
-        symbol=symbol, company_name=name, idea_type="long" if is_long else "short",
-        entry_price=round(entry, 2), target_price=tp, stop_loss=stop,
-        risk_reward=rr, confidence=confidence,
-        timeframe="intraday" if abs(change_pct) > 4 else "swing",
-        catalyst="; ".join(signals) if signals else "Technical setup",
-        sector=sector, category="momentum", rsi=rsi,
-        change_percent=change_str, volume_ratio=vol_ratio,
+        symbol=symbol,
+        company_name=name,
+        idea_type="long" if is_long else "short",
+        entry_price=round(entry, 2),
+        target_price=tp,
+        stop_loss=stop,
+        risk_reward=rr,
+        confidence=confidence,
+        timeframe=timeframe,
+        catalyst="; ".join(catalysts) if catalysts else f"Technical setup ({signals.trend} trend)",
+        sector=sector,
+        category=category,
+        rsi=round(rsi, 1) if rsi else None,
+        change_percent=f"{change_pct:+.2f}%",
+        volume_ratio=round(vol_ratio, 2),
+        data_source=quote.source,
+        signal_strength=signals.signal_strength,
+        trend=signals.trend,
+        momentum=signals.momentum,
     )
 
 
-# ── Endpoints ───────────────────────────────────────────────────────────────
+async def _scan_stocks_live(stocks: List[tuple]) -> tuple[List[TradeIdea], set]:
+    """Scan stocks using REAL data only. Returns (ideas, sources_used)."""
+    ideas: List[TradeIdea] = []
+    sources_used: set = set()
 
-@router.get("/generate", response_model=IdeasResponse)
-def generate_ideas(
-    user: User = Depends(require_auth),
-    db: Session = Depends(get_db),
-):
-    """Generate AI trade ideas by scanning the market. Auth required."""
-    sampled = []
-    for sector, items in SCAN_UNIVERSE.items():
-        count = min(5, len(items))
-        chosen = random.sample(items, count)
-        sampled.extend([(s, n, p, sector) for s, n, p in chosen])
+    # Batch fetch all quotes at once (efficient single network call)
+    symbols = [s[0] for s in stocks]
+    quotes = await market_data.get_quotes_batch(symbols)
 
-    ideas = _scan_stocks(sampled)
-    ideas.sort(key=lambda i: i.confidence, reverse=True)
+    # Compute technical signals for stocks with valid quotes
+    for sym, name, sector in stocks:
+        quote = quotes.get(sym)
+        if not quote or not quote.price or quote.price <= 0:
+            continue
 
+        sources_used.add(quote.source)
+
+        # Get technical signals
+        signals = await ta_service.compute_signals(sym)
+        if not signals:
+            continue
+
+        idea = _build_idea_from_signals(sym, name, sector, quote, signals)
+        if idea and idea.confidence >= 35:
+            ideas.append(idea)
+
+    return ideas, sources_used
+
+
+async def _get_sector_rotation() -> Dict[str, Dict[str, Any]]:
+    """Get real sector rotation data from sector ETFs."""
+    sector_data = {}
+    etf_symbols = list(SECTOR_ETFS.values())
+    quotes = await market_data.get_quotes_batch(etf_symbols)
+
+    for sector, etf in SECTOR_ETFS.items():
+        quote = quotes.get(etf)
+        if quote and quote.price:
+            sector_data[sector] = {
+                "etf": etf,
+                "change_pct": quote.change_pct,
+                "sentiment": "bullish" if quote.change_pct > 0.3 else ("bearish" if quote.change_pct < -0.3 else "neutral"),
+            }
+        else:
+            sector_data[sector] = {"etf": etf, "change_pct": 0, "sentiment": "neutral"}
+
+    return sector_data
+
+
+async def _build_market_pulse(ideas: List[TradeIdea], total_scanned: int) -> Dict[str, Any]:
+    """Build market pulse from real ideas + real sector ETF data."""
     bullish = [i for i in ideas if i.idea_type == "long"]
     bearish = [i for i in ideas if i.idea_type == "short"]
 
+    # Real sector rotation from ETFs
+    sector_rotation = await _get_sector_rotation()
+
+    # Sector sentiment from scanned ideas
     sector_sentiment: Dict[str, Dict[str, int]] = {}
     for idea in ideas:
         if idea.sector not in sector_sentiment:
@@ -407,8 +386,8 @@ def generate_ideas(
         else:
             sector_sentiment[idea.sector]["bearish"] += 1
 
-    market_pulse = {
-        "total_scanned": len(sampled),
+    return {
+        "total_scanned": total_scanned,
         "total_ideas": len(ideas),
         "bullish_count": len(bullish),
         "bearish_count": len(bearish),
@@ -419,8 +398,10 @@ def generate_ideas(
                 "company_name": i.company_name,
                 "confidence": i.confidence,
                 "catalyst": i.catalyst,
+                "change_percent": i.change_percent,
+                "data_source": i.data_source,
             }
-            for i in bullish[:5]
+            for i in sorted(bullish, key=lambda x: x.confidence, reverse=True)[:5]
         ],
         "top_bearish": [
             {
@@ -428,74 +409,81 @@ def generate_ideas(
                 "company_name": i.company_name,
                 "confidence": i.confidence,
                 "catalyst": i.catalyst,
+                "change_percent": i.change_percent,
+                "data_source": i.data_source,
             }
-            for i in bearish[:5]
+            for i in sorted(bearish, key=lambda x: x.confidence, reverse=True)[:5]
         ],
-        "sector_rotation": sector_sentiment,
+        "sector_rotation": sector_rotation,
+        "sector_sentiment": sector_sentiment,
     }
+
+
+# ── Endpoints ───────────────────────────────────────────────────────────────
+
+@router.get("/generate", response_model=IdeasResponse)
+async def generate_ideas(
+    request: Request,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Generate AI trade ideas from REAL market data. Auth required."""
+    # Scan ALL stocks in universe (real data, cached efficiently)
+    all_stocks = [(sym, name, sector) for sym, name, sector in ALL_SYMBOLS]
+
+    ideas, sources = await _scan_stocks_live(all_stocks)
+    ideas.sort(key=lambda i: i.confidence, reverse=True)
+
+    market_pulse = await _build_market_pulse(ideas, len(all_stocks))
 
     return IdeasResponse(
         ideas=ideas[:25],
         ipo_calendar=IPO_CALENDAR,
-        generated_at=datetime.utcnow().isoformat(),
+        generated_at=datetime.now(timezone.utc).isoformat(),
         market_pulse=market_pulse,
+        is_live=True,
+        data_sources_used=list(sources),
     )
 
 
 @router.get("/trending", response_model=IdeasResponse)
-def get_trending_ideas(
+async def get_trending_ideas(
+    request: Request,
     db: Session = Depends(get_db),
 ):
-    """Get trending ideas — no auth required. Includes IPO calendar."""
-    sampled = []
-    for sector, items in SCAN_UNIVERSE.items():
-        count = min(3, len(items))
-        chosen = items[:count]
-        sampled.extend([(s, n, p, sector) for s, n, p in chosen])
+    """Get trending ideas — no auth required. Real data only."""
+    # Use cached trending ideas if available
+    cache_key = "qt:ideas:trending"
+    cached = await cache_service.get(cache_key)
 
-    ideas = _scan_stocks(sampled)
+    if cached:
+        return IdeasResponse(**cached)
+
+    # Scan top stocks per sector
+    stocks = []
+    for sector, items in SCAN_UNIVERSE.items():
+        for sym, name in items[:4]:  # Top 4 per sector
+            stocks.append((sym, name, sector))
+
+    ideas, sources = await _scan_stocks_live(stocks)
     ideas.sort(key=lambda i: i.confidence, reverse=True)
 
     bullish = [i for i in ideas if i.idea_type == "long"][:10]
     bearish = [i for i in ideas if i.idea_type == "short"][:10]
-    combined = sorted(bullish + bearish, key=lambda i: i.confidence, reverse=True)
+    combined = sorted(bullish + bearish, key=lambda i: i.confidence, reverse=True)[:20]
 
-    sector_sentiment: Dict[str, Dict[str, int]] = {}
-    for idea in combined:
-        if idea.sector not in sector_sentiment:
-            sector_sentiment[idea.sector] = {"bullish": 0, "bearish": 0}
-        if idea.idea_type == "long":
-            sector_sentiment[idea.sector]["bullish"] += 1
-        else:
-            sector_sentiment[idea.sector]["bearish"] += 1
+    market_pulse = await _build_market_pulse(combined, len(stocks))
 
-    return IdeasResponse(
-        ideas=combined[:20],
+    response = IdeasResponse(
+        ideas=combined,
         ipo_calendar=IPO_CALENDAR,
-        generated_at=datetime.utcnow().isoformat(),
-        market_pulse={
-            "total_ideas": len(combined),
-            "bullish_count": len(bullish),
-            "bearish_count": len(bearish),
-            "avg_confidence": round(sum(i.confidence for i in combined) / max(len(combined), 1), 1),
-            "top_bullish": [
-                {
-                    "symbol": i.symbol,
-                    "company_name": i.company_name,
-                    "confidence": i.confidence,
-                    "catalyst": i.catalyst,
-                }
-                for i in bullish[:5]
-            ],
-            "top_bearish": [
-                {
-                    "symbol": i.symbol,
-                    "company_name": i.company_name,
-                    "confidence": i.confidence,
-                    "catalyst": i.catalyst,
-                }
-                for i in bearish[:5]
-            ],
-            "sector_rotation": sector_sentiment,
-        },
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        market_pulse=market_pulse,
+        is_live=True,
+        data_sources_used=list(sources),
     )
+
+    # Cache for 2 minutes
+    await cache_service.set(cache_key, response.model_dump(), 120)
+
+    return response

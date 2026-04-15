@@ -723,6 +723,7 @@ export interface BacktestRequest {
   walk_forward_train_pct?: number
   monte_carlo?: boolean
   monte_carlo_sims?: number
+  benchmark?: string
 }
 
 export interface BacktestTrade {
@@ -736,6 +737,8 @@ export interface BacktestTrade {
   commission: number
   exit_reason: string
   bars_held: number
+  mae: number
+  mfe: number
 }
 
 export interface MonteCarloResult {
@@ -760,6 +763,7 @@ export interface BacktestResult {
   initial_capital: number
   final_equity: number
   total_return: number
+  cagr: number
   annualized_return: number
   annualized_volatility: number
   sharpe_ratio: number
@@ -767,6 +771,9 @@ export interface BacktestResult {
   calmar_ratio: number
   max_drawdown: number
   max_drawdown_duration: number
+  var_95: number
+  var_99: number
+  ulcer_index: number
   total_trades: number
   win_rate: number
   profit_factor: number
@@ -777,13 +784,74 @@ export interface BacktestResult {
   total_commission: number
   commission_rate: number
   slippage_rate: number
+  max_win_streak: number
+  max_loss_streak: number
+  alpha: number
+  beta: number
+  benchmark_equity: number[]
+  benchmark_ticker: string
+  data_source: string
   equity_curve: number[]
   drawdown_curve: number[]
   monthly_returns: { month: number; return_pct: number }[]
   rolling_sharpe: number[]
+  trade_distribution: { range_start: number; range_end: number; count: number }[]
+  mae_mfe: { return_pct: number; mae: number; mfe: number }[]
   trades: BacktestTrade[]
   monte_carlo: MonteCarloResult | null
   walk_forward: { enabled: boolean; train_bars?: number; test_bars?: number; train_pct?: number }
+}
+
+export interface CompareRequest {
+  symbol: string
+  start_date: string
+  end_date: string
+  strategies: string[]
+  initial_capital?: number
+  commission_rate?: number
+  slippage_rate?: number
+  stop_loss_pct?: number | null
+  take_profit_pct?: number | null
+  monte_carlo?: boolean
+}
+
+export interface CompareResult {
+  symbol: string
+  strategies: (BacktestResult & { error?: string })[]
+  correlation_matrix: Record<string, Record<string, number>>
+}
+
+export interface ScanRequest {
+  symbols: string[]
+  strategy: string
+  start_date: string
+  end_date: string
+  initial_capital?: number
+  strategy_params?: Record<string, number>
+  min_sharpe?: number | null
+  min_win_rate?: number | null
+  min_return?: number | null
+}
+
+export interface ScanResultItem {
+  symbol: string
+  total_return: number
+  sharpe_ratio: number
+  sortino_ratio: number
+  win_rate: number
+  max_drawdown: number
+  total_trades: number
+  profit_factor: number
+  calmar_ratio: number
+  equity_curve: number[]
+  passed_filters: boolean
+}
+
+export interface ScanResult {
+  strategy: string
+  total_scanned: number
+  results_count: number
+  results: ScanResultItem[]
 }
 
 export async function runBacktest(
@@ -825,6 +893,46 @@ export async function runBacktest(
   } finally {
     clearTimeout(timeout)
   }
+}
+
+export async function compareStrategies(
+  request: CompareRequest,
+  signal?: AbortSignal,
+): Promise<CompareResult> {
+  const token = typeof window !== 'undefined' ? getToken() : null
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const response = await fetch(`${API_URL}/api/v1/backtest/compare`, {
+    method: 'POST', headers, body: JSON.stringify(request), signal,
+  })
+  if (!response.ok) {
+    const errData = await response.json().catch(() => null)
+    throw new Error(errData?.detail || `Compare failed (${response.status})`)
+  }
+  return response.json()
+}
+
+export async function scanSymbols(
+  request: ScanRequest,
+  signal?: AbortSignal,
+): Promise<ScanResult> {
+  const token = typeof window !== 'undefined' ? getToken() : null
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const response = await fetch(`${API_URL}/api/v1/backtest/scan`, {
+    method: 'POST', headers, body: JSON.stringify(request), signal,
+  })
+  if (!response.ok) {
+    const errData = await response.json().catch(() => null)
+    throw new Error(errData?.detail || `Scan failed (${response.status})`)
+  }
+  return response.json()
+}
+
+export async function getStrategies(): Promise<{ strategies: { id: string; name: string; description: string; category: string; default_params: Record<string, number> }[] }> {
+  const response = await fetch(`${API_URL}/api/v1/strategies`)
+  if (!response.ok) throw new Error('Failed to fetch strategies')
+  return response.json()
 }
 
 // Live News API
@@ -1626,14 +1734,21 @@ export interface TradeIdea {
   timeframe: string
   catalyst: string
   sector: string
+  category?: string
   rsi: number | null
   change_percent: string | null
   volume_ratio: number | null
+  data_source?: string
+  signal_strength?: number | null
+  trend?: string | null
+  momentum?: string | null
 }
 
 export interface IdeasResponse {
   ideas: TradeIdea[]
   generated_at: string
+  is_live?: boolean
+  data_sources_used?: string[]
   market_pulse: {
     total_scanned?: number
     total_ideas?: number
@@ -1645,14 +1760,19 @@ export interface IdeasResponse {
       company_name?: string | null
       confidence: number
       catalyst: string
+      change_percent?: string | null
+      data_source?: string
     }[]
     top_bearish?: {
       symbol: string
       company_name?: string | null
       confidence: number
       catalyst: string
+      change_percent?: string | null
+      data_source?: string
     }[]
-    sector_rotation?: Record<string, { bullish: number; bearish: number }>
+    sector_rotation?: Record<string, { etf?: string; change_pct?: number; sentiment?: string; bullish?: number; bearish?: number }>
+    sector_sentiment?: Record<string, { bullish: number; bearish: number }>
   }
 }
 

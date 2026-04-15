@@ -18,7 +18,7 @@ celery==5.3.4
 redis==5.0.1
 
 # Data fetching
-yfinance==0.2.32
+yfinance>=1.2.2
 pandas>=2.2.0
 numpy>=1.26.2
 requests==2.31.0

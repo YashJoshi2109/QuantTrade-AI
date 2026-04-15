@@ -47,6 +47,7 @@ from app.api import monitor_extended
 from app.api import copilot_stream
 from app.api import ideas
 from app.api import model_index as model_index_api
+from app.api import ws as ws_api
 from app.db.database import engine, Base
 
 # Import all models to ensure they're registered with SQLAlchemy
@@ -172,9 +173,28 @@ def _start_scheduler():
             id="pro_watchlist_alerts",
             replace_existing=True,
         )
+        # ── Real-time Ideas Lab scheduler jobs ──
+        from apscheduler.triggers.interval import IntervalTrigger
+        from app.services.idea_scheduler import (
+            rescore_ideas, update_market_pulse,
+            news_sentiment_check, market_open_scan,
+        )
+        # Re-score ideas every 5 minutes with real market data
+        sched.add_job(rescore_ideas, IntervalTrigger(minutes=5),
+                      id="rescore_ideas", replace_existing=True)
+        # Update market pulse every 2 minutes
+        sched.add_job(update_market_pulse, IntervalTrigger(minutes=2),
+                      id="update_market_pulse", replace_existing=True)
+        # News sentiment check every 10 minutes
+        sched.add_job(news_sentiment_check, IntervalTrigger(minutes=10),
+                      id="news_sentiment_check", replace_existing=True)
+        # Market open full scan at 9:30 AM ET (13:30 UTC)
+        sched.add_job(market_open_scan, CronTrigger(hour=13, minute=30),
+                      id="market_open_scan", replace_existing=True)
+
         sched.start()
         _scheduler = sched
-        print("✅ APScheduler started — exchange universe batch jobs scheduled")
+        print("✅ APScheduler started — exchange universe + real-time ideas jobs scheduled")
     except ImportError:
         print("⚠️ APScheduler not installed — skipping batch jobs. Run: pip install APScheduler")
     except Exception as e:
@@ -191,7 +211,10 @@ async def lifespan(app: FastAPI):
         redis_client = aioredis.from_url(redis_url, decode_responses=True, socket_connect_timeout=5)
         await redis_client.ping()
         app.state.redis = redis_client
-        print(f"✅ Redis connected: {redis_url.split('@')[-1] if '@' in redis_url else redis_url}")
+        # Initialize universal Redis cache service
+        from app.services.redis_cache_service import cache_service
+        cache_service.init_redis(redis_client)
+        print(f"✅ Redis connected + cache service initialized: {redis_url.split('@')[-1] if '@' in redis_url else redis_url}")
 
         # Register Redis cache middleware
         from app.middleware.redis_cache import RedisCacheMiddleware
@@ -390,6 +413,9 @@ app.include_router(model_index_api.router, prefix="/api/v1/model-index", tags=["
 
 # AI Copilot — Streaming SSE endpoint (RAG + Quant + LLM pipeline)
 app.include_router(copilot_stream.router, prefix="/api/v1", tags=["copilot"])
+
+# WebSocket — Real-time market data push (ideas, pulse, scanner)
+app.include_router(ws_api.router, prefix="/api/v1", tags=["websocket"])
 
 
 @app.get("/")

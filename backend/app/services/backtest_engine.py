@@ -64,6 +64,8 @@ class Trade:
     slippage_cost: float = 0.0
     exit_reason: str = ""
     bars_held: int = 0
+    mae: float = 0.0  # Maximum Adverse Excursion (worst unrealized loss %)
+    mfe: float = 0.0  # Maximum Favorable Excursion (best unrealized gain %)
 
     def close(self, exit_date: datetime, exit_price: float, commission: float = 0.0,
               slippage: float = 0.0, reason: str = "signal"):
@@ -103,6 +105,8 @@ class Trade:
             "commission": _safe_round(self.commission_paid),
             "exit_reason": self.exit_reason,
             "bars_held": self.bars_held,
+            "mae": _safe_round(self.mae),
+            "mfe": _safe_round(self.mfe),
         }
 
 
@@ -382,7 +386,8 @@ class MetricsCalculator:
 
         # Sharpe
         excess = daily_returns - risk_free_rate / 252
-        sharpe = float(np.mean(excess) / np.std(excess) * np.sqrt(252)) if np.std(excess) > 0 else 0
+        std_excess = float(np.std(excess))
+        sharpe = float(np.mean(excess) / std_excess * np.sqrt(252)) if std_excess > 1e-10 else 0
 
         # Sortino
         downside = daily_returns[daily_returns < 0]
@@ -457,10 +462,60 @@ class MetricsCalculator:
                 return 0
             return round(f, decimals)
 
+        # VaR (Value at Risk)
+        var_95 = float(np.percentile(daily_returns, 5) * 100) if len(daily_returns) > 10 else 0
+        var_99 = float(np.percentile(daily_returns, 1) * 100) if len(daily_returns) > 10 else 0
+
+        # Ulcer Index (root mean square of drawdowns)
+        dd_squared = dd ** 2
+        ulcer_index = float(np.sqrt(np.mean(dd_squared)) * 100) if len(dd) > 0 else 0
+
+        # CAGR
+        cagr = ann_return  # Already calculated as annualized return
+
+        # Trade distribution histogram (20 buckets of return_pct)
+        trade_returns = [t.return_pct for t in closed_trades if t.return_pct is not None]
+        trade_distribution = []
+        if trade_returns:
+            t_min, t_max = min(trade_returns), max(trade_returns)
+            n_bins = 20
+            bin_size = (t_max - t_min) / n_bins if t_max != t_min else 1
+            for b in range(n_bins):
+                lo = t_min + b * bin_size
+                hi = lo + bin_size
+                count = len([r for r in trade_returns if lo <= r < hi])
+                trade_distribution.append({
+                    "range_start": round(lo, 1),
+                    "range_end": round(hi, 1),
+                    "count": count,
+                })
+
+        # MAE/MFE scatter data
+        mae_mfe_data = []
+        for t in closed_trades:
+            mae_mfe_data.append({
+                "return_pct": round(t.return_pct, 2) if t.return_pct else 0,
+                "mae": round(t.mae, 2),
+                "mfe": round(t.mfe, 2),
+            })
+
+        # Longest win/loss streak
+        win_streak = loss_streak = max_win_streak = max_loss_streak = 0
+        for t in closed_trades:
+            if t.pnl and t.pnl > 0:
+                win_streak += 1
+                loss_streak = 0
+                max_win_streak = max(max_win_streak, win_streak)
+            else:
+                loss_streak += 1
+                win_streak = 0
+                max_loss_streak = max(max_loss_streak, loss_streak)
+
         return {
             "initial_capital": initial_capital,
             "final_equity": _safe(final_equity),
             "total_return": _safe(total_return),
+            "cagr": _safe(cagr),
             "annualized_return": _safe(ann_return),
             "annualized_volatility": _safe(ann_vol),
             "sharpe_ratio": _safe(sharpe),
@@ -468,6 +523,9 @@ class MetricsCalculator:
             "calmar_ratio": _safe(calmar),
             "max_drawdown": _safe(max_dd),
             "max_drawdown_duration": dd_duration,
+            "var_95": _safe(var_95),
+            "var_99": _safe(var_99),
+            "ulcer_index": _safe(ulcer_index),
             "total_trades": n_trades,
             "win_rate": _safe(win_rate),
             "profit_factor": _safe(profit_factor) if profit_factor != float("inf") else 999.99,
@@ -476,10 +534,15 @@ class MetricsCalculator:
             "expectancy": _safe(expectancy),
             "avg_trade_duration": _safe(avg_bars, 1),
             "total_commission": _safe(total_commission),
+            "max_win_streak": max_win_streak,
+            "max_loss_streak": max_loss_streak,
             "equity_curve": [_safe(v) for v in eq_sampled],
+            "equity_curve_raw": [_safe(v) for v in equity_curve],
             "drawdown_curve": [_safe(v) for v in dd_sampled],
             "monthly_returns": monthly_returns,
             "rolling_sharpe": [_safe(v) for v in rolling_sharpe],
+            "trade_distribution": trade_distribution,
+            "mae_mfe": mae_mfe_data,
         }
 
     @staticmethod
@@ -502,14 +565,18 @@ class MetricsCalculator:
         return {
             "initial_capital": initial_capital,
             "final_equity": initial_capital,
-            "total_return": 0, "annualized_return": 0, "annualized_volatility": 0,
+            "total_return": 0, "cagr": 0, "annualized_return": 0, "annualized_volatility": 0,
             "sharpe_ratio": 0, "sortino_ratio": 0, "calmar_ratio": 0,
             "max_drawdown": 0, "max_drawdown_duration": 0,
+            "var_95": 0, "var_99": 0, "ulcer_index": 0,
             "total_trades": 0, "win_rate": 0, "profit_factor": 0,
             "avg_win": 0, "avg_loss": 0, "expectancy": 0,
             "avg_trade_duration": 0, "total_commission": 0,
-            "equity_curve": [initial_capital], "drawdown_curve": [0],
+            "max_win_streak": 0, "max_loss_streak": 0,
+            "equity_curve": [initial_capital], "equity_curve_raw": [initial_capital],
+            "drawdown_curve": [0],
             "monthly_returns": [], "rolling_sharpe": [],
+            "trade_distribution": [], "mae_mfe": [],
         }
 
 
@@ -603,6 +670,79 @@ class BacktestEngine:
 
     def __init__(self):
         self.trades: List[Trade] = []
+
+    def run_backtest_from_df(
+        self,
+        df: pd.DataFrame,
+        strategy_name: str = "rsi_ma_crossover",
+        strategy_params: Optional[dict] = None,
+        initial_capital: float = 10000.0,
+        position_sizing: str = "fixed",
+        commission_rate: float = 0.001,
+        slippage_rate: float = 0.0005,
+        stop_loss_pct: Optional[float] = None,
+        take_profit_pct: Optional[float] = None,
+        trailing_stop_pct: Optional[float] = None,
+        max_pyramiding: int = 1,
+        walk_forward: bool = False,
+        walk_forward_train_pct: float = 0.7,
+        monte_carlo: bool = True,
+        monte_carlo_sims: int = 1000,
+    ) -> Dict:
+        """Run a full backtest from a pre-loaded DataFrame (no DB needed)."""
+        if strategy_name not in STRATEGY_REGISTRY:
+            return {"error": f"Unknown strategy: {strategy_name}. Available: {list(STRATEGY_REGISTRY.keys())}"}
+
+        strat_info = STRATEGY_REGISTRY[strategy_name]
+        strat_func = strat_info["func"]
+        params = {**strat_info["default_params"], **(strategy_params or {})}
+
+        if df.empty or len(df) < 20:
+            return {"error": "Insufficient data (need at least 20 bars)"}
+
+        for col in ["open", "high", "low", "close"]:
+            if col not in df.columns:
+                return {"error": f"Missing required column: {col}"}
+        if "volume" not in df.columns:
+            df["volume"] = 1
+
+        sizing_method = PositionSizing(position_sizing) if position_sizing in [e.value for e in PositionSizing] else PositionSizing.FIXED
+
+        if walk_forward and len(df) > 60:
+            split_idx = int(len(df) * walk_forward_train_pct)
+            train_df = df.iloc[:split_idx].copy()
+            test_df = df.iloc[split_idx:].copy()
+            train_signals = strat_func(train_df, params)
+            test_signals = strat_func(test_df, params)
+            result = self._execute_trades(
+                test_df, test_signals, initial_capital, sizing_method, params,
+                commission_rate, slippage_rate, stop_loss_pct, take_profit_pct,
+                trailing_stop_pct, max_pyramiding,
+            )
+            result["walk_forward"] = {
+                "enabled": True, "train_bars": len(train_df),
+                "test_bars": len(test_df), "train_pct": walk_forward_train_pct,
+            }
+        else:
+            signals = strat_func(df, params)
+            result = self._execute_trades(
+                df, signals, initial_capital, sizing_method, params,
+                commission_rate, slippage_rate, stop_loss_pct, take_profit_pct,
+                trailing_stop_pct, max_pyramiding,
+            )
+            result["walk_forward"] = {"enabled": False}
+
+        if monte_carlo and len(self.trades) >= 3:
+            result["monte_carlo"] = MonteCarloSimulator.run(self.trades, initial_capital, monte_carlo_sims)
+        else:
+            result["monte_carlo"] = None
+
+        result["strategy"] = strategy_name
+        result["strategy_params"] = params
+        result["commission_rate"] = commission_rate
+        result["slippage_rate"] = slippage_rate
+
+        return result
 
     def run_backtest(
         self,
@@ -743,9 +883,14 @@ class BacktestEngine:
             low = bar["low"]
             sig = signals.iloc[i] if i < len(signals) else "HOLD"
 
-            # Increment bars held
+            # Increment bars held + track MAE/MFE
             for p in positions:
                 p.bars_held += 1
+                if p.entry_price > 0:
+                    low_pct = ((low - p.entry_price) / p.entry_price) * 100
+                    high_pct = ((high - p.entry_price) / p.entry_price) * 100
+                    p.mae = min(p.mae, low_pct)   # Most negative excursion
+                    p.mfe = max(p.mfe, high_pct)   # Most positive excursion
 
             # ── Check stop-loss / take-profit / trailing stop on open positions ──
             closed_indices = []

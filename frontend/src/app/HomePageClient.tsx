@@ -38,6 +38,11 @@ import {
   QuoteData,
   StockPerformance,
 } from '@/lib/api'
+import {
+  fetchContinentNews,
+  type ContinentNewsData,
+  type ContinentNewsArticle,
+} from '@/lib/monitor-extended-api'
 import { useExchangeHeatmap } from '@/hooks/useExchangeHeatmap'
 import type { ExchangeSector } from '@/app/api/exchange/heatmap/route'
 import MarketNewsGrid from '@/components/MarketNewsGrid'
@@ -1041,14 +1046,14 @@ function ContinentMoversPanel({
     return actives
       .filter((m) => m.change_percent > 0)
       .sort((a, b) => b.change_percent - a.change_percent)
-  }, [rawGainers, actives])
+  }, [rawGainers, actives]).slice(0, 15)
 
   const losers = useMemo(() => {
     if (rawLosers.length > 0) return rawLosers
     return actives
       .filter((m) => m.change_percent < 0)
       .sort((a, b) => a.change_percent - b.change_percent)
-  }, [rawLosers, actives])
+  }, [rawLosers, actives]).slice(0, 15)
 
   const scopeLabel = exchangeId
     ? getExchangeById(exchangeId)?.shortName ?? exchangeId
@@ -1067,7 +1072,7 @@ function ContinentMoversPanel({
             {scopeLabel}
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-800/30">
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-800/30 max-h-[320px]">
           {isLoading ? (
             <SkeletonMoversSection count={6} />
           ) : gainers.length === 0 ? (
@@ -1106,7 +1111,7 @@ function ContinentMoversPanel({
             {scopeLabel}
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-800/30">
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-800/30 max-h-[320px]">
           {isLoading ? (
             <SkeletonMoversSection count={6} />
           ) : losers.length === 0 ? (
@@ -1137,6 +1142,34 @@ function ContinentMoversPanel({
       </div>
     </div>
   )
+}
+
+type DashboardNewsItem = {
+  key: string
+  title: string
+  source: string
+  url?: string | null
+  sentiment?: string | null
+  tickers: string[]
+  time: string
+}
+
+function toRelativeTime(iso?: string | null): string {
+  if (!iso) return 'now'
+  const ts = Date.parse(iso)
+  if (!Number.isFinite(ts)) return 'now'
+  const diffMin = Math.max(0, Math.floor((Date.now() - ts) / 60000))
+  if (diffMin < 1) return 'now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr}h ago`
+  return `${Math.floor(diffHr / 24)}d ago`
+}
+
+function mapContinentToFeedName(continent: Continent): string {
+  if (continent === 'global') return 'Americas'
+  if (continent === 'asia') return 'Asia Pacific'
+  return continent.charAt(0).toUpperCase() + continent.slice(1)
 }
 
 // ─── Desktop Dashboard ────────────────────────────────────────────────────────
@@ -1191,6 +1224,13 @@ function DesktopHome() {
     isFetching: newsFetching,
     refetch: refetchNews,
   } = useBreakingNews(20, 45_000, newsContext)
+  const { data: continentNewsData } = useQuery<ContinentNewsData>({
+    queryKey: ['monitor-continent-news'],
+    queryFn: fetchContinentNews,
+    refetchInterval: 120_000,
+    staleTime: 60_000,
+    enabled: activeContinent !== 'global',
+  })
 
   const { data: worldIndices = [], isLoading: indicesLoading } = useWorldIndices(activeContinent)
   const { data: currencyRates = {} } = useCurrencyRates()
@@ -1289,6 +1329,42 @@ function DesktopHome() {
   const breadthColor = breadth > 0 ? 'text-emerald-400' : breadth < 0 ? 'text-red-400' : 'text-yellow-400'
 
   const continentInfo = CONTINENTS.find((c) => c.id === activeContinent)
+  const continentFeedName = mapContinentToFeedName(activeContinent)
+  const selectedContinentArticles: ContinentNewsArticle[] =
+    continentNewsData?.feeds?.find((f) => f.continent === continentFeedName)?.articles ?? []
+  const dashboardNewsItems = useMemo<DashboardNewsItem[]>(() => {
+    const map = new Map<string, DashboardNewsItem>()
+
+    for (const n of liveNews) {
+      const key = n.url || n.title
+      if (!key || map.has(key)) continue
+      map.set(key, {
+        key,
+        title: n.title,
+        source: n.source || 'News',
+        url: n.url,
+        sentiment: n.sentiment,
+        tickers: n.related_tickers ?? [],
+        time: toRelativeTime(n.published_at),
+      })
+    }
+
+    for (const n of selectedContinentArticles) {
+      const key = n.url || n.title
+      if (!key || map.has(key)) continue
+      map.set(key, {
+        key,
+        title: n.title,
+        source: n.source || continentFeedName,
+        url: n.url,
+        sentiment: null,
+        tickers: n.tickers?.slice(0, 5) ?? [],
+        time: n.time_ago || 'now',
+      })
+    }
+
+    return Array.from(map.values()).slice(0, 20)
+  }, [liveNews, selectedContinentArticles, continentFeedName])
 
   /** Align Live News / Gainers / Losers toolbars and equal column height on large screens */
   const dashToolbar =
@@ -1546,17 +1622,19 @@ function DesktopHome() {
                           <RefreshCw className="w-3 h-3" /> Retry
                         </button>
                       </div>
-                    ) : liveNews.length > 0 ? (
+                    ) : dashboardNewsItems.length > 0 ? (
                       <>
-                        <div className="shrink-0 border-b border-slate-800/50 p-2 sm:p-3">
-                          <p className="mb-2 px-0.5 text-[10px] font-mono text-slate-500">Featured</p>
-                          <div className="space-y-2">
-                            {liveNews.slice(0, 7).map((news, idx) => {
-                              const key = news.id ?? news.url ?? `${news.title}-${idx}`
+                        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-2.5 auto-rows-fr">
+                            {dashboardNewsItems.map((news, idx) => {
                               const isBullish = news.sentiment === 'Bullish'
                               const isBearish = news.sentiment === 'Bearish'
                               const Inner = (
-                                <div className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-lg border border-slate-800/50 bg-slate-950/30 hover:bg-blue-500/5 hover:border-slate-700/60 transition-colors group/item h-full">
+                                <div
+                                  className={`flex items-start gap-2.5 rounded-lg border border-slate-800/50 bg-slate-950/35 p-2.5 transition-colors group/item h-full ${
+                                    idx === 0 ? 'xl:col-span-2 border-slate-700/70 bg-slate-950/60' : ''
+                                  } hover:bg-blue-500/5 hover:border-slate-700/60`}
+                                >
                                   <div
                                     className={`mt-0.5 p-1.5 rounded shrink-0 ${
                                       isBullish
@@ -1575,7 +1653,7 @@ function DesktopHome() {
                                     )}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-[13px] sm:text-sm text-white font-medium group-hover/item:text-blue-300 transition-colors line-clamp-3 leading-snug">
+                                    <p className={`text-white font-medium group-hover/item:text-blue-300 transition-colors leading-snug ${idx === 0 ? 'text-sm line-clamp-3' : 'text-[13px] line-clamp-2'}`}>
                                       {news.title}
                                     </p>
                                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -1583,9 +1661,10 @@ function DesktopHome() {
                                         <Clock className="w-2.5 h-2.5 shrink-0" />
                                         <span className="truncate">{news.source}</span>
                                       </span>
-                                      {news.related_tickers && news.related_tickers.length > 0 && (
+                                      <span className="text-[9px] font-mono text-slate-600">{news.time}</span>
+                                      {news.tickers.length > 0 && (
                                         <div className="flex gap-1 flex-wrap">
-                                          {news.related_tickers.slice(0, 3).map((t) => (
+                                          {news.tickers.slice(0, 3).map((t) => (
                                             <span
                                               key={t}
                                               className="px-1.5 py-0.5 text-[9px] bg-blue-500/15 text-blue-400 rounded font-mono"
@@ -1601,93 +1680,22 @@ function DesktopHome() {
                               )
                               return news.url ? (
                                 <a
-                                  key={key}
+                                  key={news.key}
                                   href={news.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="block min-w-0"
+                                  className={idx === 0 ? 'xl:col-span-2 block min-w-0' : 'block min-w-0'}
                                 >
                                   {Inner}
                                 </a>
                               ) : (
-                                <div key={key} className="min-w-0">
+                                <div key={news.key} className={idx === 0 ? 'xl:col-span-2 min-w-0' : 'min-w-0'}>
                                   {Inner}
                                 </div>
                               )
                             })}
                           </div>
                         </div>
-                        {liveNews.length > 7 && (
-                          <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-3">
-                            <p className="mb-2 px-0.5 text-[10px] font-mono text-slate-500">More headlines</p>
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
-                              {liveNews.slice(7, 20).map((news, idx) => {
-                                const key = news.id ?? news.url ?? `more-${news.title}-${idx}`
-                                const isBullish = news.sentiment === 'Bullish'
-                                const isBearish = news.sentiment === 'Bearish'
-                                const Inner = (
-                                  <div className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-lg border border-slate-800/50 bg-slate-950/30 hover:bg-blue-500/5 hover:border-slate-700/60 transition-colors group/item h-full">
-                                    <div
-                                      className={`mt-0.5 p-1.5 rounded shrink-0 ${
-                                        isBullish
-                                          ? 'bg-green-500/15'
-                                          : isBearish
-                                            ? 'bg-red-500/15'
-                                            : 'bg-slate-700/40'
-                                      }`}
-                                    >
-                                      {isBullish ? (
-                                        <TrendingUp className="w-3 h-3 text-green-400" />
-                                      ) : isBearish ? (
-                                        <TrendingDown className="w-3 h-3 text-red-400" />
-                                      ) : (
-                                        <Minus className="w-3 h-3 text-slate-400" />
-                                      )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-[13px] sm:text-sm text-white font-medium group-hover/item:text-blue-300 transition-colors line-clamp-3 leading-snug">
-                                        {news.title}
-                                      </p>
-                                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                        <span className="text-[10px] text-slate-500 flex items-center gap-1 min-w-0">
-                                          <Clock className="w-2.5 h-2.5 shrink-0" />
-                                          <span className="truncate">{news.source}</span>
-                                        </span>
-                                        {news.related_tickers && news.related_tickers.length > 0 && (
-                                          <div className="flex gap-1 flex-wrap">
-                                            {news.related_tickers.slice(0, 3).map((t) => (
-                                              <span
-                                                key={t}
-                                                className="px-1.5 py-0.5 text-[9px] bg-blue-500/15 text-blue-400 rounded font-mono"
-                                              >
-                                                {t}
-                                              </span>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )
-                                return news.url ? (
-                                  <a
-                                    key={key}
-                                    href={news.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="block min-w-0"
-                                  >
-                                    {Inner}
-                                  </a>
-                                ) : (
-                                  <div key={key} className="min-w-0">
-                                    {Inner}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )}
                       </>
                     ) : (
                       <div className="flex flex-col items-center justify-center h-full py-10 text-center px-4">

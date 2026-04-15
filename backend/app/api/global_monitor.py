@@ -368,6 +368,17 @@ async def get_map_data(
             GlobalEvent.event_timestamp >= cutoff_time
         )
     ).order_by(desc(GlobalEvent.threat_level), desc(GlobalEvent.severity)).limit(500).all()
+
+    # If ingestion is stale and requested window is empty, gracefully fall back
+    # to the most recent active events so the monitor does not hard-flatline.
+    if not events:
+        events = (
+            db.query(GlobalEvent)
+            .filter(GlobalEvent.is_active == True)
+            .order_by(desc(GlobalEvent.event_timestamp))
+            .limit(500)
+            .all()
+        )
     
     clusters = db.query(GeographicCluster).filter(
         and_(
@@ -375,6 +386,15 @@ async def get_map_data(
             GeographicCluster.last_event_at >= cutoff_time
         )
     ).order_by(desc(GeographicCluster.hotspot_score)).limit(100).all()
+
+    if not clusters:
+        clusters = (
+            db.query(GeographicCluster)
+            .filter(GeographicCluster.is_hotspot == True)
+            .order_by(desc(GeographicCluster.last_event_at))
+            .limit(100)
+            .all()
+        )
     
     instability = db.query(CountryInstability).filter(
         CountryInstability.instability_index >= 20
@@ -388,6 +408,15 @@ async def get_map_data(
                 EventAnomaly.detected_at >= cutoff_time
             )
         ).order_by(desc(EventAnomaly.z_score)).limit(50).all()
+
+        if not anomalies:
+            anomalies = (
+                db.query(EventAnomaly)
+                .filter(EventAnomaly.is_active == True)
+                .order_by(desc(EventAnomaly.detected_at))
+                .limit(50)
+                .all()
+            )
     
     # Calculate statistics
     stats = {

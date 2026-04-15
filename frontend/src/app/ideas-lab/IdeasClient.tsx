@@ -27,6 +27,7 @@ import {
   type TradeIdea, type IdeasResponse,
   type IndexDefinition, type IndexSnapshot, type RegimeData,
 } from '@/lib/api'
+import { useMarketWebSocket } from '@/lib/websocket'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -283,6 +284,12 @@ function IdeaCard({ idea, index }: { idea: TradeIdea; index: number }) {
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800/80 border border-slate-700/40 text-slate-400">
                   {idea.sector}
                 </span>
+                {/* Data source */}
+                {idea.data_source && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-violet-500/10 border border-violet-500/20 text-violet-400">
+                    {idea.data_source}
+                  </span>
+                )}
               </div>
               {/* Symbol + name */}
               <div className="flex items-center gap-2.5">
@@ -486,8 +493,10 @@ function MarketPulse({
           </h3>
           <div className="grid grid-cols-2 gap-1.5">
             {Object.entries(pulse.sector_rotation).map(([sector, counts]) => {
-              const total = counts.bullish + counts.bearish
-              const bullPct = total > 0 ? (counts.bullish / total) * 100 : 50
+              const bullish = counts.bullish ?? 0
+              const bearish = counts.bearish ?? 0
+              const total = bullish + bearish
+              const bullPct = total > 0 ? (bullish / total) * 100 : 50
               return (
                 <div key={sector} className="bg-slate-800/30 rounded-lg px-3 py-2">
                   <div className="text-[10px] text-slate-500 mb-1">{sector}</div>
@@ -515,7 +524,32 @@ function MarketPulse({
   )
 }
 
-// ── Live Pulse Dot ───────────────────────────────────────────────────────────
+// ── Live Status Indicator ────────────────────────────────────────────────────
+
+function LiveIndicator({ status, sources }: { status: 'connected' | 'connecting' | 'disconnected'; sources?: string[] }) {
+  const colors = {
+    connected: { dot: 'bg-emerald-500', ping: 'bg-emerald-400', text: 'text-emerald-400', label: 'LIVE' },
+    connecting: { dot: 'bg-amber-500', ping: 'bg-amber-400', text: 'text-amber-400', label: 'CONNECTING' },
+    disconnected: { dot: 'bg-slate-500', ping: 'bg-slate-400', text: 'text-slate-400', label: 'POLLING' },
+  }
+  const c = colors[status]
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="relative flex h-2.5 w-2.5">
+        {status === 'connected' && (
+          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${c.ping} opacity-75`} />
+        )}
+        <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${c.dot}`} />
+      </span>
+      <span className={`text-[10px] font-mono font-bold ${c.text}`}>{c.label}</span>
+      {sources && sources.length > 0 && (
+        <span className="text-[9px] text-slate-600 font-mono">
+          via {sources.join(', ')}
+        </span>
+      )}
+    </div>
+  )
+}
 
 function PulseDot() {
   return (
@@ -756,7 +790,36 @@ function DesktopIdeasLab() {
   const [basketLoadProgress, setBasketLoadProgress] = useState(0)
   const [refreshingIndex, setRefreshingIndex] = useState<string | null>(null)
   const [modalBasket, setModalBasket] = useState<{ index: IndexDefinition; snapshot: IndexSnapshot } | null>(null)
+  const [dataSources, setDataSources] = useState<string[]>([])
   const qc = useQueryClient()
+
+  // ── Real-time WebSocket for live ideas updates ────────────────────────────
+  const { isConnected, connectionStatus, lastMessage } = useMarketWebSocket({
+    channel: 'ideas',
+    token: typeof window !== 'undefined' ? getToken() : null,
+    onMessage: (msg) => {
+      if (msg.type === 'ideas_update' && msg.data?.ideas) {
+        setIdeas(msg.data.ideas)
+        if (msg.data.market_pulse) setPulse(msg.data.market_pulse)
+        if (msg.data.data_sources_used) setDataSources(msg.data.data_sources_used)
+      } else if (msg.type === 'pulse_update' && msg.data) {
+        setPulse(prev => ({ ...prev, ...msg.data }))
+      } else if (msg.type === 'news_update') {
+        // News triggered rescore — refresh ideas
+        loadTrending()
+      }
+    },
+    enabled: true,
+  })
+
+  // Polling fallback when WebSocket is disconnected (every 60s)
+  useEffect(() => {
+    if (isConnected) return
+    const interval = setInterval(() => {
+      loadTrending()
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [isConnected])
 
   // Load basket data — uses React Query cache (prefetched by PrefetchEngine)
   useEffect(() => {
@@ -835,6 +898,7 @@ function DesktopIdeasLab() {
       const res = await getTrendingIdeas()
       setIdeas(res.ideas)
       setPulse(res.market_pulse)
+      if (res.data_sources_used) setDataSources(res.data_sources_used)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load ideas')
     } finally {
@@ -853,6 +917,7 @@ function DesktopIdeasLab() {
       const res = await generateIdeas()
       setIdeas(res.ideas)
       setPulse(res.market_pulse)
+      if (res.data_sources_used) setDataSources(res.data_sources_used)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Generation failed')
     } finally {
@@ -895,11 +960,10 @@ function DesktopIdeasLab() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h1 className="text-xl font-black text-white">AI Ideas Lab</h1>
-                    <PulseDot />
-                    <span className="text-[10px] text-slate-500 font-mono">LIVE</span>
+                    <LiveIndicator status={connectionStatus} sources={dataSources} />
                   </div>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    AI-powered stock baskets & trade setups
+                    Real-time AI stock baskets & trade setups
                   </p>
                 </div>
               </div>
@@ -1164,6 +1228,18 @@ function MobileIdeasLab() {
   const isAuthed = typeof window !== 'undefined' && !!getToken()
   const mqc = useQueryClient()
 
+  // WebSocket for mobile
+  const { connectionStatus: mobileWsStatus } = useMarketWebSocket({
+    channel: 'ideas',
+    onMessage: (msg) => {
+      if (msg.type === 'ideas_update' && msg.data?.ideas) {
+        setIdeas(msg.data.ideas)
+        if (msg.data.market_pulse) setPulse(msg.data.market_pulse)
+      }
+    },
+    enabled: true,
+  })
+
   // Basket state
   const [indices, setIndices] = useState<IndexDefinition[]>([])
   const [snapshots, setSnapshots] = useState<Record<string, IndexSnapshot>>({})
@@ -1270,7 +1346,7 @@ function MobileIdeasLab() {
           <div className="flex items-center gap-2">
             <Brain className="w-5 h-5 text-violet-400" />
             <h1 className="text-lg font-black text-white">AI Ideas Lab</h1>
-            <PulseDot />
+            <LiveIndicator status={mobileWsStatus} />
           </div>
         </div>
 
