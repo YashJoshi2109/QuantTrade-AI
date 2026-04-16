@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 
 from sqlalchemy import create_engine
@@ -5,6 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.database import Base
 from app.models import Filing, FilingChunk, Symbol
+from app.services.embedding_service import EmbeddingService
 from app.services.rag_service import RAGService
 
 
@@ -33,11 +35,14 @@ def test_rag_service_basic_retrieval():
     db.add(filing)
     db.flush()
 
+    chunk_content = "Apple is a technology company that designs, manufactures smartphones."
+    embedder = EmbeddingService()
     chunk = FilingChunk(
         filing_id=filing.id,
         chunk_index=0,
-        content="Apple is a technology company that designs, manufactures smartphones.",
+        content=chunk_content,
         section="Business Overview",
+        embedding=json.dumps(embedder.embed_text(chunk_content)),
     )
     db.add(chunk)
     db.commit()

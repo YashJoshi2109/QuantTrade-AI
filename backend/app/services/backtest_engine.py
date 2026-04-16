@@ -114,22 +114,31 @@ class Trade:
 
 @register_strategy(
     "rsi_ma_crossover",
-    "Buy when RSI < oversold and price above fast MA; sell when RSI > overbought or price below fast MA.",
+    "Buy when RSI recovers from oversold or dips near oversold in uptrend; sell when overbought.",
     "Momentum",
-    {"rsi_period": 14, "rsi_oversold": 30, "rsi_overbought": 70, "fast_ma": 20, "slow_ma": 50},
+    {"rsi_period": 14, "rsi_oversold": 40, "rsi_overbought": 70, "fast_ma": 20, "slow_ma": 50},
 )
 def strategy_rsi_ma_crossover(df: pd.DataFrame, params: dict) -> pd.Series:
     rsi_period = params.get("rsi_period", 14)
-    rsi_oversold = params.get("rsi_oversold", 30)
+    rsi_oversold = params.get("rsi_oversold", 40)
     rsi_overbought = params.get("rsi_overbought", 70)
     fast_ma = params.get("fast_ma", 20)
+    slow_ma = params.get("slow_ma", 50)
 
     rsi = _compute_rsi(df, rsi_period)
     sma_fast = df["close"].rolling(fast_ma).mean()
+    sma_slow = df["close"].rolling(slow_ma).mean()
+
+    # Entry 1: RSI crosses back up through oversold threshold (recovery signal)
+    rsi_recovering = (rsi > rsi_oversold) & (rsi.shift(1) <= rsi_oversold)
+    # Entry 2: RSI dips into oversold zone while price still above fast MA
+    rsi_dip_buy = (rsi < rsi_oversold) & (df["close"] > sma_fast)
+    # Entry 3: RSI near oversold (within 5 pts) while in long-term uptrend (above slow MA)
+    rsi_near_buy = (rsi < rsi_oversold + 5) & (df["close"] > sma_slow)
 
     signals = pd.Series("HOLD", index=df.index)
-    signals[(rsi < rsi_oversold) & (df["close"] > sma_fast)] = "BUY"
-    signals[(rsi > rsi_overbought) | (df["close"] < sma_fast)] = "SELL"
+    signals[rsi_recovering | rsi_dip_buy | rsi_near_buy] = "BUY"
+    signals[(rsi > rsi_overbought)] = "SELL"
     return signals
 
 

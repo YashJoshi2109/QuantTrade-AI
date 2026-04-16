@@ -178,6 +178,7 @@ def _start_scheduler():
         from app.services.idea_scheduler import (
             rescore_ideas, update_market_pulse,
             news_sentiment_check, market_open_scan,
+            ingest_rag_data,
         )
         # Re-score ideas every 5 minutes with real market data
         sched.add_job(rescore_ideas, IntervalTrigger(minutes=5),
@@ -191,6 +192,9 @@ def _start_scheduler():
         # Market open full scan at 9:30 AM ET (13:30 UTC)
         sched.add_job(market_open_scan, CronTrigger(hour=13, minute=30),
                       id="market_open_scan", replace_existing=True)
+        # RAG data ingestion every 6 hours for copilot retrieval
+        sched.add_job(ingest_rag_data, IntervalTrigger(hours=6),
+                      id="rag_data_ingestion", replace_existing=True)
 
         sched.start()
         _scheduler = sched

@@ -281,7 +281,7 @@ export async function fetchBreakingMarketNews(
     
     const response = await fetchWithTimeout(url.toString(), 14_000)
     const data = await parseJsonSafe<NewsArticle[]>(response)
-    if (data) return data
+    if (Array.isArray(data)) return data
     if (!response.ok) {
       throw new Error('Failed to fetch breaking news')
     }
@@ -932,6 +932,22 @@ export async function scanSymbols(
 export async function getStrategies(): Promise<{ strategies: { id: string; name: string; description: string; category: string; default_params: Record<string, number> }[] }> {
   const response = await fetch(`${API_URL}/api/v1/strategies`)
   if (!response.ok) throw new Error('Failed to fetch strategies')
+  return response.json()
+}
+
+// Backtest date range
+export interface BacktestDateRange {
+  symbol: string
+  available: boolean
+  min_date?: string
+  max_date?: string
+  total_bars?: number
+  error?: string
+}
+
+export async function getBacktestDateRange(symbol: string): Promise<BacktestDateRange> {
+  const response = await fetch(`${API_URL}/api/v1/backtest/date-range/${encodeURIComponent(symbol)}`)
+  if (!response.ok) return { symbol, available: false, error: 'Failed to fetch date range' }
   return response.json()
 }
 

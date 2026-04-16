@@ -4,15 +4,24 @@ on:
   schedule:
     - cron: '0 3 * * *'  # 03:00 UTC nightly
   workflow_dispatch:
+    inputs:
+      symbol_tier:
+        description: 'Symbol tier: tier_1 | tier_2 | all'
+        default: 'tier_1'
+      epochs:
+        description: 'Override epochs'
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+  packages: read
 
 jobs:
-  train-models:
-    name: Train predictive models
+  train-lstm:
+    name: Train LSTM predictors
     runs-on: ubuntu-latest
-
-    env:
-      # Optional: wire secrets if you want DB writes
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    timeout-minutes: 180
 
     steps:
       - name: Checkout repository
@@ -21,20 +30,48 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
-      - name: Install rag/ML dependencies
-        working-directory: ./rag
+      - name: Cache parquet data
+        uses: actions/cache@v4
+        with:
+          path: backend/ml/data_cache
+          key: ml-data-cache-v2-${{ github.run_id }}
+          restore-keys: |
+            ml-data-cache-v2-
+
+      - name: Install backend dependencies
+        working-directory: ./backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          # Install CPU-only torch for CI (saves ~1.5GB)
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Train models
-        working-directory: ./rag
+      - name: Train LSTM models (all horizons)
+        working-directory: ./backend
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
         run: |
-          if [ -f "train.py" ]; then
-            python train.py --config configs/train_default.yaml
-          else
-            echo "rag/train.py not present yet. Nightly training is a no-op."
-          fi
+          python -m ml.train --config configs/train_default.yaml \
+            ${{ github.event.inputs.symbol_tier && format('--symbols {0}', github.event.inputs.symbol_tier) || '' }} \
+            ${{ github.event.inputs.epochs && format('--epochs {0}', github.event.inputs.epochs) || '' }}
 
+      - name: List trained checkpoints
+        working-directory: ./backend
+        run: ls -lh ml/checkpoints/ || true
+
+      - name: Upload checkpoints
+        uses: actions/upload-artifact@v4
+        with:
+          name: ml-checkpoints-${{ github.run_id }}
+          path: backend/ml/checkpoints/
+          retention-days: 30
+
+      - name: Upload parquet cache
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ml-data-cache-${{ github.run_id }}
+          path: backend/ml/data_cache/
+          retention-days: 7

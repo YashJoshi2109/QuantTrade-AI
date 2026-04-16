@@ -1227,6 +1227,19 @@ function ConversationSidebar({
   isLoading: boolean
   onClose: () => void
 }) {
+  const buildConversationSummary = (conv: ConversationSummary) => {
+    const primary = (conv.title || conv.last_message || 'New conversation').trim()
+    if (primary.length <= 140) return primary
+    return `${primary.slice(0, 137)}...`
+  }
+
+  const buildConversationPreview = (conv: ConversationSummary) => {
+    const preview = (conv.last_message || '').trim()
+    if (!preview) return 'No assistant response captured yet.'
+    if (preview.length <= 96) return preview
+    return `${preview.slice(0, 93)}...`
+  }
+
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime()
     const mins = Math.floor(diff / 60000)
@@ -1239,13 +1252,37 @@ function ConversationSidebar({
     return new Date(dateStr).toLocaleDateString()
   }
 
+  const HistoryListSkeleton = () => (
+    <div className="py-2 px-2 space-y-2">
+      {Array.from({ length: 7 }).map((_, idx) => (
+        <div
+          key={idx}
+          className="rounded-xl border border-slate-800/90 bg-gradient-to-r from-[#0a0f1d] to-[#0d1220] p-3 animate-pulse"
+        >
+          <div className="h-3 w-3/4 rounded bg-slate-700/60" />
+          <div className="mt-2 h-2.5 w-full rounded bg-slate-800/80" />
+          <div className="mt-1.5 h-2.5 w-2/3 rounded bg-slate-800/70" />
+          <div className="mt-2.5 flex items-center gap-2">
+            <div className="h-2.5 w-16 rounded bg-slate-700/70" />
+            <div className="h-2.5 w-10 rounded bg-slate-700/70" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+
   return (
     <div className="flex flex-col h-full bg-[#080C14] border-r border-slate-700/50">
       {/* Sidebar Header */}
-      <div className="flex items-center justify-between px-3 py-3 border-b border-slate-700/50 shrink-0">
+      <div className="flex items-center justify-between px-3 py-3 border-b border-slate-700/50 shrink-0 bg-gradient-to-r from-[#0b1220] via-[#0a101b] to-[#080c14]">
         <div className="flex items-center gap-2">
-          <History className="w-4 h-4 text-[#007AFF]" />
-          <span className="text-xs font-bold text-white">History</span>
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#007AFF]/35 bg-[#007AFF]/10 shadow-[0_0_16px_rgba(0,122,255,0.15)]">
+            <History className="w-4 h-4 text-[#52a8ff]" />
+          </span>
+          <div className="leading-tight">
+            <span className="text-xs font-bold text-white">History</span>
+            <p className="text-[10px] text-slate-500">Session memory and analytics trail</p>
+          </div>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -1267,9 +1304,7 @@ function ConversationSidebar({
       {/* Conversations List */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <RefreshCw className="w-4 h-4 text-slate-500 animate-spin" />
-          </div>
+          <HistoryListSkeleton />
         ) : conversations.length === 0 ? (
           <div className="text-center py-8 px-4">
             <MessageSquare className="w-8 h-8 text-slate-700 mx-auto mb-2" />
@@ -1277,34 +1312,35 @@ function ConversationSidebar({
             <p className="text-[10px] text-slate-600 mt-1">Start a new chat to begin</p>
           </div>
         ) : (
-          <div className="py-1">
+          <div className="py-2 px-2">
             {conversations.map((conv) => (
               <div
                 key={conv.id}
-                className={`group relative px-3 py-2.5 cursor-pointer transition-colors ${
+                className={`group relative px-3 py-3 rounded-xl cursor-pointer transition-all border backdrop-blur-sm ${
                   activeId === conv.id
-                    ? 'bg-[#007AFF]/10 border-l-2 border-[#007AFF]'
-                    : 'hover:bg-slate-800/40 border-l-2 border-transparent'
+                    ? 'bg-gradient-to-r from-[#007AFF]/14 to-cyan-500/8 border-[#007AFF]/45 shadow-[0_8px_24px_rgba(0,122,255,0.12)]'
+                    : 'bg-gradient-to-r from-[#0b101b] to-[#0a0e18] border-slate-800/80 hover:border-slate-700/70 hover:from-[#0d1422] hover:to-[#0c1220]'
                 }`}
                 onClick={() => onSelect(conv.id)}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-white truncate">
-                      {conv.title || 'New Conversation'}
+                    <p className="text-[12px] font-semibold text-white leading-snug line-clamp-2">
+                      {buildConversationSummary(conv)}
                     </p>
-                    {conv.last_message && (
-                      <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                        {conv.last_message}
-                      </p>
-                    )}
+                    <p className="text-[10px] text-slate-500 line-clamp-2 mt-1">
+                      {buildConversationPreview(conv)}
+                    </p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[9px] text-slate-600 flex items-center gap-1">
+                      <span className="text-[9px] text-slate-500 flex items-center gap-1">
                         <Clock className="w-2.5 h-2.5" />
                         {timeAgo(conv.updated_at)}
                       </span>
-                      <span className="text-[9px] text-slate-600">
+                      <span className="text-[9px] text-slate-500">
                         {conv.message_count} msgs
+                      </span>
+                      <span className="text-[9px] text-cyan-400/90 ml-auto rounded-md border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-0.5">
+                        Analysis
                       </span>
                     </div>
                   </div>

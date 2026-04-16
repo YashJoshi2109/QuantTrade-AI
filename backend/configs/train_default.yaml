@@ -1,0 +1,50 @@
+# QuantTrade-AI LSTM Training Configuration
+# Train: python -m ml.train --config configs/train_default.yaml
+
+# ── Symbol selection ──────────────────────────────────────────────────
+# Options: tier_1 (10 mega-caps), tier_2 (60), all (269)
+symbol_tier: "tier_1"
+# symbols: [AAPL, MSFT, GOOGL]  # explicit override, leave empty to use tier
+
+# ── Data ──────────────────────────────────────────────────────────────
+data_period: "max"        # yfinance period ("max" = full IPO-to-now, up to 25yr)
+cache_dir: "ml/data_cache"
+
+# ── Features ──────────────────────────────────────────────────────────
+target_mode: "log_return" # log_return | binary_direction
+seq_len: 60               # lookback window in days
+horizons: [1, 7, 30]      # train separate models for each horizon
+
+# ── Model architecture ────────────────────────────────────────────────
+hidden_size: 128
+num_layers: 3
+dropout: 0.2
+
+# ── Scaler ────────────────────────────────────────────────────────────
+scaler_type: "standard"   # standard | minmax | robust
+
+# ── Training ──────────────────────────────────────────────────────────
+epochs: 50
+batch_size: 64
+learning_rate: 0.001
+weight_decay: 0.0001
+grad_clip_norm: 1.0
+early_stopping_patience: 10
+lr_scheduler: "one_cycle"  # one_cycle | cosine | reduce_on_plateau
+
+# ── Validation ────────────────────────────────────────────────────────
+val_days: 63              # ~3 months
+test_days: 63
+
+# ── Walk-forward (optional) ───────────────────────────────────────────
+walk_forward: false
+wf_train_days: 1260       # 5 years
+wf_retrain_every: 252     # 1 year
+wf_expanding: true
+
+# ── Portfolio evaluation ──────────────────────────────────────────────
+transaction_cost_bps: 10.0
+
+# ── Output ────────────────────────────────────────────────────────────
+checkpoint_dir: "ml/checkpoints"
+experiment_name: "nightly"

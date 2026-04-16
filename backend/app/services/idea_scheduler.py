@@ -240,3 +240,25 @@ def news_sentiment_check():
 
 def market_open_scan():
     _run_async(_market_open_scan_async())
+
+
+# ── RAG Data Ingestion ─────────────────────────────────────────────────────
+
+async def _ingest_rag_data_async():
+    """Ingest fundamentals, news, and technical data for top symbols into vector store."""
+    logger.info("📥 Scheduler: running RAG data ingestion...")
+    try:
+        from app.services.data_ingestion_service import ingest_batch
+        results = await ingest_batch()
+        total = sum(r.get("ingested", 0) for r in results)
+        errors = [r for r in results if r.get("error")]
+        logger.info(
+            "✅ Scheduler: RAG ingestion complete — %d docs ingested, %d errors",
+            total, len(errors),
+        )
+    except Exception as e:
+        logger.error("❌ Scheduler RAG ingestion error: %s", e)
+
+
+def ingest_rag_data():
+    _run_async(_ingest_rag_data_async())

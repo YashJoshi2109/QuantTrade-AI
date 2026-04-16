@@ -135,7 +135,61 @@ STOP_WORDS = {
     "top", "best", "worst", "compare", "versus", "sector", "sectors",
     "gainers", "losers", "performance", "prediction", "forecast",
     "overview", "insight", "breakdown", "today", "current",
+    "am", "is", "be", "do", "me", "my", "we", "us", "they", "them",
+    "he", "him", "it", "if", "so", "as", "or", "to", "on", "at", "by",
+    "in", "of", "up", "an", "a",
+    "should", "would", "could", "might", "must",
 }
+
+# Currency / money words — never treat as company names
+CURRENCY_AND_MONEY_WORDS = {
+    "dollar", "dollars", "usd", "cent", "cents", "buck", "bucks",
+    "money", "cash", "amount", "budget", "savings", "saving",
+    "capital", "fund", "funds", "investment", "invest", "investing",
+    "invested", "portfolio", "wealth", "income", "salary", "pay",
+    "euro", "euros", "pound", "pounds", "rupee", "rupees", "yen",
+}
+
+# Common English words that often fuzzy-match company names badly
+COMMON_ENGLISH_WORDS = {
+    "good", "growth", "student", "students", "beginner", "beginners",
+    "long", "term", "short", "fast", "slow", "safe", "risky",
+    "small", "large", "big", "huge", "tiny", "great", "nice",
+    "think", "know", "want", "need", "like", "love", "hate",
+    "easy", "hard", "quick", "slow", "strong", "weak", "high", "low",
+    "year", "years", "month", "months", "week", "weeks", "day", "days",
+    "time", "times", "wait", "waiting", "waits", "future", "past",
+    "start", "started", "starting", "begin", "began", "beginning",
+    "help", "helps", "helping", "please", "thanks", "thank",
+    "really", "actually", "maybe", "probably", "possibly",
+    "first", "second", "third", "last", "next", "previous",
+    "ones", "once", "only", "even", "still", "always", "never",
+    "looking", "look", "looked", "looks", "found", "find", "finding",
+}
+
+# Phrases that signal general investment questions (NOT stock-specific)
+GENERAL_ADVICE_PATTERNS = [
+    r"\bwhich\s+stock",
+    r"\bwhat\s+stock",
+    r"\bshould\s+i\s+(?:buy|invest|put|hold|pick)",
+    r"\brecommend(?:\s+me)?\b",
+    r"\bsuggest(?:\s+me)?\b",
+    r"\bi\s+(?:am|'m)\s+(?:a\s+)?(?:student|beginner|new)",
+    r"\bi\s+have\s+\$?\d",
+    r"\bwhere\s+should\s+i\s+(?:invest|put)",
+    r"\bhow\s+(?:do|should|can)\s+i\s+(?:invest|start|begin)",
+    r"\bany\s+(?:good|hot|top)\s+(?:stock|pick)",
+    r"\bfor\s+(?:long\s+term|growth|dividend|retirement|beginners)",
+    r"\bgood\s+(?:amount\s+of\s+)?growth",
+]
+
+
+def _is_general_advice_query(msg: str) -> bool:
+    lower = msg.lower()
+    for pat in GENERAL_ADVICE_PATTERNS:
+        if re.search(pat, lower):
+            return True
+    return False
 
 
 def _detect_intent(msg: str, resolved_symbol: Optional[str], resolved_symbols: List[str]) -> str:
@@ -146,6 +200,8 @@ def _detect_intent(msg: str, resolved_symbol: Optional[str], resolved_symbols: L
         return "screener"
     if any(kw in lower for kw in SECTOR_KEYWORDS):
         return "sector"
+    if _is_general_advice_query(msg):
+        return "general_advice"
     if resolved_symbol:
         return "stock_analysis"
     return "text"
@@ -169,10 +225,19 @@ def _resolve_symbols(message: str, explicit_symbol: Optional[str], db: Session):
     def _resolve(candidate: str) -> Optional[Symbol]:
         if not candidate:
             return None
-        # Exact ticker match first
+        # Exact ticker match first — always accepted
         obj = db.query(Symbol).filter(Symbol.symbol == candidate.upper()).first()
         if obj:
             return obj
+        # Strict fuzzy match: block currency / common words / short tokens
+        cand_lower = candidate.lower()
+        if (
+            len(candidate) < 4
+            or cand_lower in STOP_WORDS
+            or cand_lower in COMMON_ENGLISH_WORDS
+            or cand_lower in CURRENCY_AND_MONEY_WORDS
+        ):
+            return None
         # Fuzzy company name match (prioritize by market cap)
         return (
             db.query(Symbol)
@@ -406,13 +471,42 @@ async def _copilot_stream_generator(
         include_filings = req.include_filings
         system_prompt = COPILOT_SYSTEM_PROMPT
 
-    # --- 1) Resolve symbols ---
-    primary_obj, all_symbols = _resolve_symbols(req.message, req.symbol, db)
-    resolved_symbol = primary_obj.symbol.upper() if primary_obj else None
-    symbol_id = primary_obj.id if primary_obj else None
+    # --- 1+2) Unified pipeline: intent classification + entity extraction + guardrails ---
+    from app.services.copilot import CopilotRouter
+    from app.services.copilot.intent_classifier import Intent as CopilotIntent
+    from app.services.copilot.knowledge_base import get_knowledge_snippets
 
-    # --- 2) Detect intent ---
-    intent = _detect_intent(req.message, resolved_symbol, all_symbols)
+    copilot_router = CopilotRouter(db)
+    decision = copilot_router.route(req.message, explicit_symbol=req.symbol)
+
+    # Map to legacy string intents used downstream
+    intent_map = {
+        CopilotIntent.STOCK_ANALYSIS: "stock_analysis",
+        CopilotIntent.COMPARISON: "comparison",
+        CopilotIntent.SCREENER: "screener",
+        CopilotIntent.SECTOR: "sector",
+        CopilotIntent.GENERAL_ADVICE: "general_advice",
+        CopilotIntent.PORTFOLIO_ADVICE: "portfolio_advice",
+        CopilotIntent.EDUCATION: "education",
+        CopilotIntent.MARKET_OVERVIEW: "market_overview",
+        CopilotIntent.GREETING: "greeting",
+        CopilotIntent.OFF_TOPIC: "off_topic",
+        CopilotIntent.TEXT: "text",
+    }
+    intent = intent_map.get(decision.intent, "text")
+    resolved_symbol = decision.primary_ticker
+    all_symbols = decision.all_tickers
+    primary_obj = None
+    symbol_id = None
+    if decision.primary_entity and decision.use_stock_context:
+        # Re-hydrate the primary_obj from DB for downstream code that needs .id
+        primary_obj = db.query(Symbol).filter(Symbol.symbol == resolved_symbol).first()
+        symbol_id = primary_obj.id if primary_obj else None
+
+    # Inject curated finance knowledge for knowledge-driven intents
+    kb_snippet = ""
+    if decision.inject_general_knowledge:
+        kb_snippet = get_knowledge_snippets(req.message, limit=3)
 
     # Send intent immediately
     yield _sse_event("intent", {"intent": intent, "symbol": resolved_symbol, "symbols": all_symbols})
@@ -585,7 +679,43 @@ async def _copilot_stream_generator(
         rag_context += f"\n[RAG retrieval error: {str(e)}]\n"
 
     # --- 5) Build LLM messages ---
-    user_prompt = f"""Analyze the following based on all data provided.
+    if intent in ("general_advice", "portfolio_advice", "education", "market_overview"):
+        # Knowledge-driven question — answer conversationally with curated snippets
+        general_advice_addon = (
+            "\n\n## Mode: General Investing Guidance\n"
+            "The user is asking a general investing question, NOT about a specific stock. "
+            "Answer naturally and helpfully. Use the [FINANCE KNOWLEDGE] snippets below "
+            "as grounded reference material. Suggest relevant categories (e.g. broad "
+            "index ETFs like VOO/VTI for long-term growth, specific growth-oriented stocks, "
+            "risk considerations, diversification principles). Tailor guidance to the user's "
+            "context (student, budget, time horizon). Always end with a short risk disclaimer. "
+            "Do NOT follow the rigid stock-analysis output format — write conversationally."
+        )
+        llm_system = system_prompt + general_advice_addon
+        if kb_snippet:
+            user_prompt = (
+                f"[FINANCE KNOWLEDGE]\n{kb_snippet}\n\n"
+                f"[USER QUESTION]\n{req.message}"
+            )
+        else:
+            user_prompt = req.message
+    elif intent == "greeting":
+        llm_system = system_prompt + (
+            "\n\n## Mode: Greeting\n"
+            "Respond with a short, friendly one-liner and offer 2-3 specific example prompts "
+            "(like 'Analyze NVDA' or 'Compare AAPL vs MSFT'). Keep under 60 words."
+        )
+        user_prompt = req.message
+    elif intent == "off_topic":
+        llm_system = system_prompt + (
+            "\n\n## Mode: Off-Topic\n"
+            "Politely decline in one sentence. You're QuantTrade AI — a financial analyst, "
+            "not a general chatbot. Suggest the user ask about stocks, markets, or investing."
+        )
+        user_prompt = req.message
+    else:
+        llm_system = system_prompt
+        user_prompt = f"""Analyze the following based on all data provided.
 
 {rag_context}
 
@@ -595,7 +725,7 @@ async def _copilot_stream_generator(
 Provide your analysis following the mandatory output format. Use the real data above — do NOT hallucinate numbers."""
 
     llm_messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": llm_system},
         {"role": "user", "content": user_prompt},
     ]
 
