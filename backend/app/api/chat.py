@@ -96,6 +96,35 @@ class ChatResponse(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+# Phrases that strongly indicate the user wants GENERAL advice, not analysis of any
+# symbol that happens to be fuzzy-matched from their free text. If a message matches
+# any of these, we refuse to auto-classify it as stock_analysis even if a symbol was
+# "resolved" from tokens like "dollar" (which fuzzy-matches Dollar General / DG).
+GENERAL_ADVICE_PATTERNS = [
+    r"\bwhich\s+stock",
+    r"\bwhat\s+stock",
+    r"\bshould\s+i\s+(?:buy|invest|put|hold|pick)",
+    r"\brecommend(?:\s+me)?\b",
+    r"\bsuggest(?:\s+me)?\b",
+    r"\bi\s+(?:am|'m)\s+(?:a\s+)?(?:student|beginner|new)",
+    r"\bi\s+have\s+\$?\d",           # "I have $500" / "I have 500"
+    r"\bwhere\s+should\s+i\s+(?:invest|put)",
+    r"\bhow\s+(?:do|should|can)\s+i\s+(?:invest|start|begin)",
+    r"\bany\s+(?:good|hot|top)\s+(?:stock|pick)",
+    r"\bfor\s+(?:long\s+term|growth|dividend|retirement|beginners)",
+    r"\bgood\s+(?:amount\s+of\s+)?growth",
+]
+
+
+def _is_general_advice_query(msg: str) -> bool:
+    """True if the message is a generic investing question, not symbol-specific."""
+    lower = msg.lower()
+    for pat in GENERAL_ADVICE_PATTERNS:
+        if re.search(pat, lower):
+            return True
+    return False
+
+
 def _detect_intent(msg: str, resolved_symbol: Optional[str], resolved_symbols: List[str]) -> str:
     lower = msg.lower()
 
@@ -107,6 +136,11 @@ def _detect_intent(msg: str, resolved_symbol: Optional[str], resolved_symbols: L
 
     if any(kw in lower for kw in SECTOR_KEYWORDS):
         return "sector"
+
+    # General advice questions should NEVER be auto-classified as stock_analysis
+    # even if a ticker got fuzzy-matched from the user's text.
+    if _is_general_advice_query(msg):
+        return "general_advice"
 
     if resolved_symbol:
         if any(kw in lower for kw in ANALYSIS_KEYWORDS):
@@ -273,17 +307,68 @@ async def chat(
     raw_symbol_input = (message.symbol or "").strip()
 
     def _resolve_symbol(candidate: str) -> Optional[Symbol]:
+        """Resolve a candidate token to a Symbol.
+
+        - Exact ticker match (case-insensitive) → always accepted.
+        - Fuzzy company-name match → only when the candidate is a meaningful
+          company-name token. We require:
+            * candidate not in STOP_WORDS or COMMON_ENGLISH_WORDS
+            * candidate length >= 4 (so "new", "buy" etc. don't fuzzy-match)
+            * candidate is NOT a common currency/financial word
+          And we match at WORD BOUNDARY so "dollar" in "Dollar General" still
+          hits but we've already blocked "dollar" via the bad-words list.
+        """
         if not candidate:
             return None
+        # 1. Exact ticker match — high confidence
         db_symbol = db.query(Symbol).filter(Symbol.symbol == candidate.upper()).first()
         if db_symbol:
             return db_symbol
+
+        # 2. Strict fuzzy match — block common words up front
+        cand_lower = candidate.lower()
+        if (
+            len(candidate) < 4
+            or cand_lower in STOP_WORDS
+            or cand_lower in COMMON_ENGLISH_WORDS
+            or cand_lower in CURRENCY_AND_MONEY_WORDS
+        ):
+            return None
+
         return (
             db.query(Symbol)
             .filter(Symbol.name.ilike(f"%{candidate}%"))
             .order_by(Symbol.market_cap.desc().nullslast())
             .first()
         )
+
+    # Currency / money / amount words — NEVER treat as company names
+    CURRENCY_AND_MONEY_WORDS = {
+        "dollar", "dollars", "usd", "cent", "cents", "buck", "bucks",
+        "money", "cash", "amount", "budget", "savings", "saving",
+        "capital", "fund", "funds", "investment", "invest", "investing",
+        "invested", "portfolio", "wealth", "income", "salary", "pay",
+        "euro", "euros", "pound", "pounds", "rupee", "rupees", "yen",
+    }
+
+    # Common English words that commonly fuzzy-match company names
+    COMMON_ENGLISH_WORDS = {
+        "good", "growth", "student", "students", "beginner", "beginners",
+        "long", "term", "short", "fast", "slow", "safe", "risky",
+        "small", "large", "big", "huge", "tiny", "great", "nice",
+        "think", "know", "want", "need", "like", "love", "hate",
+        "easy", "hard", "quick", "slow", "strong", "weak", "high", "low",
+        "year", "years", "month", "months", "week", "weeks", "day", "days",
+        "time", "times", "wait", "waiting", "waits", "future", "past",
+        "start", "started", "starting", "begin", "began", "beginning",
+        "help", "helps", "helping", "please", "thanks", "thank",
+        "really", "actually", "maybe", "probably", "possibly",
+        "first", "second", "third", "last", "next", "previous",
+        "ones", "once", "only", "even", "still", "always", "never",
+        "onces",  # common typo for "once"
+        "looking", "look", "looked", "looks", "found", "find", "finding",
+        "with", "which", "think", "about", "really", "quite",
+    }
 
     # Common English words that should NOT be resolved as company names
     STOP_WORDS = {
@@ -299,6 +384,11 @@ async def chat(
         "top", "best", "worst", "compare", "versus", "sector", "sectors",
         "gainers", "losers", "performance", "prediction", "forecast",
         "overview", "insight", "breakdown", "today", "current",
+        # Pronouns / determiners / filler
+        "am", "is", "be", "do", "me", "my", "we", "us", "they", "them",
+        "he", "him", "it", "if", "so", "as", "or", "to", "on", "at", "by",
+        "in", "of", "up", "an", "a",
+        "should", "would", "could", "might", "must",
     }
 
     db_symbol_obj: Optional[Symbol] = None
@@ -383,9 +473,50 @@ async def chat(
             )
 
     # ------------------------------------------------------------------
-    # 3) Detect intent
+    # 3) Unified routing: CopilotRouter handles intent + entities + guardrails
     # ------------------------------------------------------------------
-    response_type = _detect_intent(message.message, resolved_symbol, all_resolved_symbols)
+    from app.services.copilot import CopilotRouter
+    from app.services.copilot.intent_classifier import Intent as CopilotIntent
+    from app.services.copilot.knowledge_base import get_knowledge_snippets
+
+    copilot_router = CopilotRouter(db)
+    decision = copilot_router.route(message.message, explicit_symbol=raw_symbol_input or None)
+
+    intent_map = {
+        CopilotIntent.STOCK_ANALYSIS: "stock_analysis",
+        CopilotIntent.COMPARISON: "comparison",
+        CopilotIntent.SCREENER: "screener",
+        CopilotIntent.SECTOR: "sector",
+        CopilotIntent.GENERAL_ADVICE: "general_advice",
+        CopilotIntent.PORTFOLIO_ADVICE: "portfolio_advice",
+        CopilotIntent.EDUCATION: "education",
+        CopilotIntent.MARKET_OVERVIEW: "market_overview",
+        CopilotIntent.GREETING: "greeting",
+        CopilotIntent.OFF_TOPIC: "off_topic",
+        CopilotIntent.TEXT: "text",
+    }
+    response_type = intent_map.get(decision.intent, "text")
+
+    # Override resolved symbols with router's sanitized entity list
+    if decision.use_stock_context and decision.primary_entity:
+        resolved_symbol = decision.primary_ticker
+        all_resolved_symbols = decision.all_tickers
+        symbol_value = resolved_symbol
+        # Re-hydrate symbol_id from DB for downstream code
+        from app.models.symbol import Symbol as _Symbol
+        sym_obj = db.query(_Symbol).filter(_Symbol.symbol == resolved_symbol).first()
+        symbol_id = sym_obj.id if sym_obj else None
+    else:
+        # General advice / greeting / off-topic / education: discard all symbol state
+        resolved_symbol = None
+        symbol_id = None
+        all_resolved_symbols = []
+        symbol_value = None
+
+    # Curated finance knowledge for knowledge-driven intents
+    kb_snippet = ""
+    if decision.inject_general_knowledge:
+        kb_snippet = get_knowledge_snippets(message.message, limit=3)
 
     # ------------------------------------------------------------------
     # 4) Fetch real-time quote for RAG context
@@ -439,6 +570,9 @@ async def chat(
             f"[QUANTTRADE STOCK ANALYSIS SUMMARY FOR {resolved_symbol}]\n"
             f"{prediction_summary}"
         )
+    # Inject curated finance knowledge for general advice / education / portfolio
+    if kb_snippet:
+        sections.append(f"[FINANCE KNOWLEDGE]\n{kb_snippet}")
     sections.append(f"[USER QUESTION]\n{message.message}")
     augmented_query = "\n\n".join(sections)
 

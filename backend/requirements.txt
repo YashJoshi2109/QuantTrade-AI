@@ -39,6 +39,9 @@ scikit-learn>=1.5.0,<2.0.0  # Updated for Python 3.14 compatibility
 xgboost>=2.0.3,<3.0.0
 lightgbm>=4.1.0,<5.0.0
 shap>=0.43.0,<0.44.0  # Model explainability
+torch>=2.0.0  # LSTM prediction model
+pyyaml>=6.0  # ML training config
+pyarrow>=14.0.0  # Parquet caching for ML data pipeline
 
 # LLM + RAG
 openai>=1.12.0,<2.0.0

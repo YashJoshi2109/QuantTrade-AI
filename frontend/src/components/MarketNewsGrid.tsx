@@ -521,7 +521,7 @@ export default function MarketNewsGrid() {
             </span>
           </div>
           <p className="text-[11px] text-slate-500">
-            Curated macro, earnings, and company updates
+            Yahoo Finance, Google News, Finnhub or NewsAPI when configured — macro, earnings, and movers
             {lastUpdatedLabel && (
               <span className="ml-2 text-slate-600 font-mono">
                 &middot; Updated {lastUpdatedLabel}

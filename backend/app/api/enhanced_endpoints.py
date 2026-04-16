@@ -16,7 +16,7 @@ from app.models.realtime_quote import RealtimeQuote, MarketIndex
 from app.models.portfolio import Portfolio, Position, Transaction, TransactionType
 from app.services.enhanced_data_fetcher import EnhancedDataFetcher
 from app.services.portfolio_service import PortfolioService
-from app.services.realtime_news_fetcher import RealtimeNewsFetcher
+from app.services.realtime_news_fetcher import RealtimeNewsFetcher, _is_likely_ticker_symbol
 from app.services.finnhub_fetcher import FinnhubFetcher
 from app.services.rate_limiter import get_api_stats
 from app.api.auth import get_current_user
@@ -361,7 +361,13 @@ async def get_realtime_news(
             if 'yfinance' in source_list:
                 articles.extend(RealtimeNewsFetcher.fetch_yfinance_news(symbol, limit))
             if 'google' in source_list:
-                articles.extend(RealtimeNewsFetcher.fetch_google_news_rss(symbol, limit))
+                articles.extend(
+                    RealtimeNewsFetcher.fetch_google_news_rss(
+                        symbol,
+                        limit,
+                        append_stock_suffix=_is_likely_ticker_symbol(symbol),
+                    )
+                )
             if 'newsapi' in source_list:
                 articles.extend(RealtimeNewsFetcher.fetch_newsapi_news(symbol, company_name, limit))
             if 'marketwatch' in source_list:
@@ -444,27 +450,74 @@ async def get_breaking_market_news(limit: int = Query(10, ge=1, le=50)):
         all_articles = []
 
         # ── 1. Google News RSS – multiple market queries in parallel ──
+        # Phrase searches: do not append "+stock" (see fetch_google_news_rss).
         rss_queries = [
             "stock market today",
             "Wall Street finance",
             "S&P 500 Nasdaq Dow Jones",
             "economy finance breaking news",
             "earnings report stocks",
+            "Federal Reserve interest rates economy",
+            "yahoo finance stock market",
         ]
 
         per_query_limit = max(limit // 3, 5)
 
-        def _fetch_rss(q):
-            return RealtimeNewsFetcher.fetch_google_news_rss(q, per_query_limit)
+        def _fetch_rss(q: str):
+            return RealtimeNewsFetcher.fetch_google_news_rss(
+                q, per_query_limit, append_stock_suffix=False
+            )
 
-        with ThreadPoolExecutor(max_workers=5) as pool:
+        def _finnhub_market_batch() -> list:
+            if not getattr(settings, "FINNHUB_API_KEY", None):
+                return []
+            try:
+                raw = FinnhubFetcher.get_market_news(
+                    "general", per_query_limit, priority="high"
+                )
+                out = []
+                for item in raw if isinstance(raw, list) else []:
+                    dt = item.get("datetime")
+                    pub = (
+                        datetime.fromtimestamp(int(dt))
+                        if dt
+                        else datetime.utcnow()
+                    )
+                    rel = (item.get("related") or "") or ""
+                    tickers = [
+                        x.strip()
+                        for x in str(rel).split(",")
+                        if x.strip()
+                    ][:5]
+                    out.append({
+                        "title": item.get("headline", "") or "",
+                        "content": item.get("summary", "") or "",
+                        "source": item.get("source", "Finnhub") or "Finnhub",
+                        "url": item.get("url", "") or "",
+                        "published_at": pub,
+                        "sentiment": "Neutral",
+                        "thumbnail": item.get("image"),
+                        "related_tickers": tickers,
+                    })
+                return out
+            except Exception as e:
+                print(f"Finnhub market news error: {e}")
+                return []
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
             rss_futures = {pool.submit(_fetch_rss, q): q for q in rss_queries}
 
-            # ── 2. yfinance – broad market ETFs for real financial-grade news ──
-            yf_symbols = ["SPY", "QQQ", "DIA"]
+            # ── 2. yfinance – broad market ETFs (Yahoo-sourced headlines) ──
+            yf_symbols = ["SPY", "QQQ", "DIA", "IWM", "XLF"]
             yf_futures = {}
             for sym in yf_symbols:
-                yf_futures[pool.submit(RealtimeNewsFetcher.fetch_yfinance_news, sym, per_query_limit)] = sym
+                yf_futures[
+                    pool.submit(
+                        RealtimeNewsFetcher.fetch_yfinance_news,
+                        sym,
+                        per_query_limit,
+                    )
+                ] = sym
 
             # ── 3. NewsAPI (if key configured) ──
             newsapi_future = None
@@ -475,6 +528,8 @@ async def get_breaking_market_news(limit: int = Query(10, ge=1, le=50)):
                     "stock market Wall Street finance",
                     per_query_limit
                 )
+
+            finnhub_future = pool.submit(_finnhub_market_batch)
 
             # Collect RSS results
             for future in as_completed(rss_futures):
@@ -497,22 +552,44 @@ async def get_breaking_market_news(limit: int = Query(10, ge=1, le=50)):
                 except Exception as e:
                     print(f"NewsAPI error: {e}")
 
-        # ── Deduplicate by URL + title ──
-        seen_urls = set()
-        seen_titles = set()
-        unique = []
+            try:
+                all_articles.extend(finnhub_future.result())
+            except Exception as e:
+                print(f"Finnhub batch error: {e}")
+
+        # ── Deduplicate by title, preferring articles with thumbnails ──
+        # First pass: index by normalized title, keep the richest version
+        title_map: dict = {}  # title_key -> article
         for article in all_articles:
-            url = (article.get('url') or '').strip()
             title = (article.get('title') or '').strip()
-            title_key = title.lower()[:80]  # normalize for comparison
-            if url and url in seen_urls:
+            if not title:
                 continue
-            if title_key and title_key in seen_titles:
+            article['url'] = (article.get('url') or '').strip()
+            article['title'] = title
+            title_key = title.lower()[:80]
+
+            existing = title_map.get(title_key)
+            if existing is None:
+                title_map[title_key] = article
+            else:
+                # Prefer article with thumbnail, then with longer content
+                if article.get('thumbnail') and not existing.get('thumbnail'):
+                    title_map[title_key] = article
+                elif article.get('content') and len(article.get('content', '')) > len(existing.get('content', '')):
+                    # Keep richer content but merge thumbnail if available
+                    if not article.get('thumbnail') and existing.get('thumbnail'):
+                        article['thumbnail'] = existing['thumbnail']
+                    title_map[title_key] = article
+
+        # Second pass: deduplicate by URL
+        seen_urls: set = set()
+        unique = []
+        for article in title_map.values():
+            url = article.get('url', '')
+            if url and url in seen_urls:
                 continue
             if url:
                 seen_urls.add(url)
-            if title_key:
-                seen_titles.add(title_key)
 
             # Apply sentiment classification if not already set
             if article.get('sentiment') in (None, 'Neutral', ''):
@@ -529,9 +606,12 @@ async def get_breaking_market_news(limit: int = Query(10, ge=1, le=50)):
 
             unique.append(article)
 
-        # ── Sort by recency ──
+        # ── Sort: prioritize articles with thumbnails, then by recency ──
         unique.sort(
-            key=lambda x: x.get('published_at', datetime.utcnow()),
+            key=lambda x: (
+                1 if x.get('thumbnail') else 0,
+                x.get('published_at', datetime.utcnow()),
+            ),
             reverse=True,
         )
 

@@ -1,26 +1,21 @@
 """
 Client helpers for QuantTrade Stock Analysis / prediction services.
 
-This module is intentionally light: it talks to the prediction service
-running from ``rag/prediction_server.py`` and formats a short textual
-summary that can be injected into the RAG chatbot context.
+Uses the in-process LSTM prediction service (no external microservice needed).
+Falls back gracefully when predictions are unavailable.
 """
 
 from __future__ import annotations
 
-import os
+import asyncio
+import logging
 from typing import Dict, List, Optional
 
-import requests
-
-
-PREDICTION_SERVICE_URL = os.getenv("PREDICTION_SERVICE_URL", "http://localhost:8001")
+logger = logging.getLogger(__name__)
 
 
 def _format_prediction_summary(symbol: str, payload: Dict) -> str:
-    """
-    Turn the prediction JSON into a compact, LLM-friendly summary.
-    """
+    """Turn the prediction JSON into a compact, LLM-friendly summary."""
     preds: List[Dict] = payload.get("predictions", [])
     if not preds:
         return ""
@@ -35,7 +30,7 @@ def _format_prediction_summary(symbol: str, payload: Dict) -> str:
         range_high = p.get("range_high", 0.0)
         lines.append(
             f"- {tf}: direction={direction}, expected_return={exp_ret:.2f}%, "
-            f"confidence={conf:.2f}, range≈[{range_low:.2f}, {range_high:.2f}]"
+            f"confidence={conf:.2f}, range=[{range_low:.2f}, {range_high:.2f}]"
         )
 
     lines.append(
@@ -45,57 +40,43 @@ def _format_prediction_summary(symbol: str, payload: Dict) -> str:
     return "\n".join(lines)
 
 
+def _run_prediction(symbol: str, horizons: List[int]) -> Optional[Dict]:
+    """Run the in-process LSTM prediction, handling sync/async boundary."""
+    try:
+        from app.services.lstm_prediction_service import predict
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(asyncio.run, predict(symbol, horizons))
+                return future.result(timeout=15)
+        else:
+            return asyncio.run(predict(symbol, horizons))
+    except Exception as exc:
+        logger.warning("LSTM prediction failed for %s: %s", symbol, exc)
+        return None
+
+
 def fetch_stock_prediction(symbol: str) -> Optional[str]:
     """
-    Call the prediction service for a symbol and return a textual summary.
-
-    Returns None if the service is unavailable or returns an error.
+    Generate LSTM prediction for a symbol and return a textual summary.
+    Returns None if prediction fails.
     """
-    url = f"{PREDICTION_SERVICE_URL.rstrip('/')}/api/v1/predict"
-    try:
-        resp = requests.post(
-            url,
-            json={"symbol": symbol, "horizons": [1, 7, 30]},
-            timeout=10,
-        )
-        # Even on non-200, try to surface a human-readable reason so the UI
-        # can show *why* analysis is unavailable instead of hiding the card.
-        try:
-            data = resp.json()
-        except Exception:
-            data = {}
-
-        if resp.status_code != 200:
-            detail = data.get("detail") if isinstance(data, dict) else None
-            msg = detail or f"Prediction service returned HTTP {resp.status_code}."
-            return (
-                f"Model-based scenarios are temporarily unavailable for {symbol}: {msg} "
-                "The copilot will continue using filings, news, and other data sources."
-            )
-
-        return _format_prediction_summary(symbol, data)
-    except Exception:
+    data = _run_prediction(symbol, [1, 7, 30])
+    if not data or not data.get("predictions"):
         return None
+    return _format_prediction_summary(symbol, data)
 
 
 def fetch_stock_prediction_payload(symbol: str, horizons: Optional[List[int]] = None) -> Optional[Dict]:
     """
-    Fetch structured prediction payload from the prediction service.
+    Fetch structured prediction payload from the in-process LSTM service.
     Returns None when unavailable.
     """
-    url = f"{PREDICTION_SERVICE_URL.rstrip('/')}/api/v1/predict"
-    try:
-        resp = requests.post(
-            url,
-            json={"symbol": symbol, "horizons": horizons or [1, 7, 30]},
-            timeout=8,
-        )
-        if resp.status_code != 200:
-            return None
-        data = resp.json()
-        if isinstance(data, dict):
-            return data
-        return None
-    except Exception:
-        return None
+    return _run_prediction(symbol, horizons or [1, 7, 30])
 

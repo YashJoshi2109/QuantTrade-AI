@@ -50,9 +50,9 @@ QuantTrade AI is a full-stack financial intelligence platform that combines real
 
 ## Architecture
 
-For the complete, extensive infrastructure layout including Machine Learning pipelines, Reverse Proxy configurations, Edge networks, UI/WebGL boundaries, and persistent cache networks, see the live architecture graph below.
+Complete system design with 8 diagrams: HLD (systems blueprint), LLD (service architecture), ER (database relationships), UML sequences (copilot, ideas lab, auth flows), component diagram (frontend), deployment architecture (AWS + Cloudflare), and background jobs.
 
-### 🗺 Systems Architecture Blueprint
+### High-Level Design (HLD) — Systems Architecture Blueprint
 
 ```mermaid
 flowchart TD
@@ -151,6 +151,558 @@ flowchart TD
     class S3,LLMs,MediaAI,MarketData,AuthBilling external
     class Nginx proxy
     class LangChain,MLModels,TA ml
+```
+
+### Low-Level Design (LLD) — Service Architecture
+
+```mermaid
+flowchart LR
+    subgraph API ["API Layer (FastAPI Routers)"]
+        direction TB
+        AuthAPI["auth.py"]
+        CopilotAPI["copilot_stream.py"]
+        IdeasAPI["ideas.py"]
+        MarketAPI["market.py"]
+        MonitorAPI["global_monitor.py"]
+        GameAPI["game.py"]
+        BillingAPI["billing.py"]
+        WSAPI["ws.py"]
+        BacktestAPI["backtest.py"]
+        ModelIndexAPI["model_index.py"]
+    end
+
+    subgraph Services ["Service Layer"]
+        direction TB
+        subgraph DataFetch ["Data Fetchers"]
+            FMP["fmp_client"]
+            Finnhub["finnhub_fetcher"]
+            Finviz["finviz_fetcher"]
+            YF["yfinance"]
+            SEC["filings_fetcher"]
+            GDELTf["global_monitor_fetchers"]
+        end
+        subgraph AI ["AI / ML Services"]
+            LSTM["lstm_prediction_service"]
+            RAG["rag_service"]
+            Embed["embedding_service"]
+            LLM["llm_router"]
+            TA["technical_analysis_service"]
+            Conf["confidence_engine"]
+            CompA["comprehensive_analysis"]
+        end
+        subgraph Infra ["Infrastructure"]
+            Redis["redis_cache_service"]
+            WS["ws_manager"]
+            Sched["idea_scheduler"]
+            Ingest["data_ingestion_service"]
+            Email["email_service"]
+            Rate["rate_limiter"]
+        end
+        subgraph Business ["Business Logic"]
+            Bill["billing_service"]
+            GameSvc["game_service"]
+            BT["backtest_engine"]
+            MI["model_index/orchestrator"]
+            WLAlert["watchlist_alert_service"]
+        end
+    end
+
+    CopilotAPI --> RAG & LSTM & CompA & LLM & Conf
+    IdeasAPI --> TA & FMP & Finnhub & YF
+    MarketAPI --> FMP & Finnhub & YF
+    MonitorAPI --> GDELTf
+    GameAPI --> GameSvc
+    BillingAPI --> Bill
+    BacktestAPI --> BT
+    ModelIndexAPI --> MI
+    WSAPI --> WS
+
+    RAG --> Embed
+    LSTM --> YF
+    CompA --> FMP & TA & LSTM
+    Sched --> TA & Ingest & WS
+    MI --> FMP & TA
+
+    classDef api fill:#1e40af,stroke:#60a5fa,color:#fff
+    classDef svc fill:#065f46,stroke:#34d399,color:#fff
+    classDef ai fill:#86198f,stroke:#f0abfc,color:#fff
+    classDef infra fill:#5b21b6,stroke:#a78bfa,color:#fff
+    classDef biz fill:#854d0e,stroke:#facc15,color:#fff
+
+    class AuthAPI,CopilotAPI,IdeasAPI,MarketAPI,MonitorAPI,GameAPI,BillingAPI,WSAPI,BacktestAPI,ModelIndexAPI api
+    class FMP,Finnhub,Finviz,YF,SEC,GDELTf svc
+    class LSTM,RAG,Embed,LLM,TA,Conf,CompA ai
+    class Redis,WS,Sched,Ingest,Email,Rate infra
+    class Bill,GameSvc,BT,MI,WLAlert biz
+```
+
+### Entity Relationship (ER) Diagram
+
+```mermaid
+erDiagram
+    users ||--o{ watchlists : has
+    users ||--o{ portfolios : owns
+    users ||--o{ conversations : creates
+    users ||--o| billing_customers : "1:1"
+    users ||--o| subscriptions : "1:1"
+    users ||--o| connected_accounts : "1:1"
+    users ||--o| game_characters : "1:1"
+    users ||--o{ chat_history : sends
+    users ||--o| passkey_credentials : registers
+
+    symbols ||--o{ price_bars : has
+    symbols ||--o{ news_articles : about
+    symbols ||--o{ filings : filed_by
+    symbols ||--o{ watchlists : tracked_in
+
+    portfolios ||--o{ positions : contains
+    portfolios ||--o{ transactions : records
+    portfolios ||--o{ portfolio_snapshots : snapshots
+
+    positions }o--|| symbols : references
+
+    filings ||--o{ filing_chunks : chunked_into
+
+    conversations ||--o{ chat_history : contains
+
+    game_characters ||--o| game_wallets : "1:1"
+    game_characters ||--o{ game_missions : assigned
+    game_characters ||--o{ game_portfolio_holdings : holds
+    game_characters ||--o{ game_event_logs : logs
+    game_characters }o--o{ game_community_groups : "joins via game_character_communities"
+
+    model_index_snapshots ||--o{ basket_holdings : contains
+
+    users {
+        int id PK
+        string email UK
+        string username
+        string hashed_password
+        string google_id
+        bool is_active
+        datetime created_at
+    }
+
+    symbols {
+        int id PK
+        string symbol UK
+        string name
+        string exchange
+        string sector
+        string industry
+        float market_cap
+    }
+
+    watchlists {
+        int id PK
+        int user_id FK
+        int symbol_id FK
+        string source
+    }
+
+    portfolios {
+        int id PK
+        int user_id FK
+        string name
+        float cash_balance
+        bool is_paper_trading
+    }
+
+    positions {
+        int id PK
+        int portfolio_id FK
+        int symbol_id FK
+        float quantity
+        float avg_cost_basis
+        float unrealized_pnl
+    }
+
+    transactions {
+        int id PK
+        int portfolio_id FK
+        int symbol_id FK
+        string transaction_type
+        float quantity
+        float price
+        float realized_pnl
+    }
+
+    conversations {
+        uuid id PK
+        int user_id FK
+        string title
+        datetime updated_at
+    }
+
+    chat_history {
+        int id PK
+        int user_id FK
+        uuid conversation_id FK
+        string role
+        text content
+        string intent_type
+        json payload_json
+    }
+
+    filings {
+        int id PK
+        int symbol_id FK
+        string filing_type
+        string form_type
+        datetime filing_date
+    }
+
+    filing_chunks {
+        int id PK
+        int filing_id FK
+        int chunk_index
+        text content
+        string section
+        json embedding
+    }
+
+    news_articles {
+        int id PK
+        int symbol_id FK
+        string title
+        string source
+        string url
+        float sentiment
+    }
+
+    game_characters {
+        int id PK
+        int user_id FK
+        string name
+        string life_stage
+        int level
+        int xp
+        json behavioral_profile
+    }
+
+    game_wallets {
+        int id PK
+        int character_id FK
+        float cash_balance
+        float net_worth
+        float total_invested
+    }
+
+    game_missions {
+        int id PK
+        int character_id FK
+        string title
+        string status
+        int xp_reward
+        int gold_reward
+    }
+
+    model_index_snapshots {
+        int id PK
+        string index_id
+        string strategy_type
+        string regime
+        json snapshot_data
+    }
+
+    basket_holdings {
+        int id PK
+        int snapshot_id FK
+        string ticker
+        float weight
+        float composite_score
+        json factor_scores
+    }
+
+    global_events {
+        int id PK
+        string event_id UK
+        string source
+        string category
+        string threat_level
+        float latitude
+        float longitude
+        float market_impact_score
+    }
+
+    billing_customers {
+        int user_id PK
+        string stripe_customer_id
+    }
+
+    subscriptions {
+        int user_id PK
+        string stripe_subscription_id
+        string status
+    }
+```
+
+### UML Sequence — Copilot Query Flow
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant FE as Frontend (Next.js)
+    participant BE as copilot_stream.py
+    participant SYM as Symbol Resolver
+    participant CA as comprehensive_analysis
+    participant LSTM as lstm_prediction_service
+    participant RAG as rag_service
+    participant CE as confidence_engine
+    participant LLM as llm_router (GROQ/OpenRouter)
+
+    User->>FE: Type stock question
+    FE->>BE: POST /api/v1/copilot/stream (SSE)
+
+    BE->>SYM: Resolve symbol from query
+    SYM-->>BE: symbol = "AAPL"
+
+    par Parallel data assembly
+        BE->>CA: build_comprehensive_analysis("AAPL")
+        CA->>LSTM: predict("AAPL", [1,7,30])
+        LSTM-->>CA: predictions + confidence
+        CA-->>BE: structured_data (quote, indicators, regime, risk, prediction)
+
+        BE->>RAG: query(message, symbol, top_k=10)
+        RAG-->>BE: filing_chunks + news context
+    end
+
+    BE->>CE: compute_confidence(structured_data)
+    CE-->>BE: {overall: 78, grade: "B", components: {...}}
+
+    BE-->>FE: SSE event: "intent" (symbol, type)
+    BE-->>FE: SSE event: "structured_data" (full analysis JSON)
+
+    BE->>LLM: stream(system_prompt + context + user_query)
+    loop Token streaming
+        LLM-->>BE: token chunk
+        BE-->>FE: SSE event: "token" (chunk)
+    end
+
+    BE-->>FE: SSE event: "meta" (model, sources, request_id)
+    BE-->>FE: SSE event: "done"
+    FE->>User: Rendered analysis + chat response
+```
+
+### UML Sequence — Ideas Lab Real-Time Flow
+
+```mermaid
+sequenceDiagram
+    participant Sched as APScheduler (every 5m)
+    participant MDS as market_data_service
+    participant TAS as technical_analysis_service
+    participant Cache as Redis Cache
+    participant WS as WebSocket Manager
+    participant FE as Frontend
+
+    Sched->>MDS: get_quotes_batch(64 symbols)
+    MDS-->>Sched: {AAPL: Quote, MSFT: Quote, ...}
+
+    loop For each symbol
+        Sched->>TAS: compute_signals(symbol)
+        TAS-->>Sched: RSI, MACD, BB, trend, confidence
+    end
+
+    Sched->>Sched: Score & rank ideas (confidence 0-100)
+    Sched->>Cache: SET qt:ideas:trending (TTL 300s)
+    Sched->>Cache: PUBLISH qt:ws:ideas
+
+    Cache-->>WS: pub/sub message
+    WS-->>FE: WebSocket broadcast (ideas_update)
+    FE->>FE: Re-render Ideas Lab grid
+```
+
+### UML Sequence — Authentication Flow
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant FE as Frontend
+    participant BE as auth.py
+    participant DB as Neon PostgreSQL
+    participant Email as Brevo/Resend
+    participant Google as Google OAuth
+
+    alt Email + Password
+        User->>FE: Enter email + password
+        FE->>BE: POST /auth/login
+        BE->>DB: Verify credentials (bcrypt)
+        DB-->>BE: User record
+        BE-->>FE: JWT (7-day, HS256)
+    else Google OAuth
+        User->>FE: Click "Sign in with Google"
+        FE->>Google: OAuth redirect
+        Google-->>FE: id_token
+        FE->>BE: POST /auth/google
+        BE->>DB: Find/create user by google_id
+        BE-->>FE: JWT
+    else WebAuthn Passkey
+        User->>FE: Click "Sign in with Passkey"
+        FE->>BE: GET /auth/passkey/auth/challenge
+        BE-->>FE: challenge + allowCredentials
+        FE->>User: Biometric prompt (Face ID / Touch ID)
+        User-->>FE: Signed assertion
+        FE->>BE: POST /auth/passkey/auth/verify
+        BE->>DB: Verify credential signature
+        BE-->>FE: JWT
+    else Email OTP
+        User->>FE: Request OTP
+        FE->>BE: POST /auth/otp/send
+        BE->>Email: Send 6-digit OTP
+        Email-->>User: OTP email
+        User->>FE: Enter OTP
+        FE->>BE: POST /auth/otp/verify
+        BE-->>FE: JWT
+    end
+```
+
+### Component Diagram — Frontend Pages
+
+```mermaid
+flowchart TB
+    subgraph Public ["Public Pages"]
+        Home["/"]
+        About["/about"]
+        Pricing["/pricing"]
+        Legal["/legal"]
+    end
+
+    subgraph Auth ["Auth"]
+        Login["/auth"]
+        ForgotPW["/auth/forgot-password"]
+    end
+
+    subgraph Core ["Core Trading (Auth Required)"]
+        Markets["/markets"]
+        Watchlist["/watchlist"]
+        Research["/research"]
+        Copilot["/copilot"]
+        IdeasLab["/ideas-lab"]
+        Backtest["/backtest"]
+        Monitor["/monitor"]
+    end
+
+    subgraph Game ["Game Module"]
+        GameHub["/game"]
+        Dashboard["/game/dashboard"]
+        Character["/game/character"]
+        Student["/game/student"]
+        World["/game/world"]
+        Community["/game/community"]
+    end
+
+    subgraph Settings ["User Settings"]
+        Profile["/settings/profile"]
+        Notifications["/settings/notifications"]
+        BillSuccess["/billing/success"]
+    end
+
+    subgraph APIRoutes ["Next.js API Routes (BFF)"]
+        QuoteAPI["/api/quotes/*"]
+        ExchangeAPI["/api/exchange/*"]
+        AIAnalysis["/api/ai-analysis"]
+        CopilotProxy["/api/copilot/stream"]
+        FinnhubProxy["/api/finnhub"]
+    end
+
+    Home --> Login
+    Login --> Markets
+    Markets --> Research
+    Research --> Copilot
+    Copilot -.->|SSE stream| CopilotProxy
+    Markets -.->|data| QuoteAPI & ExchangeAPI
+    IdeasLab -.->|WebSocket| WSAPI["Backend /ws/ideas"]
+
+    classDef pub fill:#374151,stroke:#9ca3af,color:#fff
+    classDef auth fill:#7c2d12,stroke:#fb923c,color:#fff
+    classDef core fill:#1e40af,stroke:#60a5fa,color:#fff
+    classDef game fill:#86198f,stroke:#f0abfc,color:#fff
+    classDef set fill:#065f46,stroke:#34d399,color:#fff
+    classDef api fill:#854d0e,stroke:#facc15,color:#fff
+
+    class Home,About,Pricing,Legal pub
+    class Login,ForgotPW auth
+    class Markets,Watchlist,Research,Copilot,IdeasLab,Backtest,Monitor core
+    class GameHub,Dashboard,Character,Student,World,Community game
+    class Profile,Notifications,BillSuccess set
+    class QuoteAPI,ExchangeAPI,AIAnalysis,CopilotProxy,FinnhubProxy api
+```
+
+### Deployment Architecture (AWS + Cloudflare)
+
+```mermaid
+flowchart TB
+    User["End User"] --> CF["Cloudflare\n(DNS, CDN, DDoS, Turnstile)"]
+    CF --> EC2["AWS EC2 Instance"]
+
+    subgraph EC2 ["EC2 (us-east-2)"]
+        Nginx["Nginx\n(SSL, HSTS, microcache)"]
+        Nginx --> FE["Frontend Container\n(Next.js :3000)"]
+        Nginx --> BE["Backend Container\n(FastAPI :8000)"]
+    end
+
+    BE --> Neon["Neon PostgreSQL\n(pgvector, serverless)"]
+    BE --> ElastiCache["AWS ElastiCache\n(Redis 7)"]
+    BE --> SecretsManager["AWS Secrets Manager"]
+    BE --> GHCR["GitHub Container Registry\n(Docker images)"]
+
+    subgraph CICD ["GitHub Actions CI/CD"]
+        Push["Push to main"] --> Build["Build Docker images"]
+        Build --> GHCR
+        Build --> Deploy["SSH deploy to EC2"]
+    end
+
+    subgraph ExternalAPIs ["External APIs"]
+        FMPx["FMP"]
+        Finnhubx["Finnhub"]
+        YFx["Yahoo Finance"]
+        Stripex["Stripe"]
+        Brevox["Brevo"]
+        GROQx["GROQ"]
+        OpenRouterx["OpenRouter"]
+        ElevenLabsx["ElevenLabs"]
+    end
+
+    BE --> ExternalAPIs
+
+    classDef cloud fill:#1e40af,stroke:#60a5fa,color:#fff
+    classDef aws fill:#854d0e,stroke:#facc15,color:#fff
+    classDef ext fill:#374151,stroke:#9ca3af,color:#fff
+
+    class CF,GHCR cloud
+    class EC2,Neon,ElastiCache,SecretsManager aws
+    class FMPx,Finnhubx,YFx,Stripex,Brevox,GROQx,OpenRouterx,ElevenLabsx ext
+```
+
+### Background Jobs Architecture
+
+```mermaid
+flowchart LR
+    subgraph APScheduler ["APScheduler (BackgroundScheduler)"]
+        J1["rescore_ideas\n(every 5m)"]
+        J2["update_market_pulse\n(every 2m)"]
+        J3["news_sentiment_check\n(every 10m)"]
+        J4["market_open_scan\n(9:30 AM ET)"]
+        J5["ingest_rag_data\n(every 6h)"]
+        J6["nightly_sync\n(00:30 UTC)"]
+        J7["weekly_cleanup\n(Sun 03:00)"]
+        J8["pro_watchlist_alerts\n(every 20m)"]
+    end
+
+    J1 --> MDS["market_data_service"] & TAS["technical_analysis"] & Redis["Redis Cache"] & WSM["WebSocket"]
+    J2 --> MDS & Redis & WSM
+    J3 --> Finn["finnhub_fetcher"] & Redis
+    J4 --> MDS & TAS & Redis
+    J5 --> Ingest["data_ingestion_service"] & Embed["embedding_service"] & VS["vector_store"]
+    J6 --> ExchSvc["exchange_universe_service"] & DB["Neon DB"]
+    J7 --> DB
+    J8 --> Email["email_service"]
+
+    classDef job fill:#86198f,stroke:#f0abfc,color:#fff
+    classDef svc fill:#065f46,stroke:#34d399,color:#fff
+
+    class J1,J2,J3,J4,J5,J6,J7,J8 job
+    class MDS,TAS,Redis,WSM,Finn,Ingest,Embed,VS,ExchSvc,DB,Email svc
 ```
 
 ### 🖼 Advanced Visualizations (PlantUML & Excalidraw)

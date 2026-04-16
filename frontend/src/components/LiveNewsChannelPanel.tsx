@@ -294,6 +294,11 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
             >
               {tickerHeadlines.concat(tickerHeadlines).map((h, idx) => (
                 <span key={idx} className="text-slate-400 inline">
+                  {idx > 0 && (
+                    <span className="mx-3 text-slate-600 select-none" aria-hidden>
+                      ·
+                    </span>
+                  )}
                   {h}
                 </span>
               ))}

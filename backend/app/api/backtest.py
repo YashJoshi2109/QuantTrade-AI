@@ -625,6 +625,40 @@ async def search_backtest_symbols(q: str = Query("", min_length=1), limit: int =
     return {"results": results[:max_results]}
 
 
+@router.get("/backtest/date-range/{symbol}")
+async def get_backtest_date_range(symbol: str):
+    """Return the earliest and latest dates with available price data for a symbol.
+    Used by frontend to constrain date pickers to valid ranges."""
+    import yfinance as yf
+    ticker = symbol.strip().upper()
+    try:
+        tk = yf.Ticker(ticker)
+        # Fetch max history to find bounds — use 1mo interval for speed
+        hist = tk.history(period="max", interval="1mo")
+        if hist.empty:
+            # Fallback: try daily for last 5 years
+            hist = tk.history(period="5y", interval="1d")
+        if hist.empty:
+            return {"symbol": ticker, "available": False, "error": "No data found"}
+
+        first_date = hist.index[0]
+        last_date = hist.index[-1]
+        # Normalize timezone
+        if hasattr(first_date, 'tz') and first_date.tz is not None:
+            first_date = first_date.tz_localize(None)
+            last_date = last_date.tz_localize(None)
+
+        return {
+            "symbol": ticker,
+            "available": True,
+            "min_date": first_date.strftime("%Y-%m-%d"),
+            "max_date": last_date.strftime("%Y-%m-%d"),
+            "total_bars": len(hist),
+        }
+    except Exception as e:
+        return {"symbol": ticker, "available": False, "error": str(e)}
+
+
 @router.get("/strategies")
 async def get_strategies():
     """Return all available strategies with descriptions and default parameters."""

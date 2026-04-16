@@ -73,6 +73,38 @@ def _score_sentiment_alignment(data: Dict[str, Any]) -> float:
     return 50 + abs(agreement) * 50  # 50-100
 
 
+def _score_prediction_conviction(data: Dict[str, Any]) -> float:
+    """Score 0-100 based on LSTM prediction confidence and direction clarity."""
+    prediction = data.get("prediction", {})
+    if not prediction:
+        return 50.0  # neutral when no prediction available
+
+    # Handle both nested {"summary": ...} and flat prediction payloads
+    if isinstance(prediction, dict) and "summary" in prediction:
+        # Text summary only — moderate confidence since model ran
+        return 60.0
+
+    preds = prediction.get("predictions", [])
+    if not preds:
+        return 50.0
+
+    # Average confidence across horizons
+    confidences = [p.get("confidence", 0.5) for p in preds]
+    avg_conf = sum(confidences) / len(confidences)
+
+    # Direction agreement bonus: all horizons agree = higher score
+    directions = [p.get("direction", "NEUTRAL") for p in preds]
+    unique_dirs = set(d for d in directions if d != "NEUTRAL")
+    if len(unique_dirs) == 1:
+        agreement_bonus = 15  # all agree
+    elif len(unique_dirs) == 0:
+        agreement_bonus = 0  # all neutral
+    else:
+        agreement_bonus = -10  # conflicting signals
+
+    return min(100, max(0, avg_conf * 100 + agreement_bonus))
+
+
 def compute_confidence(structured_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Compute composite confidence score from all available analysis data.
@@ -96,14 +128,16 @@ def compute_confidence(structured_data: Dict[str, Any]) -> Dict[str, Any]:
         "technical_conviction": _score_technical_conviction(structured_data),
         "regime_clarity": _score_regime_clarity(structured_data),
         "signal_alignment": _score_sentiment_alignment(structured_data),
+        "prediction_conviction": _score_prediction_conviction(structured_data),
     }
 
-    # Weighted composite
+    # Weighted composite (rebalanced to include LSTM prediction)
     weights = {
-        "data_completeness": 0.15,
-        "technical_conviction": 0.30,
+        "data_completeness": 0.10,
+        "technical_conviction": 0.25,
         "regime_clarity": 0.25,
-        "signal_alignment": 0.30,
+        "signal_alignment": 0.25,
+        "prediction_conviction": 0.15,
     }
 
     overall = sum(components[k] * weights[k] for k in components)

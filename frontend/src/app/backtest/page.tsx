@@ -11,13 +11,14 @@ import Link from 'next/link'
 import AppLayout from '@/components/AppLayout'
 import { motion, AnimatePresence } from 'framer-motion'
 import MobileLayout from '@/components/layout/MobileLayout'
-import { runBacktest, BacktestResult, BacktestRequest } from '@/lib/api'
+import { runBacktest, BacktestResult, BacktestRequest, getBacktestDateRange, type BacktestDateRange } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import ResultsDashboard from '@/components/backtest/ResultsDashboard'
 import TradeJournal from '@/components/backtest/TradeJournal'
 import ComparisonView from '@/components/backtest/ComparisonView'
 import MarketScanner from '@/components/backtest/MarketScanner'
 import RiskManager from '@/components/backtest/RiskManager'
+import BacktestDataFlowLoader from '@/components/backtest/BacktestDataFlowLoader'
 import {
   Play, Activity, Target, AlertTriangle, Loader2, TrendingUp,
   BarChart3, Zap, ChevronDown, ChevronRight,
@@ -36,7 +37,7 @@ const STRATEGIES = [
     color: 'cyan',
     params: [
       { key: 'rsi_period', label: 'RSI Period', min: 5, max: 50, step: 1, default: 14 },
-      { key: 'rsi_oversold', label: 'Oversold', min: 10, max: 40, step: 1, default: 30 },
+      { key: 'rsi_oversold', label: 'Oversold', min: 10, max: 50, step: 1, default: 40 },
       { key: 'rsi_overbought', label: 'Overbought', min: 60, max: 90, step: 1, default: 70 },
       { key: 'fast_ma', label: 'Fast MA', min: 5, max: 100, step: 1, default: 20 },
     ],
@@ -208,8 +209,10 @@ function DesktopBacktestPage() {
   /* ── Form state ── */
   const [symbol, setSymbol] = useState('AAPL')
   const [strategy, setStrategy] = useState('rsi_ma_crossover')
-  const [startDate, setStartDate] = useState('2023-01-01')
-  const [endDate, setEndDate] = useState('2024-12-31')
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date(); d.setFullYear(d.getFullYear() - 2); return d.toISOString().split('T')[0]
+  })
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0])
   const [initialCapital, setInitialCapital] = useState(100000)
   const [positionSizing, setPositionSizing] = useState('fixed')
   const [commissionRate, setCommissionRate] = useState(0.001)
@@ -280,6 +283,45 @@ function DesktopBacktestPage() {
     setSymbolQuery(upper)
   }
 
+  /* ── Date range for selected symbol ── */
+  const [dateRange, setDateRange] = useState<BacktestDateRange | null>(null)
+  const [dateRangeLoading, setDateRangeLoading] = useState(false)
+
+  // Fetch available date range whenever symbol changes
+  useEffect(() => {
+    if (!symbol || symbol.length < 1) { setDateRange(null); return }
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      setDateRangeLoading(true)
+      try {
+        const range = await getBacktestDateRange(symbol)
+        if (!cancelled) {
+          setDateRange(range)
+          // Auto-adjust dates to fit available range
+          if (range.available && range.min_date && range.max_date) {
+            // Default to last 2 years of available data, or full range if less
+            const maxDate = range.max_date
+            const twoYearsBack = new Date(new Date(maxDate).getTime() - 2 * 365 * 86400000)
+              .toISOString().split('T')[0]
+            const effectiveStart = twoYearsBack > range.min_date ? twoYearsBack : range.min_date
+            setStartDate(prev => {
+              if (prev < range.min_date!) return effectiveStart
+              if (prev > range.max_date!) return effectiveStart
+              return prev
+            })
+            setEndDate(prev => {
+              if (prev > range.max_date!) return maxDate
+              if (prev < range.min_date!) return maxDate
+              return prev
+            })
+          }
+        }
+      } catch { if (!cancelled) setDateRange(null) }
+      if (!cancelled) setDateRangeLoading(false)
+    }, 300)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [symbol])
+
   const handleSelectSymbol = (sym: string) => {
     setSymbol(sym)
     setSymbolQuery('')
@@ -315,6 +357,10 @@ function DesktopBacktestPage() {
     const startTime = Date.now()
     timerRef.current = setInterval(() => setElapsedSec(Math.floor((Date.now() - startTime) / 1000)), 1000)
 
+    // Minimum animation duration so the pipeline visualization is always visible
+    const MIN_ANIMATION_MS = 4000
+    const animationFloor = new Promise(r => setTimeout(r, MIN_ANIMATION_MS))
+
     try {
       const req: BacktestRequest = {
         symbol: symbol.toUpperCase(),
@@ -334,10 +380,30 @@ function DesktopBacktestPage() {
         monte_carlo: monteCarlo,
         benchmark,
       }
-      const res = await runBacktest(req, controller.signal)
-      setResult(res)
-      setActiveTab('results')
+      // Run backtest + wait for minimum animation time in parallel
+      const [res] = await Promise.all([runBacktest(req, controller.signal), animationFloor])
+
+      // Validate results — zero trades / zero return with no equity movement = empty result
+      const hasNoTrades = !res.total_trades || res.total_trades === 0
+      const hasNoReturn = res.total_return === 0 && res.sharpe_ratio === 0 && res.win_rate === 0
+      const hasNoEquity = !res.equity_curve || res.equity_curve.length <= 1
+
+      if (hasNoTrades && hasNoReturn) {
+        setError(
+          hasNoEquity
+            ? `No trades generated for ${symbol.toUpperCase()} with ${STRATEGIES.find(s => s.id === strategy)?.name ?? strategy}. Try a different date range, strategy, or check that market data is available.`
+            : `Strategy produced 0 trades — parameters may be too restrictive or insufficient data for ${symbol.toUpperCase()} in the selected period.`
+        )
+      } else {
+        setResult(res)
+        setActiveTab('results')
+      }
     } catch (err: any) {
+      // Still wait for animation floor so error state shows properly
+      const elapsed = Date.now() - startTime
+      if (elapsed < MIN_ANIMATION_MS) {
+        await new Promise(r => setTimeout(r, MIN_ANIMATION_MS - elapsed))
+      }
       if (!controller.signal.aborted) {
         setError(err.message || 'Failed to run backtest')
       }
@@ -436,9 +502,9 @@ function DesktopBacktestPage() {
             })}
           </div>
 
-          {/* ── Error Banner ── */}
+          {/* ── Error Banner (non-builder tabs only — builder shows error in DataFlowLoader) ── */}
           <AnimatePresence>
-            {error && (
+            {error && activeTab !== 'builder' && (
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -516,15 +582,40 @@ function DesktopBacktestPage() {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">Start</label>
-                          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all" />
+                          <input type="date" value={startDate}
+                            onChange={e => setStartDate(e.target.value)}
+                            min={dateRange?.available ? dateRange.min_date : undefined}
+                            max={endDate || (dateRange?.available ? dateRange.max_date : undefined)}
+                            className="w-full px-3 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all [color-scheme:dark]" />
                         </div>
                         <div>
                           <label className="block text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">End</label>
-                          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all" />
+                          <input type="date" value={endDate}
+                            onChange={e => setEndDate(e.target.value)}
+                            min={startDate || (dateRange?.available ? dateRange.min_date : undefined)}
+                            max={dateRange?.available ? dateRange.max_date : undefined}
+                            className="w-full px-3 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all [color-scheme:dark]" />
                         </div>
                       </div>
+                      {/* Date range availability indicator */}
+                      {dateRangeLoading ? (
+                        <div className="flex items-center gap-1.5 text-[9px] text-slate-600 font-mono">
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" /> Checking data availability...
+                        </div>
+                      ) : dateRange?.available ? (
+                        <div className="flex items-center gap-1.5 text-[9px] font-mono">
+                          <Check className="w-2.5 h-2.5 text-emerald-400" />
+                          <span className="text-emerald-400/80">Data available</span>
+                          <span className="text-slate-600">{dateRange.min_date} → {dateRange.max_date}</span>
+                          <span className="text-slate-700">·</span>
+                          <span className="text-slate-600">{dateRange.total_bars} bars</span>
+                        </div>
+                      ) : dateRange && !dateRange.available ? (
+                        <div className="flex items-center gap-1.5 text-[9px] font-mono">
+                          <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
+                          <span className="text-amber-400/80">No data found for {symbol}</span>
+                        </div>
+                      ) : null}
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">Initial Capital</label>
@@ -722,38 +813,17 @@ function DesktopBacktestPage() {
 
                 {/* Right: Preview / Empty State */}
                 <div className="lg:col-span-7 xl:col-span-8">
-                  {loading ? (
-                    <div className="flex items-center justify-center h-[600px] bg-[#0F1629]/30 backdrop-blur-xl border border-slate-800/30 rounded-2xl">
-                      <div className="text-center">
-                        <div className="relative w-16 h-16 mx-auto mb-4">
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                            className="absolute inset-0 rounded-full border-2 border-transparent border-t-cyan-400 border-r-blue-400"
-                          />
-                          <Activity className="absolute inset-0 m-auto w-6 h-6 text-cyan-400" />
-                        </div>
-                        <p className="text-sm text-white font-bold">Running Backtest Simulation</p>
-                        <p className="text-xs text-slate-500 mt-1.5 font-mono">
-                          {currentStrat.name} on {symbol}
-                          {monteCarlo && ' · Monte Carlo enabled'}
-                          {walkForward && ' · Walk-forward mode'}
-                        </p>
-                        <div className="mt-4 w-48 mx-auto">
-                          <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
-                            <motion.div
-                              className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full"
-                              initial={{ width: '0%' }}
-                              animate={{ width: '100%' }}
-                              transition={{ duration: 120, ease: 'linear' }}
-                            />
-                          </div>
-                        </div>
-                        {elapsedSec > 0 && (
-                          <p className="text-xs text-slate-600 font-mono mt-3">{elapsedSec}s elapsed</p>
-                        )}
-                      </div>
-                    </div>
+                  {loading || error ? (
+                    <BacktestDataFlowLoader
+                      strategyName={currentStrat.name}
+                      symbol={symbol}
+                      monteCarlo={monteCarlo}
+                      walkForward={walkForward}
+                      elapsedSec={elapsedSec}
+                      error={loading ? null : error}
+                      onRetry={handleRunBacktest}
+                      onDismissError={() => setError(null)}
+                    />
                   ) : result ? (
                     <div className="bg-[#0F1629]/30 backdrop-blur-xl border border-slate-800/30 rounded-2xl p-5">
                       <div className="flex items-center justify-between mb-4">
@@ -940,14 +1010,38 @@ function DesktopBacktestPage() {
 function MobileBacktestPage() {
   const [symbol, setSymbol] = useState('AAPL')
   const [strategy, setStrategy] = useState('rsi_ma_crossover')
-  const [startDate, setStartDate] = useState('2023-01-01')
-  const [endDate, setEndDate] = useState('2024-12-31')
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date(); d.setFullYear(d.getFullYear() - 2); return d.toISOString().split('T')[0]
+  })
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0])
   const [initialCapital, setInitialCapital] = useState(100000)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<BacktestResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'config' | 'results'>('config')
   const abortRef = useRef<AbortController | null>(null)
+  const [dateRange, setDateRange] = useState<BacktestDateRange | null>(null)
+
+  useEffect(() => {
+    if (!symbol || symbol.length < 1) return
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      try {
+        const range = await getBacktestDateRange(symbol)
+        if (!cancelled) {
+          setDateRange(range)
+          if (range.available && range.min_date && range.max_date) {
+            const maxDate = range.max_date
+            const twoYearsBack = new Date(new Date(maxDate).getTime() - 2 * 365 * 86400000).toISOString().split('T')[0]
+            const effectiveStart = twoYearsBack > range.min_date ? twoYearsBack : range.min_date
+            setStartDate(prev => prev < range.min_date! || prev > range.max_date! ? effectiveStart : prev)
+            setEndDate(prev => prev > range.max_date! || prev < range.min_date! ? maxDate : prev)
+          }
+        }
+      } catch {}
+    }, 300)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [symbol])
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort()
@@ -960,6 +1054,8 @@ function MobileBacktestPage() {
     const controller = new AbortController()
     abortRef.current = controller
     setLoading(true); setError(null); setResult(null)
+    const startTime = Date.now()
+    const MIN_MS = 4000
     try {
       const req: BacktestRequest = {
         symbol: symbol.toUpperCase(),
@@ -967,10 +1063,18 @@ function MobileBacktestPage() {
         end_date: endDate + 'T23:59:59',
         strategy, initial_capital: initialCapital, monte_carlo: true,
       }
-      const res = await runBacktest(req, controller.signal)
-      setResult(res)
-      setActiveTab('results')
+      const [res] = await Promise.all([runBacktest(req, controller.signal), new Promise(r => setTimeout(r, MIN_MS))])
+      const hasNoTrades = !res.total_trades || res.total_trades === 0
+      const hasNoReturn = res.total_return === 0 && res.sharpe_ratio === 0 && res.win_rate === 0
+      if (hasNoTrades && hasNoReturn) {
+        setError(`No trades generated for ${symbol.toUpperCase()}. Try different parameters or date range.`)
+      } else {
+        setResult(res)
+        setActiveTab('results')
+      }
     } catch (err: any) {
+      const elapsed = Date.now() - startTime
+      if (elapsed < MIN_MS) await new Promise(r => setTimeout(r, MIN_MS - elapsed))
       if (!controller.signal.aborted) {
         setError(err.message || 'Failed')
       }
@@ -1012,9 +1116,13 @@ function MobileBacktestPage() {
                 className="w-full px-3 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-sm font-mono placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30" />
               <div className="grid grid-cols-2 gap-2">
                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                  className="px-2 py-2 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none" />
+                  min={dateRange?.available ? dateRange.min_date : undefined}
+                  max={endDate || (dateRange?.available ? dateRange.max_date : undefined)}
+                  className="px-2 py-2 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none [color-scheme:dark]" />
                 <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                  className="px-2 py-2 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none" />
+                  min={startDate || (dateRange?.available ? dateRange.min_date : undefined)}
+                  max={dateRange?.available ? dateRange.max_date : undefined}
+                  className="px-2 py-2 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none [color-scheme:dark]" />
               </div>
               <input type="number" value={initialCapital} onChange={e => setInitialCapital(Number(e.target.value))}
                 className="w-full px-3 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-sm font-mono focus:outline-none" />

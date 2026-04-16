@@ -13,14 +13,20 @@ from dataclasses import dataclass
 import json
 
 # ML/AI imports
-import anthropic
+try:
+    import anthropic
+except ImportError:
+    anthropic = None  # Only needed for RAG chat, not predictions
 from sklearn.preprocessing import MinMaxScaler
 import torch
 import torch.nn as nn
 
 # Data sources
 import requests
-from websocket import create_connection
+try:
+    from websocket import create_connection
+except ImportError:
+    create_connection = None  # Optional: real-time WebSocket
 import yfinance as yf
 
 # ============================================================================
