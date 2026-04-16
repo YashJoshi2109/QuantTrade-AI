@@ -12,6 +12,11 @@ on:
         description: 'Override epochs'
         default: ''
 
+permissions:
+  contents: read
+  actions: read
+  packages: read
+
 jobs:
   train-lstm:
     name: Train LSTM predictors
