@@ -68,6 +68,9 @@ import {
   type CopilotUsage,
 } from '@/lib/api'
 import PolymarketStockCard from '@/components/chat/visual/PolymarketStockCard'
+import CopilotLoadingScene from '@/components/chat/CopilotLoadingScene'
+import { GlassFilter } from '@/components/ui/liquid-glass'
+import ThemeToggle from '@/components/ui/theme-toggle'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1662,6 +1665,7 @@ function CopilotInner() {
                 {analysisData.symbol} Data
               </button>
             )}
+            <ThemeToggle className="hidden sm:block" />
             <button
               onClick={newChat}
               className="p-2 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 transition-colors"
@@ -1683,13 +1687,33 @@ function CopilotInner() {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <GlassFilter />
           {!hasMessages ? (
             <WelcomeScreen onPrompt={(p) => sendMessage(p)} />
           ) : (
             <>
-              {messages.map((msg) => (
-                <MessageBubble key={msg.id} msg={msg} />
-              ))}
+              {messages.map((msg) => {
+                // Show Unicorn WebGL loading scene for empty streaming messages
+                if (msg.role === 'assistant' && msg.streaming && !msg.content) {
+                  return (
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex gap-2.5 items-start"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00D9FF]/20 to-[#7C3AED]/20 flex items-center justify-center flex-shrink-0 border border-white/[0.06]">
+                        <Zap className="w-4 h-4 text-cyan-400" />
+                      </div>
+                      <CopilotLoadingScene
+                        stage={pipelineStage === 'idle' ? 'intent' : pipelineStage === 'done' ? 'streaming' : pipelineStage}
+                        symbol={currentSymbol}
+                      />
+                    </motion.div>
+                  )
+                }
+                return <MessageBubble key={msg.id} msg={msg} />
+              })}
               <div ref={bottomRef} />
             </>
           )}

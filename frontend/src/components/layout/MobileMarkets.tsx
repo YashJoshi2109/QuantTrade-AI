@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Search as SearchIcon, TrendingUp, TrendingDown, Activity } from 'lucide-react'
+import TickerLogo from '@/components/TickerLogo'
 import {
   fetchMarketMovers,
   fetchHeatmapData,
@@ -16,10 +18,12 @@ import {
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import MarketHeatmap from '@/components/MarketHeatmap'
 import MarketMoversPanel from '@/components/MarketMoversPanel'
+import MobileSymbolSearch from '@/components/ui/mobile-symbol-search'
 
 const FILTERS = ['All Assets', 'Stocks', 'Crypto', 'Forex', 'Commodities', 'ETFs', 'Indices']
 
 export default function MobileMarkets() {
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState('All Assets')
   const [sectorView, setSectorView] = useState<'list' | 'heatmap'>('heatmap')
@@ -112,26 +116,15 @@ export default function MobileMarkets() {
         </div>
       </header>
 
-      {/* Search */}
+      {/* Search with API autocomplete */}
       <section className="px-1">
-        <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search stocks, crypto, forex..."
-            className="w-full h-10 rounded-full bg-[#1A2332] border border-white/10 pl-9 pr-9 text-[13px] text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"
-            >
-              ✕
-            </button>
-          )}
-        </div>
+        <MobileSymbolSearch
+          value={search}
+          onChange={setSearch}
+          onSelect={(result) => router.push(`/research?symbol=${encodeURIComponent(result.symbol)}`)}
+          placeholder="Search stocks, crypto, forex..."
+          uppercase={false}
+        />
       </section>
 
       {/* Quick stats */}
@@ -300,7 +293,6 @@ export default function MobileMarkets() {
           filtered.map((stock) => {
             const pct = stock.change_percent
             const isUp = isNumber(pct) && pct >= 0
-            const initials = stock.symbol.slice(0, 2).toUpperCase()
             return (
               <Link
                 key={stock.symbol}
@@ -308,9 +300,7 @@ export default function MobileMarkets() {
                 className="block rounded-xl bg-[#1A2332]/90 border border-white/5 p-3 flex items-center justify-between active:scale-[0.98] transition-transform"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-[11px] font-semibold text-slate-200">
-                    {initials}
-                  </div>
+                  <TickerLogo symbol={stock.symbol} companyName={stock.name} size={32} />
                   <div className="min-w-0">
                     <div className="text-[13px] font-semibold text-white">
                       {stock.symbol}

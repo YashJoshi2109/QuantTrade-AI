@@ -26,6 +26,7 @@ import {
   GitCompare, Radar, ShieldAlert, BookOpen,
   Sparkles, ArrowRight, Check, X as XIcon,
 } from 'lucide-react'
+import MobileSymbolSearch from '@/components/ui/mobile-symbol-search'
 import type { LucideIcon } from 'lucide-react'
 
 /* ── Strategy definitions ───────────────────────────────────────────── */
@@ -1085,11 +1086,16 @@ function MobileBacktestPage() {
     <MobileLayout>
       <div className="min-h-screen bg-[#0A0E1A] px-4 py-4 pb-24 space-y-4">
         {/* Header */}
-        <div className="flex items-center gap-2 mb-2">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex items-center gap-2 mb-2"
+        >
           <Activity className="w-4 h-4 text-cyan-400" />
           <h1 className="text-base font-black text-white">Backtester</h1>
           <span className="px-2 py-0.5 rounded-md text-[8px] font-black bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/25">PRO</span>
-        </div>
+        </motion.div>
 
         {/* Mobile tabs */}
         <div className="flex gap-1 bg-[#0F1629]/40 border border-slate-800/30 rounded-xl p-1">
@@ -1098,22 +1104,40 @@ function MobileBacktestPage() {
               key={tab}
               onClick={() => setActiveTab(tab)}
               disabled={tab === 'results' && !result}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+              className={`relative flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeTab === tab
-                  ? 'bg-cyan-500/15 text-white border border-cyan-500/20'
+                  ? 'text-white'
                   : 'text-slate-500 disabled:text-slate-700'
               }`}
             >
-              {tab === 'config' ? 'Configure' : 'Results'}
+              {activeTab === tab && (
+                <motion.div
+                  layoutId="backtest-tab"
+                  className="absolute inset-0 bg-cyan-500/15 border border-cyan-500/20 rounded-lg"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                />
+              )}
+              <span className="relative z-10">{tab === 'config' ? 'Configure' : 'Results'}</span>
             </button>
           ))}
         </div>
 
+        <AnimatePresence mode="wait">
         {activeTab === 'config' && (
-          <div className="space-y-4">
+          <motion.div
+            key="config"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-4"
+          >
             <div className="bg-[#0F1629]/60 border border-slate-800/40 rounded-2xl p-4 space-y-3">
-              <input type="text" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} placeholder="Symbol"
-                className="w-full px-3 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-sm font-mono placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30" />
+              <MobileSymbolSearch
+                value={symbol}
+                onChange={setSymbol}
+                placeholder="Search symbol or company name..."
+              />
               <div className="grid grid-cols-2 gap-2">
                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
                   min={dateRange?.available ? dateRange.min_date : undefined}
@@ -1145,16 +1169,27 @@ function MobileBacktestPage() {
             )}
 
             {error && (
-              <div className="p-3 bg-red-500/8 border border-red-500/20 rounded-2xl text-red-400 flex items-center gap-2 text-xs">
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3 bg-red-500/8 border border-red-500/20 rounded-2xl text-red-400 flex items-center gap-2 text-xs"
+              >
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span className="flex-1">{error}</span>
-              </div>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
         )}
 
         {activeTab === 'results' && result && (
-          <div className="space-y-3">
+          <motion.div
+            key="results"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-3"
+          >
             <div className="grid grid-cols-2 gap-2">
               {[
                 { label: 'Return', value: `${result.total_return >= 0 ? '+' : ''}${result.total_return.toFixed(1)}%`, positive: result.total_return >= 0 },
@@ -1229,8 +1264,9 @@ function MobileBacktestPage() {
                 </div>
               </div>
             )}
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </div>
     </MobileLayout>
   )

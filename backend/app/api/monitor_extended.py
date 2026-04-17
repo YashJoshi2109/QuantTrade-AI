@@ -68,6 +68,7 @@ class EconomicIndicatorsResponse(BaseModel):
 class EconomicCalendarEvent(BaseModel):
     country: str
     country_code: str
+    date: Optional[str] = None  # YYYY-MM-DD
     time: str
     event_name: str
     actual: Optional[str] = None
@@ -788,7 +789,85 @@ async def get_economic_calendar():
             )
             if resp.status_code == 200:
                 raw = resp.json()
-                for ev in (raw.get("economicCalendar") or raw.get("result") or []):
+                # Finnhub nests: {"economicCalendar": {"result": [...]}}
+                calendar_obj = raw.get("economicCalendar", raw)
+                event_list = calendar_obj if isinstance(calendar_obj, list) else (calendar_obj.get("result") or [])
+
+                for ev in event_list:
+                    importance = ev.get("impact", 1)
+                    if isinstance(importance, str):
+                        importance = {"high": 3, "medium": 2, "low": 1}.get(importance.lower(), 1)
+                    impact = "high" if importance >= 3 else "medium" if importance >= 2 else "low"
+
+                    country_name = ev.get("country", "")
+                    cc = _country_to_code(country_name)
+
+                    actual_val = ev.get("actual")
+                    forecast_val = ev.get("estimate")
+                    prior_val = ev.get("prev")
+                    unit = ev.get("unit", "")
+
+                    def _fmt(v: Any) -> Optional[str]:
+                        if v is None or v == "":
+                            return None
+                        try:
+                            n = float(v)
+                            return f"{n:g}{unit}" if unit else f"{n:g}"
+                        except (ValueError, TypeError):
+                            return str(v)
+
+                    time_str = ev.get("time", "")
+                    if not time_str:
+                        time_str = "—"
+
+                    event_date = ev.get("date", today)
+
+                    events.append(EconomicCalendarEvent(
+                        country=country_name,
+                        country_code=cc,
+                        date=event_date,
+                        time=time_str,
+                        event_name=ev.get("event", "Unknown"),
+                        actual=_fmt(actual_val),
+                        forecast=_fmt(forecast_val),
+                        prior=_fmt(prior_val),
+                        impact=impact,
+                        unit=unit,
+                    ))
+    except Exception as exc:
+        logger.warning("economic-calendar fetch error: %s", exc)
+
+    events.sort(key=lambda e: ({"high": 0, "medium": 1, "low": 2}[e.impact], e.time))
+
+    return EconomicCalendarResponse(events=events, updated_at=datetime.now(timezone.utc).isoformat())
+
+
+@router.get("/economic-calendar/range", response_model=EconomicCalendarResponse)
+async def get_economic_calendar_range(
+    start: str = Query(..., description="Start date YYYY-MM-DD"),
+    end: str = Query(..., description="End date YYYY-MM-DD"),
+):
+    """
+    Economic events for a date range (max 6 weeks). Uses Finnhub calendar API.
+    """
+    finnhub_key = getattr(settings, "FINNHUB_API_KEY", None)
+    if not finnhub_key:
+        return EconomicCalendarResponse(events=[], updated_at=datetime.now(timezone.utc).isoformat())
+
+    events: List[EconomicCalendarEvent] = []
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(
+                f"{_FINNHUB_BASE}/calendar/economic",
+                params={"from": start, "to": end, "token": finnhub_key},
+            )
+            if resp.status_code == 200:
+                raw = resp.json()
+                # Finnhub nests: {"economicCalendar": {"result": [...]}} or flat {"result": [...]}
+                calendar_obj = raw.get("economicCalendar", raw)
+                event_list = calendar_obj if isinstance(calendar_obj, list) else (calendar_obj.get("result") or [])
+
+                for ev in event_list:
                     importance = ev.get("impact", 1)
                     if isinstance(importance, str):
                         importance = {"high": 3, "medium": 2, "low": 1}.get(importance.lower(), 1)
@@ -818,6 +897,7 @@ async def get_economic_calendar():
                     events.append(EconomicCalendarEvent(
                         country=country_name,
                         country_code=cc,
+                        date=ev.get("date", start),
                         time=time_str,
                         event_name=ev.get("event", "Unknown"),
                         actual=_fmt(actual_val),
@@ -827,10 +907,9 @@ async def get_economic_calendar():
                         unit=unit,
                     ))
     except Exception as exc:
-        logger.warning("economic-calendar fetch error: %s", exc)
+        logger.warning("economic-calendar range fetch error: %s", exc)
 
-    events.sort(key=lambda e: ({"high": 0, "medium": 1, "low": 2}[e.impact], e.time))
-
+    events.sort(key=lambda e: (e.date or "", {"high": 0, "medium": 1, "low": 2}[e.impact], e.time))
     return EconomicCalendarResponse(events=events, updated_at=datetime.now(timezone.utc).isoformat())
 
 

@@ -755,6 +755,7 @@ async def passkey_register_verify(
         db.query(PasskeyCredential).filter(
             PasskeyCredential.credential_id == req.credential_id
         ).delete()
+        db.flush()
 
         passkey = PasskeyCredential(
             user_id=user_id,
