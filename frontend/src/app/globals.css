@@ -1546,3 +1546,114 @@ html {
   );
   animation: ta-gauge-sheen 14s ease-in-out infinite;
 }
+
+/* ======================================================
+   UNICORN STUDIO BACKGROUND ANIMATION
+   ====================================================== */
+@keyframes moveBackground {
+  from { background-position: 0% 0%; }
+  to   { background-position: 0% -1000%; }
+}
+
+@keyframes popInRight {
+  0% { opacity: 0; transform: translateX(15px) scale(0.5) rotate(5deg); }
+  60% { transform: translateX(-4px) scale(1.1) rotate(-2deg); }
+  100% { opacity: 1; transform: translateX(0) scale(1) rotate(0); }
+}
+
+/* ======================================================
+   LIGHT MODE OVERRIDES
+   ====================================================== */
+:root.light,
+html.light {
+  --foreground-rgb: 15, 23, 42;
+  --background-start-rgb: 248, 250, 252;
+  --background-end-rgb: 241, 245, 249;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-tertiary: #e2e8f0;
+  --bg-card: #ffffff;
+
+  /* Glass - light mode */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-light: rgba(255, 255, 255, 0.58);
+  --glass-bg-strong: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-border-cyan: rgba(0, 122, 255, 0.18);
+  --glass-border-glow: rgba(0, 122, 255, 0.30);
+  --glass-shine: inset 0 1px 0 rgba(255,255,255,0.9), inset 1px 0 0 rgba(255,255,255,0.7);
+
+  /* Glows reduced for light mode */
+  --glow-cyan: 0 0 12px rgba(0,122,255,0.15), 0 0 40px rgba(0,122,255,0.06);
+  --glow-blue: 0 0 12px rgba(59,130,246,0.15), 0 0 40px rgba(59,130,246,0.06);
+  --glow-red: 0 0 12px rgba(239,68,68,0.2), 0 0 40px rgba(239,68,68,0.08);
+  --glow-emerald: 0 0 12px rgba(16,185,129,0.15), 0 0 40px rgba(16,185,129,0.06);
+  --glow-violet: 0 0 12px rgba(139,92,246,0.15), 0 0 40px rgba(139,92,246,0.06);
+}
+
+/* Light mode body */
+html.light body {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e8ecf4 100%);
+  color: #0f172a;
+}
+
+/* Light glass panels */
+html.light .glass-panel {
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-shine), 0 4px 24px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.8);
+}
+html.light .glass-panel-accent {
+  background: var(--glass-bg-light);
+  border-color: var(--glass-border-cyan);
+  box-shadow: var(--glass-shine), 0 4px 24px rgba(0,0,0,0.04);
+}
+html.light .glass-panel-strong {
+  background: var(--glass-bg-strong);
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: var(--glass-shine), 0 8px 32px rgba(0,0,0,0.08);
+}
+
+/* Light mac buttons */
+html.light .mac-btn {
+  background: rgba(0,0,0,0.03);
+  border-color: rgba(0,0,0,0.10);
+  color: #334155;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 8px rgba(0,0,0,0.06);
+  backdrop-filter: blur(12px) saturate(1.2);
+}
+html.light .mac-btn:hover {
+  background: rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.14);
+  color: #0f172a;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 20px rgba(0,0,0,0.08);
+}
+
+/* Light mode common overrides */
+html.light .bg-\[\#0A0E1A\],
+html.light .bg-\[\#0B0E14\],
+html.light .bg-\[\#0D1117\] {
+  background-color: #f8fafc !important;
+}
+html.light .bg-\[\#101928\] {
+  background-color: #ffffff !important;
+}
+html.light .border-slate-700\/50,
+html.light .border-slate-700\/60 {
+  border-color: rgba(0,0,0,0.08) !important;
+}
+html.light .text-white {
+  color: #0f172a !important;
+}
+html.light .text-slate-400 {
+  color: #64748b !important;
+}
+html.light .text-slate-500 {
+  color: #94a3b8 !important;
+}
+html.light .text-slate-600 {
+  color: #475569 !important;
+}
+html.light .placeholder-slate-600::placeholder {
+  color: #94a3b8 !important;
+}

@@ -16,6 +16,7 @@ import {
   Zap,
 } from 'lucide-react'
 import Image from 'next/image'
+import TickerLogo from '@/components/TickerLogo'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   fetchMarketStatus,
@@ -35,6 +36,7 @@ import { useBreakingNews } from '@/hooks/useRealtimeNews'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import MarketNewsGrid from '@/components/MarketNewsGrid'
 import LiveNewsChannelPanel from '@/components/LiveNewsChannelPanel'
+import EconomicCalendarStrip from '@/components/EconomicCalendarStrip'
 import MiniWorldMonitorSnapshot from '@/components/MiniWorldMonitorSnapshot'
 import IpoRadarWidget from '@/components/IpoRadarWidget'
 import { useToast } from '@/components/Toast'
@@ -351,9 +353,7 @@ export default function MobileDashboard() {
                 onClick={() => handleSearchSelect(result.symbol)}
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors text-left"
               >
-                <div className="w-9 h-9 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center text-[11px] font-bold text-white">
-                  {result.symbol.slice(0, 2)}
-                </div>
+                <TickerLogo symbol={result.symbol} companyName={result.name} size={36} />
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-semibold text-white">{result.symbol}</p>
                   <p className="text-[11px] text-slate-500 truncate">{result.name}</p>
@@ -655,6 +655,11 @@ export default function MobileDashboard() {
               )
             })}
         </div>
+      </section>
+
+      {/* Economic Calendar */}
+      <section className="px-1 pb-3">
+        <EconomicCalendarStrip />
       </section>
 
       {/* Live global TV news */}

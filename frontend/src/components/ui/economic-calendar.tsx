@@ -2,7 +2,10 @@
 
 import * as React from "react"
 import { motion } from "framer-motion"
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react"
+import { ChevronLeft, ChevronRight, Calendar, Maximize2 } from "lucide-react"
+import { AnimatePresence } from "framer-motion"
+import { FullScreenCalendar } from "@/components/ui/fullscreen-calendar"
+import { startOfToday } from "date-fns"
 import { cn } from "@/lib/utils"
 
 export interface EconomicEvent {
@@ -50,6 +53,13 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
     const scrollRef = React.useRef<HTMLDivElement>(null)
     const [canLeft, setCanLeft] = React.useState(false)
     const [canRight, setCanRight] = React.useState(true)
+    const [fullscreen, setFullscreen] = React.useState(false)
+
+    // Build calendar data for fullscreen view (group events by today)
+    const calendarData = React.useMemo(() => {
+      const today = startOfToday()
+      return [{ day: today, events }]
+    }, [events])
 
     const check = React.useCallback(() => {
       const el = scrollRef.current
@@ -84,6 +94,15 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
             </span>
           </div>
           <div className="flex items-center gap-1">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setFullscreen(true)}
+              aria-label="Open fullscreen calendar"
+              className="p-1 rounded-full bg-slate-800/80 border border-slate-700/50 hover:bg-slate-700/80 transition-colors mr-1"
+            >
+              <Maximize2 className="h-3.5 w-3.5 text-slate-300" />
+            </motion.button>
             {canLeft && (
               <motion.button
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -185,6 +204,16 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
             ))}
           </motion.div>
         </div>
+
+        {/* Fullscreen Calendar Portal */}
+        <AnimatePresence>
+          {fullscreen && (
+            <FullScreenCalendar
+              data={calendarData}
+              onClose={() => setFullscreen(false)}
+            />
+          )}
+        </AnimatePresence>
       </div>
     )
   },

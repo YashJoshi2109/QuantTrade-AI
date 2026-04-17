@@ -63,6 +63,7 @@ export async function fetchEconomicIndicators(
 export interface EconomicCalendarEvent {
   country: string
   country_code: string
+  date?: string | null
   time: string
   event_name: string
   actual: string | null
@@ -74,6 +75,17 @@ export interface EconomicCalendarEvent {
 
 export async function fetchEconomicCalendar(): Promise<{ events: EconomicCalendarEvent[]; updated_at: string }> {
   const res = await fetch(`${API_URL}/api/v1/monitor/economic-calendar`)
+  if (!res.ok) return { events: [], updated_at: new Date().toISOString() }
+  return res.json()
+}
+
+export async function fetchEconomicCalendarRange(
+  start: string,
+  end: string,
+): Promise<{ events: EconomicCalendarEvent[]; updated_at: string }> {
+  const res = await fetch(
+    `${API_URL}/api/v1/monitor/economic-calendar/range?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+  )
   if (!res.ok) return { events: [], updated_at: new Date().toISOString() }
   return res.json()
 }

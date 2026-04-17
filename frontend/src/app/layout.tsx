@@ -9,6 +9,7 @@ import { ToastProvider } from '@/components/Toast'
 import ChatWidget from '@/components/chat/ChatWidget'
 import BrandIntroGate from '@/components/BrandIntroGate'
 import { StockSnapshotProvider } from '@/context/StockSnapshotContext'
+import { ThemeProvider } from '@/components/ThemeProvider'
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -179,7 +180,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
 
   return (
-    <html lang="en" className={`${manrope.variable} ${inter.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${manrope.variable} ${inter.variable}`}>
       <head>
         {/* Structured data */}
         <JsonLd data={organizationSchema} />
@@ -211,19 +212,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }}
           />
         )}
-        <ErrorBoundary>
-          <AuthProvider>
-            <ReactQueryProvider>
-              <ToastProvider>
-                <StockSnapshotProvider>
-                  <BrandIntroGate />
-                  {children}
-                  <ChatWidget />
-                </StockSnapshotProvider>
-              </ToastProvider>
-            </ReactQueryProvider>
-          </AuthProvider>
-        </ErrorBoundary>
+        <ThemeProvider>
+          <ErrorBoundary>
+            <AuthProvider>
+              <ReactQueryProvider>
+                <ToastProvider>
+                  <StockSnapshotProvider>
+                    <BrandIntroGate />
+                    {children}
+                    <ChatWidget />
+                  </StockSnapshotProvider>
+                </ToastProvider>
+              </ReactQueryProvider>
+            </AuthProvider>
+          </ErrorBoundary>
+        </ThemeProvider>
       </body>
     </html>
   )
