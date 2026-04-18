@@ -326,24 +326,65 @@ class QuoteCacheService:
             print(f"Twelve Data error for {symbol}: {e}")
             return None
 
+    async def _fetch_from_public(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Fetch quote from Public.com (real-time, US stocks/ETFs/crypto)."""
+        try:
+            from app.services.public_client import public_client
+            return await public_client.get_quote(symbol)
+        except Exception as e:
+            print(f"Public.com error for {symbol}: {e}")
+            return None
+
+    async def _fetch_from_alpaca(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Fetch quote from Alpaca Markets (free, US stocks)."""
+        try:
+            loop = asyncio.get_event_loop()
+            def _fetch():
+                from app.services.alpaca_client import alpaca_client
+                return alpaca_client.get_quote(symbol)
+            return await loop.run_in_executor(None, _fetch)
+        except Exception as e:
+            print(f"Alpaca error for {symbol}: {e}")
+            return None
+
+    async def _fetch_from_robinhood(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Fetch quote from Robinhood (US stocks only, requires credentials)."""
+        try:
+            loop = asyncio.get_event_loop()
+            def _fetch():
+                from app.services.robinhood_client import robinhood_client
+                return robinhood_client.get_quote(symbol)
+            return await loop.run_in_executor(None, _fetch)
+        except Exception as e:
+            print(f"Robinhood error for {symbol}: {e}")
+            return None
+
     async def _fetch_quote(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
         Fetch quote from providers with multiple fallbacks
 
         Priority Order:
-        1. Yahoo Finance direct API (primary - free, unlimited, real-time)
-        2. yfinance library (fallback)
-        3. Financial Modeling Prep (250 calls/day)
-        4. Twelve Data (800 credits/day)
-        5. Finnhub API (if configured)
-        6. TradingView API (final fallback)
+        1. Public.com (primary - real-time, 10 req/s, US stocks/ETFs/crypto)
+        2. Yahoo Finance direct API (free, unlimited)
+        3. yfinance library (fallback)
+        4. Financial Modeling Prep (250 calls/day)
+        5. Twelve Data (800 credits/day)
+        6. Finnhub API (if configured)
+        7. Alpaca Markets (free, US stocks)
+        8. Robinhood (US stocks, requires credentials)
+        9. TradingView API (final fallback)
         """
-        # 1. Yahoo Finance direct API
+        # 1. Public.com (real-time quotes)
+        quote = await self._fetch_from_public(symbol)
+        if quote and quote.get('price') and quote.get('price') > 0:
+            return quote
+
+        # 2. Yahoo Finance direct API
         quote = await self._fetch_from_yahoo_direct(symbol)
         if quote and quote.get('price') and quote.get('price') > 0:
             return quote
 
-        # 2. yfinance library
+        # 3. yfinance library
         quote = await self._fetch_from_yfinance(symbol)
         if quote and quote.get('price') and quote.get('price') > 0:
             return quote
@@ -363,7 +404,17 @@ class QuoteCacheService:
         if quote and quote.get('price') and quote.get('price') > 0:
             return quote
 
-        # 6. TradingView final fallback
+        # 6. Alpaca Markets
+        quote = await self._fetch_from_alpaca(symbol)
+        if quote and quote.get('price') and quote.get('price') > 0:
+            return quote
+
+        # 7. Robinhood (US only)
+        quote = await self._fetch_from_robinhood(symbol)
+        if quote and quote.get('price') and quote.get('price') > 0:
+            return quote
+
+        # 8. TradingView final fallback
         try:
             from app.services.tradingview_fetcher import TradingViewFetcher
             quote = await TradingViewFetcher.get_quote(symbol)

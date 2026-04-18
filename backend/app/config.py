@@ -55,6 +55,19 @@ class Settings(BaseSettings):
     APILAYER_CURRENCY_KEY: Optional[str] = None  # ApiLayer currency exchange rates
     MARKETSTACK_API_KEY: Optional[str] = None    # Marketstack global stock data
     OPENFIGI_API_KEY: Optional[str] = None       # OpenFIGI real-time stock info
+
+    # Alpaca Markets — free historical data for backtesting + candlesticks
+    ALPACA_API_KEY: Optional[str] = None
+    ALPACA_SECRET_KEY: Optional[str] = None
+    ALPACA_BASE_URL: str = "https://paper-api.alpaca.markets"  # paper trading default
+
+    # Robinhood — US stock quotes fallback (requires account credentials)
+    ROBINHOOD_USERNAME: Optional[str] = None
+    ROBINHOOD_PASSWORD: Optional[str] = None
+    ROBINHOOD_MFA_CODE: Optional[str] = None  # Optional: TOTP or SMS code
+
+    # Public.com — real-time quotes, option chains, batch pricing
+    PUBLIC_API_SECRET_KEY: Optional[str] = None
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_PUBLISHABLE_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None

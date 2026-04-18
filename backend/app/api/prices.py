@@ -121,6 +121,127 @@ async def get_prices(
     return bars
 
 
+@router.get("/prices/{symbol}/intraday", response_model=List[PriceBarResponse])
+async def get_intraday_prices(
+    symbol: str,
+    interval: str = Query("5m", description="Interval: 1m, 5m, 15m, 1h"),
+    days: int = Query(1, ge=1, le=30, description="Days of intraday data"),
+):
+    """
+    Get intraday OHLCV bars for candlestick charts.
+
+    Fallback chain: yfinance → Alpaca → Twelve Data
+    - 1m: max 7 days (yfinance), 30 days (Alpaca)
+    - 5m: max 60 days (yfinance), 30 days (Alpaca)
+    """
+    symbol_upper = symbol.upper()
+    bars = []
+
+    # 1. yfinance (free, no key required)
+    try:
+        import yfinance as yf
+        import asyncio
+
+        def _fetch_yf():
+            period = f"{days}d"
+            # yfinance interval names: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h
+            yf_interval = interval.replace("min", "m").replace("hour", "h")
+            if yf_interval == "1h":
+                yf_interval = "60m"
+            data = yf.download(symbol_upper, period=period, interval=yf_interval, progress=False)
+            if data.empty:
+                return []
+            import pandas as pd
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = [col[0] if isinstance(col, tuple) else col for col in data.columns]
+            data = data.rename(columns={
+                "Open": "open", "High": "high", "Low": "low",
+                "Close": "close", "Volume": "volume",
+            })
+            if hasattr(data.index, 'tz') and data.index.tz is not None:
+                data.index = data.index.tz_localize(None)
+            result = []
+            for ts, row in data.iterrows():
+                result.append(PriceBarResponse(
+                    timestamp=ts.to_pydatetime(),
+                    open=round(float(row.get("open", 0)), 2),
+                    high=round(float(row.get("high", 0)), 2),
+                    low=round(float(row.get("low", 0)), 2),
+                    close=round(float(row.get("close", 0)), 2),
+                    volume=int(row.get("volume", 0)),
+                ))
+            return result
+
+        import asyncio
+        bars = await asyncio.to_thread(_fetch_yf)
+        if bars:
+            logger.info(f"Intraday {interval}: {len(bars)} bars for {symbol_upper} via yfinance")
+            return bars
+    except Exception as e:
+        logger.debug(f"yfinance intraday failed for {symbol_upper}: {e}")
+
+    # 2. Alpaca (free historical bars)
+    try:
+        import asyncio
+
+        def _fetch_alpaca():
+            from app.services.alpaca_client import alpaca_client
+            tf_map = {"1m": "1Min", "5m": "5Min", "15m": "15Min", "1h": "1Hour"}
+            tf = tf_map.get(interval, "5Min")
+            df = alpaca_client.get_intraday_bars(symbol_upper, interval=tf, days_back=days)
+            if df.empty:
+                return []
+            result = []
+            for ts, row in df.iterrows():
+                result.append(PriceBarResponse(
+                    timestamp=ts.to_pydatetime() if hasattr(ts, 'to_pydatetime') else ts,
+                    open=round(float(row["open"]), 2),
+                    high=round(float(row["high"]), 2),
+                    low=round(float(row["low"]), 2),
+                    close=round(float(row["close"]), 2),
+                    volume=int(row["volume"]),
+                ))
+            return result
+
+        bars = await asyncio.to_thread(_fetch_alpaca)
+        if bars:
+            logger.info(f"Intraday {interval}: {len(bars)} bars for {symbol_upper} via Alpaca")
+            return bars
+    except Exception as e:
+        logger.debug(f"Alpaca intraday failed for {symbol_upper}: {e}")
+
+    # 3. Twelve Data (800 credits/day)
+    if settings.TWELVEDATA_API_KEY:
+        try:
+            td_interval = interval.replace("m", "min").replace("h", "h")
+            if td_interval == "1min":
+                td_interval = "1min"
+            elif td_interval == "5min":
+                td_interval = "5min"
+            url = f"https://api.twelvedata.com/time_series?symbol={symbol_upper}&interval={td_interval}&outputsize={days * 390}&apikey={settings.TWELVEDATA_API_KEY}"
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(url)
+                data = resp.json()
+            if data.get("status") == "ok" and data.get("values"):
+                bars = []
+                for v in reversed(data["values"]):
+                    bars.append(PriceBarResponse(
+                        timestamp=datetime.fromisoformat(v["datetime"]),
+                        open=round(float(v["open"]), 2),
+                        high=round(float(v["high"]), 2),
+                        low=round(float(v["low"]), 2),
+                        close=round(float(v["close"]), 2),
+                        volume=int(v.get("volume", 0)),
+                    ))
+                if bars:
+                    logger.info(f"Intraday {interval}: {len(bars)} bars for {symbol_upper} via Twelve Data")
+                    return bars
+        except Exception as e:
+            logger.debug(f"Twelve Data intraday failed for {symbol_upper}: {e}")
+
+    return bars
+
+
 @router.post("/prices/{symbol}/sync")
 async def sync_prices(
     symbol: str,

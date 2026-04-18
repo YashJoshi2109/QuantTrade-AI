@@ -19,7 +19,7 @@ import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 import type { ChartSeriesType } from '@/components/Chart'
 import TickerLogo from '@/components/TickerLogo'
 
-export type ResearchChartPeriod = '1M' | '3M' | '6M' | '1Y' | '2Y' | '5Y'
+export type ResearchChartPeriod = '1D' | '5D' | '1M' | '3M' | '6M' | '1Y' | '2Y' | '5Y'
 
 export interface ResearchChartHeaderProps {
   selectedSymbol: string
@@ -122,7 +122,7 @@ export function ResearchChartHeader({
       </div>
       <span className="hidden h-3 w-px bg-slate-700 sm:block" aria-hidden />
       <span className="rounded-md border border-slate-700/70 bg-slate-900/60 px-2 py-0.5 font-mono text-[10px] text-slate-400">
-        Chart {chartPeriod} · daily
+        Chart {chartPeriod} · {chartPeriod === '1D' ? '1min' : chartPeriod === '5D' ? '5min' : 'daily'}
       </span>
     </div>
   )
@@ -317,6 +317,8 @@ export function ResearchChartHeader({
                   <div className="flex flex-wrap gap-1.5">
                     {(
                       [
+                        ['1D', '1D'],
+                        ['5D', '5D'],
                         ['1M', '1M'],
                         ['3M', '3M'],
                         ['6M', '6M'],
