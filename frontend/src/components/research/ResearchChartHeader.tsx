@@ -121,9 +121,26 @@ export function ResearchChartHeader({
         <QuoteActivityFlash fingerprint={quoteActivityFingerprint} />
       </div>
       <span className="hidden h-3 w-px bg-slate-700 sm:block" aria-hidden />
-      <span className="rounded-md border border-slate-700/70 bg-slate-900/60 px-2 py-0.5 font-mono text-[10px] text-slate-400">
-        Chart {chartPeriod} · {chartPeriod === '1D' ? '1min' : chartPeriod === '5D' ? '5min' : 'daily'}
-      </span>
+      {/* Inline period selector — always visible */}
+      <div className="flex items-center gap-0.5">
+        {(['1D', '5D', '1M', '3M', '6M', '1Y'] as const).map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => setChartPeriod(p)}
+            className={cn(
+              'rounded px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors',
+              chartPeriod === p
+                ? p === '1D' || p === '5D'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                  : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50',
+            )}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
     </div>
   )
 

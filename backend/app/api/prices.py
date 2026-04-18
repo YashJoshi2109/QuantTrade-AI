@@ -130,9 +130,9 @@ async def get_intraday_prices(
     """
     Get intraday OHLCV bars for candlestick charts.
 
-    Fallback chain: yfinance → Alpaca → Twelve Data
-    - 1m: max 7 days (yfinance), 30 days (Alpaca)
-    - 5m: max 60 days (yfinance), 30 days (Alpaca)
+    Fallback chain: yfinance → Alpaca → Twelve Data → Finnhub → Alpha Vantage
+    - 1m: max 7 days (yfinance), 30 days (Alpaca), 3mo (Finnhub)
+    - 5m: max 60 days (yfinance), 30 days (Alpaca), 60 days (Twelve Data)
     """
     symbol_upper = symbol.upper()
     bars = []
@@ -238,6 +238,79 @@ async def get_intraday_prices(
                     return bars
         except Exception as e:
             logger.debug(f"Twelve Data intraday failed for {symbol_upper}: {e}")
+
+    # 4. Finnhub stock candles (60 calls/min)
+    if settings.FINNHUB_API_KEY:
+        try:
+            from datetime import timedelta
+            import time as _time
+
+            resolution_map = {"1m": "1", "5m": "5", "15m": "15", "1h": "60"}
+            resolution = resolution_map.get(interval, "5")
+            end_ts = int(_time.time())
+            start_ts = end_ts - (days * 86400)
+
+            url = "https://finnhub.io/api/v1/stock/candle"
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(url, params={
+                    "symbol": symbol_upper,
+                    "resolution": resolution,
+                    "from": start_ts,
+                    "to": end_ts,
+                    "token": settings.FINNHUB_API_KEY,
+                })
+                data = resp.json()
+            if data.get("s") == "ok" and data.get("c"):
+                bars = []
+                for i in range(len(data["c"])):
+                    bars.append(PriceBarResponse(
+                        timestamp=datetime.utcfromtimestamp(data["t"][i]),
+                        open=round(float(data["o"][i]), 2),
+                        high=round(float(data["h"][i]), 2),
+                        low=round(float(data["l"][i]), 2),
+                        close=round(float(data["c"][i]), 2),
+                        volume=int(data["v"][i]),
+                    ))
+                if bars:
+                    logger.info(f"Intraday {interval}: {len(bars)} bars for {symbol_upper} via Finnhub")
+                    return bars
+        except Exception as e:
+            logger.debug(f"Finnhub intraday failed for {symbol_upper}: {e}")
+
+    # 5. Alpha Vantage TIME_SERIES_INTRADAY (25 calls/day — last resort)
+    if settings.ALPHA_VANTAGE_API_KEY:
+        try:
+            av_interval = interval.replace("m", "min").replace("h", "60min")
+            if av_interval not in ("1min", "5min", "15min", "30min", "60min"):
+                av_interval = "5min"
+            url = "https://www.alphavantage.co/query"
+            params = {
+                "function": "TIME_SERIES_INTRADAY",
+                "symbol": symbol_upper,
+                "interval": av_interval,
+                "outputsize": "compact",
+                "apikey": settings.ALPHA_VANTAGE_API_KEY,
+            }
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(url, params=params)
+                data = resp.json()
+            ts_key = f"Time Series ({av_interval})"
+            if ts_key in data and data[ts_key]:
+                bars = []
+                for dt_str, v in sorted(data[ts_key].items()):
+                    bars.append(PriceBarResponse(
+                        timestamp=datetime.fromisoformat(dt_str),
+                        open=round(float(v["1. open"]), 2),
+                        high=round(float(v["2. high"]), 2),
+                        low=round(float(v["3. low"]), 2),
+                        close=round(float(v["4. close"]), 2),
+                        volume=int(v["5. volume"]),
+                    ))
+                if bars:
+                    logger.info(f"Intraday {interval}: {len(bars)} bars for {symbol_upper} via Alpha Vantage")
+                    return bars
+        except Exception as e:
+            logger.debug(f"Alpha Vantage intraday failed for {symbol_upper}: {e}")
 
     return bars
 
