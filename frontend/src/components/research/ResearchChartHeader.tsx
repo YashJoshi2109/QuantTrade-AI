@@ -31,9 +31,15 @@ export interface ResearchChartHeaderProps {
   chartPeriod: ResearchChartPeriod
   chartSeriesType: ChartSeriesType
   chartShowMa: boolean
+  chartShowVolume?: boolean
+  chartLogScale?: boolean
+  chartShowGrid?: boolean
   setChartPeriod: (p: ResearchChartPeriod) => void
   setChartSeriesType: (t: ChartSeriesType) => void
   setChartShowMa: (v: boolean) => void
+  setChartShowVolume?: (v: boolean) => void
+  setChartLogScale?: (v: boolean) => void
+  setChartShowGrid?: (v: boolean) => void
   priceInfo: {
     price: number
     change: number
@@ -64,9 +70,15 @@ export function ResearchChartHeader({
   chartPeriod,
   chartSeriesType,
   chartShowMa,
+  chartShowVolume = false,
+  chartLogScale = false,
+  chartShowGrid = true,
   setChartPeriod,
   setChartSeriesType,
   setChartShowMa,
+  setChartShowVolume,
+  setChartLogScale,
+  setChartShowGrid,
   priceInfo,
   quoteLoading,
   priceTick,
@@ -314,12 +326,12 @@ export function ResearchChartHeader({
             </button>
               {advancedOpen ? (
               <div
-                className="absolute right-0 top-full z-[80] mt-2 w-[min(100vw-2rem,18rem)] space-y-4 rounded-xl border border-slate-700/80 bg-[#0b0f14] p-4 text-left shadow-2xl"
+                className="absolute right-0 top-full z-[200] mt-2 w-[min(100vw-2rem,22rem)] max-h-[70vh] overflow-y-auto space-y-4 rounded-xl border border-slate-700/80 bg-[#0b0f14]/95 backdrop-blur-xl p-4 text-left shadow-2xl"
                 role="dialog"
                 aria-label="Chart options"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-white">Chart</span>
+                  <span className="text-xs font-bold text-white">Chart Settings</span>
                   <button
                     type="button"
                     onClick={() => setAdvancedOpen(false)}
@@ -329,8 +341,10 @@ export function ResearchChartHeader({
                     <X className="h-4 w-4" />
                   </button>
                 </div>
+
+                {/* Period */}
                 <div>
-                  <div className="mb-2 text-[10px] uppercase tracking-wide text-slate-500">Period</div>
+                  <div className="mb-2 text-[10px] uppercase tracking-wide text-slate-500">Timeframe</div>
                   <div className="flex flex-wrap gap-1.5">
                     {(
                       [
@@ -340,6 +354,8 @@ export function ResearchChartHeader({
                         ['3M', '3M'],
                         ['6M', '6M'],
                         ['1Y', '1Y'],
+                        ['2Y', '2Y'],
+                        ['5Y', '5Y'],
                       ] as const
                     ).map(([id, label]) => (
                       <button
@@ -349,7 +365,9 @@ export function ResearchChartHeader({
                         className={cn(
                           'rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors',
                           chartPeriod === id
-                            ? 'border-blue-500/50 bg-blue-500/25 text-blue-200'
+                            ? id === '1D' || id === '5D'
+                              ? 'border-cyan-500/50 bg-cyan-500/25 text-cyan-200'
+                              : 'border-blue-500/50 bg-blue-500/25 text-blue-200'
                             : 'border-slate-700/60 bg-slate-800/50 text-slate-400 hover:text-white',
                         )}
                       >
@@ -358,14 +376,18 @@ export function ResearchChartHeader({
                     ))}
                   </div>
                 </div>
+
+                {/* Chart Type */}
                 <div>
-                  <div className="mb-2 text-[10px] uppercase tracking-wide text-slate-500">Series</div>
+                  <div className="mb-2 text-[10px] uppercase tracking-wide text-slate-500">Chart Type</div>
                   <div className="flex flex-wrap gap-1.5">
                     {(
                       [
-                        ['candlestick', 'OHLC'],
+                        ['candlestick', 'Candles'],
+                        ['heikin-ashi', 'Heikin-Ashi'],
                         ['line', 'Line'],
                         ['area', 'Area'],
+                        ['baseline', 'Baseline'],
                       ] as const
                     ).map(([id, label]) => (
                       <button
@@ -384,18 +406,52 @@ export function ResearchChartHeader({
                     ))}
                   </div>
                 </div>
-                <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={chartShowMa}
-                    onChange={(e) => setChartShowMa(e.target.checked)}
-                    disabled={chartSeriesType !== 'candlestick'}
-                    className="rounded border-slate-600"
-                  />
-                  <span className={chartSeriesType !== 'candlestick' ? 'opacity-40' : ''}>
-                    SMA 20 / EMA 50 overlays
-                  </span>
-                </label>
+
+                {/* Overlays & Display */}
+                <div>
+                  <div className="mb-2 text-[10px] uppercase tracking-wide text-slate-500">Overlays & Display</div>
+                  <div className="space-y-2">
+                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={chartShowMa}
+                        onChange={(e) => setChartShowMa(e.target.checked)}
+                        disabled={chartSeriesType !== 'candlestick' && chartSeriesType !== 'heikin-ashi'}
+                        className="rounded border-slate-600 accent-blue-500"
+                      />
+                      <span className={chartSeriesType !== 'candlestick' && chartSeriesType !== 'heikin-ashi' ? 'opacity-40' : ''}>
+                        SMA 20 / EMA 50
+                      </span>
+                    </label>
+                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={chartShowVolume}
+                        onChange={(e) => setChartShowVolume?.(e.target.checked)}
+                        className="rounded border-slate-600 accent-blue-500"
+                      />
+                      Volume histogram
+                    </label>
+                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={chartShowGrid}
+                        onChange={(e) => setChartShowGrid?.(e.target.checked)}
+                        className="rounded border-slate-600 accent-blue-500"
+                      />
+                      Grid lines
+                    </label>
+                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={chartLogScale}
+                        onChange={(e) => setChartLogScale?.(e.target.checked)}
+                        className="rounded border-slate-600 accent-blue-500"
+                      />
+                      Logarithmic scale
+                    </label>
+                  </div>
+                </div>
               </div>
               ) : null}
             </div>

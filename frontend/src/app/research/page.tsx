@@ -83,6 +83,9 @@ function ResearchContent() {
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('1Y')
   const [chartSeriesType, setChartSeriesType] = useState<ChartSeriesType>('candlestick')
   const [chartShowMa, setChartShowMa] = useState(true)
+  const [chartShowVolume, setChartShowVolume] = useState(false)
+  const [chartLogScale, setChartLogScale] = useState(false)
+  const [chartShowGrid, setChartShowGrid] = useState(true)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [fullscreenChart, setFullscreenChart] = useState(false)
   const advancedRef = useRef<HTMLDivElement>(null)
@@ -464,6 +467,12 @@ function ResearchContent() {
                 setChartPeriod={setChartPeriod}
                 setChartSeriesType={setChartSeriesType}
                 setChartShowMa={setChartShowMa}
+                chartShowVolume={chartShowVolume}
+                setChartShowVolume={setChartShowVolume}
+                chartLogScale={chartLogScale}
+                setChartLogScale={setChartLogScale}
+                chartShowGrid={chartShowGrid}
+                setChartShowGrid={setChartShowGrid}
                 priceInfo={priceInfo}
                 quoteLoading={quoteLoading}
                 priceTick={priceTick}
@@ -512,7 +521,10 @@ function ResearchContent() {
                     data={priceData}
                     symbol={selectedSymbol}
                     seriesType={chartSeriesType}
-                    showMovingAverages={chartShowMa && chartSeriesType === 'candlestick'}
+                    showMovingAverages={chartShowMa && (chartSeriesType === 'candlestick' || chartSeriesType === 'heikin-ashi')}
+                    showVolume={chartShowVolume}
+                    logScale={chartLogScale}
+                    showGrid={chartShowGrid}
                   />
                 )}
               </div>
