@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Activity, Zap, Database, AlertTriangle } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Activity, Zap, Database, AlertTriangle, Radio, RefreshCw } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { formatNumber, isNumber } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 export interface RateLimitStats {
   max_calls_per_minute: number | null
@@ -13,7 +15,10 @@ export interface RateLimitStats {
 
 export interface CacheStats {
   entries: number | null
-  hit_ratio?: string | null
+  hits?: number | null
+  misses?: number | null
+  /** 0–100 from server; cumulative since process start */
+  hit_ratio_pct?: number | null
 }
 
 interface ApiStats {
@@ -40,170 +45,323 @@ interface FmpStats {
   percent: number
 }
 
+function GlassMeter({
+  value,
+  max,
+  tone,
+}: {
+  value: number
+  max: number
+  tone: 'cyan' | 'violet' | 'amber' | 'rose'
+}) {
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0
+  const bar = {
+    cyan: 'from-cyan-400/90 to-sky-500/70 shadow-[0_0_12px_rgba(34,211,238,0.35)]',
+    violet: 'from-violet-400/90 to-fuchsia-600/60 shadow-[0_0_12px_rgba(167,139,250,0.3)]',
+    amber: 'from-amber-400/90 to-orange-500/70 shadow-[0_0_12px_rgba(251,191,36,0.25)]',
+    rose: 'from-rose-400/90 to-red-600/70 shadow-[0_0_12px_rgba(251,113,133,0.35)]',
+  }[tone]
+  return (
+    <div className="h-2 rounded-full bg-black/40 overflow-hidden ring-1 ring-white/[0.06]">
+      <motion.div
+        className={cn('h-full rounded-full bg-gradient-to-r', bar)}
+        initial={false}
+        animate={{ width: `${pct}%` }}
+        transition={{ type: 'spring', stiffness: 120, damping: 22 }}
+      />
+    </div>
+  )
+}
+
+function GlassPopoverShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative w-[min(18rem,calc(100vw-2rem))]">
+      {/* Ambient glow */}
+      <div
+        className="pointer-events-none absolute -inset-3 rounded-[1.35rem] opacity-60 blur-2xl"
+        style={{
+          background:
+            'radial-gradient(ellipse at 20% 0%, rgba(0,212,255,0.18), transparent 55%), radial-gradient(ellipse at 90% 100%, rgba(139,92,246,0.14), transparent 50%)',
+        }}
+      />
+      <div
+        className={cn(
+          'relative overflow-hidden rounded-2xl border border-white/[0.09]',
+          'bg-[rgba(6,10,22,0.78)] backdrop-blur-xl backdrop-saturate-150',
+          'shadow-[0_24px_48px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
+        )}
+      >
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-cyan-500/[0.07] via-transparent to-violet-500/[0.06]" />
+        <div className="pointer-events-none absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        <div className="relative z-10 p-4">{children}</div>
+      </div>
+    </div>
+  )
+}
+
 export default function ApiStatsMonitor({ isInSidebar = false, compact = false }: ApiStatsMonitorProps) {
   const [stats, setStats] = useState<ApiStats | null>(null)
   const [fmpStats, setFmpStats] = useState<FmpStats | null>(null)
   const [isExpanded, setIsExpanded] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [apiRes, fmpRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/enhanced/api-stats`).catch(() => null),
-          fetch('/api/stats').catch(() => null),
-        ])
-        if (apiRes?.ok) {
-          const data = await apiRes.json()
-          setStats(data)
-        }
-        if (fmpRes?.ok) {
-          const data = await fmpRes.json()
-          if (data?.fmp) setFmpStats(data.fmp)
-        }
-      } catch {
-        // Silently fail — endpoint may not be available
+  const refresh = useCallback(async (manual = false) => {
+    if (manual) setRefreshing(true)
+    setFetchError(false)
+    try {
+      const [apiRes, fmpRes] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/enhanced/api-stats`).catch(() => null),
+        fetch('/api/stats').catch(() => null),
+      ])
+      if (apiRes?.ok) {
+        const data = (await apiRes.json()) as ApiStats
+        setStats(data)
+        setLastUpdated(new Date())
+      } else {
+        setFetchError(true)
       }
+      if (fmpRes?.ok) {
+        const data = await fmpRes.json()
+        if (data?.fmp) setFmpStats(data.fmp as FmpStats)
+      }
+    } catch {
+      setFetchError(true)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
-
-    fetchStats()
-    // Poll every 2 minutes
-    const interval = setInterval(fetchStats, 120_000)
-    return () => clearInterval(interval)
   }, [])
 
-  if (!stats) return null
+  useEffect(() => {
+    void refresh(false)
+    const interval = setInterval(() => void refresh(false), 120_000)
+    return () => clearInterval(interval)
+  }, [refresh])
 
-  const { rate_limit, cache } = stats.finnhub
-  const maxCalls = isNumber(rate_limit.max_calls_per_minute) ? rate_limit.max_calls_per_minute : 0
-  const remainingCalls = isNumber(rate_limit.remaining_calls) ? rate_limit.remaining_calls : 0
-  const usagePercent = maxCalls > 0 ? ((maxCalls - remainingCalls) / maxCalls) * 100 : 0
-  const isRateLimited = rate_limit.status === 'rate_limited'
+  const rate = stats?.finnhub.rate_limit
+  const cache = stats?.finnhub.cache
+  const maxCalls = rate && isNumber(rate.max_calls_per_minute) ? rate.max_calls_per_minute : 0
+  const remainingCalls = rate && isNumber(rate.remaining_calls) ? rate.remaining_calls : 0
+  const usedCalls = maxCalls > 0 ? maxCalls - remainingCalls : 0
+  const usagePercent = maxCalls > 0 ? (usedCalls / maxCalls) * 100 : 0
+  const isRateLimited = rate?.status === 'rate_limited'
 
-  // Header compact view — clickable with hover popover
+  const hitPct = cache?.hit_ratio_pct
+  const totalHm = (cache?.hits ?? 0) + (cache?.misses ?? 0)
+  const hitLabel =
+    hitPct != null && Number.isFinite(hitPct) ? `${formatNumber(hitPct, 1)}%` : totalHm > 0 ? '—' : '…'
+
+  // ── Compact header chip + liquid glass popover ─────────────────────────
   if (compact) {
     const fmpPct = fmpStats ? fmpStats.percent : 0
-    const fmpBarColor = fmpPct > 80 ? 'bg-red-500' : fmpPct > 50 ? 'bg-amber-500' : 'bg-emerald-500'
+    const fmpTone: 'violet' | 'amber' | 'rose' = fmpPct > 80 ? 'rose' : fmpPct > 50 ? 'amber' : 'violet'
+    const chipTone = isRateLimited ? 'rose' : usagePercent > 80 ? 'amber' : 'cyan'
 
     return (
       <div
-        className="hidden lg:flex items-center gap-1.5 relative group"
+        className="hidden lg:flex items-center gap-1.5 relative group isolate"
         role="group"
-        aria-label="API usage — hover for Finnhub rate limit, FMP daily quota, and cache stats"
+        aria-label="API usage — hover for Finnhub, FMP, and cache stats"
       >
-        {/* Finnhub badge (FMP shown in popover only) */}
-        <div
-          className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-xs font-mono cursor-pointer transition-colors hover:bg-slate-700/40 ${
-            isRateLimited
-              ? 'bg-red-500/10 border-red-500/30 text-red-300'
-              : 'bg-slate-800/50 border-slate-700/60 text-slate-300'
-          }`}
+        <button
+          type="button"
+          onClick={() => void refresh(true)}
+          className={cn(
+            'relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-mono',
+            'transition-all duration-300 overflow-hidden',
+            'bg-[rgba(8,12,28,0.55)] backdrop-blur-md border-white/[0.08]',
+            'hover:border-cyan-400/25 hover:shadow-[0_0_20px_rgba(34,211,238,0.12)]',
+            isRateLimited && 'border-rose-500/35 bg-rose-950/20',
+            fetchError && !stats && 'border-amber-500/40 bg-amber-950/15'
+          )}
+          title="Click to refresh API stats"
         >
-          <Activity className={`w-3 h-3 ${isRateLimited ? 'text-red-400 animate-pulse' : 'text-cyan-300'}`} />
-          <span className="font-bold tabular-nums text-[10px]">
-            {formatNumber(rate_limit.remaining_calls, 0)}/{formatNumber(rate_limit.max_calls_per_minute, 0)}
-          </span>
-        </div>
-
-        {/* FMP daily quota: details only in hover popover (avoids second header chip + tooltip overlap) */}
-
-        {/* Hover popover */}
-        <div className="absolute top-full right-0 mt-2 w-64 rounded-xl border border-slate-700/60 bg-[#0b0f14] p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-          <div className="text-xs font-bold text-white mb-3">API Usage</div>
-
-          {/* Finnhub */}
-          <div className="mb-3">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                <Activity className="w-3 h-3 text-cyan-400" /> Finnhub
-              </span>
-              <span className="text-[10px] font-mono text-slate-300">
-                {formatNumber(rate_limit.remaining_calls, 0)}/{formatNumber(rate_limit.max_calls_per_minute, 0)}/min
-              </span>
-            </div>
-            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  isRateLimited ? 'bg-red-500' : usagePercent > 80 ? 'bg-amber-500' : 'bg-cyan-500'
-                }`}
-                style={{ width: `${Math.min(usagePercent, 100)}%` }}
+          <span
+            className={cn(
+              'pointer-events-none absolute inset-0 opacity-40',
+              chipTone === 'cyan' && 'bg-gradient-to-br from-cyan-500/20 via-transparent to-transparent',
+              chipTone === 'amber' && 'bg-gradient-to-br from-amber-500/20 via-transparent to-transparent',
+              chipTone === 'rose' && 'bg-gradient-to-br from-rose-500/25 via-transparent to-transparent'
+            )}
+          />
+          {loading && !stats ? (
+            <span className="relative z-10 flex items-center gap-1.5 text-slate-500">
+              <span className="h-3.5 w-10 rounded bg-white/10 animate-pulse" />
+            </span>
+          ) : (
+            <span className="relative z-10 flex items-center gap-1.5 text-slate-200">
+              <Activity
+                className={cn(
+                  'w-3.5 h-3.5 shrink-0',
+                  isRateLimited ? 'text-rose-400 animate-pulse' : 'text-cyan-300'
+                )}
               />
-            </div>
-          </div>
+              <span className="font-bold tabular-nums tracking-tight">
+                {stats
+                  ? `${formatNumber(remainingCalls, 0)}/${formatNumber(maxCalls, 0)}`
+                  : '—'}
+              </span>
+              <RefreshCw
+                className={cn(
+                  'w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity',
+                  refreshing && 'animate-spin opacity-100'
+                )}
+              />
+            </span>
+          )}
+        </button>
 
-          {/* FMP */}
-          {fmpStats && (
-            <div className="mb-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                  <Database className="w-3 h-3 text-violet-400" /> FMP (daily)
-                </span>
-                <span className="text-[10px] font-mono text-slate-300">
-                  {fmpStats.used}/{fmpStats.limit}
-                </span>
-              </div>
-              <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${fmpBarColor}`}
-                  style={{ width: `${Math.min(fmpPct, 100)}%` }}
-                />
-              </div>
-              <div className="text-[9px] text-slate-600 mt-0.5">
-                Resets daily · {fmpStats.date}
-              </div>
-            </div>
+        {/* Hover bridge + popover */}
+        <div className="absolute left-0 right-0 top-full h-2 z-40 pointer-events-none group-hover:pointer-events-auto" />
+        <div
+          className={cn(
+            'absolute top-[calc(100%+4px)] right-0 z-50',
+            'opacity-0 invisible translate-y-1 scale-[0.98]',
+            'group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:scale-100',
+            'transition-all duration-200 ease-out',
+            'pointer-events-none group-hover:pointer-events-auto'
           )}
+        >
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={lastUpdated?.getTime() ?? 'idle'}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <GlassPopoverShell>
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div>
+                    <div className="flex items-center gap-2 text-[11px] font-bold tracking-wide text-white">
+                      <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                      API pulse
+                    </div>
+                    <p className="text-[9px] text-slate-500 mt-0.5 leading-snug">
+                      Live Finnhub limits from your API server. FMP counts this Next.js instance (UTC day).
+                    </p>
+                  </div>
+                  {lastUpdated && (
+                    <span className="text-[9px] font-mono text-slate-600 shrink-0 tabular-nums">
+                      {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                </div>
 
-          {/* Cache */}
-          {cache.entries != null && (
-            <div className="flex items-center justify-between text-[10px] border-t border-slate-800/60 pt-2 mt-2">
-              <span className="text-slate-500">Cache entries</span>
-              <span className="text-slate-300 font-mono">{cache.entries}</span>
-            </div>
-          )}
-          {cache.hit_ratio && (
-            <div className="flex items-center justify-between text-[10px]">
-              <span className="text-slate-500">Hit ratio</span>
-              <span className="text-emerald-400 font-mono font-bold">{cache.hit_ratio}</span>
-            </div>
-          )}
+                {!stats ? (
+                  <div className="text-[11px] text-amber-200/90 flex items-center gap-2 py-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    Could not load API stats. Check{' '}
+                    <code className="text-[10px] bg-white/5 px-1 rounded">NEXT_PUBLIC_API_URL</code>.
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-3">
+                      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                            <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                            Finnhub
+                          </span>
+                          <span className="text-[11px] font-mono text-slate-100 tabular-nums">
+                            {formatNumber(remainingCalls, 0)} left · {formatNumber(maxCalls, 0)}/min
+                          </span>
+                        </div>
+                        <GlassMeter value={usedCalls} max={maxCalls} tone={isRateLimited ? 'rose' : usagePercent > 80 ? 'amber' : 'cyan'} />
+                        {isRateLimited && rate?.wait_time_seconds != null && (
+                          <p className="text-[10px] text-rose-300/90 mt-2 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Limited — retry in ~{formatNumber(rate.wait_time_seconds, 0)}s
+                          </p>
+                        )}
+                      </div>
+
+                      {fmpStats && (
+                        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                              <Database className="w-3.5 h-3.5 text-violet-400" />
+                              FMP (daily)
+                            </span>
+                            <span className="text-[11px] font-mono text-slate-100 tabular-nums">
+                              {fmpStats.used}/{fmpStats.limit}
+                            </span>
+                          </div>
+                          <GlassMeter value={fmpStats.used} max={fmpStats.limit} tone={fmpTone} />
+                          <p className="text-[9px] text-slate-600 mt-1.5">Resets UTC midnight · {fmpStats.date}</p>
+                        </div>
+                      )}
+
+                      {cache?.entries != null && (
+                        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                              <Zap className="w-3.5 h-3.5 text-emerald-400/90" />
+                              Finnhub cache
+                            </span>
+                            <span className="text-[11px] font-mono text-slate-100">{formatNumber(cache.entries, 0)} keys</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 mt-2 pt-2 border-t border-white/[0.05]">
+                            <span>Hits / misses</span>
+                            <span className="font-mono text-slate-300">
+                              {formatNumber(cache.hits ?? 0, 0)} / {formatNumber(cache.misses ?? 0, 0)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] mt-1">
+                            <span className="text-slate-500">Hit ratio</span>
+                            <span className="font-mono font-bold text-emerald-400/95">{hitLabel}</span>
+                          </div>
+                          <p className="text-[8px] text-slate-600 mt-2 leading-relaxed">
+                            Ratio is measured on the API process (resets on deploy). Entries = warmed in-memory cache.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </GlassPopoverShell>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
     )
   }
 
-  // Sidebar compact view
+  // ── Sidebar ──────────────────────────────────────────────────────────────
   if (isInSidebar) {
+    if (!stats) {
+      return (
+        <div className="hud-stat p-3 rounded-xl border border-white/[0.06] bg-white/[0.02] animate-pulse h-24" />
+      )
+    }
     return (
-      <div className="hud-stat p-3">
+      <div className="rounded-xl border border-white/[0.08] bg-[rgba(6,10,22,0.55)] backdrop-blur-md p-3 shadow-lg">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Activity className={`w-4 h-4 ${isRateLimited ? 'text-red-400 animate-pulse' : 'text-blue-400'}`} />
-            <span className="text-xs font-bold text-white">API STATUS</span>
+            <Activity className={`w-4 h-4 ${isRateLimited ? 'text-rose-400 animate-pulse' : 'text-cyan-400'}`} />
+            <span className="text-xs font-bold text-white tracking-wide">API STATUS</span>
           </div>
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400">Rate Limit</span>
-            <span className={`font-mono font-bold ${
-              isRateLimited ? 'text-red-400' : 
-              usagePercent > 80 ? 'text-yellow-400' : 'text-green-400'
-            }`}>
-              {formatNumber(rate_limit.remaining_calls, 0)}/{formatNumber(rate_limit.max_calls_per_minute, 0)}
+            <span className="text-slate-500">Finnhub / min</span>
+            <span
+              className={cn(
+                'font-mono font-bold',
+                isRateLimited ? 'text-rose-400' : usagePercent > 80 ? 'text-amber-300' : 'text-emerald-300'
+              )}
+            >
+              {formatNumber(remainingCalls, 0)}/{formatNumber(maxCalls, 0)}
             </span>
           </div>
-          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-            <div 
-              className={`h-full transition-all duration-500 ${
-                isRateLimited ? 'bg-red-400' : 
-                usagePercent > 80 ? 'bg-yellow-400' : 'bg-blue-400'
-              }`}
-              style={{ width: `${usagePercent}%` }}
-            />
-          </div>
-          {isRateLimited && (
-            <div className="text-[10px] text-red-400 flex items-center gap-1">
+          <GlassMeter value={usedCalls} max={maxCalls} tone={isRateLimited ? 'rose' : usagePercent > 80 ? 'amber' : 'cyan'} />
+          {isRateLimited && rate?.wait_time_seconds != null && (
+            <div className="text-[10px] text-rose-400 flex items-center gap-1">
               <AlertTriangle className="w-3 h-3" />
-              Wait {formatNumber(rate_limit.wait_time_seconds, 0)}s
+              Wait {formatNumber(rate.wait_time_seconds, 0)}s
             </div>
           )}
         </div>
@@ -211,125 +369,80 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
     )
   }
 
-  // Original floating widget
+  // ── Floating widget ───────────────────────────────────────────────────────
   return (
     <div className="fixed bottom-4 right-4 z-50">
       {!isExpanded ? (
         <button
+          type="button"
           onClick={() => setIsExpanded(true)}
-          className={`
-            group relative px-4 py-2 rounded-lg backdrop-blur-sm
-            border transition-all duration-300 hover:scale-105
-            ${isRateLimited 
-              ? 'bg-red-500/10 border-red-500/30 hover:bg-red-500/20' 
-              : 'bg-slate-800/80 border-slate-700/50 hover:bg-slate-800/90'
-            }
-          `}
+          className={cn(
+            'group relative px-4 py-2.5 rounded-2xl border transition-all duration-300',
+            'bg-[rgba(6,10,22,0.72)] backdrop-blur-xl border-white/[0.1]',
+            'hover:border-cyan-400/30 hover:shadow-[0_12px_40px_rgba(0,0,0,0.45)]',
+            isRateLimited && 'border-rose-500/40 bg-rose-950/30'
+          )}
         >
-          <div className="flex items-center gap-2">
-            <Activity className={`w-4 h-4 ${isRateLimited ? 'text-red-400 animate-pulse' : 'text-blue-400'}`} />
-            <span className="text-sm font-mono text-slate-300">
-              API: {formatNumber(rate_limit.remaining_calls, 0)} / {formatNumber(rate_limit.max_calls_per_minute, 0)}
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-cyan-500/10 via-transparent to-violet-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative flex items-center gap-2">
+            <Activity className={`w-4 h-4 ${isRateLimited ? 'text-rose-400 animate-pulse' : 'text-cyan-400'}`} />
+            <span className="text-sm font-mono text-slate-200">
+              {stats
+                ? `${formatNumber(remainingCalls, 0)} / ${formatNumber(maxCalls, 0)}`
+                : 'API …'}
             </span>
-            {isRateLimited && (
-              <AlertTriangle className="w-4 h-4 text-red-400 animate-pulse" />
-            )}
+            {isRateLimited && <AlertTriangle className="w-4 h-4 text-rose-400 animate-pulse" />}
           </div>
-          
-          {/* Progress bar */}
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-700/50 rounded-b-lg overflow-hidden">
-            <div 
-              className={`h-full transition-all duration-500 ${
-                isRateLimited ? 'bg-red-400' : 
-                usagePercent > 80 ? 'bg-yellow-400' : 'bg-blue-400'
-              }`}
-              style={{ width: `${usagePercent}%` }}
-            />
-          </div>
+          {stats && (
+            <div className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-white/5 overflow-hidden">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all duration-500',
+                  isRateLimited ? 'bg-rose-400' : usagePercent > 80 ? 'bg-amber-400' : 'bg-cyan-400'
+                )}
+                style={{ width: `${Math.min(usagePercent, 100)}%` }}
+              />
+            </div>
+          )}
         </button>
       ) : (
-        <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/50 rounded-lg p-4 shadow-2xl min-w-[300px]">
+        <GlassPopoverShell>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-blue-400" />
-              <h3 className="text-sm font-bold text-slate-200">API Status</h3>
+              <Activity className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-sm font-bold text-white">API status</h3>
             </div>
             <button
+              type="button"
               onClick={() => setIsExpanded(false)}
-              className="text-slate-400 hover:text-slate-200 transition-colors"
+              className="text-slate-500 hover:text-white transition-colors text-sm px-2 py-1 rounded-lg hover:bg-white/5"
+              aria-label="Close"
             >
               ✕
             </button>
           </div>
-
-          {/* Rate Limit Section */}
-          <div className="space-y-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-slate-400 flex items-center gap-1">
-                  <Zap className="w-3 h-3" />
-                  Rate Limit
-                </span>
-                <span className={`text-xs font-mono font-bold ${
-                  isRateLimited ? 'text-red-400' : 
-                  usagePercent > 80 ? 'text-yellow-400' : 'text-green-400'
-                }`}>
-                  {formatNumber(rate_limit.remaining_calls, 0)} / {formatNumber(rate_limit.max_calls_per_minute, 0)}
-                </span>
-              </div>
-              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full transition-all duration-500 ${
-                    isRateLimited ? 'bg-red-400' : 
-                    usagePercent > 80 ? 'bg-yellow-400' : 'bg-blue-400'
-                  }`}
-                  style={{ width: `${usagePercent}%` }}
-                />
-              </div>
-              {isRateLimited && (
-                <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-400">
-                  <div className="flex items-center gap-1 mb-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    <span className="font-semibold">Rate Limited</span>
-                  </div>
-                  <span className="text-[10px]">
-                    Wait {formatNumber(rate_limit.wait_time_seconds, 1)}s for next call
+          {stats ? (
+            <div className="space-y-3 text-sm">
+              <div>
+                <div className="flex items-center justify-between mb-1 text-xs text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <Zap className="w-3 h-3" />
+                    Finnhub / min
+                  </span>
+                  <span className="font-mono text-slate-200">
+                    {formatNumber(remainingCalls, 0)} / {formatNumber(maxCalls, 0)}
                   </span>
                 </div>
-              )}
-            </div>
-
-            {/* Cache Section */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-slate-400 flex items-center gap-1">
-                  <Database className="w-3 h-3" />
-                  Cache
-                </span>
-                <span className="text-xs font-mono text-slate-300">
-                  {formatNumber(cache.entries, 0)} entries
-                </span>
+                <GlassMeter value={usedCalls} max={maxCalls} tone={isRateLimited ? 'rose' : usagePercent > 80 ? 'amber' : 'cyan'} />
               </div>
-              <div className="text-[10px] text-slate-500 mt-1">
-                Reduces API calls by 70-80%
+              <div className="text-xs text-slate-500 border-t border-white/[0.06] pt-2">
+                Cache {formatNumber(cache?.entries ?? 0, 0)} entries · hit {hitLabel}
               </div>
             </div>
-
-            {/* Status Badge */}
-            <div className="pt-2 border-t border-slate-700/50">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${
-                  isRateLimited ? 'bg-red-400 animate-pulse' : 'bg-green-400'
-                }`} />
-                <span className={`text-xs font-semibold ${
-                  isRateLimited ? 'text-red-400' : 'text-green-400'
-                }`}>
-                  {rate_limit.status.toUpperCase()}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+          ) : (
+            <p className="text-xs text-slate-500">No data yet.</p>
+          )}
+        </GlassPopoverShell>
       )}
     </div>
   )

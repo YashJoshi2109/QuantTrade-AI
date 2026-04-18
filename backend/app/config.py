@@ -86,6 +86,18 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
 
+    # Google Analytics 4 Real-Time (service account)
+    GA4_PROPERTY_ID: Optional[str] = None  # e.g. "properties/123456789"
+    GA4_CREDENTIALS_JSON: Optional[str] = None  # path to service-account JSON or inline JSON
+
+    # Live visitors (navbar): prefer GA4, or Cloudflare when GA is blocked / unavailable
+    # auto = GA4 if configured, else Cloudflare Worker URL, else Cloudflare GraphQL zone stats
+    LIVE_VISITORS_SOURCE: str = "auto"  # auto | ga4 | cloudflare_graphql | cloudflare_worker
+    CLOUDFLARE_ZONE_TAG: Optional[str] = None  # Zone ID (hex) from Cloudflare dashboard — GraphQL filter zoneTag
+    CLOUDFLARE_ANALYTICS_TOKEN: Optional[str] = None  # API token: Zone.Analytics Read (or Account analytics)
+    CLOUDFLARE_LIVE_VISITORS_URL: Optional[str] = None  # e.g. https://live-count.your-account.workers.dev (JSON {"count": n})
+    CLOUDFLARE_LIVE_VISITORS_SECRET: Optional[str] = None  # Optional Authorization: Bearer … for Worker
+
     # WebAuthn / Passkey (production: set WEBAUTHN_RP_ID + WEBAUTHN_ORIGINS to your real hostname(s))
     WEBAUTHN_RP_ID: str = os.getenv("WEBAUTHN_RP_ID", "localhost")
     # Single origin (dev); production should set WEBAUTHN_ORIGINS instead or in addition

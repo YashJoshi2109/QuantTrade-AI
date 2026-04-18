@@ -1,0 +1,13 @@
+name = "quanttrade-live-visitors"
+main = "src/index.mjs"
+compatibility_date = "2024-12-01"
+account_id = "3d56c23139466e58267b4bfe956956e5"
+
+# KV namespace for heartbeat tracking
+[[kv_namespaces]]
+binding = "VISITORS"
+id = "023f646627f6427d88dedc3064710a37"
+
+# Optional: set API_SECRET via `wrangler secret put API_SECRET`
+# [vars]
+# API_SECRET = ""

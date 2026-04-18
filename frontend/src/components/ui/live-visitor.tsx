@@ -8,6 +8,8 @@ const AVATARS: string[] = [
   'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/People/Man%20Mechanic.png',
   'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/People/Woman%20Student.png',
   'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/People/Woman%20Teacher.png',
+  'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/People/Person%20With%20Blond%20Hair.png',
+  'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/People/Woman%20Technologist.png',
 ]
 
 const AVATAR_COLORS: string[] = ['#1e3a5f', '#1a3d2e', '#3d1a35', '#3d2e1a', '#1e293b']
@@ -46,16 +48,16 @@ function DigitPlace({ place, value }: DigitPlaceProps) {
   if (value < place) return null
 
   return (
-    <div className="relative w-[10px] h-[18px] overflow-hidden">
+    <div className="relative w-[12px] h-[20px] overflow-hidden">
       {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
         let digitOffset = (10 + num - offset) % 10
-        let translateY = digitOffset * 18
-        if (digitOffset > 5) translateY -= 10 * 18
+        let translateY = digitOffset * 20
+        if (digitOffset > 5) translateY -= 10 * 20
 
         return (
           <span
             key={num}
-            className="absolute left-0 w-full text-center text-[13px] font-bold font-mono leading-[18px] text-white"
+            className="absolute left-0 w-full text-center text-[14px] font-bold font-mono leading-[20px] text-white"
             style={{
               transform: `translateY(${translateY}px)`,
               transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -69,18 +71,28 @@ function DigitPlace({ place, value }: DigitPlaceProps) {
   )
 }
 
-export default function LiveVisitorCounter() {
-  const [visitorCount, setVisitorCount] = useState<number>(127)
+interface LiveVisitorCounterProps {
+  /** Real count from backend (/live-visitors: GA4, Cloudflare GraphQL, or Worker); if null, simulates */
+  gaCount?: number | null
+}
+
+export default function LiveVisitorCounter({ gaCount }: LiveVisitorCounterProps = {}) {
+  const [simulatedCount, setSimulatedCount] = useState<number>(132)
+
+  // Use GA real count if available, otherwise simulate
+  const visitorCount = gaCount != null ? gaCount : simulatedCount
 
   useEffect(() => {
+    // Only run simulation if no GA data
+    if (gaCount != null) return
     const interval = setInterval(() => {
-      setVisitorCount((prev) => {
+      setSimulatedCount((prev) => {
         const change = Math.floor(Math.random() * 11) - 5
         return Math.max(95, Math.min(180, prev + change))
       })
     }, 2500)
     return () => clearInterval(interval)
-  }, [])
+  }, [gaCount])
 
   const displayLimit = Math.min(
     5,
@@ -89,7 +101,23 @@ export default function LiveVisitorCounter() {
   const visibleAvatars = AVATARS.slice(0, displayLimit)
 
   return (
-    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-md">
+    <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-md">
+      {/* "Live" label + pulse dot */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-[11px] font-semibold text-slate-300 tracking-wide">Live</span>
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+        </span>
+      </div>
+
+      {/* Rolling digit counter */}
+      <div className="flex items-center gap-[2px]">
+        {[100, 10, 1].map((place) => (
+          <DigitPlace key={place} place={place} value={visitorCount} />
+        ))}
+      </div>
+
       {/* Avatar stack */}
       <div className="flex -space-x-2">
         {visibleAvatars.map((url, index) => (
@@ -110,22 +138,6 @@ export default function LiveVisitorCounter() {
             />
           </div>
         ))}
-      </div>
-
-      {/* Counter */}
-      <div className="flex items-center gap-0.5">
-        {[100, 10, 1].map((place) => (
-          <DigitPlace key={place} place={place} value={visitorCount} />
-        ))}
-      </div>
-
-      {/* Live dot */}
-      <div className="relative flex items-center gap-1">
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-        </span>
-        <span className="text-[10px] font-medium text-slate-400">live</span>
       </div>
     </div>
   )

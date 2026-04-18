@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -8,9 +10,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import AppLayout from '@/components/AppLayout'
 import BottomNav from '@/components/layout/BottomNav'
 import {
-  Send,
   Sparkles,
-  StopCircle,
   Copy,
   Check,
   Bot,
@@ -30,8 +30,6 @@ import {
   Newspaper,
   Brain,
   ChevronRight,
-  ArrowUpRight,
-  ArrowDownRight,
   Gauge,
   PieChart,
   LineChart,
@@ -70,7 +68,13 @@ import {
 import PolymarketStockCard from '@/components/chat/visual/PolymarketStockCard'
 import CopilotLoadingScene from '@/components/chat/CopilotLoadingScene'
 import { GlassFilter } from '@/components/ui/liquid-glass'
-import ThemeToggle from '@/components/ui/theme-toggle'
+import TimeWeatherMoodToggle from '@/components/ui/time-weather-mood-toggle'
+import { CopilotPromptInput } from '@/components/ui/copilot-prompt-input'
+import {
+  InlineStructuredSnapshots,
+  SnapshotCard,
+} from '@/components/copilot/copilot-snapshot-cards'
+import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -103,115 +107,6 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
-  )
-}
-
-// ─── Confidence Gauge ─────────────────────────────────────────────────────────
-
-function ConfidenceGauge({ score, grade, label }: { score: number; grade: string; label: string }) {
-  const circumference = 2 * Math.PI * 40
-  const offset = circumference - (score / 100) * circumference
-  const color =
-    score >= 80 ? '#10b981' : score >= 60 ? '#06b6d4' : score >= 40 ? '#f59e0b' : '#ef4444'
-
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="relative w-24 h-24">
-        <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="40" fill="none" stroke="#1e293b" strokeWidth="8" />
-          <circle
-            cx="50"
-            cy="50"
-            r="40"
-            fill="none"
-            stroke={color}
-            strokeWidth="8"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            className="transition-all duration-1000 ease-out"
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-bold text-white font-mono">{score.toFixed(0)}</span>
-          <span className="text-[9px] font-bold" style={{ color }}>
-            {grade}
-          </span>
-        </div>
-      </div>
-      <span className="text-[10px] text-slate-400 text-center">{label}</span>
-    </div>
-  )
-}
-
-// ─── Snapshot Card ────────────────────────────────────────────────────────────
-
-function SnapshotCard({ data }: { data: StockAnalysisData }) {
-  const quote = data.quote
-  const company = data.company
-  const ts = data.technical_signal
-  const conf = data.confidence
-
-  const price = quote?.price
-  const changePct = quote?.change_percent
-  const isUp = (changePct ?? 0) >= 0
-
-  return (
-    <div className="bg-[#0D1117] border border-slate-700/50 rounded-xl p-4 space-y-3">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-white font-mono">{data.symbol}</span>
-            {ts && (
-              <span
-                className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${trendBg(
-                  ts.trend
-                )} ${trendColor(ts.trend)}`}
-              >
-                {ts.trend}
-              </span>
-            )}
-          </div>
-          {company?.name && (
-            <p className="text-xs text-slate-400 mt-0.5">{company.name}</p>
-          )}
-          {company?.sector && (
-            <p className="text-[10px] text-slate-500">
-              {company.sector} · {company.industry}
-            </p>
-          )}
-        </div>
-        {conf && <ConfidenceGauge score={conf.overall} grade={conf.grade} label={conf.label} />}
-      </div>
-
-      {price != null && (
-        <div className="flex items-end gap-3">
-          <span className="text-2xl font-bold text-white font-mono">{formatPrice(price)}</span>
-          <span
-            className={`flex items-center gap-1 text-sm font-semibold ${
-              isUp ? 'text-emerald-400' : 'text-red-400'
-            }`}
-          >
-            {isUp ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-            {formatPercent(changePct)}
-          </span>
-        </div>
-      )}
-
-      <div className="grid grid-cols-4 gap-2">
-        {[
-          { label: 'Open', value: formatPrice(quote?.open) },
-          { label: 'High', value: formatPrice(quote?.high) },
-          { label: 'Low', value: formatPrice(quote?.low) },
-          { label: 'Vol', value: quote?.volume ? `${(quote.volume / 1e6).toFixed(1)}M` : 'N/A' },
-        ].map((s) => (
-          <div key={s.label} className="text-center">
-            <div className="text-[10px] text-slate-500">{s.label}</div>
-            <div className="text-xs text-slate-300 font-mono">{s.value}</div>
-          </div>
-        ))}
-      </div>
-    </div>
   )
 }
 
@@ -734,7 +629,11 @@ function MessageBubble({ msg }: { msg: Message }) {
           {isUser ? (
             <p className="whitespace-pre-wrap">{msg.content}</p>
           ) : (
-            <div className="prose prose-invert prose-sm max-w-none">
+            <>
+              {msg.structuredData ? (
+                <InlineStructuredSnapshots data={msg.structuredData} />
+              ) : null}
+              <div className="prose prose-invert prose-sm max-w-none">
               <ReactMarkdown
                 components={{
                   p: ({ children }) => <p className="mb-2 last:mb-0 text-slate-200">{children}</p>,
@@ -802,6 +701,7 @@ function MessageBubble({ msg }: { msg: Message }) {
                 <span className="inline-block w-1.5 h-4 bg-[#007AFF] rounded-sm animate-pulse ml-0.5 -mb-0.5" />
               )}
             </div>
+            </>
           )}
         </div>
 
@@ -825,6 +725,19 @@ function MessageBubble({ msg }: { msg: Message }) {
 
 // ─── Welcome Screen ──────────────────────────────────────────────────────────
 
+/** Wide + short viewports (e.g. Copilot panel beside sidebar): brand left, prompts 3×2 right */
+const welcomeWideShort =
+  '[@media(min-width:720px)_and_(max-height:680px)]:grid [@media(min-width:720px)_and_(max-height:680px)]:w-full [@media(min-width:720px)_and_(max-height:680px)]:max-w-5xl [@media(min-width:720px)_and_(max-height:680px)]:grid-cols-[minmax(200px,32%)_minmax(0,1fr)] [@media(min-width:720px)_and_(max-height:680px)]:items-center [@media(min-width:720px)_and_(max-height:680px)]:gap-x-8 [@media(min-width:720px)_and_(max-height:680px)]:gap-y-4 [@media(min-width:720px)_and_(max-height:680px)]:px-4'
+
+const welcomeIntroWideShort =
+  '[@media(min-width:720px)_and_(max-height:680px)]:items-start [@media(min-width:720px)_and_(max-height:680px)]:text-left [@media(min-width:720px)_and_(max-height:680px)]:self-center'
+
+const welcomePromptsWideShort =
+  '[@media(min-width:720px)_and_(max-height:680px)]:max-w-none [@media(min-width:720px)_and_(max-height:680px)]:min-h-0'
+
+const welcomePromptGridWideShort =
+  '[@media(min-width:720px)_and_(max-height:680px)]:grid-cols-3 [@media(min-width:720px)_and_(max-height:680px)]:auto-rows-fr [@media(min-width:720px)_and_(max-height:680px)]:gap-2'
+
 function WelcomeScreen({ onPrompt }: { onPrompt: (p: string) => void }) {
   const iconMap = {
     chart: TrendingUp,
@@ -836,51 +749,133 @@ function WelcomeScreen({ onPrompt }: { onPrompt: (p: string) => void }) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-start sm:justify-center min-h-full px-4 sm:px-6 py-6 sm:py-10 text-center">
-      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-[#007AFF]/20 to-cyan-500/10 border border-[#007AFF]/30 flex items-center justify-center mb-4 shrink-0">
-        <Brain className="w-7 h-7 sm:w-8 sm:h-8 text-[#007AFF]" />
-      </div>
-      <h2 className="text-xl sm:text-2xl font-bold text-white font-display mb-2">
-        QuantTrade AI Copilot
-      </h2>
-      <p className="text-xs sm:text-sm text-slate-400 max-w-md mb-2">
-        Institutional-grade financial analysis powered by quantitative models, RAG retrieval, and
-        real-time market data.
-      </p>
-      <div className="flex items-center gap-3 mb-6 sm:mb-8 flex-wrap justify-center">
-        {['RAG Pipeline', 'Quant Models', 'Confidence Scoring', 'Live Data'].map((tag) => (
-          <span
-            key={tag}
-            className="px-2 py-0.5 text-[9px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 rounded-md"
-          >
-            {tag}
-          </span>
-        ))}
+    <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-1 sm:px-2">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+        <div className="absolute -top-16 left-1/2 h-[min(48vh,12rem)] w-[min(36rem,92%)] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(0,122,255,0.22),transparent_70%)] blur-[64px] [@media(max-height:520px)]:h-32" />
+        <div className="absolute bottom-0 right-0 h-40 w-40 translate-x-1/3 translate-y-1/3 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.12),transparent_65%)] blur-[72px] [@media(max-height:520px)]:h-28 [@media(max-height:520px)]:w-28" />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-xl pb-10">
-        {COPILOT_QUICK_PROMPTS.map((qp) => {
-          const Icon = iconMap[qp.icon] || Sparkles
-          return (
-            <button
-              key={qp.label}
-              onClick={() => onPrompt(qp.prompt)}
-              className="flex items-start gap-3 p-3 sm:p-3.5 rounded-xl bg-[#101928] border border-slate-700/50 hover:border-[#007AFF]/40 hover:bg-[#101928]/80 transition-all text-left group"
-            >
-              <div className="w-9 h-9 rounded-lg bg-[#007AFF]/10 flex items-center justify-center shrink-0 group-hover:bg-[#007AFF]/20 transition-colors">
-                <Icon className="w-4 h-4 text-[#007AFF]" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-white group-hover:text-[#007AFF] transition-colors leading-tight">
-                  {qp.label}
-                </div>
-                <div className="text-[10px] sm:text-[11px] text-slate-500 line-clamp-1 mt-0.5">
-                  {qp.prompt}
-                </div>
-              </div>
-            </button>
-          )
-        })}
+      <div
+        className={cn(
+          'relative mx-auto grid min-h-0 w-full max-w-2xl flex-1 content-center justify-items-center gap-3 py-1 [@media(max-height:520px)]:gap-2 [@media(max-height:520px)]:py-0',
+          'grid-cols-1',
+          welcomeWideShort
+        )}
+      >
+        <div
+          className={cn(
+            'flex w-full max-w-md flex-col items-center text-center [@media(max-height:520px)]:max-w-lg',
+            welcomeIntroWideShort
+          )}
+        >
+          <div
+            className={cn(
+              'mb-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/[0.1] px-3 py-1 text-[10px] font-semibold text-slate-200 sm:mb-2 sm:gap-2 sm:px-4 sm:py-1.5 sm:text-[11px] [@media(max-height:520px)]:mb-1 [@media(max-height:520px)]:py-0.5',
+              'bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md'
+            )}
+          >
+            <Sparkles className="h-3 w-3 shrink-0 text-cyan-300 sm:h-3.5 sm:w-3.5" />
+            <span className="truncate">RAG · Quant models · Live data</span>
+          </div>
+
+          <div
+            className={cn(
+              'mb-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl sm:mb-2 sm:h-14 sm:w-14 [@media(max-height:520px)]:mb-1 [@media(max-height:520px)]:h-9 [@media(max-height:520px)]:w-9',
+              'border border-[#007AFF]/35 bg-gradient-to-br from-[#007AFF]/25 via-cyan-500/10 to-transparent',
+              'shadow-[0_0_32px_rgba(0,122,255,0.18),inset_0_1px_0_rgba(255,255,255,0.1)]'
+            )}
+          >
+            <Brain className="h-6 w-6 text-white sm:h-7 sm:w-7 [@media(max-height:520px)]:h-5 [@media(max-height:520px)]:w-5" />
+          </div>
+
+          <h2 className="mb-1 font-display text-[clamp(1.05rem,1.2vw+0.7rem,2.35rem)] font-bold leading-tight tracking-tight text-white sm:mb-1.5 [@media(max-height:520px)]:text-[clamp(1rem,1.1vw+0.55rem,1.65rem)]">
+            QuantTrade AI{' '}
+            <span className="bg-gradient-to-b from-[#6eb6ff] via-[#007AFF] to-cyan-300 bg-clip-text text-transparent">
+              Copilot
+            </span>
+          </h2>
+          <p className="mb-2 max-w-md px-1 text-[clamp(0.65rem,0.55vw+0.5rem,0.875rem)] leading-snug text-slate-400 sm:mb-3 sm:max-w-lg sm:leading-relaxed [@media(max-height:520px)]:mb-1.5 [@media(max-height:520px)]:line-clamp-2">
+            Institutional-grade analysis: quant models, RAG retrieval, and live market data.
+          </p>
+
+          <div className="mb-0 flex max-w-full flex-wrap items-center justify-center gap-1.5 sm:gap-2 [@media(max-height:520px)]:gap-1">
+            {['RAG', 'Quant', 'Confidence', 'Live'].map((tag) => (
+              <span
+                key={tag}
+                className={cn(
+                  'rounded-md border border-cyan-500/20 bg-cyan-500/[0.07] px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-cyan-200/90 sm:rounded-lg sm:px-2.5 sm:py-1 sm:text-[9px]',
+                  'backdrop-blur-sm [@media(max-height:520px)]:px-1.5 [@media(max-height:520px)]:text-[7px]'
+                )}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div
+          className={cn(
+            'w-full max-w-xl min-h-0 [@media(max-height:520px)]:max-w-2xl',
+            welcomePromptsWideShort
+          )}
+        >
+          <div
+            className={cn(
+              'grid min-h-0 w-full grid-cols-2 gap-1.5 sm:gap-2.5 md:gap-3',
+              welcomePromptGridWideShort
+            )}
+          >
+            {COPILOT_QUICK_PROMPTS.map((qp) => {
+              const Icon = iconMap[qp.icon] || Sparkles
+              return (
+                <button
+                  key={qp.label}
+                  type="button"
+                  onClick={() => onPrompt(qp.prompt)}
+                  className={cn(
+                    'group flex min-h-0 items-start gap-1.5 rounded-xl border p-2 text-left transition-all duration-300 sm:gap-2.5 sm:rounded-2xl sm:p-3 md:p-3.5',
+                    '[@media(min-width:720px)_and_(max-height:680px)]:flex-col [@media(min-width:720px)_and_(max-height:680px)]:items-stretch [@media(min-width:720px)_and_(max-height:680px)]:gap-1.5 [@media(min-width:720px)_and_(max-height:680px)]:p-2',
+                    '[@media(max-height:520px)]:gap-1 [@media(max-height:520px)]:p-1.5 [@media(max-height:520px)]:rounded-lg',
+                    'border-white/[0.08] bg-[rgba(10,14,26,0.55)] backdrop-blur-md',
+                    'hover:border-[#007AFF]/35 hover:bg-[rgba(0,122,255,0.08)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.3)]',
+                    'active:scale-[0.99]'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.06] sm:h-9 sm:w-9 sm:rounded-xl',
+                      '[@media(min-width:720px)_and_(max-height:680px)]:h-8 [@media(min-width:720px)_and_(max-height:680px)]:w-8',
+                      'bg-gradient-to-br from-[#007AFF]/20 to-transparent group-hover:from-[#007AFF]/35'
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5 text-[#5eb0ff] transition-colors group-hover:text-cyan-200 sm:h-4 sm:w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1 text-left">
+                    <div
+                      className={cn(
+                        'text-[11px] font-semibold leading-tight text-white transition-colors group-hover:text-cyan-100 sm:text-sm sm:leading-snug',
+                        '[@media(min-width:720px)_and_(max-height:680px)]:text-[11px]',
+                        '[@media(max-height:520px)]:text-[10px]'
+                      )}
+                    >
+                      {qp.label}
+                    </div>
+                    <div
+                      className={cn(
+                        'mt-0.5 line-clamp-2 text-[9px] leading-tight text-slate-500 sm:mt-1 sm:text-[10px] sm:leading-snug',
+                        '[@media(min-width:720px)_and_(max-height:680px)]:line-clamp-2 [@media(min-width:720px)_and_(max-height:680px)]:text-[9px]',
+                        '[@media(max-height:520px)]:line-clamp-1 [@media(max-height:520px)]:text-[8px]'
+                      )}
+                    >
+                      {qp.prompt}
+                    </div>
+                  </div>
+                  <ChevronRight className="mt-0.5 hidden h-3.5 w-3.5 shrink-0 text-slate-600 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100 sm:mt-0.5 sm:block sm:h-4 sm:w-4 [@media(min-width:720px)_and_(max-height:680px)]:hidden" />
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -902,8 +897,8 @@ function LiveQuoteStrip() {
   const ok = price > 0
 
   return (
-    <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#007AFF]/12 to-cyan-500/10 border border-[#007AFF]/20 text-[10px] font-mono text-slate-200">
-      <BarChart3 className="w-3.5 h-3.5 text-[#007AFF] shrink-0" />
+    <div className="hidden sm:flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[rgba(8,12,24,0.55)] px-2.5 py-1 text-[10px] font-mono text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md">
+      <BarChart3 className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
       <span className="font-bold text-white tracking-tight">SPY</span>
       {ok ? (
         <>
@@ -941,8 +936,14 @@ function ModelIndicator({ model, isStreaming }: { model: string; isStreaming: bo
   const info = modelLabels[model] || modelLabels['groq']
 
   return (
-    <div className={`hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[10px] font-mono ${info.color}`}>
-      <Cpu className={`w-3 h-3 ${isStreaming ? 'animate-pulse' : ''}`} />
+    <div
+      className={cn(
+        'hidden sm:flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px] font-mono backdrop-blur-md',
+        'shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]',
+        info.color
+      )}
+    >
+      <Cpu className={cn('h-3 w-3', isStreaming && 'animate-pulse')} />
       <span className="font-semibold">{info.name}</span>
       {isStreaming && (
         <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
@@ -955,7 +956,10 @@ function ModelIndicator({ model, isStreaming }: { model: string; isStreaming: bo
 
 function UsageBadge() {
   const [open, setOpen] = useState(false)
+  const [popoverBox, setPopoverBox] = useState<{ top: number; left: number; width: number } | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const anchorRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { data } = useQuery({
@@ -965,10 +969,46 @@ function UsageBadge() {
     refetchInterval: 60_000,
   })
 
+  const hoverDesktop = useCallback(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(hover: hover) and (pointer: fine)').matches
+  }, [])
+
+  const clearLeaveTimer = useCallback(() => {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    leaveTimer.current = null
+  }, [])
+
+  const repositionPopover = useCallback(() => {
+    const el = anchorRef.current
+    if (!el || !open) return
+    const r = el.getBoundingClientRect()
+    const width = Math.min(288, window.innerWidth - 16)
+    const left = Math.max(8, r.right - width)
+    const top = r.bottom + 4
+    setPopoverBox({ top, left, width })
+  }, [open])
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPopoverBox(null)
+      return
+    }
+    repositionPopover()
+    window.addEventListener('resize', repositionPopover)
+    window.addEventListener('scroll', repositionPopover, true)
+    return () => {
+      window.removeEventListener('resize', repositionPopover)
+      window.removeEventListener('scroll', repositionPopover, true)
+    }
+  }, [open, repositionPopover])
+
   useEffect(() => {
     if (!open) return
     const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      if (wrapRef.current?.contains(t) || panelRef.current?.contains(t)) return
+      setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
@@ -981,22 +1021,27 @@ function UsageBadge() {
     }
   }, [open])
 
-  const hoverDesktop = useCallback(() => {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia('(hover: hover) and (pointer: fine)').matches
-  }, [])
-
   const onZoneEnter = useCallback(() => {
     if (!hoverDesktop()) return
-    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    clearLeaveTimer()
     setOpen(true)
-  }, [hoverDesktop])
+  }, [hoverDesktop, clearLeaveTimer])
 
   const onZoneLeave = useCallback(() => {
     if (!hoverDesktop()) return
-    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    clearLeaveTimer()
     leaveTimer.current = setTimeout(() => setOpen(false), 220)
-  }, [hoverDesktop])
+  }, [hoverDesktop, clearLeaveTimer])
+
+  const onPanelEnter = useCallback(() => {
+    clearLeaveTimer()
+  }, [clearLeaveTimer])
+
+  const onPanelLeave = useCallback(() => {
+    if (!hoverDesktop()) return
+    clearLeaveTimer()
+    leaveTimer.current = setTimeout(() => setOpen(false), 220)
+  }, [hoverDesktop, clearLeaveTimer])
 
   if (!data) return null
 
@@ -1073,8 +1118,31 @@ function UsageBadge() {
     </div>
   )
 
-  if (data.is_pro) {
-    return (
+  const popover =
+    open &&
+    popoverBox &&
+    typeof document !== 'undefined' &&
+    createPortal(
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-label="Copilot API usage"
+        className="fixed z-[600] -mt-2 min-h-0 pt-2 outline-none"
+        style={{
+          top: popoverBox.top,
+          left: popoverBox.left,
+          width: popoverBox.width,
+        }}
+        onMouseEnter={onPanelEnter}
+        onMouseLeave={onPanelLeave}
+      >
+        <DetailPanel />
+      </div>,
+      document.body
+    )
+
+  return (
+    <>
       <div
         ref={wrapRef}
         className="relative shrink-0"
@@ -1082,58 +1150,41 @@ function UsageBadge() {
         onMouseLeave={onZoneLeave}
       >
         <button
+          ref={anchorRef}
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-mono text-emerald-400 transition-colors hover:bg-emerald-500/15"
+          className={
+            data.is_pro
+              ? 'flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-mono text-emerald-400 transition-colors hover:bg-emerald-500/15'
+              : 'flex items-center gap-1.5 rounded-lg border border-slate-700/40 bg-slate-800/30 px-2 py-1 text-[10px] font-mono text-slate-400 transition-colors hover:border-slate-600 hover:bg-slate-800/50'
+          }
           aria-expanded={open}
           aria-haspopup="dialog"
         >
-          <span className="font-bold">PRO</span>
-          <span className="text-emerald-300/80">{data.today_requests} req</span>
-          <ChevronDown className={`h-3 w-3 opacity-70 transition-transform ${open ? 'rotate-180' : ''}`} />
+          {data.is_pro ? (
+            <>
+              <span className="font-bold">PRO</span>
+              <span className="text-emerald-300/80">{data.today_requests} req</span>
+              <ChevronDown className={`h-3 w-3 opacity-70 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </>
+          ) : (
+            <>
+              <div className="h-1.5 w-10 overflow-hidden rounded-full bg-slate-700">
+                <div
+                  className={`h-full rounded-full ${barColor} transition-all`}
+                  style={{ width: `${pctUsed}%` }}
+                />
+              </div>
+              <span>
+                {data.free_remaining}/{data.free_limit}
+              </span>
+              <ChevronDown className={`h-3 w-3 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </>
+          )}
         </button>
-        {open && (
-          <div className="absolute right-0 top-full z-[200] w-[min(18rem,calc(100vw-1.25rem))] sm:w-72">
-            <div className="h-2 w-full shrink-0" aria-hidden />
-            <DetailPanel />
-          </div>
-        )}
       </div>
-    )
-  }
-
-  return (
-    <div
-      ref={wrapRef}
-      className="relative shrink-0"
-      onMouseEnter={onZoneEnter}
-      onMouseLeave={onZoneLeave}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded-lg border border-slate-700/40 bg-slate-800/30 px-2 py-1 text-[10px] font-mono text-slate-400 transition-colors hover:border-slate-600 hover:bg-slate-800/50"
-        aria-expanded={open}
-        aria-haspopup="dialog"
-      >
-        <div className="h-1.5 w-10 overflow-hidden rounded-full bg-slate-700">
-          <div
-            className={`h-full rounded-full ${barColor} transition-all`}
-            style={{ width: `${pctUsed}%` }}
-          />
-        </div>
-        <span>
-          {data.free_remaining}/{data.free_limit}
-        </span>
-        <ChevronDown className={`h-3 w-3 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full z-[200] w-[min(18rem,calc(100vw-1.25rem))] sm:w-72">
-          <div className="h-2 w-full shrink-0" aria-hidden />
-          <DetailPanel />
-        </div>
-      )}
-    </div>
+      {popover}
+    </>
   )
 }
 
@@ -1165,7 +1216,7 @@ function PipelineStatus({
       exit={{ opacity: 0, height: 0 }}
       className="mx-5 mb-2"
     >
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#007AFF]/5 border border-[#007AFF]/15">
+      <div className="flex items-center gap-2 rounded-xl border border-[#007AFF]/20 bg-[rgba(0,122,255,0.06)] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md">
         <div className="flex items-center gap-1">
           {stages.map((s, i) => {
             const Icon = s.icon
@@ -1369,6 +1420,7 @@ function ConversationSidebar({
 // ─── Main Copilot ─────────────────────────────────────────────────────────────
 
 function CopilotInner() {
+  const router = useRouter()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -1384,6 +1436,12 @@ function CopilotInner() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const queryClient = useQueryClient()
+
+  const { data: copilotUsage } = useQuery({
+    queryKey: ['copilot-usage'],
+    queryFn: getCopilotUsage,
+    staleTime: 30_000,
+  })
 
   // Fetch conversation history
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
@@ -1598,81 +1656,115 @@ function CopilotInner() {
       {/* ─── History Sidebar ─── */}
       <AnimatePresence>
         {showHistory && (
-          <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 280, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="hidden sm:flex overflow-hidden shrink-0"
-          >
-            <ConversationSidebar
-              conversations={conversations}
-              activeId={activeConversationId}
-              onSelect={loadConversation}
-              onDelete={handleDeleteConversation}
-              onNewChat={newChat}
-              isLoading={conversationsLoading}
-              onClose={() => setShowHistory(false)}
+          <>
+            <motion.div
+              key="copilot-history-backdrop"
+              role="presentation"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[55] bg-black/60 sm:hidden"
+              onClick={() => setShowHistory(false)}
             />
-          </motion.div>
+            <motion.div
+              key="copilot-history-panel"
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 280, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className={cn(
+                'flex min-h-0 overflow-hidden shrink-0',
+                'max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:z-[60] max-sm:h-[100dvh]',
+                'sm:relative sm:z-auto sm:h-auto'
+              )}
+            >
+              <ConversationSidebar
+                conversations={conversations}
+                activeId={activeConversationId}
+                onSelect={loadConversation}
+                onDelete={handleDeleteConversation}
+                onNewChat={newChat}
+                isLoading={conversationsLoading}
+                onClose={() => setShowHistory(false)}
+              />
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
       {/* ─── Chat Panel ─── */}
       <div
-        className={`flex flex-col flex-1 min-w-0 transition-all duration-300 ${
+        className={`flex flex-col flex-1 min-h-0 min-w-0 transition-all duration-300 ${
           showDashboard ? 'lg:w-[55%]' : 'w-full'
         }`}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 border-b border-[rgba(0,122,255,0.1)] bg-[#0D1117]/80 shrink-0">
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* History toggle */}
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className={`p-2 rounded-lg transition-colors hidden sm:flex ${
-                showHistory
-                  ? 'bg-[#007AFF]/15 text-[#007AFF]'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              }`}
-              title="Chat History"
-            >
-              <History className="w-4 h-4" />
-            </button>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#007AFF]/20 to-cyan-500/10 border border-[#007AFF]/25 flex items-center justify-center shrink-0">
-              <Brain className="w-4 h-4 text-[#007AFF]" />
-            </div>
-            <div>
-              <h1 className="text-xs sm:text-sm font-bold text-white font-display">
-                AI Copilot
-              </h1>
-              <p className="text-[10px] text-slate-500 font-mono hidden sm:block">
-                RAG + Quant Models + GROQ LLM
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
-            {/* Model indicator + usage - always visible */}
-            <ModelIndicator model={activeModel} isStreaming={streaming} />
-            <UsageBadge />
-            <LiveQuoteStrip />
-            {analysisData && !showDashboard && (
+        {/* Header — liquid glass */}
+        <div className="relative shrink-0 border-b border-white/[0.07] bg-[rgba(6,10,22,0.72)] px-3 py-2 backdrop-blur-xl sm:px-5 sm:py-2.5">
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent"
+            aria-hidden
+          />
+          <div className="flex min-w-0 flex-nowrap items-center justify-between gap-2 overflow-x-auto sm:gap-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+              {/* History toggle */}
               <button
-                onClick={() => setShowDashboard(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#007AFF]/10 border border-[#007AFF]/25 text-[10px] text-[#007AFF] font-semibold hover:bg-[#007AFF]/20 transition-colors"
+                type="button"
+                onClick={() => setShowHistory(!showHistory)}
+                className={cn(
+                  'flex shrink-0 rounded-xl border p-2 transition-all',
+                  showHistory
+                    ? 'border-[#007AFF]/40 bg-[#007AFF]/15 text-cyan-200 shadow-[0_0_20px_rgba(0,122,255,0.15)]'
+                    : 'border-transparent text-slate-400 hover:border-white/[0.08] hover:bg-white/[0.05] hover:text-white'
+                )}
+                title="Chat History"
               >
-                <BarChart3 className="w-3.5 h-3.5" />
-                {analysisData.symbol} Data
+                <History className="h-4 w-4" />
               </button>
-            )}
-            <ThemeToggle className="hidden sm:block" />
-            <button
-              onClick={newChat}
-              className="p-2 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 transition-colors"
-              title="New conversation"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+              <div
+                className={cn(
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border sm:h-9 sm:w-9',
+                  'border-[#007AFF]/30 bg-gradient-to-br from-[#007AFF]/25 to-cyan-500/5 shadow-[0_0_24px_rgba(0,122,255,0.12)]'
+                )}
+              >
+                <Brain className="h-4 w-4 text-white sm:h-[1.15rem] sm:w-[1.15rem]" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0">
+                  <h1 className="font-display truncate text-xs font-bold text-white sm:text-sm">
+                    AI Copilot
+                  </h1>
+                  <p className="hidden truncate font-mono text-[10px] leading-none text-slate-500 sm:block">
+                    RAG + Quant Models + GROQ LLM
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2">
+              {/* Model indicator + usage - always visible */}
+              <ModelIndicator model={activeModel} isStreaming={streaming} />
+              <UsageBadge />
+              <LiveQuoteStrip />
+              {analysisData && !showDashboard && (
+                <button
+                  type="button"
+                  onClick={() => setShowDashboard(true)}
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#007AFF]/30 bg-[#007AFF]/10 px-2.5 py-1.5 text-[10px] font-semibold text-cyan-200 transition-colors hover:bg-[#007AFF]/20"
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  {analysisData.symbol} Data
+                </button>
+              )}
+              <TimeWeatherMoodToggle className="flex shrink-0" />
+              <button
+                type="button"
+                onClick={newChat}
+                className="shrink-0 rounded-xl border border-transparent p-2 text-slate-500 transition-colors hover:border-white/[0.08] hover:bg-white/[0.05] hover:text-white"
+                title="New conversation"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1685,13 +1777,24 @@ function CopilotInner() {
           />
         </AnimatePresence>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        {/* Messages — scroll only when there is a thread; empty state stays one viewport, no scroll */}
+        <div
+          className={cn(
+            'relative min-h-0 flex-1 px-4 py-3 sm:px-5 sm:py-4',
+            hasMessages
+              ? 'overflow-y-auto scroll-pb-28 sm:scroll-pb-32'
+              : 'flex flex-col overflow-hidden'
+          )}
+        >
+          <div
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[rgba(0,122,255,0.04)]"
+            aria-hidden
+          />
           <GlassFilter />
           {!hasMessages ? (
             <WelcomeScreen onPrompt={(p) => sendMessage(p)} />
           ) : (
-            <>
+            <div className="relative z-10 space-y-4">
               {messages.map((msg) => {
                 // Show Unicorn WebGL loading scene for empty streaming messages
                 if (msg.role === 'assistant' && msg.streaming && !msg.content) {
@@ -1715,52 +1818,34 @@ function CopilotInner() {
                 return <MessageBubble key={msg.id} msg={msg} />
               })}
               <div ref={bottomRef} />
-            </>
+            </div>
           )}
         </div>
 
-        {/* Input bar */}
-        <div className="shrink-0 px-5 py-4 border-t border-[rgba(0,122,255,0.1)] bg-[#0D1117]/60">
-          <div className="flex items-end gap-3">
-            <div className="flex-1 relative">
-              <textarea
-                ref={inputRef}
-                rows={1}
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value)
-                  e.target.style.height = 'auto'
-                  e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder="Analyze any stock, compare tickers, explore sectors, assess risk..."
-                disabled={streaming}
-                className="w-full resize-none bg-[#101928] border border-slate-700/60 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#007AFF]/50 focus:ring-1 focus:ring-[#007AFF]/20 disabled:opacity-50 transition-colors font-sans min-h-[46px] max-h-40"
-                style={{ height: '46px' }}
-              />
-            </div>
-
-            {streaming ? (
-              <button
-                onClick={stopStreaming}
-                className="h-[46px] px-4 rounded-xl bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 transition-colors flex items-center gap-2 shrink-0"
-              >
-                <StopCircle className="w-4 h-4" />
-                <span className="text-xs font-medium hidden sm:block">Stop</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => sendMessage(input)}
-                disabled={!input.trim()}
-                className="h-[46px] px-4 rounded-xl bg-[#007AFF] text-white hover:bg-[#0066CC] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 shrink-0 shadow-lg shadow-[rgba(0,122,255,0.2)]"
-              >
-                <Send className="w-4 h-4" />
-                <span className="text-xs font-semibold hidden sm:block">Send</span>
-              </button>
-            )}
+        {/* Input — glass composer */}
+        <div className="relative shrink-0 border-t border-white/[0.07] bg-[rgba(6,10,22,0.78)] px-3 py-3 backdrop-blur-xl sm:px-5 sm:py-4">
+          <div
+            className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#007AFF]/35 to-transparent"
+            aria-hidden
+          />
+          <div className="shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
+            <CopilotPromptInput
+              ref={inputRef}
+              variant="magic"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Analyze any stock, compare tickers, explore sectors, assess risk..."
+              disabled={streaming}
+              streaming={streaming}
+              onSend={() => sendMessage(input)}
+              onStop={stopStreaming}
+              usage={copilotUsage ?? null}
+              onUpgrade={() => router.push('/pricing')}
+            />
           </div>
 
-          <p className="text-[10px] text-slate-600 mt-2 text-center">
+          <p className="mt-2.5 text-center text-[10px] leading-relaxed text-slate-600">
             Enter to send · Shift+Enter for new line · Full pipeline: RAG → Quant → LLM · Not
             financial advice
           </p>
@@ -1793,21 +1878,32 @@ export default function CopilotPage() {
   if (!isAuthenticated) {
     return (
       <AppLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center max-w-md px-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#007AFF]/15 border border-[#007AFF]/30 flex items-center justify-center mx-auto mb-4">
-              <Brain className="w-8 h-8 text-[#007AFF]" />
+        <div className="flex min-h-screen items-center justify-center px-4">
+          <div
+            className={cn(
+              'w-full max-w-md rounded-2xl border border-white/[0.1] bg-[rgba(8,12,24,0.75)] p-8 text-center shadow-[0_24px_64px_rgba(0,0,0,0.5)] backdrop-blur-xl',
+              'relative overflow-hidden'
+            )}
+          >
+            <div
+              className="pointer-events-none absolute -top-20 left-1/2 h-40 w-64 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(0,122,255,0.25),transparent_70%)] blur-3xl"
+              aria-hidden
+            />
+            <div className="relative">
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-[#007AFF]/35 bg-gradient-to-br from-[#007AFF]/25 to-cyan-500/10 shadow-[0_0_32px_rgba(0,122,255,0.2)]">
+                <Brain className="h-8 w-8 text-white" />
+              </div>
+              <h2 className="mb-2 font-display text-xl font-bold text-white">Sign in to access AI Copilot</h2>
+              <p className="mb-6 text-sm leading-relaxed text-slate-400">
+                Institutional-grade analysis with RAG, quant models, and real-time data.
+              </p>
+              <a
+                href="/auth"
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-br from-[#0a84ff] to-[#0060c9] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_0_24px_rgba(0,122,255,0.35)] transition-all hover:brightness-110"
+              >
+                Sign In
+              </a>
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">Sign in to access AI Copilot</h2>
-            <p className="text-slate-400 text-sm mb-4">
-              Institutional-grade analysis with RAG, quant models, and real-time data.
-            </p>
-            <a
-              href="/auth"
-              className="inline-flex items-center px-5 py-2.5 rounded-xl bg-[#007AFF] text-white font-semibold hover:bg-[#0066CC] transition-colors"
-            >
-              Sign In
-            </a>
           </div>
         </div>
       </AppLayout>

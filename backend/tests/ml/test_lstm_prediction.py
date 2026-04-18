@@ -32,7 +32,8 @@ from app.services.lstm_prediction_service import (
 def _mock_history(rows: int = 100) -> pd.DataFrame:
     """Generate synthetic OHLCV data."""
     np.random.seed(42)
-    dates = pd.bdate_range(end=pd.Timestamp.now(), periods=rows)
+    # Fixed start date avoids weekend/timezone edge cases on CI
+    dates = pd.bdate_range(start="2025-06-01", periods=rows)
     close = 150 + np.cumsum(np.random.randn(rows) * 0.5)
     return pd.DataFrame(
         {

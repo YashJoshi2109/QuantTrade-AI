@@ -57,6 +57,8 @@ services:
       - NEXT_PUBLIC_OPENROUTER_API_KEY=${NEXT_PUBLIC_OPENROUTER_API_KEY:-}
       # Cloudflare Turnstile CAPTCHA
       - NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
+      # Live visitor heartbeat Worker
+      - NEXT_PUBLIC_LIVE_VISITORS_WORKER_URL=${NEXT_PUBLIC_LIVE_VISITORS_WORKER_URL:-https://quanttrade-live-visitors.yashjosh7486.workers.dev}
       # Stock market data API keys (server-side Next.js routes)
       - FMP_API_KEY=${FMP_API_KEY:-}
       - TWELVE_DATA_API_KEY=${TWELVEDATA_API_KEY:-}
@@ -118,6 +120,10 @@ services:
       - FRED_API_KEY=${FRED_API_KEY:-}
       - EIA_API_KEY=${EIA_API_KEY:-}
       - CLOUDFLARE_RADAR_TOKEN=${CLOUDFLARE_RADAR_TOKEN:-}
+      - CLOUDFLARE_LIVE_VISITORS_URL=${CLOUDFLARE_LIVE_VISITORS_URL:-https://quanttrade-live-visitors.yashjosh7486.workers.dev}
+      - CLOUDFLARE_ZONE_TAG=${CLOUDFLARE_ZONE_TAG:-4820e62920a4a8bbe1985afffa6d8b70}
+      - CLOUDFLARE_ANALYTICS_TOKEN=${CLOUDFLARE_ANALYTICS_TOKEN:-}
+      - LIVE_VISITORS_SOURCE=${LIVE_VISITORS_SOURCE:-auto}
       - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}

@@ -1045,6 +1045,7 @@ async def get_recommendations(symbol: str, priority: str = Query('normal', regex
 async def get_finnhub_api_stats():
     """Get Finnhub API usage statistics and rate limit info"""
     stats = get_api_stats()
+    hit_pct = stats.get("hit_ratio_pct")
     return {
         "finnhub": {
             "rate_limit": {
@@ -1055,7 +1056,9 @@ async def get_finnhub_api_stats():
             },
             "cache": {
                 "entries": stats['cache_size'],
-                "hit_ratio": "calculated_on_client"  # Can be enhanced later
+                "hits": stats.get("cache_hits", 0),
+                "misses": stats.get("cache_misses", 0),
+                "hit_ratio_pct": hit_pct,
             },
             "recommendations": {
                 "use_priority_high": "research and markets pages",

@@ -62,6 +62,8 @@ class APICache:
     """
     def __init__(self):
         self.cache: Dict[str, Dict[str, Any]] = {}
+        self.hits: int = 0
+        self.misses: int = 0
     
     def _make_key(self, endpoint: str, params: Dict) -> str:
         """Generate cache key from endpoint and params"""
@@ -75,12 +77,16 @@ class APICache:
         if key in self.cache:
             cached = self.cache[key]
             if datetime.now() < cached['expires']:
+                self.hits += 1
                 return cached['data']
-            else:
-                # Expired, remove from cache
-                del self.cache[key]
-        
+            # Expired, remove from cache
+            del self.cache[key]
+
         return None
+
+    def record_miss(self) -> None:
+        """Increment miss counter when a request bypasses a warm cache entry."""
+        self.misses += 1
     
     def set(self, endpoint: str, params: Dict, data: Any, ttl: int):
         """Cache response with TTL (seconds)"""
@@ -154,7 +160,8 @@ def rate_limited_api_call(
         cached_data = finnhub_cache.get(endpoint, params, cache_ttl)
         if cached_data is not None:
             return cached_data
-    
+        finnhub_cache.record_miss()
+
     # Check rate limit
     if not finnhub_rate_limiter.can_make_call():
         wait_time = finnhub_rate_limiter.wait_time()
@@ -190,9 +197,16 @@ def rate_limited_api_call(
 
 def get_api_stats() -> Dict[str, Any]:
     """Get current API usage statistics"""
+    hits = finnhub_cache.hits
+    misses = finnhub_cache.misses
+    total = hits + misses
+    hit_ratio_pct = round(100.0 * hits / total, 1) if total > 0 else None
     return {
         'remaining_calls': finnhub_rate_limiter.get_remaining_calls(),
         'max_calls': finnhub_rate_limiter.max_calls,
         'wait_time': finnhub_rate_limiter.wait_time(),
         'cache_size': len(finnhub_cache.cache),
+        'cache_hits': hits,
+        'cache_misses': misses,
+        'hit_ratio_pct': hit_ratio_pct,
     }
