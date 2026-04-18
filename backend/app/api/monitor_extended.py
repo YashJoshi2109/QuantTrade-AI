@@ -12,7 +12,7 @@ import logging
 import httpx
 import asyncio
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Query, HTTPException, Depends
 from pydantic import BaseModel
@@ -2230,3 +2230,244 @@ async def get_internet_outages():
         outages=outages,
         updated_at=datetime.now(timezone.utc).isoformat()
     )
+
+
+# ─── Live visitors (GA4 and/or Cloudflare) ───────────────────────────────────
+
+_live_visitors_cache: Dict[str, Any] = {"count": None, "source": None, "ts": 0.0}
+
+_CF_GRAPHQL = """
+query LiveVisitorsWindow($zoneTag: string!, $start: Time!, $end: Time!) {
+  viewer {
+    zones(filter: { zoneTag: $zoneTag }) {
+      series: httpRequestsAdaptiveGroups(
+        limit: 1
+        filter: { datetime_geq: $start, datetime_lt: $end, requestSource: "eyeball" }
+      ) {
+        uniq {
+          uniques
+        }
+        sum {
+          requests
+        }
+      }
+    }
+  }
+}
+"""
+
+
+def _ga4_configured() -> bool:
+    return bool(settings.GA4_PROPERTY_ID and settings.GA4_CREDENTIALS_JSON)
+
+
+def _fetch_ga4_realtime_count() -> Optional[int]:
+    """Synchronous GA4 call (run in thread from async route)."""
+    prop_id = settings.GA4_PROPERTY_ID
+    creds_path = settings.GA4_CREDENTIALS_JSON
+    if not prop_id or not creds_path:
+        return None
+    try:
+        from google.analytics.data_v1beta import BetaAnalyticsDataClient
+        from google.analytics.data_v1beta.types import RunRealtimeReportRequest, Metric
+        import os
+
+        if creds_path.strip().startswith("{"):
+            import tempfile
+
+            tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+            tmp.write(creds_path)
+            tmp.close()
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = tmp.name
+        else:
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
+
+        client = BetaAnalyticsDataClient()
+        request = RunRealtimeReportRequest(
+            property=prop_id if prop_id.startswith("properties/") else f"properties/{prop_id}",
+            metrics=[Metric(name="activeUsers")],
+        )
+        response = client.run_realtime_report(request=request)
+        if response.rows:
+            return int(response.rows[0].metric_values[0].value)
+        return 0
+    except ImportError:
+        logger.warning("google-analytics-data not installed — pip install google-analytics-data")
+        return None
+    except Exception as exc:
+        logger.warning("GA4 real-time fetch error: %s", exc)
+        return None
+
+
+async def _fetch_cloudflare_worker_count() -> Optional[int]:
+    """Optional Worker that returns {\"count\": <int>} (true presence if clients POST heartbeats)."""
+    url = (settings.CLOUDFLARE_LIVE_VISITORS_URL or "").strip()
+    if not url:
+        return None
+    headers: Dict[str, str] = {}
+    secret = (settings.CLOUDFLARE_LIVE_VISITORS_SECRET or "").strip()
+    if secret:
+        headers["Authorization"] = f"Bearer {secret}"
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(url, headers=headers)
+            if r.status_code != 200:
+                logger.warning("Cloudflare live worker HTTP %s", r.status_code)
+                return None
+            data = r.json()
+            if isinstance(data, dict) and "count" in data:
+                return max(0, int(data["count"]))
+            if isinstance(data, int):
+                return max(0, data)
+    except Exception as exc:
+        logger.warning("Cloudflare live worker fetch error: %s", exc)
+    return None
+
+
+async def _fetch_cloudflare_graphql_proxy_count() -> Optional[int]:
+    """Approximate recent human traffic via zone GraphQL (unique IPs in window), not GA activeUsers."""
+    token = (settings.CLOUDFLARE_ANALYTICS_TOKEN or "").strip()
+    zone_tag = (settings.CLOUDFLARE_ZONE_TAG or "").strip()
+    if not token or not zone_tag:
+        return None
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(minutes=5)
+    variables = {
+        "zoneTag": zone_tag,
+        "start": start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "end": end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.post(
+                "https://api.cloudflare.com/client/v4/graphql",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                json={"query": _CF_GRAPHQL, "variables": variables},
+            )
+            if r.status_code != 200:
+                logger.warning("Cloudflare GraphQL HTTP %s: %s", r.status_code, r.text[:200])
+                return None
+            payload = r.json()
+            if payload.get("errors"):
+                logger.warning("Cloudflare GraphQL errors: %s", payload["errors"])
+                return None
+            zones = (payload.get("data") or {}).get("viewer", {}).get("zones") or []
+            if not zones:
+                return None
+            groups = (zones[0] or {}).get("series") or []
+            if not groups:
+                return 0
+            g0 = groups[0]
+            uniq = (g0.get("uniq") or {}).get("uniques")
+            if uniq is not None:
+                return max(0, int(uniq))
+            req = (g0.get("sum") or {}).get("requests")
+            if req is not None:
+                return max(0, int(req))
+    except Exception as exc:
+        logger.warning("Cloudflare GraphQL live visitors error: %s", exc)
+    return None
+
+
+@router.get("/live-visitors")
+async def get_live_visitors():
+    """Real-time-ish visitor metric for the navbar.
+
+    Sources (see ``LIVE_VISITORS_SOURCE``):
+
+    - **ga4** — Google Analytics 4 Data API (``activeUsers``). Needs service account + property access.
+    - **cloudflare_graphql** — Cloudflare Analytics GraphQL: unique IPs (eyeball traffic) in the last 5 minutes
+      on the zone. Proxy for “live traffic”, not identical to GA.
+    - **cloudflare_worker** — GET ``CLOUDFLARE_LIVE_VISITORS_URL`` expecting JSON ``{{\"count\": n}}``.
+      Use a small Worker + Durable Object if you need true concurrent sessions without Google.
+    - **auto** — Try GA4 if configured, else Worker URL, else GraphQL.
+
+    Cached 30s to limit quota.
+    """
+    import time
+
+    now = time.time()
+    if _live_visitors_cache["count"] is not None and now - _live_visitors_cache["ts"] < 30:
+        return {
+            "count": _live_visitors_cache["count"],
+            "source": _live_visitors_cache.get("source") or "unknown",
+            "cached": True,
+        }
+
+    src = (getattr(settings, "LIVE_VISITORS_SOURCE", None) or "auto").strip().lower()
+
+    async def run_ga4() -> Optional[tuple]:
+        if not _ga4_configured():
+            return None
+        count = await asyncio.to_thread(_fetch_ga4_realtime_count)
+        if count is None:
+            return None
+        return (count, "ga4")
+
+    async def run_worker() -> Optional[tuple]:
+        c = await _fetch_cloudflare_worker_count()
+        if c is None:
+            return None
+        return (c, "cloudflare_worker")
+
+    async def run_graphql() -> Optional[tuple]:
+        c = await _fetch_cloudflare_graphql_proxy_count()
+        if c is None:
+            return None
+        return (c, "cloudflare_graphql")
+
+    tried: List[str] = []
+    result: Optional[tuple] = None
+
+    if src == "ga4":
+        tried.append("ga4")
+        result = await run_ga4()
+    elif src == "cloudflare_graphql":
+        tried.append("cloudflare_graphql")
+        result = await run_graphql()
+    elif src == "cloudflare_worker":
+        tried.append("cloudflare_worker")
+        result = await run_worker()
+    elif src == "cloudflare":
+        # explicit “Cloudflare only”: worker first (if set), then GraphQL
+        tried.extend(["cloudflare_worker", "cloudflare_graphql"])
+        result = await run_worker()
+        if result is None:
+            result = await run_graphql()
+    else:
+        # auto
+        if _ga4_configured():
+            tried.append("ga4")
+            result = await run_ga4()
+        if result is None:
+            tried.append("cloudflare_worker")
+            result = await run_worker()
+        if result is None:
+            tried.append("cloudflare_graphql")
+            result = await run_graphql()
+
+    if result is not None:
+        count, used = result
+        _live_visitors_cache["count"] = count
+        _live_visitors_cache["source"] = used
+        _live_visitors_cache["ts"] = now
+        return {"count": count, "source": used, "cached": False}
+
+    msg_parts = []
+    if not _ga4_configured():
+        msg_parts.append("GA4 not configured")
+    if not (settings.CLOUDFLARE_LIVE_VISITORS_URL or "").strip():
+        msg_parts.append("CLOUDFLARE_LIVE_VISITORS_URL not set")
+    if not ((settings.CLOUDFLARE_ANALYTICS_TOKEN or "").strip() and (settings.CLOUDFLARE_ZONE_TAG or "").strip()):
+        msg_parts.append("CLOUDFLARE_ANALYTICS_TOKEN + CLOUDFLARE_ZONE_TAG not set")
+
+    return {
+        "count": None,
+        "source": "none",
+        "cached": False,
+        "message": "; ".join(msg_parts) if msg_parts else "No live visitor source available",
+        "tried": tried,
+    }

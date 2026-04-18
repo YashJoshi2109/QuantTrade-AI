@@ -13,7 +13,6 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import MoreMenu from './MoreMenu'
-import ThemeToggle from '@/components/ui/theme-toggle'
 
 interface NavItem {
   label: string
@@ -80,11 +79,6 @@ export default function BottomNav() {
     <>
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 pb-safe">
         <div className="mx-auto max-w-md px-3 mb-1">
-          {/* Theme toggle - floating above nav */}
-          <div className="flex justify-end mb-2 mr-1">
-            <ThemeToggle />
-          </div>
-
           {/* Glass nav bar */}
           <div
             className={cn(

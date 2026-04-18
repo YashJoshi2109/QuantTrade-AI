@@ -291,3 +291,20 @@ export async function fetchInternetOutages(): Promise<OutageData> {
   if (!res.ok) throw new Error('Failed to fetch internet outages')
   return res.json()
 }
+
+// ─── Live Visitors (Google Analytics 4 Real-Time) ───────────────────────────
+
+export interface LiveVisitorsData {
+  count: number | null
+  /** ga4 | cloudflare_graphql | cloudflare_worker | none | error | unknown */
+  source: string
+  cached?: boolean
+  message?: string
+  tried?: string[]
+}
+
+export async function fetchLiveVisitors(): Promise<LiveVisitorsData> {
+  const res = await fetch(`${API_URL}/api/v1/monitor/live-visitors`)
+  if (!res.ok) return { count: null, source: 'error' }
+  return res.json()
+}

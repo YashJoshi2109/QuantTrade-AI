@@ -38,11 +38,13 @@ import {
   QuoteData,
   StockPerformance,
 } from '@/lib/api'
+import { fetchContinentNews, type ContinentNewsData } from '@/lib/monitor-extended-api'
 import {
-  fetchContinentNews,
-  type ContinentNewsData,
-  type ContinentNewsArticle,
-} from '@/lib/monitor-extended-api'
+  collectRegionalDashboardNews,
+  buildWireNewsItems,
+  mergeGlobalDashboardNews,
+} from '@/lib/dashboard-continent-news'
+import DashboardMagicNewsPanel from '@/components/dashboard/DashboardMagicNewsPanel'
 import { useExchangeHeatmap } from '@/hooks/useExchangeHeatmap'
 import type { ExchangeSector } from '@/app/api/exchange/heatmap/route'
 import MarketNewsGrid from '@/components/MarketNewsGrid'
@@ -51,7 +53,6 @@ import LiveNewsChannelPanel from '@/components/LiveNewsChannelPanel'
 import TickerLogo from '@/components/TickerLogo'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { SkeletonMoversSection, SkeletonSectorPerformance } from '@/components/Skeleton'
-import BrandedNewsLoading from '@/components/loading/BrandedNewsLoading'
 import IndicesBarSkeleton from '@/components/loading/IndicesBarSkeleton'
 import { ProCard } from '@/components/ui/pro'
 import IpoRadarWidget from '@/components/IpoRadarWidget'
@@ -70,6 +71,7 @@ import {
 import type { IndexQuote } from '@/app/api/quotes/indices/route'
 import { buildMarketTape, type MarketTapeItem } from '@/lib/market-tape'
 import { QuoteActivityFlash, moversActivityFingerprint } from '@/components/QuoteActivityFlash'
+import { GlassMoversPanel } from '@/components/continent-dashboard'
 
 /** Local clock: morning 5–11, afternoon 12–16, evening otherwise. */
 function getTimeBasedGreeting(d = new Date()): string {
@@ -644,16 +646,22 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
     refetchInterval: 120_000,
   })
 
-  // Fetch live quotes for first 5 watchlist items
-  const symbols = watchlist.slice(0, 5).map((w) => w.symbol)
+  // Live quotes for every watchlist symbol (batched to ease Finnhub rate limits)
+  const symbols = watchlist.map((w) => w.symbol)
   const { data: quotes = [], isLoading: quotesLoading } = useQuery({
-    queryKey: ['watchlistQuotes', symbols],
+    queryKey: ['watchlistQuotes', symbols.join('|')],
     queryFn: async (): Promise<QuoteData[]> => {
       if (symbols.length === 0) return []
-      const res = await Promise.allSettled(symbols.map((s) => fetchQuote(s, 'normal')))
-      return res
-        .filter((r): r is PromiseFulfilledResult<QuoteData> => r.status === 'fulfilled')
-        .map((r) => r.value)
+      const BATCH = 6
+      const merged: QuoteData[] = []
+      for (let i = 0; i < symbols.length; i += BATCH) {
+        const chunk = symbols.slice(i, i + BATCH)
+        const settled = await Promise.allSettled(chunk.map((s) => fetchQuote(s, 'normal')))
+        for (const r of settled) {
+          if (r.status === 'fulfilled') merged.push(r.value)
+        }
+      }
+      return merged
     },
     enabled: symbols.length > 0,
     refetchInterval: 120_000,
@@ -673,7 +681,14 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
       >
         <div className="flex min-w-0 items-center gap-2">
           <Eye className="h-4 w-4 shrink-0 text-cyan-400" />
-          <h3 className="truncate text-sm font-bold text-white">Watchlist</h3>
+          <h3 className="truncate text-sm font-bold text-white">
+            Watchlist
+            {watchlist.length > 0 && (
+              <span className="ml-1.5 text-[10px] font-mono font-normal text-slate-500">
+                ({watchlist.length})
+              </span>
+            )}
+          </h3>
         </div>
         <Link
           href="/watchlist"
@@ -714,7 +729,7 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
           </div>
         ) : (
           <div className="divide-y divide-slate-800/40">
-            {watchlist.slice(0, 5).map((item) => {
+            {watchlist.map((item) => {
               const q = quoteMap[item.symbol]
               const up = q ? q.change_percent >= 0 : null
               return (
@@ -730,7 +745,7 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
                         {item.symbol}
                       </div>
                       {item.name && (
-                        <div className="text-[10px] text-slate-500 truncate max-w-[100px]">
+                        <div className="text-[10px] text-slate-500 truncate max-w-[min(11rem,42vw)] sm:max-w-[13rem]">
                           {item.name}
                         </div>
                       )}
@@ -1144,34 +1159,6 @@ function ContinentMoversPanel({
   )
 }
 
-type DashboardNewsItem = {
-  key: string
-  title: string
-  source: string
-  url?: string | null
-  sentiment?: string | null
-  tickers: string[]
-  time: string
-}
-
-function toRelativeTime(iso?: string | null): string {
-  if (!iso) return 'now'
-  const ts = Date.parse(iso)
-  if (!Number.isFinite(ts)) return 'now'
-  const diffMin = Math.max(0, Math.floor((Date.now() - ts) / 60000))
-  if (diffMin < 1) return 'now'
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffHr = Math.floor(diffMin / 60)
-  if (diffHr < 24) return `${diffHr}h ago`
-  return `${Math.floor(diffHr / 24)}d ago`
-}
-
-function mapContinentToFeedName(continent: Continent): string {
-  if (continent === 'global') return 'Americas'
-  if (continent === 'asia') return 'Asia Pacific'
-  return continent.charAt(0).toUpperCase() + continent.slice(1)
-}
-
 // ─── Desktop Dashboard ────────────────────────────────────────────────────────
 function DesktopHome() {
   const { user, isAuthenticated } = useAuth()
@@ -1224,7 +1211,7 @@ function DesktopHome() {
     isFetching: newsFetching,
     refetch: refetchNews,
   } = useBreakingNews(20, 45_000, newsContext)
-  const { data: continentNewsData } = useQuery<ContinentNewsData>({
+  const { data: continentNewsData, isLoading: continentNewsLoading } = useQuery<ContinentNewsData>({
     queryKey: ['monitor-continent-news'],
     queryFn: fetchContinentNews,
     refetchInterval: 120_000,
@@ -1329,42 +1316,16 @@ function DesktopHome() {
   const breadthColor = breadth > 0 ? 'text-emerald-400' : breadth < 0 ? 'text-red-400' : 'text-yellow-400'
 
   const continentInfo = CONTINENTS.find((c) => c.id === activeContinent)
-  const continentFeedName = mapContinentToFeedName(activeContinent)
-  const selectedContinentArticles: ContinentNewsArticle[] =
-    continentNewsData?.feeds?.find((f) => f.continent === continentFeedName)?.articles ?? []
-  const dashboardNewsItems = useMemo<DashboardNewsItem[]>(() => {
-    const map = new Map<string, DashboardNewsItem>()
-
-    for (const n of liveNews) {
-      const key = n.url || n.title
-      if (!key || map.has(key)) continue
-      map.set(key, {
-        key,
-        title: n.title,
-        source: n.source || 'News',
-        url: n.url,
-        sentiment: n.sentiment,
-        tickers: n.related_tickers ?? [],
-        time: toRelativeTime(n.published_at),
-      })
-    }
-
-    for (const n of selectedContinentArticles) {
-      const key = n.url || n.title
-      if (!key || map.has(key)) continue
-      map.set(key, {
-        key,
-        title: n.title,
-        source: n.source || continentFeedName,
-        url: n.url,
-        sentiment: null,
-        tickers: n.tickers?.slice(0, 5) ?? [],
-        time: n.time_ago || 'now',
-      })
-    }
-
-    return Array.from(map.values()).slice(0, 20)
-  }, [liveNews, selectedContinentArticles, continentFeedName])
+  const regionalDashboardNews = useMemo(
+    () => collectRegionalDashboardNews(activeContinent, continentNewsData),
+    [activeContinent, continentNewsData]
+  )
+  const wireDashboardNews = useMemo(
+    () =>
+      activeContinent === 'global' ? [] : buildWireNewsItems(liveNews, regionalDashboardNews, 28),
+    [activeContinent, liveNews, regionalDashboardNews]
+  )
+  const globalDashboardNews = useMemo(() => mergeGlobalDashboardNews(liveNews, 20), [liveNews])
 
   /** Align Live News / Gainers / Losers toolbars and equal column height on large screens */
   const dashToolbar =
@@ -1522,45 +1483,20 @@ function DesktopHome() {
         {/* Main bento grid */}
         <div className="flex-1 p-4 pt-2">
 
-          {/* ── Continent-specific Exchange Indices ── */}
+          {/* ── Non-global: Glass Movers Panel ── */}
           {activeContinent !== 'global' && (
-            <motion.div
-              key={`indices-${activeContinent}`}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-              className="mb-4"
-            >
-              <div className="hud-panel p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Globe className="w-4 h-4 text-[#007AFF]" />
-                  <h3 className="font-bold text-white text-sm">
-                    {continentInfo?.label} Exchange Indices
-                  </h3>
-                  <span className="text-[9px] px-1.5 py-0.5 bg-[#007AFF]/10 text-[#007AFF] rounded font-bold">LIVE</span>
-                </div>
-                <ContinentIndicesGrid
-                  continent={activeContinent}
-                  currency={displayCurrency}
-                  rates={currencyRates}
-                  selectedExchangeId={selectedExchangeId}
-                  onSelectExchange={setSelectedExchangeId}
-                />
-              </div>
-            </motion.div>
-          )}
-
-          {/* ── Non-global: Movers for that continent / venue ── */}
-          {activeContinent !== 'global' && (
-            <motion.div
-              key={`movers-${activeContinent}-${selectedExchangeId ?? ''}`}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, delay: 0.05 }}
-              className="mb-4"
-            >
-              <ContinentMoversPanel continent={activeContinent} exchangeId={selectedExchangeId} />
-            </motion.div>
+            <div className="mb-4" key={`glass-movers-${activeContinent}-${selectedExchangeId ?? ''}`}>
+              <GlassMoversPanel
+                gainers={regionMovers?.gainers ?? []}
+                losers={regionMovers?.losers ?? []}
+                isLoading={regionMoversLoading}
+                scopeLabel={
+                  selectedExchangeId
+                    ? getExchangeById(selectedExchangeId)?.shortName ?? selectedExchangeId
+                    : continentInfo?.label ?? activeContinent
+                }
+              />
+            </div>
           )}
 
           <div className="grid grid-cols-12 gap-3 lg:gap-4 items-stretch auto-rows-min">
@@ -1579,139 +1515,20 @@ function DesktopHome() {
                 transition={{ duration: 0.3 }}
                 className={activeContinent === 'global' ? topRowTripleHeight : 'h-full min-h-[min(420px,70vh)] w-full flex flex-col'}
               >
-                <div className="hud-panel h-full flex flex-col relative overflow-hidden min-h-0 flex-1">
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/8 via-transparent to-cyan-500/5 pointer-events-none" />
-                  <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-blue-500/40 to-transparent" />
-
-                  <div className={`${dashToolbar} relative`}>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold text-white bg-gradient-to-r from-blue-500 to-cyan-500 rounded uppercase tracking-wider shadow-lg shadow-blue-500/20 shrink-0">
-                        <Zap className="w-2.5 h-2.5" />
-                        LIVE NEWS
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-mono hidden sm:inline shrink-0">
-                        Top 7 + scroll
-                      </span>
-                      <QuoteActivityFlash fingerprint={newsActivityFingerprint} />
-                      {newsFetching && !newsPending && (
-                        <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">Syncing…</span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => refetchNews()}
-                      className="hud-card p-1.5 text-blue-400 hover:text-white transition-colors shrink-0"
-                      aria-label="Refresh news"
-                    >
-                      <RefreshCw className={`w-3 h-3 ${newsFetching ? 'animate-spin' : ''}`} />
-                    </button>
-                  </div>
-
-                  <div className="flex flex-1 min-h-0 flex-col overflow-hidden relative">
-                    {newsPending ? (
-                      <BrandedNewsLoading rows={10} />
-                    ) : newsError ? (
-                      <div className="flex flex-col items-center justify-center h-full py-10 text-center px-4">
-                        <Activity className="w-8 h-8 text-amber-500/60 mb-3" />
-                        <p className="text-slate-300 text-sm font-medium">Could not load headlines</p>
-                        <button
-                          type="button"
-                          onClick={() => refetchNews()}
-                          className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-800 border border-slate-600 text-xs text-white hover:border-cyan-500/50"
-                        >
-                          <RefreshCw className="w-3 h-3" /> Retry
-                        </button>
-                      </div>
-                    ) : dashboardNewsItems.length > 0 ? (
-                      <>
-                        <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-2.5 auto-rows-fr">
-                            {dashboardNewsItems.map((news, idx) => {
-                              const isBullish = news.sentiment === 'Bullish'
-                              const isBearish = news.sentiment === 'Bearish'
-                              const Inner = (
-                                <div
-                                  className={`flex items-start gap-2.5 rounded-lg border border-slate-800/50 bg-slate-950/35 p-2.5 transition-colors group/item h-full ${
-                                    idx === 0 ? 'xl:col-span-2 border-slate-700/70 bg-slate-950/60' : ''
-                                  } hover:bg-blue-500/5 hover:border-slate-700/60`}
-                                >
-                                  <div
-                                    className={`mt-0.5 p-1.5 rounded shrink-0 ${
-                                      isBullish
-                                        ? 'bg-green-500/15'
-                                        : isBearish
-                                          ? 'bg-red-500/15'
-                                          : 'bg-slate-700/40'
-                                    }`}
-                                  >
-                                    {isBullish ? (
-                                      <TrendingUp className="w-3 h-3 text-green-400" />
-                                    ) : isBearish ? (
-                                      <TrendingDown className="w-3 h-3 text-red-400" />
-                                    ) : (
-                                      <Minus className="w-3 h-3 text-slate-400" />
-                                    )}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className={`text-white font-medium group-hover/item:text-blue-300 transition-colors leading-snug ${idx === 0 ? 'text-sm line-clamp-3' : 'text-[13px] line-clamp-2'}`}>
-                                      {news.title}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                      <span className="text-[10px] text-slate-500 flex items-center gap-1 min-w-0">
-                                        <Clock className="w-2.5 h-2.5 shrink-0" />
-                                        <span className="truncate">{news.source}</span>
-                                      </span>
-                                      <span className="text-[9px] font-mono text-slate-600">{news.time}</span>
-                                      {news.tickers.length > 0 && (
-                                        <div className="flex gap-1 flex-wrap">
-                                          {news.tickers.slice(0, 3).map((t) => (
-                                            <span
-                                              key={t}
-                                              className="px-1.5 py-0.5 text-[9px] bg-blue-500/15 text-blue-400 rounded font-mono"
-                                            >
-                                              {t}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                              return news.url ? (
-                                <a
-                                  key={news.key}
-                                  href={news.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={idx === 0 ? 'xl:col-span-2 block min-w-0' : 'block min-w-0'}
-                                >
-                                  {Inner}
-                                </a>
-                              ) : (
-                                <div key={news.key} className={idx === 0 ? 'xl:col-span-2 min-w-0' : 'min-w-0'}>
-                                  {Inner}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full py-10 text-center px-4">
-                        <Activity className="w-8 h-8 text-slate-700 mb-3" />
-                        <p className="text-slate-400 text-sm">No headlines available</p>
-                        <button
-                          type="button"
-                          onClick={() => refetchNews()}
-                          className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-800 border border-slate-600 text-xs text-white hover:border-cyan-500/50"
-                        >
-                          <RefreshCw className="w-3 h-3" /> Retry
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <DashboardMagicNewsPanel
+                  mode={activeContinent === 'global' ? 'global' : 'regional'}
+                  continentLabel={continentInfo?.label ?? activeContinent}
+                  globalItems={globalDashboardNews}
+                  regionalItems={regionalDashboardNews}
+                  wireItems={wireDashboardNews}
+                  isPending={newsPending}
+                  isError={newsError}
+                  isFetching={newsFetching}
+                  continentNewsLoading={activeContinent !== 'global' && continentNewsLoading}
+                  onRefresh={refetchNews}
+                  newsActivityFingerprint={newsActivityFingerprint}
+                  shellClassName="h-full w-full flex flex-col min-h-0"
+                />
               </motion.div>
             </div>
 

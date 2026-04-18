@@ -31,8 +31,10 @@ import SiteFooter from './SiteFooter'
 import PredictionAlertCenter from './PredictionAlertCenter'
 import HelpDialog from './HelpDialog'
 import { fetchSymbols, Symbol, syncSymbol, fetchMarketStatus, MarketStatus, getSubscriptionStatus } from '@/lib/api'
+import { fetchLiveVisitors } from '@/lib/monitor-extended-api'
 import { useAuth } from '@/contexts/AuthContext'
 import { useQuery } from '@tanstack/react-query'
+import LiveVisitorCounter from '@/components/ui/live-visitor'
 
 interface AppLayoutProps {
   children: ReactNode
@@ -173,6 +175,13 @@ export default function AppLayout({ children, symbol, hideFooter }: AppLayoutPro
       .then((s) => setPlanPro(!!s.is_pro))
       .catch(() => setPlanPro(false))
   }, [isAuthenticated, authLoading])
+
+  const { data: liveVisitors } = useQuery({
+    queryKey: ['live-visitors'],
+    queryFn: fetchLiveVisitors,
+    refetchInterval: 30_000,
+    staleTime: 25_000,
+  })
 
   const menuItems = useMemo(
     () => [
@@ -386,6 +395,19 @@ export default function AppLayout({ children, symbol, hideFooter }: AppLayoutPro
               <ApiStatsMonitor compact={true} />
             </div>
             <MarketStatusIndicator compact={true} />
+            <HeaderTooltip
+              label="Live visitors"
+              detail={
+                liveVisitors?.count != null
+                  ? `~${liveVisitors.count} active (source: ${liveVisitors.source}). Refreshes about every 30s.`
+                  : liveVisitors?.message ||
+                    'Backend live count not configured — showing a simulated pulse. Set GA4 or Cloudflare env on the API.'
+              }
+            >
+              <div className="hidden md:flex shrink-0 items-center">
+                <LiveVisitorCounter gaCount={liveVisitors?.count ?? null} />
+              </div>
+            </HeaderTooltip>
             <HeaderTooltip
               label="About QuantTrade"
               detail="Product scope, data sources, and operator details."

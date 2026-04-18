@@ -10,6 +10,7 @@ import ChatWidget from '@/components/chat/ChatWidget'
 import BrandIntroGate from '@/components/BrandIntroGate'
 import { StockSnapshotProvider } from '@/context/StockSnapshotContext'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import VisitorHeartbeat from '@/components/VisitorHeartbeat'
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -218,6 +219,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <ReactQueryProvider>
                 <ToastProvider>
                   <StockSnapshotProvider>
+                    <VisitorHeartbeat />
                     <BrandIntroGate />
                     {children}
                     <ChatWidget />
