@@ -47,8 +47,18 @@ def _get_sync_client():
     if not settings.PUBLIC_API_SECRET_KEY:
         return None
     try:
-        from public_invest_api import PublicApiClient
-        _sync_client = PublicApiClient(api_key=settings.PUBLIC_API_SECRET_KEY)
+        from public_api_sdk import PublicApiClient, ApiKeyAuthConfig
+        auth = ApiKeyAuthConfig(api_secret_key=settings.PUBLIC_API_SECRET_KEY)
+        _sync_client = PublicApiClient(auth_config=auth)
+        # Cache account ID
+        try:
+            accounts = _sync_client.get_accounts()
+            if accounts:
+                _sync_client._qt_account_id = accounts[0].id if hasattr(accounts[0], 'id') else str(accounts[0])
+            else:
+                _sync_client._qt_account_id = None
+        except Exception:
+            _sync_client._qt_account_id = None
         logger.info("Public.com sync client initialized")
         return _sync_client
     except Exception as e:
@@ -64,8 +74,18 @@ async def _get_async_client():
     if not settings.PUBLIC_API_SECRET_KEY:
         return None
     try:
-        from public_invest_api import AsyncPublicApiClient
-        _async_client = AsyncPublicApiClient(api_key=settings.PUBLIC_API_SECRET_KEY)
+        from public_api_sdk import AsyncPublicApiClient, ApiKeyAuthConfig
+        auth = ApiKeyAuthConfig(api_secret_key=settings.PUBLIC_API_SECRET_KEY)
+        _async_client = AsyncPublicApiClient(auth_config=auth)
+        # Cache account ID
+        try:
+            accounts = await _async_client.get_accounts()
+            if accounts:
+                _async_client._qt_account_id = accounts[0].id if hasattr(accounts[0], 'id') else str(accounts[0])
+            else:
+                _async_client._qt_account_id = None
+        except Exception:
+            _async_client._qt_account_id = None
         logger.info("Public.com async client initialized")
         return _async_client
     except Exception as e:
@@ -149,24 +169,27 @@ class PublicClient:
             if not client:
                 return {}
 
-            # Build instrument list for the SDK
-            from public_invest_api import Instrument, InstrumentType
+            account_id = getattr(client, '_qt_account_id', None)
+            if not account_id:
+                return {}
+
+            from public_api_sdk import InstrumentType
+            from public_api_sdk.models import OrderInstrument
 
             instruments = []
             for sym in symbols:
                 sym_upper = sym.upper()
-                # Determine instrument type
                 if sym_upper.endswith("-USD") or sym_upper in (
                     "BTC", "ETH", "SOL", "DOGE", "XRP", "ADA", "AVAX", "DOT",
                 ):
-                    instruments.append(Instrument(symbol=sym_upper, type=InstrumentType.CRYPTO))
+                    instruments.append(OrderInstrument(symbol=sym_upper, type=InstrumentType.CRYPTO))
                 else:
-                    instruments.append(Instrument(symbol=sym_upper, type=InstrumentType.EQUITY))
+                    instruments.append(OrderInstrument(symbol=sym_upper, type=InstrumentType.EQUITY))
 
-            response = await client.market_data.get_quotes(instruments=instruments)
+            response = await client.get_quotes(instruments=instruments, account_id=account_id)
 
             results = {}
-            quotes_list = response.get("quotes", []) if isinstance(response, dict) else getattr(response, "quotes", [])
+            quotes_list = response if isinstance(response, list) else getattr(response, "quotes", [])
 
             for raw in quotes_list:
                 raw_dict = raw if isinstance(raw, dict) else raw.__dict__
@@ -190,13 +213,18 @@ class PublicClient:
                 if not client:
                     return {}
 
-                from public_invest_api import Instrument, InstrumentType
+                account_id = getattr(client, '_qt_account_id', None)
+                if not account_id:
+                    return {}
+
+                from public_api_sdk import InstrumentType
+                from public_api_sdk.models import OrderInstrument
                 instruments = [
-                    Instrument(symbol=s.upper(), type=InstrumentType.EQUITY)
+                    OrderInstrument(symbol=s.upper(), type=InstrumentType.EQUITY)
                     for s in symbols
                 ]
-                response = client.market_data.get_quotes(instruments=instruments)
-                quotes_list = response.get("quotes", []) if isinstance(response, dict) else getattr(response, "quotes", [])
+                response = client.get_quotes(instruments=instruments, account_id=account_id)
+                quotes_list = response if isinstance(response, list) else getattr(response, "quotes", [])
 
                 results = {}
                 for raw in quotes_list:
@@ -234,12 +262,15 @@ class PublicClient:
             if not client:
                 return None
 
-            from public_invest_api import Instrument, InstrumentType
+            from public_api_sdk import InstrumentType
+            from public_api_sdk.models import OrderInstrument
 
-            instrument = Instrument(symbol=symbol.upper(), type=InstrumentType.EQUITY)
-            response = await client.market_data.get_option_chain(
+            account_id = getattr(client, '_qt_account_id', None)
+            instrument = OrderInstrument(symbol=symbol.upper(), type=InstrumentType.EQUITY)
+            response = await client.get_option_chain(
                 instrument=instrument,
                 expiration_date=expiration_date,
+                account_id=account_id,
             )
             return response if isinstance(response, dict) else response.__dict__
         except Exception as e:
@@ -256,11 +287,14 @@ class PublicClient:
             if not client:
                 return None
 
-            from public_invest_api import Instrument, InstrumentType
+            from public_api_sdk import InstrumentType
+            from public_api_sdk.models import OrderInstrument
 
-            instrument = Instrument(symbol=symbol.upper(), type=InstrumentType.EQUITY)
-            response = await client.market_data.get_option_expirations(
+            account_id = getattr(client, '_qt_account_id', None)
+            instrument = OrderInstrument(symbol=symbol.upper(), type=InstrumentType.EQUITY)
+            response = await client.get_option_expirations(
                 instrument=instrument,
+                account_id=account_id,
             )
             if isinstance(response, dict):
                 return response.get("expirations", [])
@@ -282,7 +316,7 @@ class PublicClient:
             if not client:
                 return []
 
-            response = await client.trading.get_instruments()
+            response = await client.get_all_instruments()
             instruments = response if isinstance(response, list) else getattr(response, "instruments", [])
 
             results = []

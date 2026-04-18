@@ -44,7 +44,11 @@ export default function ChartSnapshot({ symbol, data }: Props) {
         // Sync is best-effort; continue with whatever data the DB has
       }
 
-      const res = await fetch(`${API_URL}/api/v1/prices/${symbol}?limit=${limit}`)
+      // Use intraday endpoint for 1D (1-min candles), daily for longer periods
+      const url = timeframe === '1D'
+        ? `${API_URL}/api/v1/prices/${symbol}/intraday?interval=5m&days=1`
+        : `${API_URL}/api/v1/prices/${symbol}?limit=${limit}`
+      const res = await fetch(url)
       if (!res.ok) {
         setHasData(false)
         setLoading(false)
