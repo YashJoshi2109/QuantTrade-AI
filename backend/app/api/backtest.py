@@ -1,7 +1,7 @@
 """
 Backtest API — Pro-level backtesting endpoints
 Supports single backtest, multi-strategy comparison, and market scanning.
-Falls back to yfinance when DB has no price data.
+Fallback chain: yfinance -> Alpaca -> FMP -> Finnhub when DB has no price data.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -118,18 +118,35 @@ def _fetch_finnhub_candles(ticker: str, start: datetime, end: datetime) -> pd.Da
         return pd.DataFrame()
 
 
+def _fetch_alpaca_candles(ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
+    """Fetch historical bars from Alpaca (free, unlimited for US stocks)."""
+    try:
+        from app.services.alpaca_client import alpaca_client
+        df = alpaca_client.get_historical_bars(ticker, start, end)
+        if not df.empty:
+            return df
+    except Exception as e:
+        print(f"[backtest] Alpaca fallback failed for {ticker}: {e}")
+    return pd.DataFrame()
+
+
 def _fetch_price_data(ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
-    """Fetch price data with fallback chain: yfinance → FMP → Finnhub."""
+    """Fetch price data with fallback chain: yfinance → Alpaca → FMP → Finnhub."""
     # Primary: yfinance (unlimited, free)
     df = _fetch_yfinance_data(ticker, start, end)
     if not df.empty and len(df) >= 20:
         return df
-    # Fallback 1: FMP (250/day — use sparingly)
+    # Fallback 1: Alpaca (free historical bars, US stocks)
+    df = _fetch_alpaca_candles(ticker, start, end)
+    if not df.empty and len(df) >= 20:
+        print(f"[backtest] Using Alpaca fallback for {ticker}")
+        return df
+    # Fallback 2: FMP (250/day — use sparingly)
     df = _fetch_fmp_candles(ticker, start, end)
     if not df.empty and len(df) >= 20:
         print(f"[backtest] Using FMP fallback for {ticker}")
         return df
-    # Fallback 2: Finnhub (60/min — use sparingly)
+    # Fallback 3: Finnhub (60/min — use sparingly)
     df = _fetch_finnhub_candles(ticker, start, end)
     if not df.empty and len(df) >= 20:
         print(f"[backtest] Using Finnhub fallback for {ticker}")

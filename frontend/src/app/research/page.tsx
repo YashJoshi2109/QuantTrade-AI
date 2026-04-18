@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import {
   fetchPrices,
+  fetchIntradayPrices,
   fetchIndicators,
   fetchFundamentals,
   syncSymbol,
@@ -39,14 +40,21 @@ import { ResearchChartHeader, type ResearchChartPeriod } from '@/components/rese
 import { CompanyFolioPanel } from '@/components/research/CompanyFolioPanel'
 import EarningsShortInterestPanel from '@/components/research/EarningsShortInterestPanel'
 import FullscreenChartModal from '@/components/research/FullscreenChartModal'
+import OptionChainPanel from '@/components/research/OptionChainPanel'
 import TickerLogo from '@/components/TickerLogo'
 
 type ChartPeriod = ResearchChartPeriod
+
+function isIntradayPeriod(period: ChartPeriod): boolean {
+  return period === '1D' || period === '5D'
+}
 
 function chartPeriodRange(period: ChartPeriod): { start: Date; end: Date; barLimit: number } {
   const end = new Date()
   const start = new Date(end)
   const dayMap: Record<ChartPeriod, number> = {
+    '1D': 1,
+    '5D': 5,
     '1M': 35,
     '3M': 98,
     '6M': 190,
@@ -55,7 +63,7 @@ function chartPeriodRange(period: ChartPeriod): { start: Date; end: Date; barLim
     '5Y': 1900,
   }
   start.setUTCDate(start.getUTCDate() - dayMap[period])
-  const barLimit = Math.min(5000, Math.ceil(dayMap[period] * 1.25))
+  const barLimit = Math.min(5000, Math.ceil(dayMap[period] * (isIntradayPeriod(period) ? 390 : 1.25)))
   return { start, end, barLimit }
 }
 
@@ -75,6 +83,9 @@ function ResearchContent() {
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('1Y')
   const [chartSeriesType, setChartSeriesType] = useState<ChartSeriesType>('candlestick')
   const [chartShowMa, setChartShowMa] = useState(true)
+  const [chartShowVolume, setChartShowVolume] = useState(false)
+  const [chartLogScale, setChartLogScale] = useState(false)
+  const [chartShowGrid, setChartShowGrid] = useState(true)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [fullscreenChart, setFullscreenChart] = useState(false)
   const advancedRef = useRef<HTMLDivElement>(null)
@@ -139,28 +150,38 @@ function ResearchContent() {
     try {
       const { start: startDate, end: endDate, barLimit } = chartPeriodRange(chartPeriod)
 
-      let prices = await fetchPrices(
-        selectedSymbol,
-        startDate.toISOString(),
-        endDate.toISOString(),
-        barLimit
-      ).catch(() => [])
+      let prices: PriceBar[] = []
 
-      if (prices.length === 0) {
-        try {
-          const apiBase = process.env.NEXT_PUBLIC_API_URL || ''
-          const syncParams = new URLSearchParams({ start: startDate.toISOString(), end: endDate.toISOString() })
-          await fetch(`${apiBase}/api/v1/prices/${selectedSymbol}/sync?${syncParams}`, { method: 'POST' })
+      if (isIntradayPeriod(chartPeriod)) {
+        // Intraday: 1D = 1min bars, 5D = 5min bars
+        const interval = chartPeriod === '1D' ? '1m' : '5m'
+        const days = chartPeriod === '1D' ? 1 : 5
+        prices = await fetchIntradayPrices(selectedSymbol, interval, days).catch(() => [])
+      } else {
+        // Daily bars
+        prices = await fetchPrices(
+          selectedSymbol,
+          startDate.toISOString(),
+          endDate.toISOString(),
+          barLimit
+        ).catch(() => [])
 
-          await new Promise((resolve) => setTimeout(resolve, 2000))
-          prices = await fetchPrices(
-            selectedSymbol,
-            startDate.toISOString(),
-            endDate.toISOString(),
-            barLimit
-          ).catch(() => [])
-        } catch (syncErr) {
-          console.warn('Sync attempt failed:', syncErr)
+        if (prices.length === 0) {
+          try {
+            const apiBase = process.env.NEXT_PUBLIC_API_URL || ''
+            const syncParams = new URLSearchParams({ start: startDate.toISOString(), end: endDate.toISOString() })
+            await fetch(`${apiBase}/api/v1/prices/${selectedSymbol}/sync?${syncParams}`, { method: 'POST' })
+
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+            prices = await fetchPrices(
+              selectedSymbol,
+              startDate.toISOString(),
+              endDate.toISOString(),
+              barLimit
+            ).catch(() => [])
+          } catch (syncErr) {
+            console.warn('Sync attempt failed:', syncErr)
+          }
         }
       }
       
@@ -446,6 +467,12 @@ function ResearchContent() {
                 setChartPeriod={setChartPeriod}
                 setChartSeriesType={setChartSeriesType}
                 setChartShowMa={setChartShowMa}
+                chartShowVolume={chartShowVolume}
+                setChartShowVolume={setChartShowVolume}
+                chartLogScale={chartLogScale}
+                setChartLogScale={setChartLogScale}
+                chartShowGrid={chartShowGrid}
+                setChartShowGrid={setChartShowGrid}
                 priceInfo={priceInfo}
                 quoteLoading={quoteLoading}
                 priceTick={priceTick}
@@ -494,7 +521,10 @@ function ResearchContent() {
                     data={priceData}
                     symbol={selectedSymbol}
                     seriesType={chartSeriesType}
-                    showMovingAverages={chartShowMa && chartSeriesType === 'candlestick'}
+                    showMovingAverages={chartShowMa && (chartSeriesType === 'candlestick' || chartSeriesType === 'heikin-ashi')}
+                    showVolume={chartShowVolume}
+                    logScale={chartLogScale}
+                    showGrid={chartShowGrid}
                   />
                 )}
               </div>
@@ -719,6 +749,9 @@ function ResearchContent() {
               tickerInfo={tickerInfo}
             />
           </div>
+
+          {/* Option Chain with Greeks (Public.com) */}
+          <OptionChainPanel symbol={selectedSymbol} />
 
           {/* Live News Section */}
           <div className="col-span-12">

@@ -2055,3 +2055,73 @@ export async function fetchUniverseRankings(indexType = 'balanced_core'): Promis
   if (!response.ok) throw new Error('Failed to fetch rankings')
   return response.json()
 }
+
+// ── Options API (Public.com) ────────────────────────────────────────────
+
+export interface OptionContract {
+  symbol: string
+  strike: number | null
+  bid: number | null
+  ask: number | null
+  mid: number | null
+  last: number | null
+  volume: number | null
+  open_interest: number | null
+  implied_volatility: number | null
+  delta: number | null
+  gamma: number | null
+  theta: number | null
+  vega: number | null
+  rho: number | null
+}
+
+export interface OptionChainData {
+  symbol: string
+  expiration: string
+  calls: OptionContract[]
+  puts: OptionContract[]
+  source: string
+  fetched_at: string
+}
+
+export interface OptionExpirationsData {
+  symbol: string
+  expirations: string[]
+  source: string
+}
+
+// ── Intraday Chart Data ─────────────────────────────────────────────
+
+export async function fetchIntradayPrices(
+  symbol: string,
+  interval: '1m' | '5m' | '15m' | '1h' = '5m',
+  days: number = 1,
+): Promise<PriceBar[]> {
+  const response = await fetch(
+    `${API_URL}/api/v1/prices/${symbol.toUpperCase()}/intraday?interval=${interval}&days=${days}`
+  )
+  if (!response.ok) return []
+  const data = await response.json()
+  return (data || []).map((bar: any) => ({
+    timestamp: bar.timestamp,
+    open: bar.open,
+    high: bar.high,
+    low: bar.low,
+    close: bar.close,
+    volume: bar.volume,
+  }))
+}
+
+export async function fetchOptionExpirations(symbol: string): Promise<OptionExpirationsData> {
+  const response = await fetch(`${API_URL}/api/v1/options/${symbol.toUpperCase()}/expirations`)
+  if (!response.ok) throw new Error('Failed to fetch option expirations')
+  return response.json()
+}
+
+export async function fetchOptionChain(symbol: string, expiration: string): Promise<OptionChainData> {
+  const response = await fetch(
+    `${API_URL}/api/v1/options/${symbol.toUpperCase()}/chain?expiration=${encodeURIComponent(expiration)}`
+  )
+  if (!response.ok) throw new Error('Failed to fetch option chain')
+  return response.json()
+}

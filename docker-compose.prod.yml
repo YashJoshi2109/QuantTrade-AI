@@ -112,6 +112,16 @@ services:
       - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
       - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY:-}
       - SEC_API_KEY=${SEC_API_KEY:-}
+      # ── Alpaca Markets (free historical data + US quotes) ──────────────
+      - ALPACA_API_KEY=${ALPACA_API_KEY:-}
+      - ALPACA_SECRET_KEY=${ALPACA_SECRET_KEY:-}
+      - ALPACA_BASE_URL=${ALPACA_BASE_URL:-https://paper-api.alpaca.markets}
+      # ── Robinhood (US quotes fallback) ─────────────────────────────────
+      - ROBINHOOD_USERNAME=${ROBINHOOD_USERNAME:-}
+      - ROBINHOOD_PASSWORD=${ROBINHOOD_PASSWORD:-}
+      - ROBINHOOD_MFA_CODE=${ROBINHOOD_MFA_CODE:-}
+      # ── Public.com (real-time quotes, option chains) ───────────────────
+      - PUBLIC_API_SECRET_KEY=${PUBLIC_API_SECRET_KEY:-}
       # ── Global Monitor API Keys ─────────────────────────────────────
       - GUARDIAN_API_KEY=${GUARDIAN_API_KEY:-test}
       - ACLED_API_KEY=${ACLED_API_KEY:-}

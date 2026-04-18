@@ -1,7 +1,7 @@
 """
 Unified Real-Time Market Data Service
 
-Multi-source fallback chain: yfinance (primary, free) -> FMP -> Finnhub
+Multi-source fallback chain: Public.com -> yfinance -> FMP -> Finnhub -> Alpaca -> Robinhood
 All methods return standardized data, no synthetic/random data ever.
 
 Usage:
@@ -53,7 +53,57 @@ class MarketDataService:
     HISTORY_TTL = 300       # 5 min for historical data
     BATCH_TTL = 45          # 45s for batch quotes
 
-    # ── yfinance (primary — free, no rate limit) ─────────────────────────────
+    # ── Public.com (primary — real-time, 10 req/s) ────────────────────────────
+
+    async def _public_quote(self, symbol: str) -> Optional[MarketQuote]:
+        """Fetch quote via Public.com API (real-time, US stocks/ETFs/crypto)."""
+        try:
+            from app.services.public_client import public_client
+            q = await public_client.get_quote(symbol)
+            if not q or q.get("price", 0) <= 0:
+                return None
+            return MarketQuote(
+                symbol=symbol,
+                price=q["price"],
+                open=q.get("open"),
+                high=q.get("high"),
+                low=q.get("low"),
+                prev_close=q.get("previous_close"),
+                change_pct=q.get("change_percent", 0),
+                volume=q.get("volume", 0),
+                timestamp=q.get("timestamp"),
+                source="public.com",
+            )
+        except Exception as e:
+            logger.debug(f"Public.com quote failed for {symbol}: {e}")
+            return None
+
+    async def _public_batch(self, symbols: List[str]) -> Dict[str, MarketQuote]:
+        """Batch fetch via Public.com — single API call for all symbols."""
+        try:
+            from app.services.public_client import public_client
+            raw = await public_client.get_quotes(symbols)
+            results = {}
+            for sym, q in raw.items():
+                if q and q.get("price", 0) > 0:
+                    results[sym] = MarketQuote(
+                        symbol=sym,
+                        price=q["price"],
+                        open=q.get("open"),
+                        high=q.get("high"),
+                        low=q.get("low"),
+                        prev_close=q.get("previous_close"),
+                        change_pct=q.get("change_percent", 0),
+                        volume=q.get("volume", 0),
+                        timestamp=q.get("timestamp"),
+                        source="public.com",
+                    )
+            return results
+        except Exception as e:
+            logger.debug(f"Public.com batch failed: {e}")
+            return {}
+
+    # ── yfinance (secondary — free, no rate limit) ──────────────────────────
 
     async def _yf_quote(self, symbol: str) -> Optional[MarketQuote]:
         """Fetch single quote via yfinance (run in thread — it's synchronous)."""
@@ -226,6 +276,74 @@ class MarketDataService:
             logger.debug(f"Finnhub quote failed for {symbol}: {e}")
             return None
 
+    # ── Alpaca (US stocks — free, no rate limit) ──────────────────────────
+
+    async def _alpaca_quote(self, symbol: str) -> Optional[MarketQuote]:
+        """Fetch quote via Alpaca Markets."""
+        try:
+            def _fetch():
+                from app.services.alpaca_client import alpaca_client
+                q = alpaca_client.get_quote(symbol)
+                if not q or q.get("price", 0) <= 0:
+                    return None
+                return MarketQuote(
+                    symbol=symbol,
+                    price=q["price"],
+                    open=q.get("open"),
+                    high=q.get("high"),
+                    low=q.get("low"),
+                    prev_close=q.get("previous_close"),
+                    change_pct=q.get("change_percent", 0),
+                    volume=q.get("volume", 0),
+                    timestamp=q.get("timestamp"),
+                    source="alpaca",
+                )
+            return await asyncio.to_thread(_fetch)
+        except Exception as e:
+            logger.debug(f"Alpaca quote failed for {symbol}: {e}")
+            return None
+
+    # ── Robinhood (US stocks only — requires account) ───────────────────
+
+    async def _robinhood_quote(self, symbol: str) -> Optional[MarketQuote]:
+        """Fetch quote via Robinhood (US stocks only)."""
+        try:
+            def _fetch():
+                from app.services.robinhood_client import robinhood_client
+                q = robinhood_client.get_quote(symbol)
+                if not q or q.get("price", 0) <= 0:
+                    return None
+                return MarketQuote(
+                    symbol=symbol,
+                    price=q["price"],
+                    open=q.get("open"),
+                    high=q.get("high"),
+                    low=q.get("low"),
+                    prev_close=q.get("previous_close"),
+                    change_pct=q.get("change_percent", 0),
+                    volume=q.get("volume", 0),
+                    timestamp=q.get("timestamp"),
+                    source="robinhood",
+                )
+            return await asyncio.to_thread(_fetch)
+        except Exception as e:
+            logger.debug(f"Robinhood quote failed for {symbol}: {e}")
+            return None
+
+    # ── Alpaca historical (free bars for candlesticks) ──────────────────
+
+    async def _alpaca_historical(self, symbol: str, period: str = "6mo") -> Optional[pd.DataFrame]:
+        """Fetch OHLCV history via Alpaca (free, unlimited)."""
+        try:
+            def _fetch():
+                from app.services.alpaca_client import alpaca_client
+                return alpaca_client.get_historical_bars_df(symbol, period=period)
+            df = await asyncio.to_thread(_fetch)
+            return df if df is not None and not df.empty else None
+        except Exception as e:
+            logger.debug(f"Alpaca history failed for {symbol}: {e}")
+            return None
+
     # ── Public API ───────────────────────────────────────────────────────────
 
     async def get_quote(self, symbol: str) -> Optional[MarketQuote]:
@@ -233,7 +351,10 @@ class MarketDataService:
         cache_key = f"qt:quote:{symbol}"
 
         async def _fetch():
-            # Waterfall: yfinance -> FMP -> Finnhub
+            # Waterfall: Public.com -> yfinance -> FMP -> Finnhub -> Alpaca -> Robinhood
+            quote = await self._public_quote(symbol)
+            if quote and quote.price > 0:
+                return quote.to_dict()
             quote = await self._yf_quote(symbol)
             if quote and quote.price > 0:
                 return quote.to_dict()
@@ -241,6 +362,12 @@ class MarketDataService:
             if quote and quote.price > 0:
                 return quote.to_dict()
             quote = await self._finnhub_quote(symbol)
+            if quote and quote.price > 0:
+                return quote.to_dict()
+            quote = await self._alpaca_quote(symbol)
+            if quote and quote.price > 0:
+                return quote.to_dict()
+            quote = await self._robinhood_quote(symbol)
             if quote and quote.price > 0:
                 return quote.to_dict()
             return None
@@ -255,16 +382,26 @@ class MarketDataService:
         cache_key = f"qt:batch:{','.join(sorted(symbols[:20]))}"
 
         async def _fetch():
-            # Try yfinance batch first (single network call for all)
-            results = await self._yf_batch(symbols)
+            # Try Public.com batch first (single API call, real-time)
+            results = await self._public_batch(symbols)
 
-            # Fill gaps with FMP/Finnhub
+            # Fill gaps with yfinance batch
+            missing = [s for s in symbols if s not in results]
+            if missing:
+                yf_results = await self._yf_batch(missing)
+                results.update(yf_results)
+
+            # Fill remaining gaps with FMP/Finnhub/Alpaca/Robinhood
             missing = [s for s in symbols if s not in results]
             if missing:
                 for sym in missing[:10]:  # Cap individual fallbacks
                     q = await self._fmp_quote(sym)
                     if not q:
                         q = await self._finnhub_quote(sym)
+                    if not q:
+                        q = await self._alpaca_quote(sym)
+                    if not q:
+                        q = await self._robinhood_quote(sym)
                     if q and q.price > 0:
                         results[sym] = q
 
@@ -277,7 +414,7 @@ class MarketDataService:
         return {}
 
     async def get_historical(self, symbol: str, period: str = "6mo") -> Optional[pd.DataFrame]:
-        """Get OHLCV history. Cached in memory (DataFrames not JSON-serializable)."""
+        """Get OHLCV history with fallback: yfinance → Alpaca. Cached in memory."""
         from app.services.ttl_cache import cache as mem_cache
 
         cache_key = f"qt:hist:{symbol}:{period}"
@@ -285,7 +422,11 @@ class MarketDataService:
         if cached is not None:
             return cached
 
+        # Primary: yfinance
         df = await self._yf_historical(symbol, period)
+        # Fallback: Alpaca (free historical bars)
+        if df is None or df.empty:
+            df = await self._alpaca_historical(symbol, period)
         if df is not None and not df.empty:
             mem_cache.set(cache_key, df, self.HISTORY_TTL)
         return df

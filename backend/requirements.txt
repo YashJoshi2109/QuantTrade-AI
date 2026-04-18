@@ -29,6 +29,15 @@ lxml>=4.9.3  # For Finviz HTML parsing
 # Finviz stock data
 finviz
 
+# Alpaca Markets — free historical bars, US quotes (paper/live)
+alpaca-py>=0.13.0
+
+# Robinhood — US stock quotes fallback
+robin_stocks>=3.0.0
+
+# Public.com — real-time quotes, option chains, batch pricing (US stocks/ETFs/crypto/bonds)
+publicdotcom-py>=0.1.10
+
 # Technical analysis & feature engineering
 ta==0.11.0
 # pandas-ta>=0.3.14b0  # Optional: Requires Python < 3.14 (numba dependency)

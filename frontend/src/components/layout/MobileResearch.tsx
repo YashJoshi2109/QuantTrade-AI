@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import {
   fetchPrices,
+  fetchIntradayPrices,
   fetchIndicators,
   syncSymbol,
   fetchFundamentals,
@@ -161,10 +162,14 @@ export default function MobileResearch() {
     return { startIso: start.toISOString(), endIso: end }
   }, [timeframe])
 
+  const isIntraday = timeframe === '1D' || timeframe === '1W'
   const { data: prices, isLoading: pricesLoading } = useQuery<PriceBar[]>({
     queryKey: ['mobile.prices', symbolFromUrl, timeframe],
-    queryFn: () => fetchPrices(symbolFromUrl, startIso, endIso),
-    staleTime: 60 * 1000,
+    queryFn: () =>
+      isIntraday
+        ? fetchIntradayPrices(symbolFromUrl, timeframe === '1D' ? '1m' : '5m', timeframe === '1D' ? 1 : 5)
+        : fetchPrices(symbolFromUrl, startIso, endIso),
+    staleTime: isIntraday ? 30_000 : 60_000,
   })
 
   const { data: indicators, isLoading: indicatorsLoading } =

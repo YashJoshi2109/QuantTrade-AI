@@ -1,6 +1,6 @@
 """
 Service for fetching market data from various sources
-Uses Alpha Vantage as primary source, yfinance as fallback
+Fallback chain: yfinance -> Alpaca -> Alpha Vantage
 """
 import yfinance as yf
 import pandas as pd
@@ -112,27 +112,55 @@ class DataFetcher:
             return pd.DataFrame()
     
     @staticmethod
+    def _fetch_historical_alpaca(
+        symbol: str,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        period: str = "1y",
+    ) -> pd.DataFrame:
+        """Fetch historical data from Alpaca (free, unlimited for US stocks)."""
+        try:
+            from app.services.alpaca_client import alpaca_client
+            df = alpaca_client.get_historical_bars_df(symbol, start_date, end_date, period)
+            if not df.empty:
+                print(f"Fetched {len(df)} bars for {symbol} via Alpaca")
+            return df
+        except Exception as e:
+            print(f"Alpaca historical failed for {symbol}: {e}")
+            return pd.DataFrame()
+
+    @staticmethod
     def fetch_historical_data(
         symbol: str,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         period: str = "1y"
     ) -> pd.DataFrame:
-        """Fetch historical OHLCV data - uses yfinance (primary), Alpha Vantage (secondary)"""
-        
+        """Fetch historical OHLCV data — yfinance → Alpaca → Alpha Vantage"""
+
         # Try yfinance first (works without API key)
         print(f"Fetching data for {symbol} via yfinance...")
         try:
             ticker = yf.Ticker(symbol)
-            
+
             if start_date and end_date:
                 df = ticker.history(start=start_date, end=end_date)
             else:
                 df = ticker.history(period=period)
-            
+
             if df.empty:
-                print(f"{symbol}: yfinance returned no data, trying Alpha Vantage...")
-                # Fallback to Alpha Vantage
+                print(f"{symbol}: yfinance returned no data, trying Alpaca...")
+                # Fallback 1: Alpaca (free historical bars)
+                df = DataFetcher._fetch_historical_alpaca(symbol, start_date, end_date, period)
+                if not df.empty:
+                    if start_date:
+                        df = df[df["timestamp"] >= pd.to_datetime(start_date)]
+                    if end_date:
+                        df = df[df["timestamp"] <= pd.to_datetime(end_date)]
+                    return df
+
+                print(f"{symbol}: Alpaca returned no data, trying Alpha Vantage...")
+                # Fallback 2: Alpha Vantage
                 df = DataFetcher.fetch_historical_data_alpha_vantage(symbol, "compact")
                 if not df.empty:
                     if start_date:
@@ -140,10 +168,10 @@ class DataFetcher:
                     if end_date:
                         df = df[df["timestamp"] <= pd.to_datetime(end_date)]
                     return df
-                
+
                 print(f"{symbol}: No price data found from any source")
                 return pd.DataFrame()
-            
+
             # Reset index to make Date a column
             df.reset_index(inplace=True)
             df.rename(columns={
@@ -154,12 +182,15 @@ class DataFetcher:
                 "Close": "close",
                 "Volume": "volume"
             }, inplace=True)
-            
+
             print(f"Fetched {len(df)} bars for {symbol} via yfinance")
             return df
         except Exception as e:
             print(f"yfinance failed for {symbol}: {e}")
-            # Try Alpha Vantage as last resort
+            # Try Alpaca, then Alpha Vantage
+            df = DataFetcher._fetch_historical_alpaca(symbol, start_date, end_date, period)
+            if not df.empty:
+                return df
             df = DataFetcher.fetch_historical_data_alpha_vantage(symbol, "compact")
             if not df.empty:
                 print(f"Fetched {len(df)} bars for {symbol} via Alpha Vantage")
