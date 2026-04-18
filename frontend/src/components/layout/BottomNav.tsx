@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import MoreMenu from './MoreMenu'
+import ThemeToggle from '@/components/ui/theme-toggle'
 
 interface NavItem {
   label: string
