@@ -12,11 +12,36 @@ Tables:
 """
 from sqlalchemy import (
     Column, Integer, SmallInteger, String, Boolean, DateTime, Text, Float,
-    ForeignKey, JSON, Index, UniqueConstraint,
+    ForeignKey, JSON, Index, UniqueConstraint, TypeDecorator,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+
+
+class PortableARRAY(TypeDecorator):
+    """ARRAY on PostgreSQL, JSON fallback on SQLite (for test compat)."""
+    impl = JSON
+    cache_ok = True
+
+    def __init__(self, item_type):
+        super().__init__()
+        self._item_type = item_type
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(ARRAY(self._item_type))
+        return dialect.type_descriptor(JSON())
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return [] if dialect.name != "postgresql" else value
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return []
+        return value
 
 from app.db.database import Base
 
@@ -99,7 +124,7 @@ class Post(Base):
     body_html = Column(Text, nullable=True)
 
     post_type = Column(String(20), nullable=False, default="text")  # text, analysis, trade, poll, media
-    tickers = Column(ARRAY(String(20)), nullable=False, server_default="{}")  # referenced tickers like $AAPL
+    tickers = Column(PortableARRAY(String(20)), nullable=False, server_default="{}")  # referenced tickers like $AAPL
     sentiment = Column(String(10), nullable=True)  # bullish, bearish, neutral
 
     upvote_count = Column(Integer, nullable=False, default=0)
@@ -111,7 +136,7 @@ class Post(Base):
     is_pinned = Column(Boolean, nullable=False, default=False)
     is_locked = Column(Boolean, nullable=False, default=False)
 
-    media_urls = Column(ARRAY(Text), nullable=False, server_default="{}")
+    media_urls = Column(PortableARRAY(Text), nullable=False, server_default="{}")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
