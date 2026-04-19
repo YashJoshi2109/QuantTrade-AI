@@ -24,8 +24,11 @@ import {
   Info,
   Sparkles,
   Swords,
+  MessageCircle,
+  Bell,
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
+import NotificationBell from './community/NotificationBell'
 import MarketTicker from './MarketTicker'
 import SiteFooter from './SiteFooter'
 import PredictionAlertCenter from './PredictionAlertCenter'
@@ -193,6 +196,8 @@ export default function AppLayout({ children, symbol, hideFooter }: AppLayoutPro
       { id: 'research', label: 'Research', icon: FileText, href: '/research' },
       { id: 'backtest', label: 'Backtest', icon: Activity, href: '/backtest' },
       { id: 'ideas', label: 'Ideas Lab', icon: Lightbulb, href: '/ideas-lab' },
+      { id: 'community', label: 'Community', icon: MessageCircle, href: '/community' },
+      { id: 'notifications', label: 'Notifications', icon: Bell, href: '/notifications' },
       { id: 'game', label: 'CoinRealm', icon: Swords, href: '/game', amber: true },
       {
         id: 'pricing',
@@ -421,6 +426,9 @@ export default function AppLayout({ children, symbol, hideFooter }: AppLayoutPro
                 <Info className="w-5 h-5" aria-hidden />
               </Link>
             </HeaderTooltip>
+            <div className="shrink-0">
+              <NotificationBell />
+            </div>
             <div className="shrink-0 relative z-[52] pl-0.5">
               <PredictionAlertCenter />
             </div>

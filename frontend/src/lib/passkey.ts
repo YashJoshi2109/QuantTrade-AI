@@ -104,12 +104,16 @@ export async function registerPasskey(
   try {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
+    }
+    // Include Bearer token if available (backwards compat), otherwise cookie is sent via credentials
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`
     }
 
     const challengeRes = await fetch(passkeyUrl('/api/v1/auth/passkey/register/challenge'), {
       method: 'POST',
       headers,
+      credentials: 'include',
       body: JSON.stringify({ user_id: userId }),
     })
     if (!challengeRes.ok) {
@@ -149,6 +153,7 @@ export async function registerPasskey(
     const verifyRes = await fetch(passkeyUrl('/api/v1/auth/passkey/register/verify'), {
       method: 'POST',
       headers,
+      credentials: 'include',
       body: JSON.stringify({
         session_token,
         credential_id: bufferToBase64url(credential.rawId),
@@ -182,11 +187,14 @@ export interface PasskeyCredentialSummary {
 }
 
 export async function listPasskeys(accessToken: string): Promise<PasskeyCredentialSummary[]> {
+  const headers: Record<string, string> = {}
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
   const res = await fetch(passkeyUrl('/api/v1/auth/passkey/list'), {
     method: 'GET',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers,
+    credentials: 'include',
   })
   if (!res.ok) return []
   const data = await res.json().catch(() => ({ items: [] }))
@@ -206,6 +214,7 @@ export async function authenticatePasskey(): Promise<{ success: boolean; token?:
     const challengeRes = await fetch(passkeyUrl('/api/v1/auth/passkey/auth/challenge'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
     })
     if (!challengeRes.ok) {
       const err = await challengeRes.json().catch(() => ({}))
@@ -229,6 +238,7 @@ export async function authenticatePasskey(): Promise<{ success: boolean; token?:
     const verifyRes = await fetch(passkeyUrl('/api/v1/auth/passkey/auth/verify'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         session_token,
         credential_id: bufferToBase64url(credential.rawId),

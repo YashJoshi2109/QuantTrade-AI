@@ -1,18 +1,12 @@
 /**
  * QuantTrade Life — Game API client
- * All calls attach the JWT from localStorage.
+ * Auth is handled via httpOnly cookies (credentials: 'include').
  */
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('auth_token')
-}
-
 function authHeaders(): HeadersInit {
-  const token = getToken()
-  return token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' }
+  return { 'Content-Type': 'application/json' }
 }
 
 async function gameGet<T>(path: string): Promise<T> {
@@ -21,6 +15,7 @@ async function gameGet<T>(path: string): Promise<T> {
     res = await fetch(`${API_URL}/api/v1/game${path}`, {
       method: 'GET',
       headers: authHeaders(),
+      credentials: 'include',
     })
   } catch {
     throw new Error(
@@ -48,6 +43,7 @@ async function gamePost<T>(path: string, body?: object): Promise<T> {
     res = await fetch(`${API_URL}/api/v1/game${path}`, {
       method: 'POST',
       headers: authHeaders(),
+      credentials: 'include',
       body: body ? JSON.stringify(body) : undefined,
     })
   } catch {

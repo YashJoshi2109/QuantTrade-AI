@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
     setToken(token)
     const res = await fetch(`${API_URL}/api/v1/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
     })
     if (!res.ok) throw new Error('Failed to fetch user from token')
     const userObj: User = await res.json()

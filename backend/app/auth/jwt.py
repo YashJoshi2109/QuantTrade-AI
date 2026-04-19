@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from fastapi import Response
 from app.config import settings
 
 # Password hashing context
@@ -46,3 +47,27 @@ def decode_access_token(token: str) -> Optional[dict]:
         return payload
     except JWTError:
         return None
+
+
+# ── httpOnly Cookie Helpers ──────────────────────────────────────────────────
+
+COOKIE_NAME = "qt_access_token"
+COOKIE_MAX_AGE = 7 * 24 * 60 * 60  # 7 days in seconds
+
+
+def set_auth_cookie(response: Response, token: str):
+    """Set httpOnly secure cookie with JWT token"""
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=True,       # HTTPS only
+        samesite="lax",    # Prevents CSRF on cross-site POST but allows normal navigation
+        max_age=COOKIE_MAX_AGE,
+        path="/",
+    )
+
+
+def clear_auth_cookie(response: Response):
+    """Clear the auth cookie"""
+    response.delete_cookie(key=COOKIE_NAME, path="/")

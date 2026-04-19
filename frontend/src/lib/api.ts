@@ -2,7 +2,8 @@
  * API client for backend communication
  */
 
-import { getToken } from '@/lib/auth'
+// getToken no longer needed — auth is handled via httpOnly cookies
+// import { getToken } from '@/lib/auth'
 import {
   CONTINENT_NEWS_TICKERS,
   getExchangeById,
@@ -362,12 +363,8 @@ export async function fetchPredictionAlerts(
     const url = new URL(`${API_URL}/api/v1/enhanced/alerts/predictions`)
     url.searchParams.append('min_confidence', String(minConfidence))
     url.searchParams.append('min_abs_return', String(minAbsReturn))
-    const token = typeof window !== 'undefined' ? getToken() : null
     const headers: HeadersInit = { Accept: 'application/json' }
-    if (token) {
-      ;(headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
-    }
-    const response = await fetchWithTimeout(url.toString(), 25_000, { headers })
+    const response = await apiFetchWithTimeout(url.toString(), 25_000, { headers })
     const data = await parseJsonSafe<PredictionAlert[]>(response)
     if (data && Array.isArray(data)) return data
     return []
@@ -474,9 +471,26 @@ async function getAuthHeadersClient(): Promise<Record<string, string>> {
   return headers
 }
 
+/**
+ * Wrapper around fetch that always sends credentials (httpOnly cookies).
+ * Use this for any endpoint that may need authentication.
+ */
+async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+  return fetch(url, { ...init, credentials: 'include' })
+}
+
+/** Like fetchWithTimeout but always includes credentials */
+async function apiFetchWithTimeout(
+  url: string,
+  timeoutMs: number,
+  init?: RequestInit
+): Promise<Response> {
+  return fetchWithTimeout(url, timeoutMs, { ...init, credentials: 'include' })
+}
+
 export async function sendChatMessage(message: ChatMessage): Promise<ChatResponse> {
   const headers = await getAuthHeadersClient()
-  const response = await fetch(`${API_URL}/api/v1/chat`, {
+  const response = await apiFetch(`${API_URL}/api/v1/chat`, {
     method: 'POST',
     headers,
     body: JSON.stringify(message),
@@ -490,14 +504,14 @@ export async function sendChatMessage(message: ChatMessage): Promise<ChatRespons
 
 export async function listConversations(): Promise<ConversationSummary[]> {
   const headers = await getAuthHeadersClient()
-  const response = await fetch(`${API_URL}/api/v1/conversations?limit=30`, { headers })
+  const response = await apiFetch(`${API_URL}/api/v1/conversations?limit=30`, { headers })
   if (!response.ok) return []
   return response.json()
 }
 
 export async function createConversation(title?: string): Promise<ConversationSummary> {
   const headers = await getAuthHeadersClient()
-  const response = await fetch(`${API_URL}/api/v1/conversations`, {
+  const response = await apiFetch(`${API_URL}/api/v1/conversations`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ title }),
@@ -508,14 +522,14 @@ export async function createConversation(title?: string): Promise<ConversationSu
 
 export async function getConversationMessages(conversationId: string): Promise<StoredMessage[]> {
   const headers = await getAuthHeadersClient()
-  const response = await fetch(`${API_URL}/api/v1/conversations/${conversationId}/messages`, { headers })
+  const response = await apiFetch(`${API_URL}/api/v1/conversations/${conversationId}/messages`, { headers })
   if (!response.ok) return []
   return response.json()
 }
 
 export async function deleteConversation(conversationId: string): Promise<void> {
   const headers = await getAuthHeadersClient()
-  await fetch(`${API_URL}/api/v1/conversations/${conversationId}`, {
+  await apiFetch(`${API_URL}/api/v1/conversations/${conversationId}`, {
     method: 'DELETE',
     headers,
   })
@@ -527,7 +541,7 @@ export async function refreshChatMessage(
   refreshParts?: string[]
 ): Promise<{ payload_json: Record<string, any>; as_of: string; ttl_expires_at: string; refreshed_parts: string[] }> {
   const headers = await getAuthHeadersClient()
-  const response = await fetch(`${API_URL}/api/v1/chat/refresh`, {
+  const response = await apiFetch(`${API_URL}/api/v1/chat/refresh`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -593,16 +607,8 @@ export async function getWatchlist(): Promise<WatchlistItem[]> {
     if (typeof window === 'undefined') {
       return []
     }
-    
-    const { getAuthHeaders } = await import('./auth')
-    const headers = getAuthHeaders()
-    if (!headers.Authorization) {
-      return []
-    }
-    
-    const response = await fetch(`${API_URL}/api/v1/watchlist`, {
-      headers
-    })
+
+    const response = await apiFetch(`${API_URL}/api/v1/watchlist`)
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -626,20 +632,10 @@ export async function addToWatchlist(params: AddWatchlistParams): Promise<Watchl
   if (typeof window === 'undefined') {
     throw new Error('Client-side only')
   }
-  
-  const { getAuthHeaders } = await import('./auth')
-  const headers = getAuthHeaders()
-  
-  if (!headers.Authorization) {
-    throw new Error('Please sign in to add items to your watchlist')
-  }
-  
-  const response = await fetch(`${API_URL}/api/v1/watchlist`, {
+
+  const response = await apiFetch(`${API_URL}/api/v1/watchlist`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       symbol: params.symbol.trim().toUpperCase(),
       source: params.source
@@ -676,17 +672,9 @@ export async function removeFromWatchlist(symbol: string): Promise<void> {
   if (typeof window === 'undefined') {
     throw new Error('Client-side only')
   }
-  
-  const { getAuthHeaders } = await import('./auth')
-  const headers = getAuthHeaders()
-  
-  if (!headers.Authorization) {
-    throw new Error('Please sign in to manage your watchlist')
-  }
-  
-  const response = await fetch(`${API_URL}/api/v1/watchlist/${encodeURIComponent(symbol.toUpperCase())}`, {
+
+  const response = await apiFetch(`${API_URL}/api/v1/watchlist/${encodeURIComponent(symbol.toUpperCase())}`, {
     method: 'DELETE',
-    headers
   })
   
   if (!response.ok) {
@@ -858,9 +846,7 @@ export async function runBacktest(
   request: BacktestRequest,
   signal?: AbortSignal,
 ): Promise<BacktestResult> {
-  const token = typeof window !== 'undefined' ? getToken() : null
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = `Bearer ${token}`
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(new DOMException('Backtest timed out', 'TimeoutError')), 120_000)
@@ -871,7 +857,7 @@ export async function runBacktest(
     : controller.signal
 
   try {
-    const response = await fetch(`${API_URL}/api/v1/backtest`, {
+    const response = await apiFetch(`${API_URL}/api/v1/backtest`, {
       method: 'POST',
       headers,
       body: JSON.stringify(request),
@@ -899,10 +885,8 @@ export async function compareStrategies(
   request: CompareRequest,
   signal?: AbortSignal,
 ): Promise<CompareResult> {
-  const token = typeof window !== 'undefined' ? getToken() : null
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-  const response = await fetch(`${API_URL}/api/v1/backtest/compare`, {
+  const response = await apiFetch(`${API_URL}/api/v1/backtest/compare`, {
     method: 'POST', headers, body: JSON.stringify(request), signal,
   })
   if (!response.ok) {
@@ -916,10 +900,8 @@ export async function scanSymbols(
   request: ScanRequest,
   signal?: AbortSignal,
 ): Promise<ScanResult> {
-  const token = typeof window !== 'undefined' ? getToken() : null
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-  const response = await fetch(`${API_URL}/api/v1/backtest/scan`, {
+  const response = await apiFetch(`${API_URL}/api/v1/backtest/scan`, {
     method: 'POST', headers, body: JSON.stringify(request), signal,
   })
   if (!response.ok) {
@@ -1597,7 +1579,7 @@ export async function createCheckoutSession(
 ): Promise<CheckoutSessionResponse> {
   const headers = await getAuthJsonHeaders()
 
-  const response = await fetch(`${API_URL}/api/v1/billing/checkout-session`, {
+  const response = await apiFetch(`${API_URL}/api/v1/billing/checkout-session`, {
     method: 'POST',
     headers,
     body: JSON.stringify(params),
@@ -1617,7 +1599,7 @@ export async function createCheckoutSession(
 export async function createBillingPortalSession(): Promise<BillingPortalResponse> {
   const headers = await getAuthJsonHeaders()
 
-  const response = await fetch(`${API_URL}/api/v1/billing/portal`, {
+  const response = await apiFetch(`${API_URL}/api/v1/billing/portal`, {
     method: 'POST',
     headers,
   })
@@ -1650,7 +1632,7 @@ export async function getBillingSessionStatus(
 export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
   const headers = await getAuthJsonHeaders()
 
-  const response = await fetch(`${API_URL}/api/v1/billing/subscription`, {
+  const response = await apiFetch(`${API_URL}/api/v1/billing/subscription`, {
     headers,
   })
 
@@ -1669,7 +1651,7 @@ export async function cancelSubscriptionAtPeriodEnd(
   atPeriodEnd: boolean = true
 ): Promise<{ ok: boolean; message?: string }> {
   const headers = await getAuthJsonHeaders()
-  const response = await fetch(`${API_URL}/api/v1/billing/cancel-subscription`, {
+  const response = await apiFetch(`${API_URL}/api/v1/billing/cancel-subscription`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ at_period_end: atPeriodEnd }),
@@ -1686,7 +1668,7 @@ export async function cancelSubscriptionAtPeriodEnd(
 
 export async function getUserPreferences(): Promise<UserPreferences> {
   const headers = await getAuthJsonHeaders()
-  const response = await fetch(`${API_URL}/api/v1/user/preferences`, { headers })
+  const response = await apiFetch(`${API_URL}/api/v1/user/preferences`, { headers })
   if (!response.ok) {
     throw new Error('Failed to load preferences')
   }
@@ -1697,7 +1679,7 @@ export async function putUserPreferences(
   patch: Partial<UserPreferences>
 ): Promise<UserPreferences> {
   const headers = await getAuthJsonHeaders()
-  const response = await fetch(`${API_URL}/api/v1/user/preferences`, {
+  const response = await apiFetch(`${API_URL}/api/v1/user/preferences`, {
     method: 'PUT',
     headers,
     body: JSON.stringify(patch),
@@ -1711,7 +1693,7 @@ export async function putUserPreferences(
 
 export async function requestAccountDeletionOtp(): Promise<{ ok: boolean; message?: string }> {
   const headers = await getAuthJsonHeaders()
-  const response = await fetch(`${API_URL}/api/v1/account/delete-request`, {
+  const response = await apiFetch(`${API_URL}/api/v1/account/delete-request`, {
     method: 'POST',
     headers,
   })
@@ -1724,7 +1706,7 @@ export async function requestAccountDeletionOtp(): Promise<{ ok: boolean; messag
 
 export async function confirmAccountDeletion(otp: string): Promise<{ ok: boolean }> {
   const headers = await getAuthJsonHeaders()
-  const response = await fetch(`${API_URL}/api/v1/account/delete-confirm`, {
+  const response = await apiFetch(`${API_URL}/api/v1/account/delete-confirm`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ otp: otp.trim() }),
@@ -1794,7 +1776,7 @@ export interface IdeasResponse {
 
 export async function generateIdeas(): Promise<IdeasResponse> {
   const headers = await getAuthJsonHeaders()
-  const response = await fetch(`${API_URL}/api/v1/ideas/generate`, { headers })
+  const response = await apiFetch(`${API_URL}/api/v1/ideas/generate`, { headers })
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
     throw new Error(err.detail || 'Failed to generate ideas')
@@ -1828,7 +1810,7 @@ export interface CopilotUsage {
 
 export async function getCopilotUsage(): Promise<CopilotUsage> {
   const headers = await getAuthHeadersClient()
-  const response = await fetch(`${API_URL}/api/v1/copilot/usage`, { headers })
+  const response = await apiFetch(`${API_URL}/api/v1/copilot/usage`, { headers })
   if (!response.ok) return {
     today_requests: 0, today_input_tokens: 0, today_output_tokens: 0,
     today_cost_usd: 0, daily_budget_usd: 2.0, budget_remaining_usd: 2.0, budget_ok: true,
@@ -2012,7 +1994,7 @@ export async function refreshIndex(
   const timeoutId = setTimeout(() => controller.abort(), 90_000)
 
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_URL}/api/v1/model-index/indices/${encodeURIComponent(indexId)}/refresh?${q}`,
       { method: 'POST', headers, signal: controller.signal },
     )
@@ -2124,4 +2106,218 @@ export async function fetchOptionChain(symbol: string, expiration: string): Prom
   )
   if (!response.ok) throw new Error('Failed to fetch option chain')
   return response.json()
+}
+
+// ── Community API ──────────────────────────────────────────────────────
+
+export interface CommunityPost {
+  id: number
+  title: string
+  body: string
+  post_type: string
+  tickers: string[]
+  sentiment: string | null
+  vote_count: number
+  comment_count: number
+  user_vote: number | null
+  created_at: string
+  author: { id: number; username: string; avatar_url?: string }
+  community: { slug: string; name: string; icon?: string }
+}
+
+export interface Community {
+  id?: number
+  slug: string
+  name: string
+  description: string
+  icon?: string
+  icon_url?: string
+  banner_url?: string
+  category: string
+  ticker_focus?: string
+  member_count: number
+  post_count?: number
+  is_private?: boolean
+  created_at?: string
+  creator_username?: string
+  is_member: boolean
+}
+
+export interface Notification {
+  id: number
+  type: 'reply' | 'upvote' | 'mention' | 'follow' | 'alert'
+  title: string
+  body: string
+  action_url?: string
+  is_read: boolean
+  created_at: string
+}
+
+export async function fetchFeed(sort: string = 'hot', cursor?: number, limit: number = 20) {
+  const params = new URLSearchParams({ sort, limit: String(limit) })
+  if (cursor) params.set('cursor', String(cursor))
+  const res = await apiFetch(`${API_URL}/api/v1/feed?${params}`)
+  if (!res.ok) return { posts: [] as CommunityPost[], next_cursor: null as number | null }
+  return res.json() as Promise<{ posts: CommunityPost[]; next_cursor: number | null }>
+}
+
+export async function fetchPopularFeed(cursor?: number, limit: number = 20) {
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (cursor) params.set('cursor', String(cursor))
+  const res = await apiFetch(`${API_URL}/api/v1/feed/popular?${params}`)
+  if (!res.ok) return { posts: [] as CommunityPost[], next_cursor: null as number | null }
+  return res.json() as Promise<{ posts: CommunityPost[]; next_cursor: number | null }>
+}
+
+export async function fetchTickerFeed(symbol: string, cursor?: number) {
+  const params = new URLSearchParams({ limit: '20' })
+  if (cursor) params.set('cursor', String(cursor))
+  const res = await apiFetch(`${API_URL}/api/v1/feed/ticker/${symbol}?${params}`)
+  if (!res.ok) return { posts: [] as CommunityPost[], next_cursor: null as number | null }
+  return res.json() as Promise<{ posts: CommunityPost[]; next_cursor: number | null }>
+}
+
+export async function fetchCommunities(category?: string) {
+  const params = category ? `?category=${category}` : ''
+  const res = await apiFetch(`${API_URL}/api/v1/communities${params}`)
+  if (!res.ok) return { communities: [] as Community[] }
+  return res.json() as Promise<{ communities: Community[] }>
+}
+
+export async function fetchCommunity(slug: string) {
+  const res = await apiFetch(`${API_URL}/api/v1/communities/${slug}`)
+  if (!res.ok) return null
+  return res.json() as Promise<Community>
+}
+
+export async function joinCommunity(slug: string) {
+  const res = await apiFetch(`${API_URL}/api/v1/communities/${slug}/join`, { method: 'POST' })
+  return res.ok
+}
+
+export async function leaveCommunity(slug: string) {
+  const res = await apiFetch(`${API_URL}/api/v1/communities/${slug}/leave`, { method: 'DELETE' })
+  return res.ok
+}
+
+export async function createPost(data: { title: string; body: string; community_slug: string; post_type?: string; tickers?: string[]; sentiment?: string }) {
+  const res = await apiFetch(`${API_URL}/api/v1/posts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error('Failed to create post')
+  return res.json() as Promise<CommunityPost>
+}
+
+export async function fetchPost(postId: number) {
+  const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}`)
+  if (!res.ok) return null
+  return res.json() as Promise<CommunityPost>
+}
+
+export async function votePost(postId: number, direction: 1 | -1) {
+  const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/vote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ direction }),
+  })
+  return res.ok
+}
+
+export async function fetchComments(postId: number) {
+  const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/comments`)
+  if (!res.ok) return { comments: [] }
+  return res.json()
+}
+
+export async function createComment(postId: number, body: string, parentId?: number) {
+  const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/comments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body, parent_id: parentId }),
+  })
+  if (!res.ok) throw new Error('Failed to create comment')
+  return res.json()
+}
+
+export async function voteComment(commentId: number, direction: 1 | -1) {
+  const res = await apiFetch(`${API_URL}/api/v1/comments/${commentId}/vote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ direction }),
+  })
+  return res.ok
+}
+
+export async function fetchNotifications(limit: number = 20) {
+  const res = await apiFetch(`${API_URL}/api/v1/notifications?limit=${limit}`)
+  if (!res.ok) return { notifications: [] }
+  return res.json()
+}
+
+export async function fetchUnreadCount() {
+  const res = await apiFetch(`${API_URL}/api/v1/notifications/unread-count`)
+  if (!res.ok) return { count: 0 }
+  return res.json()
+}
+
+export async function markNotificationRead(id: number) {
+  await apiFetch(`${API_URL}/api/v1/notifications/${id}/read`, { method: 'PATCH' })
+}
+
+export async function markAllNotificationsRead() {
+  await apiFetch(`${API_URL}/api/v1/notifications/read-all`, { method: 'POST' })
+}
+
+// ── Moderation API ──────────────────────────────────────────────────────
+
+export async function fetchModerationQueue(status: string = 'pending') {
+  const res = await apiFetch(`${API_URL}/api/v1/moderation/queue?status=${status}`)
+  if (!res.ok) return { items: [] }
+  return res.json()
+}
+
+export async function moderationAction(reportId: number, action: string, reason?: string) {
+  const res = await apiFetch(`${API_URL}/api/v1/moderation/action/${reportId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, reason }),
+  })
+  return res.ok
+}
+
+export async function reportContent(targetId: number, targetType: string, reason: string, description?: string) {
+  const res = await apiFetch(`${API_URL}/api/v1/reports`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target_id: targetId, target_type: targetType, reason, description }),
+  })
+  return res.ok
+}
+
+// ── User Profile API ────────────────────────────────────────────────────
+
+export async function fetchUserProfile(username: string) {
+  const res = await apiFetch(`${API_URL}/api/v1/users/${username}`)
+  if (!res.ok) return null
+  return res.json()
+}
+
+export async function fetchUserPosts(username: string, cursor?: number) {
+  const params = new URLSearchParams({ limit: '20' })
+  if (cursor) params.set('cursor', String(cursor))
+  const res = await apiFetch(`${API_URL}/api/v1/users/${username}/posts?${params}`)
+  if (!res.ok) return { posts: [] }
+  return res.json()
+}
+
+export async function followUser(userId: number) {
+  const res = await apiFetch(`${API_URL}/api/v1/users/${userId}/follow`, { method: 'POST' })
+  return res.ok
+}
+
+export async function unfollowUser(userId: number) {
+  const res = await apiFetch(`${API_URL}/api/v1/users/${userId}/follow`, { method: 'DELETE' })
+  return res.ok
 }

@@ -9,10 +9,24 @@
   --accent-blue: #007AFF;
   --accent-cyan: #007AFF;
   --accent-brand: #007AFF;
-  --bg-primary: #0B0E14;
-  --bg-secondary: #101928;
-  --bg-tertiary: #0D1117;
-  --bg-card: #101928;
+  --bg-primary: #0a0f17;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1a2035;
+  --bg-card: #0D1117;
+  --bg-hover: #1e293b;
+
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --accent-amber-theme: #f59e0b;
+
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.12);
+
+  --glow-green-theme: 0 0 20px rgba(16,185,129,0.15);
 
   /* ──────────────────────────────────────────
      macOS Glass Design Tokens
@@ -1569,10 +1583,26 @@ html.light {
   --foreground-rgb: 15, 23, 42;
   --background-start-rgb: 248, 250, 252;
   --background-end-rgb: 241, 245, 249;
-  --bg-primary: #f8fafc;
-  --bg-secondary: #f1f5f9;
-  --bg-tertiary: #e2e8f0;
+  --bg-primary: #fafbfc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
   --bg-card: #ffffff;
+  --bg-hover: #e2e8f0;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+
+  --accent-blue: #2563eb;
+  --accent-cyan: #0891b2;
+  --accent-green: #059669;
+  --accent-red: #dc2626;
+  --accent-amber-theme: #d97706;
+
+  --border-subtle: rgba(0,0,0,0.06);
+  --border-strong: rgba(0,0,0,0.12);
+
+  --glow-green-theme: 0 0 20px rgba(5,150,105,0.1);
 
   /* Glass - light mode */
   --glass-bg: rgba(255, 255, 255, 0.72);
@@ -1657,3 +1687,46 @@ html.light .text-slate-600 {
 html.light .placeholder-slate-600::placeholder {
   color: #94a3b8 !important;
 }
+
+/* data-theme selector for next-themes compatibility */
+[data-theme="light"] {
+  --bg-primary: #fafbfc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-hover: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --accent-blue: #2563eb;
+  --accent-cyan: #0891b2;
+  --accent-green: #059669;
+  --accent-red: #dc2626;
+  --accent-amber-theme: #d97706;
+  --border-subtle: rgba(0,0,0,0.06);
+  --border-strong: rgba(0,0,0,0.12);
+  --glow-blue: 0 0 20px rgba(37,99,235,0.1);
+  --glow-green-theme: 0 0 20px rgba(5,150,105,0.1);
+}
+
+/* ======================================================
+   THEME UTILITY CLASSES
+   ====================================================== */
+.theme-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.theme-text { color: var(--text-primary); }
+.theme-text-secondary { color: var(--text-secondary); }
+.theme-text-muted { color: var(--text-tertiary); }
+
+.theme-bg { background: var(--bg-primary); }
+.theme-bg-secondary { background: var(--bg-secondary); }
+.theme-bg-tertiary { background: var(--bg-tertiary); }
+
+.theme-border { border-color: var(--border-subtle); }
+.theme-border-strong { border-color: var(--border-strong); }
+
+.theme-hover:hover { background: var(--bg-hover); }

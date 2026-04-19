@@ -48,6 +48,8 @@ from app.api import monitor_extended
 from app.api import copilot_stream
 from app.api import ideas
 from app.api import model_index as model_index_api
+from app.api import community, posts, comments, notifications, users
+from app.api import moderation as moderation_api
 from app.api import ws as ws_api
 from app.db.database import engine, Base
 
@@ -82,6 +84,11 @@ from app.models.game import (
     GamePortfolioHolding, GameEventLog,
 )
 from app.models.api_usage import APIUsage
+from app.models.community import (
+    Community, CommunityMember, Post, Comment,
+    Vote, Reaction, Notification, UserFollow,
+    ModerationReport, ModerationAction, AuditLog,
+)
 from app.models.global_monitor import (
     GlobalEvent,
     CountryInstability,
@@ -422,6 +429,16 @@ app.include_router(copilot_stream.router, prefix="/api/v1", tags=["copilot"])
 
 # WebSocket — Real-time market data push (ideas, pulse, scanner)
 app.include_router(ws_api.router, prefix="/api/v1", tags=["websocket"])
+
+# Community — Social forums, posts, comments, notifications
+app.include_router(community.router, prefix="/api/v1", tags=["community"])
+app.include_router(posts.router, prefix="/api/v1", tags=["posts"])
+app.include_router(comments.router, prefix="/api/v1", tags=["comments"])
+app.include_router(notifications.router, prefix="/api/v1", tags=["notifications"])
+app.include_router(users.router, prefix="/api/v1", tags=["users"])
+
+# Moderation — AI content moderation pipeline + audit log
+app.include_router(moderation_api.router, prefix="/api/v1", tags=["moderation"])
 
 
 @app.get("/")

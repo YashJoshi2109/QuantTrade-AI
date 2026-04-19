@@ -19,7 +19,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { createBillingPortalSession } from '@/lib/api'
 import { registerPasskey, listPasskeys, type PasskeyCredentialSummary } from '@/lib/passkey'
-import { getToken } from '@/lib/auth'
+// getToken removed — auth via httpOnly cookies
 
 function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -120,23 +120,20 @@ export default function MobileSettings() {
     if (!user) return
     setPasskeyLoading(true)
     setPasskeyMsg(null)
-    const token = getToken() || ''
-    const result = await registerPasskey(user.id, user.email, token)
+    const result = await registerPasskey(user.id, user.email, '')
     setPasskeyLoading(false)
     setPasskeyMsg(result.success
       ? { type: 'success', text: 'Passkey added! Sign in with biometrics next time.' }
       : { type: 'error', text: result.error || 'Passkey setup failed.' }
     )
-    if (result.success && token) {
-      listPasskeys(token).then(setSavedPasskeys).catch(() => {})
+    if (result.success) {
+      listPasskeys('').then(setSavedPasskeys).catch(() => {})
     }
   }
 
   useEffect(() => {
-    const token = getToken()
-    if (token) {
-      listPasskeys(token).then(setSavedPasskeys).catch(() => setSavedPasskeys([]))
-    }
+    // Auth is via httpOnly cookie; listPasskeys sends credentials: 'include'
+    listPasskeys('').then(setSavedPasskeys).catch(() => setSavedPasskeys([]))
   }, [])
 
   const openBillingPortal = async () => {

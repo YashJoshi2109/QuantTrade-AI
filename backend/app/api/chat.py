@@ -677,13 +677,23 @@ async def chat(
         ) if structured_data else None,
     )
 
+    # Append compliance disclaimer to AI responses
+    _DISCLAIMER = (
+        "\n\n---\n*This is AI-generated analysis for informational purposes only. "
+        "Not financial advice. Always do your own research and consult a qualified "
+        "financial advisor before making investment decisions.*"
+    )
+    ai_response = result["response"]
+    if _DISCLAIMER.strip("\\n *-") not in ai_response:
+        ai_response += _DISCLAIMER
+
     return ChatResponse(
         version="1.0",
         request_id=request_id,
         conversation_id=conversation_id,
         message_id=assistant_msg_id,
         intent=response_type,
-        response=result["response"],
+        response=ai_response,
         sources=result.get("sources", []),
         context_docs=result.get("context_docs", 0),
         symbol=resolved_symbol or message.symbol,

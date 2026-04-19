@@ -1,4 +1,17 @@
 from app.models.user import User
+from app.models.community import (
+    Community,
+    CommunityMember,
+    Post,
+    Comment,
+    Vote,
+    Reaction,
+    Notification,
+    UserFollow,
+    ModerationReport,
+    ModerationAction,
+    AuditLog,
+)
 from app.models.symbol import Symbol
 from app.models.price import PriceBar
 from app.models.watchlist import Watchlist
@@ -70,4 +83,8 @@ __all__ = [
     "ModelIndexSnapshot",
     "BasketHolding",
     "FactorScoreHistory",
+    "UserFollow",
+    "ModerationReport",
+    "ModerationAction",
+    "AuditLog",
 ]

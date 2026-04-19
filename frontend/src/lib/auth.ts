@@ -22,17 +22,26 @@ export interface AuthResponse {
 }
 
 // Token management
+// Tokens are now stored in httpOnly cookies set by the server.
+// These functions are kept for backwards compatibility but no longer
+// read/write localStorage for the JWT itself.
+
 export function getToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('auth_token')
+  // Token lives in httpOnly cookie — not accessible from JS.
+  // Return null; cookies are sent automatically with credentials: 'include'.
+  return null
 }
 
-export function setToken(token: string): void {
-  localStorage.setItem('auth_token', token)
+export function setToken(_token: string): void {
+  // No-op: cookie is set by the server via Set-Cookie header.
+  // Kept for backwards compatibility so callers don't break.
 }
 
 export function removeToken(): void {
-  localStorage.removeItem('auth_token')
+  // Clear any legacy localStorage token that may still exist
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('auth_token')
+  }
 }
 
 export function getUser(): User | null {
@@ -74,6 +83,7 @@ export async function register(
   const response = await fetch(`${API_URL}/api/v1/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(body)
   })
   
@@ -94,6 +104,7 @@ export async function login(email: string, password: string, turnstileToken?: st
   const response = await fetch(`${API_URL}/api/v1/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(body)
   })
   
@@ -117,6 +128,7 @@ export async function googleLogin(
   const response = await fetch(`${API_URL}/api/v1/auth/google`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({
       google_id: googleId,
       email,
@@ -140,6 +152,7 @@ export async function googleVerify(credential: string): Promise<AuthResponse> {
   const response = await fetch(`${API_URL}/api/v1/auth/google/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ credential })
   })
   
@@ -155,24 +168,17 @@ export async function googleVerify(credential: string): Promise<AuthResponse> {
 }
 
 export async function checkSession(): Promise<{ authenticated: boolean; user: User | null }> {
-  const token = getToken()
-  if (!token) {
-    return { authenticated: false, user: null }
-  }
-  
   try {
     const response = await fetch(`${API_URL}/api/v1/auth/session`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      credentials: 'include',
     })
-    
+
     if (!response.ok) {
       removeToken()
       removeUser()
       return { authenticated: false, user: null }
     }
-    
+
     return await response.json()
   } catch {
     return { authenticated: false, user: null }
@@ -189,6 +195,7 @@ export async function sendOtp(email: string, purpose: 'register' | 'reset' = 're
   const response = await fetch(`${API_URL}/api/v1/auth/send-otp?purpose=${purpose}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ email })
   })
   if (!response.ok) {
@@ -201,6 +208,7 @@ export async function verifyOtp(email: string, otp: string): Promise<boolean> {
   const response = await fetch(`${API_URL}/api/v1/auth/verify-otp`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ email, otp })
   })
   if (!response.ok) return false
@@ -208,14 +216,23 @@ export async function verifyOtp(email: string, otp: string): Promise<boolean> {
   return data.verified === true
 }
 
-export function logout(): void {
+export async function logout(): Promise<void> {
+  // Call server to clear the httpOnly cookie
+  try {
+    await fetch(`${API_URL}/api/v1/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+  } catch {
+    // Best-effort — clear local state even if the request fails
+  }
   removeToken()
   removeUser()
 }
 
 // Auth headers for API calls
+// With httpOnly cookies, the JWT is sent automatically via credentials: 'include'.
+// No Authorization header needed — return empty object for backwards compatibility.
 export function getAuthHeaders(): Record<string, string> {
-  const token = getToken()
-  if (!token) return {}
-  return { 'Authorization': `Bearer ${token}` }
+  return {}
 }

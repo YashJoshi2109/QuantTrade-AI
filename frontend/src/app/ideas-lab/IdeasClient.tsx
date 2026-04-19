@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import MobileLayout from '@/components/layout/MobileLayout'
 import BottomNav from '@/components/layout/BottomNav'
-import { getToken } from '@/lib/auth'
+import { getUser } from '@/lib/auth'
 import TickerLogo from '@/components/TickerLogo'
 import {
   generateIdeas, getTrendingIdeas,
@@ -780,7 +780,7 @@ function DesktopIdeasLab() {
   const [sentiment, setSentiment] = useState<Sentiment>('all')
   const [timeframe, setTimeframe] = useState<Timeframe>('all')
   const [sector, setSector] = useState('All Sectors')
-  const isAuthed = typeof window !== 'undefined' && !!getToken()
+  const isAuthed = typeof window !== 'undefined' && !!getUser()
 
   // ── Basket state ──────────────────────────────────────────────────────────
   const [indices, setIndices] = useState<IndexDefinition[]>([])
@@ -796,7 +796,7 @@ function DesktopIdeasLab() {
   // ── Real-time WebSocket for live ideas updates ────────────────────────────
   const { isConnected, connectionStatus, lastMessage } = useMarketWebSocket({
     channel: 'ideas',
-    token: typeof window !== 'undefined' ? getToken() : null,
+    token: null, // Auth handled via httpOnly cookies
     onMessage: (msg) => {
       if (msg.type === 'ideas_update' && msg.data?.ideas) {
         setIdeas(msg.data.ideas)
@@ -1225,7 +1225,7 @@ function MobileIdeasLab() {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sentiment, setSentiment] = useState<Sentiment>('all')
-  const isAuthed = typeof window !== 'undefined' && !!getToken()
+  const isAuthed = typeof window !== 'undefined' && !!getUser()
   const mqc = useQueryClient()
 
   // WebSocket for mobile
