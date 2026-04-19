@@ -28,39 +28,12 @@ import {
   type SubscriptionStatus,
 } from '@/lib/api'
 import { registerPasskey, isPasskeySupported, listPasskeys, type PasskeyCredentialSummary } from '@/lib/passkey'
-import { getToken } from '@/lib/auth'
+// getToken removed — auth via httpOnly cookies
 import MobileLayout from '@/components/layout/MobileLayout'
 
 // ─── Toggle Switch ───────────────────────────────────────────────────
-function Toggle({
-  checked,
-  onChange,
-  label,
-  disabled,
-}: {
-  checked: boolean
-  onChange: (v: boolean) => void
-  label: string
-  disabled?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => !disabled && onChange(!checked)}
-      className={`relative inline-flex w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:opacity-40 ${checked ? 'bg-cyan-500' : 'bg-slate-700'}`}
-    >
-      <motion.span
-        className="inline-block w-4 h-4 bg-white rounded-full shadow-sm mt-0.5 ml-0.5"
-        animate={{ translateX: checked ? 20 : 0 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-      />
-    </button>
-  )
-}
+// Using the new Switch component from ui/switch
+import { Switch as Toggle } from '@/components/ui/switch'
 
 // ─── Section card ────────────────────────────────────────────────────
 function SettingsCard({ icon: Icon, title, subtitle, children, accent = 'cyan' }: {
@@ -80,16 +53,16 @@ function SettingsCard({ icon: Icon, title, subtitle, children, accent = 'cyan' }
       transition={{ duration: 0.35 }}
       className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden backdrop-blur-sm"
     >
-      <div className="px-6 py-4 border-b border-slate-800/50 flex items-center gap-3">
-        <div className={`w-8 h-8 rounded-lg border flex items-center justify-center ${colors[accent]}`}>
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-800/50 flex items-center gap-3">
+        <div className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${colors[accent]}`}>
           <Icon className="w-4 h-4" />
         </div>
-        <div>
-          <h3 className="text-sm font-bold text-white">{title}</h3>
-          {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-white truncate">{title}</h3>
+          {subtitle && <p className="text-[11px] text-slate-500 mt-0.5 truncate">{subtitle}</p>}
         </div>
       </div>
-      <div className="p-6">{children}</div>
+      <div className="p-4 sm:p-6">{children}</div>
     </motion.section>
   )
 }
@@ -152,10 +125,8 @@ function SettingsPageContent() {
 
   useEffect(() => {
     isPasskeySupported().then(setPasskeySupported)
-    const token = getToken()
-    if (token) {
-      listPasskeys(token).then(setSavedPasskeys).catch(() => setSavedPasskeys([]))
-    }
+    // Auth is via httpOnly cookie now; listPasskeys sends credentials: 'include'
+    listPasskeys('').then(setSavedPasskeys).catch(() => setSavedPasskeys([]))
   }, [])
 
   useEffect(() => {
@@ -185,12 +156,11 @@ function SettingsPageContent() {
     if (!user) return
     setPasskeyLoading(true)
     setPasskeyMsg(null)
-    const token = getToken() || ''
-    const result = await registerPasskey(user.id, user.email, token)
+    const result = await registerPasskey(user.id, user.email, '')
     setPasskeyLoading(false)
     if (result.success) {
       setPasskeyMsg({ type: 'success', text: 'Passkey added! You can now sign in with biometrics.' })
-      listPasskeys(token).then(setSavedPasskeys).catch(() => {})
+      listPasskeys('').then(setSavedPasskeys).catch(() => {})
     } else {
       setPasskeyMsg({ type: 'error', text: result.error || 'Passkey setup failed.' })
     }
@@ -233,7 +203,7 @@ function SettingsPageContent() {
 
   return (
     <div className="min-h-screen bg-[#020617] -mx-4 md:-mx-6 -my-4 md:-my-6">
-        <div className="max-w-4xl mx-auto px-6 py-10">
+        <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 sm:py-10 pb-safe">
 
           {/* Header */}
           <motion.div className="flex items-center gap-4 mb-10" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
@@ -253,35 +223,35 @@ function SettingsPageContent() {
 
             {/* Profile */}
             <SettingsCard icon={User} title="Profile" subtitle="Your account identity and avatar" accent="cyan">
-              <div className="flex items-center gap-6">
-                <div className="relative group">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
+                <div className="relative group shrink-0">
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt={displayName} className="w-18 h-18 w-[4.5rem] h-[4.5rem] rounded-2xl object-cover border-2 border-slate-700" />
+                    <img src={avatarUrl} alt={displayName} className="w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] rounded-2xl object-cover border-2 border-slate-700" />
                   ) : (
-                    <div className="w-[4.5rem] h-[4.5rem] rounded-2xl bg-gradient-to-br from-cyan-500/40 to-blue-600/20 border border-cyan-500/20 flex items-center justify-center text-cyan-300 text-2xl font-black">
+                    <div className="w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] rounded-2xl bg-gradient-to-br from-cyan-500/40 to-blue-600/20 border border-cyan-500/20 flex items-center justify-center text-cyan-300 text-2xl font-black">
                       {displayName.slice(0, 1).toUpperCase()}
                     </div>
                   )}
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingPhoto}
-                    className="absolute bottom-0 right-0 translate-x-1 translate-y-1 w-7 h-7 rounded-full bg-cyan-500 border-2 border-slate-900 flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute bottom-0 right-0 translate-x-1 translate-y-1 w-7 h-7 rounded-full bg-cyan-500 border-2 border-slate-900 flex items-center justify-center shadow-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   >
                     {uploadingPhoto ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Camera className="w-3 h-3 text-white" />}
                   </button>
                   <input ref={fileInputRef} type="file" accept="image/*" className="hidden" />
                 </div>
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex-1 w-full grid grid-cols-1 gap-3 sm:gap-4">
                   {[
                     { label: 'Username', value: user?.username || '', readOnly: true },
                     { label: 'Email', value: email, readOnly: true },
                   ].map(f => (
                     <div key={f.label}>
                       <label className="block text-[11px] text-slate-500 font-bold uppercase tracking-wider mb-1.5">{f.label}</label>
-                      <div className="px-3 py-2.5 bg-slate-800/60 border border-slate-700/40 rounded-xl text-sm text-slate-300 font-mono opacity-75">{f.value || '—'}</div>
+                      <div className="px-3 py-2.5 bg-slate-800/60 border border-slate-700/40 rounded-xl text-sm text-slate-300 font-mono opacity-75 truncate">{f.value || '—'}</div>
                     </div>
                   ))}
-                  <div className="text-[11px] text-slate-600 col-span-2">
+                  <div className="text-[11px] text-slate-600">
                     Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
                   </div>
                 </div>
@@ -332,21 +302,21 @@ function SettingsPageContent() {
                     ) : (
                       <div className="space-y-2">
                         {savedPasskeys.map((pk) => (
-                          <div key={pk.id} className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 flex items-center justify-between group hover:bg-slate-800/70 transition-colors">
-                            <div className="flex items-center gap-3">
+                          <div key={pk.id} className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 group hover:bg-slate-800/70 transition-colors">
+                            <div className="flex items-center gap-3 min-w-0">
                               <div className="w-10 h-10 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
                                 <Fingerprint className="w-4 h-4 text-violet-400" />
                               </div>
-                              <div>
-                                <div className="font-bold text-sm text-slate-200">
+                              <div className="min-w-0">
+                                <div className="font-bold text-sm text-slate-200 truncate">
                                   {pk.device_name || `Unknown Device`}
                                 </div>
-                                <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
+                                <div className="text-[11px] text-slate-500 mt-0.5 font-mono truncate">
                                   ID: ••••{pk.credential_id_suffix}
                                 </div>
                               </div>
                             </div>
-                            <div className="text-right">
+                            <div className="text-left sm:text-right pl-13 sm:pl-0 shrink-0">
                               <div className="text-[10px] uppercase font-bold text-slate-600 mb-0.5 tracking-wider">Added</div>
                               <div className="text-xs text-slate-400">
                                 {pk.created_at ? new Date(pk.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
@@ -396,7 +366,7 @@ function SettingsPageContent() {
                             setAnalystPersonality(type)
                             patchPreferences({ analyst_personality: type })
                           }}
-                          className={`flex-1 px-4 py-2 text-xs font-bold rounded-lg transition-all capitalize ${analystPersonality === type ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                          className={`flex-1 px-2 sm:px-4 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all capitalize ${analystPersonality === type ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                           {type}
                         </button>
@@ -451,7 +421,7 @@ function SettingsPageContent() {
                     </button>
                   </div>
                 )}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   {[
                     {
                       label: 'Plan',
@@ -473,10 +443,10 @@ function SettingsPageContent() {
                       value: user?.created_at ? new Date(user.created_at).toLocaleDateString() : '—',
                     },
                   ].map((row) => (
-                    <div key={row.label} className="bg-slate-800/40 border border-slate-700/30 rounded-xl px-4 py-3">
+                    <div key={row.label} className="bg-slate-800/40 border border-slate-700/30 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3">
                       <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">{row.label}</div>
                       <div
-                        className={`text-sm font-bold ${row.green ? 'text-emerald-400' : 'text-white'} flex items-center gap-1 capitalize`}
+                        className={`text-xs sm:text-sm font-bold ${row.green ? 'text-emerald-400' : 'text-white'} flex items-center gap-1 capitalize truncate`}
                       >
                         {row.green && <CheckCircle className="w-3 h-3" />}
                         {row.value}

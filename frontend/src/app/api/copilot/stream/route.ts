@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
   // Forward auth token from cookie or header
   const authToken =
-    request.cookies.get('access_token')?.value ||
+    request.cookies.get('qt_access_token')?.value ||
     request.headers.get('authorization')?.replace('Bearer ', '') ||
     ''
 

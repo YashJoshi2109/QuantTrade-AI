@@ -46,6 +46,15 @@ class User(Base):
 
     # JSON preferences: analyst_personality, data_sources, notifications, pro_watchlist_email_alerts, etc.
     preferences_json = Column(Text, nullable=True)
+
+    # Community profile fields
+    bio = Column(Text, nullable=True)
+    trading_style = Column(String(50), nullable=True)  # day_trader, swing, long_term, options
+    experience = Column(String(20), nullable=True)  # beginner, intermediate, advanced, expert
+    reputation = Column(Integer, default=0)
+    post_count = Column(Integer, default=0)
+    follower_count = Column(Integer, default=0)
+    following_count = Column(Integer, default=0)
     
     # Relationships
     watchlists = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan", uselist=True)

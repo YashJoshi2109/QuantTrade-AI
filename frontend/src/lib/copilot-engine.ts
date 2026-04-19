@@ -217,14 +217,12 @@ export async function streamCopilotAnalysis(
   callbacks: CopilotStreamCallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
-  // Get auth token from localStorage
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
-
+  // Auth is handled via httpOnly cookie (qt_access_token), sent automatically with credentials: 'include'
   const response = await fetch('/api/copilot/stream', {
     method: 'POST',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({
       message: request.message,

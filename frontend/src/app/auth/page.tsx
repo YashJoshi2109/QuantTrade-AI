@@ -32,7 +32,7 @@ import {
 } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { sendOtp, getToken } from '@/lib/auth'
+import { sendOtp } from '@/lib/auth'
 import { registerPasskey, isPasskeySupported } from '@/lib/passkey'
 import { AuthBrandPanel } from './components/AuthBrandPanel'
 import { OtpInput } from './components/OtpInput'
@@ -239,11 +239,9 @@ export default function AuthPage() {
 
   const handlePasskeySetup = async () => {
     if (!user) return
-    const token = getToken()
-    if (!token) return
     setPasskeyLoading(true)
     setError('')
-    const result = await registerPasskey(user.id, user.email, token)
+    const result = await registerPasskey(user.id, user.email, '')
     setPasskeyLoading(false)
     if (result.success) {
       setStep('SUCCESS')

@@ -3,7 +3,7 @@ Authentication API endpoints
 """
 import asyncio
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -15,6 +15,7 @@ import bcrypt
 from app.db.database import get_db
 from app.models.user import User
 from app.config import settings
+from app.auth.jwt import set_auth_cookie, clear_auth_cookie, COOKIE_NAME
 from app.services.email_verifier_service import validate_email
 from app.services.otp_service import (
     generate_otp,
@@ -134,46 +135,66 @@ def decode_token(token: str) -> Optional[int]:
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ) -> Optional[User]:
-    """Get current user from JWT token (returns None if not authenticated)"""
-    if not credentials:
+    """Get current user from JWT token (returns None if not authenticated).
+    Checks Bearer header first, then falls back to httpOnly cookie."""
+    token = None
+    # Try Bearer header first
+    if credentials:
+        token = credentials.credentials
+    # Fallback to httpOnly cookie
+    if not token:
+        token = request.cookies.get(COOKIE_NAME)
+
+    if not token:
         return None
-    
-    user_id = decode_token(credentials.credentials)
+
+    user_id = decode_token(token)
     if not user_id:
         return None
-    
+
     user = db.query(User).filter(User.id == user_id).first()
     return user
 
 
 def require_auth(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
-    """Require authentication - raises 401 if not authenticated"""
-    if not credentials:
+    """Require authentication - raises 401 if not authenticated.
+    Checks Bearer header first, then falls back to httpOnly cookie."""
+    token = None
+    # Try Bearer header first
+    if credentials:
+        token = credentials.credentials
+    # Fallback to httpOnly cookie
+    if not token:
+        token = request.cookies.get(COOKIE_NAME)
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated"
         )
-    
-    user_id = decode_token(credentials.credentials)
+
+    user_id = decode_token(token)
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token"
         )
-    
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
-    
+
     return user
 
 
@@ -284,7 +305,7 @@ async def verify_otp_endpoint(req: VerifyOtpRequest):
 
 # Endpoints
 @router.post("/register", response_model=TokenResponse)
-async def register(user_data: UserRegister, request: Request, db: Session = Depends(get_db)):
+async def register(user_data: UserRegister, request: Request, response: Response, db: Session = Depends(get_db)):
     """Register a new user with optional email verification and phone"""
     # Cloudflare Turnstile verification
     if user_data.turnstile_token:
@@ -341,7 +362,8 @@ async def register(user_data: UserRegister, request: Request, db: Session = Depe
     
     # Generate token
     token = create_access_token(user.id)
-    
+    set_auth_cookie(response, token)
+
     return TokenResponse(
         access_token=token,
         user=user_to_dict(user)
@@ -349,7 +371,7 @@ async def register(user_data: UserRegister, request: Request, db: Session = Depe
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(credentials: UserLogin, request: Request, db: Session = Depends(get_db)):
+async def login(credentials: UserLogin, request: Request, response: Response, db: Session = Depends(get_db)):
     """Login with email and password"""
     # Cloudflare Turnstile verification
     if credentials.turnstile_token:
@@ -399,7 +421,8 @@ async def login(credentials: UserLogin, request: Request, db: Session = Depends(
     
     # Generate token
     token = create_access_token(user.id)
-    
+    set_auth_cookie(response, token)
+
     return TokenResponse(
         access_token=token,
         user=user_to_dict(user)
@@ -413,6 +436,7 @@ class GoogleTokenVerify(BaseModel):
 @router.post("/google/verify", response_model=TokenResponse)
 async def google_verify_token(
     token_data: GoogleTokenVerify,
+    response: Response,
     db: Session = Depends(get_db)
 ):
     """Verify Google ID token and login/register user"""
@@ -493,12 +517,13 @@ async def google_verify_token(
         
         # Generate token
         token = create_access_token(user.id)
-        
+        set_auth_cookie(response, token)
+
         return TokenResponse(
             access_token=token,
             user=user_to_dict(user)
         )
-        
+
     except ValueError as e:
         logger.info("Google token verification failed: %s", e)
         raise HTTPException(
@@ -508,7 +533,7 @@ async def google_verify_token(
 
 
 @router.post("/google", response_model=TokenResponse)
-async def google_auth(google_data: GoogleLogin, db: Session = Depends(get_db)):
+async def google_auth(google_data: GoogleLogin, response: Response, db: Session = Depends(get_db)):
     """Login or register with Google OAuth (legacy endpoint - use /google/verify instead)"""
     # Check if user exists by Google ID
     user = db.query(User).filter(User.google_id == google_data.google_id).first()
@@ -555,7 +580,8 @@ async def google_auth(google_data: GoogleLogin, db: Session = Depends(get_db)):
     
     # Generate token
     token = create_access_token(user.id)
-    
+    set_auth_cookie(response, token)
+
     return TokenResponse(
         access_token=token,
         user=user_to_dict(user)
@@ -583,8 +609,9 @@ async def check_session(user: User = Depends(get_current_user)):
 
 
 @router.post("/logout")
-async def logout():
-    """Logout (client should delete token)"""
+async def logout(response: Response):
+    """Logout — clear httpOnly auth cookie (client should also clear localStorage)"""
+    clear_auth_cookie(response)
     return {"message": "Logged out successfully"}
 
 
@@ -843,7 +870,7 @@ async def passkey_auth_challenge():
 
 
 @router.post("/passkey/auth/verify", response_model=TokenResponse)
-async def passkey_auth_verify(req: PasskeyAuthVerifyRequest, db: Session = Depends(get_db)):
+async def passkey_auth_verify(req: PasskeyAuthVerifyRequest, response: Response, db: Session = Depends(get_db)):
     """Verify WebAuthn assertion and return a JWT if valid."""
     if not WEBAUTHN_AVAILABLE:
         raise HTTPException(status_code=503, detail="WebAuthn library not installed. Run: pip install webauthn")
@@ -900,6 +927,7 @@ async def passkey_auth_verify(req: PasskeyAuthVerifyRequest, db: Session = Depen
         db.commit()
 
         token = create_access_token(user.id)
+        set_auth_cookie(response, token)
         return TokenResponse(access_token=token, user=user_to_dict(user))
 
     except HTTPException:

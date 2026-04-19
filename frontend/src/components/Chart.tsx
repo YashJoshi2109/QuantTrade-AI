@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   createChart,
   ColorType,
@@ -9,6 +9,7 @@ import {
   Time,
 } from 'lightweight-charts'
 import { PriceBar } from '@/lib/api'
+import { useChartSync } from '@/hooks/useChartSync'
 
 export type ChartSeriesType = 'candlestick' | 'line' | 'area' | 'heikin-ashi' | 'baseline'
 
@@ -24,6 +25,8 @@ interface ChartProps {
   logScale?: boolean
   /** Show grid lines */
   showGrid?: boolean
+  /** Optional unique ID to enable cross-chart crosshair sync */
+  chartId?: string
 }
 
 export default function Chart({
@@ -34,6 +37,7 @@ export default function Chart({
   showVolume = false,
   logScale = false,
   showGrid = true,
+  chartId,
 }: ChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -42,6 +46,12 @@ export default function Chart({
   >(null)
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null)
   const overlayLineRefs = useRef<ISeriesApi<'Line'>[]>([])
+
+  // Reactive chart API state for sync hook (only tracked when chartId is set)
+  const [chartApiForSync, setChartApiForSync] = useState<IChartApi | null>(null)
+
+  // Cross-chart crosshair sync (only active when chartId is provided)
+  useChartSync(chartId ?? '', chartId ? chartApiForSync : null)
 
   useEffect(() => {
     if (!chartContainerRef.current) return
@@ -76,6 +86,7 @@ export default function Chart({
     })
 
     chartRef.current = chart
+    if (chartId) setChartApiForSync(chart)
 
     const handleResize = () => {
       if (chartContainerRef.current && chart) {
@@ -92,11 +103,12 @@ export default function Chart({
       window.removeEventListener('resize', handleResize)
       chart.remove()
       chartRef.current = null
+      if (chartId) setChartApiForSync(null)
       mainSeriesRef.current = null
       volumeSeriesRef.current = null
       overlayLineRefs.current = []
     }
-  }, [showGrid, logScale])
+  }, [showGrid, logScale, chartId])
 
   useEffect(() => {
     const chart = chartRef.current
