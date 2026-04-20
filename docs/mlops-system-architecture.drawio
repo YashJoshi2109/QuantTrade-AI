@@ -1,0 +1,180 @@
+<mxfile host="app.diagrams.net" modified="2026-04-19T00:00:00.000Z" agent="Claude" version="24.0.0">
+  <diagram name="MLOps System Architecture" id="mlops-hld">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="QuantTrade-AI MLOps System Architecture" style="text;html=1;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="400" y="15" width="800" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ============ DATA SOURCES (Blue) ============ -->
+        <mxCell id="ds_group" value="Data Sources" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontStyle=1;verticalAlign=top;spacingTop=5;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="80" width="180" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="ds1" value="yfinance&#xa;(OHLCV)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="40" y="120" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="ds2" value="Finnhub&#xa;(Real-time)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="40" y="185" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="ds3" value="FMP&#xa;(Fundamentals)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="40" y="250" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="ds4" value="NewsAPI&#xa;(News)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="40" y="315" width="140" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ============ DATA ENGINEERING (Orange) ============ -->
+        <mxCell id="de_group" value="Data Engineering" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;fontStyle=1;verticalAlign=top;spacingTop=5;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="240" y="80" width="180" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="de1" value="Feature Store&#xa;(Offline + Online)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="260" y="120" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="de2" value="Data Quality&#xa;Pipeline" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="260" y="185" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="de3" value="20 Engineered&#xa;Features" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="260" y="250" width="140" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ============ MODEL DEVELOPMENT (Green) ============ -->
+        <mxCell id="md_group" value="Model Development" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;verticalAlign=top;spacingTop=5;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="460" y="80" width="200" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="md1" value="Experiment&#xa;Tracker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="485" y="120" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="md2" value="LSTM Training&#xa;(1d / 7d / 30d)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="485" y="178" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="md3" value="Walk-Forward&#xa;Validation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="485" y="236" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="md4" value="Hyperparameter&#xa;Config (YAML)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="485" y="294" width="150" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- ============ MODEL REGISTRY (Purple) ============ -->
+        <mxCell id="mr_group" value="Model Registry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;fontStyle=1;verticalAlign=top;spacingTop=5;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="80" width="180" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="mr1" value="Version&#xa;Management" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="720" y="120" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="mr2" value="Staging → Production&#xa;→ Archived" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="720" y="185" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="mr3" value="Model Cards" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="720" y="250" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="mr4" value="Rollback&#xa;Support" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="720" y="315" width="140" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ============ SERVING & INFERENCE (Teal) ============ -->
+        <mxCell id="si_group" value="Serving &amp; Inference" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e1f5;strokeColor=#36769e;fontSize=13;fontStyle=1;verticalAlign=top;spacingTop=5;arcSize=12;fontColor=#36769e;" vertex="1" parent="1">
+          <mxGeometry x="920" y="80" width="200" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="si1" value="FastAPI&#xa;Endpoints" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e1f5;strokeColor=#36769e;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="945" y="120" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="si2" value="Prediction Cache&#xa;(Redis)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e1f5;strokeColor=#36769e;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="945" y="185" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="si3" value="FinBERT&#xa;Sentiment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e1f5;strokeColor=#36769e;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="945" y="250" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="si4" value="Ensemble&#xa;(LSTM + Linear)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e1f5;strokeColor=#36769e;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="945" y="315" width="150" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ============ MONITORING (Red) ============ -->
+        <mxCell id="mo_group" value="Monitoring" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;verticalAlign=top;spacingTop=5;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="80" width="190" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="mo1" value="Drift Detection&#xa;(PSI / KS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="120" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="mo2" value="Performance&#xa;Monitor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="178" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="mo3" value="Prediction&#xa;Logger" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="236" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="mo4" value="Automated&#xa;Alerts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="294" width="150" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="mo5" value="Retrain&#xa;Triggers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="352" width="150" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- ============ ORCHESTRATION (Gray, Bottom) ============ -->
+        <mxCell id="or_group" value="Orchestration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=13;fontStyle=1;verticalAlign=top;spacingTop=5;arcSize=12;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="20" y="460" width="1330" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="or1" value="Celery Beat Schedule" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="80" y="500" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="or2" value="ML Pipeline (5 Stages)&#xa;Fetch → Features → Validate → Train → Deploy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="380" y="500" width="300" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="or3" value="GitHub Actions&#xa;(Nightly Train)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=11;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="800" y="500" width="180" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ============ ARROWS: Layer to Layer ============ -->
+        <!-- Data Sources → Data Engineering -->
+        <mxCell id="a1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6c8ebf;strokeWidth=2;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" source="ds_group" target="de_group" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- Data Engineering → Model Development -->
+        <mxCell id="a2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d6b656;strokeWidth=2;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" source="de_group" target="md_group" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- Model Development → Model Registry -->
+        <mxCell id="a3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#82b366;strokeWidth=2;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" source="md_group" target="mr_group" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- Model Registry → Serving -->
+        <mxCell id="a4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=2;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" source="mr_group" target="si_group" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- Serving → Monitoring -->
+        <mxCell id="a5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#36769e;strokeWidth=2;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" source="si_group" target="mo_group" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Monitoring → Retrain loop back to Model Development -->
+        <mxCell id="a6" value="retrain trigger" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#b85450;strokeWidth=2;dashed=1;dashPattern=8 4;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;fontColor=#b85450;" edge="1" source="mo_group" target="md_group" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1255" y="65" />
+              <mxPoint x="560" y="65" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Orchestration → upward connections -->
+        <mxCell id="a7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#999999;strokeWidth=1;dashed=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" source="or1" target="ds_group" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#999999;strokeWidth=1;dashed=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" source="or2" target="md_group" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#999999;strokeWidth=1;dashed=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" source="or3" target="mr_group" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="leg" value="→ Data flow    ⇢ Orchestration    - - → Retrain loop" style="text;html=1;fontSize=10;align=left;verticalAlign=middle;fillColor=none;strokeColor=none;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="20" y="600" width="400" height="25" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
