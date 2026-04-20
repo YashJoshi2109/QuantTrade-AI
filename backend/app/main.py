@@ -50,6 +50,7 @@ from app.api import ideas
 from app.api import model_index as model_index_api
 from app.api import community, posts, comments, notifications, users, search
 from app.api import bookmarks, uploads
+from app.api import mlops
 from app.api import moderation as moderation_api
 from app.api import bans
 from app.api import ws as ws_api
@@ -454,6 +455,9 @@ app.include_router(search.router, prefix="/api/v1", tags=["search"])
 
 # Bans — community ban management
 app.include_router(bans.router, prefix="/api/v1", tags=["bans"])
+
+# MLOps — model registry, experiments, monitoring, pipeline control
+app.include_router(mlops.router, prefix="/api/v1", tags=["mlops"])
 
 
 @app.get("/")

@@ -28,6 +28,7 @@ import {
   Bell,
   Compass,
   Plus,
+  Brain,
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
 import NotificationBell from './community/NotificationBell'
@@ -198,6 +199,7 @@ export default function AppLayout({ children, symbol, hideFooter }: AppLayoutPro
       { id: 'research', label: 'Research', icon: FileText, href: '/research' },
       { id: 'backtest', label: 'Backtest', icon: Activity, href: '/backtest' },
       { id: 'ideas', label: 'Ideas Lab', icon: Lightbulb, href: '/ideas-lab' },
+      { id: 'mlops', label: 'MLOps', icon: Brain, href: '/mlops' },
       { id: 'community', label: 'Community', icon: MessageCircle, href: '/community' },
       { id: 'notifications', label: 'Notifications', icon: Bell, href: '/notifications' },
       { id: 'game', label: 'CoinRealm', icon: Swords, href: '/game', amber: true },
