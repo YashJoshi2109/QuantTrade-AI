@@ -26,6 +26,8 @@ import {
   Swords,
   MessageCircle,
   Bell,
+  Compass,
+  Plus,
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
 import NotificationBell from './community/NotificationBell'
@@ -516,6 +518,33 @@ export default function AppLayout({ children, symbol, hideFooter }: AppLayoutPro
                         </>
                       )}
                     </Link>
+                    {item.id === 'community' && pathname?.startsWith('/community') && !sidebarCollapsed && (
+                      <div className="ml-8 mt-1 space-y-0.5">
+                        {[
+                          { label: 'Feed', href: '/community', icon: MessageCircle },
+                          { label: 'Discover', href: '/community/discover', icon: Compass },
+                          { label: 'Search', href: '/community/search', icon: Search },
+                          { label: 'Bookmarks', href: '/community/bookmarks', icon: Bookmark },
+                          { label: 'Create', href: '/community/create', icon: Plus },
+                        ].map(sub => {
+                          const SubIcon = sub.icon
+                          return (
+                            <Link
+                              key={sub.href}
+                              href={sub.href}
+                              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                                pathname === sub.href
+                                  ? 'text-cyan-400 bg-cyan-500/10'
+                                  : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]'
+                              }`}
+                            >
+                              <SubIcon className="w-3.5 h-3.5" />
+                              {sub.label}
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
                   </li>
                 )
               })}

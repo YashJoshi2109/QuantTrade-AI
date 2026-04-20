@@ -39,6 +39,7 @@ from app.models.community import (
 from app.api.auth import get_current_user, require_auth
 from app.services.reputation_service import reputation_service
 from app.services.moderation_service import moderation_service
+from app.services.redis_cache_service import cache_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -295,6 +296,12 @@ async def create_post(
 
     db.commit()
     db.refresh(post)
+
+    # Invalidate feed caches so new post appears immediately
+    try:
+        await cache_service.invalidate_pattern("qt:feed:*")
+    except Exception:
+        pass  # Cache invalidation is non-critical
 
     # Award reputation for creating a post
     reputation_service.update_reputation(user.id, "post_created", db)
@@ -581,29 +588,33 @@ async def popular_feed(
     Sort options: hot (default), new, top, rising.
     Time filter (only for top): day, week, month, year, all.
     """
-    q = (
-        db.query(Post)
-        .options(joinedload(Post.author), joinedload(Post.community))
-        .filter(Post.is_removed == False)
-    )
+    # Cache the public (non-user-specific) feed data for 60 seconds
+    cache_key = f"qt:feed:popular:{sort}:{time}:{cursor}"
 
-    if cursor is not None:
-        q = q.filter(Post.id < cursor)
+    async def _compute_popular():
+        q = (
+            db.query(Post)
+            .options(joinedload(Post.author), joinedload(Post.community))
+            .filter(Post.is_removed == False)
+        )
+        if cursor is not None:
+            q = q.filter(Post.id < cursor)
+        q = _apply_feed_sort(q, sort, time)
+        posts = q.limit(limit).all()
+        items = [_post_to_response(p) for p in posts]
+        nc = posts[-1].id if len(posts) == limit else None
+        return {"items": [i.model_dump() for i in items], "next_cursor": nc}
 
-    q = _apply_feed_sort(q, sort, time)
-    posts = q.limit(limit).all()
+    cached = await cache_service.get_or_fetch(cache_key, 60, _compute_popular)
 
-    votes_map: dict = {}
-    if current_user and posts:
-        votes_map = _bulk_user_votes(db, current_user.id, [p.id for p in posts])
+    # Overlay per-user votes on cached items (votes are user-specific, not cached)
+    items = [PostResponse(**i) for i in cached["items"]]
+    if current_user and items:
+        votes_map = _bulk_user_votes(db, current_user.id, [i.id for i in items])
+        for item in items:
+            item.user_vote = votes_map.get(item.id)
 
-    items = [
-        _post_to_response(p, user_vote=votes_map.get(p.id))
-        for p in posts
-    ]
-    next_cursor = posts[-1].id if len(posts) == limit else None
-
-    return PaginatedPosts(items=items, next_cursor=next_cursor)
+    return PaginatedPosts(items=items, next_cursor=cached["next_cursor"])
 
 
 @router.get("/feed/trending-tickers")
@@ -613,31 +624,33 @@ async def trending_tickers(
     db: Session = Depends(get_db),
 ):
     """Get trending tickers by mention count in recent posts."""
-    from sqlalchemy import text
-    from datetime import timedelta, timezone
+    cache_key = f"qt:feed:trending:{hours}"
 
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    async def _compute_trending():
+        from sqlalchemy import text
+        from datetime import timedelta, timezone
 
-    # Use unnest for PostgreSQL ARRAY, fallback for SQLite
-    try:
-        rows = db.execute(text("""
-            SELECT ticker, COUNT(*) as mention_count
-            FROM posts, unnest(tickers) AS ticker
-            WHERE created_at > :cutoff
-              AND is_removed = false
-              AND ticker IS NOT NULL
-              AND ticker != ''
-            GROUP BY ticker
-            ORDER BY mention_count DESC
-            LIMIT :lim
-        """), {"cutoff": cutoff, "lim": limit}).fetchall()
-    except Exception:
-        # Fallback: return empty if unnest not supported
-        return {"tickers": [], "time_window_hours": hours}
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
 
-    tickers = [{"symbol": row[0], "mention_count": row[1]} for row in rows]
+        try:
+            rows = db.execute(text("""
+                SELECT ticker, COUNT(*) as mention_count
+                FROM posts, unnest(tickers) AS ticker
+                WHERE created_at > :cutoff
+                  AND is_removed = false
+                  AND ticker IS NOT NULL
+                  AND ticker != ''
+                GROUP BY ticker
+                ORDER BY mention_count DESC
+                LIMIT :lim
+            """), {"cutoff": cutoff, "lim": limit}).fetchall()
+        except Exception:
+            return {"tickers": [], "time_window_hours": hours}
 
-    return {"tickers": tickers, "time_window_hours": hours}
+        tickers = [{"symbol": row[0], "mention_count": row[1]} for row in rows]
+        return {"tickers": tickers, "time_window_hours": hours}
+
+    return await cache_service.get_or_fetch(cache_key, 300, _compute_trending)
 
 
 @router.get("/feed/market-mood")
@@ -646,33 +659,38 @@ async def market_mood(
     db: Session = Depends(get_db),
 ):
     """Aggregate sentiment across recent posts — market mood indicator."""
-    from datetime import timedelta, timezone as tz
-    cutoff = datetime.now(tz.utc) - timedelta(hours=hours)
+    cache_key = f"qt:feed:mood:{hours}"
 
-    posts = (
-        db.query(Post.sentiment, func.count(Post.id))
-        .filter(Post.created_at > cutoff, Post.is_removed == False, Post.sentiment.isnot(None))
-        .group_by(Post.sentiment)
-        .all()
-    )
+    async def _compute_mood():
+        from datetime import timedelta, timezone as tz
+        cutoff = datetime.now(tz.utc) - timedelta(hours=hours)
 
-    mood = {"bullish": 0, "bearish": 0, "neutral": 0}
-    total = 0
-    for sentiment, count in posts:
-        if sentiment in mood:
-            mood[sentiment] = count
-            total += count
+        rows = (
+            db.query(Post.sentiment, func.count(Post.id))
+            .filter(Post.created_at > cutoff, Post.is_removed == False, Post.sentiment.isnot(None))
+            .group_by(Post.sentiment)
+            .all()
+        )
 
-    dominant = max(mood, key=mood.get) if total > 0 else "neutral"
+        mood = {"bullish": 0, "bearish": 0, "neutral": 0}
+        total = 0
+        for sentiment, count in rows:
+            if sentiment in mood:
+                mood[sentiment] = count
+                total += count
 
-    return {
-        "mood": dominant,
-        "counts": mood,
-        "total_posts": total,
-        "time_window_hours": hours,
-        "bullish_pct": round(mood["bullish"] / max(total, 1) * 100, 1),
-        "bearish_pct": round(mood["bearish"] / max(total, 1) * 100, 1),
-    }
+        dominant = max(mood, key=mood.get) if total > 0 else "neutral"
+
+        return {
+            "mood": dominant,
+            "counts": mood,
+            "total_posts": total,
+            "time_window_hours": hours,
+            "bullish_pct": round(mood["bullish"] / max(total, 1) * 100, 1),
+            "bearish_pct": round(mood["bearish"] / max(total, 1) * 100, 1),
+        }
+
+    return await cache_service.get_or_fetch(cache_key, 300, _compute_mood)
 
 
 @router.get("/feed/ticker/{symbol}", response_model=PaginatedPosts)

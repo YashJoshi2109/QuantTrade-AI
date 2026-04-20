@@ -149,6 +149,11 @@ export default function CommunityDetailPage() {
                   Moderation
                 </Link>
               )}
+              {community.is_member && (
+                <Link href={`/community/${slug}/settings`} className="block text-sm text-slate-400 hover:text-slate-200 py-1">
+                  Community Settings
+                </Link>
+              )}
             </div>
           </div>
         </div>
