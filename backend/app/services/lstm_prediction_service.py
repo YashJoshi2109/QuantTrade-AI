@@ -189,13 +189,33 @@ class StockPredictor:
             self.lstm_model.eval()
             self.scaler = MinMaxScaler()
 
+    def _get_checkpoint_path(self, horizon: int) -> Optional[str]:
+        """Get best checkpoint: registry production model > latest checkpoint."""
+        # Try model registry first
+        try:
+            from ml.model_registry import model_registry
+            prod_model = model_registry.get_production_model(f"lstm_h{horizon}")
+            if prod_model and prod_model.checkpoint_path:
+                if os.path.exists(prod_model.checkpoint_path):
+                    return prod_model.checkpoint_path
+        except Exception:
+            pass
+
+        # Fall back to latest checkpoint
+        try:
+            ckpt = find_latest_checkpoint(DEFAULT_CHECKPOINT_DIR, horizon=horizon)
+            return str(ckpt) if ckpt else None
+        except Exception:
+            return None
+
     def _load_all_checkpoints(self) -> None:
         """Attempt to load trained models for each horizon."""
         for h in (1, 7, 30):
             try:
-                ckpt_path = find_latest_checkpoint(DEFAULT_CHECKPOINT_DIR, horizon=h)
-                if ckpt_path is None:
+                ckpt_path_str = self._get_checkpoint_path(h)
+                if ckpt_path_str is None:
                     continue
+                ckpt_path = Path(ckpt_path_str)
                 model, scaler, metadata, calibration = load_checkpoint(ckpt_path, device="cpu")
                 self._trained_models[h] = model
                 self._trained_scalers[h] = scaler
@@ -267,6 +287,7 @@ class StockPredictor:
         return min(self._trained_models.keys(), key=lambda h: abs(h - horizon))
 
     def _predict_trained(self, symbol: str, timeframe_days: int, horizon_key: int) -> PricePrediction:
+        t0 = time.time()
         features, current_price = self._prepare_features_trained(symbol, horizon_key)
 
         seq_len = 60
@@ -311,6 +332,26 @@ class StockPredictor:
             vol_proxy = 0.02
         range_low = predicted_price * (1 - vol_proxy * 2)
         range_high = predicted_price * (1 + vol_proxy * 2)
+
+        latency_ms = (time.time() - t0) * 1000
+
+        # Log prediction for monitoring / drift detection
+        try:
+            from ml.prediction_logger import prediction_logger
+            prediction_logger.log_prediction(
+                symbol=symbol,
+                horizon=horizon_key,
+                model_name=f"lstm_h{horizon_key}",
+                model_version=1,
+                predicted_return=expected_return,
+                predicted_direction="up" if expected_return > 0 else "down",
+                confidence=confidence,
+                current_price=current_price,
+                predicted_price=predicted_price,
+                latency_ms=latency_ms,
+            )
+        except Exception:
+            pass
 
         return PricePrediction(
             timeframe=f"{timeframe_days}_day",

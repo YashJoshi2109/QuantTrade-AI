@@ -1,45 +1,45 @@
-# QuantTrade-AI LSTM Training Configuration
+# QuantTrade-AI LSTM Training Configuration — Production
 # Train: python -m ml.train --config configs/train_default.yaml
 
 # ── Symbol selection ──────────────────────────────────────────────────
-# Options: tier_1 (10 mega-caps), tier_2 (60), all (269)
-symbol_tier: "tier_1"
-# symbols: [AAPL, MSFT, GOOGL]  # explicit override, leave empty to use tier
+# tier_1 (20 mega-caps), tier_2 (180+), tier_3 (260+), all (300)
+symbol_tier: "all"
+# Override: symbols: [AAPL, MSFT]
 
 # ── Data ──────────────────────────────────────────────────────────────
-data_period: "max"        # yfinance period ("max" = full IPO-to-now, up to 25yr)
+data_period: "5y"          # 5 years of daily data per symbol
 cache_dir: "ml/data_cache"
 
 # ── Features ──────────────────────────────────────────────────────────
-target_mode: "log_return" # log_return | binary_direction
-seq_len: 60               # lookback window in days
-horizons: [1, 7, 30]      # train separate models for each horizon
+target_mode: "log_return"  # log_return gives better gradient signal than binary
+seq_len: 60                # 60 trading days lookback (~3 months)
+horizons: [1, 7, 30]       # 1-day, 1-week, 1-month predictions
 
 # ── Model architecture ────────────────────────────────────────────────
-hidden_size: 128
-num_layers: 3
-dropout: 0.2
+hidden_size: 128           # LSTM hidden units
+num_layers: 3              # 3-layer LSTM with attention
+dropout: 0.2               # regularization
 
 # ── Scaler ────────────────────────────────────────────────────────────
-scaler_type: "standard"   # standard | minmax | robust
+scaler_type: "robust"      # RobustScaler handles outliers better than StandardScaler
 
 # ── Training ──────────────────────────────────────────────────────────
-epochs: 50
-batch_size: 64
-learning_rate: 0.001
-weight_decay: 0.0001
-grad_clip_norm: 1.0
-early_stopping_patience: 10
-lr_scheduler: "one_cycle"  # one_cycle | cosine | reduce_on_plateau
+epochs: 80                 # more epochs for 300 symbols (early stopping protects)
+batch_size: 128            # larger batch for more data
+learning_rate: 0.0005      # slightly lower LR for stability with more data
+weight_decay: 0.0001       # L2 regularization
+grad_clip_norm: 1.0        # gradient clipping
+early_stopping_patience: 15 # more patience with more data
+lr_scheduler: "cosine"     # cosine annealing works well for large datasets
 
 # ── Validation ────────────────────────────────────────────────────────
-val_days: 63              # ~3 months
-test_days: 63
+val_days: 126              # ~6 months validation (more data = more reliable eval)
+test_days: 63              # ~3 months holdout
 
 # ── Walk-forward (optional) ───────────────────────────────────────────
-walk_forward: false
-wf_train_days: 1260       # 5 years
-wf_retrain_every: 252     # 1 year
+walk_forward: false         # enable for production backtesting
+wf_train_days: 1260        # 5 years
+wf_retrain_every: 252      # 1 year
 wf_expanding: true
 
 # ── Portfolio evaluation ──────────────────────────────────────────────
@@ -47,4 +47,4 @@ transaction_cost_bps: 10.0
 
 # ── Output ────────────────────────────────────────────────────────────
 checkpoint_dir: "ml/checkpoints"
-experiment_name: "nightly"
+experiment_name: "prod_300"
