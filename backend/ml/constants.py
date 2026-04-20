@@ -42,32 +42,63 @@ NUM_FEATURES = len(FEATURE_COLUMNS)  # 20
 # ── Symbol tiers ───────────────────────────────────────────────────────
 
 TIER_1_SYMBOLS: list[str] = [
-    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA",
-    "META", "TSLA", "JPM", "V", "JNJ",
+    # Mega-caps (top 20 by market cap) — always trained first
+    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B",
+    "JPM", "V", "UNH", "JNJ", "XOM", "MA", "PG", "HD", "AVGO", "MRK",
+    "COST", "LLY",
 ]
 
 TIER_2_SYMBOLS: list[str] = [
-    # Tech
-    "AMD", "INTC", "CRM", "ADBE", "ORCL", "CSCO", "AVGO", "QCOM", "TXN", "NOW",
-    "SNOW", "DDOG", "NET", "SHOP", "SQ", "UBER", "ABNB", "COIN", "PLTR", "PANW",
-    # Healthcare
-    "UNH", "LLY", "PFE", "ABBV", "MRK", "TMO", "ABT", "DHR", "BMY", "AMGN",
+    # Large-cap tech
+    "AMD", "INTC", "CRM", "ADBE", "ORCL", "CSCO", "QCOM", "TXN", "NOW", "AMAT",
+    "LRCX", "KLAC", "MRVL", "SNPS", "CDNS", "FTNT", "PANW", "CRWD", "ZS", "NET",
+    "DDOG", "SNOW", "MDB", "SHOP", "SQ", "COIN", "PLTR", "ARM", "SMCI", "DELL",
     # Finance
-    "BAC", "WFC", "GS", "MS", "BLK", "SCHW", "C", "AXP", "MA",
+    "BAC", "WFC", "GS", "MS", "BLK", "SCHW", "C", "AXP", "ICE", "CME",
+    "MCO", "MSCI", "SPGI", "CB", "AON", "MMC", "PGR", "TRV", "MET", "AIG",
+    # Healthcare
+    "PFE", "ABBV", "TMO", "ABT", "DHR", "BMY", "AMGN", "GILD", "VRTX", "REGN",
+    "ISRG", "MDT", "SYK", "BDX", "EW", "ZTS", "IDXX", "DXCM", "ALGN", "BSX",
     # Consumer
-    "WMT", "HD", "PG", "KO", "PEP", "COST", "MCD", "NKE", "DIS", "NFLX",
+    "WMT", "KO", "PEP", "MCD", "NKE", "DIS", "NFLX", "SBUX", "TJX", "LOW",
+    "TGT", "ROST", "ORLY", "AZO", "CMG", "YUM", "DPZ", "MNST", "KHC", "CL",
+    # Industrials
+    "BA", "GE", "CAT", "HON", "UPS", "RTX", "LMT", "DE", "MMM", "FDX",
+    "GD", "NOC", "WM", "RSG", "EMR", "ITW", "PH", "ROK", "ETN", "IR",
     # Energy
-    "XOM", "CVX",
+    "CVX", "COP", "SLB", "EOG", "MPC", "PSX", "VLO", "OXY", "DVN", "HAL",
+    # Utilities + REITs
+    "NEE", "DUK", "SO", "AEP", "D", "SRE", "EXC", "XEL", "CEG", "VST",
+    "PLD", "AMT", "EQIX", "CCI", "PSA", "SPG", "O", "WELL", "DLR", "AVB",
+    # Telecom + Media
+    "T", "VZ", "TMUS", "CMCSA", "CHTR", "WBD", "PARA", "FOX",
+    # Materials
+    "LIN", "APD", "SHW", "ECL", "DD", "NEM", "FCX", "NUE", "STLD", "CF",
 ]
 
 TIER_3_SYMBOLS: list[str] = [
-    "PYPL", "IBM", "DELL", "HPE", "MRVL", "ARM", "SMCI", "CRWD", "ZS", "FTNT",
-    "OKTA", "MDB", "TEAM", "WDAY", "VEEV", "HUBS", "TTD", "U", "PATH", "NTNX",
-    "BA", "GE", "CAT", "HON", "UPS", "RTX", "LMT", "DE", "MMM", "FDX",
-    "CEG", "VST", "NEE", "DUK", "SO", "AEP", "D", "SRE", "EXC", "XEL",
-    "TJX", "ETSY", "W", "CHWY", "DG", "DLTR", "FIVE", "BBY", "RVMD",
-    "T", "VZ", "TMUS", "CMCSA",
-    "BRK-B", "SPY", "QQQ", "IWM", "DIA",
+    # Growth / Mid-cap tech
+    "UBER", "ABNB", "DASH", "TTD", "TEAM", "WDAY", "VEEV", "HUBS", "OKTA", "PATH",
+    "U", "NTNX", "ESTC", "CFLT", "BILL", "PCOR", "MNDY", "ZI", "GTLB", "IOT",
+    # Semiconductors
+    "ON", "SWKS", "QRVO", "MPWR", "WOLF", "ACLS", "ENTG", "ONTO",
+    # Consumer discretionary
+    "ETSY", "W", "CHWY", "DG", "DLTR", "FIVE", "BBY", "TSCO", "ULTA", "DECK",
+    "LULU", "BIRD", "RH", "WSM", "GRMN", "HAS", "MAT",
+    # Biotech / Pharma
+    "MRNA", "BIIB", "IQV", "CNC", "CI", "HUM", "MOH", "ELV", "HCA", "DVA",
+    # Fintech
+    "PYPL", "FIS", "FISV", "GPN", "WEX", "NDAQ", "CBOE",
+    # Other
+    "RIVN", "LCID", "PLUG", "FSLR", "ENPH", "SEDG",
+    "HPE", "IBM", "HPQ", "EPAM", "GLOB",
+    # Additional mid-caps to reach ~300
+    "CTAS", "ODFL", "FAST", "PAYX", "VRSK", "CPRT", "FICO", "ANSS", "CDW", "BR",
+    "TRGP", "WMB", "KMI", "OKE", "ET", "CTRA", "FANG", "APA", "MRO", "AR",
+    "WAB", "CARR", "TT", "DOV", "HUBB", "NDSN", "ALLE", "SWK",
+    "VICI", "IRM", "SBAC", "ESS", "MAA", "UDR", "KIM", "REG", "HST", "CPT",
+    # ETF benchmarks
+    "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "XLK", "XLV", "XLI", "XLP",
 ]
 
 ALL_SYMBOLS: list[str] = sorted(set(TIER_1_SYMBOLS + TIER_2_SYMBOLS + TIER_3_SYMBOLS))
@@ -75,6 +106,7 @@ ALL_SYMBOLS: list[str] = sorted(set(TIER_1_SYMBOLS + TIER_2_SYMBOLS + TIER_3_SYM
 SYMBOL_TIERS: dict[str, list[str]] = {
     "tier_1": TIER_1_SYMBOLS,
     "tier_2": TIER_1_SYMBOLS + TIER_2_SYMBOLS,
+    "tier_3": TIER_1_SYMBOLS + TIER_2_SYMBOLS + TIER_3_SYMBOLS,
     "all": ALL_SYMBOLS,
 }
 
