@@ -2179,6 +2179,15 @@ export async function fetchTickerFeed(symbol: string, cursor?: number) {
   return res.json() as Promise<{ posts: CommunityPost[]; next_cursor: number | null }>
 }
 
+export async function fetchMarketMood(hours: number = 24) {
+  const res = await apiFetch(`${API_URL}/api/v1/feed/market-mood?hours=${hours}`)
+  if (!res.ok) return null
+  return res.json() as Promise<{
+    mood: string; counts: { bullish: number; bearish: number; neutral: number };
+    total_posts: number; bullish_pct: number; bearish_pct: number
+  }>
+}
+
 export async function fetchTrendingTickers(hours: number = 24, limit: number = 10) {
   const res = await apiFetch(`${API_URL}/api/v1/feed/trending-tickers?hours=${hours}&limit=${limit}`)
   if (!res.ok) return { tickers: [] as { symbol: string; mention_count: number }[], time_window_hours: 24 }

@@ -253,8 +253,8 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                 </Link>
               ))}
               {sentiment && (
-                <span className={`px-2 py-0.5 text-xs font-medium rounded-md border ${sentiment.bg} ${sentiment.color}`}>
-                  {sentiment.label}
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${sentiment.bg} ${sentiment.color}`}>
+                  {post.sentiment === 'bullish' ? '\u{1F7E2}' : post.sentiment === 'bearish' ? '\u{1F534}' : '\u26AA'} {sentiment.label}
                 </span>
               )}
             </div>

@@ -90,3 +90,88 @@ def seed_reddit_initial():
         return {"status": "error", "error": str(e)}
     finally:
         db.close()
+
+
+@celery_app.task(name="auto_post_news")
+def auto_post_news():
+    """
+    Fetch top financial news and auto-post to relevant communities.
+    Runs every 4 hours via Celery Beat.
+    """
+    db = SessionLocal()
+    try:
+        from app.models.community import Community, Post
+        from app.models.user import User
+        from app.services.sentiment_service import sentiment_service
+        import httpx
+        from app.config import settings
+
+        system_user = db.query(User).filter(User.role == "admin").first()
+        if not system_user:
+            system_user = db.query(User).first()
+        if not system_user:
+            return {"status": "error", "reason": "no_users"}
+
+        # Try NewsAPI
+        if not settings.NEWSAPI_KEY:
+            logger.warning("NEWSAPI_KEY not configured, skipping news auto-post")
+            return {"status": "skipped", "reason": "no_api_key"}
+
+        response = httpx.get(
+            "https://newsapi.org/v2/top-headlines",
+            params={"category": "business", "language": "en", "pageSize": 10, "apiKey": settings.NEWSAPI_KEY},
+            timeout=15,
+        )
+        if response.status_code != 200:
+            return {"status": "error", "reason": f"API returned {response.status_code}"}
+
+        articles = response.json().get("articles", [])
+        stock_market = db.query(Community).filter(Community.slug == "stock-market").first()
+        if not stock_market:
+            return {"status": "error", "reason": "stock-market community not found"}
+
+        created = 0
+        for article in articles[:5]:
+            title = article.get("title", "")
+            url = article.get("url", "")
+            source = article.get("source", {}).get("name", "Unknown")
+            description = article.get("description", "")
+
+            if not title or not url:
+                continue
+
+            # Deduplicate
+            existing = db.query(Post.id).filter(Post.source_url == url).first()
+            if existing:
+                continue
+
+            # Score sentiment
+            result = sentiment_service.score_text(f"{title} {description}")
+
+            body = f"{description}\n\n---\n*Source: {source}*"
+            post = Post(
+                author_id=system_user.id,
+                community_id=stock_market.id,
+                title=f"[News] {title[:280]}",
+                body=body,
+                post_type="news",
+                sentiment=result.label,
+                sentiment_confidence=result.confidence,
+                source_url=url,
+                source_platform="newsapi",
+                moderation_status="approved",
+                tickers=[],
+            )
+            db.add(post)
+            created += 1
+
+        if created > 0:
+            stock_market.post_count = (stock_market.post_count or 0) + created
+            db.commit()
+
+        return {"status": "success", "news_posted": created}
+    except Exception as e:
+        logger.error(f"News auto-post failed: {e}")
+        return {"status": "error", "error": str(e)}
+    finally:
+        db.close()

@@ -49,6 +49,7 @@ class UserProfileResponse(BaseModel):
     following_count: int = 0
     created_at: Optional[datetime] = None
     is_following: bool = False  # Whether the requesting user follows this user
+    badges: List[str] = []
 
     class Config:
         from_attributes = True
@@ -125,6 +126,24 @@ class ProfileUpdate(BaseModel):
     full_name: Optional[str] = Field(None, max_length=200)
 
 
+# ── Helpers (badges) ────────────────────────────────────────────────────────
+
+def _compute_badges(user) -> list:
+    badges = []
+    rep = getattr(user, 'reputation', 0) or 0
+    if rep >= 1000:
+        badges.append("verified_analyst")
+    elif rep >= 500:
+        badges.append("top_contributor")
+    elif rep >= 100:
+        badges.append("rising_star")
+    if getattr(user, 'role', '') == 'admin':
+        badges.append("admin")
+    if getattr(user, 'role', '') == 'moderator':
+        badges.append("moderator")
+    return badges
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.patch("/users/me/profile")
@@ -178,6 +197,7 @@ async def get_user_profile(
         following_count=getattr(user, "following_count", 0) or 0,
         created_at=user.created_at,
         is_following=following,
+        badges=_compute_badges(user),
     )
 
 

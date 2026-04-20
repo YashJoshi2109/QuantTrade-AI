@@ -46,5 +46,9 @@ celery_app.conf.update(
             "task": "sync_reddit_posts",
             "schedule": 1800.0,  # 30 minutes
         },
+        "auto-post-news": {
+            "task": "auto_post_news",
+            "schedule": 14400.0,  # 4 hours
+        },
     }
 )

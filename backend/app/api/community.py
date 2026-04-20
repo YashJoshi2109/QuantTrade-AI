@@ -523,3 +523,47 @@ async def update_community_rules(
 
     db.commit()
     return CommunityRules(rules=settings["rules"])
+
+
+# ── AutoMod Endpoints ──────────────────────────────────────────────────────
+
+class AutoModRule(BaseModel):
+    type: str = Field(..., pattern="^(keyword|regex|account_age|karma|link)$")
+    value: str
+    action: str = Field("review", pattern="^(remove|review)$")
+    name: str = Field(..., max_length=100)
+
+
+@router.get("/communities/{slug}/automod")
+async def get_automod_rules(
+    slug: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Get automod rules for a community. Moderator/owner only."""
+    community = _get_community_or_404(db, slug)
+    membership = _check_membership(db, community.id, user.id)
+    if not membership or membership.role not in ("owner", "moderator"):
+        raise HTTPException(status_code=403, detail="Moderators only")
+    settings = community.settings or {}
+    return {"rules": settings.get("automod_rules", [])}
+
+
+@router.put("/communities/{slug}/automod")
+async def update_automod_rules(
+    slug: str,
+    rules: List[AutoModRule],
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Update automod rules. Owner/moderator only. Max 30 rules."""
+    community = _get_community_or_404(db, slug)
+    membership = _check_membership(db, community.id, user.id)
+    if not membership or membership.role not in ("owner", "moderator"):
+        raise HTTPException(status_code=403, detail="Moderators only")
+
+    settings = dict(community.settings or {})
+    settings["automod_rules"] = [r.model_dump() for r in rules[:30]]
+    community.settings = settings
+    db.commit()
+    return {"rules": settings["automod_rules"], "count": len(settings["automod_rules"])}

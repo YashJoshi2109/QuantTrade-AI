@@ -103,6 +103,7 @@ class PostResponse(BaseModel):
     community_name: Optional[str] = None
     author: Optional[AuthorInfo] = None
     user_vote: Optional[int] = None  # 1, -1, or None
+    disclaimer: str = "This is community discussion, not financial advice. Always do your own research."
 
     class Config:
         from_attributes = True
@@ -369,6 +370,27 @@ async def create_post(
 
     asyncio.create_task(_moderate_post_bg())
 
+    # ── Non-blocking sentiment scoring (fire-and-forget) ──────────────
+    async def _score_sentiment(post_id: int):
+        """Background task to score post sentiment."""
+        try:
+            from app.services.sentiment_service import sentiment_service
+            from app.db.database import SessionLocal as _SL
+            db_s = _SL()
+            try:
+                p = db_s.query(Post).filter(Post.id == post_id).first()
+                if p and not p.sentiment:
+                    result = sentiment_service.score_text(f"{p.title} {p.body or ''}")
+                    p.sentiment = result.label
+                    p.sentiment_confidence = result.confidence
+                    db_s.commit()
+            finally:
+                db_s.close()
+        except Exception as e:
+            logger.error(f"Sentiment scoring failed for post {post_id}: {e}")
+
+    asyncio.create_task(_score_sentiment(post.id))
+
     # Reload with relationships
     post = _get_post_or_404(db, post.id)
     return _post_to_response(post, user_vote=None)
@@ -616,6 +638,41 @@ async def trending_tickers(
     tickers = [{"symbol": row[0], "mention_count": row[1]} for row in rows]
 
     return {"tickers": tickers, "time_window_hours": hours}
+
+
+@router.get("/feed/market-mood")
+async def market_mood(
+    hours: int = Query(24, ge=1, le=168),
+    db: Session = Depends(get_db),
+):
+    """Aggregate sentiment across recent posts — market mood indicator."""
+    from datetime import timedelta, timezone as tz
+    cutoff = datetime.now(tz.utc) - timedelta(hours=hours)
+
+    posts = (
+        db.query(Post.sentiment, func.count(Post.id))
+        .filter(Post.created_at > cutoff, Post.is_removed == False, Post.sentiment.isnot(None))
+        .group_by(Post.sentiment)
+        .all()
+    )
+
+    mood = {"bullish": 0, "bearish": 0, "neutral": 0}
+    total = 0
+    for sentiment, count in posts:
+        if sentiment in mood:
+            mood[sentiment] = count
+            total += count
+
+    dominant = max(mood, key=mood.get) if total > 0 else "neutral"
+
+    return {
+        "mood": dominant,
+        "counts": mood,
+        "total_posts": total,
+        "time_window_hours": hours,
+        "bullish_pct": round(mood["bullish"] / max(total, 1) * 100, 1),
+        "bearish_pct": round(mood["bearish"] / max(total, 1) * 100, 1),
+    }
 
 
 @router.get("/feed/ticker/{symbol}", response_model=PaginatedPosts)

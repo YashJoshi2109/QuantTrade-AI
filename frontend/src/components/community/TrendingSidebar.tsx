@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { TrendingUp, Users, Flame, BarChart3 } from 'lucide-react'
-import { fetchCommunities, fetchTrendingTickers, type Community } from '@/lib/api'
+import { TrendingUp, Users, Flame, BarChart3, Activity } from 'lucide-react'
+import { fetchCommunities, fetchTrendingTickers, fetchMarketMood, type Community } from '@/lib/api'
 
 interface TrendingTicker {
   symbol: string
@@ -15,6 +15,7 @@ export default function TrendingSidebar() {
   const [tickers, setTickers] = useState<TrendingTicker[]>([])
   const [loading, setLoading] = useState(true)
   const [popularCommunities, setPopularCommunities] = useState<Community[]>([])
+  const [mood, setMood] = useState<{ mood: string; bullish_pct: number; bearish_pct: number; total_posts: number } | null>(null)
 
   const loadTrending = useCallback(async () => {
     try {
@@ -35,6 +36,10 @@ export default function TrendingSidebar() {
   }, [loadTrending])
 
   useEffect(() => {
+    fetchMarketMood(24).then(data => { if (data) setMood(data) }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
     fetchCommunities()
       .then((data) => {
         const sorted = (data.communities || []).sort((a, b) => b.member_count - a.member_count)
@@ -50,6 +55,36 @@ export default function TrendingSidebar() {
       transition={{ duration: 0.3, delay: 0.1 }}
       className="space-y-4"
     >
+      {/* Market Mood */}
+      {mood && mood.total_posts > 0 && (
+        <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Activity className="w-4 h-4 text-purple-400" />
+            <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">
+              Market Mood
+            </h3>
+          </div>
+          <div className="text-center mb-3">
+            <span className={`text-2xl font-bold ${
+              mood.mood === 'bullish' ? 'text-emerald-400' :
+              mood.mood === 'bearish' ? 'text-red-400' : 'text-slate-400'
+            }`}>
+              {mood.mood === 'bullish' ? '\u{1F7E2} Bullish' : mood.mood === 'bearish' ? '\u{1F534} Bearish' : '\u26AA Neutral'}
+            </span>
+          </div>
+          {/* Sentiment bar */}
+          <div className="flex h-2 rounded-full overflow-hidden bg-slate-800 mb-2">
+            <div className="bg-emerald-500 transition-all" style={{ width: `${mood.bullish_pct}%` }} />
+            <div className="bg-red-500 transition-all" style={{ width: `${mood.bearish_pct}%` }} />
+          </div>
+          <div className="flex justify-between text-[10px] text-slate-500">
+            <span>Bullish {mood.bullish_pct}%</span>
+            <span>{mood.total_posts} posts</span>
+            <span>Bearish {mood.bearish_pct}%</span>
+          </div>
+        </div>
+      )}
+
       {/* Trending Tickers */}
       <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4">
         <div className="flex items-center gap-2 mb-3">
