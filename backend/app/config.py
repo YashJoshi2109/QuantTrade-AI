@@ -94,7 +94,12 @@ class Settings(BaseSettings):
     OPENSKY_PASSWORD: Optional[str] = None
     AVIATIONSTACK_API_KEY: Optional[str] = None
     AISSTREAM_API_KEY: Optional[str] = None   # AIS Stream API Key
-    
+
+    # Reddit API (community content ingestion)
+    REDDIT_CLIENT_ID: Optional[str] = None
+    REDDIT_CLIENT_SECRET: Optional[str] = None
+    REDDIT_USER_AGENT: str = "QuantTrade-AI/1.0 (community content aggregation)"
+
     # Google OAuth
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None

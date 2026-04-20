@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.db.database import get_db
 from app.models.user import User
@@ -115,7 +115,41 @@ def _is_following(db: Session, follower_id: int, following_id: int) -> bool:
     )
 
 
+# ── Pydantic Schemas (Profile Update) ───────────────────────────────────────
+
+class ProfileUpdate(BaseModel):
+    bio: Optional[str] = Field(None, max_length=500)
+    trading_style: Optional[str] = Field(None, max_length=100)
+    experience: Optional[str] = Field(None, max_length=100)
+    avatar_url: Optional[str] = None
+    full_name: Optional[str] = Field(None, max_length=200)
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────
+
+@router.patch("/users/me/profile")
+async def update_profile(
+    body: ProfileUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Update your own profile."""
+    update_data = body.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        if hasattr(user, field):
+            setattr(user, field, value)
+    db.commit()
+    db.refresh(user)
+    return {
+        "id": user.id,
+        "username": user.username,
+        "full_name": user.full_name,
+        "bio": getattr(user, 'bio', None),
+        "trading_style": getattr(user, 'trading_style', None),
+        "experience": getattr(user, 'experience', None),
+        "avatar_url": user.avatar_url,
+    }
+
 
 @router.get("/users/{user_id}", response_model=UserProfileResponse)
 async def get_user_profile(
@@ -352,3 +386,40 @@ async def get_following(
     next_cursor = following_ids[-1] if len(follows) == limit else None
 
     return PaginatedUsers(items=items, next_cursor=next_cursor, total=total)
+
+
+@router.get("/users/{user_id}/comments")
+async def get_user_comments(
+    user_id: int,
+    cursor: Optional[int] = Query(None, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """Get a user's comment history, newest first."""
+    from app.models.community import Comment, Post
+
+    q = (
+        db.query(Comment)
+        .filter(Comment.author_id == user_id, Comment.is_removed == False)
+    )
+
+    if cursor is not None:
+        q = q.filter(Comment.id < cursor)
+
+    comments = q.order_by(Comment.created_at.desc()).limit(limit).all()
+
+    items = []
+    for c in comments:
+        post = db.query(Post).filter(Post.id == c.post_id).first()
+        items.append({
+            "id": c.id,
+            "post_id": c.post_id,
+            "post_title": post.title if post else None,
+            "body": c.body,
+            "upvote_count": c.upvote_count,
+            "downvote_count": c.downvote_count,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        })
+
+    next_cursor = comments[-1].id if len(comments) == limit else None
+    return {"comments": items, "next_cursor": next_cursor}

@@ -11,6 +11,8 @@ from app.models.community import (
     ModerationReport,
     ModerationAction,
     AuditLog,
+    Bookmark,
+    CommunityBan,
 )
 from app.models.symbol import Symbol
 from app.models.price import PriceBar
@@ -87,4 +89,6 @@ __all__ = [
     "ModerationReport",
     "ModerationAction",
     "AuditLog",
+    "Bookmark",
+    "CommunityBan",
 ]

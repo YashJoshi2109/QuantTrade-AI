@@ -12,8 +12,10 @@ import {
   Clock,
   Flag,
   Check,
+  Pin,
+  Lock,
 } from 'lucide-react'
-import { votePost, type CommunityPost } from '@/lib/api'
+import { votePost, bookmarkPost, unbookmarkPost, type CommunityPost } from '@/lib/api'
 import ReportModal from '@/components/community/ReportModal'
 
 function timeAgo(dateStr: string): string {
@@ -86,13 +88,23 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
       }
     }, [userVote, voteCount, post.id, onVote, notify])
 
-    const handleBookmark = useCallback(() => {
+    const handleBookmark = useCallback(async () => {
       const next = !bookmarked
+      // Optimistic update
       setBookmarked(next)
       setBookmarkAnimating(true)
       setTimeout(() => setBookmarkAnimating(false), 400)
       notify(next ? 'Saved to bookmarks' : 'Removed from saved', 'success')
-    }, [bookmarked, notify])
+
+      const ok = next
+        ? await bookmarkPost(post.id)
+        : await unbookmarkPost(post.id)
+      if (!ok) {
+        // Revert on failure
+        setBookmarked(!next)
+        notify('Bookmark failed. Please try again.', 'error')
+      }
+    }, [bookmarked, notify, post.id])
 
     const handleShare = useCallback(() => {
       const url = `${window.location.origin}/community/post/${post.id}`
@@ -207,6 +219,14 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               </span>
             </div>
 
+            {/* Pinned indicator */}
+            {(post as any).is_pinned && (
+              <div className="flex items-center gap-1 text-xs text-emerald-400 mb-1">
+                <Pin className="w-3 h-3" />
+                <span>Pinned</span>
+              </div>
+            )}
+
             {/* Title */}
             <Link href={`/community/post/${post.id}`}>
               <h3 className="text-[15px] font-semibold text-slate-100 leading-snug mb-1 group-hover:text-white transition-colors cursor-pointer break-words">
@@ -249,6 +269,14 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                 <MessageSquare className="w-4 h-4" />
                 <span>{post.comment_count} <span className="hidden sm:inline">{post.comment_count === 1 ? 'comment' : 'comments'}</span></span>
               </Link>
+
+              {/* Locked indicator */}
+              {(post as any).is_locked && (
+                <div className="flex items-center gap-1 text-xs text-amber-400">
+                  <Lock className="w-3 h-3" />
+                  <span>Locked</span>
+                </div>
+              )}
 
               {/* Share with confirmation */}
               <motion.button

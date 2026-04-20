@@ -49,6 +49,7 @@ from app.api import copilot_stream
 from app.api import ideas
 from app.api import model_index as model_index_api
 from app.api import community, posts, comments, notifications, users
+from app.api import bookmarks, uploads
 from app.api import moderation as moderation_api
 from app.api import ws as ws_api
 from app.db.database import engine, Base
@@ -436,6 +437,12 @@ app.include_router(posts.router, prefix="/api/v1", tags=["posts"])
 app.include_router(comments.router, prefix="/api/v1", tags=["comments"])
 app.include_router(notifications.router, prefix="/api/v1", tags=["notifications"])
 app.include_router(users.router, prefix="/api/v1", tags=["users"])
+
+# Bookmarks — save/unsave posts
+app.include_router(bookmarks.router, prefix="/api/v1", tags=["bookmarks"])
+
+# Uploads — image upload for community media
+app.include_router(uploads.router, prefix="/api/v1", tags=["uploads"])
 
 # Moderation — AI content moderation pipeline + audit log
 app.include_router(moderation_api.router, prefix="/api/v1", tags=["moderation"])

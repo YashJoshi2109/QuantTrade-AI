@@ -6,6 +6,7 @@ import {
   Flame,
   Clock,
   TrendingUp,
+  Zap,
   Users,
   PenSquare,
   X,
@@ -18,6 +19,7 @@ import {
   Search,
   CheckCircle2,
   Keyboard,
+  ImagePlus,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import PostCard from '@/components/community/PostCard'
@@ -32,16 +34,18 @@ import {
   fetchPopularFeed,
   fetchCommunities,
   createPost,
+  uploadImage,
   type CommunityPost,
   type Community,
 } from '@/lib/api'
 
-type SortTab = 'hot' | 'new' | 'top' | 'following'
+type SortTab = 'hot' | 'new' | 'top' | 'rising' | 'following'
 
 const SORT_TABS: { key: SortTab; label: string; icon: typeof Flame }[] = [
   { key: 'hot', label: 'Hot', icon: Flame },
   { key: 'new', label: 'New', icon: Clock },
   { key: 'top', label: 'Top', icon: TrendingUp },
+  { key: 'rising', label: 'Rising', icon: Zap },
   { key: 'following', label: 'Following', icon: Users },
 ]
 
@@ -78,6 +82,7 @@ export default function CommunityPage() {
   const { success: toastSuccess, error: toastError } = useToast()
 
   const [sort, setSort] = useState<SortTab>('hot')
+  const [timeFilter, setTimeFilter] = useState<string>('all')
   const [posts, setPosts] = useState<CommunityPost[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -97,6 +102,8 @@ export default function CommunityPage() {
   const [communities, setCommunities] = useState<Community[]>([])
   const [bodyTab, setBodyTab] = useState<'write' | 'preview'>('write')
   const [communitySearch, setCommunitySearch] = useState('')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   // Keyboard focus
   const [focusedIndex, setFocusedIndex] = useState(-1)
@@ -172,7 +179,7 @@ export default function CommunityPage() {
   }, [])
 
   // Load feed
-  const loadFeed = useCallback(async (sortKey: SortTab, resetCursor?: boolean) => {
+  const loadFeed = useCallback(async (sortKey: SortTab, resetCursor?: boolean, time?: string) => {
     const isReset = resetCursor ?? true
     if (isReset) {
       setLoading(true)
@@ -185,9 +192,10 @@ export default function CommunityPage() {
 
     try {
       const c = isReset ? undefined : (cursor ?? undefined)
-      const data = sortKey === 'top'
-        ? await fetchPopularFeed(c)
-        : await fetchFeed(sortKey, c)
+      const feedSort = sortKey === 'following' ? 'hot' : sortKey
+      const data = sortKey === 'following'
+        ? await fetchFeed('hot', c, 20, time)
+        : await fetchPopularFeed(c, 20, feedSort, time)
 
       const newPosts = data.posts || []
 
@@ -209,9 +217,9 @@ export default function CommunityPage() {
 
   // Initial load and sort changes
   useEffect(() => {
-    loadFeed(sort, true)
+    loadFeed(sort, true, timeFilter)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sort])
+  }, [sort, timeFilter])
 
   // Infinite scroll
   useEffect(() => {
@@ -219,7 +227,7 @@ export default function CommunityPage() {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
-          loadFeed(sort, false)
+          loadFeed(sort, false, timeFilter)
         }
       },
       { rootMargin: '200px' }
@@ -235,13 +243,27 @@ export default function CommunityPage() {
     try {
       const tickers = mergedTickersDisplay
 
+      // Upload image first if present
+      let mediaUrls: string[] | undefined
+      if (imageFile) {
+        try {
+          const uploaded = await uploadImage(imageFile)
+          mediaUrls = [uploaded.url]
+        } catch (err) {
+          toastError(err instanceof Error ? err.message : 'Image upload failed')
+          setCreating(false)
+          return
+        }
+      }
+
       const newPost = await createPost({
         title: createTitle.trim(),
         body: createBody.trim(),
         community_slug: createCommunity,
         tickers: tickers.length > 0 ? tickers : undefined,
         sentiment: createSentiment || undefined,
-      })
+        ...(mediaUrls ? { media_urls: mediaUrls } : {}),
+      } as any)
 
       // Show success state
       setCreateSuccess(true)
@@ -259,6 +281,8 @@ export default function CommunityPage() {
         setCreateSentiment('')
         setBodyTab('write')
         setCommunitySearch('')
+        setImageFile(null)
+        setImagePreview(null)
       }, 800)
     } catch {
       toastError('Failed to create post. Please try again.')
@@ -366,7 +390,10 @@ export default function CommunityPage() {
               {SORT_TABS.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
-                  onClick={() => setSort(key)}
+                  onClick={() => {
+                    setSort(key)
+                    if (key !== 'top') setTimeFilter('all')
+                  }}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1 justify-center ${
                     sort === key
                       ? 'bg-white/[0.06] text-slate-100'
@@ -378,6 +405,24 @@ export default function CommunityPage() {
                 </button>
               ))}
             </div>
+
+            {/* Time filter — only visible when Top sort is active */}
+            {sort === 'top' && (
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-xs text-slate-500 uppercase tracking-wider">Period</span>
+                <select
+                  value={timeFilter}
+                  onChange={(e) => setTimeFilter(e.target.value)}
+                  className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                >
+                  <option value="day">Today</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                  <option value="year">This Year</option>
+                  <option value="all">All Time</option>
+                </select>
+              </div>
+            )}
 
             {/* Posts */}
             {loading ? (
@@ -600,6 +645,42 @@ export default function CommunityPage() {
                       </motion.div>
                     )}
                   </AnimatePresence>
+
+                  {/* Image attach */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <label className="cursor-pointer flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors">
+                      <ImagePlus className="w-4 h-4" />
+                      <span>Add Image</span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          if (f) {
+                            if (f.size > 5 * 1024 * 1024) {
+                              alert('Image must be under 5MB')
+                              return
+                            }
+                            setImageFile(f)
+                            setImagePreview(URL.createObjectURL(f))
+                          }
+                        }}
+                      />
+                    </label>
+                    {imagePreview && (
+                      <div className="relative">
+                        <img src={imagePreview} alt="Preview" className="h-12 w-12 object-cover rounded border border-white/10" />
+                        <button
+                          type="button"
+                          onClick={() => { setImageFile(null); setImagePreview(null) }}
+                          className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] flex items-center justify-center"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Auto-detected tickers display */}

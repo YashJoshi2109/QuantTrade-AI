@@ -27,7 +27,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, case
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel, Field
 
 from app.db.database import get_db, SessionLocal
@@ -206,6 +206,30 @@ def _check_is_mod(db: Session, community_id: int, user_id: int) -> bool:
     return membership is not None and membership.role in ("moderator", "owner")
 
 
+def _apply_feed_sort(q, sort: str, time_filter: str = "all"):
+    """Apply sort and time filter to a feed query. Returns the modified query."""
+    if sort == "rising":
+        six_hours_ago = datetime.now(timezone.utc) - timedelta(hours=6)
+        q = q.filter(Post.created_at > six_hours_ago)
+        q = q.order_by(Post.upvote_count.desc(), Post.id.desc())
+    elif sort == "new":
+        q = q.order_by(Post.created_at.desc(), Post.id.desc())
+    elif sort == "top":
+        time_deltas = {
+            "day": timedelta(days=1),
+            "week": timedelta(weeks=1),
+            "month": timedelta(days=30),
+            "year": timedelta(days=365),
+        }
+        if time_filter != "all" and time_filter in time_deltas:
+            cutoff = datetime.now(timezone.utc) - time_deltas[time_filter]
+            q = q.filter(Post.created_at > cutoff)
+        q = q.order_by((Post.upvote_count - Post.downvote_count).desc(), Post.id.desc())
+    else:  # hot (default)
+        q = q.order_by(Post.hot_score.desc(), Post.id.desc())
+    return q
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.post("/posts", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
@@ -273,6 +297,17 @@ async def create_post(
 
     # Award reputation for creating a post
     reputation_service.update_reputation(user.id, "post_created", db)
+
+    # Broadcast new post via WebSocket to community channel
+    try:
+        from app.services.ws_manager import ws_manager
+        _slug = community.slug if community else "general"
+        asyncio.create_task(ws_manager.broadcast(
+            f"community:feed:{_slug}",
+            {"type": "new_post", "post_id": post.id, "title": post.title}
+        ))
+    except Exception:
+        pass  # WebSocket broadcast is non-critical
 
     # ── Non-blocking AI moderation (fire-and-forget) ────────────────────
     _post_id = post.id
@@ -461,12 +496,18 @@ async def community_posts(
 
 @router.get("/feed", response_model=PaginatedPosts)
 async def user_feed(
+    sort: str = Query("hot", pattern="^(hot|new|top|rising)$"),
+    time: str = Query("all", pattern="^(day|week|month|year|all)$"),
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
 ):
-    """Personalized feed from communities the user has joined."""
+    """Personalized feed from communities the user has joined.
+
+    Sort options: hot (default), new, top, rising.
+    Time filter (only for top): day, week, month, year, all.
+    """
     # Get user's community IDs
     community_ids = [
         r[0]
@@ -490,11 +531,8 @@ async def user_feed(
     if cursor is not None:
         q = q.filter(Post.id < cursor)
 
-    posts = (
-        q.order_by(Post.hot_score.desc(), Post.id.desc())
-        .limit(limit)
-        .all()
-    )
+    q = _apply_feed_sort(q, sort, time)
+    posts = q.limit(limit).all()
 
     votes_map = _bulk_user_votes(db, user.id, [p.id for p in posts]) if posts else {}
 
@@ -509,12 +547,18 @@ async def user_feed(
 
 @router.get("/feed/popular", response_model=PaginatedPosts)
 async def popular_feed(
+    sort: str = Query("hot", pattern="^(hot|new|top|rising)$"),
+    time: str = Query("all", pattern="^(day|week|month|year|all)$"),
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user),
 ):
-    """Global popular feed across all communities."""
+    """Global popular feed across all communities.
+
+    Sort options: hot (default), new, top, rising.
+    Time filter (only for top): day, week, month, year, all.
+    """
     q = (
         db.query(Post)
         .options(joinedload(Post.author), joinedload(Post.community))
@@ -524,11 +568,8 @@ async def popular_feed(
     if cursor is not None:
         q = q.filter(Post.id < cursor)
 
-    posts = (
-        q.order_by(Post.hot_score.desc(), Post.id.desc())
-        .limit(limit)
-        .all()
-    )
+    q = _apply_feed_sort(q, sort, time)
+    posts = q.limit(limit).all()
 
     votes_map: dict = {}
     if current_user and posts:
@@ -541,6 +582,40 @@ async def popular_feed(
     next_cursor = posts[-1].id if len(posts) == limit else None
 
     return PaginatedPosts(items=items, next_cursor=next_cursor)
+
+
+@router.get("/feed/trending-tickers")
+async def trending_tickers(
+    hours: int = Query(24, ge=1, le=168),
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    """Get trending tickers by mention count in recent posts."""
+    from sqlalchemy import text
+    from datetime import timedelta, timezone
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+    # Use unnest for PostgreSQL ARRAY, fallback for SQLite
+    try:
+        rows = db.execute(text("""
+            SELECT ticker, COUNT(*) as mention_count
+            FROM posts, unnest(tickers) AS ticker
+            WHERE created_at > :cutoff
+              AND is_removed = false
+              AND ticker IS NOT NULL
+              AND ticker != ''
+            GROUP BY ticker
+            ORDER BY mention_count DESC
+            LIMIT :lim
+        """), {"cutoff": cutoff, "lim": limit}).fetchall()
+    except Exception:
+        # Fallback: return empty if unnest not supported
+        return {"tickers": [], "time_window_hours": hours}
+
+    tickers = [{"symbol": row[0], "mention_count": row[1]} for row in rows]
+
+    return {"tickers": tickers, "time_window_hours": hours}
 
 
 @router.get("/feed/ticker/{symbol}", response_model=PaginatedPosts)
@@ -647,6 +722,58 @@ async def vote_on_post(
         "upvote_count": post.upvote_count,
         "downvote_count": post.downvote_count,
     }
+
+
+@router.post("/posts/{post_id}/pin")
+async def toggle_pin_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Toggle pin status on a post. Moderator/owner only."""
+    from app.models.community import CommunityMember
+
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    membership = (
+        db.query(CommunityMember)
+        .filter(CommunityMember.community_id == post.community_id, CommunityMember.user_id == user.id)
+        .first()
+    )
+    if not membership or membership.role not in ("owner", "moderator"):
+        raise HTTPException(status_code=403, detail="Only moderators can pin posts")
+
+    post.is_pinned = not post.is_pinned
+    db.commit()
+    return {"post_id": post_id, "is_pinned": post.is_pinned}
+
+
+@router.post("/posts/{post_id}/lock")
+async def toggle_lock_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Toggle lock status on a post. Moderator/owner only."""
+    from app.models.community import CommunityMember
+
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    membership = (
+        db.query(CommunityMember)
+        .filter(CommunityMember.community_id == post.community_id, CommunityMember.user_id == user.id)
+        .first()
+    )
+    if not membership or membership.role not in ("owner", "moderator"):
+        raise HTTPException(status_code=403, detail="Only moderators can lock posts")
+
+    post.is_locked = not post.is_locked
+    db.commit()
+    return {"post_id": post_id, "is_locked": post.is_locked}
 
 
 @router.delete("/posts/{post_id}/vote", status_code=status.HTTP_200_OK)

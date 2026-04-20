@@ -22,6 +22,7 @@ import PostCard from '@/components/community/PostCard'
 import {
   fetchUserProfile,
   fetchUserPosts,
+  fetchUserComments,
   followUser,
   unfollowUser,
   type CommunityPost,
@@ -114,6 +115,10 @@ export default function UserProfilePage() {
   const [hasMorePosts, setHasMorePosts] = useState(true)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
+  // Comments
+  const [comments, setComments] = useState<any[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+
   // Load profile
   useEffect(() => {
     let cancelled = false
@@ -163,6 +168,17 @@ export default function UserProfilePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, profile])
+
+  // Load comments on tab switch
+  useEffect(() => {
+    if (tab === 'comments' && profile?.id) {
+      setCommentsLoading(true)
+      fetchUserComments(profile.id)
+        .then(data => setComments(data.comments || []))
+        .catch(() => setComments([]))
+        .finally(() => setCommentsLoading(false))
+    }
+  }, [tab, profile?.id])
 
   // Infinite scroll for posts
   useEffect(() => {
@@ -446,12 +462,44 @@ export default function UserProfilePage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-12 text-center"
             >
-              <MessageSquare className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-              <p className="text-sm text-slate-500">
-                Comment history coming soon
-              </p>
+              {commentsLoading ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4 animate-pulse">
+                      <div className="h-4 w-48 bg-slate-800 rounded mb-3" />
+                      <div className="h-3 w-full bg-slate-800/50 rounded mb-2" />
+                      <div className="h-3 w-2/3 bg-slate-800/50 rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : comments.length === 0 ? (
+                <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-12 text-center">
+                  <MessageSquare className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+                  <p className="text-sm text-slate-500">No comments yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {comments.map((comment: any) => (
+                    <Link
+                      key={comment.id}
+                      href={`/community/post/${comment.post_id}`}
+                      className="block bg-[#0D1117] border border-white/[0.06] rounded-xl p-4 hover:border-white/[0.12] transition-colors"
+                    >
+                      {comment.post_title && (
+                        <div className="text-xs text-slate-500 mb-2">
+                          Commented on: <span className="text-slate-400">{comment.post_title}</span>
+                        </div>
+                      )}
+                      <p className="text-sm text-slate-300 line-clamp-3">{comment.body}</p>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                        <span>{comment.upvote_count - comment.downvote_count} points</span>
+                        <span>{comment.created_at ? new Date(comment.created_at).toLocaleDateString() : ''}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </motion.div>
           )}
 

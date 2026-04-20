@@ -153,6 +153,12 @@ class Post(Base):
     ai_risk_flags = Column(JSON, nullable=True)              # list of flag strings
     moderation_status = Column(String(20), nullable=True)    # approved | review | removed
 
+    # External content tracking
+    source_url = Column(Text, nullable=True)                   # permalink to original (Reddit, news)
+    source_platform = Column(String(20), nullable=True)        # reddit, newsapi, system
+    sentiment_confidence = Column(Float, nullable=True)        # 0-1 confidence from FinBERT
+    flair = Column(String(50), nullable=True)                  # post flair tag
+
     __table_args__ = (
         Index("ix_posts_community_created", "community_id", "created_at"),
         Index("ix_posts_author_created", "author_id", "created_at"),
@@ -372,3 +378,49 @@ class AuditLog(Base):
 
     def __repr__(self):
         return f"<AuditLog {self.id} {self.action}>"
+
+
+# ─── Bookmark ──────────────────────────────────────────────────────────────
+
+class Bookmark(Base):
+    __tablename__ = "bookmarks"
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), primary_key=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", foreign_keys=[user_id])
+    post = relationship("Post", foreign_keys=[post_id])
+
+    __table_args__ = (
+        Index("ix_bookmarks_user", "user_id", "created_at"),
+    )
+
+    def __repr__(self):
+        return f"<Bookmark user={self.user_id} post={self.post_id}>"
+
+
+# ─── Community Ban ─────────────────────────────────────────────────────────
+
+class CommunityBan(Base):
+    __tablename__ = "community_bans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    community_id = Column(Integer, ForeignKey("communities.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    banned_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reason = Column(Text, nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # NULL = permanent
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    community = relationship("Community", foreign_keys=[community_id])
+    user = relationship("User", foreign_keys=[user_id])
+    moderator = relationship("User", foreign_keys=[banned_by])
+
+    __table_args__ = (
+        UniqueConstraint("community_id", "user_id", name="uq_community_ban"),
+        Index("ix_community_bans_community", "community_id"),
+    )
+
+    def __repr__(self):
+        return f"<CommunityBan community={self.community_id} user={self.user_id}>"

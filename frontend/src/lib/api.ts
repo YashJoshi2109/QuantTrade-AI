@@ -2153,17 +2153,19 @@ export interface Notification {
   created_at: string
 }
 
-export async function fetchFeed(sort: string = 'hot', cursor?: number, limit: number = 20) {
+export async function fetchFeed(sort: string = 'hot', cursor?: number, limit: number = 20, time?: string) {
   const params = new URLSearchParams({ sort, limit: String(limit) })
   if (cursor) params.set('cursor', String(cursor))
+  if (time && sort === 'top') params.set('time', time)
   const res = await apiFetch(`${API_URL}/api/v1/feed?${params}`)
   if (!res.ok) return { posts: [] as CommunityPost[], next_cursor: null as number | null }
   return res.json() as Promise<{ posts: CommunityPost[]; next_cursor: number | null }>
 }
 
-export async function fetchPopularFeed(cursor?: number, limit: number = 20) {
-  const params = new URLSearchParams({ limit: String(limit) })
+export async function fetchPopularFeed(cursor?: number, limit: number = 20, sort: string = 'hot', time?: string) {
+  const params = new URLSearchParams({ sort, limit: String(limit) })
   if (cursor) params.set('cursor', String(cursor))
+  if (time && sort === 'top') params.set('time', time)
   const res = await apiFetch(`${API_URL}/api/v1/feed/popular?${params}`)
   if (!res.ok) return { posts: [] as CommunityPost[], next_cursor: null as number | null }
   return res.json() as Promise<{ posts: CommunityPost[]; next_cursor: number | null }>
@@ -2175,6 +2177,12 @@ export async function fetchTickerFeed(symbol: string, cursor?: number) {
   const res = await apiFetch(`${API_URL}/api/v1/feed/ticker/${symbol}?${params}`)
   if (!res.ok) return { posts: [] as CommunityPost[], next_cursor: null as number | null }
   return res.json() as Promise<{ posts: CommunityPost[]; next_cursor: number | null }>
+}
+
+export async function fetchTrendingTickers(hours: number = 24, limit: number = 10) {
+  const res = await apiFetch(`${API_URL}/api/v1/feed/trending-tickers?hours=${hours}&limit=${limit}`)
+  if (!res.ok) return { tickers: [] as { symbol: string; mention_count: number }[], time_window_hours: 24 }
+  return res.json() as Promise<{ tickers: { symbol: string; mention_count: number }[]; time_window_hours: number }>
 }
 
 export async function fetchCommunities(category?: string) {
@@ -2225,8 +2233,8 @@ export async function votePost(postId: number, direction: 1 | -1) {
   return res.ok
 }
 
-export async function fetchComments(postId: number) {
-  const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/comments`)
+export async function fetchComments(postId: number, sort: string = 'best') {
+  const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/comments?sort=${sort}`)
   if (!res.ok) return { comments: [] }
   return res.json()
 }
@@ -2268,6 +2276,77 @@ export async function markNotificationRead(id: number) {
 
 export async function markAllNotificationsRead() {
   await apiFetch(`${API_URL}/api/v1/notifications/read-all`, { method: 'POST' })
+}
+
+// ── Bookmarks ──────────────────────────────────────────────────────────
+
+export async function bookmarkPost(postId: number) {
+  const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/bookmark`, { method: 'POST' })
+  return res.ok
+}
+
+export async function unbookmarkPost(postId: number) {
+  const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/bookmark`, { method: 'DELETE' })
+  return res.ok
+}
+
+export async function fetchBookmarks(cursor?: number) {
+  const params = new URLSearchParams({ limit: '20' })
+  if (cursor) params.set('cursor', String(cursor))
+  const res = await apiFetch(`${API_URL}/api/v1/users/me/bookmarks?${params}`)
+  if (!res.ok) return { posts: [] as CommunityPost[], next_cursor: null as number | null }
+  return res.json() as Promise<{ posts: CommunityPost[]; next_cursor: number | null }>
+}
+
+// ── Image Upload ───────────────────────────────────────────────────────
+
+export async function uploadImage(file: File): Promise<{ url: string; filename: string; size: number }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(`${API_URL}/api/v1/uploads/image`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Upload failed' }))
+    throw new Error(err.detail || 'Upload failed')
+  }
+  return res.json()
+}
+
+// ── User Profile ───────────────────────────────────────────────────────
+
+export async function updateProfile(data: { bio?: string; trading_style?: string; experience?: string; avatar_url?: string; full_name?: string }) {
+  const res = await apiFetch(`${API_URL}/api/v1/users/me/profile`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error('Failed to update profile')
+  return res.json()
+}
+
+export async function fetchUserComments(userId: number | string, cursor?: number) {
+  const params = new URLSearchParams({ limit: '20' })
+  if (cursor) params.set('cursor', String(cursor))
+  const res = await apiFetch(`${API_URL}/api/v1/users/${userId}/comments?${params}`)
+  if (!res.ok) return { comments: [], next_cursor: null }
+  return res.json()
+}
+
+// ── Post Management ────────────────────────────────────────────────────
+
+export async function togglePinPost(postId: number) {
+  const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/pin`, { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to toggle pin')
+  return res.json() as Promise<{ post_id: number; is_pinned: boolean }>
+}
+
+export async function toggleLockPost(postId: number) {
+  const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/lock`, { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to toggle lock')
+  return res.json() as Promise<{ post_id: number; is_locked: boolean }>
 }
 
 // ── Moderation API ──────────────────────────────────────────────────────
