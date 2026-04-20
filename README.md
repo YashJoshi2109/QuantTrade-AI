@@ -40,6 +40,30 @@ QuantTrade AI is a full-stack financial intelligence platform that combines real
 - **AI Threat Classification** — Severity scoring and market impact prediction
 - **Continent News Feed Grid** — Real-time news by region with sentiment
 
+### Community Platform (Finance-Native Reddit)
+- **8 Communities** — Wall Street Bets, Stocks, Investing, Options, Crypto, Stock Market, Theta Gang, Value Investing
+- **Posts** — Text, news, market updates with ticker detection ($AAPL), sentiment badges, image upload, pin/lock
+- **Comments** — Threaded replies with Wilson score sorting (Best/Top/New/Controversial), @mentions
+- **Feed Algorithms** — Hot, New, Top (with time windows), Rising (velocity-based)
+- **AI Moderation** — 3-stage pipeline: AutoMod rules → Claude analysis → decision engine (auto-approve/review/remove)
+- **Sentiment Analysis** — FinBERT scoring on every post, Market Mood aggregate widget
+- **Full-Text Search** — Posts, comments, communities, users with tabbed results
+- **Real-Time** — WebSocket notifications, live trending tickers, notification bell
+- **Moderation Dashboard** — AutoMod rules editor, ban management (temp/permanent), audit log
+- **Content Ingestion** — NewsAPI + Finnhub + yfinance auto-posting via Celery (every 4 hours)
+- **Trust Layer** — Financial disclaimers, reputation badges, user verification tiers
+
+### MLOps (Full ML Lifecycle)
+- **Feature Store** — Offline batch compute + online serving, 20 engineered features, parquet storage, schema versioning
+- **Experiment Tracking** — Run lifecycle, metric logging, artifact registration, run comparison
+- **Model Registry** — Version management, staging→production→archived, rollback, model cards
+- **Drift Detection** — PSI + KS tests against baseline, per-feature analysis, retrain triggers
+- **Performance Monitor** — Rolling window evaluation, directional accuracy, confidence calibration, automated alerts
+- **Prediction Logger** — Every prediction logged with outcomes for production monitoring
+- **ML Pipeline** — 5-stage orchestrator (features→validation→drift→training→promotion), auto-promote if beats production
+- **Celery Tasks** — Drift check (6h), performance check (daily), feature refresh, pipeline trigger
+- **MLOps Dashboard** — Production models, experiments, feature store, pipeline control (/mlops)
+
 ### Auth & Security
 - **WebAuthn/Passkey** — Biometric authentication (Face ID / Touch ID / hardware keys) via `webauthn` (PyPI)
 - **JWT Sessions** — RS256 tokens, refresh rotation, secure httpOnly cookie option
@@ -705,6 +729,172 @@ flowchart LR
     class MDS,TAS,Redis,WSM,Finn,Ingest,Embed,VS,ExchSvc,DB,Email svc
 ```
 
+### Community Platform — Data Flow
+
+```mermaid
+flowchart LR
+    subgraph Sources ["Data Sources"]
+        NewsAPI["NewsAPI"]
+        Finnhub["Finnhub News"]
+        YF["yfinance"]
+        Users["User Posts"]
+    end
+
+    subgraph Pipeline ["Processing Pipeline"]
+        AutoMod["AutoMod Rules\n(Stage 0)"]
+        AIMod["Claude AI Moderation\n(Stage 1)"]
+        Sentiment["FinBERT Sentiment\n(Stage 2)"]
+        HotScore["Hot Score Calculator"]
+    end
+
+    subgraph Storage ["Storage"]
+        PG["PostgreSQL\n(Posts, Comments, Votes)"]
+        Redis["Redis Cache\n(Feeds, Trending)"]
+    end
+
+    subgraph Serving ["Serving"]
+        API["FastAPI REST"]
+        WS["WebSocket"]
+        Celery["Celery Workers"]
+    end
+
+    subgraph Frontend ["Frontend"]
+        Feed["Community Feed"]
+        PostDetail["Post Detail"]
+        Trending["Trending Sidebar"]
+        Mood["Market Mood"]
+        ModDash["Moderation Dashboard"]
+    end
+
+    Sources --> AutoMod --> AIMod --> Sentiment --> HotScore
+    HotScore --> PG & Redis
+    PG --> API --> Frontend
+    Redis --> API
+    WS --> Feed & PostDetail
+    Celery --> Sources
+
+    classDef src fill:#1e40af,stroke:#60a5fa,color:#fff
+    classDef pipe fill:#854d0e,stroke:#facc15,color:#fff
+    classDef store fill:#065f46,stroke:#34d399,color:#fff
+    classDef serve fill:#5b21b6,stroke:#a78bfa,color:#fff
+    classDef fe fill:#0f766e,stroke:#5eead4,color:#fff
+
+    class NewsAPI,Finnhub,YF,Users src
+    class AutoMod,AIMod,Sentiment,HotScore pipe
+    class PG,Redis store
+    class API,WS,Celery serve
+    class Feed,PostDetail,Trending,Mood,ModDash fe
+```
+
+### MLOps System Architecture
+
+```mermaid
+flowchart LR
+    subgraph DataEng ["Data Engineering"]
+        YFin["yfinance\n(OHLCV)"]
+        FStore["Feature Store\n(20 features, parquet)"]
+        DQ["Data Quality\n(validation pipeline)"]
+    end
+
+    subgraph ModelDev ["Model Development"]
+        ExpTrack["Experiment Tracker\n(runs, metrics, artifacts)"]
+        Train["LSTM Training\n(1d, 7d, 30d horizons)"]
+        WFV["Walk-Forward\nValidation"]
+        Config["Config\n(YAML, hash)"]
+    end
+
+    subgraph Registry ["Model Registry"]
+        Versions["Version Management"]
+        Stages["staging → production\n→ archived"]
+        Cards["Model Cards"]
+        Rollback["Rollback Support"]
+    end
+
+    subgraph Serving ["Serving & Inference"]
+        FAPI["FastAPI\n(17 MLOps endpoints)"]
+        PredCache["Redis\n(prediction cache)"]
+        Ensemble["Ensemble\n(LSTM + Linear)"]
+        FinBERT["FinBERT\n(sentiment)"]
+    end
+
+    subgraph Monitor ["Monitoring"]
+        Drift["Drift Detector\n(PSI, KS tests)"]
+        PerfMon["Performance Monitor\n(DA, calibration)"]
+        PredLog["Prediction Logger\n(outcomes tracking)"]
+        Alerts["Automated Alerts\n(retrain triggers)"]
+    end
+
+    subgraph Orchestration ["Pipeline Orchestration"]
+        Pipeline["ML Pipeline\n(5-stage orchestrator)"]
+        CeleryML["Celery Beat\n(drift 6h, perf daily)"]
+        GHA["GitHub Actions\n(nightly train 03:00 UTC)"]
+    end
+
+    YFin --> FStore --> DQ --> Train
+    Config --> Train
+    Train --> ExpTrack
+    Train --> WFV
+    Train --> Versions --> Stages
+    Stages --> FAPI & Ensemble
+    Ensemble --> PredCache --> PredLog
+    PredLog --> PerfMon --> Alerts
+    FStore --> Drift --> Alerts
+    Alerts -.->|retrain trigger| Pipeline
+    Pipeline --> Train
+    CeleryML --> Drift & PerfMon
+    GHA --> Pipeline
+
+    classDef data fill:#1e40af,stroke:#60a5fa,color:#fff
+    classDef dev fill:#065f46,stroke:#34d399,color:#fff
+    classDef reg fill:#5b21b6,stroke:#a78bfa,color:#fff
+    classDef serve fill:#0f766e,stroke:#5eead4,color:#fff
+    classDef mon fill:#991b1b,stroke:#fca5a5,color:#fff
+    classDef orch fill:#374151,stroke:#9ca3af,color:#fff
+
+    class YFin,FStore,DQ data
+    class ExpTrack,Train,WFV,Config dev
+    class Versions,Stages,Cards,Rollback reg
+    class FAPI,PredCache,Ensemble,FinBERT serve
+    class Drift,PerfMon,PredLog,Alerts mon
+    class Pipeline,CeleryML,GHA orch
+```
+
+### MLOps Pipeline Flow
+
+```mermaid
+flowchart TD
+    S1["1. Data Fetch\n(yfinance, FMP, Finnhub)"]
+    S2["2. Feature Computation\n(20 features → parquet)"]
+    S3["3. Data Validation\n(OHLCV + feature quality)"]
+    S4{"4. Drift Detection\n(PSI, KS vs baseline)"}
+    S5["5. Model Training\n(LSTM per horizon)"]
+    S6["6. Evaluation\n(DA, IC, Sharpe, RMSE)"]
+    S7["7. Model Registration\n(version + metadata)"]
+    S8{"8. Auto-Promote?\n(beats production?)"}
+    S9["9. Serving\n(FastAPI + Redis cache)"]
+    S10["10. Monitoring\n(predictions + outcomes)"]
+
+    S1 --> S2 --> S3 --> S4
+    S4 -->|No drift| SKIP["Skip Training\n(model is current)"]
+    S4 -->|Drift detected| S5
+    S5 --> S6 --> S7 --> S8
+    S8 -->|Yes| S9
+    S8 -->|No| KEEP["Keep Current\n(new model → staging)"]
+    S9 --> S10
+    S10 -.->|"Drift check (6h)"| S4
+    S10 -.->|"Perf degraded"| S5
+
+    classDef step fill:#065f46,stroke:#34d399,color:#fff
+    classDef decision fill:#854d0e,stroke:#facc15,color:#fff
+    classDef skip fill:#374151,stroke:#9ca3af,color:#fff
+    classDef monitor fill:#991b1b,stroke:#fca5a5,color:#fff
+
+    class S1,S2,S3,S5,S6,S7,S9 step
+    class S4,S8 decision
+    class SKIP,KEEP skip
+    class S10 monitor
+```
+
 ### 🖼 Advanced Visualizations (PlantUML & Excalidraw)
 We supply the source code for producing ultra-high fidelity network mapping in `doc/system_design.puml` and `doc/system_design.md`.
 
@@ -723,16 +913,20 @@ We supply the source code for producing ultra-high fidelity network mapping in `
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS |
+| **Frontend** | Next.js 16 (App Router), React 18, TypeScript, Tailwind CSS, Framer Motion |
 | **Charts** | TradingView Lightweight Charts, custom Canvas sparklines |
-| **State** | TanStack Query v5, Zustand, React Context |
-| **Backend** | Python 3.11, FastAPI, SQLAlchemy 2.0, Pydantic v2 |
-| **Database** | PostgreSQL (Neon serverless), APScheduler background jobs |
-| **Auth** | webauthn (WebAuthn/FIDO2), PyJWT, Google OAuth |
-| **AI/LLM** | Anthropic Claude API, OpenAI API, LangChain |
-| **Market Data** | Finnhub, FMP, Yahoo Finance, Finviz, SEC EDGAR |
+| **State** | TanStack Query v5, Zustand, WebSocket hooks |
+| **Backend** | Python 3.14, FastAPI, SQLAlchemy 2.0, Pydantic v2 |
+| **Database** | PostgreSQL (Neon serverless), pgvector |
+| **Cache** | Redis (ElastiCache) with in-memory fallback |
+| **Auth** | httpOnly cookies, WebAuthn/FIDO2 passkeys, Google OAuth, JWT |
+| **AI/LLM** | Anthropic Claude, OpenAI, FinBERT (sentiment), LangChain |
+| **ML/MLOps** | PyTorch LSTM, Feature Store, Experiment Tracker, Model Registry, Drift Detection |
+| **Community** | AI moderation (Claude), AutoMod rules, reputation system, WebSocket real-time |
+| **Market Data** | Finnhub, FMP, Yahoo Finance, NewsAPI, SEC EDGAR |
 | **Billing** | Stripe (subscriptions, webhooks) |
-| **DevOps** | Docker, Nginx, EC2, GitHub Actions |
+| **DevOps** | Docker, Nginx, EC2, Cloudflare (CDN/WAF), GitHub Actions CI/CD |
+| **Background** | Celery + Redis (Beat scheduler), APScheduler |
 
 ---
 
@@ -742,51 +936,86 @@ We supply the source code for producing ultra-high fidelity network mapping in `
 QuantTrade-AI/
 ├── backend/
 │   ├── app/
-│   │   ├── api/               # FastAPI routers
-│   │   │   ├── auth.py        # JWT + WebAuthn passkey endpoints
-│   │   │   ├── market.py      # Indices, movers, sectors, universe
-│   │   │   ├── enhanced_endpoints.py  # Finnhub quotes, news, filings
-│   │   │   ├── global_monitor.py      # Geopolitical intelligence
+│   │   ├── api/                    # FastAPI routers (60+ endpoints)
+│   │   │   ├── auth.py             # JWT + WebAuthn + Google OAuth
+│   │   │   ├── market.py           # Indices, movers, sectors
+│   │   │   ├── posts.py            # Posts, feeds, voting, trending
+│   │   │   ├── comments.py         # Threaded comments, Wilson score
+│   │   │   ├── community.py        # Community CRUD, rules, automod
+│   │   │   ├── bookmarks.py        # Saved posts
+│   │   │   ├── bans.py             # Community ban management
+│   │   │   ├── search.py           # Full-text search
+│   │   │   ├── moderation.py       # AI moderation queue
+│   │   │   ├── notifications.py    # Notifications + preferences
+│   │   │   ├── users.py            # Profiles, follow, badges
+│   │   │   ├── uploads.py          # Image upload (S3/local)
+│   │   │   ├── mlops.py            # MLOps API (17 endpoints)
+│   │   │   ├── ws.py               # WebSocket channels
 │   │   │   └── ...
 │   │   ├── models/
-│   │   │   ├── exchange_ranked_symbol.py  # Global stock universe
-│   │   │   ├── passkey_credential.py      # WebAuthn credentials
-│   │   │   ├── symbols_master.py          # Search index
+│   │   │   ├── community.py        # 14 community tables
+│   │   │   ├── ml_model.py         # ML model registry
+│   │   │   ├── ml_monitoring.py    # Feature + prediction stats
 │   │   │   └── ...
 │   │   ├── services/
-│   │   │   ├── exchange_universe_service.py  # FMP screener + priority scoring
-│   │   │   ├── finnhub_fetcher.py            # Finnhub API wrapper
-│   │   │   ├── rate_limiter.py               # Token bucket + in-memory cache
+│   │   │   ├── reddit_ingestion_service.py  # Reddit content ingestion
+│   │   │   ├── sentiment_service.py         # FinBERT financial sentiment
+│   │   │   ├── moderation_service.py        # AI content moderation
+│   │   │   ├── automod_service.py           # AutoMod rules engine
+│   │   │   ├── reputation_service.py        # User reputation scoring
 │   │   │   └── ...
-│   │   └── main.py            # App startup, CORS, APScheduler
+│   │   └── tasks/
+│   │       ├── celery_app.py       # Beat schedule (Reddit, news, drift, perf)
+│   │       ├── community_sync.py   # Reddit sync + news auto-posting
+│   │       └── ml_tasks.py         # Drift check, perf check, pipeline
+│   ├── ml/                         # ML/MLOps core
+│   │   ├── model.py                # LSTM with attention (3-layer)
+│   │   ├── dataset.py              # 20 features, data pipeline
+│   │   ├── train.py                # Training loop, early stopping
+│   │   ├── feature_store.py        # Offline/online feature store
+│   │   ├── experiment_tracker.py   # Experiment tracking
+│   │   ├── model_registry.py       # Model versioning + promotion
+│   │   ├── drift_detector.py       # PSI + KS drift detection
+│   │   ├── prediction_logger.py    # Production prediction logging
+│   │   ├── performance_monitor.py  # Performance alerts
+│   │   ├── pipeline.py             # 5-stage ML pipeline orchestrator
+│   │   ├── data_quality.py         # Production data validation
+│   │   └── reproducibility.py      # Seed control
 │   ├── scripts/
-│   │   ├── seed_global_universe.py   # Seeds 800+ stocks across 12 exchanges
-│   │   ├── seed_symbols_master.py    # Seeds search symbol index
-│   │   └── init_database.py
+│   │   ├── seed_content.py         # Seed communities + real news/market data
+│   │   └── seed_communities.py     # Create 8 default communities
 │   └── requirements.txt
-└── frontend/
-    └── src/
-        ├── app/
-        │   ├── markets/page.tsx    # Global markets with continent tabs
-        │   ├── research/page.tsx   # Symbol deep dive
-        │   ├── copilot/page.tsx    # AI chat interface
-        │   ├── backtest/page.tsx   # Strategy backtester
-        │   ├── monitor/page.tsx    # Global intelligence monitor
-        │   ├── ideas-lab/page.tsx  # AI trade ideas
-        │   └── api/               # Next.js API routes (proxy + cache layer)
-        │       ├── exchange/universe/route.ts  # Ranked stock universe
-        │       ├── exchange/heatmap/route.ts   # Sector heatmaps
-        │       ├── quotes/chart/route.ts       # Yahoo Finance chart proxy
-        │       └── finnhub/route.ts            # Finnhub proxy + cache
-        ├── components/
-        │   ├── StockSnapshotModal.tsx    # Live stock detail modal
-        │   ├── MarketHeatmap.tsx         # S&P 500 sector heatmap
-        │   ├── MoversHeatmap.tsx         # Movers treemap
-        │   └── monitor/                 # Global monitor panels
-        └── lib/
-            ├── passkey.ts    # WebAuthn registration + authentication
-            ├── api.ts        # Backend API client
-            └── auth.ts       # JWT token storage
+├── frontend/
+│   └── src/
+│       ├── app/
+│       │   ├── community/          # Community platform
+│       │   │   ├── page.tsx        # Feed (hot/new/top/rising)
+│       │   │   ├── [slug]/page.tsx # Community detail
+│       │   │   ├── [slug]/settings/page.tsx  # Community settings
+│       │   │   ├── post/[id]/page.tsx  # Post detail + comments
+│       │   │   ├── discover/page.tsx   # Community discovery
+│       │   │   ├── bookmarks/page.tsx  # Saved posts
+│       │   │   ├── search/page.tsx     # Full-text search
+│       │   │   ├── create/page.tsx     # Create community
+│       │   │   └── moderation/page.tsx # Mod dashboard
+│       │   ├── mlops/page.tsx      # MLOps dashboard
+│       │   ├── notifications/page.tsx
+│       │   └── ...
+│       ├── components/community/   # Community UI components
+│       │   ├── PostCard.tsx        # Post with sentiment/pin/lock/bookmark
+│       │   ├── CommentTree.tsx     # Threaded comments
+│       │   ├── TrendingSidebar.tsx  # Live trending + market mood
+│       │   ├── NotificationBell.tsx # WebSocket real-time bell
+│       │   └── ...
+│       └── hooks/
+│           └── useCommunityWS.ts   # WebSocket hook
+└── docs/
+    ├── COMMUNITY_EXECUTION_PLAN.md
+    ├── community-data-flow.drawio
+    ├── community-database-schema.drawio
+    ├── mlops-system-architecture.drawio
+    ├── mlops-pipeline-flow.drawio
+    └── ARCHITECTURE_V2.md
 ```
 
 ---
@@ -915,17 +1144,41 @@ score = 0.35 × norm_market_cap
 
 ## API Reference
 
+### Markets & Research
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/v1/market/universe?exchange=us&limit=300` | Ranked stock universe by exchange |
+| `GET /api/v1/market/universe` | Ranked stock universe by exchange |
 | `GET /api/v1/market/movers` | Real-time gainers + losers |
-| `GET /api/v1/market/sectors` | S&P 500 sector performance |
 | `GET /api/v1/enhanced/quote/{symbol}/finnhub` | Live Finnhub quote |
-| `GET /api/v1/enhanced/financials/{symbol}/finnhub` | Basic financials (52W, P/E, etc.) |
-| `GET /api/v1/auth/passkey/register/challenge` | WebAuthn registration challenge |
-| `POST /api/v1/auth/passkey/auth/verify` | WebAuthn assertion verify → JWT |
 | `GET /api/v1/global-monitor/events` | Geopolitical events feed |
-| `GET /health` | Health check |
+
+### Community Platform (57 endpoints)
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/v1/feed` | Personalized feed (hot/new/top/rising) |
+| `GET /api/v1/feed/trending-tickers` | Live trending tickers by mention count |
+| `GET /api/v1/feed/market-mood` | Aggregate sentiment (bullish/bearish/neutral) |
+| `POST /api/v1/posts` | Create post (with AI moderation + sentiment) |
+| `GET /api/v1/posts/{id}/comments?sort=best` | Comments with Wilson score sorting |
+| `POST /api/v1/posts/{id}/vote` | Upvote/downvote |
+| `POST /api/v1/posts/{id}/bookmark` | Save/bookmark post |
+| `GET /api/v1/communities` | List communities |
+| `GET /api/v1/search?q=...&type=posts` | Full-text search |
+| `GET /api/v1/notifications` | User notifications |
+
+### MLOps (17 endpoints)
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/v1/mlops/overview` | Dashboard summary (models, experiments, alerts) |
+| `GET /api/v1/mlops/models` | List registered models |
+| `GET /api/v1/mlops/models/{name}/card` | Model card documentation |
+| `POST /api/v1/mlops/models/{name}/promote` | Promote model to production |
+| `POST /api/v1/mlops/models/{name}/rollback` | Rollback to previous version |
+| `GET /api/v1/mlops/experiments` | List experiment runs |
+| `GET /api/v1/mlops/monitoring/drift/{symbol}` | Drift report for a symbol |
+| `GET /api/v1/mlops/monitoring/performance` | Model performance snapshot |
+| `POST /api/v1/mlops/pipeline/run` | Trigger ML training pipeline |
+| `POST /api/v1/mlops/features/refresh` | Refresh feature store |
 
 Full interactive docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
@@ -976,8 +1229,23 @@ DATABASE_URL=postgresql://...
 
 ## Documentation
 
+### Architecture & Design
+- [Architecture v2](docs/ARCHITECTURE_V2.md) — Community platform architecture (microservices, 3-stage startup plan)
+- [Architecture v1](docs/ARCHITECTURE.md) — Original system design deep dive
+- [System Design & Diagrams](docs/system-design-and-diagrams.md) — Complete system design document
+
+### Community Platform
+- [Community Execution Plan](docs/COMMUNITY_EXECUTION_PLAN.md) — 6-week build plan with feature breakdown
+- [Community Data Flow](docs/community-data-flow.drawio) — Architecture diagram (Reddit ingestion → AI moderation → Sentiment → Feed)
+- [Community Database Schema](docs/community-database-schema.drawio) — ER diagram of 14 community tables
+- [Community Platform Infra](docs/quanttrade-community-platform.drawio) — AWS infrastructure diagram
+
+### MLOps
+- [MLOps System Architecture](docs/mlops-system-architecture.drawio) — Full ML lifecycle diagram (HLD)
+- [MLOps Pipeline Flow](docs/mlops-pipeline-flow.drawio) — 10-stage pipeline flow diagram
+
+### Operations & Setup
 - [Quick Start](docs/QUICK_START.md) — Fast setup and key endpoints
-- [Architecture](docs/ARCHITECTURE.md) — System design deep dive
 - [Global Monitor](docs/GLOBAL_MONITOR_README.md) — Geopolitical intelligence layer
 - [Neon Setup](docs/NEON_MIGRATION_GUIDE.md) — Serverless PostgreSQL configuration
 - [Installation Guide](docs/INSTALLATION_EXPLAINED.md) — Full environment setup

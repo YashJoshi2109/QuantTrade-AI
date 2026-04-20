@@ -17,6 +17,8 @@ Implementation Notes:
 """
 import asyncio
 import logging
+import math
+import re
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -35,6 +37,31 @@ from app.services.moderation_service import moderation_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+MENTION_RE = re.compile(r'@(\w{3,30})\b')
+
+
+def _process_mentions(body: str, post_id: int, comment_id: int, author_id: int, db: Session):
+    """Detect @username mentions and create notifications."""
+    mentions = MENTION_RE.findall(body)
+    if not mentions:
+        return
+
+    # Limit to 5 mentions per comment
+    for username in mentions[:5]:
+        mentioned_user = db.query(User).filter(User.username == username).first()
+        if mentioned_user and mentioned_user.id != author_id:
+            notification = Notification(
+                user_id=mentioned_user.id,
+                type="mention",
+                title="You were mentioned in a comment",
+                body=body[:200],
+                action_url=f"/community/post/{post_id}#comment-{comment_id}",
+                actor_id=author_id,
+            )
+            db.add(notification)
+
+    db.commit()
 
 
 # ── Pydantic Schemas ─────────────────────────────────────────────────────────
@@ -86,6 +113,51 @@ class PaginatedComments(BaseModel):
     items: List[CommentResponse]
     next_cursor: Optional[int] = None
     total: Optional[int] = None
+
+
+# ── Sorting Helpers ─────────────────────────────────────────────────────────
+
+def _wilson_score(ups: int, downs: int) -> float:
+    """Wilson score interval lower bound for ranking."""
+    n = ups + downs
+    if n == 0:
+        return 0.0
+    z = 1.96  # 95% confidence
+    p = ups / n
+    return (p + z*z/(2*n) - z * math.sqrt((p*(1-p) + z*z/(4*n)) / n)) / (1 + z*z/n)
+
+
+def _controversy_score(ups: int, downs: int) -> float:
+    """Higher score = more controversial (lots of votes, close to 50/50)."""
+    total = ups + downs
+    if total == 0:
+        return 0.0
+    balance = 1 - abs(ups - downs) / total
+    return total * balance
+
+
+def _sort_comments(comments: List[CommentResponse], sort: str) -> List[CommentResponse]:
+    """Sort a list of CommentResponse objects by the given sort key."""
+    if sort == "top":
+        comments.sort(key=lambda c: (c.upvote_count - c.downvote_count), reverse=True)
+    elif sort == "new":
+        comments.sort(key=lambda c: c.created_at or datetime.min, reverse=True)
+    elif sort == "controversial":
+        comments.sort(key=lambda c: _controversy_score(c.upvote_count, c.downvote_count), reverse=True)
+    else:  # best (default)
+        comments.sort(key=lambda c: _wilson_score(c.upvote_count, c.downvote_count), reverse=True)
+    return comments
+
+
+def _sort_replies_best(comment: CommentResponse) -> None:
+    """Recursively sort all nested replies by 'best' (Wilson score)."""
+    if comment.replies:
+        comment.replies.sort(
+            key=lambda c: _wilson_score(c.upvote_count, c.downvote_count),
+            reverse=True,
+        )
+        for reply in comment.replies:
+            _sort_replies_best(reply)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -260,6 +332,19 @@ async def create_comment(
         db.add(notification)
         db.commit()
 
+    # Detect @mentions and create notifications
+    _process_mentions(body.body, post_id, comment.id, user.id, db)
+
+    # Broadcast new comment via WebSocket
+    try:
+        from app.services.ws_manager import ws_manager
+        asyncio.create_task(ws_manager.broadcast(
+            f"community:post:{post_id}",
+            {"type": "new_comment", "comment_id": comment.id, "post_id": post_id}
+        ))
+    except Exception:
+        pass  # WebSocket broadcast is non-critical
+
     # Award reputation for creating a comment
     reputation_service.update_reputation(user.id, "comment_created", db)
 
@@ -323,12 +408,20 @@ async def create_comment(
 @router.get("/posts/{post_id}/comments", response_model=PaginatedComments)
 async def get_comments(
     post_id: int,
+    sort: str = Query("best", pattern="^(best|top|new|controversial)$"),
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user),
 ):
-    """Get comment tree for a post. Returns nested structure."""
+    """Get comment tree for a post. Returns nested structure.
+
+    Sort options:
+    - best (default): Wilson score confidence interval
+    - top: net votes (upvotes - downvotes)
+    - new: most recent first
+    - controversial: high total votes with close to 50/50 split
+    """
     post = _get_post_or_404(db, post_id)
 
     q = (
@@ -351,6 +444,14 @@ async def get_comments(
         )
 
     tree = _build_comment_tree(comments, votes_map)
+
+    # Sort top-level comments by the requested sort order
+    tree = _sort_comments(tree, sort)
+
+    # Always sort nested replies by 'best'
+    for comment in tree:
+        _sort_replies_best(comment)
+
     next_cursor = comments[-1].id if len(comments) == limit else None
 
     return PaginatedComments(items=tree, next_cursor=next_cursor, total=total)

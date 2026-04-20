@@ -4,9 +4,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { Bell } from 'lucide-react'
 import Link from 'next/link'
 import { fetchUnreadCount } from '@/lib/api'
+import { useAuth } from '@/contexts/AuthContext'
+import { useCommunityWS } from '@/hooks/useCommunityWS'
 
 export default function NotificationBell() {
   const [count, setCount] = useState(0)
+  const { user } = useAuth()
 
   const poll = useCallback(async () => {
     try {
@@ -22,6 +25,15 @@ export default function NotificationBell() {
     const interval = setInterval(poll, 30_000)
     return () => clearInterval(interval)
   }, [poll])
+
+  // Real-time: increment unread count instantly on WebSocket events
+  const handleWSMessage = useCallback((msg: { type: string }) => {
+    if (msg.type === 'new_comment' || msg.type === 'mention' || msg.type === 'new_post') {
+      setCount(prev => prev + 1)
+    }
+  }, [])
+
+  useCommunityWS(user?.id ? `user:${user.id}` : null, handleWSMessage)
 
   return (
     <Link

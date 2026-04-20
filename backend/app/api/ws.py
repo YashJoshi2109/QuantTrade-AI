@@ -1,10 +1,15 @@
 """
-WebSocket endpoints for real-time market data push.
+WebSocket endpoints for real-time market data push and community updates.
 
 Channels:
 - /ws/ideas     — Live trade ideas + market pulse updates
 - /ws/pulse     — Market pulse sidebar updates only
 - /ws/scanner   — Market scanner real-time results
+- /ws/community/{channel} — Community real-time updates:
+    - feed:{community_slug} — new posts in a community
+    - post:{post_id}        — new comments, votes on a post
+    - user:{user_id}        — personal notifications
+    - trending              — trending ticker updates
 """
 import asyncio
 import json
@@ -157,3 +162,45 @@ async def scanner_websocket(websocket: WebSocket):
     finally:
         listener_task.cancel()
         await ws_manager.disconnect(websocket, channel)
+
+
+# ── Community WebSocket ─────────────────────────────────────────────────────
+
+
+@router.websocket("/ws/community/{channel}")
+async def community_websocket(
+    websocket: WebSocket,
+    channel: str,
+):
+    """
+    WebSocket for real-time community updates.
+
+    Channels:
+      - feed:{community_slug} — new posts in a community
+      - post:{post_id} — new comments, votes on a post
+      - user:{user_id} — personal notifications
+      - trending — trending ticker updates
+    """
+    ws_channel = f"community:{channel}"
+    await ws_manager.connect(websocket, ws_channel)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text(json.dumps({"type": "pong"}))
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        await ws_manager.disconnect(websocket, ws_channel)
+
+
+@router.get("/ws/stats")
+async def ws_stats():
+    """Get WebSocket connection statistics."""
+    channels = ws_manager.get_channels()
+    return {
+        "channels": {ch: ws_manager.get_connection_count(ch) for ch in channels},
+        "total_connections": ws_manager.get_connection_count(),
+    }

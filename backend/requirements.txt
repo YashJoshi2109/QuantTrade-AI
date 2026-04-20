@@ -29,6 +29,9 @@ lxml>=4.9.3  # For Finviz HTML parsing
 # Finviz stock data
 finviz
 
+# Reddit content ingestion
+asyncpraw>=7.7.0
+
 # Alpaca Markets — free historical bars, US quotes (paper/live)
 alpaca-py>=0.13.0
 

@@ -8,7 +8,7 @@ celery_app = Celery(
     "trading_copilot",
     broker=settings.CELERY_BROKER_URL if hasattr(settings, 'CELERY_BROKER_URL') else "redis://localhost:6379/0",
     backend=settings.CELERY_RESULT_BACKEND if hasattr(settings, 'CELERY_RESULT_BACKEND') else "redis://localhost:6379/0",
-    include=["app.tasks.data_sync", "app.tasks.embeddings", "app.tasks.global_monitor_tasks"]
+    include=["app.tasks.data_sync", "app.tasks.embeddings", "app.tasks.global_monitor_tasks", "app.tasks.community_sync", "app.tasks.ml_tasks"]
 )
 
 celery_app.conf.update(
@@ -41,6 +41,22 @@ celery_app.conf.update(
         "detect-clusters": {
             "task": "detect_geographic_clusters",
             "schedule": 3600.0,  # 1 hour
+        },
+        "sync-reddit-posts": {
+            "task": "sync_reddit_posts",
+            "schedule": 1800.0,  # 30 minutes
+        },
+        "auto-post-news": {
+            "task": "auto_post_news",
+            "schedule": 14400.0,  # 4 hours
+        },
+        "ml-drift-check": {
+            "task": "ml_drift_check",
+            "schedule": 21600.0,  # 6 hours
+        },
+        "ml-performance-check": {
+            "task": "ml_performance_check",
+            "schedule": 86400.0,  # daily
         },
     }
 )

@@ -12,6 +12,7 @@ Implementation Notes:
   401 - Not authenticated
   404 - Notification not found
 """
+import json
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -162,3 +163,59 @@ async def get_unread_count(
     ) or 0
 
     return UnreadCountResponse(count=count)
+
+
+# ── Notification Preferences ────────────────────────────────────────────────
+
+class NotificationPreferences(BaseModel):
+    replies: bool = True
+    mentions: bool = True
+    upvotes: bool = True
+    follows: bool = True
+    community_posts: bool = False
+    price_alerts: bool = True
+
+
+def _load_preferences_json(user: User) -> dict:
+    """Parse the Text-based preferences_json column into a dict."""
+    if not hasattr(user, 'preferences_json') or not user.preferences_json:
+        return {}
+    if isinstance(user.preferences_json, dict):
+        return user.preferences_json
+    try:
+        return json.loads(user.preferences_json)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+@router.get("/notifications/preferences")
+async def get_notification_preferences(
+    user: User = Depends(require_auth),
+):
+    """Get notification preferences."""
+    prefs = _load_preferences_json(user).get("notifications", {})
+    defaults = NotificationPreferences()
+    return {
+        "replies": prefs.get("replies", defaults.replies),
+        "mentions": prefs.get("mentions", defaults.mentions),
+        "upvotes": prefs.get("upvotes", defaults.upvotes),
+        "follows": prefs.get("follows", defaults.follows),
+        "community_posts": prefs.get("community_posts", defaults.community_posts),
+        "price_alerts": prefs.get("price_alerts", defaults.price_alerts),
+    }
+
+
+@router.patch("/notifications/preferences")
+async def update_notification_preferences(
+    body: NotificationPreferences,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Update notification preferences."""
+    prefs = _load_preferences_json(user)
+    prefs["notifications"] = body.model_dump()
+    user.preferences_json = json.dumps(prefs)
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(user, "preferences_json")
+    db.commit()
+    return prefs["notifications"]

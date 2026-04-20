@@ -48,8 +48,11 @@ from app.api import monitor_extended
 from app.api import copilot_stream
 from app.api import ideas
 from app.api import model_index as model_index_api
-from app.api import community, posts, comments, notifications, users
+from app.api import community, posts, comments, notifications, users, search
+from app.api import bookmarks, uploads
+from app.api import mlops
 from app.api import moderation as moderation_api
+from app.api import bans
 from app.api import ws as ws_api
 from app.db.database import engine, Base
 
@@ -88,6 +91,7 @@ from app.models.community import (
     Community, CommunityMember, Post, Comment,
     Vote, Reaction, Notification, UserFollow,
     ModerationReport, ModerationAction, AuditLog,
+    CommunityBan,
 )
 from app.models.global_monitor import (
     GlobalEvent,
@@ -437,8 +441,23 @@ app.include_router(comments.router, prefix="/api/v1", tags=["comments"])
 app.include_router(notifications.router, prefix="/api/v1", tags=["notifications"])
 app.include_router(users.router, prefix="/api/v1", tags=["users"])
 
+# Bookmarks — save/unsave posts
+app.include_router(bookmarks.router, prefix="/api/v1", tags=["bookmarks"])
+
+# Uploads — image upload for community media
+app.include_router(uploads.router, prefix="/api/v1", tags=["uploads"])
+
 # Moderation — AI content moderation pipeline + audit log
 app.include_router(moderation_api.router, prefix="/api/v1", tags=["moderation"])
+
+# Search — unified full-text search across community content
+app.include_router(search.router, prefix="/api/v1", tags=["search"])
+
+# Bans — community ban management
+app.include_router(bans.router, prefix="/api/v1", tags=["bans"])
+
+# MLOps — model registry, experiments, monitoring, pipeline control
+app.include_router(mlops.router, prefix="/api/v1", tags=["mlops"])
 
 
 @app.get("/")

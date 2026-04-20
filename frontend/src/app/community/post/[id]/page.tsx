@@ -142,6 +142,7 @@ export default function PostThreadPage() {
   const [postLoading, setPostLoading] = useState(true)
   const [commentsLoading, setCommentsLoading] = useState(true)
   const [postError, setPostError] = useState<string | null>(null)
+  const [commentSort, setCommentSort] = useState<string>('best')
 
   // Post vote state (optimistic)
   const [voteCount, setVoteCount] = useState(0)
@@ -178,7 +179,7 @@ export default function PostThreadPage() {
     if (!postId || isNaN(postId)) return
     setCommentsLoading(true)
     try {
-      const data = await fetchComments(postId)
+      const data = await fetchComments(postId, commentSort)
       // The API returns { comments: [...] } — extract the array
       const list: Comment[] = (data as any)?.comments || (Array.isArray(data) ? data : [])
       setComments(list)
@@ -188,7 +189,7 @@ export default function PostThreadPage() {
     } finally {
       setCommentsLoading(false)
     }
-  }, [postId])
+  }, [postId, commentSort])
 
   useEffect(() => {
     loadPost()
@@ -408,15 +409,30 @@ export default function PostThreadPage() {
 
           {post && !postLoading && (
             <section>
-              <div className="flex items-center gap-2 mb-4">
-                <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">
-                  Comments
-                </h2>
-                {!commentsLoading && comments.length > 0 && (
-                  <span className="text-[10px] text-slate-600 bg-slate-800/50 px-1.5 py-0.5 rounded font-mono">
-                    {comments.length}
-                  </span>
-                )}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">
+                    Comments
+                  </h2>
+                  {!commentsLoading && comments.length > 0 && (
+                    <span className="text-[10px] text-slate-600 bg-slate-800/50 px-1.5 py-0.5 rounded font-mono">
+                      {comments.length}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 uppercase tracking-wider">Sort by</span>
+                  <select
+                    value={commentSort}
+                    onChange={(e) => setCommentSort(e.target.value)}
+                    className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                  >
+                    <option value="best">Best</option>
+                    <option value="top">Top</option>
+                    <option value="new">New</option>
+                    <option value="controversial">Controversial</option>
+                  </select>
+                </div>
               </div>
 
               {commentsLoading ? (

@@ -1,0 +1,223 @@
+<mxfile host="app.diagrams.net" modified="2026-04-19T00:00:00.000Z" agent="Claude" version="24.0.0">
+  <diagram name="ML Pipeline Flow" id="mlops-pipeline">
+    <mxGraphModel dx="1400" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="QuantTrade-AI ML Pipeline Flow" style="text;html=1;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="350" y="15" width="500" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ========== STAGE 1: Data Fetch ========== -->
+        <mxCell id="badge1" value="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="120" y="75" width="35" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="s1" value="Data Fetch&#xa;yfinance  |  FMP  |  Finnhub" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;arcSize=15;fontStyle=0;" vertex="1" parent="1">
+          <mxGeometry x="170" y="70" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow 1→2 -->
+        <mxCell id="a12" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" source="s1" target="s2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== STAGE 2: Feature Computation ========== -->
+        <mxCell id="badge2" value="2" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="120" y="155" width="35" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" value="Feature Computation&#xa;20 features → Parquet storage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="170" y="150" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow 2→3 -->
+        <mxCell id="a23" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" source="s2" target="s3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== STAGE 3: Data Validation ========== -->
+        <mxCell id="badge3" value="3" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="120" y="235" width="35" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="Data Validation&#xa;OHLCV checks  |  Feature quality" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="170" y="230" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow 3→4 -->
+        <mxCell id="a34" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" source="s3" target="s4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== STAGE 4: Drift Detection (Decision) ========== -->
+        <mxCell id="badge4" value="4" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;fontStyle=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="120" y="320" width="35" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" value="Drift Detection&#xa;PSI  |  KS test vs baseline" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="195" y="310" width="230" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- No Drift → Skip Training (right branch) -->
+        <mxCell id="skip" value="Skip Training&#xa;(No retraining needed)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=11;arcSize=15;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="530" y="335" width="190" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="a4skip" value="No drift" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#999999;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;fontColor=#999999;" edge="1" source="s4" target="skip" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Drift Detected → Stage 5 (down branch) -->
+        <mxCell id="a45" value="Drift detected" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#b85450;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;fontColor=#b85450;" edge="1" source="s4" target="s5" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== STAGE 5: Model Training ========== -->
+        <mxCell id="badge5" value="5" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="120" y="450" width="35" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="s5" value="Model Training&#xa;LSTM per horizon: 1d  |  7d  |  30d" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="170" y="445" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow 5→6 -->
+        <mxCell id="a56" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" source="s5" target="s6" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== STAGE 6: Evaluation ========== -->
+        <mxCell id="badge6" value="6" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="120" y="530" width="35" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="s6" value="Evaluation&#xa;DA  |  IC  |  Sharpe  |  RMSE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="170" y="525" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow 6→7 -->
+        <mxCell id="a67" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" source="s6" target="s7" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== STAGE 7: Model Registration ========== -->
+        <mxCell id="badge7" value="7" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="120" y="610" width="35" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="s7" value="Model Registration&#xa;Version + metadata stored" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="170" y="605" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow 7→8 -->
+        <mxCell id="a78" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" source="s7" target="s8" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== STAGE 8: Auto-Promotion (Decision) ========== -->
+        <mxCell id="badge8" value="8" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;fontStyle=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="120" y="695" width="35" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="s8" value="Auto-Promotion&#xa;Beats production?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="210" y="685" width="200" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Yes → Promote (down) -->
+        <mxCell id="a89" value="Yes → Promote" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;fontColor=#82b366;" edge="1" source="s8" target="s9" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- No → Keep current (right) -->
+        <mxCell id="keep" value="Keep Current&#xa;Production Model" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=11;arcSize=15;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="530" y="710" width="190" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="a8keep" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#999999;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;fontColor=#999999;" edge="1" source="s8" target="keep" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== STAGE 9: Serving ========== -->
+        <mxCell id="badge9" value="9" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="120" y="825" width="35" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="s9" value="Serving&#xa;FastAPI endpoints  |  Redis cache" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="170" y="820" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow 9→10 -->
+        <mxCell id="a910" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" source="s9" target="s10" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== STAGE 10: Monitoring ========== -->
+        <mxCell id="badge10" value="10" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="120" y="910" width="35" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="s10" value="Monitoring" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="170" y="905" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Monitoring sub-items -->
+        <mxCell id="m10a" value="Drift Check (every 6h)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="530" y="895" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="m10b" value="Performance Check (daily)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="530" y="950" width="200" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Monitoring → sub-items -->
+        <mxCell id="am10a" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d6b656;strokeWidth=2;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="s10" target="m10a" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="am10b" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#b85450;strokeWidth=2;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="s10" target="m10b" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Drift Check → loops back to Stage 4 -->
+        <mxCell id="loop_back" value="loops back" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#b85450;strokeWidth=2;dashed=1;dashPattern=8 4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;fontColor=#b85450;" edge="1" source="m10a" target="s4" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="800" y="915" />
+              <mxPoint x="800" y="360" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Performance Check → Alerts -->
+        <mxCell id="alert_box" value="Automated Alerts&#xa;(Slack / Email)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;arcSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="810" y="950" width="180" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="am_alert" value="alerts" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#b85450;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;fontColor=#b85450;" edge="1" source="m10b" target="alert_box" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== LEGEND ========== -->
+        <mxCell id="leg_title" value="Legend" style="text;html=1;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;fillColor=none;strokeColor=none;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="870" y="80" width="60" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="870" y="110" width="25" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1t" value="Success path" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fillColor=none;strokeColor=none;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="900" y="110" width="100" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="870" y="135" width="25" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2t" value="Decision point" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fillColor=none;strokeColor=none;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="900" y="135" width="100" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="870" y="160" width="25" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3t" value="Alert / Monitor" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fillColor=none;strokeColor=none;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="900" y="160" width="100" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=10;arcSize=15;" vertex="1" parent="1">
+          <mxGeometry x="870" y="185" width="25" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4t" value="Skip / No action" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fillColor=none;strokeColor=none;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="900" y="185" width="110" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg5t" value="- - → Feedback loop" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fillColor=none;strokeColor=none;fontColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="870" y="210" width="130" height="18" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

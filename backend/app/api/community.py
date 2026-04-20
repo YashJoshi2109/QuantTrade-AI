@@ -71,6 +71,14 @@ class CommunityCreate(BaseModel):
         return v
 
 
+class CommunityUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
+    icon_url: Optional[str] = None
+    banner_url: Optional[str] = None
+    is_private: Optional[bool] = None
+
+
 class CommunityResponse(BaseModel):
     id: int
     slug: str
@@ -435,3 +443,127 @@ async def list_members(
     next_cursor = members[-1].user_id if len(members) == limit else None
 
     return PaginatedMembers(items=items, next_cursor=next_cursor)
+
+
+@router.patch("/communities/{slug}", response_model=CommunityResponse)
+async def update_community(
+    slug: str,
+    body: CommunityUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Update community details. Owner or admin only."""
+    community = _get_community_or_404(db, slug)
+    membership = _check_membership(db, community.id, user.id)
+
+    if not membership or (membership.role not in ("owner", "moderator") and getattr(user, 'role', '') != 'admin'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only owners, moderators, or admins can edit communities")
+
+    update_data = body.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(community, field, value)
+
+    db.commit()
+    db.refresh(community)
+    community = _get_community_or_404(db, slug)
+    is_member = _check_membership(db, community.id, user.id) is not None
+    return _community_to_response(community, is_member=is_member)
+
+
+@router.delete("/communities/{slug}", status_code=status.HTTP_200_OK)
+async def delete_community(
+    slug: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Delete a community. Owner or admin only."""
+    community = _get_community_or_404(db, slug)
+    membership = _check_membership(db, community.id, user.id)
+
+    if not membership or (membership.role != "owner" and getattr(user, 'role', '') != 'admin'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the community owner or admins can delete communities")
+
+    db.delete(community)
+    db.commit()
+    return {"message": f"Community '{slug}' deleted successfully"}
+
+
+class CommunityRules(BaseModel):
+    rules: List[dict] = Field(default_factory=list)  # [{title: str, description: str}]
+
+
+@router.get("/communities/{slug}/rules", response_model=CommunityRules)
+async def get_community_rules(
+    slug: str,
+    db: Session = Depends(get_db),
+):
+    """Get community rules."""
+    community = _get_community_or_404(db, slug)
+    settings = community.settings or {}
+    return CommunityRules(rules=settings.get("rules", []))
+
+
+@router.put("/communities/{slug}/rules", response_model=CommunityRules)
+async def update_community_rules(
+    slug: str,
+    body: CommunityRules,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Update community rules. Owner or moderator only."""
+    community = _get_community_or_404(db, slug)
+    membership = _check_membership(db, community.id, user.id)
+
+    if not membership or membership.role not in ("owner", "moderator"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only owners or moderators can update rules")
+
+    settings = dict(community.settings or {})
+    settings["rules"] = [r for r in body.rules[:20]]  # max 20 rules
+    community.settings = settings
+
+    db.commit()
+    return CommunityRules(rules=settings["rules"])
+
+
+# ── AutoMod Endpoints ──────────────────────────────────────────────────────
+
+class AutoModRule(BaseModel):
+    type: str = Field(..., pattern="^(keyword|regex|account_age|karma|link)$")
+    value: str
+    action: str = Field("review", pattern="^(remove|review)$")
+    name: str = Field(..., max_length=100)
+
+
+@router.get("/communities/{slug}/automod")
+async def get_automod_rules(
+    slug: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Get automod rules for a community. Moderator/owner only."""
+    community = _get_community_or_404(db, slug)
+    membership = _check_membership(db, community.id, user.id)
+    if not membership or membership.role not in ("owner", "moderator"):
+        raise HTTPException(status_code=403, detail="Moderators only")
+    settings = community.settings or {}
+    return {"rules": settings.get("automod_rules", [])}
+
+
+@router.put("/communities/{slug}/automod")
+async def update_automod_rules(
+    slug: str,
+    rules: List[AutoModRule],
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Update automod rules. Owner/moderator only. Max 30 rules."""
+    community = _get_community_or_404(db, slug)
+    membership = _check_membership(db, community.id, user.id)
+    if not membership or membership.role not in ("owner", "moderator"):
+        raise HTTPException(status_code=403, detail="Moderators only")
+
+    settings = dict(community.settings or {})
+    settings["automod_rules"] = [r.model_dump() for r in rules[:30]]
+    community.settings = settings
+    db.commit()
+    return {"rules": settings["automod_rules"], "count": len(settings["automod_rules"])}
