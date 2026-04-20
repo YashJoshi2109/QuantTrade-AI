@@ -163,7 +163,11 @@ class ExperimentTracker:
 
     def get_run(self, run_id: str) -> Optional[Dict]:
         """Get a specific run by ID."""
-        run_file = EXPERIMENTS_DIR / run_id / "run.json"
+        # Sanitize run_id to prevent path traversal
+        safe_id = run_id.replace("/", "").replace("\\", "").replace("..", "")
+        run_file = EXPERIMENTS_DIR / safe_id / "run.json"
+        if not run_file.resolve().is_relative_to(EXPERIMENTS_DIR.resolve()):
+            return None
         if run_file.exists():
             with open(run_file) as f:
                 return json.load(f)
