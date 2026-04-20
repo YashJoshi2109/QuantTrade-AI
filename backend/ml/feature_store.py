@@ -7,6 +7,7 @@ Separates data fetching from model training:
 - Versioned: track feature schema hash for compatibility
 """
 import os
+import re
 import hashlib
 import logging
 import json
@@ -46,12 +47,17 @@ def _schema_hash() -> str:
     return hashlib.md5(",".join(FEATURE_COLUMNS).encode()).hexdigest()[:12]
 
 
+def _safe_symbol(symbol: str) -> str:
+    """Sanitize symbol to prevent path traversal."""
+    return re.sub(r'[^A-Za-z0-9_\-]', '', symbol).upper()
+
+
 def _symbol_path(symbol: str) -> Path:
-    return STORE_DIR / f"{symbol.upper()}.parquet"
+    return STORE_DIR / f"{_safe_symbol(symbol)}.parquet"
 
 
 def _stats_path(symbol: str) -> Path:
-    return STORE_DIR / f"{symbol.upper()}_stats.json"
+    return STORE_DIR / f"{_safe_symbol(symbol)}_stats.json"
 
 
 class FeatureStore:

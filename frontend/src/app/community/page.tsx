@@ -670,6 +670,7 @@ export default function CommunityPage() {
                     </label>
                     {imagePreview && (
                       <div className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- blob URL from createObjectURL is safe */}
                         <img src={imagePreview} alt="Preview" className="h-12 w-12 object-cover rounded border border-white/10" />
                         <button
                           type="button"
