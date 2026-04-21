@@ -31,10 +31,9 @@ import {
   Brain,
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
-import NotificationBell from './community/NotificationBell'
+import UnifiedNotificationCenter from './UnifiedNotificationCenter'
 import MarketTicker from './MarketTicker'
 import SiteFooter from './SiteFooter'
-import PredictionAlertCenter from './PredictionAlertCenter'
 import HelpDialog from './HelpDialog'
 import { fetchSymbols, Symbol, syncSymbol, fetchMarketStatus, MarketStatus, getSubscriptionStatus } from '@/lib/api'
 import { fetchLiveVisitors } from '@/lib/monitor-extended-api'
@@ -430,11 +429,8 @@ export default function AppLayout({ children, symbol, hideFooter }: AppLayoutPro
                 <Info className="w-5 h-5" aria-hidden />
               </Link>
             </HeaderTooltip>
-            <div className="shrink-0">
-              <NotificationBell />
-            </div>
-            <div className="shrink-0 relative z-[52] pl-0.5">
-              <PredictionAlertCenter />
+            <div className="shrink-0 relative z-[52]">
+              <UnifiedNotificationCenter />
             </div>
             <HeaderTooltip
               label="Help"

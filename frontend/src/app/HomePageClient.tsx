@@ -33,6 +33,7 @@ import {
   fetchSectorPerformance,
   fetchPredictionAlerts,
   fetchQuote,
+  fetchFinnhubQuote,
   getWatchlist,
   SectorPerformance,
   QuoteData,
@@ -49,7 +50,6 @@ import { useExchangeHeatmap } from '@/hooks/useExchangeHeatmap'
 import type { ExchangeSector } from '@/app/api/exchange/heatmap/route'
 import MarketNewsGrid from '@/components/MarketNewsGrid'
 import MiniWorldMonitorSnapshot from '@/components/MiniWorldMonitorSnapshot'
-import LiveNewsChannelPanel from '@/components/LiveNewsChannelPanel'
 import TickerLogo from '@/components/TickerLogo'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { SkeletonMoversSection, SkeletonSectorPerformance } from '@/components/Skeleton'
@@ -117,8 +117,8 @@ function useDashboardRegionMovers(continent: Continent, exchangeId: string | nul
         actives: j.actives ?? [],
       }
     },
-    refetchInterval: 120_000,
-    staleTime: 60_000,
+    refetchInterval: 60_000,  // 1 minute for movers
+    staleTime: 30_000,
     placeholderData: keepPreviousData,
   })
 }
@@ -646,26 +646,37 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
     refetchInterval: 120_000,
   })
 
-  // Live quotes for every watchlist symbol (batched to ease Finnhub rate limits)
+  // Live quotes for every watchlist symbol — use Finnhub for real-time accuracy
   const symbols = watchlist.map((w) => w.symbol)
   const { data: quotes = [], isLoading: quotesLoading } = useQuery({
     queryKey: ['watchlistQuotes', symbols.join('|')],
     queryFn: async (): Promise<QuoteData[]> => {
       if (symbols.length === 0) return []
-      const BATCH = 6
+      const BATCH = 4
       const merged: QuoteData[] = []
       for (let i = 0; i < symbols.length; i += BATCH) {
         const chunk = symbols.slice(i, i + BATCH)
-        const settled = await Promise.allSettled(chunk.map((s) => fetchQuote(s, 'normal')))
+        // Try Finnhub first (real-time), fall back to generic quote
+        const settled = await Promise.allSettled(
+          chunk.map(async (s) => {
+            try {
+              return await fetchFinnhubQuote(s, 'high')
+            } catch {
+              return await fetchQuote(s, 'normal')
+            }
+          })
+        )
         for (const r of settled) {
           if (r.status === 'fulfilled') merged.push(r.value)
         }
+        // Small delay between batches to avoid rate limiting
+        if (i + BATCH < symbols.length) await new Promise((r) => setTimeout(r, 200))
       }
       return merged
     },
     enabled: symbols.length > 0,
-    refetchInterval: 120_000,
-    staleTime: 30_000,
+    refetchInterval: 30_000,  // 30s instead of 2min
+    staleTime: 15_000,
   })
 
   const quoteMap = Object.fromEntries(quotes.map((q) => [q.symbol, q]))
@@ -2047,7 +2058,6 @@ function DesktopHome() {
 
         {/* Bottom sections */}
         <div className="px-4 pb-6 space-y-4">
-          <LiveNewsChannelPanel continent={activeContinent} />
           <MarketNewsGrid />
         </div>
       </div>

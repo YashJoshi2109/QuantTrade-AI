@@ -35,7 +35,6 @@ import {
 import { useBreakingNews } from '@/hooks/useRealtimeNews'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import MarketNewsGrid from '@/components/MarketNewsGrid'
-import LiveNewsChannelPanel from '@/components/LiveNewsChannelPanel'
 import EconomicCalendarStrip from '@/components/EconomicCalendarStrip'
 import MiniWorldMonitorSnapshot from '@/components/MiniWorldMonitorSnapshot'
 import IpoRadarWidget from '@/components/IpoRadarWidget'
@@ -660,11 +659,6 @@ export default function MobileDashboard() {
       {/* Economic Calendar */}
       <section className="px-1 pb-3">
         <EconomicCalendarStrip />
-      </section>
-
-      {/* Live global TV news */}
-      <section className="px-1 pb-4">
-        <LiveNewsChannelPanel />
       </section>
 
       {/* Market Intelligence & News – full editorial grid */}

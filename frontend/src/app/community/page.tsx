@@ -346,47 +346,40 @@ export default function CommunityPage() {
   }, [toastSuccess, toastError])
 
   return (
-    <div className="min-h-screen pb-safe">
+    <div className="min-h-screen pb-safe bg-[#0A0E14]">
       <div className="max-w-[1400px] mx-auto px-3 sm:px-6 py-4 sm:py-6">
-        {/* Page header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100">Community</h1>
-            <p className="text-sm text-slate-500 mt-1">Discuss markets, share ideas, and connect with traders</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Keyboard shortcut hint (desktop only) */}
-            <button
-              onClick={() => setShowHelp(true)}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-2 text-xs text-slate-600 hover:text-slate-400 transition-colors"
-              title="Keyboard shortcuts"
-            >
-              <Keyboard className="w-3.5 h-3.5" />
-              <kbd className="px-1 py-0.5 text-[10px] bg-[#161b22] border border-white/[0.1] rounded">?</kbd>
-            </button>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded-xl text-sm font-medium hover:bg-blue-500/25 transition-colors"
-            >
-              <PenSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">Create Post</span>
-            </button>
-          </div>
-        </div>
-
         {/* 3-Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_280px] gap-6">
-          {/* Left Sidebar - Communities */}
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-5">
+          {/* Left Sidebar - Navigation + Communities */}
           <div className="hidden lg:block">
-            <div className="sticky top-24">
+            <div className="sticky top-20">
               <CommunitySidebar />
             </div>
           </div>
 
           {/* Center - Feed */}
           <div className="min-w-0">
+            {/* Create Post Bar */}
+            <div className="flex items-center gap-3 bg-[#131820] rounded-2xl px-4 py-2.5 mb-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center text-xs font-bold text-blue-400 shrink-0">
+                U
+              </div>
+              <button
+                onClick={() => setShowCreate(true)}
+                className="flex-1 text-left px-4 py-2 bg-[#1a2130] rounded-full text-sm text-slate-500 hover:bg-[#1f2937] hover:text-slate-400 transition-colors"
+              >
+                Create a post
+              </button>
+              <button
+                onClick={() => setShowCreate(true)}
+                className="p-2 rounded-full text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+              >
+                <PenSquare className="w-5 h-5" />
+              </button>
+            </div>
+
             {/* Sort Tabs */}
-            <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-1.5 mb-4 flex gap-1">
+            <div className="bg-[#131820] rounded-2xl p-1 mb-3 flex gap-0.5">
               {SORT_TABS.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
@@ -394,9 +387,9 @@ export default function CommunityPage() {
                     setSort(key)
                     if (key !== 'top') setTimeFilter('all')
                   }}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1 justify-center ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors flex-1 justify-center ${
                     sort === key
-                      ? 'bg-white/[0.06] text-slate-100'
+                      ? 'bg-white/[0.08] text-white'
                       : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]'
                   }`}
                 >
@@ -408,12 +401,12 @@ export default function CommunityPage() {
 
             {/* Time filter — only visible when Top sort is active */}
             {sort === 'top' && (
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-xs text-slate-500 uppercase tracking-wider">Period</span>
+              <div className="flex items-center gap-2 mb-3 px-1">
+                <span className="text-[11px] text-slate-500 uppercase tracking-wider">Period</span>
                 <select
                   value={timeFilter}
                   onChange={(e) => setTimeFilter(e.target.value)}
-                  className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                  className="bg-[#131820] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
                 >
                   <option value="day">Today</option>
                   <option value="week">This Week</option>
@@ -434,7 +427,7 @@ export default function CommunityPage() {
                 onCta={() => setShowCreate(true)}
               />
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {posts.map((post, i) => (
                   <PostCard
                     key={post.id}
@@ -452,21 +445,21 @@ export default function CommunityPage() {
             <div ref={sentinelRef} className="h-px" />
 
             {loadingMore && (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
               </div>
             )}
 
             {!hasMore && posts.length > 0 && (
-              <p className="text-center text-sm text-slate-600 py-8">
+              <p className="text-center text-xs text-slate-600 py-6">
                 You&apos;ve reached the end
               </p>
             )}
           </div>
 
-          {/* Right Sidebar - Trending */}
+          {/* Right Sidebar - Trending + Communities */}
           <div className="hidden lg:block">
-            <div className="sticky top-24">
+            <div className="sticky top-20">
               <TrendingSidebar />
             </div>
           </div>
@@ -491,7 +484,7 @@ export default function CommunityPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-xl bg-[#0D1117] border border-white/[0.08] rounded-none sm:rounded-2xl shadow-2xl overflow-hidden fixed inset-0 sm:relative sm:inset-auto flex flex-col max-h-screen sm:max-h-[90vh]"
+              className="w-full max-w-xl bg-[#131820] border border-white/[0.08] rounded-none sm:rounded-2xl shadow-2xl overflow-hidden fixed inset-0 sm:relative sm:inset-auto flex flex-col max-h-screen sm:max-h-[90vh]"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal header */}
