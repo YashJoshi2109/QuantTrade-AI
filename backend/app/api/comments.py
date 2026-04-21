@@ -578,6 +578,19 @@ async def vote_on_comment(
         action = "comment_upvote_received" if body.direction == 1 else "comment_downvote_received"
         reputation_service.update_reputation(comment.author_id, action, db)
 
+        # Create notification for the comment author on upvote (not downvote, not self-vote)
+        if body.direction == 1 and not existing_vote:
+            notification = Notification(
+                user_id=comment.author_id,
+                type="upvote",
+                title=f"{user.username} upvoted your comment",
+                body=comment.body[:200],
+                action_url=f"/community/post/{comment.post_id}#comment-{comment.id}",
+                actor_id=user.id,
+            )
+            db.add(notification)
+            db.commit()
+
     return {
         "message": "Vote recorded",
         "direction": body.direction,

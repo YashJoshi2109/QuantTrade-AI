@@ -29,12 +29,13 @@ export default function CommunitySidebar() {
   const [loading, setLoading] = useState(true)
   const [showAll, setShowAll] = useState(false)
 
+  // Refetch on pathname change (catches create, join, leave navigations)
   useEffect(() => {
     fetchCommunities()
       .then((data) => setCommunities(data.communities || []))
       .catch(() => setCommunities([]))
       .finally(() => setLoading(false))
-  }, [])
+  }, [pathname])
 
   const myCommunities = communities.filter((c) => c.is_member)
   const suggested = communities.filter((c) => !c.is_member).slice(0, 5)

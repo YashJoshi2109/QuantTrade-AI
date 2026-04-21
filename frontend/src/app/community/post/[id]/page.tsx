@@ -228,14 +228,53 @@ export default function PostThreadPage() {
   // ── Comment submit handlers ────────────────────────────────
 
   const handleCommentSubmit = useCallback(async (body: string, parentId?: number | null) => {
-    if (!postId) return
-    await createComment(postId, body, parentId ?? undefined)
-    await loadComments()
-  }, [postId, loadComments])
+    if (!postId || !user) return
+
+    // Optimistically prepend the new comment to the list
+    const optimisticComment: Comment = {
+      id: -Date.now(), // temporary negative ID
+      body,
+      post_id: postId,
+      parent_id: parentId ?? null,
+      author_id: (user as any).id ?? 0,
+      author_display_name: (user as any).username ?? (user as any).email ?? 'You',
+      author_avatar_url: (user as any).avatar_url ?? undefined,
+      depth: 0,
+      upvote_count: 0,
+      downvote_count: 0,
+      reply_count: 0,
+      is_removed: false,
+      created_at: new Date().toISOString(),
+      user_vote: null,
+      replies: [],
+    }
+
+    setComments(prev => [optimisticComment, ...prev])
+
+    // Also bump the comment count optimistically
+    if (post) {
+      setPost(prev => prev ? { ...prev, comment_count: (prev.comment_count || 0) + 1 } : prev)
+    }
+
+    try {
+      await createComment(postId, body, parentId ?? undefined)
+    } catch {
+      // Rollback optimistic comment on failure
+      setComments(prev => prev.filter(c => c.id !== optimisticComment.id))
+      if (post) {
+        setPost(prev => prev ? { ...prev, comment_count: Math.max((prev.comment_count || 1) - 1, 0) } : prev)
+      }
+      return
+    }
+
+    // Refresh comments in background to get real IDs and server state
+    loadComments()
+  }, [postId, user, post, loadComments])
 
   const handleReplySubmit = useCallback(async (body: string, parentId: number) => {
     await createComment(postId, body, parentId)
-    await loadComments()
+    // Refresh to show the new reply in the tree
+    loadComments()
   }, [postId, loadComments])
 
   // ── Render ─────────────────────────────────────────────────
@@ -338,6 +377,11 @@ export default function PostThreadPage() {
               <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap break-words mb-5">
                 {post.body}
               </div>
+
+              {/* Financial disclaimer */}
+              <p className="text-[10px] text-slate-600 leading-relaxed mb-4">
+                This is community discussion, not financial advice. Always do your own research.
+              </p>
 
               {/* Vote bar + stats */}
               <div className="flex items-center gap-4 py-3 border-t border-b border-white/[0.04]">

@@ -12,14 +12,18 @@ class StorageService:
     """Unified storage interface for S3-compatible or local storage"""
     
     def __init__(self):
-        self.use_local = settings.USE_LOCAL_STORAGE
-        
+        # Auto-disable local storage when R2/S3 is configured
+        r2_configured = bool(settings.S3_ENDPOINT and settings.S3_ACCESS_KEY and settings.S3_SECRET_KEY)
+        self.use_local = settings.USE_LOCAL_STORAGE and not r2_configured
+        self.public_url = getattr(settings, 'S3_PUBLIC_URL', None)
+
         if not self.use_local and settings.S3_ENDPOINT:
             self.s3_client = boto3.client(
                 's3',
                 endpoint_url=settings.S3_ENDPOINT,
                 aws_access_key_id=settings.S3_ACCESS_KEY,
-                aws_secret_access_key=settings.S3_SECRET_KEY
+                aws_secret_access_key=settings.S3_SECRET_KEY,
+                region_name="auto",
             )
             self.bucket = settings.S3_BUCKET
         else:

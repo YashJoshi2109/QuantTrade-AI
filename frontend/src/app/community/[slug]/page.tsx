@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useState, useEffect, useCallback } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { Users, Shield, ArrowLeft, Calendar, Settings } from 'lucide-react'
+import { Users, Shield, ArrowLeft, Calendar, Settings, Flame, Clock, TrendingUp, Zap } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import { fetchCommunity, joinCommunity, leaveCommunity, normalizePosts, type Community, type CommunityPost } from '@/lib/api'
 import PostCard from '@/components/community/PostCard'
@@ -12,26 +12,57 @@ import { FeedSkeleton } from '@/components/community/Skeletons'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
+type SortTab = 'hot' | 'new' | 'top' | 'rising'
+
+const SORT_TABS: { key: SortTab; label: string; icon: typeof Flame }[] = [
+  { key: 'hot', label: 'Hot', icon: Flame },
+  { key: 'new', label: 'New', icon: Clock },
+  { key: 'top', label: 'Top', icon: TrendingUp },
+  { key: 'rising', label: 'Rising', icon: Zap },
+]
+
+const TIME_OPTIONS = [
+  { value: 'day', label: 'Today' },
+  { value: 'week', label: 'This Week' },
+  { value: 'month', label: 'This Month' },
+  { value: 'year', label: 'This Year' },
+  { value: 'all', label: 'All Time' },
+]
+
 export default function CommunityDetailPage() {
   const { slug } = useParams<{ slug: string }>()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [community, setCommunity] = useState<Community | null>(null)
   const [posts, setPosts] = useState<CommunityPost[]>([])
   const [loading, setLoading] = useState(true)
   const [joining, setJoining] = useState(false)
 
+  const sort = (searchParams.get('sort') as SortTab) || 'hot'
+  const time = searchParams.get('time') || 'all'
+
+  const updateParams = useCallback((newSort: SortTab, newTime?: string) => {
+    const params = new URLSearchParams()
+    params.set('sort', newSort)
+    if (newSort === 'top' && newTime) params.set('time', newTime)
+    router.replace(`/community/${slug}?${params.toString()}`, { scroll: false })
+  }, [router, slug])
+
   useEffect(() => {
     if (!slug) return
     setLoading(true)
+    const params = new URLSearchParams({ sort, limit: '20' })
+    if (sort === 'top') params.set('time', time)
     Promise.all([
       fetchCommunity(slug),
-      fetch(`${API_URL}/api/v1/communities/${slug}/posts?limit=20`, { credentials: 'include' })
+      fetch(`${API_URL}/api/v1/communities/${slug}/posts?${params}`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : { items: [] })
         .catch(() => ({ items: [] }))
     ]).then(([comm, feedData]) => {
       setCommunity(comm)
       setPosts(normalizePosts(feedData.posts || feedData.items || []))
     }).finally(() => setLoading(false))
-  }, [slug])
+  }, [slug, sort, time])
 
   const handleJoinLeave = async () => {
     if (!community || joining) return
@@ -139,6 +170,42 @@ export default function CommunityDetailPage() {
                 </button>
               </div>
             </motion.div>
+
+            {/* Sort Tabs */}
+            <div className="bg-[#131820] rounded-2xl p-1 mb-3 flex gap-0.5">
+              {SORT_TABS.map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    updateParams(key, key === 'top' ? time : undefined)
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors flex-1 justify-center ${
+                    sort === key
+                      ? 'bg-white/[0.08] text-white'
+                      : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Time filter for Top sort */}
+            {sort === 'top' && (
+              <div className="flex items-center gap-2 mb-3 px-1">
+                <span className="text-[11px] text-slate-500 uppercase tracking-wider">Period</span>
+                <select
+                  value={time}
+                  onChange={(e) => updateParams('top', e.target.value)}
+                  className="bg-[#131820] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                >
+                  {TIME_OPTIONS.map(({ value, label }) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Posts */}
             {posts.length === 0 ? (

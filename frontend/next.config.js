@@ -10,6 +10,12 @@ const nextConfig = {
   },
   images: {
     unoptimized: false,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.r2.dev',
+      },
+    ],
   },
   // Compress responses (Brotli via Cloudflare, gzip as fallback)
   compress: true,

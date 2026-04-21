@@ -165,12 +165,13 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
     REDIS_URL: str = "redis://localhost:6379"  # For general caching
     
-    # Object Storage
-    S3_ENDPOINT: Optional[str] = None
+    # Object Storage (Cloudflare R2 — S3-compatible)
+    S3_ENDPOINT: Optional[str] = None       # https://<account_id>.r2.cloudflarestorage.com
     S3_ACCESS_KEY: Optional[str] = None
     S3_SECRET_KEY: Optional[str] = None
-    S3_BUCKET: Optional[str] = None
-    USE_LOCAL_STORAGE: bool = True
+    S3_BUCKET: Optional[str] = "quanttrade-uploads"
+    S3_PUBLIC_URL: Optional[str] = None     # Public R2.dev URL or custom domain for image serving
+    USE_LOCAL_STORAGE: bool = True           # Auto-disabled when S3_ENDPOINT is set
     LOCAL_STORAGE_PATH: str = "./storage"
     
     # App settings
