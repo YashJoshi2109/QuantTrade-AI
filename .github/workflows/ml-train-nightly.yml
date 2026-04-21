@@ -2,15 +2,15 @@ name: ML Train Nightly
 
 on:
   schedule:
-    - cron: '0 3 * * 1-5'   # Weekdays 03:00 UTC — train tier_2 (180 stocks)
-    - cron: '0 3 * * 0'      # Sunday 03:00 UTC — full retrain (all 300 stocks)
+    - cron: '0 3 * * 1-5'   # Weekdays 03:00 UTC — train tier_2 (~230 stocks)
+    - cron: '0 3 * * 0'      # Sunday 03:00 UTC — full retrain via parallel tier jobs
   workflow_dispatch:
     inputs:
       symbol_tier:
         description: 'Symbol tier: tier_1 | tier_2 | tier_3 | all'
-        default: 'all'
+        default: 'tier_2'
       epochs:
-        description: 'Override epochs (default: 80)'
+        description: 'Override epochs (default from config)'
         default: ''
       force:
         description: 'Force retrain even without drift'
@@ -23,10 +23,37 @@ permissions:
   packages: read
 
 jobs:
-  train-lstm:
-    name: Train LSTM predictors
+  # ── Determine which tiers to train ────────────────────────────────────
+  plan:
+    name: Plan training tiers
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Build matrix
+        id: set-matrix
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TIER="${{ github.event.inputs.symbol_tier || 'tier_2' }}"
+            # Single tier dispatch — run as one job
+            echo "matrix={\"include\":[{\"tier\":\"$TIER\",\"label\":\"$TIER\"}]}" >> $GITHUB_OUTPUT
+          elif [ "$(date +%u)" = "7" ]; then
+            # Sunday — split into 3 parallel jobs by tier for faster execution
+            echo 'matrix={"include":[{"tier":"tier_1","label":"tier_1"},{"tier":"tier_2","label":"tier_2"},{"tier":"tier_3","label":"tier_3"}]}' >> $GITHUB_OUTPUT
+          else
+            # Weekdays — tier_2 only (includes tier_1)
+            echo 'matrix={"include":[{"tier":"tier_2","label":"tier_2"}]}' >> $GITHUB_OUTPUT
+          fi
+
+  # ── Training jobs (parallel on Sunday) ────────────────────────────────
+  train-lstm:
+    name: Train LSTM (${{ matrix.label }})
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
 
     steps:
       - name: Checkout repository
@@ -41,16 +68,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: backend/ml/data_cache
-          key: ml-data-cache-v3-${{ github.run_id }}
+          key: ml-data-cache-v4-${{ matrix.tier }}-${{ github.run_id }}
           restore-keys: |
+            ml-data-cache-v4-${{ matrix.tier }}-
+            ml-data-cache-v4-
             ml-data-cache-v3-
 
       - name: Cache pip packages
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-ml-${{ hashFiles('backend/requirements.txt') }}
-          restore-keys: pip-ml-
+          key: pip-ml-v2-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: pip-ml-v2-
 
       - name: Install dependencies
         working-directory: ./backend
@@ -59,32 +88,23 @@ jobs:
           pip install -r requirements.txt
           pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Determine symbol tier
-        id: tier
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tier=${{ github.event.inputs.symbol_tier || 'all' }}" >> $GITHUB_OUTPUT
-          elif [ "$(date +%u)" = "7" ]; then
-            echo "tier=all" >> $GITHUB_OUTPUT
-          else
-            echo "tier=tier_2" >> $GITHUB_OUTPUT
-          fi
-
       - name: Run ML Pipeline (Feature Store + Train + Register)
         working-directory: ./backend
         env:
           PYTHONPATH: ${{ github.workspace }}/backend
         run: |
-          echo "Training with tier: ${{ steps.tier.outputs.tier }}"
+          echo "Training tier: ${{ matrix.tier }}"
+          echo "Epochs override: ${{ github.event.inputs.epochs || 'default' }}"
           python -m ml.train --config configs/train_default.yaml \
-            --symbol-tier ${{ steps.tier.outputs.tier }} \
+            --symbol-tier ${{ matrix.tier }} \
             ${{ github.event.inputs.epochs && format('--epochs {0}', github.event.inputs.epochs) || '' }}
 
-      - name: List trained checkpoints
+      - name: Training summary
+        if: always()
         working-directory: ./backend
         run: |
           echo "=== Checkpoints ==="
-          ls -lh ml/checkpoints/ || echo "No checkpoints"
+          ls -lh ml/checkpoints/ 2>/dev/null || echo "No checkpoints"
           echo ""
           echo "=== Feature Store ==="
           ls ml/feature_store_data/*.parquet 2>/dev/null | wc -l | xargs echo "Symbols in feature store:"
@@ -94,8 +114,9 @@ jobs:
 
       - name: Upload checkpoints
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: ml-checkpoints-${{ github.run_id }}
+          name: ml-checkpoints-${{ matrix.tier }}-${{ github.run_id }}
           path: |
             backend/ml/checkpoints/
             backend/ml/registry/
@@ -105,7 +126,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ml-feature-store-${{ github.run_id }}
+          name: ml-feature-store-${{ matrix.tier }}-${{ github.run_id }}
           path: backend/ml/feature_store_data/
           retention-days: 14
 
@@ -113,7 +134,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ml-data-cache-${{ github.run_id }}
+          name: ml-data-cache-${{ matrix.tier }}-${{ github.run_id }}
           path: backend/ml/data_cache/
           retention-days: 7
 
@@ -121,6 +142,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ml-experiments-${{ github.run_id }}
+          name: ml-experiments-${{ matrix.tier }}-${{ github.run_id }}
           path: backend/ml/experiments/
           retention-days: 30
