@@ -81,7 +81,7 @@ def download_bulk(
     symbols: list[str],
     period: str = "max",
     cache_dir: Path | str = DEFAULT_CACHE_DIR,
-    max_workers: int = 4,
+    max_workers: int = 8,
 ) -> dict[str, pd.DataFrame]:
     """Download multiple symbols in parallel."""
     results: dict[str, pd.DataFrame] = {}
@@ -274,35 +274,40 @@ class StockDataset(Dataset):
 
 # ── Master dataset builder ─────────────────────────────────────────────
 
-def build_datasets(
+class PrecomputedFeatures:
+    """Cached feature data for all symbols — computed once, reused across horizons."""
+
+    def __init__(
+        self,
+        symbol_features: dict[str, pd.DataFrame],
+        symbol_close: dict[str, pd.Series],
+    ):
+        self.symbol_features = symbol_features
+        self.symbol_close = symbol_close
+
+    @property
+    def symbols(self) -> list[str]:
+        return list(self.symbol_features.keys())
+
+
+def precompute_features(
     symbols: list[str],
-    horizon: int = 1,
-    target_mode: str = "log_return",
-    scaler_type: str = "standard",
-    seq_len: int = DEFAULT_SEQ_LEN,
-    val_days: int = 63,
-    test_days: int = 63,
     data_period: str = "max",
     cache_dir: Path | str = DEFAULT_CACHE_DIR,
-) -> tuple[StockDataset, StockDataset, StockDataset, Any]:
-    """Master function: download -> features -> targets -> temporal split -> scale.
+) -> PrecomputedFeatures:
+    """Download and compute features for all symbols ONCE.
 
-    Returns (train_dataset, val_dataset, test_dataset, fitted_scaler).
-    Scaler is fit ONLY on training data.
+    This is the expensive step (downloads + rolling windows). Call once,
+    then pass the result to build_datasets_from_cache() for each horizon.
     """
     from ml.data_validation import validate_ohlcv, validate_features
 
     cache_dir = Path(cache_dir)
-
-    # Download SPY for relative returns
     spy_df = download_symbol("SPY", period=data_period, cache_dir=cache_dir)
-
-    # Download all symbols
     all_data = download_bulk(symbols, period=data_period, cache_dir=cache_dir)
 
-    all_features: list[np.ndarray] = []
-    all_targets: list[np.ndarray] = []
-    all_dates: list[pd.DatetimeIndex] = []
+    symbol_features: dict[str, pd.DataFrame] = {}
+    symbol_close: dict[str, pd.Series] = {}
 
     for sym in symbols:
         raw_df = all_data.get(sym)
@@ -310,49 +315,57 @@ def build_datasets(
             logger.warning(f"Skipping {sym}: no data")
             continue
 
-        # Validate raw data
         report = validate_ohlcv(raw_df, sym)
         if not report.is_valid:
             logger.warning(f"Skipping {sym}: {report.rejection_reason}")
             continue
 
-        # Compute features
         feat_df = compute_features(raw_df, spy_df)
 
-        # Validate features
         feat_report = validate_features(feat_df, sym)
         if not feat_report.is_valid:
             logger.warning(f"Skipping {sym} features: {feat_report.rejection_reason}")
             continue
 
-        # Make targets from the original close prices aligned to feature index
-        close_aligned = raw_df["Close"].reindex(feat_df.index)
-        tgt = make_targets(close_aligned, horizon=horizon, mode=target_mode)
+        symbol_features[sym] = feat_df
+        symbol_close[sym] = raw_df["Close"].reindex(feat_df.index)
 
-        # Drop rows where target is NaN (last `horizon` rows)
+    logger.info(f"Precomputed features for {len(symbol_features)}/{len(symbols)} symbols")
+    return PrecomputedFeatures(symbol_features, symbol_close)
+
+
+def build_datasets_from_cache(
+    cached: PrecomputedFeatures,
+    horizon: int = 1,
+    target_mode: str = "log_return",
+    scaler_type: str = "standard",
+    seq_len: int = DEFAULT_SEQ_LEN,
+    val_days: int = 63,
+    test_days: int = 63,
+) -> tuple[StockDataset, StockDataset, StockDataset, Any]:
+    """Build train/val/test datasets from pre-computed features (fast — targets only)."""
+    all_features: list[np.ndarray] = []
+    all_targets: list[np.ndarray] = []
+
+    for sym in cached.symbols:
+        feat_df = cached.symbol_features[sym]
+        close = cached.symbol_close[sym]
+
+        tgt = make_targets(close, horizon=horizon, mode=target_mode)
         valid_mask = tgt.notna()
-        feat_df = feat_df[valid_mask]
-        tgt = tgt[valid_mask]
+        feat_arr = feat_df[valid_mask].values
+        tgt_arr = tgt[valid_mask].values
 
-        if len(feat_df) < seq_len + val_days + test_days + 10:
-            logger.warning(f"Skipping {sym}: insufficient data after processing ({len(feat_df)} rows)")
+        if len(feat_arr) < seq_len + val_days + test_days + 10:
             continue
 
-        all_features.append(feat_df.values)
-        all_targets.append(tgt.values)
-        all_dates.append(feat_df.index)
-        logger.info(f"{sym}: {len(feat_df)} usable rows")
+        all_features.append(feat_arr)
+        all_targets.append(tgt_arr)
 
     if not all_features:
-        raise ValueError("No valid data after processing all symbols")
+        raise ValueError(f"No valid data for h={horizon}")
 
-    # Concatenate all symbols
-    features = np.concatenate(all_features, axis=0)
-    targets = np.concatenate(all_targets, axis=0)
-
-    # Temporal split: we split based on total length
-    # (since symbols are concatenated, each symbol's data is already time-ordered)
-    # For universal model: split each symbol individually then concatenate
+    # Temporal split per symbol
     train_feats, train_tgts = [], []
     val_feats, val_tgts = [], []
     test_feats, test_tgts = [], []
@@ -363,7 +376,6 @@ def build_datasets(
         val_start = test_start - val_days
 
         if val_start < seq_len:
-            # Not enough data for split — put everything in train
             train_feats.append(feat_arr)
             train_tgts.append(tgt_arr)
             continue
@@ -382,17 +394,40 @@ def build_datasets(
     test_f = np.concatenate(test_feats, axis=0) if test_feats else train_f[-test_days:]
     test_t = np.concatenate(test_tgts, axis=0) if test_tgts else train_t[-test_days:]
 
-    # Fit scaler on TRAIN data ONLY
     scaler = make_scaler(scaler_type)
     train_f = scaler.fit_transform(train_f)
     val_f = scaler.transform(val_f)
     test_f = scaler.transform(test_f)
 
-    logger.info(f"Dataset sizes — train: {len(train_f)}, val: {len(val_f)}, test: {len(test_f)}")
+    logger.info(f"[h={horizon}] Dataset sizes — train: {len(train_f)}, val: {len(val_f)}, test: {len(test_f)}")
 
     return (
         StockDataset(train_f, train_t, seq_len),
         StockDataset(val_f, val_t, seq_len),
         StockDataset(test_f, test_t, seq_len),
         scaler,
+    )
+
+
+def build_datasets(
+    symbols: list[str],
+    horizon: int = 1,
+    target_mode: str = "log_return",
+    scaler_type: str = "standard",
+    seq_len: int = DEFAULT_SEQ_LEN,
+    val_days: int = 63,
+    test_days: int = 63,
+    data_period: str = "max",
+    cache_dir: Path | str = DEFAULT_CACHE_DIR,
+) -> tuple[StockDataset, StockDataset, StockDataset, Any]:
+    """Legacy interface — downloads, computes features, and builds datasets in one call.
+
+    For multi-horizon training, use precompute_features() + build_datasets_from_cache()
+    instead to avoid recomputing features for each horizon.
+    """
+    cached = precompute_features(symbols, data_period=data_period, cache_dir=cache_dir)
+    return build_datasets_from_cache(
+        cached, horizon=horizon, target_mode=target_mode,
+        scaler_type=scaler_type, seq_len=seq_len,
+        val_days=val_days, test_days=test_days,
     )

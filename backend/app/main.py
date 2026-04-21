@@ -49,7 +49,7 @@ from app.api import copilot_stream
 from app.api import ideas
 from app.api import model_index as model_index_api
 from app.api import community, posts, comments, notifications, users, search
-from app.api import bookmarks, uploads
+from app.api import bookmarks, uploads, reactions
 from app.api import mlops
 from app.api import moderation as moderation_api
 from app.api import bans
@@ -443,6 +443,9 @@ app.include_router(users.router, prefix="/api/v1", tags=["users"])
 
 # Bookmarks — save/unsave posts
 app.include_router(bookmarks.router, prefix="/api/v1", tags=["bookmarks"])
+
+# Reactions — emoji reactions on posts
+app.include_router(reactions.router, prefix="/api/v1", tags=["reactions"])
 
 # Uploads — image upload for community media
 app.include_router(uploads.router, prefix="/api/v1", tags=["uploads"])

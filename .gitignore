@@ -60,7 +60,22 @@ chroma_db/
 secrets/
 *.pem
 *.key
+*.p12
+*.pfx
+*.credential
+*.credentials
+**/credentials.json
+**/service-account*.json
+
+# Environment overrides (catch-all)
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.production
+**/.env.development
+!**/.env.example
+!**/.env.*.template
 
 # Google OAuth
 deploy/*.json
-client_secret_2_519313922874-alldopga9l8lia420p2gpku4pusnsret.apps.googleusercontent.com.json
+client_secret_*.json

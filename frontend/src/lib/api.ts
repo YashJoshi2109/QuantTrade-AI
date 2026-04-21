@@ -2338,12 +2338,14 @@ export async function markAllNotificationsRead() {
 
 export async function bookmarkPost(postId: number) {
   const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/bookmark`, { method: 'POST' })
-  return res.ok
+  // 409 means already bookmarked — treat as success (no-op)
+  return res.ok || res.status === 409
 }
 
 export async function unbookmarkPost(postId: number) {
   const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/bookmark`, { method: 'DELETE' })
-  return res.ok
+  // 404 means bookmark already removed — treat as success (no-op)
+  return res.ok || res.status === 404
 }
 
 export async function fetchBookmarks(cursor?: number) {
@@ -2356,6 +2358,43 @@ export async function fetchBookmarks(cursor?: number) {
     posts: normalizePosts(data.posts || data.items || []),
     next_cursor: data.next_cursor as number | null,
   }
+}
+
+// ── Reactions API ─────────────────────────────────────────────────��────
+
+export interface ReactionSummary {
+  emoji: string
+  count: number
+  reacted: boolean
+}
+
+export async function addReaction(postId: number, emoji: string): Promise<boolean> {
+  const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/reactions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ emoji }),
+  })
+  return res.ok
+}
+
+export async function removeReaction(postId: number, emoji: string): Promise<boolean> {
+  const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/reactions/${encodeURIComponent(emoji)}`, {
+    method: 'DELETE',
+  })
+  return res.ok
+}
+
+export async function fetchReactions(postId: number): Promise<ReactionSummary[]> {
+  const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}/reactions`)
+  if (!res.ok) return []
+  const data = await res.json()
+  // Normalize: backend returns {counts: [{emoji, count}], user_reactions: [emoji]}
+  const userReactions = new Set(data.user_reactions || [])
+  return (data.counts || []).map((c: { emoji: string; count: number }) => ({
+    emoji: c.emoji,
+    count: c.count,
+    reacted: userReactions.has(c.emoji),
+  }))
 }
 
 // ── Image Upload ───────────────────────────────────────────────────────

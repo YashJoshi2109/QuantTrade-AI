@@ -24,12 +24,12 @@ dropout: 0.2               # regularization
 scaler_type: "robust"      # RobustScaler handles outliers better than StandardScaler
 
 # ── Training ──────────────────────────────────────────────────────────
-epochs: 80                 # more epochs for 300 symbols (early stopping protects)
-batch_size: 128            # larger batch for more data
+epochs: 40                 # reduced from 80 — early stopping triggers by epoch 20-30 anyway
+batch_size: 256            # larger batch = fewer steps per epoch on CPU
 learning_rate: 0.0005      # slightly lower LR for stability with more data
 weight_decay: 0.0001       # L2 regularization
 grad_clip_norm: 1.0        # gradient clipping
-early_stopping_patience: 15 # more patience with more data
+early_stopping_patience: 10 # reduced from 15 — converges faster with larger batch
 lr_scheduler: "cosine"     # cosine annealing works well for large datasets
 
 # ── Validation ────────────────────────────────────────────────────────

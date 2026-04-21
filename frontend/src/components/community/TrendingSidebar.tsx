@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { TrendingUp, Users, Flame, BarChart3, Activity } from 'lucide-react'
-import { fetchCommunities, fetchTrendingTickers, fetchMarketMood, type Community } from '@/lib/api'
+import { fetchCommunities, fetchTrendingTickers, fetchMarketMood, fetchQuote, type Community, type QuoteData } from '@/lib/api'
 
 interface TrendingTicker {
   symbol: string
@@ -12,14 +12,35 @@ interface TrendingTicker {
 
 export default function TrendingSidebar() {
   const [tickers, setTickers] = useState<TrendingTicker[]>([])
+  const [tickerQuotes, setTickerQuotes] = useState<Record<string, QuoteData>>({})
   const [loading, setLoading] = useState(true)
   const [popularCommunities, setPopularCommunities] = useState<Community[]>([])
   const [mood, setMood] = useState<{ mood: string; bullish_pct: number; bearish_pct: number; total_posts: number } | null>(null)
+  const quoteFetchedRef = useRef<Set<string>>(new Set())
 
   const loadTrending = useCallback(async () => {
     try {
       const data = await fetchTrendingTickers(24, 10)
-      setTickers(data.tickers || [])
+      const fetched = data.tickers || []
+      setTickers(fetched)
+
+      // Fetch quotes for any new tickers we haven't fetched yet
+      const newSymbols = fetched
+        .map((t) => t.symbol)
+        .filter((s) => !quoteFetchedRef.current.has(s))
+      if (newSymbols.length > 0) {
+        newSymbols.forEach((s) => quoteFetchedRef.current.add(s))
+        const quotes = await Promise.all(
+          newSymbols.map((s) => fetchQuote(s, 'normal').catch(() => null))
+        )
+        setTickerQuotes((prev) => {
+          const next = { ...prev }
+          newSymbols.forEach((s, i) => {
+            if (quotes[i]) next[s] = quotes[i]!
+          })
+          return next
+        })
+      }
     } catch {
       // keep existing data on error
     } finally {
@@ -101,25 +122,49 @@ export default function TrendingSidebar() {
           </div>
         ) : (
           <div className="space-y-0.5">
-            {tickers.map((ticker, i) => (
-              <Link
-                key={ticker.symbol}
-                href={`/research?symbol=${ticker.symbol}`}
-                className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors group"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-600 w-3 text-right tabular-nums">
-                    {i + 1}
-                  </span>
-                  <span className="text-sm font-mono font-semibold text-cyan-400 group-hover:text-cyan-300">
-                    ${ticker.symbol}
-                  </span>
-                </div>
-                <span className="text-[11px] text-slate-500 tabular-nums">
-                  {ticker.mention_count} {ticker.mention_count === 1 ? 'mention' : 'mentions'}
-                </span>
-              </Link>
-            ))}
+            {tickers.map((ticker, i) => {
+              const quote = tickerQuotes[ticker.symbol]
+              const changeColor = quote
+                ? quote.change_percent > 0
+                  ? 'text-emerald-400'
+                  : quote.change_percent < 0
+                    ? 'text-red-400'
+                    : 'text-slate-500'
+                : ''
+              return (
+                <Link
+                  key={ticker.symbol}
+                  href={`/research?symbol=${ticker.symbol}`}
+                  className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-600 w-3 text-right tabular-nums">
+                      {i + 1}
+                    </span>
+                    <div>
+                      <span className="text-sm font-mono font-semibold text-cyan-400 group-hover:text-cyan-300">
+                        ${ticker.symbol}
+                      </span>
+                      <span className="text-[10px] text-slate-600 ml-1.5">
+                        {ticker.mention_count} {ticker.mention_count === 1 ? 'mention' : 'mentions'}
+                      </span>
+                    </div>
+                  </div>
+                  {quote && quote.price > 0 ? (
+                    <div className="text-right">
+                      <div className="text-[11px] text-slate-300 tabular-nums font-medium">
+                        ${quote.price.toFixed(2)}
+                      </div>
+                      <div className={`text-[10px] tabular-nums ${changeColor}`}>
+                        {quote.change_percent >= 0 ? '+' : ''}{quote.change_percent.toFixed(2)}%
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-slate-600 tabular-nums">--</span>
+                  )}
+                </Link>
+              )
+            })}
           </div>
         )}
       </div>

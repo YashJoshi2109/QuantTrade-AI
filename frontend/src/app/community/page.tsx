@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react'
 import AppLayout from '@/components/AppLayout'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -22,7 +22,7 @@ import {
   Keyboard,
   ImagePlus,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import PostCard from '@/components/community/PostCard'
 import CommunitySidebar from '@/components/community/CommunitySidebar'
 import TrendingSidebar from '@/components/community/TrendingSidebar'
@@ -79,11 +79,32 @@ function extractTickers(text: string): string[] {
 }
 
 export default function CommunityPage() {
+  return (
+    <Suspense fallback={<AppLayout><div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500" /></div></AppLayout>}>
+      <CommunityPageInner />
+    </Suspense>
+  )
+}
+
+function CommunityPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { success: toastSuccess, error: toastError } = useToast()
 
-  const [sort, setSort] = useState<SortTab>('hot')
-  const [timeFilter, setTimeFilter] = useState<string>('all')
+  const sortParam = (searchParams.get('sort') as SortTab) || 'hot'
+  const timeParam = searchParams.get('time') || 'all'
+  const [sort, setSort] = useState<SortTab>(sortParam)
+  const [timeFilter, setTimeFilter] = useState<string>(timeParam)
+
+  // Sync URL params when sort/time change
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (sort !== 'hot') params.set('sort', sort)
+    if (sort === 'top' && timeFilter !== 'all') params.set('time', timeFilter)
+    const qs = params.toString()
+    router.replace(`/community${qs ? `?${qs}` : ''}`, { scroll: false })
+  }, [sort, timeFilter, router])
+
   const [posts, setPosts] = useState<CommunityPost[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)

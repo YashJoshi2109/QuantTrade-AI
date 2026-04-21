@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 
 from ml.config import TrainConfig
 from ml.constants import DEFAULT_CONFIG_PATH, FEATURE_COLUMNS
-from ml.dataset import build_datasets
+from ml.dataset import build_datasets, precompute_features, build_datasets_from_cache
 from ml.model import LSTMPredictor
 from ml.evaluate import compute_metrics, print_report
 from ml.baselines import run_all_baselines
@@ -130,25 +130,41 @@ def evaluate_epoch(
 
 # ── Full training pipeline ─────────────────────────────────────────────
 
-def train_single_horizon(config: TrainConfig, horizon: int) -> dict:
-    """Train one model for one horizon. Returns metrics dict."""
+def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None) -> dict:
+    """Train one model for one horizon. Returns metrics dict.
+
+    Args:
+        cached_features: PrecomputedFeatures from precompute_features().
+            If provided, skips expensive download+feature computation.
+    """
     device = get_device()
     symbols = config.resolve_symbols()
     logger.info(f"Training h={horizon} on {len(symbols)} symbols ({symbols[:5]}{'...' if len(symbols) > 5 else ''})")
     logger.info(f"Device: {device}")
 
-    # Build datasets
-    train_ds, val_ds, test_ds, scaler = build_datasets(
-        symbols=symbols,
-        horizon=horizon,
-        target_mode=config.target_mode,
-        scaler_type=config.scaler_type,
-        seq_len=config.seq_len,
-        val_days=config.val_days,
-        test_days=config.test_days,
-        data_period=config.data_period,
-        cache_dir=config.cache_dir,
-    )
+    # Build datasets — use cache if available (avoids recomputing features per horizon)
+    if cached_features is not None:
+        train_ds, val_ds, test_ds, scaler = build_datasets_from_cache(
+            cached=cached_features,
+            horizon=horizon,
+            target_mode=config.target_mode,
+            scaler_type=config.scaler_type,
+            seq_len=config.seq_len,
+            val_days=config.val_days,
+            test_days=config.test_days,
+        )
+    else:
+        train_ds, val_ds, test_ds, scaler = build_datasets(
+            symbols=symbols,
+            horizon=horizon,
+            target_mode=config.target_mode,
+            scaler_type=config.scaler_type,
+            seq_len=config.seq_len,
+            val_days=config.val_days,
+            test_days=config.test_days,
+            data_period=config.data_period,
+            cache_dir=config.cache_dir,
+        )
 
     if len(train_ds) == 0:
         raise ValueError(f"Empty training dataset for h={horizon}")
@@ -273,11 +289,24 @@ def train_single_horizon(config: TrainConfig, horizon: int) -> dict:
 
 
 def train(config: TrainConfig) -> list[dict]:
-    """Train models for all horizons in config."""
+    """Train models for all horizons in config.
+
+    Precomputes features ONCE then reuses across all horizons.
+    This avoids 3× redundant download + feature computation.
+    """
+    symbols = config.resolve_symbols()
+    logger.info(f"Precomputing features for {len(symbols)} symbols (one-time)...")
+    cached = precompute_features(
+        symbols=symbols,
+        data_period=config.data_period,
+        cache_dir=config.cache_dir,
+    )
+    logger.info(f"Feature precomputation complete: {len(cached.symbols)} symbols ready")
+
     results = []
     for h in config.horizons:
         try:
-            result = train_single_horizon(config, h)
+            result = train_single_horizon(config, h, cached_features=cached)
             results.append(result)
         except Exception as e:
             logger.exception(f"Training failed for h={h}: {e}")

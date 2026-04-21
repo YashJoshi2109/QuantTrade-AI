@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, forwardRef } from 'react'
+import { useState, useCallback, useEffect, useRef, forwardRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import {
@@ -15,7 +15,7 @@ import {
   Lock,
   MoreHorizontal,
 } from 'lucide-react'
-import { votePost, bookmarkPost, unbookmarkPost, type CommunityPost } from '@/lib/api'
+import { votePost, bookmarkPost, unbookmarkPost, addReaction, removeReaction, fetchReactions, type CommunityPost, type ReactionSummary } from '@/lib/api'
 import ReportModal from '@/components/community/ReportModal'
 
 /** Render simple markdown subset to HTML for post body previews */
@@ -54,16 +54,25 @@ const sentimentConfig: Record<string, { label: string; color: string; bg: string
   neutral: { label: 'Neutral', color: 'text-amber-400', bg: 'bg-amber-500/10' },
 }
 
+const REACTION_EMOJIS: { key: string; icon: string }[] = [
+  { key: 'bullish', icon: '\u{1F402}' },
+  { key: 'bearish', icon: '\u{1F43B}' },
+  { key: 'rocket', icon: '\u{1F680}' },
+  { key: 'diamond_hands', icon: '\u{1F48E}' },
+  { key: 'think', icon: '\u{1F914}' },
+]
+
 interface PostCardProps {
   post: CommunityPost
   index?: number
   focused?: boolean
+  expanded?: boolean
   onVote?: (postId: number, direction: 1 | -1) => void
   toastFn?: (msg: string, type?: string) => void
 }
 
 const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
-  function PostCard({ post, index = 0, focused = false, onVote, toastFn }, ref) {
+  function PostCard({ post, index = 0, focused = false, expanded = false, onVote, toastFn }, ref) {
     const [voteCount, setVoteCount] = useState(post.vote_count)
     const [userVote, setUserVote] = useState<number | null>(post.user_vote)
     const [bookmarked, setBookmarked] = useState(false)
@@ -73,9 +82,56 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
     const [showMore, setShowMore] = useState(false)
     const shareTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
+    // Reactions state
+    const [reactions, setReactions] = useState<ReactionSummary[]>([])
+    const [reactionsLoaded, setReactionsLoaded] = useState(false)
+
+    // Load reactions on mount
+    useEffect(() => {
+      fetchReactions(post.id).then((data) => {
+        setReactions(data)
+        setReactionsLoaded(true)
+      }).catch(() => setReactionsLoaded(true))
+    }, [post.id])
+
     const notify = useCallback((msg: string, type?: string) => {
       toastFn?.(msg, type)
     }, [toastFn])
+
+    const handleReaction = useCallback(async (emoji: string) => {
+      const existing = reactions.find((r) => r.emoji === emoji)
+      const wasReacted = existing?.reacted ?? false
+
+      // Optimistic update
+      setReactions((prev) => {
+        const updated = prev.map((r) =>
+          r.emoji === emoji
+            ? { ...r, count: r.count + (wasReacted ? -1 : 1), reacted: !wasReacted }
+            : r
+        )
+        // If emoji not in list yet, add it
+        if (!prev.find((r) => r.emoji === emoji)) {
+          updated.push({ emoji, count: 1, reacted: true })
+        }
+        return updated
+      })
+
+      const ok = wasReacted
+        ? await removeReaction(post.id, emoji)
+        : await addReaction(post.id, emoji)
+
+      if (!ok) {
+        // Revert
+        setReactions((prev) =>
+          prev.map((r) =>
+            r.emoji === emoji
+              ? { ...r, count: r.count + (wasReacted ? 1 : -1), reacted: wasReacted }
+              : r
+          ).filter((r) => r.count > 0)
+        )
+        notify('Reaction failed', 'error')
+      }
+    }, [reactions, post.id, notify])
 
     const handleVote = useCallback(async (direction: 1 | -1) => {
       const prevVote = userVote
@@ -313,6 +369,39 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             )}
           </div>
         </div>
+
+        {/* Reaction bar */}
+        <div className="flex items-center gap-1 px-3 pb-2">
+          {REACTION_EMOJIS.map(({ key, icon }) => {
+            const r = reactions.find((rx) => rx.emoji === key)
+            const count = r?.count ?? 0
+            const reacted = r?.reacted ?? false
+            return (
+              <button
+                key={key}
+                onClick={() => handleReaction(key)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors ${
+                  reacted
+                    ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                    : 'bg-[#1a2130] text-slate-500 hover:text-slate-300 hover:bg-[#1f2937] border border-transparent'
+                }`}
+                title={key.replace('_', ' ')}
+              >
+                <span className="text-sm leading-none">{icon}</span>
+                {count > 0 && <span className="tabular-nums">{count}</span>}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Financial disclaimer — only on expanded/detail view */}
+        {expanded && (
+          <div className="px-4 pb-3">
+            <p className="text-[10px] text-slate-600 leading-relaxed">
+              This is community discussion, not financial advice. Always do your own research.
+            </p>
+          </div>
+        )}
 
         <ReportModal
           isOpen={showReport}
