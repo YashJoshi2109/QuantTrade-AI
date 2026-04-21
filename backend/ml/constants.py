@@ -88,29 +88,29 @@ TIER_2_SYMBOLS: list[str] = [
 ]
 
 TIER_3_SYMBOLS: list[str] = [
-    # Growth / Mid-cap tech (original)
+    # Growth / Mid-cap tech
     "UBER", "ABNB", "DASH", "TTD", "TEAM", "WDAY", "VEEV", "HUBS", "OKTA", "PATH",
     "U", "NTNX", "ESTC", "CFLT", "BILL", "PCOR", "MNDY", "ZI", "GTLB", "IOT",
-    # Semiconductors (original)
+    # Semiconductors
     "ON", "SWKS", "QRVO", "MPWR", "WOLF", "ACLS", "ENTG", "ONTO",
-    # Consumer discretionary (original)
+    # Consumer discretionary
     "ETSY", "W", "CHWY", "DG", "DLTR", "FIVE", "BBY", "TSCO", "ULTA", "DECK",
     "LULU", "BIRD", "RH", "WSM", "GRMN", "HAS", "MAT",
-    # Biotech / Pharma (original)
+    # Biotech / Pharma
     "MRNA", "BIIB", "IQV", "CNC", "CI", "HUM", "MOH", "ELV", "HCA", "DVA",
-    # Fintech (original)
+    # Fintech
     "PYPL", "FIS", "FISV", "GPN", "WEX", "NDAQ", "CBOE",
-    # Other (original)
+    # Other
     "RIVN", "LCID", "PLUG", "FSLR", "ENPH", "SEDG",
     "HPE", "IBM", "HPQ", "EPAM", "GLOB",
-    # Additional mid-caps (original)
+    # Additional mid-caps
     "CTAS", "ODFL", "FAST", "PAYX", "VRSK", "CPRT", "FICO", "ANSS", "CDW", "BR",
     "TRGP", "WMB", "KMI", "OKE", "ET", "CTRA", "FANG", "APA", "MRO", "AR",
     "WAB", "CARR", "TT", "DOV", "HUBB", "NDSN", "ALLE", "SWK",
     "VICI", "IRM", "SBAC", "ESS", "MAA", "UDR", "KIM", "REG", "HST", "CPT",
-    # ETF benchmarks (original)
+    # ETF benchmarks
     "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "XLK", "XLV", "XLI", "XLP",
-    # ── New mid-cap / growth additions (~449) ────────────────────────
+    # ── New mid-cap / growth additions ────────────────────────
     # Tech mid-cap
     "APPN", "BRZE", "CWAN", "DOCN", "DT", "FROG", "FRSH", "JAMF", "MANH", "PAYC",
     "PCTY", "PTC", "QLYS", "RPD", "SMAR", "TENB", "TOST", "WIX", "YEXT",
