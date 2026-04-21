@@ -815,8 +815,8 @@ async def get_all_stocks(
 async def get_sector_performance(db: Session = Depends(get_db)) -> List[SectorPerformance]:
     """
     Get sector performance with real stock data.
-    Fast path: reads cached quote_snapshots from DB (no external fetches).
-    Background: triggers cache refresh for uncached symbols.
+    Fast path: reads cached quote_snapshots from DB (no network calls).
+    Fallback: if cache has < 50 stocks, fetches a fast subset live.
     NO FAKE DATA - only includes stocks with available quotes.
     """
     from app.models.quote_snapshot import QuoteSnapshot
@@ -831,7 +831,7 @@ async def get_sector_performance(db: Session = Depends(get_db)) -> List[SectorPe
     )
     cached_map = {s.symbol: s.payload for s in cached if s.payload}
 
-    # Build sector performances from cached data only
+    # Build sector performances from cached data
     sector_map: dict[str, list[StockPerformance]] = {}
     for sector_name, stock_list in SP500_STOCKS.items():
         for symbol, name in stock_list:
@@ -852,6 +852,22 @@ async def get_sector_performance(db: Session = Depends(get_db)) -> List[SectorPe
                 sector=sector_name,
             )
             sector_map.setdefault(sector_name, []).append(perf)
+
+    total_cached = sum(len(v) for v in sector_map.values())
+
+    # Fallback: if cache is cold (< 50 stocks), fetch a fast subset live
+    if total_cached < 50:
+        try:
+            fast_rows = _fast_mover_symbol_rows(140)
+            live_stocks = await asyncio.wait_for(
+                fetch_bulk_quotes(fast_rows, db, force_refresh=True),
+                timeout=20.0,
+            )
+            for stock in live_stocks:
+                sec = stock.sector or "Unknown"
+                sector_map.setdefault(sec, []).append(stock)
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.warning(f"Sector fallback fetch failed: {e}")
 
     sectors = []
     for sector_name, stocks in sector_map.items():
