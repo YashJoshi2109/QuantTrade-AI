@@ -250,7 +250,7 @@ function WorldIndicesGrid({ continent, currency, rates }: { continent: Continent
         transition={{ duration: 0.25, delay: idx * 0.025 }}
         whileHover={{ scale: 1.03, y: -2 }}
         whileTap={{ scale: 0.97 }}
-        className={`group relative overflow-hidden text-left cursor-pointer ${isGlobal ? 'shrink-0 w-[200px]' : ''}`}
+        className={`group relative overflow-hidden text-left cursor-pointer ${isGlobal ? 'shrink-0 w-[180px] sm:w-[200px]' : ''}`}
         style={{
           background: 'linear-gradient(145deg, rgba(16,25,50,0.92) 0%, rgba(10,16,38,0.96) 100%)',
           border: `1px solid rgba(255,255,255,0.07)`,
@@ -435,7 +435,7 @@ function UniverseExchangeTable({
       ) : (
         <div className="divide-y divide-slate-800/40">
           {/* Header row */}
-          <div className="grid grid-cols-[28px_1fr_80px_80px_80px] gap-1 px-3 py-1.5 text-[10px] text-slate-600 font-medium uppercase tracking-wide">
+          <div className="grid grid-cols-[24px_1fr_60px_60px_60px] sm:grid-cols-[28px_1fr_80px_80px_80px] gap-1 px-3 py-1.5 text-[10px] text-slate-600 font-medium uppercase tracking-wide">
             <span>#</span>
             <span>Company</span>
             <span className="text-right">Price</span>
@@ -464,7 +464,7 @@ function UniverseExchangeTable({
                   exchange: exchangeKey.toUpperCase(),
                   currency: s.currency,
                 })}
-                className="w-full grid grid-cols-[28px_1fr_80px_80px_80px] gap-1 px-3 py-2 hover:bg-slate-800/40 text-left transition-colors group"
+                className="w-full grid grid-cols-[24px_1fr_60px_60px_60px] sm:grid-cols-[28px_1fr_80px_80px_80px] gap-1 px-3 py-2 hover:bg-slate-800/40 text-left transition-colors group"
               >
                 <span className="text-[10px] text-slate-600 font-mono self-center">{s.rank}</span>
                 <div className="min-w-0 self-center">
@@ -574,7 +574,7 @@ function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
     return (
       <div className="hud-panel p-4 sm:p-6 mb-6">
         <div className="h-6 w-48 bg-slate-800/60 rounded animate-pulse mb-4" />
-        <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-8 gap-1">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-1">
           {Array.from({ length: 24 }).map((_, i) => (
             <div key={i} className="h-14 rounded bg-slate-800/40 animate-pulse" />
           ))}
@@ -611,7 +611,7 @@ function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
                 {sector.change_percent >= 0 ? '+' : ''}{sector.change_percent.toFixed(2)}%
               </span>
             </div>
-            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-px bg-slate-900 p-px">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-px bg-slate-900 p-px">
               {sector.stocks.map((stock) => (
                 <Link
                   key={stock.symbol}
@@ -620,10 +620,10 @@ function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
                   className="p-2 flex flex-col items-center justify-center border border-white/5 hover:brightness-110 hover:scale-[1.02] transition-all cursor-pointer"
                   style={{ backgroundColor: getHeatColor(stock.change_percent) }}
                 >
-                  <span className="font-bold text-white text-[10px] truncate w-full text-center leading-tight">
+                  <span className="font-bold text-white text-[8px] sm:text-[10px] truncate w-full text-center leading-tight">
                     {stock.symbol.replace(/\.(JO|SR|L|DE|PA|AS|SW|T|HK|SS|NS|KS|SI|AX|TO|SA|NZ)$/i, '')}
                   </span>
-                  <span className="text-white/90 text-[9px] font-mono">
+                  <span className="text-white/90 text-[8px] sm:text-[9px] font-mono">
                     {stock.change_percent >= 0 ? '+' : ''}{stock.change_percent.toFixed(1)}%
                   </span>
                 </Link>
@@ -649,7 +649,7 @@ function ContinentMovers({ continent }: { continent: Continent }) {
   const actives = data?.actives ?? []
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
       {[
         { label: 'Top Gainers', items: gainers, color: 'emerald' as const },
         { label: 'Top Losers', items: losers, color: 'red' as const },
@@ -789,12 +789,14 @@ function DesktopMarketsPage() {
     return out.slice(0, 48)
   }, [activeContinent, continentMoverBundle])
 
-  // Calculate market stats
-  const marketStats = {
-    totalStocks: sectors?.reduce((acc, s) => acc + s.stocks.length, 0) || 0,
-    gainers: sectors?.reduce((acc, s) => acc + s.stocks.filter(st => st.change_percent > 0).length, 0) || 0,
-    losers: sectors?.reduce((acc, s) => acc + s.stocks.filter(st => st.change_percent < 0).length, 0) || 0,
-  }
+  // Calculate market stats from actual heatmap data (consistent source)
+  const marketStats = useMemo(() => {
+    const totalStocks = sectors?.reduce((acc, s) => acc + s.stocks.length, 0) || 0
+    const gainers = sectors?.reduce((acc, s) => acc + s.stocks.filter(st => st.change_percent > 0.01).length, 0) || 0
+    const losers = sectors?.reduce((acc, s) => acc + s.stocks.filter(st => st.change_percent < -0.01).length, 0) || 0
+    const flat = totalStocks - gainers - losers
+    return { totalStocks, gainers, losers, flat }
+  }, [sectors])
 
   return (
     <AppLayout>
@@ -960,71 +962,53 @@ function DesktopMarketsPage() {
               )
             })
           ) : (
-            // Fallback to static data if real-time fails
-            [
-              { name: 'S&P 500', value: 4783.45, change: 0.42 },
-              { name: 'NASDAQ', value: 15234.12, change: 0.87 },
-              { name: 'DOW JONES', value: 37892.67, change: 0.15 },
-              { name: 'RUSSELL 2000', value: 2012.34, change: -0.23 },
-            ].map((index, idx) => (
-              <div key={idx} className="hud-panel p-4">
-                <div className="text-xs text-slate-500 mb-1">{index.name}</div>
-                <div className="text-xl font-bold text-white font-mono">
-                  {index.value.toLocaleString()}
-                </div>
-                <div className={`text-sm font-mono flex items-center gap-1 ${
-                  index.change >= 0 ? 'text-green-400' : 'text-red-400'
-                }`}>
-                  {index.change >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                  {index.change >= 0 ? '+' : ''}{index.change}%
-                </div>
-              </div>
-            ))
+            <div className="col-span-full text-center py-8 text-slate-500">
+              <Signal className="w-6 h-6 mx-auto mb-2 text-slate-600" />
+              <p className="text-sm">Market indices unavailable — retrying shortly</p>
+            </div>
           )}
         </div>
 
         {/* Market Stats Bar */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-          <div className="hud-panel p-4 flex items-center gap-3">
-            <div className="p-2 bg-blue-500/10 rounded-lg">
+          <div className="hud-panel p-3 sm:p-4 flex items-center gap-3">
+            <div className="p-2 bg-blue-500/10 rounded-lg shrink-0">
               <Database className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
             </div>
             <div className="min-w-0">
               <div className="text-lg sm:text-xl font-bold text-white tabular-nums">
-                {coverage && coverage.symbols_master_active > 0
-                  ? formatNumber(coverage.symbols_master_active, 0)
-                  : marketStats.totalStocks}
+                {formatNumber(marketStats.totalStocks, 0)}
               </div>
-              <div className="text-xs text-slate-500 leading-snug">
+              <div className="text-[10px] sm:text-xs text-slate-500 leading-snug">
                 Stocks tracked
               </div>
             </div>
           </div>
-          <div className="hud-panel p-4 flex items-center gap-3">
-            <div className="p-2 bg-green-500/10 rounded-lg">
+          <div className="hud-panel p-3 sm:p-4 flex items-center gap-3">
+            <div className="p-2 bg-green-500/10 rounded-lg shrink-0">
               <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
             </div>
             <div>
               <div className="text-lg sm:text-xl font-bold text-green-400">{marketStats.gainers}</div>
-              <div className="text-xs text-slate-500">Gainers</div>
+              <div className="text-[10px] sm:text-xs text-slate-500">Gainers</div>
             </div>
           </div>
-          <div className="hud-panel p-4 flex items-center gap-3">
-            <div className="p-2 bg-red-500/10 rounded-lg">
+          <div className="hud-panel p-3 sm:p-4 flex items-center gap-3">
+            <div className="p-2 bg-red-500/10 rounded-lg shrink-0">
               <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
             </div>
             <div>
               <div className="text-lg sm:text-xl font-bold text-red-400">{marketStats.losers}</div>
-              <div className="text-xs text-slate-500">Losers</div>
+              <div className="text-[10px] sm:text-xs text-slate-500">Losers</div>
             </div>
           </div>
-          <div className="hud-panel p-4 flex items-center gap-3">
-            <div className="p-2 bg-cyan-500/10 rounded-lg">
-              <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+          <div className="hud-panel p-3 sm:p-4 flex items-center gap-3">
+            <div className="p-2 bg-slate-500/10 rounded-lg shrink-0">
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
             </div>
             <div>
-              <div className="text-lg sm:text-xl font-bold text-white">{sectors?.length || 0}</div>
-              <div className="text-xs text-slate-500">Sectors</div>
+              <div className="text-lg sm:text-xl font-bold text-slate-300">{marketStats.flat}</div>
+              <div className="text-[10px] sm:text-xs text-slate-500">Flat</div>
             </div>
           </div>
         </div>

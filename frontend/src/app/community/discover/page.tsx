@@ -20,6 +20,7 @@ import {
   leaveCommunity,
   type Community,
 } from '@/lib/api'
+import AppLayout from '@/components/AppLayout'
 
 type Category = 'all' | 'stocks' | 'options' | 'crypto' | 'forex' | 'macro' | 'education'
 type SortKey = 'popular' | 'new' | 'active'
@@ -165,6 +166,7 @@ export default function DiscoverPage() {
   }
 
   return (
+    <AppLayout>
     <div className="min-h-screen pb-safe">
       <div className="max-w-[1200px] mx-auto px-3 sm:px-6 py-4 sm:py-6">
         {/* Header */}
@@ -358,5 +360,6 @@ export default function DiscoverPage() {
         )}
       </div>
     </div>
+    </AppLayout>
   )
 }

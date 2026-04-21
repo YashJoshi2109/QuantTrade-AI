@@ -19,6 +19,7 @@ import {
   Ban,
 } from 'lucide-react'
 import { fetchModerationQueue, moderationAction } from '@/lib/api'
+import AppLayout from '@/components/AppLayout'
 
 /* ── Types ─────────────────────────────────────────────────── */
 
@@ -168,6 +169,7 @@ export default function ModerationDashboard() {
 
   if (accessDenied) {
     return (
+      <AppLayout>
       <div className="min-h-screen flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -183,12 +185,14 @@ export default function ModerationDashboard() {
           </p>
         </motion.div>
       </div>
+      </AppLayout>
     )
   }
 
   /* ── Main Render ─────────────────────────────────────────── */
 
   return (
+    <AppLayout>
     <div className="min-h-screen pb-safe">
       <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
         {/* Header */}
@@ -500,5 +504,6 @@ export default function ModerationDashboard() {
         )}
       </div>
     </div>
+    </AppLayout>
   )
 }

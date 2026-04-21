@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Plus } from 'lucide-react'
 import Link from 'next/link'
+import AppLayout from '@/components/AppLayout'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 const CATEGORIES = ['stocks', 'options', 'crypto', 'forex', 'macro', 'education', 'general']
@@ -53,7 +54,8 @@ export default function CreateCommunityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0E14]">
+    <AppLayout>
+    <div className="min-h-screen">
       <div className="max-w-xl mx-auto px-4 py-8">
         <div className="flex items-center gap-3 mb-6">
           <Link href="/community" className="text-slate-400 hover:text-slate-200">
@@ -150,5 +152,6 @@ export default function CreateCommunityPage() {
         </motion.form>
       </div>
     </div>
+    </AppLayout>
   )
 }

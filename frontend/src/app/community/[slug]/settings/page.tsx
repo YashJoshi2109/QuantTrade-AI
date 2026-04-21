@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowLeft, Settings, Shield, Ban, Plus, Trash2, Save } from 'lucide-react'
+import AppLayout from '@/components/AppLayout'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -162,7 +163,8 @@ export default function CommunitySettingsPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#0A0E14]">
+    <AppLayout>
+    <div className="min-h-screen">
       <div className="max-w-3xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
@@ -355,5 +357,6 @@ export default function CommunitySettingsPage() {
         )}
       </div>
     </div>
+    </AppLayout>
   )
 }

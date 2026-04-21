@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Activity, Brain, Database, AlertTriangle, BarChart3, RefreshCw, ChevronRight, Cpu, Layers } from 'lucide-react'
 import Link from 'next/link'
+import AppLayout from '@/components/AppLayout'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -22,13 +23,16 @@ export default function MLOpsDashboard() {
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
     Promise.all([
-      fetch(`${API_URL}/api/v1/mlops/overview`, { credentials: 'include' }).then(r => r.ok ? r.json() : null),
-      fetch(`${API_URL}/api/v1/mlops/experiments?limit=10`, { credentials: 'include' }).then(r => r.ok ? r.json() : { experiments: [] }),
+      fetch(`${API_URL}/api/v1/mlops/overview`, { credentials: 'include', signal: controller.signal }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API_URL}/api/v1/mlops/experiments?limit=10`, { credentials: 'include', signal: controller.signal }).then(r => r.ok ? r.json() : { experiments: [] }).catch(() => ({ experiments: [] })),
     ]).then(([ov, exp]) => {
       setOverview(ov)
       setExperiments(exp.experiments || [])
-    }).finally(() => setLoading(false))
+    }).finally(() => { clearTimeout(timeout); setLoading(false) })
+    return () => { controller.abort(); clearTimeout(timeout) }
   }, [])
 
   const triggerPipeline = async () => {
@@ -40,15 +44,18 @@ export default function MLOpsDashboard() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0A0E14] flex items-center justify-center">
+    <AppLayout>
+    <div className="min-h-screen flex items-center justify-center">
       <RefreshCw className="w-8 h-8 text-cyan-400 animate-spin" />
     </div>
+    </AppLayout>
   )
 
   const prodModels = overview?.models.production || {}
 
   return (
-    <div className="min-h-screen bg-[#0A0E14]">
+    <AppLayout>
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -197,5 +204,6 @@ export default function MLOpsDashboard() {
         </div>
       </div>
     </div>
+    </AppLayout>
   )
 }

@@ -1517,7 +1517,7 @@ function DesktopHome() {
             {/* Live News — responsive height + scroll */}
             <div
               className={`col-span-12 ${
-                activeContinent === 'global' ? 'lg:col-span-4' : 'lg:col-span-12'
+                activeContinent === 'global' ? 'md:col-span-6 lg:col-span-4' : 'lg:col-span-12'
               } flex min-h-0`}
             >
               <motion.div
@@ -1671,7 +1671,7 @@ function DesktopHome() {
                               <span className="font-bold text-white group-hover:text-red-400 transition-colors text-xs font-mono">
                                 {stock.symbol}
                               </span>
-                              <div className="text-[10px] text-slate-500 truncate max-w-[90px]">
+                              <div className="text-[10px] text-slate-500 truncate max-w-[90px] sm:max-w-[110px]">
                                 {stock.name}
                               </div>
                             </div>
@@ -1804,7 +1804,7 @@ function DesktopHome() {
             </div>
 
             {/* AI Prediction Alerts */}
-            <div className="col-span-12 sm:col-span-6 lg:col-span-4 flex">
+            <div className="col-span-12 sm:col-span-6 md:col-span-6 lg:col-span-4 flex">
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1818,7 +1818,7 @@ function DesktopHome() {
             </div>
 
             {/* Market Pulse + IPO Radar — split row (desktop: pulse left, IPO strip right) */}
-            <div className="col-span-12 lg:col-span-8 flex min-h-0">
+            <div className="col-span-12 md:col-span-12 lg:col-span-8 flex min-h-0">
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1826,7 +1826,7 @@ function DesktopHome() {
                 className="flex h-full min-h-[320px] w-full flex-col lg:min-h-[420px]"
               >
                 <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-slate-800/50 shadow-lg shadow-black/20 hud-panel lg:flex-row">
-                  <div className="relative flex min-h-0 min-w-0 flex-1 flex-col border-b border-slate-800/60 lg:max-w-[420px] lg:shrink-0 lg:border-b-0 lg:border-r">
+                  <div className="relative flex min-h-0 min-w-0 flex-1 flex-col border-b border-slate-800/60 lg:max-w-[420px] 2xl:max-w-[480px] lg:shrink-0 lg:border-b-0 lg:border-r">
                     <div className="absolute top-0 right-0 w-28 h-28 bg-cyan-500/6 rounded-full blur-3xl pointer-events-none" />
                     <div className={`${dashToolbar} relative`}>
                       <div className="flex items-center gap-2 min-w-0">

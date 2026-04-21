@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { Search as SearchIcon, MessageSquare, Users, Hash } from 'lucide-react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import AppLayout from '@/components/AppLayout'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -48,7 +49,8 @@ export default function SearchPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#0A0E14]">
+    <AppLayout>
+    <div className="min-h-screen">
       <div className="max-w-3xl mx-auto px-4 py-8">
         {/* Search Bar */}
         <div className="relative mb-6">
@@ -174,5 +176,6 @@ export default function SearchPage() {
         )}
       </div>
     </div>
+    </AppLayout>
   )
 }

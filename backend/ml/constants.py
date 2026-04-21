@@ -42,10 +42,12 @@ NUM_FEATURES = len(FEATURE_COLUMNS)  # 20
 # ── Symbol tiers ───────────────────────────────────────────────────────
 
 TIER_1_SYMBOLS: list[str] = [
-    # Mega-caps (top 20 by market cap) — always trained first
+    # Mega-caps (top 30 by market cap) — always trained first
     "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B",
     "JPM", "V", "UNH", "JNJ", "XOM", "MA", "PG", "HD", "AVGO", "MRK",
     "COST", "LLY",
+    # Added mega-caps
+    "GOOG", "ACN", "INTU", "BKNG", "ADP", "MDLZ", "ADI", "ANET", "NXPI", "MELI",
 ]
 
 TIER_2_SYMBOLS: list[str] = [
@@ -74,31 +76,115 @@ TIER_2_SYMBOLS: list[str] = [
     "T", "VZ", "TMUS", "CMCSA", "CHTR", "WBD", "PARA", "FOX",
     # Materials
     "LIN", "APD", "SHW", "ECL", "DD", "NEM", "FCX", "NUE", "STLD", "CF",
+    # ── New large-cap additions (42) ─────────────────────────────────
+    # Large-cap tech
+    "MSTR", "GDDY", "TWLO", "ZM", "DOCU", "AKAM", "JNPR", "ZBRA", "KEYS",
+    # Finance
+    "USB", "PNC", "TFC", "COF", "DFS", "FITB", "HBAN", "KEY", "CFG", "MTB",
+    "RJF", "NTRS", "STT", "BK", "CINF", "GL", "AFL", "PRU", "ALL", "RE",
+    # Healthcare
+    "A", "BAX", "RMD", "HOLX", "MTD", "TFX", "TECH", "WAT", "PKI", "BIO",
+    "CTLT", "CRL", "GEHC",
 ]
 
 TIER_3_SYMBOLS: list[str] = [
-    # Growth / Mid-cap tech
+    # Growth / Mid-cap tech (original)
     "UBER", "ABNB", "DASH", "TTD", "TEAM", "WDAY", "VEEV", "HUBS", "OKTA", "PATH",
     "U", "NTNX", "ESTC", "CFLT", "BILL", "PCOR", "MNDY", "ZI", "GTLB", "IOT",
-    # Semiconductors
+    # Semiconductors (original)
     "ON", "SWKS", "QRVO", "MPWR", "WOLF", "ACLS", "ENTG", "ONTO",
-    # Consumer discretionary
+    # Consumer discretionary (original)
     "ETSY", "W", "CHWY", "DG", "DLTR", "FIVE", "BBY", "TSCO", "ULTA", "DECK",
     "LULU", "BIRD", "RH", "WSM", "GRMN", "HAS", "MAT",
-    # Biotech / Pharma
+    # Biotech / Pharma (original)
     "MRNA", "BIIB", "IQV", "CNC", "CI", "HUM", "MOH", "ELV", "HCA", "DVA",
-    # Fintech
+    # Fintech (original)
     "PYPL", "FIS", "FISV", "GPN", "WEX", "NDAQ", "CBOE",
-    # Other
+    # Other (original)
     "RIVN", "LCID", "PLUG", "FSLR", "ENPH", "SEDG",
     "HPE", "IBM", "HPQ", "EPAM", "GLOB",
-    # Additional mid-caps to reach ~300
+    # Additional mid-caps (original)
     "CTAS", "ODFL", "FAST", "PAYX", "VRSK", "CPRT", "FICO", "ANSS", "CDW", "BR",
     "TRGP", "WMB", "KMI", "OKE", "ET", "CTRA", "FANG", "APA", "MRO", "AR",
     "WAB", "CARR", "TT", "DOV", "HUBB", "NDSN", "ALLE", "SWK",
     "VICI", "IRM", "SBAC", "ESS", "MAA", "UDR", "KIM", "REG", "HST", "CPT",
-    # ETF benchmarks
+    # ETF benchmarks (original)
     "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "XLK", "XLV", "XLI", "XLP",
+    # ── New mid-cap / growth additions (~449) ────────────────────────
+    # Tech mid-cap
+    "APPN", "BRZE", "CWAN", "DOCN", "DT", "FROG", "FRSH", "JAMF", "MANH", "PAYC",
+    "PCTY", "PTC", "QLYS", "RPD", "SMAR", "TENB", "TOST", "WIX", "YEXT",
+    "ASAN", "BOX", "CDAY", "COUP", "EGHT", "EVBG", "FIVN",
+    "NEWR", "PEGA", "PLAN", "PRGS", "QTWO", "SQSP", "TYL", "VRNS",
+    # Semiconductors
+    "ALGM", "AMKR", "ASX", "CEVA", "COHR", "CRUS", "DIOD", "FORM", "GFS", "IPGP",
+    "LFUS", "LSCC", "MKSI", "MXL", "NOVT", "OLED", "POWI", "RMBS", "SITM", "SLAB",
+    "SMTC", "STM", "SYNA", "TSM", "UMC",
+    # Consumer discretionary
+    "AAP", "AEO", "ANF", "BURL", "COLM", "CPRI", "CRI", "CROX", "EL", "EVH",
+    "FL", "GAP", "GPC", "GPS", "GIL", "HBI", "HELE", "KSS", "LESL", "LKQ",
+    "LVS", "MGM", "NCLH", "ODP", "PVH", "RL", "RCL", "SIRI", "SKX",
+    "TAP", "TPR", "VFC", "WYNN",
+    # Consumer staples
+    "ADM", "BG", "CAG", "CHD", "CLX", "CPB", "EPC", "FDP", "GIS", "HRL",
+    "HSY", "IFF", "K", "KDP", "KMB", "KR", "LW", "MKC", "PM",
+    "POST", "SAM", "SFM", "SJM", "STZ", "USFD", "WBA",
+    # Biotech / Pharma
+    "ALNY", "ARGX", "BMRN", "EXAS", "EXEL", "HALO", "INCY", "IONS", "JAZZ",
+    "LGND", "NBIX", "PCVX", "RARE", "RCKT", "RGEN", "ROIV", "SRPT",
+    "UTHR", "VCYT", "XNCR", "ZBH",
+    # Medtech / Healthcare services
+    "AMN", "ATRC", "CHE", "COO", "CYH", "DGX", "EHC",
+    "GH", "HAE", "HSIC", "INSP", "LH", "LNTH", "MASI", "MMSI", "NVCR",
+    "NVST", "OMI", "OSCR", "PGNY", "PHR", "PODD", "RVMD", "SDGR",
+    "TMDX", "XRAY",
+    # Financials mid-cap
+    "ALLY", "AMP", "ARCC", "BEN", "BOKF", "CG", "CMA", "EWBC", "EVR",
+    "FHN", "FNF", "FULT", "GBCI", "IBKR", "IVZ", "JEF", "LPLA", "LNC", "MKL",
+    "MKTX", "NYCB", "OZK", "PFG", "PIPR", "RF", "SEIC", "SF",
+    "SNV", "SOFI", "SYF", "TROW", "WAL", "WBS", "WRB", "ZION",
+    # Industrials mid-cap
+    "AGCO", "AXON", "BWXT", "CNH", "CGNX", "CSL", "EXPD", "EFX", "GNRC", "GGG",
+    "GWW", "HEI", "HII", "JBHT", "KEX", "LDOS", "LEA", "MSA", "PCAR",
+    "POOL", "RBC", "RHI", "ROP", "SNA", "STE", "TTEK", "URI",
+    "WCC", "WSO", "XYL",
+    # Energy mid-cap
+    "AM", "AROC", "CIVI", "CLR", "CNX", "EQT", "HES", "KOS",
+    "LNG", "MTDR", "OVV", "PAA", "PXD", "RRC", "SM", "SWN", "VNOM", "WES",
+    # Utilities
+    "AES", "AWK", "CMS", "CNP", "ED", "ES", "EVRG", "FE", "IDA", "LNT",
+    "NI", "NRG", "OGE", "PCG", "PEG", "PNW", "PPL", "WEC",
+    # REITs
+    "ACC", "ADC", "AIV", "APLE", "ARE", "BXP", "CBRE", "COLD", "CUBE", "DEI",
+    "DOC", "EGP", "ELS", "EXR", "FR", "GLPI", "INVH", "IIPR", "KRC",
+    "LAMR", "LSI", "MPW", "NLY", "NNN", "OHI", "OUT", "PCH", "PEAK", "PEB",
+    "REXR", "RLJ", "ROIC", "SLG", "STAG", "STOR", "SUI", "TRNO", "VNO", "WPC",
+    # Telecom + Media
+    "DISH", "EA", "FOXA", "IPG", "LBRDK", "LSXMA", "MTCH", "NWSA",
+    "OMC", "PINS", "RBLX", "ROKU", "SNAP", "SPOT", "TTWO", "ZG",
+    # Materials
+    "ALB", "AMCR", "AVY", "BALL", "BMS", "CC", "CE", "CLF", "CMC", "CRS",
+    "CX", "DOW", "EMN", "FMC", "GPK", "HUN", "IP", "LYB",
+    "MLM", "MOS", "OLN", "PKG", "PPG", "RPM", "RS", "SEE", "SMG",
+    "SON", "VMC", "WRK", "WY",
+    # Defense / Aerospace
+    "AVAV", "CW", "ERJ", "ESLT", "HWM", "KTOS",
+    "LHX", "MRCY", "PSN", "SPR", "TDG", "TXT",
+    # Transportation
+    "CHRW", "CNI", "CP", "CSX", "DAL", "KNX", "LSTR", "MATX",
+    "NSC", "R", "SAIA", "UAL", "UNP", "WERN",
+    # Auto / EV
+    "ALV", "APTV", "BWA", "F", "GM", "LI", "NIO", "QS", "XPEV",
+    # Other growth / misc
+    "AI", "APP", "CELH", "COUR", "CRSP", "DKNG", "DOCS", "DUOL",
+    "FOUR", "GLNG", "GDRX", "HOOD", "HQY", "HIMS",
+    "KVYO", "LITE", "LYFT", "MARA", "MQ", "OWL",
+    "RAMP", "RXRX", "S", "TRMB", "UPST", "WRBY",
+    # Additional ETF benchmarks
+    "XLU", "XLB", "XLC", "XLY", "XLRE", "VTI", "VOO", "VGT", "VHT", "VFH",
+    "ARKK", "ARKG", "ARKW", "ARKF", "SOXX", "SMH", "GDX", "SLV", "GLD", "TLT",
+    "HYG", "LQD", "EEM", "EFA", "VWO", "IEMG", "KWEB", "FXI", "INDA", "EWZ",
+    "VNQ", "SCHD", "DVY", "HDV", "DGRO", "NOBL", "MTUM", "QUAL", "VLUE", "USMV",
 ]
 
 ALL_SYMBOLS: list[str] = sorted(set(TIER_1_SYMBOLS + TIER_2_SYMBOLS + TIER_3_SYMBOLS))

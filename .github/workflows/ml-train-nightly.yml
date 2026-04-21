@@ -77,7 +77,7 @@ jobs:
         run: |
           echo "Training with tier: ${{ steps.tier.outputs.tier }}"
           python -m ml.train --config configs/train_default.yaml \
-            --symbols ${{ steps.tier.outputs.tier }} \
+            --symbol-tier ${{ steps.tier.outputs.tier }} \
             ${{ github.event.inputs.epochs && format('--epochs {0}', github.event.inputs.epochs) || '' }}
 
       - name: List trained checkpoints

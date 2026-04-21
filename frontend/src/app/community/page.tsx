@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import AppLayout from '@/components/AppLayout'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Flame,
@@ -346,7 +347,8 @@ export default function CommunityPage() {
   }, [toastSuccess, toastError])
 
   return (
-    <div className="min-h-screen pb-safe bg-[#0A0E14]">
+    <AppLayout>
+    <div className="min-h-screen pb-safe">
       <div className="max-w-[1400px] mx-auto px-3 sm:px-6 py-4 sm:py-6">
         {/* 3-Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-5">
@@ -784,5 +786,6 @@ export default function CommunityPage() {
         )}
       </AnimatePresence>
     </div>
+    </AppLayout>
   )
 }

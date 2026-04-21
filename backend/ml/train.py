@@ -290,7 +290,8 @@ def train(config: TrainConfig) -> list[dict]:
 def main():
     parser = argparse.ArgumentParser(description="Train LSTM predictors")
     parser.add_argument("--config", type=str, default=str(DEFAULT_CONFIG_PATH))
-    parser.add_argument("--symbols", nargs="+", default=None, help="Override symbols")
+    parser.add_argument("--symbols", nargs="+", default=None, help="Override symbols (actual tickers like AAPL MSFT)")
+    parser.add_argument("--symbol-tier", type=str, default=None, help="Symbol tier: tier_1 | tier_2 | tier_3 | all")
     parser.add_argument("--horizons", type=int, nargs="+", default=None, help="Override horizons")
     parser.add_argument("--epochs", type=int, default=None, help="Override epochs")
     parser.add_argument("--experiment", type=str, default=None, help="Override experiment name")
@@ -307,6 +308,9 @@ def main():
     # CLI overrides
     if args.symbols:
         config.symbols = args.symbols
+    if args.symbol_tier:
+        config.symbol_tier = args.symbol_tier
+        config.symbols = []  # clear explicit symbols so tier is used
     if args.horizons:
         config.horizons = args.horizons
     if args.epochs:
@@ -316,6 +320,10 @@ def main():
 
     logger.info(f"Config hash: {config.config_hash()}")
     logger.info(f"Horizons: {config.horizons}")
+
+    resolved = config.resolve_symbols()
+    logger.info(f"Symbol tier: {config.symbol_tier}")
+    logger.info(f"Training on {len(resolved)} symbols ({resolved[:10]}{'...' if len(resolved) > 10 else ''})")
 
     results = train(config)
 
