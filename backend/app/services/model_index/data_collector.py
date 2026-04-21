@@ -29,6 +29,33 @@ from app.services.model_index.config import (
 
 logger = logging.getLogger(__name__)
 
+# ── Sector name normalization ────────────────────────────────────────────────
+_SECTOR_MAP = {
+    "financial services": "Financials",
+    "financials": "Financials",
+    "technology": "Technology",
+    "healthcare": "Healthcare",
+    "consumer cyclical": "Consumer Cyclical",
+    "consumer defensive": "Consumer Defensive",
+    "communication services": "Communication Services",
+    "industrials": "Industrials",
+    "energy": "Energy",
+    "utilities": "Utilities",
+    "real estate": "Real Estate",
+    "basic materials": "Materials",
+    "materials": "Materials",
+    "biotechnology": "Biotechnology",
+    "semiconductors": "Semiconductors",
+    "aerospace & defense": "Aerospace & Defense",
+    "transportation": "Transportation",
+}
+
+def _normalize_sector(sector: str) -> str:
+    """Normalize sector names to consistent title case."""
+    if not sector:
+        return "Unknown"
+    return _SECTOR_MAP.get(sector.lower().strip(), sector.title())
+
 
 def _sf(val, default=None):
     """Safe float conversion — handles None, NaN, Inf."""
@@ -159,7 +186,7 @@ class DataCollector:
         if sym:
             data["company_name"] = sym.name
             if sym.sector:
-                data["sector"] = sym.sector
+                data["sector"] = _normalize_sector(sym.sector)
             data["industry"] = getattr(sym, "industry", None)
             symbol_id = sym.id
         else:

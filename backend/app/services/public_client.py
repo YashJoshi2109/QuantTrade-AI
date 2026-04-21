@@ -38,15 +38,19 @@ logger = logging.getLogger(__name__)
 _sync_client = None
 _async_client = None
 
+# Retry after transient init failures (seconds)
+_INIT_RETRY_DELAY = 60
+_sync_fail_until: float = 0
+_async_fail_until: float = 0
 
-_sync_init_failed = False
 
 def _get_sync_client():
-    """Lazy-init synchronous Public.com API client."""
-    global _sync_client, _sync_init_failed
+    """Lazy-init synchronous Public.com API client. Retries after transient failures."""
+    global _sync_client, _sync_fail_until
     if _sync_client is not None:
         return _sync_client
-    if _sync_init_failed:
+    import time
+    if _sync_fail_until and time.monotonic() < _sync_fail_until:
         return None
     if not settings.PUBLIC_API_SECRET_KEY:
         return None
@@ -63,22 +67,22 @@ def _get_sync_client():
                 _sync_client._qt_account_id = None
         except Exception:
             _sync_client._qt_account_id = None
+        _sync_fail_until = 0
         logger.info("Public.com sync client initialized")
         return _sync_client
     except Exception as e:
-        _sync_init_failed = True
-        logger.warning(f"Public.com sync client init failed: {e}")
+        _sync_fail_until = time.monotonic() + _INIT_RETRY_DELAY
+        logger.warning(f"Public.com sync client init failed (retry in {_INIT_RETRY_DELAY}s): {e}")
         return None
 
 
-_async_init_failed = False
-
 async def _get_async_client():
-    """Lazy-init async Public.com API client."""
-    global _async_client, _async_init_failed
+    """Lazy-init async Public.com API client. Retries after transient failures."""
+    global _async_client, _async_fail_until
     if _async_client is not None:
         return _async_client
-    if _async_init_failed:
+    import time
+    if _async_fail_until and time.monotonic() < _async_fail_until:
         return None
     if not settings.PUBLIC_API_SECRET_KEY:
         return None
@@ -95,11 +99,12 @@ async def _get_async_client():
                 _async_client._qt_account_id = None
         except Exception:
             _async_client._qt_account_id = None
+        _async_fail_until = 0
         logger.info("Public.com async client initialized")
         return _async_client
     except Exception as e:
-        _async_init_failed = True
-        logger.warning(f"Public.com async client init failed: {e}")
+        _async_fail_until = time.monotonic() + _INIT_RETRY_DELAY
+        logger.warning(f"Public.com async client init failed (retry in {_INIT_RETRY_DELAY}s): {e}")
         return None
 
 

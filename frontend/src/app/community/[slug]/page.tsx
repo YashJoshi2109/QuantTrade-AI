@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { Users, Shield, ArrowLeft, Calendar, Settings } from 'lucide-react'
+import AppLayout from '@/components/AppLayout'
 import { fetchCommunity, joinCommunity, leaveCommunity, normalizePosts, type Community, type CommunityPost } from '@/lib/api'
 import PostCard from '@/components/community/PostCard'
 import { FeedSkeleton } from '@/components/community/Skeletons'
@@ -33,37 +34,54 @@ export default function CommunityDetailPage() {
   }, [slug])
 
   const handleJoinLeave = async () => {
-    if (!community) return
+    if (!community || joining) return
     setJoining(true)
+    const wasMember = community.is_member
+    // Optimistic update — instant UI feedback
+    setCommunity({
+      ...community,
+      is_member: !wasMember,
+      member_count: community.member_count + (wasMember ? -1 : 1),
+    })
     try {
-      if (community.is_member) {
+      if (wasMember) {
         await leaveCommunity(community.slug)
-        setCommunity({ ...community, is_member: false, member_count: community.member_count - 1 })
       } else {
         await joinCommunity(community.slug)
-        setCommunity({ ...community, is_member: true, member_count: community.member_count + 1 })
       }
-    } catch { /* silent */ }
+    } catch {
+      // Revert on failure
+      setCommunity({
+        ...community,
+        is_member: wasMember,
+        member_count: community.member_count,
+      })
+    }
     setJoining(false)
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0A0E14]">
+    <AppLayout>
+    <div className="min-h-screen">
       <div className="max-w-4xl mx-auto px-4 py-8"><FeedSkeleton /></div>
     </div>
+    </AppLayout>
   )
 
   if (!community) return (
-    <div className="min-h-screen bg-[#0A0E14] flex items-center justify-center">
+    <AppLayout>
+    <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
         <h2 className="text-xl font-bold text-slate-200 mb-2">Community not found</h2>
         <Link href="/community" className="text-cyan-400 hover:text-cyan-300 text-sm">Back to feed</Link>
       </div>
     </div>
+    </AppLayout>
   )
 
   return (
-    <div className="min-h-screen bg-[#0A0E14]">
+    <AppLayout>
+    <div className="min-h-screen">
       {/* Banner */}
       <div className="h-28 bg-gradient-to-r from-cyan-900/20 to-blue-900/20 relative">
         {community.banner_url && (
@@ -183,5 +201,6 @@ export default function CommunityDetailPage() {
         </div>
       </div>
     </div>
+    </AppLayout>
   )
 }

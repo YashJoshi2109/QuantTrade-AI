@@ -35,11 +35,11 @@ function StockTile({ stock }: { stock: StockPerformance }) {
   return (
     <button
       onClick={() => openSnapshot({ symbol: stock.symbol, name: stock.name, price: stock.price, change_percent: stock.change_percent, change: (stock.price * stock.change_percent) / 100 })}
-      className={`${bgColor} p-2 flex flex-col items-center justify-center transition-all hover:brightness-110 hover:scale-[1.02] cursor-pointer border border-white/5 w-full`}
+      className={`${bgColor} p-1.5 sm:p-2 flex flex-col items-center justify-center transition-all hover:brightness-110 hover:scale-[1.02] cursor-pointer border border-white/5 w-full`}
       title={`${stock.name}\n$${stock.price.toFixed(2)}\n${stock.change_percent >= 0 ? '+' : ''}${stock.change_percent.toFixed(2)}%`}
     >
-      <span className={`font-bold text-xs ${textColor}`}>{stock.symbol}</span>
-      <span className={`text-[10px] ${textColor} font-mono`}>
+      <span className={`font-bold text-[8px] sm:text-[10px] md:text-xs ${textColor}`}>{stock.symbol}</span>
+      <span className={`text-[8px] sm:text-[10px] ${textColor} font-mono`}>
         {stock.change_percent >= 0 ? '+' : ''}{stock.change_percent.toFixed(2)}%
       </span>
     </button>
@@ -88,9 +88,9 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
         </div>
       )}
       {/* Legend & Stats */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2 sm:gap-4">
         {/* Sector Filter */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           <button
             onClick={() => setSelectedSector(null)}
             className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
@@ -172,7 +172,7 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
             </div>
             
             {/* Stocks Grid */}
-            <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-15 gap-px bg-slate-900 p-px">
+            <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 2xl:grid-cols-[repeat(15,minmax(0,1fr))] gap-px bg-slate-900 p-px">
               {sector.stocks.map(stock => (
                 <StockTile key={stock.symbol} stock={stock} />
               ))}

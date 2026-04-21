@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import AppLayout from '@/components/AppLayout'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bell,
@@ -117,6 +118,7 @@ export default function NotificationsPage() {
   }
 
   return (
+    <AppLayout>
     <div className="min-h-screen pb-safe">
       <div className="max-w-[720px] mx-auto px-3 sm:px-6 py-4 sm:py-6">
         {/* Header */}
@@ -258,5 +260,6 @@ export default function NotificationsPage() {
         )}
       </div>
     </div>
+    </AppLayout>
   )
 }

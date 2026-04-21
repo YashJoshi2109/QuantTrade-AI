@@ -252,9 +252,11 @@ function StockRow({
           <span className="font-bold text-white text-sm sm:text-[13px] group-hover:text-blue-400 transition-colors">
             {stock.symbol}
           </span>
-          <MiniSparkline value={stock.change_percent} isUp={isUp} />
+          <span className="hidden sm:inline-flex">
+            <MiniSparkline value={stock.change_percent} isUp={isUp} />
+          </span>
         </div>
-        <div className="text-[11px] sm:text-[10px] text-slate-500 truncate">{stock.name}</div>
+        <div className="text-[11px] sm:text-[10px] text-slate-500 truncate max-w-[120px] sm:max-w-none">{stock.name}</div>
         {/* Volume bar */}
         <VolumeBar value={stock.volume || 0} maxValue={maxVolume} color={accentColor} />
       </div>

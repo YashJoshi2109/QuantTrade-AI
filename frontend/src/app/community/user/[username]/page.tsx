@@ -19,6 +19,7 @@ import {
   Briefcase,
 } from 'lucide-react'
 import PostCard from '@/components/community/PostCard'
+import AppLayout from '@/components/AppLayout'
 import {
   fetchUserProfile,
   fetchUserPosts,
@@ -221,9 +222,11 @@ export default function UserProfilePage() {
 
   if (loading) {
     return (
+      <AppLayout>
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-slate-500 animate-spin" />
       </div>
+      </AppLayout>
     )
   }
 
@@ -231,6 +234,7 @@ export default function UserProfilePage() {
 
   if (notFound || !profile) {
     return (
+      <AppLayout>
       <div className="min-h-screen flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -244,12 +248,14 @@ export default function UserProfilePage() {
           </p>
         </motion.div>
       </div>
+      </AppLayout>
     )
   }
 
   /* ── Profile Render ──────────────────────────────────────── */
 
   return (
+    <AppLayout>
     <div className="min-h-screen pb-safe">
       <div className="max-w-3xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
         {/* Profile Card */}
@@ -541,5 +547,6 @@ export default function UserProfilePage() {
         </AnimatePresence>
       </div>
     </div>
+    </AppLayout>
   )
 }

@@ -27,14 +27,14 @@ function TickerChip({ item }: { item: TickerItem }) {
   const pctStr = hasData ? formatPercent(item.change_percent, 2) : ''
 
   const content = (
-    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1] transition-all cursor-pointer whitespace-nowrap group">
+    <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1] transition-all cursor-pointer whitespace-nowrap group">
       <span className="flex flex-col items-start leading-tight">
         <span
           className={`text-[11px] font-bold ${item.isIndex ? 'text-cyan-400' : 'text-white'}`}
         >
           {item.symbol}
         </span>
-        <span className="text-[9px] text-slate-500 max-w-[120px] truncate">
+        <span className="text-[9px] text-slate-500 max-w-[80px] sm:max-w-[120px] truncate">
           {item.name}
         </span>
       </span>
@@ -145,11 +145,11 @@ export default function MarketTicker() {
 
   return (
     <div className="w-full min-h-[2.75rem] py-1 bg-[#070a12]/80 backdrop-blur-xl border-b border-white/[0.04] overflow-hidden relative">
-      <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-[#070a12] to-transparent z-10 pointer-events-none" />
-      <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#070a12] to-transparent z-10 pointer-events-none" />
+      <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-12 lg:w-16 bg-gradient-to-r from-[#070a12] to-transparent z-10 pointer-events-none" />
+      <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-12 lg:w-16 bg-gradient-to-l from-[#070a12] to-transparent z-10 pointer-events-none" />
 
       <div className="flex items-center h-full animate-marquee hover:[animation-play-state:paused]">
-        <div className="flex items-center gap-2 px-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 px-2">
           {duplicated.map((item, i) => (
             <TickerChip key={`${item.symbol}-${i}`} item={item} />
           ))}
