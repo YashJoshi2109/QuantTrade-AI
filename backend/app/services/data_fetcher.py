@@ -244,11 +244,15 @@ class DataFetcher:
         bars_to_insert = []
         
         for _, row in df.iterrows():
-            # Convert timestamp to datetime
+            # Convert timestamp to datetime, normalize to UTC
             ts = row["timestamp"]
             if hasattr(ts, 'to_pydatetime'):
                 ts = ts.to_pydatetime()
-            
+            # Ensure UTC: convert tz-aware to UTC, assume UTC if naive
+            if hasattr(ts, 'tzinfo') and ts.tzinfo is not None:
+                import pytz
+                ts = ts.astimezone(pytz.UTC)
+
             # Make timezone-naive for comparison
             ts_date = ts.date() if hasattr(ts, 'date') else ts
             

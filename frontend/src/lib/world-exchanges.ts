@@ -422,6 +422,49 @@ export function getExchangeById(id: string): Exchange | undefined {
   return WORLD_EXCHANGES.find((e) => e.id === id)
 }
 
+/**
+ * Resolve the IANA timezone for a stock based on its exchange name/code.
+ * Falls back to 'America/New_York' for US stocks (default).
+ */
+export function getExchangeTimezone(exchangeNameOrCode?: string | null): string {
+  if (!exchangeNameOrCode) return 'America/New_York'
+  const lower = exchangeNameOrCode.toLowerCase()
+  // Try matching by exchange id, name, or shortName
+  const match = WORLD_EXCHANGES.find(
+    (e) =>
+      e.id.toLowerCase() === lower ||
+      e.name.toLowerCase().includes(lower) ||
+      e.shortName.toLowerCase() === lower ||
+      lower.includes(e.name.toLowerCase()) ||
+      lower.includes(e.shortName.toLowerCase())
+  )
+  if (match) return match.timezone
+  // Common keyword fallbacks
+  if (lower.includes('nasdaq') || lower.includes('nyse') || lower.includes('nyq') || lower.includes('nms'))
+    return 'America/New_York'
+  if (lower.includes('london') || lower.includes('lse') || lower.includes('lseg'))
+    return 'Europe/London'
+  if (lower.includes('tokyo') || lower.includes('tse') || lower.includes('jpx'))
+    return 'Asia/Tokyo'
+  if (lower.includes('hong kong') || lower.includes('hkex') || lower.includes('hkg'))
+    return 'Asia/Hong_Kong'
+  if (lower.includes('shanghai') || lower.includes('sse') || lower.includes('shh'))
+    return 'Asia/Shanghai'
+  if (lower.includes('toronto') || lower.includes('tsx'))
+    return 'America/Toronto'
+  if (lower.includes('frankfurt') || lower.includes('xetra') || lower.includes('fra'))
+    return 'Europe/Berlin'
+  if (lower.includes('paris') || lower.includes('euronext'))
+    return 'Europe/Paris'
+  if (lower.includes('sydney') || lower.includes('asx'))
+    return 'Australia/Sydney'
+  if (lower.includes('mumbai') || lower.includes('bse') || lower.includes('nse'))
+    return 'Asia/Kolkata'
+  if (lower.includes('korea') || lower.includes('krx') || lower.includes('kospi'))
+    return 'Asia/Seoul'
+  return 'America/New_York' // Default for US stocks
+}
+
 /** Gold, oil, long-duration rates proxy, financials & energy — always on dashboard macro row */
 export const ALWAYS_ON_MACRO_SYMBOLS = ['GC=F', 'CL=F', 'TLT', 'XLF', 'XLE'] as const
 

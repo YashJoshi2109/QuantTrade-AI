@@ -39,11 +39,15 @@ _sync_client = None
 _async_client = None
 
 
+_sync_init_failed = False
+
 def _get_sync_client():
     """Lazy-init synchronous Public.com API client."""
-    global _sync_client
+    global _sync_client, _sync_init_failed
     if _sync_client is not None:
         return _sync_client
+    if _sync_init_failed:
+        return None
     if not settings.PUBLIC_API_SECRET_KEY:
         return None
     try:
@@ -62,15 +66,20 @@ def _get_sync_client():
         logger.info("Public.com sync client initialized")
         return _sync_client
     except Exception as e:
+        _sync_init_failed = True
         logger.warning(f"Public.com sync client init failed: {e}")
         return None
 
 
+_async_init_failed = False
+
 async def _get_async_client():
     """Lazy-init async Public.com API client."""
-    global _async_client
+    global _async_client, _async_init_failed
     if _async_client is not None:
         return _async_client
+    if _async_init_failed:
+        return None
     if not settings.PUBLIC_API_SECRET_KEY:
         return None
     try:
@@ -89,6 +98,7 @@ async def _get_async_client():
         logger.info("Public.com async client initialized")
         return _async_client
     except Exception as e:
+        _async_init_failed = True
         logger.warning(f"Public.com async client init failed: {e}")
         return None
 

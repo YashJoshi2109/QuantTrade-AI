@@ -126,6 +126,7 @@ async def get_intraday_prices(
     symbol: str,
     interval: str = Query("5m", description="Interval: 1m, 5m, 15m, 1h"),
     days: int = Query(1, ge=1, le=30, description="Days of intraday data"),
+    extended_hours: bool = Query(False, description="Include pre-market and after-hours data"),
 ):
     """
     Get intraday OHLCV bars for candlestick charts.
@@ -148,7 +149,7 @@ async def get_intraday_prices(
             yf_interval = interval.replace("min", "m").replace("hour", "h")
             if yf_interval == "1h":
                 yf_interval = "60m"
-            data = yf.download(symbol_upper, period=period, interval=yf_interval, progress=False)
+            data = yf.download(symbol_upper, period=period, interval=yf_interval, progress=False, prepost=extended_hours)
             if data.empty:
                 return []
             import pandas as pd
@@ -158,12 +159,25 @@ async def get_intraday_prices(
                 "Open": "open", "High": "high", "Low": "low",
                 "Close": "close", "Volume": "volume",
             })
+            # Convert index to UTC so frontend always receives UTC timestamps
             if hasattr(data.index, 'tz') and data.index.tz is not None:
-                data.index = data.index.tz_localize(None)
+                data.index = data.index.tz_convert('UTC')
+            else:
+                # Assume ET (US market hours) if no timezone info
+                import pytz
+                try:
+                    data.index = data.index.tz_localize('America/New_York').tz_convert('UTC')
+                except Exception:
+                    pass  # Already localized or ambiguous
             result = []
             for ts, row in data.iterrows():
+                ts_dt = ts.to_pydatetime()
+                # Ensure timezone-aware (UTC)
+                if ts_dt.tzinfo is None:
+                    import pytz
+                    ts_dt = ts_dt.replace(tzinfo=pytz.UTC)
                 result.append(PriceBarResponse(
-                    timestamp=ts.to_pydatetime(),
+                    timestamp=ts_dt,
                     open=round(float(row.get("open", 0)), 2),
                     high=round(float(row.get("high", 0)), 2),
                     low=round(float(row.get("low", 0)), 2),
@@ -264,7 +278,7 @@ async def get_intraday_prices(
                 bars = []
                 for i in range(len(data["c"])):
                     bars.append(PriceBarResponse(
-                        timestamp=datetime.utcfromtimestamp(data["t"][i]),
+                        timestamp=datetime.fromtimestamp(data["t"][i], tz=__import__('pytz').UTC),
                         open=round(float(data["o"][i]), 2),
                         high=round(float(data["h"][i]), 2),
                         low=round(float(data["l"][i]), 2),

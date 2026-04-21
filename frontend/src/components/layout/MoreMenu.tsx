@@ -7,11 +7,16 @@ import {
   ChevronRight,
   DollarSign,
   FileText,
+  Globe,
   HelpCircle,
   Info,
   Lightbulb,
   LogOut,
+  MessageCircle,
+  Brain as BrainIcon,
   Settings,
+  ShieldAlert,
+  Swords,
   User,
   X,
 } from 'lucide-react'
@@ -166,10 +171,34 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
               href="/watchlist"
             />
             <MenuItem
+              icon={<MessageCircle className="w-4 h-4 text-cyan-400" />}
+              title="Community"
+              description="Financial discussions, analysis and ideas."
+              href="/community"
+            />
+            <MenuItem
               icon={<Lightbulb className="w-4 h-4 text-purple-400" />}
               title="Ideas Lab"
               description="See curated trade setups from AI."
               href="/ideas-lab"
+            />
+            <MenuItem
+              icon={<ShieldAlert className="w-4 h-4 text-amber-400" />}
+              title="Backtesting"
+              description="Test strategies against historical data."
+              href="/backtest"
+            />
+            <MenuItem
+              icon={<Globe className="w-4 h-4 text-sky-400" />}
+              title="Global Monitor"
+              description="World market intelligence dashboard."
+              href="/monitor"
+            />
+            <MenuItem
+              icon={<BrainIcon className="w-4 h-4 text-violet-400" />}
+              title="MLOps"
+              description="ML model registry, training and monitoring."
+              href="/mlops"
             />
             <MenuItem
               icon={<DollarSign className="w-4 h-4 text-amber-500" />}

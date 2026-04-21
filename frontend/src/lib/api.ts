@@ -2078,9 +2078,12 @@ export async function fetchIntradayPrices(
   symbol: string,
   interval: '1m' | '5m' | '15m' | '1h' = '5m',
   days: number = 1,
+  extendedHours: boolean = false,
 ): Promise<PriceBar[]> {
+  const params = new URLSearchParams({ interval, days: String(days) })
+  if (extendedHours) params.append('extended_hours', 'true')
   const response = await fetch(
-    `${API_URL}/api/v1/prices/${symbol.toUpperCase()}/intraday?interval=${interval}&days=${days}`
+    `${API_URL}/api/v1/prices/${symbol.toUpperCase()}/intraday?${params}`
   )
   if (!response.ok) return []
   const data = await response.json()
@@ -2118,11 +2121,38 @@ export interface CommunityPost {
   tickers: string[]
   sentiment: string | null
   vote_count: number
+  upvote_count?: number
+  downvote_count?: number
   comment_count: number
+  view_count?: number
   user_vote: number | null
+  is_pinned?: boolean
+  is_locked?: boolean
   created_at: string
-  author: { id: number; username: string; avatar_url?: string }
+  updated_at?: string
+  author: { id: number; username: string; full_name?: string; avatar_url?: string | null }
   community: { slug: string; name: string; icon?: string }
+  // Flat fields from backend (before normalization)
+  community_slug?: string
+  community_name?: string
+  disclaimer?: string
+}
+
+/** Normalize backend post shape (flat community_slug/name → nested community object) */
+function normalizePost(raw: any): CommunityPost {
+  return {
+    ...raw,
+    vote_count: raw.vote_count ?? ((raw.upvote_count ?? 0) - (raw.downvote_count ?? 0)),
+    community: raw.community ?? {
+      slug: raw.community_slug ?? '',
+      name: raw.community_name ?? '',
+    },
+    author: raw.author ?? { id: 0, username: 'unknown' },
+  }
+}
+
+export function normalizePosts(items: any[]): CommunityPost[] {
+  return items.map(normalizePost)
 }
 
 export interface Community {
@@ -2159,7 +2189,11 @@ export async function fetchFeed(sort: string = 'hot', cursor?: number, limit: nu
   if (time && sort === 'top') params.set('time', time)
   const res = await apiFetch(`${API_URL}/api/v1/feed?${params}`)
   if (!res.ok) return { posts: [] as CommunityPost[], next_cursor: null as number | null }
-  return res.json() as Promise<{ posts: CommunityPost[]; next_cursor: number | null }>
+  const data = await res.json()
+  return {
+    posts: normalizePosts(data.posts || data.items || []),
+    next_cursor: data.next_cursor as number | null,
+  }
 }
 
 export async function fetchPopularFeed(cursor?: number, limit: number = 20, sort: string = 'hot', time?: string) {
@@ -2168,7 +2202,11 @@ export async function fetchPopularFeed(cursor?: number, limit: number = 20, sort
   if (time && sort === 'top') params.set('time', time)
   const res = await apiFetch(`${API_URL}/api/v1/feed/popular?${params}`)
   if (!res.ok) return { posts: [] as CommunityPost[], next_cursor: null as number | null }
-  return res.json() as Promise<{ posts: CommunityPost[]; next_cursor: number | null }>
+  const data = await res.json()
+  return {
+    posts: normalizePosts(data.posts || data.items || []),
+    next_cursor: data.next_cursor as number | null,
+  }
 }
 
 export async function fetchTickerFeed(symbol: string, cursor?: number) {
@@ -2176,7 +2214,11 @@ export async function fetchTickerFeed(symbol: string, cursor?: number) {
   if (cursor) params.set('cursor', String(cursor))
   const res = await apiFetch(`${API_URL}/api/v1/feed/ticker/${symbol}?${params}`)
   if (!res.ok) return { posts: [] as CommunityPost[], next_cursor: null as number | null }
-  return res.json() as Promise<{ posts: CommunityPost[]; next_cursor: number | null }>
+  const data = await res.json()
+  return {
+    posts: normalizePosts(data.posts || data.items || []),
+    next_cursor: data.next_cursor as number | null,
+  }
 }
 
 export async function fetchMarketMood(hours: number = 24) {
@@ -2217,20 +2259,25 @@ export async function leaveCommunity(slug: string) {
   return res.ok
 }
 
-export async function createPost(data: { title: string; body: string; community_slug: string; post_type?: string; tickers?: string[]; sentiment?: string }) {
+export async function createPost(data: { title: string; body: string; community_slug: string; post_type?: string; tickers?: string[]; sentiment?: string; media_urls?: string[] }) {
   const res = await apiFetch(`${API_URL}/api/v1/posts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
-  if (!res.ok) throw new Error('Failed to create post')
-  return res.json() as Promise<CommunityPost>
+  if (!res.ok) {
+    const errData = await res.json().catch(() => null)
+    throw new Error(errData?.detail || 'Failed to create post')
+  }
+  const raw = await res.json()
+  return normalizePost(raw) as CommunityPost
 }
 
 export async function fetchPost(postId: number) {
   const res = await apiFetch(`${API_URL}/api/v1/posts/${postId}`)
   if (!res.ok) return null
-  return res.json() as Promise<CommunityPost>
+  const data = await res.json()
+  return normalizePost(data) as CommunityPost
 }
 
 export async function votePost(postId: number, direction: 1 | -1) {
@@ -2304,7 +2351,11 @@ export async function fetchBookmarks(cursor?: number) {
   if (cursor) params.set('cursor', String(cursor))
   const res = await apiFetch(`${API_URL}/api/v1/users/me/bookmarks?${params}`)
   if (!res.ok) return { posts: [] as CommunityPost[], next_cursor: null as number | null }
-  return res.json() as Promise<{ posts: CommunityPost[]; next_cursor: number | null }>
+  const data = await res.json()
+  return {
+    posts: normalizePosts(data.posts || data.items || []),
+    next_cursor: data.next_cursor as number | null,
+  }
 }
 
 // ── Image Upload ───────────────────────────────────────────────────────

@@ -1,187 +1,247 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Radio, CircleDot, Settings2, AlertTriangle } from 'lucide-react'
-import { fetchLiveMarketHeadlines } from '@/lib/api'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Radio,
+  CircleDot,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Clock,
+  RefreshCw,
+  Image as ImageIcon,
+  ExternalLink,
+  Filter,
+  ChevronDown,
+} from 'lucide-react'
+import { fetchLiveMarketHeadlines, type NewsArticle } from '@/lib/api'
+import { useBreakingNews } from '@/hooks/useRealtimeNews'
 import type { Continent } from '@/lib/world-exchanges'
+import Link from 'next/link'
 
-type LiveChannelId =
-  | 'bloomberg'
-  | 'skynews'
-  | 'euronews'
-  | 'dw'
-  | 'france24'
-  | 'wion'
-  | 'aljazeera'
-  | 'yahoo_finance'
-  | 'trt_world'
-  | 'japan'
+type SentimentFilter = 'all' | 'Bullish' | 'Bearish' | 'Neutral'
 
-interface LiveChannel {
-  id: LiveChannelId
-  label: string
-  embedUrl: string
-  fallbackId?: LiveChannelId // channel to try if this one fails
+function formatTimeAgo(dateString: string): string {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return ''
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHours / 24)
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  return `${diffDays}d ago`
 }
 
-// All channels use live_stream?channel= format so embeds auto-resolve to
-// the current live stream (hardcoded video IDs expire when streams restart).
-const CHANNELS: LiveChannel[] = [
-  {
-    id: 'bloomberg',
-    label: 'Bloomberg',
-    embedUrl:
-      'https://www.youtube.com/embed/live_stream?channel=UCIALMKvObZNtJ6AmdCLP7Lg&autoplay=1&mute=1',
-    fallbackId: 'yahoo_finance',
+const SENTIMENT_CONFIG = {
+  Bullish: {
+    icon: TrendingUp,
+    text: 'text-emerald-400',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/25',
+    dot: 'bg-emerald-400',
   },
-  {
-    id: 'skynews',
-    label: 'Sky News',
-    embedUrl:
-      'https://www.youtube.com/embed/live_stream?channel=UCoMdktPbSTixAyNGwb-UYkQ&autoplay=1&mute=1',
-    fallbackId: 'euronews',
+  Bearish: {
+    icon: TrendingDown,
+    text: 'text-red-400',
+    bg: 'bg-red-500/10',
+    border: 'border-red-500/25',
+    dot: 'bg-red-400',
   },
-  {
-    id: 'euronews',
-    label: 'Euronews',
-    embedUrl:
-      'https://www.youtube.com/embed/live_stream?channel=UCSrZ3UV4jOidv8ppoVuvW9Q&autoplay=1&mute=1',
-    fallbackId: 'dw',
+  Neutral: {
+    icon: Minus,
+    text: 'text-slate-400',
+    bg: 'bg-slate-500/10',
+    border: 'border-slate-600/25',
+    dot: 'bg-slate-500',
   },
-  {
-    id: 'dw',
-    label: 'DW News',
-    embedUrl:
-      'https://www.youtube.com/embed/live_stream?channel=UCknLrEdhRCp1aegoMqRaCZg&autoplay=1&mute=1',
-    fallbackId: 'euronews',
-  },
-  {
-    id: 'france24',
-    label: 'FRANCE24',
-    embedUrl:
-      'https://www.youtube.com/embed/live_stream?channel=UCQfwfsi5VrQ8yKZ-UWmAEFg&autoplay=1&mute=1',
-    fallbackId: 'euronews',
-  },
-  {
-    id: 'wion',
-    label: 'WION',
-    embedUrl:
-      'https://www.youtube.com/embed/live_stream?channel=UCZWMsonUZkvFyKDo4Q0HkRg&autoplay=1&mute=1',
-    fallbackId: 'aljazeera',
-  },
-  {
-    id: 'aljazeera',
-    label: 'Al Jazeera',
-    embedUrl:
-      'https://www.youtube.com/embed/live_stream?channel=UCNye-wNBqNL5ZzHSJj3l8Bg&autoplay=1&mute=1',
-    fallbackId: 'dw',
-  },
-  {
-    id: 'yahoo_finance',
-    label: 'Yahoo Finance',
-    embedUrl:
-      'https://www.youtube.com/embed/live_stream?channel=UCEAZeUIeJs6chDjCLnzuCpg&autoplay=1&mute=1',
-    fallbackId: 'bloomberg',
-  },
-  {
-    id: 'trt_world',
-    label: 'TRT World',
-    embedUrl:
-      'https://www.youtube.com/embed/live_stream?channel=UCg2PvMeQR3V-L48R0oNciAg&autoplay=1&mute=1',
-    fallbackId: 'aljazeera',
-  },
-  {
-    id: 'japan',
-    label: 'NHK Japan',
-    embedUrl:
-      'https://www.youtube.com/embed/live_stream?channel=UCSPEjw8F2nQDtmUKPFNF7_A&autoplay=1&mute=1',
-    fallbackId: 'bloomberg',
-  },
-]
+} as const
 
-const FALLBACK_HEADLINES = ['Market data loading…']
+const SOURCE_COLORS: Record<string, string> = {
+  yfinance: 'text-violet-400',
+  google: 'text-blue-400',
+  newsapi: 'text-orange-400',
+  marketwatch: 'text-emerald-400',
+  reuters: 'text-amber-400',
+  bloomberg: 'text-cyan-400',
+}
 
-const DEFAULT_CHANNEL_BY_CONTINENT: Partial<Record<Continent, LiveChannelId>> = {
-  global: 'bloomberg',
-  americas: 'bloomberg',
-  europe: 'euronews',
-  asia: 'wion',
-  africa: 'aljazeera',
-  oceania: 'skynews',
+function SentimentPill({ sentiment }: { sentiment: string | null }) {
+  if (!sentiment) return null
+  const cfg = SENTIMENT_CONFIG[sentiment as keyof typeof SENTIMENT_CONFIG] || SENTIMENT_CONFIG.Neutral
+  const Icon = cfg.icon
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${cfg.bg} ${cfg.text} border ${cfg.border}`}>
+      <Icon className="w-3 h-3" />
+      {sentiment}
+    </span>
+  )
+}
+
+function NewsCardItem({ item, index }: { item: NewsArticle; index: number }) {
+  const [imgFailed, setImgFailed] = useState(false)
+  const hasImage = Boolean(item.thumbnail) && !imgFailed
+  const sourceColor = SOURCE_COLORS[(item.source || '').toLowerCase()] || 'text-slate-500'
+
+  const inner = (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, delay: index * 0.04 }}
+      className="group flex gap-3 p-3 rounded-lg hover:bg-slate-800/40 transition-all cursor-pointer border border-transparent hover:border-slate-700/40"
+    >
+      {/* Thumbnail — only show when image exists */}
+      {hasImage ? (
+        <div className="shrink-0 w-[64px] h-[64px] rounded-lg overflow-hidden bg-slate-800/60 border border-slate-700/30 relative">
+          <img
+            src={item.thumbnail || ''}
+            alt=""
+            className="w-full h-full object-cover transition-transform group-hover:scale-105"
+            onError={() => setImgFailed(true)}
+            loading="lazy"
+          />
+          {item.sentiment && (
+            <span
+              className={`absolute top-1 right-1 w-2 h-2 rounded-full ring-1 ring-black/50 ${
+                SENTIMENT_CONFIG[item.sentiment as keyof typeof SENTIMENT_CONFIG]?.dot || 'bg-slate-500'
+              }`}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="shrink-0 w-1 rounded-full self-stretch" style={{
+          background: item.sentiment
+            ? SENTIMENT_CONFIG[item.sentiment as keyof typeof SENTIMENT_CONFIG]?.dot === 'bg-emerald-400' ? '#34d399'
+            : SENTIMENT_CONFIG[item.sentiment as keyof typeof SENTIMENT_CONFIG]?.dot === 'bg-red-400' ? '#f87171'
+            : '#64748b'
+            : '#1e293b',
+        }} />
+      )}
+
+      {/* Content */}
+      <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+        {/* Title */}
+        <h4 className="text-[12px] font-medium text-slate-200 leading-[1.4] line-clamp-2 group-hover:text-cyan-300 transition-colors">
+          {item.title}
+        </h4>
+
+        {/* Meta row: source, time, sentiment, tickers */}
+        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+          {/* Source */}
+          {item.source && (
+            <span className={`text-[10px] font-semibold uppercase tracking-wide ${sourceColor}`}>
+              {item.source === 'yfinance' ? 'Yahoo' : item.source}
+            </span>
+          )}
+
+          {/* Separator */}
+          <span className="w-px h-3 bg-slate-700/60" />
+
+          {/* Time */}
+          <span className="text-[10px] text-slate-500 flex items-center gap-0.5">
+            <Clock className="w-3 h-3" />
+            {formatTimeAgo(item.published_at)}
+          </span>
+
+          {/* Sentiment pill */}
+          <SentimentPill sentiment={item.sentiment} />
+        </div>
+
+        {/* Tickers row */}
+        {item.related_tickers && item.related_tickers.length > 0 && (
+          <div className="flex gap-1 mt-1.5 flex-wrap">
+            {item.related_tickers.slice(0, 4).map((ticker) => (
+              <Link
+                key={ticker}
+                href={`/research?symbol=${ticker}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-[10px] px-1.5 py-px rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 hover:border-cyan-500/35 transition-colors font-mono font-medium"
+              >
+                ${ticker}
+              </Link>
+            ))}
+            {item.related_tickers.length > 4 && (
+              <span className="text-[10px] px-1.5 py-px text-slate-600">
+                +{item.related_tickers.length - 4}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* External link icon */}
+      {item.url && (
+        <div className="shrink-0 self-start mt-0.5">
+          <ExternalLink className="w-3.5 h-3.5 text-slate-700 group-hover:text-cyan-400/60 transition-colors" />
+        </div>
+      )}
+    </motion.div>
+  )
+
+  if (!item.url) return inner
+
+  return (
+    <a href={item.url} target="_blank" rel="noopener noreferrer" className="block">
+      {inner}
+    </a>
+  )
+}
+
+function normalizeNewsData(data: unknown): NewsArticle[] {
+  if (Array.isArray(data)) return data as NewsArticle[]
+  if (data && typeof data === 'object' && Array.isArray((data as { articles?: unknown }).articles)) {
+    return (data as { articles: NewsArticle[] }).articles
+  }
+  return []
 }
 
 export default function LiveNewsChannelPanel({ continent }: { continent?: Continent }) {
-  const defaultChannel =
-    (continent && DEFAULT_CHANNEL_BY_CONTINENT[continent]) || 'bloomberg'
-  const [activeId, setActiveId] = useState<LiveChannelId>(defaultChannel)
-  const [failedChannels, setFailedChannels] = useState<Set<LiveChannelId>>(new Set())
-  const [usingFallback, setUsingFallback] = useState(false)
-
-  useEffect(() => {
-    setActiveId((continent && DEFAULT_CHANNEL_BY_CONTINENT[continent]) || 'bloomberg')
-    setFailedChannels(new Set())
-    setUsingFallback(false)
-  }, [continent])
-
-  // Reset error state when user manually switches channel
-  const handleChannelSwitch = useCallback((id: LiveChannelId) => {
-    setActiveId(id)
-    setUsingFallback(false)
-  }, [])
+  const [sentimentFilter, setSentimentFilter] = useState<SentimentFilter>('all')
+  const [filterOpen, setFilterOpen] = useState(false)
 
   const headlineContext = useMemo(
     () => (continent ? { continent } : undefined),
     [continent]
   )
 
-  const { data: breakingNews } = useQuery({
-    queryKey: ['breaking-market-news', 'liveHeadlines', continent ?? 'global'],
-    queryFn: () => fetchLiveMarketHeadlines(25, headlineContext),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
-    retry: 1,
-  })
+  const { data, isLoading, isFetching, refetch } = useBreakingNews(25, 45_000, headlineContext)
 
-  const tickerHeadlines = (breakingNews?.length
-    ? breakingNews.map((n) => n.title).filter(Boolean)
-    : FALLBACK_HEADLINES) as string[]
+  const news = useMemo(() => normalizeNewsData(data), [data])
 
-  // Resolve which channel to actually show (handle fallback chain)
-  const activeChannel = useMemo(() => {
-    const primary = CHANNELS.find((c) => c.id === activeId) ?? CHANNELS[0]
+  const filteredNews = useMemo(() => {
+    if (sentimentFilter === 'all') return news
+    return news.filter((n) => n.sentiment === sentimentFilter)
+  }, [news, sentimentFilter])
 
-    if (!failedChannels.has(primary.id)) return primary
-
-    // Walk the fallback chain (max 3 hops to avoid loops)
-    let candidate = primary
-    for (let i = 0; i < 3; i++) {
-      if (!candidate.fallbackId) break
-      const next = CHANNELS.find((c) => c.id === candidate.fallbackId)
-      if (!next || failedChannels.has(next.id)) break
-      candidate = next
-    }
-
-    return failedChannels.has(candidate.id) ? primary : candidate
-  }, [activeId, failedChannels])
-
-  const showingFallback = activeChannel.id !== activeId && failedChannels.has(activeId)
-
-  // When iframe fails to load (fires error or takes too long)
-  const handleStreamError = useCallback(() => {
-    setFailedChannels((prev) => {
-      const next = new Set(prev)
-      next.add(activeId)
-      return next
+  // Sentiment counts for filter badges
+  const sentimentCounts = useMemo(() => {
+    const counts = { Bullish: 0, Bearish: 0, Neutral: 0 }
+    news.forEach((n) => {
+      if (n.sentiment && n.sentiment in counts) {
+        counts[n.sentiment as keyof typeof counts]++
+      }
     })
-    setUsingFallback(true)
-  }, [activeId])
+    return counts
+  }, [news])
+
+  const filters: { id: SentimentFilter; label: string; count?: number }[] = [
+    { id: 'all', label: 'All', count: news.length },
+    { id: 'Bullish', label: 'Bullish', count: sentimentCounts.Bullish },
+    { id: 'Bearish', label: 'Bearish', count: sentimentCounts.Bearish },
+    { id: 'Neutral', label: 'Neutral', count: sentimentCounts.Neutral },
+  ]
 
   return (
     <div className="hud-panel p-0 overflow-hidden">
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-800/60 bg-gradient-to-r from-[#050814] via-[#070b16] to-[#050814] px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/20 border border-red-500/50 shadow-[0_0_15px_rgba(248,113,113,0.5)]">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/20 border border-red-500/50 shadow-[0_0_15px_rgba(248,113,113,0.4)]">
             <Radio className="h-4 w-4 text-red-400" />
           </div>
           <div className="flex flex-col">
@@ -193,95 +253,168 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
                 <CircleDot className="h-3 w-3 text-red-400 animate-pulse" />
                 Live
               </span>
+              {isFetching && (
+                <RefreshCw className="h-3 w-3 text-cyan-400 animate-spin" />
+              )}
             </div>
             <span className="mt-0.5 text-[10px] text-slate-500">
-              Global TV streams · audio-friendly for desk use
+              {continent && continent !== 'global'
+                ? `${continent.charAt(0).toUpperCase() + continent.slice(1)} market news`
+                : 'Global breaking market news'}{' '}
+              · {news.length} articles · auto-refresh 45s
             </span>
           </div>
         </div>
 
-        <button
-          type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700/70 bg-slate-900/60 text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
-          aria-label="Live news settings"
-        >
-          <Settings2 className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1 border-b border-slate-800/60 bg-[#050816]/95 px-3 py-2">
-        {CHANNELS.map((ch) => {
-          const isActive = ch.id === activeId
-          const hasFailed = failedChannels.has(ch.id)
-          return (
+        <div className="flex items-center gap-2">
+          {/* Sentiment filter toggle */}
+          <div className="relative">
             <button
-              key={ch.id}
               type="button"
-              onClick={() => handleChannelSwitch(ch.id)}
-              className={`rounded-md px-2.5 py-1 text-[10px] font-medium transition-all ${
-                isActive
-                  ? 'bg-slate-100 text-slate-900 shadow-sm'
-                  : hasFailed
-                    ? 'bg-slate-900/70 text-slate-500 line-through hover:bg-slate-800'
-                    : 'bg-slate-900/70 text-slate-300 hover:bg-slate-800'
+              onClick={() => setFilterOpen((v) => !v)}
+              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[10px] font-medium transition-all ${
+                sentimentFilter !== 'all'
+                  ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
+                  : 'border-slate-700/70 bg-slate-900/60 text-slate-400 hover:text-white hover:border-slate-500'
               }`}
             >
-              {ch.label}
+              <Filter className="h-3.5 w-3.5" />
+              {sentimentFilter === 'all' ? 'Filter' : sentimentFilter}
+              <ChevronDown className={`h-3 w-3 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
             </button>
-          )
-        })}
-      </div>
+            {filterOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setFilterOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 w-40 rounded-lg border border-slate-700/70 bg-slate-900/98 shadow-xl z-50 py-1">
+                  {filters.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => {
+                        setSentimentFilter(f.id)
+                        setFilterOpen(false)
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-1.5 text-[11px] transition-colors ${
+                        sentimentFilter === f.id
+                          ? 'text-cyan-300 bg-cyan-500/10'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        {f.id !== 'all' && (
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              SENTIMENT_CONFIG[f.id as keyof typeof SENTIMENT_CONFIG]?.dot || ''
+                            }`}
+                          />
+                        )}
+                        {f.label}
+                      </span>
+                      {f.count != null && f.count > 0 && (
+                        <span className="text-[9px] text-slate-600">{f.count}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
-      {/* Fallback banner */}
-      {showingFallback && (
-        <div className="flex items-center gap-2 bg-amber-500/10 border-b border-amber-500/20 px-3 py-1.5">
-          <AlertTriangle className="h-3 w-3 text-amber-400 shrink-0" />
-          <span className="text-[10px] text-amber-300">
-            {CHANNELS.find((c) => c.id === activeId)?.label} stream unavailable — showing{' '}
-            {activeChannel.label} instead
-          </span>
+          {/* Refresh */}
           <button
             type="button"
-            onClick={() => {
-              setFailedChannels((prev) => {
-                const next = new Set(prev)
-                next.delete(activeId)
-                return next
-              })
-              setUsingFallback(false)
-            }}
-            className="ml-auto text-[10px] text-amber-400 hover:text-amber-200 underline"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700/70 bg-slate-900/60 text-slate-400 hover:text-white hover:border-slate-500 transition-colors disabled:opacity-40"
+            aria-label="Refresh news"
           >
-            Retry
+            <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
           </button>
+        </div>
+      </div>
+
+      {/* Sentiment summary bar */}
+      {news.length > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-slate-800/40 bg-[#050816]/60">
+          <span className="text-[10px] text-slate-600 uppercase tracking-wider font-medium">Sentiment</span>
+          <div className="flex-1 flex items-center gap-1.5 h-1.5 rounded-full overflow-hidden bg-slate-800/60">
+            {sentimentCounts.Bullish > 0 && (
+              <div
+                className="h-full bg-emerald-500/70 rounded-l-full transition-all"
+                style={{ width: `${(sentimentCounts.Bullish / Math.max(news.length, 1)) * 100}%` }}
+              />
+            )}
+            {sentimentCounts.Neutral > 0 && (
+              <div
+                className="h-full bg-slate-500/50 transition-all"
+                style={{ width: `${(sentimentCounts.Neutral / Math.max(news.length, 1)) * 100}%` }}
+              />
+            )}
+            {sentimentCounts.Bearish > 0 && (
+              <div
+                className="h-full bg-red-500/70 rounded-r-full transition-all"
+                style={{ width: `${(sentimentCounts.Bearish / Math.max(news.length, 1)) * 100}%` }}
+              />
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-[10px] shrink-0">
+            <span className="flex items-center gap-1 text-emerald-400">
+              <TrendingUp className="w-3 h-3" />
+              {sentimentCounts.Bullish}
+            </span>
+            <span className="flex items-center gap-1 text-slate-500">
+              <Minus className="w-3 h-3" />
+              {sentimentCounts.Neutral}
+            </span>
+            <span className="flex items-center gap-1 text-red-400">
+              <TrendingDown className="w-3 h-3" />
+              {sentimentCounts.Bearish}
+            </span>
+          </div>
         </div>
       )}
 
-      <div className="relative bg-black">
-        {/* Manual fallback trigger for any channel */}
-        <div className="absolute top-2 left-2 z-10">
-          <button
-            type="button"
-            onClick={handleStreamError}
-            className="rounded bg-slate-800/90 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-600/50"
-          >
-            Video unavailable? Try backup
-          </button>
-        </div>
-
-        <div className="relative w-full overflow-hidden bg-black pt-[56.25%]">
-          <iframe
-            key={activeChannel.id} // force remount on channel change
-            src={activeChannel.embedUrl}
-            title={`${activeChannel.label} Live`}
-            className="absolute inset-0 h-full w-full border-0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            loading="lazy"
-          />
-        </div>
+      {/* News feed */}
+      <div className="max-h-[520px] overflow-y-auto overscroll-contain divide-y divide-slate-800/30 bg-gradient-to-b from-[#060a12] to-[#050810]">
+        {isLoading ? (
+          <div className="space-y-1 p-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex gap-3 p-3 animate-pulse">
+                <div className="w-[72px] h-[72px] rounded-lg bg-slate-800/60" />
+                <div className="flex-1 space-y-2 py-1">
+                  <div className="h-3.5 bg-slate-800/60 rounded w-4/5" />
+                  <div className="h-3 bg-slate-800/40 rounded w-3/5" />
+                  <div className="flex gap-2 mt-2">
+                    <div className="h-4 w-14 bg-slate-800/40 rounded" />
+                    <div className="h-4 w-12 bg-slate-800/40 rounded" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredNews.length > 0 ? (
+          <AnimatePresence mode="popLayout">
+            {filteredNews.map((item, i) => {
+              const key = item.id ?? item.url ?? `${item.title}-${i}`
+              return <NewsCardItem key={key} item={item} index={i} />
+            })}
+          </AnimatePresence>
+        ) : (
+          <div className="py-16 text-center">
+            <Radio className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+            <p className="text-sm text-slate-500 font-medium">
+              {sentimentFilter !== 'all'
+                ? `No ${sentimentFilter.toLowerCase()} news right now`
+                : 'No news available'}
+            </p>
+            <p className="text-[11px] text-slate-600 mt-1">
+              Auto-refresh in 45s or click refresh
+            </p>
+          </div>
+        )}
       </div>
 
+      {/* Footer — marquee ticker */}
       <div className="border-t border-slate-800/60 bg-gradient-to-r from-[#050816] via-[#040715] to-[#050816] px-3 py-2">
         <div className="flex items-center gap-2 text-[11px] text-slate-300">
           <span className="shrink-0 rounded bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] text-emerald-400 border border-emerald-500/30">
@@ -292,16 +425,21 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
               className="flex gap-8 whitespace-nowrap animate-marquee"
               style={{ width: 'max-content' }}
             >
-              {tickerHeadlines.concat(tickerHeadlines).map((h, idx) => (
-                <span key={idx} className="text-slate-400 inline">
-                  {idx > 0 && (
-                    <span className="mx-3 text-slate-600 select-none" aria-hidden>
-                      ·
-                    </span>
-                  )}
-                  {h}
-                </span>
-              ))}
+              {(news.length > 0
+                ? news.map((n) => n.title).filter(Boolean)
+                : ['Market data loading\u2026']
+              )
+                .concat(news.map((n) => n.title).filter(Boolean))
+                .map((h, idx) => (
+                  <span key={idx} className="text-slate-400 inline">
+                    {idx > 0 && (
+                      <span className="mx-3 text-slate-600 select-none" aria-hidden>
+                        ·
+                      </span>
+                    )}
+                    {h}
+                  </span>
+                ))}
             </div>
           </div>
         </div>

@@ -191,9 +191,9 @@ export function ResearchChartHeader({
               size={40}
               className="rounded-xl border border-blue-500/20 hidden sm:block"
             />
-            <div className="min-w-0">
-            <h2 className="font-display text-2xl font-black leading-[1.15] tracking-tight text-white sm:text-3xl">
-              <span className="block break-words">{headline}</span>
+            <div className="min-w-0 flex-1">
+            <h2 className="font-display text-2xl font-black leading-[1.15] tracking-tight text-white sm:text-3xl truncate">
+              {headline}
             </h2>
             {profileLoading && !companyName && (
               <p className="mt-1.5 text-[11px] text-slate-500">Loading company profile…</p>

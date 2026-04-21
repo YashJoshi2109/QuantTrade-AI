@@ -9,6 +9,7 @@ import MobileResearch from '@/components/layout/MobileResearch'
 import Chart, { type ChartSeriesType } from '@/components/Chart'
 import LiveNews from '@/components/LiveNews'
 import Link from 'next/link'
+import type { OverlayIndicatorId, PaneIndicatorId } from '@/lib/indicators'
 import {
   Sparkles, TrendingUp, TrendingDown, RefreshCw, AlertTriangle,
   BarChart3, Newspaper, Loader2,
@@ -41,7 +42,9 @@ import { CompanyFolioPanel } from '@/components/research/CompanyFolioPanel'
 import EarningsShortInterestPanel from '@/components/research/EarningsShortInterestPanel'
 import FullscreenChartModal from '@/components/research/FullscreenChartModal'
 import OptionChainPanel from '@/components/research/OptionChainPanel'
+import IndicatorToolbar from '@/components/research/IndicatorToolbar'
 import TickerLogo from '@/components/TickerLogo'
+import { getExchangeTimezone } from '@/lib/world-exchanges'
 
 type ChartPeriod = ResearchChartPeriod
 
@@ -62,7 +65,8 @@ function chartPeriodRange(period: ChartPeriod): { start: Date; end: Date; barLim
     '2Y': 750,
     '5Y': 1900,
   }
-  start.setUTCDate(start.getUTCDate() - dayMap[period])
+  // Use local date consistently (not mixing setUTCDate with local Date)
+  start.setDate(start.getDate() - dayMap[period])
   const barLimit = Math.min(5000, Math.ceil(dayMap[period] * (isIntradayPeriod(period) ? 390 : 1.25)))
   return { start, end, barLimit }
 }
@@ -86,6 +90,9 @@ function ResearchContent() {
   const [chartShowVolume, setChartShowVolume] = useState(false)
   const [chartLogScale, setChartLogScale] = useState(false)
   const [chartShowGrid, setChartShowGrid] = useState(true)
+  const [activeOverlays, setActiveOverlays] = useState<OverlayIndicatorId[]>(['sma20', 'ema50'])
+  const [activePanes, setActivePanes] = useState<PaneIndicatorId[]>(['volume'])
+  const [extendedHours, setExtendedHours] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [fullscreenChart, setFullscreenChart] = useState(false)
   const advancedRef = useRef<HTMLDivElement>(null)
@@ -117,6 +124,12 @@ function ResearchContent() {
     () => watchlistItems.some((i) => i.symbol.toUpperCase() === selectedSymbol.toUpperCase()),
     [watchlistItems, selectedSymbol],
   )
+
+  const exchangeTz = useMemo(
+    () => getExchangeTimezone(tickerInfo?.exchange_display || tickerInfo?.exchange),
+    [tickerInfo?.exchange_display, tickerInfo?.exchange],
+  )
+
 
   // Real-time quote with HIGH PRIORITY for research page and 5-second updates
   const { data: realtimeQuote, isLoading: quoteLoading } = useRealtimeQuote({ 
@@ -156,7 +169,7 @@ function ResearchContent() {
         // Intraday: 1D = 1min bars, 5D = 5min bars
         const interval = chartPeriod === '1D' ? '1m' : '5m'
         const days = chartPeriod === '1D' ? 1 : 5
-        prices = await fetchIntradayPrices(selectedSymbol, interval, days).catch(() => [])
+        prices = await fetchIntradayPrices(selectedSymbol, interval, days, extendedHours).catch(() => [])
       } else {
         // Daily bars
         prices = await fetchPrices(
@@ -203,7 +216,7 @@ function ResearchContent() {
     } finally {
       setLoading(false)
     }
-  }, [selectedSymbol, chartPeriod])
+  }, [selectedSymbol, chartPeriod, extendedHours])
 
   useEffect(() => {
     loadSymbolData()
@@ -488,6 +501,16 @@ function ResearchContent() {
                 syncing={syncing}
               />
 
+              {/* Indicator Toolbar */}
+              <IndicatorToolbar
+                activeOverlays={activeOverlays}
+                activePanes={activePanes}
+                onToggleOverlay={(id) => setActiveOverlays((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
+                onTogglePane={(id) => setActivePanes((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
+                extendedHours={extendedHours}
+                onToggleExtendedHours={() => setExtendedHours((v) => !v)}
+              />
+
               {/* Chart Area */}
               <div className="flex-1 relative min-h-[300px]">
                 {/* Fullscreen button */}
@@ -521,10 +544,11 @@ function ResearchContent() {
                     data={priceData}
                     symbol={selectedSymbol}
                     seriesType={chartSeriesType}
-                    showMovingAverages={chartShowMa && (chartSeriesType === 'candlestick' || chartSeriesType === 'heikin-ashi')}
-                    showVolume={chartShowVolume}
+                    activeOverlays={chartShowMa ? activeOverlays : activeOverlays.filter(id => !['sma20', 'ema50'].includes(id))}
+                    activePanes={chartShowVolume ? activePanes : activePanes.filter(id => id !== 'volume')}
                     logScale={chartLogScale}
                     showGrid={chartShowGrid}
+                    exchangeTimezone={exchangeTz}
                   />
                 )}
               </div>
@@ -808,6 +832,7 @@ function ResearchContent() {
         priceData={priceData}
         chartSeriesType={chartSeriesType}
         chartShowMa={chartShowMa}
+        exchangeTimezone={exchangeTz}
       />
     </AppLayout>
   )

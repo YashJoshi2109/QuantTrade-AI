@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { TrendingUp, Users, Flame, BarChart3, Activity } from 'lucide-react'
 import { fetchCommunities, fetchTrendingTickers, fetchMarketMood, type Community } from '@/lib/api'
 
@@ -30,7 +29,6 @@ export default function TrendingSidebar() {
 
   useEffect(() => {
     loadTrending()
-    // Poll every 60 seconds
     const interval = setInterval(loadTrending, 60_000)
     return () => clearInterval(interval)
   }, [loadTrending])
@@ -43,37 +41,31 @@ export default function TrendingSidebar() {
     fetchCommunities()
       .then((data) => {
         const sorted = (data.communities || []).sort((a, b) => b.member_count - a.member_count)
-        setPopularCommunities(sorted.slice(0, 5))
+        setPopularCommunities(sorted.slice(0, 8))
       })
       .catch(() => setPopularCommunities([]))
   }, [])
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 12 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.3, delay: 0.1 }}
-      className="space-y-4"
-    >
+    <div className="space-y-4">
       {/* Market Mood */}
       {mood && mood.total_posts > 0 && (
-        <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4">
+        <div className="bg-[#131820] rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Activity className="w-4 h-4 text-purple-400" />
-            <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">
+            <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
               Market Mood
             </h3>
           </div>
           <div className="text-center mb-3">
-            <span className={`text-2xl font-bold ${
+            <span className={`text-lg font-bold ${
               mood.mood === 'bullish' ? 'text-emerald-400' :
               mood.mood === 'bearish' ? 'text-red-400' : 'text-slate-400'
             }`}>
               {mood.mood === 'bullish' ? '\u{1F7E2} Bullish' : mood.mood === 'bearish' ? '\u{1F534} Bearish' : '\u26AA Neutral'}
             </span>
           </div>
-          {/* Sentiment bar */}
-          <div className="flex h-2 rounded-full overflow-hidden bg-slate-800 mb-2">
+          <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-800 mb-2">
             <div className="bg-emerald-500 transition-all" style={{ width: `${mood.bullish_pct}%` }} />
             <div className="bg-red-500 transition-all" style={{ width: `${mood.bearish_pct}%` }} />
           </div>
@@ -86,48 +78,44 @@ export default function TrendingSidebar() {
       )}
 
       {/* Trending Tickers */}
-      <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4">
+      <div className="bg-[#131820] rounded-2xl p-4">
         <div className="flex items-center gap-2 mb-3">
           <Flame className="w-4 h-4 text-orange-400" />
-          <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">
+          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
             Trending Tickers
           </h3>
         </div>
         {loading ? (
           <div className="space-y-2">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex items-center justify-between px-2 py-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-12 bg-slate-800 rounded animate-pulse" />
-                  <div className="h-3 w-16 bg-slate-800/50 rounded animate-pulse" />
-                </div>
-                <div className="h-4 w-8 bg-slate-800 rounded animate-pulse" />
+              <div key={i} className="flex items-center justify-between py-1.5">
+                <div className="h-4 w-12 bg-slate-800 rounded animate-pulse" />
+                <div className="h-3 w-16 bg-slate-800/50 rounded animate-pulse" />
               </div>
             ))}
           </div>
         ) : tickers.length === 0 ? (
           <div className="flex flex-col items-center py-4 text-center">
-            <BarChart3 className="w-8 h-8 text-slate-600 mb-2" />
+            <BarChart3 className="w-6 h-6 text-slate-700 mb-2" />
             <p className="text-xs text-slate-500">No trending tickers yet</p>
-            <p className="text-xs text-slate-600 mt-1">Post about stocks to see them here</p>
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {tickers.map((ticker, i) => (
               <Link
                 key={ticker.symbol}
                 href={`/research?symbol=${ticker.symbol}`}
-                className="flex items-center justify-between px-2 py-2 rounded-lg hover:bg-white/[0.03] transition-colors group"
+                className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors group"
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-600 w-4 text-right tabular-nums font-medium">
+                  <span className="text-[10px] text-slate-600 w-3 text-right tabular-nums">
                     {i + 1}
                   </span>
                   <span className="text-sm font-mono font-semibold text-cyan-400 group-hover:text-cyan-300">
                     ${ticker.symbol}
                   </span>
                 </div>
-                <span className="text-xs text-slate-500 tabular-nums">
+                <span className="text-[11px] text-slate-500 tabular-nums">
                   {ticker.mention_count} {ticker.mention_count === 1 ? 'mention' : 'mentions'}
                 </span>
               </Link>
@@ -138,29 +126,31 @@ export default function TrendingSidebar() {
 
       {/* Popular Communities */}
       {popularCommunities.length > 0 && (
-        <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4">
+        <div className="bg-[#131820] rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="w-4 h-4 text-blue-400" />
-            <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">
+            <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
               Popular Communities
             </h3>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {popularCommunities.map((community, i) => (
               <Link
                 key={community.slug}
                 href={`/community/${community.slug}`}
-                className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-white/[0.03] transition-colors"
+                className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors group"
               >
-                <span className="text-xs text-slate-600 w-4 text-right tabular-nums font-medium">
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-slate-300 truncate">{community.name}</div>
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400 shrink-0">
+                  {community.name.charAt(0).toUpperCase()}
                 </div>
-                <div className="flex items-center gap-1 text-xs text-slate-500">
-                  <Users className="w-3 h-3" />
-                  <span>{community.member_count.toLocaleString()}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] text-slate-300 truncate group-hover:text-white transition-colors">
+                    c/{community.name}
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] text-slate-600">
+                    <Users className="w-2.5 h-2.5" />
+                    {community.member_count.toLocaleString()} members
+                  </div>
                 </div>
               </Link>
             ))}
@@ -169,22 +159,22 @@ export default function TrendingSidebar() {
       )}
 
       {/* Quick Links */}
-      <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4">
-        <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wider mb-3">
+      <div className="bg-[#131820] rounded-2xl p-4">
+        <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
           Quick Links
         </h3>
-        <div className="space-y-1.5 text-sm">
-          <Link href="/community/discover" className="block text-slate-400 hover:text-slate-200 transition-colors">
+        <div className="space-y-1 text-[13px]">
+          <Link href="/community/discover" className="block text-slate-400 hover:text-slate-200 transition-colors py-1">
             Discover Communities
           </Link>
-          <Link href="/community" className="block text-slate-400 hover:text-slate-200 transition-colors">
+          <Link href="/community" className="block text-slate-400 hover:text-slate-200 transition-colors py-1">
             Community Feed
           </Link>
-          <Link href="/help" className="block text-slate-400 hover:text-slate-200 transition-colors">
+          <Link href="/help" className="block text-slate-400 hover:text-slate-200 transition-colors py-1">
             Help Center
           </Link>
         </div>
       </div>
-    </motion.div>
+    </div>
   )
 }
