@@ -508,6 +508,10 @@ app.include_router(search.router, prefix="/api/v1", tags=["search"])
 # Bans — community ban management
 app.include_router(bans.router, prefix="/api/v1", tags=["bans"])
 
+# Messaging — Reddit-style direct messages
+from app.api import messages as messages_api
+app.include_router(messages_api.router, prefix="/api/v1", tags=["messages"])
+
 # MLOps — model registry, experiments, monitoring, pipeline control
 app.include_router(mlops.router, prefix="/api/v1", tags=["mlops"])
 
