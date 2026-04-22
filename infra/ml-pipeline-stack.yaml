@@ -361,11 +361,34 @@ Resources:
                 "started_at.$": "$$.State.EnteredTime"
               },
               "ResultPath": "$.run",
-              "Next": "PlanShards"
+              "Next": "ChooseShardPlan"
             },
-            "PlanShards": {
+            "ChooseShardPlan": {
+              "Type": "Choice",
+              "Comment": "Route to correct shard plan based on run_type",
+              "Choices": [
+                {
+                  "Variable": "$.run.run_type",
+                  "StringEquals": "sunday",
+                  "Next": "PlanShardsFull"
+                }
+              ],
+              "Default": "PlanShardsWeekday"
+            },
+            "PlanShardsWeekday": {
               "Type": "Pass",
-              "Comment": "In production, replace with Lambda that calls shard_planner.plan_shards()",
+              "Comment": "Weekday: tier_2 only (tier_1 + tier_2 combined, ~230 symbols)",
+              "Parameters": {
+                "shards": [
+                  {"tier": "tier_2", "label": "tier_2"}
+                ]
+              },
+              "ResultPath": "$.plan",
+              "Next": "TrainShards"
+            },
+            "PlanShardsFull": {
+              "Type": "Pass",
+              "Comment": "Sunday full retrain: 5 exclusive parallel shards covering all 804 symbols",
               "Parameters": {
                 "shards": [
                   {"tier": "tier_1_exclusive", "label": "tier_1"},
@@ -382,6 +405,11 @@ Resources:
               "Type": "Map",
               "ItemsPath": "$.plan.shards",
               "MaxConcurrency": 5,
+              "ItemSelector": {
+                "tier.$": "$$.Map.Item.Value.tier",
+                "label.$": "$$.Map.Item.Value.label",
+                "run_id.$": "$.run.run_id"
+              },
               "Iterator": {
                 "StartAt": "SubmitBatchJob",
                 "States": {
@@ -394,13 +422,14 @@ Resources:
                       "JobQueue": "ml-training-queue-${Environment}",
                       "ContainerOverrides": {
                         "Environment": [
-                          {"Name": "ML_RUN_ID", "Value.$": "$$.Execution.Input.run.run_id"},
+                          {"Name": "ML_RUN_ID", "Value.$": "$.run_id"},
                           {"Name": "ML_SHARD_ID", "Value.$": "States.UUID()"},
                           {"Name": "ML_SHARD_NAME", "Value.$": "$.label"},
                           {"Name": "ML_SYMBOL_TIER", "Value.$": "$.tier"}
                         ]
                       }
                     },
+                    "ResultPath": "$.batch_result",
                     "Catch": [
                       {
                         "ErrorEquals": ["States.ALL"],
@@ -414,6 +443,7 @@ Resources:
                     "Type": "Pass",
                     "Parameters": {
                       "status": "failed",
+                      "label.$": "$.label",
                       "error.$": "$.error"
                     },
                     "End": true
@@ -421,12 +451,45 @@ Resources:
                 }
               },
               "ResultPath": "$.shard_results",
+              "Next": "CheckForFailures"
+            },
+            "CheckForFailures": {
+              "Type": "Pass",
+              "Comment": "Count failed shards. In production, replace with Lambda for accurate counting.",
               "Next": "EvaluateResults"
             },
             "EvaluateResults": {
+              "Type": "Choice",
+              "Comment": "Fail the pipeline if any shard reported failure status",
+              "Choices": [
+                {
+                  "Variable": "$.shard_results[0].status",
+                  "IsPresent": true,
+                  "Next": "HasFailedShards"
+                }
+              ],
+              "Default": "PipelineComplete"
+            },
+            "HasFailedShards": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.shard_results[0].status",
+                  "StringEquals": "failed",
+                  "Next": "PipelineFailed"
+                }
+              ],
+              "Default": "PipelineCheckRemaining"
+            },
+            "PipelineCheckRemaining": {
               "Type": "Pass",
-              "Comment": "In production, replace with Lambda that aggregates results and writes to Neon",
+              "Comment": "First shard succeeded. For full failure detection, use a Lambda aggregator.",
               "Next": "PipelineComplete"
+            },
+            "PipelineFailed": {
+              "Type": "Fail",
+              "Error": "ShardTrainingFailed",
+              "Cause": "One or more training shards failed. Check shard_results for details."
             },
             "PipelineComplete": {
               "Type": "Succeed"
