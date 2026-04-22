@@ -20,7 +20,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from ml.config import TrainConfig
-from ml.constants import DEFAULT_CONFIG_PATH, FEATURE_COLUMNS
+from ml.constants import DEFAULT_CONFIG_PATH, FEATURE_COLUMNS, SYMBOL_TIERS
 from ml.dataset import build_datasets, precompute_features, build_datasets_from_cache
 from ml.model import LSTMPredictor
 from ml.evaluate import compute_metrics, print_report
@@ -332,6 +332,15 @@ def train(config: TrainConfig) -> list[dict]:
         feat_metrics["symbols_valid"] = len(cached.symbols)
         logger.info(f"Feature precomputation complete: {len(cached.symbols)} symbols ready")
 
+    if len(cached.symbols) == 0:
+        logger.error(
+            f"Feature precomputation returned 0 valid symbols out of {len(symbols)} requested. "
+            f"This usually means yfinance is rate-limited or down. "
+            f"Cached data will be used on next run if available."
+        )
+        slog.error("feature_precompute", "data", f"0/{len(symbols)} symbols had valid data")
+        return [{"horizon": h, "error": "No valid symbols after feature precomputation"} for h in config.horizons]
+
     results = []
     for h in config.horizons:
         try:
@@ -394,6 +403,10 @@ def main():
     logger.info(f"Horizons: {config.horizons}")
 
     resolved = config.resolve_symbols()
+    if not resolved:
+        logger.error(f"No symbols resolved for tier '{config.symbol_tier}'. Available tiers: {list(SYMBOL_TIERS.keys())}")
+        sys.exit(1)
+
     logger.info(f"Symbol tier: {config.symbol_tier}")
     logger.info(f"Training on {len(resolved)} symbols ({resolved[:10]}{'...' if len(resolved) > 10 else ''})")
 
