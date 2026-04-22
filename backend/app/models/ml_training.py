@@ -9,11 +9,12 @@ from sqlalchemy import (
     Boolean, Column, DateTime, Float, Integer, JSON, String, Text,
     ForeignKey, Index,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
 
 from app.db.database import Base
+from app.models.community import PortableARRAY
 
 
 class TrainingRun(Base):
@@ -55,8 +56,8 @@ class TrainingShard(Base):
     shard_name = Column(String(50))
     status = Column(String(20), nullable=False, default="pending")  # pending | running | completed | failed
     symbol_count = Column(Integer, default=0)
-    symbols = Column(ARRAY(String))
-    horizons = Column(ARRAY(Integer), default=[1, 7, 30])
+    symbols = Column(PortableARRAY(String))
+    horizons = Column(PortableARRAY(Integer), default=[1, 7, 30])
     manifest_s3_uri = Column(Text)
     batch_job_id = Column(String(100))
     retry_count = Column(Integer, default=0)
@@ -110,7 +111,7 @@ class ModelVersion(Base):
     feature_version = Column(String(20), default="v1")
     config_snapshot = Column(JSON)
     symbol_count = Column(Integer)
-    horizons = Column(ARRAY(Integer))
+    horizons = Column(PortableARRAY(Integer))
     avg_directional_accuracy = Column(Float)
     avg_information_coefficient = Column(Float)
     promotion_status = Column(String(20), default="staging")  # staging | production | archived
