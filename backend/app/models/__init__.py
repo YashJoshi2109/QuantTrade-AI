@@ -35,6 +35,7 @@ from app.models.realtime_quote import RealtimeQuote, MarketIndex, QuoteHistory
 from app.models.ml_model import MLModel
 from app.models.ml_monitoring import MLFeatureStat, MLPredictionStat
 from app.models.ml_training import TrainingRun, TrainingShard, TrainingArtifact, ModelVersion
+from app.models.messaging import Conversation, ConversationParticipant, Message, UserBlock
 from app.models.sec_usage import SecAPIUsage
 
 # MVP Lean models (Neon-backed caches)

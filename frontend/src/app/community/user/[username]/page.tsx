@@ -153,8 +153,8 @@ export default function UserProfilePage() {
         }
         setPostsCursor(data.next_cursor ?? undefined)
         setHasMorePosts(!!data.next_cursor)
-      } catch {
-        // silent
+      } catch (err) {
+        console.error('Failed to load user posts:', err)
       } finally {
         setPostsLoading(false)
       }
