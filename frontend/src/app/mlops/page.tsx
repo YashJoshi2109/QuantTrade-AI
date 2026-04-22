@@ -682,6 +682,8 @@ function TrainingRunsTab() {
     try {
       const res = await fetch(`${API}/api/v1/internal/ml/runs/nightly/trigger`, {
         method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ run_type: 'manual', symbol_tier: 'tier_2' }),
       })
       if (res.ok) {
         setTriggerMsg('Training run triggered successfully')

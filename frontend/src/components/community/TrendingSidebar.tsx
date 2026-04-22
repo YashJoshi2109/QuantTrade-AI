@@ -21,7 +21,20 @@ export default function TrendingSidebar() {
   const loadTrending = useCallback(async () => {
     try {
       const data = await fetchTrendingTickers(24, 10)
-      const fetched = data.tickers || []
+      let fetched = data.tickers || []
+      // Fallback: show popular mega-caps when no community mentions exist
+      if (fetched.length === 0) {
+        fetched = [
+          { symbol: 'AAPL', mention_count: 0 },
+          { symbol: 'NVDA', mention_count: 0 },
+          { symbol: 'TSLA', mention_count: 0 },
+          { symbol: 'MSFT', mention_count: 0 },
+          { symbol: 'GOOGL', mention_count: 0 },
+          { symbol: 'AMZN', mention_count: 0 },
+          { symbol: 'META', mention_count: 0 },
+          { symbol: 'JPM', mention_count: 0 },
+        ]
+      }
       setTickers(fetched)
 
       // Fetch quotes for any new tickers we haven't fetched yet
