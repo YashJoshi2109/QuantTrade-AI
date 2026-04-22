@@ -85,7 +85,7 @@ Resources:
   BatchSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ML Batch compute — outbound only
+      GroupDescription: ML Batch compute - outbound only
       VpcId: !Ref VpcId
       SecurityGroupEgress:
         - IpProtocol: -1
@@ -167,6 +167,27 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 
+  BatchInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ml-batch-instance-${Environment}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+
+  BatchInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ml-batch-instance-profile-${Environment}
+      Roles:
+        - !Ref BatchInstanceRole
+
   # ── Batch Compute Environments ────────────────────────────────────
   SpotComputeEnvironment:
     Type: AWS::Batch::ComputeEnvironment
@@ -179,6 +200,7 @@ Resources:
         Type: SPOT
         BidPercentage: 60
         SpotIamFleetRole: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-ec2-spot-fleet-tagging-role
+        InstanceRole: !GetAtt BatchInstanceProfile.Arn
         MinvCpus: 0
         MaxvCpus: !Ref MaxVCPUs
         DesiredvCpus: 0
@@ -202,6 +224,7 @@ Resources:
       ServiceRole: !GetAtt BatchServiceRole.Arn
       ComputeResources:
         Type: EC2
+        InstanceRole: !GetAtt BatchInstanceProfile.Arn
         MinvCpus: 0
         MaxvCpus: 8
         DesiredvCpus: 0
