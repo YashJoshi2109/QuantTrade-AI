@@ -19,8 +19,9 @@ import {
   Pencil,
   Search,
   CheckCircle2,
-  Keyboard,
   ImagePlus,
+  UserPlus,
+  UserCheck,
 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import PostCard from '@/components/community/PostCard'
@@ -36,6 +37,8 @@ import {
   fetchCommunities,
   createPost,
   uploadImage,
+  followUser,
+  unfollowUser,
   type CommunityPost,
   type Community,
 } from '@/lib/api'
@@ -126,6 +129,10 @@ function CommunityPageInner() {
   const [communitySearch, setCommunitySearch] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+
+  // Follow tracking
+  const [followedUsers, setFollowedUsers] = useState<Set<number>>(new Set())
+  const [followingUserId, setFollowingUserId] = useState<number | null>(null)
 
   // Keyboard focus
   const [focusedIndex, setFocusedIndex] = useState(-1)
@@ -258,6 +265,56 @@ function CommunityPageInner() {
     return () => observer.disconnect()
   }, [hasMore, loadingMore, loading, sort, loadFeed])
 
+  // Follow user handler
+  const handleFollowUser = useCallback(async (userId: number) => {
+    const isFollowing = followedUsers.has(userId)
+    setFollowingUserId(userId)
+
+    // Optimistic update
+    setFollowedUsers((prev) => {
+      const next = new Set(prev)
+      if (isFollowing) {
+        next.delete(userId)
+      } else {
+        next.add(userId)
+      }
+      return next
+    })
+
+    try {
+      const ok = isFollowing ? await unfollowUser(userId) : await followUser(userId)
+      if (!ok) {
+        // Revert
+        setFollowedUsers((prev) => {
+          const next = new Set(prev)
+          if (isFollowing) {
+            next.add(userId)
+          } else {
+            next.delete(userId)
+          }
+          return next
+        })
+        toastError('Failed to update follow status')
+      } else {
+        toastSuccess(isFollowing ? 'Unfollowed user' : 'Following user')
+      }
+    } catch {
+      // Revert
+      setFollowedUsers((prev) => {
+        const next = new Set(prev)
+        if (isFollowing) {
+          next.add(userId)
+        } else {
+          next.delete(userId)
+        }
+        return next
+      })
+      toastError('Failed to update follow status')
+    } finally {
+      setFollowingUserId(null)
+    }
+  }, [followedUsers, toastSuccess, toastError])
+
   // Create post handler with animated submit
   const handleCreate = async () => {
     if (!createTitle.trim() || !createCommunity) return
@@ -339,7 +396,6 @@ function CommunityPageInner() {
     },
     onUpvote: () => {
       if (focusedIndex >= 0 && focusedIndex < posts.length) {
-        // Trigger vote on the focused post card
         const postCard = postRefs.current[focusedIndex]
         const upBtn = postCard?.querySelector('[data-vote="up"]') as HTMLButtonElement
         upBtn?.click()
@@ -369,130 +425,183 @@ function CommunityPageInner() {
 
   return (
     <AppLayout>
-    <div className="min-h-screen pb-safe">
-      <div className="max-w-[1400px] mx-auto px-3 sm:px-6 py-4 sm:py-6">
-        {/* 3-Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-5">
-          {/* Left Sidebar - Navigation + Communities */}
-          <div className="hidden lg:block">
-            <div className="sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto scrollbar-thin">
-              <CommunitySidebar />
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#0a0a0f]">
+      {/* Full-width 3-column Reddit layout */}
+      <div className="flex justify-center w-full">
+        <div className="flex w-full max-w-[1400px] gap-0">
 
-          {/* Center - Feed */}
-          <div className="min-w-0">
-            {/* Create Post Bar */}
-            <div className="flex items-center gap-3 bg-[#131820] rounded-2xl px-4 py-2.5 mb-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center text-xs font-bold text-blue-400 shrink-0">
-                U
+          {/* ═══ Left Sidebar ═══ */}
+          <aside className="hidden lg:block w-[260px] shrink-0">
+            <div
+              className="sticky top-[4.5rem] h-[calc(100vh-4.5rem)] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent"
+              style={{ scrollbarWidth: 'thin' }}
+            >
+              <div className="py-4 px-2">
+                <CommunitySidebar />
               </div>
-              <button
-                onClick={() => setShowCreate(true)}
-                className="flex-1 text-left px-4 py-2 bg-[#1a2130] rounded-full text-sm text-slate-500 hover:bg-[#1f2937] hover:text-slate-400 transition-colors"
-              >
-                Create a post
-              </button>
-              <button
-                onClick={() => setShowCreate(true)}
-                className="p-2 rounded-full text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
-              >
-                <PenSquare className="w-5 h-5" />
-              </button>
             </div>
+          </aside>
 
-            {/* Sort Tabs */}
-            <div className="bg-[#131820] rounded-2xl p-1 mb-3 flex gap-0.5">
-              {SORT_TABS.map(({ key, label, icon: Icon }) => (
+          {/* ═══ Center Feed ═══ */}
+          <main className="flex-1 min-w-0 border-x border-white/[0.04]">
+            <div className="px-3 sm:px-4 py-4">
+              {/* Create Post Bar */}
+              <div className="flex items-center gap-3 bg-[#131820] border border-white/[0.06] rounded-xl px-4 py-2.5 mb-3">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center text-xs font-bold text-blue-400 shrink-0 ring-1 ring-white/[0.06]">
+                  U
+                </div>
                 <button
-                  key={key}
-                  onClick={() => {
-                    setSort(key)
-                    if (key !== 'top') setTimeFilter('all')
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors flex-1 justify-center ${
-                    sort === key
-                      ? 'bg-white/[0.08] text-white'
-                      : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]'
-                  }`}
+                  onClick={() => setShowCreate(true)}
+                  className="flex-1 text-left px-4 py-2 bg-[#1a2130] border border-white/[0.06] rounded-full text-sm text-slate-500 hover:bg-[#1f2937] hover:border-white/[0.1] hover:text-slate-400 transition-all"
                 >
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{label}</span>
+                  Create a post
                 </button>
-              ))}
-            </div>
-
-            {/* Time filter — only visible when Top sort is active */}
-            {sort === 'top' && (
-              <div className="flex items-center gap-2 mb-3 px-1">
-                <span className="text-[11px] text-slate-500 uppercase tracking-wider">Period</span>
-                <select
-                  value={timeFilter}
-                  onChange={(e) => setTimeFilter(e.target.value)}
-                  className="bg-[#131820] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                <button
+                  onClick={() => setShowCreate(true)}
+                  className="p-2 rounded-full text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                  title="Create post"
                 >
-                  <option value="day">Today</option>
-                  <option value="week">This Week</option>
-                  <option value="month">This Month</option>
-                  <option value="year">This Year</option>
-                  <option value="all">All Time</option>
-                </select>
+                  <PenSquare className="w-5 h-5" />
+                </button>
               </div>
-            )}
 
-            {/* Posts */}
-            {loading ? (
-              <FeedSkeleton count={5} />
-            ) : posts.length === 0 ? (
-              <EmptyState
-                variant="no-posts"
-                ctaLabel="Create the first post"
-                onCta={() => setShowCreate(true)}
-              />
-            ) : (
-              <div className="space-y-2">
-                {posts.map((post, i) => (
-                  <PostCard
-                    key={post.id}
-                    ref={(el) => { postRefs.current[i] = el }}
-                    post={post}
-                    index={i}
-                    focused={focusedIndex === i}
-                    toastFn={handleToast}
-                  />
-                ))}
+              {/* ── Full-Width Sort Tabs ── */}
+              <div className="bg-[#131820] border border-white/[0.06] rounded-xl mb-3 overflow-hidden">
+                <div className="flex">
+                  {SORT_TABS.map(({ key, label, icon: Icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        setSort(key)
+                        if (key !== 'top') setTimeFilter('all')
+                      }}
+                      className={`flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all flex-1 border-b-2 ${
+                        sort === key
+                          ? 'border-blue-500 text-white bg-white/[0.03]'
+                          : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-white/[0.02]'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 ${sort === key ? 'text-blue-400' : ''}`} />
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Time filter sub-bar for Top sort */}
+                {sort === 'top' && (
+                  <div className="flex items-center gap-2 px-4 py-2 border-t border-white/[0.04] bg-white/[0.01]">
+                    <span className="text-[11px] text-slate-500 uppercase tracking-wider">Period</span>
+                    {[
+                      { value: 'day', label: 'Today' },
+                      { value: 'week', label: 'This Week' },
+                      { value: 'month', label: 'This Month' },
+                      { value: 'year', label: 'This Year' },
+                      { value: 'all', label: 'All Time' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setTimeFilter(opt.value)}
+                        className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
+                          timeFilter === opt.value
+                            ? 'bg-blue-500/15 text-blue-400 font-medium'
+                            : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
 
-            {/* Infinite scroll sentinel */}
-            <div ref={sentinelRef} className="h-px" />
+              {/* ── Posts Feed ── */}
+              {loading ? (
+                <FeedSkeleton count={5} />
+              ) : posts.length === 0 ? (
+                <EmptyState
+                  variant="no-posts"
+                  ctaLabel="Create the first post"
+                  onCta={() => setShowCreate(true)}
+                />
+              ) : (
+                <div className="space-y-2">
+                  {posts.map((post, i) => (
+                    <div key={post.id} className="relative group/postrow">
+                      <PostCard
+                        ref={(el) => { postRefs.current[i] = el }}
+                        post={post}
+                        index={i}
+                        focused={focusedIndex === i}
+                        toastFn={handleToast}
+                      />
+                      {/* Follow button overlay - shown on hover for non-self authors */}
+                      <div className="absolute top-3 right-3 opacity-0 group-hover/postrow:opacity-100 transition-opacity z-10">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleFollowUser(post.author.id)
+                          }}
+                          disabled={followingUserId === post.author.id}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all duration-150 backdrop-blur-sm ${
+                            followedUsers.has(post.author.id)
+                              ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400'
+                              : 'bg-[#131820]/90 border-white/10 text-slate-300 hover:bg-blue-500/10 hover:border-blue-500/30 hover:text-blue-400'
+                          }`}
+                          title={followedUsers.has(post.author.id) ? `Unfollow ${post.author.username}` : `Follow ${post.author.username}`}
+                        >
+                          {followingUserId === post.author.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : followedUsers.has(post.author.id) ? (
+                            <UserCheck className="w-3 h-3" />
+                          ) : (
+                            <UserPlus className="w-3 h-3" />
+                          )}
+                          <span className="hidden xl:inline">
+                            {followedUsers.has(post.author.id) ? 'Following' : 'Follow'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-            {loadingMore && (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
-              </div>
-            )}
+              {/* Infinite scroll sentinel */}
+              <div ref={sentinelRef} className="h-px" />
 
-            {!hasMore && posts.length > 0 && (
-              <p className="text-center text-xs text-slate-600 py-6">
-                You&apos;ve reached the end
-              </p>
-            )}
-          </div>
+              {loadingMore && (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+                </div>
+              )}
 
-          {/* Right Sidebar - Trending + Communities */}
-          <div className="hidden lg:block">
-            <div className="sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto scrollbar-thin">
-              <TrendingSidebar />
+              {!hasMore && posts.length > 0 && (
+                <p className="text-center text-xs text-slate-600 py-8">
+                  You&apos;ve reached the end of the feed
+                </p>
+              )}
             </div>
-          </div>
+          </main>
+
+          {/* ═══ Right Sidebar ═══ */}
+          <aside className="hidden lg:block w-[312px] shrink-0">
+            <div
+              className="sticky top-[4.5rem] h-[calc(100vh-4.5rem)] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent"
+              style={{ scrollbarWidth: 'thin' }}
+            >
+              <div className="py-4 px-2">
+                <TrendingSidebar />
+              </div>
+            </div>
+          </aside>
         </div>
       </div>
 
       {/* Keyboard Shortcuts Help Modal */}
       <ShortcutHelpModal open={showHelp} onClose={() => setShowHelp(false)} />
 
-      {/* Create Post Modal - Enhanced */}
+      {/* ═══ Create Post Modal ═══ */}
       <AnimatePresence>
         {showCreate && (
           <motion.div

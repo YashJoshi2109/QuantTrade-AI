@@ -403,19 +403,7 @@ export default function AppLayout({ children, symbol, hideFooter }: AppLayoutPro
               <ApiStatsMonitor compact={true} />
             </div>
             <MarketStatusIndicator compact={true} />
-            <HeaderTooltip
-              label="Live visitors"
-              detail={
-                liveVisitors?.count != null
-                  ? `~${liveVisitors.count} active (source: ${liveVisitors.source}). Refreshes about every 30s.`
-                  : liveVisitors?.message ||
-                    'Backend live count not configured — showing a simulated pulse. Set GA4 or Cloudflare env on the API.'
-              }
-            >
-              <div className="hidden md:flex shrink-0 items-center">
-                <LiveVisitorCounter gaCount={liveVisitors?.count ?? null} />
-              </div>
-            </HeaderTooltip>
+            {/* Live visitors removed — not providing real-time data */}
             <HeaderTooltip
               label="About QuantTrade"
               detail="Product scope, data sources, and operator details."
