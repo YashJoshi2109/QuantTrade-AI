@@ -462,6 +462,10 @@ app.include_router(bans.router, prefix="/api/v1", tags=["bans"])
 # MLOps — model registry, experiments, monitoring, pipeline control
 app.include_router(mlops.router, prefix="/api/v1", tags=["mlops"])
 
+# ML Training Pipeline — internal operator API
+from app.api import ml_runs
+app.include_router(ml_runs.router, prefix="/api/v1", tags=["ml-pipeline"])
+
 
 @app.get("/")
 async def root():

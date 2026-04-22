@@ -52,6 +52,15 @@ data/processed/
 *.csv
 *.parquet
 
+# ML runtime artifacts (generated, not tracked)
+backend/ml/data_cache/
+backend/ml/checkpoints/
+backend/ml/experiments/
+backend/ml/prediction_logs/
+backend/ml/registry/
+backend/ml/feature_store_data/
+backend/ml/drift_reports/
+
 # Vector DB
 chroma_db/
 *.index

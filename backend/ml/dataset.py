@@ -52,29 +52,47 @@ def download_symbol(
             except Exception:
                 pass  # re-download on read failure
 
-    # Download
-    try:
-        tk = yf.Ticker(symbol)
-        df = tk.history(period=period, auto_adjust=True)
-        if df.empty:
-            logger.warning(f"No data for {symbol}")
+    # Download with retry (yfinance can have transient 404s/rate limits)
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            tk = yf.Ticker(symbol)
+            df = tk.history(period=period, auto_adjust=True)
+            if df.empty:
+                if attempt < max_retries:
+                    time.sleep(1 + attempt)
+                    continue
+                logger.warning(f"No data for {symbol} after {max_retries + 1} attempts")
+                return pd.DataFrame()
+
+            # Normalize timezone
+            if hasattr(df.index, "tz") and df.index.tz is not None:
+                df.index = df.index.tz_localize(None)
+
+            # Keep only OHLCV
+            cols = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in df.columns]
+            df = df[cols].copy()
+
+            # Cache
+            df.to_parquet(cache_path)
+            logger.info(f"Downloaded {symbol}: {len(df)} bars ({df.index[0].date()} to {df.index[-1].date()})")
+            return df
+        except Exception as e:
+            if attempt < max_retries:
+                logger.warning(f"Retry {attempt + 1}/{max_retries} for {symbol}: {e}")
+                time.sleep(2 + attempt * 2)
+                continue
+            logger.error(f"Failed to download {symbol} after {max_retries + 1} attempts: {e}")
+            # Fall back to stale cache if available
+            if cache_path.exists():
+                try:
+                    df = pd.read_parquet(cache_path)
+                    if len(df) > 0:
+                        logger.info(f"Using stale cache for {symbol} ({cache_path})")
+                        return df
+                except Exception:
+                    pass
             return pd.DataFrame()
-
-        # Normalize timezone
-        if hasattr(df.index, "tz") and df.index.tz is not None:
-            df.index = df.index.tz_localize(None)
-
-        # Keep only OHLCV
-        cols = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in df.columns]
-        df = df[cols].copy()
-
-        # Cache
-        df.to_parquet(cache_path)
-        logger.info(f"Downloaded {symbol}: {len(df)} bars ({df.index[0].date()} to {df.index[-1].date()})")
-        return df
-    except Exception as e:
-        logger.error(f"Failed to download {symbol}: {e}")
-        return pd.DataFrame()
 
 
 def download_bulk(
@@ -363,7 +381,12 @@ def build_datasets_from_cache(
         all_targets.append(tgt_arr)
 
     if not all_features:
-        raise ValueError(f"No valid data for h={horizon}")
+        raise ValueError(
+            f"No valid data for h={horizon}. "
+            f"{len(cached.symbols)} symbols had features but none had enough rows "
+            f"(need >= {seq_len + val_days + test_days + 10}). "
+            f"Check yfinance connectivity and data_period setting."
+        )
 
     # Temporal split per symbol
     train_feats, train_tgts = [], []

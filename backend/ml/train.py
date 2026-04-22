@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -19,13 +20,14 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from ml.config import TrainConfig
-from ml.constants import DEFAULT_CONFIG_PATH, FEATURE_COLUMNS
+from ml.constants import DEFAULT_CONFIG_PATH, FEATURE_COLUMNS, SYMBOL_TIERS
 from ml.dataset import build_datasets, precompute_features, build_datasets_from_cache
 from ml.model import LSTMPredictor
 from ml.evaluate import compute_metrics, print_report
 from ml.baselines import run_all_baselines
 from ml.calibration import build_calibration
 from ml.checkpoint import save_checkpoint, checkpoint_filename
+from ml.structured_logger import LogContext, StructuredLogger, reset_structured_logger
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,6 +41,12 @@ logger = logging.getLogger("ml.train")
 
 def get_device() -> str:
     """Auto-detect best available device: CUDA > MPS > CPU."""
+    # Explicitly set thread counts for CI runners (GH Actions = 2 vCPU)
+    num_threads = int(os.environ.get("OMP_NUM_THREADS", "2"))
+    torch.set_num_threads(num_threads)
+    if hasattr(torch, "set_num_interop_threads"):
+        torch.set_num_interop_threads(max(1, num_threads // 2))
+
     if torch.cuda.is_available():
         return "cuda"
     if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
@@ -169,8 +177,10 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
     if len(train_ds) == 0:
         raise ValueError(f"Empty training dataset for h={horizon}")
 
-    train_loader = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_ds, batch_size=config.batch_size, shuffle=False, num_workers=0)
+    # DataLoaders — use num_workers=2 for CPU prefetching on CI runners
+    dl_workers = 2 if device == "cpu" and len(train_ds) > 10000 else 0
+    train_loader = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True, num_workers=dl_workers, persistent_workers=dl_workers > 0)
+    val_loader = DataLoader(val_ds, batch_size=config.batch_size, shuffle=False, num_workers=dl_workers, persistent_workers=dl_workers > 0)
     test_loader = DataLoader(test_ds, batch_size=config.batch_size, shuffle=False, num_workers=0)
 
     # Model
@@ -181,6 +191,14 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
         dropout=config.dropout,
     ).to(device)
     logger.info(f"Model: {sum(p.numel() for p in model.parameters()):,} parameters")
+
+    # torch.compile for CPU op fusion (PyTorch 2.0+, ~10-20% speedup, ~30s compile)
+    if hasattr(torch, "compile") and device == "cpu":
+        try:
+            model = torch.compile(model)
+            logger.info("Model compiled with torch.compile()")
+        except Exception as e:
+            logger.warning(f"torch.compile failed, continuing without: {e}")
 
     # Loss
     if config.target_mode == "binary_direction":
@@ -294,23 +312,57 @@ def train(config: TrainConfig) -> list[dict]:
     Precomputes features ONCE then reuses across all horizons.
     This avoids 3× redundant download + feature computation.
     """
+    # Initialize structured logging context from environment
+    slog = reset_structured_logger(LogContext(
+        run_id=os.environ.get("ML_RUN_ID", ""),
+        shard_name=os.environ.get("ML_SHARD_NAME", ""),
+        trigger_source=os.environ.get("ML_TRIGGER_SOURCE", "cli"),
+    ))
+
     symbols = config.resolve_symbols()
-    logger.info(f"Precomputing features for {len(symbols)} symbols (one-time)...")
-    cached = precompute_features(
-        symbols=symbols,
-        data_period=config.data_period,
-        cache_dir=config.cache_dir,
-    )
-    logger.info(f"Feature precomputation complete: {len(cached.symbols)} symbols ready")
+
+    with slog.timed("feature_precompute") as feat_metrics:
+        logger.info(f"Precomputing features for {len(symbols)} symbols (one-time)...")
+        cached = precompute_features(
+            symbols=symbols,
+            data_period=config.data_period,
+            cache_dir=config.cache_dir,
+        )
+        feat_metrics["symbols_requested"] = len(symbols)
+        feat_metrics["symbols_valid"] = len(cached.symbols)
+        logger.info(f"Feature precomputation complete: {len(cached.symbols)} symbols ready")
+
+    if len(cached.symbols) == 0:
+        logger.error(
+            f"Feature precomputation returned 0 valid symbols out of {len(symbols)} requested. "
+            f"This usually means yfinance is rate-limited or down. "
+            f"Cached data will be used on next run if available."
+        )
+        slog.error("feature_precompute", "data", f"0/{len(symbols)} symbols had valid data")
+        return [{"horizon": h, "error": "No valid symbols after feature precomputation"} for h in config.horizons]
 
     results = []
     for h in config.horizons:
         try:
-            result = train_single_horizon(config, h, cached_features=cached)
-            results.append(result)
+            with slog.timed("train_horizon", horizon=h) as h_metrics:
+                result = train_single_horizon(config, h, cached_features=cached)
+                if "test_metrics" in result:
+                    h_metrics["directional_accuracy"] = result["test_metrics"].get("directional_accuracy", 0)
+                    h_metrics["information_coefficient"] = result["test_metrics"].get("information_coefficient", 0)
+                results.append(result)
         except Exception as e:
             logger.exception(f"Training failed for h={h}: {e}")
             results.append({"horizon": h, "error": str(e)})
+
+    # Log final summary
+    successes = sum(1 for r in results if "error" not in r)
+    slog.info("train_summary", "completed", metrics={
+        "horizons_total": len(config.horizons),
+        "horizons_success": successes,
+        "horizons_failed": len(config.horizons) - successes,
+        "symbols_trained": len(cached.symbols),
+    })
+
     return results
 
 
@@ -351,6 +403,10 @@ def main():
     logger.info(f"Horizons: {config.horizons}")
 
     resolved = config.resolve_symbols()
+    if not resolved:
+        logger.error(f"No symbols resolved for tier '{config.symbol_tier}'. Available tiers: {list(SYMBOL_TIERS.keys())}")
+        sys.exit(1)
+
     logger.info(f"Symbol tier: {config.symbol_tier}")
     logger.info(f"Training on {len(resolved)} symbols ({resolved[:10]}{'...' if len(resolved) > 10 else ''})")
 
