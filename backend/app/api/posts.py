@@ -753,8 +753,20 @@ async def vote_on_post(
 
     if existing_vote:
         if existing_vote.vote_type == body.direction:
-            # Idempotent
-            return {"message": "Vote already recorded", "direction": body.direction}
+            # Toggle off — clicking same direction removes the vote (Reddit-style)
+            if existing_vote.vote_type == 1:
+                post.upvote_count = max((post.upvote_count or 0) - 1, 0)
+            else:
+                post.downvote_count = max((post.downvote_count or 0) - 1, 0)
+            db.delete(existing_vote)
+            db.commit()
+            return {
+                "message": "Vote removed",
+                "direction": None,
+                "upvote_count": post.upvote_count,
+                "downvote_count": post.downvote_count,
+                "vote_count": (post.upvote_count or 0) - (post.downvote_count or 0),
+            }
 
         # Reverse the old vote counts
         if existing_vote.vote_type == 1:

@@ -180,8 +180,8 @@ export default function PostThreadPage() {
     setCommentsLoading(true)
     try {
       const data = await fetchComments(postId, commentSort)
-      // The API returns { comments: [...] } — extract the array
-      const list: Comment[] = (data as any)?.comments || (Array.isArray(data) ? data : [])
+      // Backend returns { items: [...] } (PaginatedComments) or { comments: [...] }
+      const list: Comment[] = (data as any)?.items || (data as any)?.comments || (Array.isArray(data) ? data : [])
       setComments(list)
     } catch (err) {
       console.error('Failed to load comments:', err)

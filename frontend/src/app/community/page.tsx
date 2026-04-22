@@ -375,7 +375,7 @@ function CommunityPageInner() {
         <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-5">
           {/* Left Sidebar - Navigation + Communities */}
           <div className="hidden lg:block">
-            <div className="sticky top-20">
+            <div className="sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto scrollbar-thin">
               <CommunitySidebar />
             </div>
           </div>
@@ -482,7 +482,7 @@ function CommunityPageInner() {
 
           {/* Right Sidebar - Trending + Communities */}
           <div className="hidden lg:block">
-            <div className="sticky top-20">
+            <div className="sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto scrollbar-thin">
               <TrendingSidebar />
             </div>
           </div>

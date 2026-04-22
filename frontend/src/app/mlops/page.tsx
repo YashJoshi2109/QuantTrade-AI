@@ -547,7 +547,7 @@ function OverviewTab() {
                       {Object.entries(info.metrics).slice(0, 4).map(([k, v]: [string, any]) => (
                         <div key={k} className="text-center">
                           <div className="text-[10px] text-slate-500 uppercase">{k.replace(/_/g, ' ')}</div>
-                          <div className="text-xs font-mono text-slate-300">{typeof v === 'number' ? v.toFixed(4) : v}</div>
+                          <div className="text-xs font-mono text-slate-300">{typeof v === 'number' ? v.toFixed(4) : typeof v === 'string' ? v : '--'}</div>
                         </div>
                       ))}
                     </div>

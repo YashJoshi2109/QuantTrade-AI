@@ -548,7 +548,20 @@ async def vote_on_comment(
 
     if existing_vote:
         if existing_vote.vote_type == body.direction:
-            return {"message": "Vote already recorded", "direction": body.direction}
+            # Toggle off — clicking same direction removes the vote (Reddit-style)
+            if existing_vote.vote_type == 1:
+                comment.upvote_count = max((comment.upvote_count or 0) - 1, 0)
+            else:
+                comment.downvote_count = max((comment.downvote_count or 0) - 1, 0)
+            db.delete(existing_vote)
+            db.commit()
+            return {
+                "message": "Vote removed",
+                "direction": None,
+                "upvote_count": comment.upvote_count,
+                "downvote_count": comment.downvote_count,
+                "vote_count": (comment.upvote_count or 0) - (comment.downvote_count or 0),
+            }
 
         # Reverse old vote
         if existing_vote.vote_type == 1:
