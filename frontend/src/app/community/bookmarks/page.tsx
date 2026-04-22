@@ -26,8 +26,8 @@ export default function BookmarksPage() {
       }
       setCursor(data.next_cursor)
       setHasMore(!!data.next_cursor)
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('Failed to load bookmarks:', err)
     } finally {
       setLoading(false)
     }

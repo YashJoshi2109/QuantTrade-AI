@@ -14,7 +14,9 @@ except Exception as _aws_err:
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from app.db.database import SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.api import (
@@ -319,6 +321,16 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
     )
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch all unhandled exceptions — never leak tracebacks to clients."""
+    _db_logger.exception("Unhandled error %s %s: %s", request.method, request.url.path, type(exc).__name__)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error."},
+    )
+
+
 # Cache control middleware for market data endpoints
 class CacheControlMiddleware(BaseHTTPMiddleware):
     """Add Cache-Control + stale-while-revalidate headers for GET endpoints."""
@@ -368,6 +380,43 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# ── Rate limiting middleware (per-IP, in-memory) ─────────────────────
+import time as _time
+from collections import defaultdict as _defaultdict
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Simple per-IP rate limiter. Rejects with 429 when exceeded."""
+
+    def __init__(self, app, requests_per_minute: int = 120):
+        super().__init__(app)
+        self.rpm = requests_per_minute
+        self._hits: dict[str, list[float]] = _defaultdict(list)
+
+    async def dispatch(self, request: Request, call_next):
+        # Skip rate limiting for health/internal endpoints
+        path = request.url.path
+        if path in ("/health", "/", "/docs", "/openapi.json"):
+            return await call_next(request)
+
+        client_ip = request.client.host if request.client else "unknown"
+        now = _time.time()
+        window = now - 60
+
+        # Clean old entries and check
+        hits = self._hits[client_ip]
+        self._hits[client_ip] = hits = [t for t in hits if t > window]
+
+        if len(hits) >= self.rpm:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Rate limit exceeded. Try again shortly."},
+                headers={"Retry-After": "60"},
+            )
+
+        hits.append(now)
+        return await call_next(request)
+
+app.add_middleware(RateLimitMiddleware, requests_per_minute=120)
 app.add_middleware(CacheControlMiddleware)
 
 # CORS middleware
@@ -459,6 +508,10 @@ app.include_router(search.router, prefix="/api/v1", tags=["search"])
 # Bans — community ban management
 app.include_router(bans.router, prefix="/api/v1", tags=["bans"])
 
+# Messaging — Reddit-style direct messages
+from app.api import messages as messages_api
+app.include_router(messages_api.router, prefix="/api/v1", tags=["messages"])
+
 # MLOps — model registry, experiments, monitoring, pipeline control
 app.include_router(mlops.router, prefix="/api/v1", tags=["mlops"])
 
@@ -478,4 +531,36 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy chal raha hai sab kuch"}
+    """Production health check — verifies DB and Redis connectivity."""
+    checks = {"api": "ok"}
+
+    # Database check
+    try:
+        if SessionLocal is not None:
+            db = SessionLocal()
+            try:
+                db.execute(text("SELECT 1"))
+                checks["database"] = "ok"
+            finally:
+                db.close()
+        else:
+            checks["database"] = "not_configured"
+    except Exception:
+        checks["database"] = "error"
+
+    # Redis check
+    try:
+        import redis
+        redis_url = os.getenv("REDIS_URL")
+        if redis_url:
+            r = redis.from_url(redis_url, socket_timeout=2)
+            r.ping()
+            checks["redis"] = "ok"
+        else:
+            checks["redis"] = "not_configured"
+    except Exception:
+        checks["redis"] = "error"
+
+    status = "healthy" if all(v in ("ok", "not_configured") for v in checks.values()) else "degraded"
+    status_code = 200 if status == "healthy" else 503
+    return JSONResponse(content={"status": status, "checks": checks}, status_code=status_code)

@@ -124,9 +124,9 @@ def _search_symbols_master(
     filter_condition = or_(
         func.upper(SymbolsMaster.symbol).like(f"%{query_upper}%"),
         func.lower(SymbolsMaster.name).like(f"%{query_lower}%"),
-        # Trigram similarity threshold (requires pg_trgm)
-        text(f"similarity(symbol, '{query_upper}') > 0.3"),
-        text(f"similarity(name, '{query_lower}') > 0.3"),
+        # Trigram similarity threshold (requires pg_trgm) — parameterized
+        text("similarity(symbol, :q_upper) > 0.3").bindparams(q_upper=query_upper),
+        text("similarity(name, :q_lower) > 0.3").bindparams(q_lower=query_lower),
     )
     
     results = (
