@@ -416,7 +416,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         hits.append(now)
         return await call_next(request)
 
-app.add_middleware(RateLimitMiddleware, requests_per_minute=120)
+app.add_middleware(RateLimitMiddleware, requests_per_minute=300)
 app.add_middleware(CacheControlMiddleware)
 
 # CORS middleware

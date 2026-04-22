@@ -688,7 +688,8 @@ function TrainingRunsTab() {
         setTimeout(() => { setTriggerMsg(null); fetchRuns() }, 2000)
       } else {
         const body = await res.json().catch(() => ({}))
-        setTriggerMsg(body.detail || 'Failed to trigger run')
+        const msg = typeof body?.detail === 'string' ? body.detail : typeof body?.message === 'string' ? body.message : 'Failed to trigger run'
+        setTriggerMsg(msg)
       }
     } catch {
       setTriggerMsg('Network error triggering run')
