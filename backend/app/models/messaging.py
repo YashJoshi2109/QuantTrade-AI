@@ -13,8 +13,8 @@ from sqlalchemy.sql import func
 from app.db.database import Base
 
 
-class Conversation(Base):
-    """A conversation between 2+ users (Phase 1: DM only = 2 participants)."""
+class DMConversation(Base):
+    """A DM conversation between 2+ users (Phase 1: DM only = 2 participants)."""
     __tablename__ = "dm_conversations"
 
     id = Column(Integer, primary_key=True, index=True)

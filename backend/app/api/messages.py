@@ -15,7 +15,7 @@ from app.db.database import get_db
 from app.api.auth import require_auth
 from app.models.user import User
 from app.models.messaging import (
-    Conversation, ConversationParticipant, Message, UserBlock,
+    DMConversation as Conversation, ConversationParticipant, Message, UserBlock,
 )
 
 logger = logging.getLogger(__name__)
