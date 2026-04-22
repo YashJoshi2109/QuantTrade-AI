@@ -3,11 +3,11 @@ name: ML Train Nightly
 on:
   schedule:
     - cron: '0 3 * * 1-5'   # Weekdays 03:00 UTC — train tier_2 (~230 stocks)
-    - cron: '0 3 * * 0'      # Sunday 03:00 UTC — full retrain via parallel tier jobs
+    - cron: '0 3 * * 0'      # Sunday 03:00 UTC — full retrain via 5 parallel shard jobs
   workflow_dispatch:
     inputs:
       symbol_tier:
-        description: 'Symbol tier: tier_1 | tier_2 | tier_3 | all'
+        description: 'Symbol tier: tier_1 | tier_2 | tier_3 | all | tier_1_exclusive | tier_2_exclusive | tier_3a | tier_3b | tier_3c'
         default: 'tier_2'
       epochs:
         description: 'Override epochs (default from config)'
@@ -23,29 +23,32 @@ permissions:
   packages: read
 
 jobs:
-  # ── Determine which tiers to train ────────────────────────────────────
+  # ── Determine training shards ─────────────────────────────────────
   plan:
-    name: Plan training tiers
+    name: Plan training shards
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      run_id: ${{ steps.set-matrix.outputs.run_id }}
     steps:
       - name: Build matrix
         id: set-matrix
         run: |
+          RUN_ID=$(uuidgen || python3 -c "import uuid; print(uuid.uuid4())")
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TIER="${{ github.event.inputs.symbol_tier || 'tier_2' }}"
-            # Single tier dispatch — run as one job
             echo "matrix={\"include\":[{\"tier\":\"$TIER\",\"label\":\"$TIER\"}]}" >> $GITHUB_OUTPUT
           elif [ "$(date +%u)" = "7" ]; then
-            # Sunday — split into 3 parallel jobs by tier for faster execution
-            echo 'matrix={"include":[{"tier":"tier_1","label":"tier_1"},{"tier":"tier_2","label":"tier_2"},{"tier":"tier_3","label":"tier_3"}]}' >> $GITHUB_OUTPUT
+            # Sunday — 5 exclusive parallel jobs for full coverage
+            echo 'matrix={"include":[{"tier":"tier_1_exclusive","label":"tier_1"},{"tier":"tier_2_exclusive","label":"tier_2"},{"tier":"tier_3a","label":"tier_3a"},{"tier":"tier_3b","label":"tier_3b"},{"tier":"tier_3c","label":"tier_3c"}]}' >> $GITHUB_OUTPUT
           else
-            # Weekdays — tier_2 only (includes tier_1)
+            # Weekdays — tier_2 (tier_1 + tier_2 combined, ~230 symbols)
             echo 'matrix={"include":[{"tier":"tier_2","label":"tier_2"}]}' >> $GITHUB_OUTPUT
           fi
 
-  # ── Training jobs (parallel on Sunday) ────────────────────────────────
+  # ── Training shard jobs (parallel on Sunday) ──────────────────────
   train-lstm:
     name: Train LSTM (${{ matrix.label }})
     needs: plan
@@ -54,6 +57,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+
+    env:
+      ML_RUN_ID: ${{ needs.plan.outputs.run_id }}
+      ML_SHARD_NAME: ${{ matrix.label }}
+      ML_TRIGGER_SOURCE: github_actions
 
     steps:
       - name: Checkout repository
@@ -68,18 +76,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: backend/ml/data_cache
-          key: ml-data-cache-v4-${{ matrix.tier }}-${{ github.run_id }}
+          key: ml-data-cache-v5-${{ matrix.tier }}-${{ github.run_id }}
           restore-keys: |
-            ml-data-cache-v4-${{ matrix.tier }}-
+            ml-data-cache-v5-${{ matrix.tier }}-
+            ml-data-cache-v5-
             ml-data-cache-v4-
-            ml-data-cache-v3-
 
       - name: Cache pip packages
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-ml-v2-${{ hashFiles('backend/requirements.txt') }}
-          restore-keys: pip-ml-v2-
+          key: pip-ml-v3-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: pip-ml-v3-
 
       - name: Install dependencies
         working-directory: ./backend
@@ -88,13 +96,19 @@ jobs:
           pip install -r requirements.txt
           pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Run ML Pipeline (Feature Store + Train + Register)
+      - name: Run ML Training Shard
         working-directory: ./backend
         env:
           PYTHONPATH: ${{ github.workspace }}/backend
+          OMP_NUM_THREADS: "2"
+          MKL_NUM_THREADS: "2"
         run: |
-          echo "Training tier: ${{ matrix.tier }}"
-          echo "Epochs override: ${{ github.event.inputs.epochs || 'default' }}"
+          echo "═══════════════════════════════════════════════"
+          echo "  Run ID:    $ML_RUN_ID"
+          echo "  Shard:     $ML_SHARD_NAME"
+          echo "  Tier:      ${{ matrix.tier }}"
+          echo "  Trigger:   $ML_TRIGGER_SOURCE"
+          echo "═══════════════════════════════════════════════"
           python -m ml.train --config configs/train_default.yaml \
             --symbol-tier ${{ matrix.tier }} \
             ${{ github.event.inputs.epochs && format('--epochs {0}', github.event.inputs.epochs) || '' }}
@@ -116,7 +130,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ml-checkpoints-${{ matrix.tier }}-${{ github.run_id }}
+          name: ml-checkpoints-${{ matrix.label }}-${{ github.run_id }}
           path: |
             backend/ml/checkpoints/
             backend/ml/registry/
@@ -126,7 +140,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ml-feature-store-${{ matrix.tier }}-${{ github.run_id }}
+          name: ml-feature-store-${{ matrix.label }}-${{ github.run_id }}
           path: backend/ml/feature_store_data/
           retention-days: 14
 
@@ -134,7 +148,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ml-data-cache-${{ matrix.tier }}-${{ github.run_id }}
+          name: ml-data-cache-${{ matrix.label }}-${{ github.run_id }}
           path: backend/ml/data_cache/
           retention-days: 7
 
@@ -142,6 +156,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ml-experiments-${{ matrix.tier }}-${{ github.run_id }}
+          name: ml-experiments-${{ matrix.label }}-${{ github.run_id }}
           path: backend/ml/experiments/
           retention-days: 30

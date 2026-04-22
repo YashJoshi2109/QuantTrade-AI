@@ -189,12 +189,28 @@ TIER_3_SYMBOLS: list[str] = [
 
 ALL_SYMBOLS: list[str] = sorted(set(TIER_1_SYMBOLS + TIER_2_SYMBOLS + TIER_3_SYMBOLS))
 
+# Sub-tier splits for parallel execution (balanced ~192 symbols each)
+_T3_CHUNK = len(TIER_3_SYMBOLS) // 3
+TIER_3A_SYMBOLS: list[str] = TIER_3_SYMBOLS[:_T3_CHUNK]
+TIER_3B_SYMBOLS: list[str] = TIER_3_SYMBOLS[_T3_CHUNK:2 * _T3_CHUNK]
+TIER_3C_SYMBOLS: list[str] = TIER_3_SYMBOLS[2 * _T3_CHUNK:]
+
 SYMBOL_TIERS: dict[str, list[str]] = {
     "tier_1": TIER_1_SYMBOLS,
     "tier_2": TIER_1_SYMBOLS + TIER_2_SYMBOLS,
     "tier_3": TIER_1_SYMBOLS + TIER_2_SYMBOLS + TIER_3_SYMBOLS,
     "all": ALL_SYMBOLS,
+    # Exclusive sub-tiers for parallel Sunday jobs
+    "tier_1_exclusive": TIER_1_SYMBOLS,
+    "tier_2_exclusive": TIER_2_SYMBOLS,
+    "tier_3a": TIER_3A_SYMBOLS,
+    "tier_3b": TIER_3B_SYMBOLS,
+    "tier_3c": TIER_3C_SYMBOLS,
 }
+
+# Shard sizing defaults
+SHARD_MAX_SYMBOLS = 200
+SHARD_MAX_RUNTIME_SECONDS = 7200  # 2 hours target
 
 # ── Paths ──────────────────────────────────────────────────────────────
 
