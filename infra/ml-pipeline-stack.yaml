@@ -1,0 +1,502 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  QuantTrade ML Nightly Pipeline — AWS Batch + Step Functions + EventBridge.
+  Orchestrates shard-based LSTM training on Spot EC2 instances.
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [production, staging]
+  MLBucketName:
+    Type: String
+    Default: quanttrade-ml-artifacts
+  ECRRepositoryName:
+    Type: String
+    Default: quanttrade-ml-training
+  NeonDatabaseUrl:
+    Type: String
+    NoEcho: true
+    Description: Neon PostgreSQL connection URL for metadata
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for Batch compute environment
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets for Batch compute (prefer private subnets)
+  MaxVCPUs:
+    Type: Number
+    Default: 16
+    Description: Maximum vCPUs across all Batch jobs
+
+Resources:
+  # ── S3 Bucket ─────────────────────────────────────────────────────
+  MLArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref MLBucketName
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireMetrics90Days
+            Prefix: metrics/
+            Status: Enabled
+            ExpirationInDays: 90
+          - Id: ExpireRawData30Days
+            Prefix: raw-data/
+            Status: Enabled
+            ExpirationInDays: 30
+          - Id: ExpireFeatureCache60Days
+            Prefix: feature-cache/
+            Status: Enabled
+            ExpirationInDays: 60
+      Tags:
+        - Key: Project
+          Value: QuantTrade
+        - Key: Component
+          Value: MLPipeline
+
+  # ── ECR Repository ────────────────────────────────────────────────
+  MLTrainingRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref ECRRepositoryName
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+
+  # ── Batch Security Group ──────────────────────────────────────────
+  BatchSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ML Batch compute — outbound only
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: ml-batch-sg
+
+  # ── Batch IAM Roles ───────────────────────────────────────────────
+  BatchServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ml-batch-service-${Environment}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: batch.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole
+
+  BatchJobRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ml-batch-job-${Environment}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: MLJobPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt MLArtifactsBucket.Arn
+                  - !Sub ${MLArtifactsBucket.Arn}/*
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: QuantTrade/ML
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource: '*'
+
+  BatchExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ml-batch-execution-${Environment}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  # ── Batch Compute Environments ────────────────────────────────────
+  SpotComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      ComputeEnvironmentName: !Sub ml-training-spot-${Environment}
+      Type: MANAGED
+      State: ENABLED
+      ServiceRole: !GetAtt BatchServiceRole.Arn
+      ComputeResources:
+        Type: SPOT
+        BidPercentage: 60
+        SpotIamFleetRole: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-ec2-spot-fleet-tagging-role
+        MinvCpus: 0
+        MaxvCpus: !Ref MaxVCPUs
+        DesiredvCpus: 0
+        InstanceTypes:
+          - c5.xlarge    # 4 vCPU, 8 GB — ideal for CPU training
+          - c5.2xlarge   # 8 vCPU, 16 GB — for larger shards
+          - m5.xlarge    # 4 vCPU, 16 GB — more memory
+        Subnets: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref BatchSecurityGroup
+        Tags:
+          Project: QuantTrade
+          Component: MLTraining
+
+  OnDemandComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      ComputeEnvironmentName: !Sub ml-training-od-${Environment}
+      Type: MANAGED
+      State: ENABLED
+      ServiceRole: !GetAtt BatchServiceRole.Arn
+      ComputeResources:
+        Type: EC2
+        MinvCpus: 0
+        MaxvCpus: 8
+        DesiredvCpus: 0
+        InstanceTypes:
+          - c5.xlarge
+        Subnets: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref BatchSecurityGroup
+        Tags:
+          Project: QuantTrade
+          Component: MLTraining
+
+  # ── Batch Job Queue ───────────────────────────────────────────────
+  MLTrainingQueue:
+    Type: AWS::Batch::JobQueue
+    Properties:
+      JobQueueName: !Sub ml-training-queue-${Environment}
+      Priority: 1
+      State: ENABLED
+      ComputeEnvironmentOrder:
+        - Order: 1
+          ComputeEnvironment: !Ref SpotComputeEnvironment
+        - Order: 2
+          ComputeEnvironment: !Ref OnDemandComputeEnvironment
+
+  # ── Batch Job Definition ──────────────────────────────────────────
+  MLTrainingJobDef:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      JobDefinitionName: !Sub ml-training-shard-${Environment}
+      Type: container
+      RetryStrategy:
+        Attempts: 2
+        EvaluateOnExit:
+          - Action: RETRY
+            OnExitCode: '3'    # Infrastructure errors are retryable
+          - Action: EXIT
+            OnExitCode: '1'    # Data errors are not retryable
+          - Action: EXIT
+            OnExitCode: '2'    # Training errors are not retryable
+      Timeout:
+        AttemptDurationSeconds: 10800  # 3 hours max per attempt
+      ContainerProperties:
+        Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepositoryName}:latest
+        Vcpus: 4
+        Memory: 8192
+        JobRoleArn: !GetAtt BatchJobRole.Arn
+        ExecutionRoleArn: !GetAtt BatchExecutionRole.Arn
+        Environment:
+          - Name: ML_S3_BUCKET
+            Value: !Ref MLBucketName
+          - Name: AWS_REGION
+            Value: !Ref AWS::Region
+          - Name: NEON_DATABASE_URL
+            Value: !Ref NeonDatabaseUrl
+          - Name: CLOUDWATCH_NAMESPACE
+            Value: QuantTrade/ML
+          - Name: ML_TRIGGER_SOURCE
+            Value: batch
+          - Name: OMP_NUM_THREADS
+            Value: '4'
+          - Name: MKL_NUM_THREADS
+            Value: '4'
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group: !Sub /aws/batch/ml-training-${Environment}
+            awslogs-region: !Ref AWS::Region
+            awslogs-stream-prefix: shard
+
+  # ── CloudWatch Log Group ──────────────────────────────────────────
+  MLTrainingLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/batch/ml-training-${Environment}
+      RetentionInDays: 30
+
+  # ── SQS Dead Letter Queue ─────────────────────────────────────────
+  MLTrainingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ml-training-dlq-${Environment}
+      MessageRetentionPeriod: 1209600  # 14 days
+
+  # ── Step Functions IAM Role ───────────────────────────────────────
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ml-pipeline-sfn-${Environment}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StepFunctionsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - batch:SubmitJob
+                  - batch:DescribeJobs
+                  - batch:TerminateJob
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - !Sub ${MLArtifactsBucket.Arn}/*
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogDelivery
+                  - logs:GetLogDelivery
+                  - logs:UpdateLogDelivery
+                  - logs:DeleteLogDelivery
+                  - logs:ListLogDeliveries
+                  - logs:PutResourcePolicy
+                  - logs:DescribeResourcePolicies
+                  - logs:DescribeLogGroups
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt MLTrainingDLQ.Arn
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - events:PutTargets
+                  - events:PutRule
+                  - events:DescribeRule
+                Resource: '*'
+
+  # ── Step Functions State Machine ──────────────────────────────────
+  MLNightlyPipeline:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub ml-nightly-pipeline-${Environment}
+      RoleArn: !GetAtt StepFunctionsRole.Arn
+      DefinitionString: !Sub |
+        {
+          "Comment": "QuantTrade ML Nightly Training Pipeline",
+          "StartAt": "InitializeRun",
+          "States": {
+            "InitializeRun": {
+              "Type": "Pass",
+              "Parameters": {
+                "run_id.$": "States.UUID()",
+                "run_type.$": "$.run_type",
+                "config.$": "$.config",
+                "started_at.$": "$$.State.EnteredTime"
+              },
+              "ResultPath": "$.run",
+              "Next": "PlanShards"
+            },
+            "PlanShards": {
+              "Type": "Pass",
+              "Comment": "In production, replace with Lambda that calls shard_planner.plan_shards()",
+              "Parameters": {
+                "shards": [
+                  {"tier": "tier_1_exclusive", "label": "tier_1"},
+                  {"tier": "tier_2_exclusive", "label": "tier_2"},
+                  {"tier": "tier_3a", "label": "tier_3a"},
+                  {"tier": "tier_3b", "label": "tier_3b"},
+                  {"tier": "tier_3c", "label": "tier_3c"}
+                ]
+              },
+              "ResultPath": "$.plan",
+              "Next": "TrainShards"
+            },
+            "TrainShards": {
+              "Type": "Map",
+              "ItemsPath": "$.plan.shards",
+              "MaxConcurrency": 5,
+              "Iterator": {
+                "StartAt": "SubmitBatchJob",
+                "States": {
+                  "SubmitBatchJob": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::batch:submitJob.sync",
+                    "Parameters": {
+                      "JobName.$": "States.Format('ml-shard-{}', $.label)",
+                      "JobDefinition": "ml-training-shard-${Environment}",
+                      "JobQueue": "ml-training-queue-${Environment}",
+                      "ContainerOverrides": {
+                        "Environment": [
+                          {"Name": "ML_RUN_ID", "Value.$": "$$.Execution.Input.run.run_id"},
+                          {"Name": "ML_SHARD_ID", "Value.$": "States.UUID()"},
+                          {"Name": "ML_SHARD_NAME", "Value.$": "$.label"},
+                          {"Name": "ML_SYMBOL_TIER", "Value.$": "$.tier"}
+                        ]
+                      }
+                    },
+                    "Catch": [
+                      {
+                        "ErrorEquals": ["States.ALL"],
+                        "Next": "ShardFailed",
+                        "ResultPath": "$.error"
+                      }
+                    ],
+                    "End": true
+                  },
+                  "ShardFailed": {
+                    "Type": "Pass",
+                    "Parameters": {
+                      "status": "failed",
+                      "error.$": "$.error"
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "ResultPath": "$.shard_results",
+              "Next": "EvaluateResults"
+            },
+            "EvaluateResults": {
+              "Type": "Pass",
+              "Comment": "In production, replace with Lambda that aggregates results and writes to Neon",
+              "Next": "PipelineComplete"
+            },
+            "PipelineComplete": {
+              "Type": "Succeed"
+            }
+          }
+        }
+
+  # ── EventBridge Schedule ──────────────────────────────────────────
+  EventBridgeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ml-eventbridge-${Environment}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StartStepFunctions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: states:StartExecution
+                Resource: !Ref MLNightlyPipeline
+
+  WeekdaySchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub ml-nightly-weekday-${Environment}
+      ScheduleExpression: 'cron(0 3 ? * MON-FRI *)'
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      State: DISABLED  # Enable after initial validation
+      Target:
+        Arn: !Ref MLNightlyPipeline
+        RoleArn: !GetAtt EventBridgeRole.Arn
+        Input: '{"run_type": "weekday", "config": {"symbol_tier": "tier_2"}}'
+
+  SundaySchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub ml-nightly-sunday-${Environment}
+      ScheduleExpression: 'cron(0 3 ? * SUN *)'
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      State: DISABLED  # Enable after initial validation
+      Target:
+        Arn: !Ref MLNightlyPipeline
+        RoleArn: !GetAtt EventBridgeRole.Arn
+        Input: '{"run_type": "sunday", "config": {"symbol_tier": "all"}}'
+
+Outputs:
+  MLBucketArn:
+    Value: !GetAtt MLArtifactsBucket.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-MLBucketArn
+  MLBucketName:
+    Value: !Ref MLArtifactsBucket
+  ECRRepositoryUri:
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepositoryName}
+  JobQueueArn:
+    Value: !Ref MLTrainingQueue
+  JobDefinitionArn:
+    Value: !Ref MLTrainingJobDef
+  StateMachineArn:
+    Value: !Ref MLNightlyPipeline
+  DLQUrl:
+    Value: !Ref MLTrainingDLQ
