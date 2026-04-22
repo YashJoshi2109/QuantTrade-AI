@@ -86,17 +86,22 @@ class StorageService:
         object_name: str,
         bucket: Optional[str] = None
     ) -> bool:
-        """Upload to S3-compatible storage"""
+        """Upload to S3-compatible storage with retry."""
         if not self.s3_client:
             return False
-        
-        try:
-            bucket_name = bucket or self.bucket
-            self.s3_client.upload_file(file_path, bucket_name, object_name)
-            return True
-        except ClientError as e:
-            print(f"Error uploading to S3: {e}")
-            return False
+
+        import time
+        bucket_name = bucket or self.bucket
+        for attempt in range(3):
+            try:
+                self.s3_client.upload_file(file_path, bucket_name, object_name)
+                return True
+            except ClientError as e:
+                if attempt < 2:
+                    time.sleep(1 + attempt)
+                    continue
+                print(f"Error uploading to S3 after 3 attempts: {e}")
+                return False
     
     def _download_local(self, object_name: str, local_path: str) -> bool:
         """Download from local storage"""

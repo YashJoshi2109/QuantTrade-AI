@@ -183,8 +183,8 @@ export default function PostThreadPage() {
       // The API returns { comments: [...] } — extract the array
       const list: Comment[] = (data as any)?.comments || (Array.isArray(data) ? data : [])
       setComments(list)
-    } catch {
-      // silently fail — empty comments is fine
+    } catch (err) {
+      console.error('Failed to load comments:', err)
       setComments([])
     } finally {
       setCommentsLoading(false)

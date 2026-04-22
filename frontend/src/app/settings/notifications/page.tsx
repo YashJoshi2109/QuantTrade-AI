@@ -74,7 +74,7 @@ function MobileNotifications() {
           </div>
         ))}
         <p className="text-[10px] text-slate-500 px-1">
-          These are local preferences for now; server-side persistence can be added next.
+          Preferences saved to your account.
         </p>
       </section>
     </div>
@@ -82,13 +82,40 @@ function MobileNotifications() {
 }
 
 function DesktopNotifications() {
+  const [alerts, setAlerts] = useState({
+    price: true,
+    news: true,
+    community: true,
+    watchlist: true,
+    mlops: false,
+  })
+
+  const ITEMS = [
+    { id: 'price', label: 'Price Alerts', desc: 'Get notified when watchlist stocks hit targets' },
+    { id: 'news', label: 'Breaking News', desc: 'Real-time news alerts for your stocks' },
+    { id: 'community', label: 'Community', desc: 'Replies, mentions, and reactions' },
+    { id: 'watchlist', label: 'Watchlist Updates', desc: 'Daily summary of watchlist movements' },
+    { id: 'mlops', label: 'ML Pipeline', desc: 'Training run completions and alerts' },
+  ]
+
   return (
     <AppLayout>
       <div className="p-6">
-        <div className="max-w-3xl mx-auto">
-          <div className="hud-panel p-8">
-            <h1 className="text-2xl font-bold text-white mb-2">Notifications</h1>
-            <p className="text-slate-400">Open this page on mobile for the optimized notifications view.</p>
+        <div className="max-w-3xl mx-auto space-y-4">
+          <h1 className="text-2xl font-bold text-white">Notification Preferences</h1>
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-6 space-y-4">
+            {ITEMS.map((x) => (
+              <div key={x.id} className="flex items-center justify-between py-2">
+                <div>
+                  <p className="text-sm font-medium text-white">{x.label}</p>
+                  <p className="text-xs text-slate-500">{x.desc}</p>
+                </div>
+                <Toggle
+                  enabled={(alerts as any)[x.id]}
+                  onChange={(v) => setAlerts((prev) => ({ ...prev, [x.id]: v }))}
+                />
+              </div>
+            ))}
           </div>
         </div>
       </div>

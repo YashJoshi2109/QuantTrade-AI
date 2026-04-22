@@ -17,7 +17,11 @@ if settings.DATABASE_URL:
     engine = create_engine(
         database_url,
         pool_pre_ping=True,
-        echo=settings.DEBUG
+        pool_size=10,
+        max_overflow=20,
+        pool_recycle=1800,  # Recycle connections after 30min (Neon idle timeout)
+        pool_timeout=30,
+        echo=settings.DEBUG,
     )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
