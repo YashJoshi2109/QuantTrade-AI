@@ -54,20 +54,14 @@ QuantTrade AI is a full-stack financial intelligence platform that combines real
 - **Trust Layer** — Financial disclaimers, reputation badges, user verification tiers
 
 ### MLOps (Full ML Lifecycle)
-- **Nightly Training Pipeline** — 804 stocks, 3 horizons (1/7/30 day), manifest-driven sharding, parallel shard execution
-- **Shard Planner** — Weighted bin-packing: balances shards by estimated runtime, supports dry-run inspection
-- **AWS Batch Orchestration** — Step Functions state machine, EventBridge scheduler, Spot EC2 (c5.xlarge), per-shard retry
-- **S3 Artifact Store** — Deterministic paths for checkpoints, metrics, manifests, feature cache, reports
-- **Neon Metadata Layer** — training_runs, training_shards, training_artifacts, model_versions tables
-- **Internal Operator API** — 14 endpoints: trigger runs, retry shards, inspect artifacts, shard planning, health checks
 - **Feature Store** — Offline batch compute + online serving, 20 engineered features, parquet storage, schema versioning
 - **Experiment Tracking** — Run lifecycle, metric logging, artifact registration, run comparison
 - **Model Registry** — Version management, staging→production→archived, rollback, model cards
 - **Drift Detection** — PSI + KS tests against baseline, per-feature analysis, retrain triggers
 - **Performance Monitor** — Rolling window evaluation, directional accuracy, confidence calibration, automated alerts
 - **Prediction Logger** — Every prediction logged with outcomes for production monitoring
-- **Structured Logging** — JSON logs with run_id, shard_id, symbol, horizon, phase, duration for CloudWatch
-- **ML Container** — Dedicated training Dockerfile with batch entrypoint, deterministic I/O contract
+- **ML Pipeline** — 5-stage orchestrator (features→validation→drift→training→promotion), auto-promote if beats production
+- **Celery Tasks** — Drift check (6h), performance check (daily), feature refresh, pipeline trigger
 - **MLOps Dashboard** — Production models, experiments, feature store, pipeline control (/mlops)
 
 ### Auth & Security
@@ -792,84 +786,77 @@ flowchart LR
     class Feed,PostDetail,Trending,Mood,ModDash fe
 ```
 
-### MLOps System Architecture — Production Training Pipeline
+### MLOps System Architecture
 
 ```mermaid
-flowchart TD
-    subgraph Triggers ["Triggers"]
-        EB["EventBridge\nScheduler\n(03:00 UTC)"]
-        API["Internal API\n(/internal/ml/*)"]
-        GHA["GitHub Actions\n(bridge/fallback)"]
+flowchart LR
+    subgraph DataEng ["Data Engineering"]
+        YFin["yfinance\n(OHLCV)"]
+        FStore["Feature Store\n(20 features, parquet)"]
+        DQ["Data Quality\n(validation pipeline)"]
     end
 
-    subgraph Orchestration ["AWS Step Functions"]
-        Init["Initialize Run\n(Neon: training_runs)"]
-        Plan["Plan Shards\n(shard_planner.py)"]
-        Submit["Submit Batch Jobs\n(Map state, parallel)"]
-        Wait["Wait + Poll"]
-        Retry["Retry Failed\n(max 2, exit code routing)"]
-        Agg["Aggregate Results"]
-        Final["Finalize Run"]
+    subgraph ModelDev ["Model Development"]
+        ExpTrack["Experiment Tracker\n(runs, metrics, artifacts)"]
+        Train["LSTM Training\n(1d, 7d, 30d horizons)"]
+        WFV["Walk-Forward\nValidation"]
+        Config["Config\n(YAML, hash)"]
     end
 
-    subgraph Compute ["AWS Batch (Spot EC2)"]
-        S1["Shard 1\n(~160 symbols)"]
-        S2["Shard 2\n(~160 symbols)"]
-        S3["Shard 3\n(~160 symbols)"]
-        S4["Shard 4\n(~160 symbols)"]
-        S5["Shard 5\n(~160 symbols)"]
+    subgraph Registry ["Model Registry"]
+        Versions["Version Management"]
+        Stages["staging → production\n→ archived"]
+        Cards["Model Cards"]
+        Rollback["Rollback Support"]
     end
 
-    subgraph Container ["ML Training Container"]
-        Entry["entrypoint.py"]
-        Feat["precompute_features()\n(20 features, once)"]
-        Train["train per horizon\n(h=1, h=7, h=30)"]
-        Ckpt["checkpoint + metrics"]
+    subgraph Serving ["Serving & Inference"]
+        FAPI["FastAPI\n(17 MLOps endpoints)"]
+        PredCache["Redis\n(prediction cache)"]
+        Ensemble["Ensemble\n(LSTM + Linear)"]
+        FinBERT["FinBERT\n(sentiment)"]
     end
 
-    subgraph Storage ["Data Plane"]
-        S3B[("S3\nquanttrade-ml-artifacts\ncheckpoints / metrics /\nmanifests / feature-cache")]
-        Neon[("Neon PostgreSQL\ntraining_runs\ntraining_shards\ntraining_artifacts\nmodel_versions")]
-        CW["CloudWatch\nStructured Logs\nMetrics + Alarms"]
+    subgraph Monitor ["Monitoring"]
+        Drift["Drift Detector\n(PSI, KS tests)"]
+        PerfMon["Performance Monitor\n(DA, calibration)"]
+        PredLog["Prediction Logger\n(outcomes tracking)"]
+        Alerts["Automated Alerts\n(retrain triggers)"]
     end
 
-    subgraph Serving ["Inference"]
-        FAPI["FastAPI\n(31 MLOps + ML endpoints)"]
-        Pred["LSTM Prediction\n(3 horizons)"]
-        Cache["Redis Cache\n(5min TTL)"]
+    subgraph Orchestration ["Pipeline Orchestration"]
+        Pipeline["ML Pipeline\n(5-stage orchestrator)"]
+        CeleryML["Celery Beat\n(drift 6h, perf daily)"]
+        GHA["GitHub Actions\n(nightly train 03:00 UTC)"]
     end
 
-    EB --> Init
-    API --> Init
-    GHA -.->|bridge| Init
-    Init --> Plan --> Submit
-    Submit --> S1 & S2 & S3 & S4 & S5
-    S1 & S2 & S3 & S4 & S5 --> Wait
-    Wait --> Retry --> Wait
-    Wait --> Agg --> Final
+    YFin --> FStore --> DQ --> Train
+    Config --> Train
+    Train --> ExpTrack
+    Train --> WFV
+    Train --> Versions --> Stages
+    Stages --> FAPI & Ensemble
+    Ensemble --> PredCache --> PredLog
+    PredLog --> PerfMon --> Alerts
+    FStore --> Drift --> Alerts
+    Alerts -.->|retrain trigger| Pipeline
+    Pipeline --> Train
+    CeleryML --> Drift & PerfMon
+    GHA --> Pipeline
 
-    S1 --> Entry --> Feat --> Train --> Ckpt
-    Ckpt --> S3B
-    Ckpt --> Neon
-    Entry --> CW
-
-    S3B --> Pred
-    Neon --> FAPI
-    Pred --> Cache --> FAPI
-
-    classDef trigger fill:#1e3a5f,stroke:#60a5fa,color:#fff
+    classDef data fill:#1e40af,stroke:#60a5fa,color:#fff
+    classDef dev fill:#065f46,stroke:#34d399,color:#fff
+    classDef reg fill:#5b21b6,stroke:#a78bfa,color:#fff
+    classDef serve fill:#0f766e,stroke:#5eead4,color:#fff
+    classDef mon fill:#991b1b,stroke:#fca5a5,color:#fff
     classDef orch fill:#374151,stroke:#9ca3af,color:#fff
-    classDef compute fill:#065f46,stroke:#34d399,color:#fff
-    classDef container fill:#0f766e,stroke:#5eead4,color:#fff
-    classDef storage fill:#5b21b6,stroke:#a78bfa,color:#fff
-    classDef serve fill:#991b1b,stroke:#fca5a5,color:#fff
 
-    class EB,API,GHA trigger
-    class Init,Plan,Submit,Wait,Retry,Agg,Final orch
-    class S1,S2,S3,S4,S5 compute
-    class Entry,Feat,Train,Ckpt container
-    class S3B,Neon,CW storage
-    class FAPI,Pred,Cache serve
+    class YFin,FStore,DQ data
+    class ExpTrack,Train,WFV,Config dev
+    class Versions,Stages,Cards,Rollback reg
+    class FAPI,PredCache,Ensemble,FinBERT serve
+    class Drift,PerfMon,PredLog,Alerts mon
+    class Pipeline,CeleryML,GHA orch
 ```
 
 ### MLOps Pipeline Flow
