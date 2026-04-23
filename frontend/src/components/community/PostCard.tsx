@@ -16,6 +16,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react'
 import { votePost, bookmarkPost, unbookmarkPost, addReaction, removeReaction, fetchReactions, type CommunityPost, type ReactionSummary } from '@/lib/api'
+import { useStockSnapshot } from '@/context/StockSnapshotContext'
 import ReportModal from '@/components/community/ReportModal'
 
 /** Render simple markdown subset to HTML for post body previews */
@@ -83,6 +84,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
     const [showShareMenu, setShowShareMenu] = useState(false)
     const shareTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const shareMenuRef = useRef<HTMLDivElement>(null)
+    const { openSnapshot } = useStockSnapshot()
 
     // Sync vote state when post data changes (e.g. after page refresh / re-fetch)
     useEffect(() => {
@@ -291,13 +293,17 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           {(post.tickers?.length || sentiment) && (
             <div className="flex flex-wrap items-center gap-1.5 mb-2">
               {post.tickers?.map((ticker) => (
-                <Link
+                <button
                   key={ticker}
-                  href={`/research?symbol=${ticker}`}
-                  className="px-2 py-0.5 text-[11px] font-mono font-bold text-cyan-400 bg-cyan-500/10 rounded-md hover:bg-cyan-500/20 transition-colors"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    openSnapshot({ symbol: ticker })
+                  }}
+                  className="px-2 py-0.5 text-[11px] font-mono font-bold text-cyan-400 bg-cyan-500/10 rounded-md hover:bg-cyan-500/20 transition-colors cursor-pointer"
                 >
                   ${ticker}
-                </Link>
+                </button>
               ))}
               {sentiment && (
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold ${sentiment.bg} ${sentiment.color}`}>
