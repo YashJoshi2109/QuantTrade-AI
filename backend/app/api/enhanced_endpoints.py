@@ -907,23 +907,44 @@ async def get_transaction_history(
 # ============= FINNHUB INTEGRATION =============
 
 @router.get("/quote/{symbol}/finnhub", response_model=QuoteResponse)
-async def get_finnhub_quote(symbol: str, priority: str = Query('high', regex='^(high|normal)$'), db: Session = Depends(get_db)):
+async def get_finnhub_quote(symbol: str, priority: str = Query('high', pattern='^(high|normal)$'), db: Session = Depends(get_db)):
     """
-    Get real-time quote from Finnhub (ultra-fast)
+    Get real-time quote, Finnhub-first with multi-source fallback.
     Priority: 'high' for research/markets pages (default), 'normal' for others
     """
     start_time = datetime.utcnow()
-    
+    source = "finnhub"
+
     try:
         quote_data = FinnhubFetcher.get_quote(symbol.upper(), priority=priority)
-        
-        if not quote_data or 'c' not in quote_data:
+
+        if not quote_data or 'c' not in quote_data or not quote_data.get('c'):
+            # Finnhub failed/rate-limited — fall back to multi-source quote cache
+            from app.services.quote_cache import QuoteCacheService
+            qcs = QuoteCacheService(db)
+            fallback = await qcs.get_quote(symbol.upper())
+            if fallback and not fallback.get('unavailable') and fallback.get('price'):
+                source = fallback.get('data_source', 'fallback')
+                latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+                return QuoteResponse(
+                    symbol=symbol.upper(),
+                    last_price=fallback['price'],
+                    change=fallback.get('change', 0),
+                    change_percent=fallback.get('change_percent', 0),
+                    volume=fallback.get('volume'),
+                    high=fallback.get('high'),
+                    low=fallback.get('low'),
+                    open=fallback.get('open'),
+                    data_source=source,
+                    latency_ms=latency_ms,
+                    timestamp=datetime.utcnow()
+                )
             raise HTTPException(status_code=404, detail=f"Quote not found for {symbol}")
-        
+
         change = quote_data.get('c', 0) - quote_data.get('pc', 0)
         change_percent = (change / quote_data.get('pc', 1)) * 100 if quote_data.get('pc') else 0
         latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
-        
+
         return QuoteResponse(
             symbol=symbol.upper(),
             last_price=quote_data.get('c', 0),

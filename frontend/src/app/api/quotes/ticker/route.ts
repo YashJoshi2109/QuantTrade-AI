@@ -557,6 +557,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: `No data found for ${symbol}` }, { status: 404 })
   }
 
+  // If FMP returned zero OHLC fields, fill from Yahoo chart data (fast, single call)
+  if (!data.open || !data.day_high || !data.day_low || !data.prev_close) {
+    try {
+      const yUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`
+      const yRes = await fetch(yUrl, { headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://finance.yahoo.com/' }, cache: 'no-store' }).catch(() => null)
+      if (yRes?.ok) {
+        const yJson = await yRes.json().catch(() => null)
+        const meta = yJson?.chart?.result?.[0]?.meta
+        if (meta) {
+          if (!data.open) data.open = meta.regularMarketOpen ?? meta.chartPreviousClose ?? 0
+          if (!data.day_high) data.day_high = meta.regularMarketDayHigh ?? 0
+          if (!data.day_low) data.day_low = meta.regularMarketDayLow ?? 0
+          if (!data.prev_close) data.prev_close = meta.previousClose ?? meta.chartPreviousClose ?? 0
+          // Also fill price if FMP price was 0
+          if (!data.price && meta.regularMarketPrice) {
+            data.price = meta.regularMarketPrice
+            data.change = data.price - (data.prev_close || 0)
+            data.change_percent = data.prev_close ? (data.change / data.prev_close) * 100 : 0
+          }
+        }
+      }
+    } catch { /* Yahoo OHLC enrichment failed silently */ }
+  }
+
   // Enrich with Finnhub (analyst targets, earnings, metrics gaps)
   data = await enrichWithFinnhub(data)
 

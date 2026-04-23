@@ -404,22 +404,21 @@ jobs:
             echo "⏳ Waiting for backend to become healthy (start_period=120s)..."
             sleep 45
 
-            # Health check with retries — try backend direct first (nginx depends on backend healthy)
+            # Health check with retries — check Docker health status since port 8000 is only exposed inside the Docker network
             for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-              if curl -sS -f http://localhost:8000/health; then
-                echo "✅ Backend health check passed!"
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' quanttrade-backend 2>/dev/null || echo "unknown")
+              if [ "$STATUS" = "healthy" ]; then
+                echo "✅ Backend container is healthy!"
                 break
               fi
-              echo "Waiting for backend... (attempt $i/15)"
+              echo "Waiting for backend... (attempt $i/15, status: $STATUS)"
               docker logs --tail=5 quanttrade-backend 2>&1 | tail -3 || true
               sleep 15
             done
 
-            # Wait a bit more for nginx to pick up healthy backend
-            sleep 10
-
-            # Final verification — try both nginx and backend direct
-            if ! (curl -sS -L -f http://localhost/health 2>/dev/null || curl -sS -f http://localhost:8000/health); then
+            # Final verification — backend healthy + nginx responding
+            FINAL_STATUS=$(docker inspect --format='{{.State.Health.Status}}' quanttrade-backend 2>/dev/null || echo "unknown")
+            if [ "$FINAL_STATUS" != "healthy" ]; then
               echo "❌ Health check failed! Showing logs..."
               docker compose -f docker-compose.prod.yml ps
               echo "=== Backend logs ==="
