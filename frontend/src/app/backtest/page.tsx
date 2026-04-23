@@ -432,20 +432,20 @@ function DesktopBacktestPage() {
   return (
     <AppLayout>
       <div className="min-h-screen bg-[#0A0E1A] -mx-4 md:-mx-6 -my-4 md:-my-6">
-        <div className="max-w-[1600px] mx-auto px-4 lg:px-6 py-5">
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-5">
 
           {/* ── Premium Header ── */}
-          <div className="flex items-center justify-between gap-4 mb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/20 flex items-center justify-center">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/20 flex items-center justify-center shrink-0">
                 <Image src="/logo.png" alt="QuantTrade AI" width={36} height={36} className="object-contain" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-black text-white tracking-tight">Strategy Backtester</h1>
-                  <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/25 uppercase tracking-wider">Pro</span>
+                  <h1 className="text-base sm:text-lg font-black text-white tracking-tight truncate">Strategy Backtester</h1>
+                  <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/25 uppercase tracking-wider shrink-0">Pro</span>
                 </div>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">
                   8 strategies · Monte Carlo · Walk-forward · Alpha/Beta · VaR · MAE/MFE
                 </p>
               </div>
@@ -470,7 +470,7 @@ function DesktopBacktestPage() {
           </div>
 
           {/* ── Premium Tab Navigation ── */}
-          <div className="flex items-center gap-1 mb-5 bg-[#0F1629]/40 backdrop-blur-xl border border-slate-800/30 rounded-2xl p-1.5 overflow-x-auto">
+          <div className="flex items-center gap-1 mb-4 sm:mb-5 bg-[#0F1629]/40 backdrop-blur-xl border border-slate-800/30 rounded-2xl p-1 sm:p-1.5 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
             {TABS.map(tab => {
               const isActive = activeTab === tab.id
               const isDisabled = (tab.id === 'results' || tab.id === 'journal' || tab.id === 'risk') && !result
@@ -479,7 +479,7 @@ function DesktopBacktestPage() {
                   key={tab.id}
                   onClick={() => !isDisabled && setActiveTab(tab.id)}
                   disabled={isDisabled}
-                  className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap
+                  className={`relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0
                     ${isActive
                       ? 'bg-gradient-to-r from-cyan-500/15 to-blue-500/10 text-white shadow-lg shadow-cyan-500/5 border border-cyan-500/20'
                       : isDisabled
@@ -487,7 +487,7 @@ function DesktopBacktestPage() {
                         : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'
                     }`}
                 >
-                  <tab.icon className={`w-3.5 h-3.5 ${isActive ? 'text-cyan-400' : ''}`} />
+                  <tab.icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-cyan-400' : ''}`} />
                   <span>{tab.label}</span>
                   <span className={`text-[8px] font-mono hidden sm:inline ${isActive ? 'text-cyan-400/60' : 'text-slate-600'}`}>{tab.desc}</span>
                   {isActive && (

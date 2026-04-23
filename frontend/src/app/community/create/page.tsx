@@ -46,7 +46,9 @@ export default function CreateCommunityPage() {
         throw new Error(data.detail || 'Failed to create community')
       }
       const community = await res.json()
+      // Navigate to the new community and refresh to update sidebar
       router.push(`/community/${community.slug}`)
+      router.refresh()
     } catch (err: any) {
       setError(err.message || 'Something went wrong')
     }

@@ -2143,6 +2143,7 @@ function normalizePost(raw: any): CommunityPost {
   return {
     ...raw,
     vote_count: raw.vote_count ?? ((raw.upvote_count ?? 0) - (raw.downvote_count ?? 0)),
+    user_vote: raw.user_vote ?? null,
     community: raw.community ?? {
       slug: raw.community_slug ?? '',
       name: raw.community_name ?? '',
@@ -2240,7 +2241,9 @@ export async function fetchCommunities(category?: string) {
   const params = category ? `?category=${category}` : ''
   const res = await apiFetch(`${API_URL}/api/v1/communities${params}`)
   if (!res.ok) return { communities: [] as Community[] }
-  return res.json() as Promise<{ communities: Community[] }>
+  const data = await res.json()
+  // Backend returns { items: [...] } but callers expect { communities: [...] }
+  return { communities: (data.communities || data.items || []) as Community[] }
 }
 
 export async function fetchCommunity(slug: string) {

@@ -273,14 +273,14 @@ function Panel({ title, icon: Icon, children, className = '', actions, color = '
       transition={{ duration: 0.3 }}
       className={`bg-[#0D1117] border border-white/[0.06] rounded-xl overflow-hidden ${className}`}
     >
-      <div className="px-5 py-3.5 border-b border-white/[0.06] flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <Icon className={`w-4 h-4 ${color}`} />
-          <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">{title}</h3>
+      <div className="px-3 sm:px-5 py-3 sm:py-3.5 border-b border-white/[0.06] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Icon className={`w-4 h-4 shrink-0 ${color}`} />
+          <h3 className="text-xs sm:text-sm font-semibold text-slate-200 uppercase tracking-wider truncate">{title}</h3>
         </div>
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
+        {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-3 sm:p-5">{children}</div>
     </motion.div>
   )
 }
