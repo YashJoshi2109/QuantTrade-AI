@@ -363,7 +363,63 @@ def train(config: TrainConfig) -> list[dict]:
         "symbols_trained": len(cached.symbols),
     })
 
+    # Upload artifacts to S3 if credentials are available
+    _upload_artifacts_to_s3(results, config, slog)
+
     return results
+
+
+def _upload_artifacts_to_s3(results: list[dict], config: TrainConfig, slog: StructuredLogger):
+    """Upload checkpoints and metrics to S3 after training. Best-effort — never fails the run."""
+    run_id = os.environ.get("ML_RUN_ID", "")
+    shard_name = os.environ.get("ML_SHARD_NAME", "local")
+
+    # Skip if no AWS credentials configured
+    has_creds = any(os.environ.get(k) for k in ("AWS_ACCESS_KEY_ID", "ML_S3_ACCESS_KEY", "S3_ACCESS_KEY"))
+    if not has_creds:
+        logger.info("S3 upload skipped — no AWS credentials configured")
+        return
+
+    try:
+        from ml.s3_artifacts import upload_checkpoint as s3_upload_ckpt, upload_metrics, upload_shard_summary
+    except ImportError:
+        logger.warning("S3 upload skipped — boto3 not installed")
+        return
+
+    uploaded = 0
+    for r in results:
+        if "error" in r or "checkpoint_path" not in r:
+            continue
+        horizon = r["horizon"]
+        ckpt_path = Path(r["checkpoint_path"])
+        try:
+            # Upload checkpoint
+            if ckpt_path.exists():
+                s3_upload_ckpt(ckpt_path, run_id, shard_name, config.symbol_tier or "manual", horizon)
+                uploaded += 1
+            # Upload metrics
+            if "test_metrics" in r:
+                upload_metrics(r["test_metrics"], run_id, shard_name, config.symbol_tier or "manual", horizon)
+        except Exception as e:
+            logger.warning(f"S3 upload failed for h={horizon}: {e}")
+
+    # Upload shard summary
+    if uploaded > 0:
+        try:
+            summary = {
+                "run_id": run_id,
+                "shard_name": shard_name,
+                "symbol_tier": config.symbol_tier,
+                "symbols_trained": len(config.resolve_symbols()),
+                "horizons": [r.get("horizon") for r in results],
+                "successes": sum(1 for r in results if "error" not in r),
+                "failures": sum(1 for r in results if "error" in r),
+            }
+            upload_shard_summary(summary, run_id, shard_name)
+        except Exception as e:
+            logger.warning(f"S3 shard summary upload failed: {e}")
+
+    slog.info("s3_upload", "completed" if uploaded > 0 else "skipped", metrics={"artifacts_uploaded": uploaded})
 
 
 # ── CLI ────────────────────────────────────────────────────────────────

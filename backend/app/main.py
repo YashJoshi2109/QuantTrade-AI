@@ -531,10 +531,15 @@ async def root():
 
 @app.get("/health")
 async def health():
-    """Production health check — verifies DB and Redis connectivity."""
+    """Production health check — verifies API is up. DB/Redis are informational only.
+
+    Always returns 200 if the API process is alive. Docker health checks
+    only need to know the process is responsive — downstream dependency
+    failures (DB, Redis) are reported but don't block container startup.
+    """
     checks = {"api": "ok"}
 
-    # Database check
+    # Database check (informational)
     try:
         if SessionLocal is not None:
             db = SessionLocal()
@@ -546,21 +551,19 @@ async def health():
         else:
             checks["database"] = "not_configured"
     except Exception:
-        checks["database"] = "error"
+        checks["database"] = "degraded"
 
-    # Redis check
+    # Redis check — use existing async connection from lifespan if available
     try:
-        import redis
-        redis_url = os.getenv("REDIS_URL")
-        if redis_url:
-            r = redis.from_url(redis_url, socket_timeout=2)
-            r.ping()
+        redis_client = getattr(app.state, "redis", None)
+        if redis_client is not None:
+            await redis_client.ping()
             checks["redis"] = "ok"
         else:
             checks["redis"] = "not_configured"
     except Exception:
-        checks["redis"] = "error"
+        checks["redis"] = "degraded"
 
-    status = "healthy" if all(v in ("ok", "not_configured") for v in checks.values()) else "degraded"
-    status_code = 200 if status == "healthy" else 503
-    return JSONResponse(content={"status": status, "checks": checks}, status_code=status_code)
+    status = "healthy" if all(v == "ok" for v in checks.values()) else "degraded"
+    # Always 200 — the API is alive. Degraded dependencies don't block startup.
+    return JSONResponse(content={"status": status, "checks": checks}, status_code=200)

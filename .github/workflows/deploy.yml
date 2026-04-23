@@ -340,7 +340,9 @@ jobs:
             
             # ===== STOP EXISTING DOCKER STACK =====
             echo "🔻 Stopping existing containers..."
-            docker compose -f docker-compose.prod.yml down --remove-orphans || true
+            docker compose -f docker-compose.prod.yml down --remove-orphans --timeout 30 || true
+            # Force-remove any leftover containers from partial deploys
+            docker rm -f quanttrade-backend quanttrade-frontend quanttrade-nginx quanttrade-celery-worker quanttrade-celery-beat 2>/dev/null || true
             
             # ===== KILL ANY CONTAINER USING PORT 80/443 =====
             echo "🔍 Checking for containers using port 80/443..."

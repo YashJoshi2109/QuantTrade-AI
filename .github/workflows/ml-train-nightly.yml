@@ -102,6 +102,10 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/backend
           OMP_NUM_THREADS: "2"
           MKL_NUM_THREADS: "2"
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-2"
+          ML_S3_BUCKET: "quanttrade-ml-artifacts"
         run: |
           echo "═══════════════════════════════════════════════"
           echo "  Run ID:    $ML_RUN_ID"
