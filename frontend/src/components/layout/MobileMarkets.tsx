@@ -1,123 +1,121 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import Link from 'next/link'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
-import { Search as SearchIcon, TrendingUp, TrendingDown, Activity } from 'lucide-react'
-import TickerLogo from '@/components/TickerLogo'
-import {
-  fetchMarketMovers,
-  fetchHeatmapData,
-  fetchMarketIndices,
-  MarketMovers,
-  StockPerformance,
-  HeatmapData,
-  MarketIndex,
-} from '@/lib/api'
-import { formatNumber, formatPercent, isNumber } from '@/lib/format'
-import MarketHeatmap from '@/components/MarketHeatmap'
-import MarketMoversPanel from '@/components/MarketMoversPanel'
+import { BarChart3, Globe } from 'lucide-react'
 import MobileSymbolSearch from '@/components/ui/mobile-symbol-search'
+import { Continent } from '@/lib/world-exchanges'
+import {
+  ContinentTabBar,
+  CurrencySelector,
+  WorldIndicesGrid,
+  ExchangeUniverseSection,
+  ExchangeSectorHeatmap,
+  useCurrencyRates,
+} from '@/app/markets/page'
+import MarketHeatmap from '@/components/MarketHeatmap'
+import { useQuery } from '@tanstack/react-query'
+import { fetchSectorPerformance } from '@/lib/api'
+import { useExchangeHeatmap } from '@/hooks/useExchangeHeatmap'
 
-const FILTERS = ['All Assets', 'Stocks', 'Crypto', 'Forex', 'Commodities', 'ETFs', 'Indices']
+function MarketPulse({ continent }: { continent: Continent }) {
+  const { data, isLoading } = useExchangeHeatmap(continent)
+  
+  if (isLoading) {
+    return <div className="h-20 rounded-xl bg-slate-800/40 animate-pulse border border-white/5" />
+  }
+
+  const sectors = data?.sectors ?? []
+  let gainers = 0, losers = 0, flat = 0, total = 0
+  
+  sectors.forEach(s => {
+    s.stocks.forEach(stock => {
+      total++
+      if (stock.change_percent > 0) gainers++
+      else if (stock.change_percent < 0) losers++
+      else flat++
+    })
+  })
+
+  if (total === 0) return null
+
+  const gainPct = (gainers / total) * 100
+  const lossPct = (losers / total) * 100
+  const flatPct = (flat / total) * 100
+
+  return (
+    <div className="rounded-2xl bg-[#1A2332]/60 backdrop-blur-md border border-white/[0.06] p-4 shadow-lg">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
+          <BarChart3 className="w-3.5 h-3.5 text-[#00D9FF]" />
+          Market Pulse
+        </h3>
+        <span className="text-[10px] text-slate-500 font-mono bg-black/20 px-2 py-0.5 rounded-md">
+          {total} tracked
+        </span>
+      </div>
+      
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="text-center bg-emerald-500/10 border border-emerald-500/20 rounded-lg py-1.5">
+          <div className="text-sm font-bold text-emerald-400">{gainers}</div>
+          <div className="text-[9px] text-emerald-500/70 uppercase">Advancing</div>
+        </div>
+        <div className="text-center bg-red-500/10 border border-red-500/20 rounded-lg py-1.5">
+          <div className="text-sm font-bold text-red-400">{losers}</div>
+          <div className="text-[9px] text-red-500/70 uppercase">Declining</div>
+        </div>
+        <div className="text-center bg-slate-500/10 border border-slate-500/20 rounded-lg py-1.5">
+          <div className="text-sm font-bold text-slate-400">{flat}</div>
+          <div className="text-[9px] text-slate-500/70 uppercase">Unchanged</div>
+        </div>
+      </div>
+
+      <div className="flex h-2 rounded-full overflow-hidden bg-slate-800 shadow-inner">
+        <div className="bg-emerald-500 transition-all duration-1000" style={{ width: `${gainPct}%` }} />
+        <div className="bg-slate-600 transition-all duration-1000" style={{ width: `${flatPct}%` }} />
+        <div className="bg-red-500 transition-all duration-1000" style={{ width: `${lossPct}%` }} />
+      </div>
+    </div>
+  )
+}
 
 export default function MobileMarkets() {
   const router = useRouter()
   const [search, setSearch] = useState('')
-  const [activeFilter, setActiveFilter] = useState('All Assets')
-  const [sectorView, setSectorView] = useState<'list' | 'heatmap'>('heatmap')
+  const [activeContinent, setActiveContinent] = useState<Continent>('global')
+  const [displayCurrency, setDisplayCurrency] = useState('USD')
+  const { data: currencyRates = {} } = useCurrencyRates()
 
-  const { data: movers, isLoading, refetch: refetchMovers } = useQuery<MarketMovers>({
-    queryKey: ['marketMovers'],
-    queryFn: () => fetchMarketMovers(),
+  const { data: usSectors } = useQuery({
+    queryKey: ['sectorPerformance'],
+    queryFn: () => fetchSectorPerformance(),
     refetchInterval: 120000,
     staleTime: 60000,
   })
-
-  const { data: heatmapData } = useQuery<HeatmapData>({
-    queryKey: ['heatmapData'],
-    queryFn: () => fetchHeatmapData(),
-    refetchInterval: 120000,
-    staleTime: 60000,
-  })
-
-  const sectors = heatmapData?.sectors || []
-
-  const { data: indices } = useQuery<MarketIndex[]>({
-    queryKey: ['marketIndices'],
-    queryFn: () => fetchMarketIndices(),
-    refetchInterval: 60000,
-    staleTime: 30000,
-  })
-
-  const combined: StockPerformance[] = useMemo(() => {
-    if (!movers) return []
-    const seen = new Set<string>()
-    const all = [...(movers.gainers || []), ...(movers.losers || [])]
-    return all.filter((s) => {
-      if (!s.symbol) return false
-      const key = s.symbol.toUpperCase()
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-  }, [movers])
-
-  const filtered = useMemo(() => {
-    let list = combined
-    if (search.trim()) {
-      const q = search.trim().toLowerCase()
-      list = list.filter(
-        (s) =>
-          s.symbol.toLowerCase().includes(q) ||
-          (s.name || '').toLowerCase().includes(q)
-      )
-    }
-    return list
-  }, [combined, search])
-
-  const marketStats = useMemo(() => {
-    if (heatmapData && heatmapData.total_stocks > 0) {
-      return { 
-        total: heatmapData.total_stocks, 
-        gainers: heatmapData.gainers, 
-        losers: heatmapData.losers 
-      }
-    }
-    if (!sectors || sectors.length === 0) {
-      return { total: 0, gainers: 0, losers: 0 }
-    }
-    const total = sectors.reduce((acc, s) => acc + s.stocks.length, 0)
-    const gainers = sectors.reduce(
-      (acc, s) => acc + s.stocks.filter((st) => st.change_percent > 0).length,
-      0
-    )
-    const losers = sectors.reduce(
-      (acc, s) => acc + s.stocks.filter((st) => st.change_percent < 0).length,
-      0
-    )
-    return { total, gainers, losers }
-  }, [sectors, heatmapData])
 
   return (
-    <div className="space-y-4 pb-4">
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 pt-safe pb-2 px-1">
-        <div>
-          <h1 className="text-xl font-semibold text-white">Markets</h1>
-          <p className="text-[11px] text-slate-400">
-            Real-time movers across the U.S. market.
-          </p>
+    <div className="flex flex-col min-h-screen bg-[#0A0E1A] pb-24">
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/[0.06] pt-safe px-4 py-3 shrink-0">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-emerald-500/20 flex items-center justify-center">
+              <Globe className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-white leading-tight">Global Markets</h1>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                </span>
+                <p className="text-[10px] text-slate-500 font-mono tracking-wider">LIVE FEED</p>
+              </div>
+            </div>
+          </div>
+          <CurrencySelector value={displayCurrency} onChange={setDisplayCurrency} />
         </div>
-        <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-[#00D9FF]" />
-          <span className="text-[10px] text-slate-400">Live</span>
-        </div>
-      </header>
 
-      {/* Search with API autocomplete */}
-      <section className="px-1">
         <MobileSymbolSearch
           value={search}
           onChange={setSearch}
@@ -125,216 +123,53 @@ export default function MobileMarkets() {
           placeholder="Search stocks, crypto, forex..."
           uppercase={false}
         />
-      </section>
 
-      {/* Quick stats */}
-      <section className="px-1">
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-xl bg-[#1A2332]/90 border border-white/10 p-2.5">
-            <p className="text-[10px] text-slate-400 mb-0.5">Tracked</p>
-            <p className="text-[14px] font-semibold text-white">
-              {marketStats.total}
-            </p>
-          </div>
-          <div className="rounded-xl bg-[#1A2332]/90 border border-emerald-500/30 p-2.5">
-            <p className="text-[10px] text-slate-400 mb-0.5">Gainers</p>
-            <p className="text-[14px] font-semibold text-emerald-400">
-              {marketStats.gainers}
-            </p>
-          </div>
-          <div className="rounded-xl bg-[#1A2332]/90 border border-red-500/30 p-2.5">
-            <p className="text-[10px] text-slate-400 mb-0.5">Losers</p>
-            <p className="text-[14px] font-semibold text-red-400">
-              {marketStats.losers}
-            </p>
-          </div>
+        {/* Tab Scroller */}
+        <div className="mt-3">
+          <ContinentTabBar active={activeContinent} onChange={setActiveContinent} />
         </div>
-      </section>
+      </header>
 
-      {/* Indices */}
-      <section className="px-1">
-        <div className="flex overflow-x-auto scrollbar-hide gap-2">
-          {(indices || []).slice(0, 4).map((idx) => {
-            const up = isNumber(idx.change_percent) && idx.change_percent >= 0
-            return (
-              <div
-                key={idx.symbol}
-                className="shrink-0 w-[160px] rounded-2xl bg-[#1A2332]/90 border border-white/10 p-3"
-              >
-                <p className="text-[10px] text-slate-500">{idx.name}</p>
-                <p className="text-[16px] font-mono text-white mt-1">
-                  {isNumber(idx.price) ? formatNumber(idx.price, 2) : '—'}
-                </p>
-                <p className={`text-[11px] font-mono mt-1 ${up ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {up ? '+' : ''}
-                  {formatPercent(idx.change_percent, 2)}
-                </p>
+      {/* ── Content ── */}
+      <main className="flex-1 overflow-y-auto px-4 pt-4 space-y-6">
+        
+        {/* World Indices */}
+        <section>
+          <WorldIndicesGrid
+            continent={activeContinent}
+            currency={displayCurrency}
+            rates={currencyRates}
+          />
+        </section>
+
+        {/* Sector Performance Heatmap */}
+        <section>
+          {activeContinent === 'global' ? (
+            <div className="bg-[#1A2332]/60 backdrop-blur-md border border-white/[0.06] rounded-2xl p-4 shadow-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart3 className="w-5 h-5 text-blue-400" />
+                <h2 className="text-base font-bold text-white">1-Day Performance Map</h2>
               </div>
-            )
-          })}
-          {(!indices || indices.length === 0) && (
-            <div className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-3 text-[11px] text-slate-500">
-              Indices unavailable right now.
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Sector performance (top) */}
-      <section className="px-1">
-        <div className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[12px] font-semibold text-white">Top Sectors</p>
-            <div className="flex items-center gap-1 text-[10px]">
-              <button
-                type="button"
-                onClick={() => setSectorView('list')}
-                className={`px-2 py-1 rounded-full border ${
-                  sectorView === 'list'
-                    ? 'bg-[#00D9FF]/10 text-[#00D9FF] border-[#00D9FF]/40'
-                    : 'bg-[#0A0E1A] text-slate-400 border-white/10'
-                }`}
-              >
-                List
-              </button>
-              <button
-                type="button"
-                onClick={() => setSectorView('heatmap')}
-                className={`px-2 py-1 rounded-full border ${
-                  sectorView === 'heatmap'
-                    ? 'bg-[#00D9FF]/10 text-[#00D9FF] border-[#00D9FF]/40'
-                    : 'bg-[#0A0E1A] text-slate-400 border-white/10'
-                }`}
-              >
-                Heatmap
-              </button>
-            </div>
-          </div>
-          {sectorView === 'list' ? (
-            <div className="space-y-2">
-              {(sectors || []).slice(0, 5).map((s) => {
-                const up = s.change_percent >= 0
-                return (
-                  <div key={s.sector} className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-300">{s.sector}</span>
-                    <span className={`text-[11px] font-mono ${up ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {up ? '+' : ''}
-                      {formatPercent(s.change_percent, 2)}
-                    </span>
-                  </div>
-                )
-              })}
-              {(!sectors || sectors.length === 0) && (
-                <p className="text-[11px] text-slate-500">Sector data unavailable.</p>
-              )}
+              <MarketHeatmap sectors={usSectors} />
             </div>
           ) : (
-            <div className="mt-2">
-              <MarketHeatmap sectors={sectors || []} className="text-xs" />
-            </div>
+            <ExchangeSectorHeatmap continent={activeContinent} />
           )}
-        </div>
-      </section>
+        </section>
 
-      {/* Market Movers Panel */}
-      <section className="px-1">
-        <MarketMoversPanel
-          gainers={movers?.gainers?.slice(0, 10) || []}
-          losers={movers?.losers?.slice(0, 10) || []}
-          loading={isLoading}
-          onRefresh={() => refetchMovers()}
-        />
-      </section>
+        {/* Market Pulse */}
+        <section>
+          <MarketPulse continent={activeContinent} />
+        </section>
 
-      {/* Filters */}
-      <section className="px-1">
-        <div className="flex overflow-x-auto scrollbar-hide gap-2">
-          {FILTERS.map((label) => {
-            const isActive = activeFilter === label
-            return (
-              <button
-                key={label}
-                type="button"
-                onClick={() => setActiveFilter(label)}
-                className={`px-3 py-1.5 rounded-full text-[11px] border transition-all whitespace-nowrap ${
-                  isActive
-                    ? 'bg-[#00D9FF]/10 border-[#00D9FF]/60 text-[#00D9FF]'
-                    : 'bg-[#1A2332] border-white/5 text-slate-400'
-                }`}
-              >
-                {label}
-              </button>
-            )
-          })}
-        </div>
-      </section>
-
-      {/* Combined movers list */}
-      <section className="px-1 space-y-2 pb-4">
-        {isLoading && (
-          <>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-16 rounded-xl bg-[#1A2332]/80 border border-white/5 animate-pulse"
-              />
-            ))}
-          </>
+        {/* Ranked Universe */}
+        {activeContinent !== 'global' && (
+          <section>
+            <ExchangeUniverseSection continent={activeContinent} />
+          </section>
         )}
-        {!isLoading && filtered.length === 0 && (
-          <div className="h-32 rounded-2xl border border-dashed border-slate-700 flex flex-col items-center justify-center text-[13px] text-slate-400">
-            <p>No stocks found</p>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Try a different symbol or company name.
-            </p>
-          </div>
-        )}
-        {!isLoading &&
-          filtered.map((stock) => {
-            const pct = stock.change_percent
-            const isUp = isNumber(pct) && pct >= 0
-            return (
-              <Link
-                key={stock.symbol}
-                href={`/research?symbol=${encodeURIComponent(stock.symbol)}`}
-                className="block rounded-xl bg-[#1A2332]/90 border border-white/5 p-3 flex items-center justify-between active:scale-[0.98] transition-transform"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <TickerLogo symbol={stock.symbol} companyName={stock.name} size={32} />
-                  <div className="min-w-0">
-                    <div className="text-[13px] font-semibold text-white">
-                      {stock.symbol}
-                    </div>
-                    <div className="text-[11px] text-slate-500 truncate max-w-[150px]">
-                      {stock.name || '—'}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-[13px] font-mono text-white">
-                    {isNumber(stock.price)
-                      ? `$${formatNumber(stock.price, 2)}`
-                      : '—'}
-                  </span>
-                  <span
-                    className={`mt-1 inline-flex items-center gap-1 text-[11px] font-mono ${
-                      isUp ? 'text-emerald-400' : 'text-red-400'
-                    }`}
-                  >
-                    {isUp ? (
-                      <TrendingUp className="w-3 h-3" />
-                    ) : (
-                      <TrendingDown className="w-3 h-3" />
-                    )}
-                    {isUp ? '+' : ''}
-                    {formatPercent(pct, 2)}
-                  </span>
-                </div>
-              </Link>
-            )
-          })}
-      </section>
+        
+      </main>
     </div>
   )
 }
-

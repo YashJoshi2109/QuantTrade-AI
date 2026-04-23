@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { Users, Shield, ArrowLeft, Calendar, Settings, Flame, Clock, TrendingUp, Zap } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
+import MobileLayout from '@/components/layout/MobileLayout'
 import { fetchCommunity, joinCommunity, leaveCommunity, normalizePosts, type Community, type CommunityPost } from '@/lib/api'
 import PostCard from '@/components/community/PostCard'
 import { FeedSkeleton } from '@/components/community/Skeletons'
@@ -91,28 +92,66 @@ export default function CommunityDetailPage() {
     setJoining(false)
   }
 
-  if (loading) return (
-    <AppLayout>
-    <div className="min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 py-8"><FeedSkeleton /></div>
-    </div>
-    </AppLayout>
-  )
-
-  if (!community) return (
-    <AppLayout>
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <h2 className="text-xl font-bold text-slate-200 mb-2">Community not found</h2>
-        <Link href="/community" className="text-cyan-400 hover:text-cyan-300 text-sm">Back to feed</Link>
+  if (loading) {
+    const loadingContent = (
+      <div className="min-h-screen pb-safe">
+        <div className="max-w-4xl mx-auto px-4 py-8"><FeedSkeleton /></div>
       </div>
-    </div>
-    </AppLayout>
-  )
+    )
+    return (
+      <>
+        <div className="hidden md:block"><AppLayout>{loadingContent}</AppLayout></div>
+        <div className="md:hidden"><MobileLayout>{loadingContent}</MobileLayout></div>
+      </>
+    )
+  }
 
-  return (
-    <AppLayout>
-    <div className="min-h-screen">
+  if (!community) {
+    const notFoundContent = (
+      <div className="min-h-screen flex items-center justify-center pb-safe">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-slate-200 mb-2">Community not found</h2>
+          <Link href="/community" className="text-cyan-400 hover:text-cyan-300 text-sm">Back to feed</Link>
+        </div>
+      </div>
+    )
+    return (
+      <>
+        <div className="hidden md:block"><AppLayout>{notFoundContent}</AppLayout></div>
+        <div className="md:hidden"><MobileLayout>{notFoundContent}</MobileLayout></div>
+      </>
+    )
+  }
+
+  const content = (
+    <div className="min-h-screen pb-safe">
+      
+      {/* ── Mobile Header ── */}
+      <header className="md:hidden sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 px-3 py-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => router.back()}
+            className="p-1.5 -ml-1.5 rounded-full text-slate-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="flex flex-col">
+            <span className="text-sm font-bold text-white leading-tight">c/{community.name}</span>
+          </div>
+        </div>
+        <button
+          onClick={handleJoinLeave}
+          disabled={joining}
+          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
+            community.is_member
+              ? 'bg-[#1a2130] text-slate-300 border border-white/10'
+              : 'bg-blue-500 text-white'
+          }`}
+        >
+          {joining ? '...' : community.is_member ? 'Joined' : 'Join'}
+        </button>
+      </header>
+
       {/* Banner */}
       <div className="h-20 sm:h-28 bg-gradient-to-r from-cyan-900/20 to-blue-900/20 relative">
         {community.banner_url && (
@@ -133,7 +172,7 @@ export default function CommunityDetailPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
-                    <Link href="/community" className="text-slate-500 hover:text-slate-300 transition-colors">
+                    <Link href="/community" className="hidden md:block text-slate-500 hover:text-slate-300 transition-colors">
                       <ArrowLeft className="w-4 h-4" />
                     </Link>
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-lg font-bold text-cyan-400 shrink-0">
@@ -160,7 +199,7 @@ export default function CommunityDetailPage() {
                 <button
                   onClick={handleJoinLeave}
                   disabled={joining}
-                  className={`px-5 py-2 rounded-full text-sm font-medium transition-all shrink-0 ${
+                  className={`hidden md:block px-5 py-2 rounded-full text-sm font-medium transition-all shrink-0 ${
                     community.is_member
                       ? 'bg-[#1a2130] text-slate-300 hover:bg-red-500/15 hover:text-red-400 border border-white/10'
                       : 'bg-blue-500 text-white hover:bg-blue-400'
@@ -268,6 +307,16 @@ export default function CommunityDetailPage() {
         </div>
       </div>
     </div>
-    </AppLayout>
+  )
+
+  return (
+    <>
+      <div className="hidden md:block">
+        <AppLayout>{content}</AppLayout>
+      </div>
+      <div className="md:hidden">
+        <MobileLayout>{content}</MobileLayout>
+      </div>
+    </>
   )
 }

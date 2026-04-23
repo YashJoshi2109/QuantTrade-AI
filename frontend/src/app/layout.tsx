@@ -77,8 +77,8 @@ export const metadata: Metadata = {
     canonical: BASE_URL,
   },
   icons: {
-    icon: '/favicon.svg',
-    apple: '/favicon.svg',
+    icon: '/favicon.png',
+    apple: '/favicon.png',
   },
   verification: {
     // Add Google Search Console verification token here when available
@@ -93,7 +93,7 @@ const organizationSchema = {
   '@type': 'Organization',
   name: 'QuantTrade AI',
   url: BASE_URL,
-  logo: `${BASE_URL}/favicon.svg`,
+  logo: `${BASE_URL}/favicon.png`,
   contactPoint: {
     '@type': 'ContactPoint',
     email: 'support@quanttrade.us',

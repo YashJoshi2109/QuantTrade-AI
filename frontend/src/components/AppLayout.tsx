@@ -585,11 +585,7 @@ export default function AppLayout({ children, symbol, hideFooter }: AppLayoutPro
 
       {/* Main Content Area */}
       <main 
-        className="pt-14 md:pt-[6.25rem] min-h-screen transition-all duration-300"
-        style={{ 
-          marginLeft: `calc(${sidebarWidth})`,
-          marginRight: 0 
-        }}
+        className={`pt-14 md:pt-[6.25rem] min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-[5rem]' : 'lg:ml-[14rem]'}`}
       >
         <div className="h-full overflow-y-auto px-4 md:px-6 py-4 md:py-6">
           {children}

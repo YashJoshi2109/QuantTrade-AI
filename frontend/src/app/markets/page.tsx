@@ -95,7 +95,7 @@ function useContinentMovers(continent: Continent) {
   })
 }
 
-function useCurrencyRates() {
+export function useCurrencyRates() {
   return useQuery({
     queryKey: ['currencyRates'],
     queryFn: async (): Promise<Record<string, number>> => {
@@ -122,7 +122,7 @@ interface GlobalMover {
 }
 
 // ─── Continent Tab Bar ─────────────────────────────────────────────────────
-function ContinentTabBar({ active, onChange }: { active: Continent; onChange: (c: Continent) => void }) {
+export function ContinentTabBar({ active, onChange }: { active: Continent; onChange: (c: Continent) => void }) {
   return (
     <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-3 mb-4 no-scrollbar">
       {CONTINENTS.map((c) => (
@@ -145,7 +145,7 @@ function ContinentTabBar({ active, onChange }: { active: Continent; onChange: (c
 }
 
 // ─── Currency Selector ─────────────────────────────────────────────────────
-function CurrencySelector({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+export function CurrencySelector({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   const [open, setOpen] = useState(false)
   const curr = DISPLAY_CURRENCIES.find((c) => c.code === value) ?? DISPLAY_CURRENCIES[0]
   return (
@@ -198,7 +198,7 @@ function countryFlag(code: string): string {
 }
 
 // ─── World Exchange Indices Grid (Bloomberg-style) ───────────────────────────
-function WorldIndicesGrid({ continent, currency, rates }: { continent: Continent; currency: string; rates: Record<string, number> }) {
+export function WorldIndicesGrid({ continent, currency, rates }: { continent: Continent; currency: string; rates: Record<string, number> }) {
   const { data: indices = [], isLoading } = useWorldIndices(continent)
   const { openSnapshot } = useStockSnapshot()
   const currInfo = DISPLAY_CURRENCIES.find((c) => c.code === currency)
@@ -386,7 +386,7 @@ function useExchangeUniverse(exchangeKey: string, limit: number) {
   })
 }
 
-function UniverseExchangeTable({
+export function UniverseExchangeTable({
   exchangeKey,
   limit,
   label,
@@ -489,7 +489,7 @@ function UniverseExchangeTable({
   )
 }
 
-function ExchangeUniverseSection({ continent }: { continent: Continent }) {
+export function ExchangeUniverseSection({ continent }: { continent: Continent }) {
   const exchanges = CONTINENT_UNIVERSE_KEYS[continent]
   if (!exchanges?.length) return null
 
@@ -566,7 +566,7 @@ function SessionChangeLegendStrip({ className = '' }: { className?: string }) {
   )
 }
 
-function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
+export function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
   const { data, isLoading } = useExchangeHeatmap(continent)
   const sectors = data?.sectors ?? []
 
@@ -641,7 +641,7 @@ function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
 }
 
 // ─── Continent Movers ──────────────────────────────────────────────────────
-function ContinentMovers({ continent }: { continent: Continent }) {
+export function ContinentMovers({ continent }: { continent: Continent }) {
   const { data, isLoading } = useContinentMovers(continent)
   const { openSnapshot } = useStockSnapshot()
   const gainers = data?.gainers ?? []

@@ -8,7 +8,7 @@ async function authFetch(path: string, init?: RequestInit): Promise<Response> {
     ...getAuthHeaders(),
     ...(init?.headers || {}),
   }
-  return fetch(`${API_URL}${path}`, { ...init, headers })
+  return fetch(`${API_URL}${path}`, { ...init, headers, credentials: 'include' })
 }
 
 async function parseOrThrow<T>(res: Response): Promise<T> {

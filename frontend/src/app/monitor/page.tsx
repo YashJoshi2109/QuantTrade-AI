@@ -710,8 +710,12 @@ function MonitorMobile() {
   const sections: { id: string; label: string; Icon: LucideIcon }[] = [
     { id: 'live', label: 'Live', Icon: Radio },
     { id: 'markets', label: 'Markets', Icon: TrendingUp },
+    { id: 'economy', label: 'Economy', Icon: Landmark },
     { id: 'risk', label: 'Risk', Icon: Shield },
+    { id: 'commodities', label: 'Commodities', Icon: CircleDollarSign },
     { id: 'news', label: 'News', Icon: Globe },
+    { id: 'predictions', label: 'Predictions', Icon: BarChart3 },
+    { id: 'security', label: 'Security', Icon: Lock },
     { id: 'policy', label: 'Policy', Icon: FileText },
   ]
 
@@ -775,6 +779,16 @@ function MonitorMobile() {
 
         {/* Content sections */}
         <div className="flex-1 px-4 py-4 space-y-4">
+          {/* Globe Preview */}
+          <section id="mobile-globe">
+            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-64 relative">
+              <Suspense fallback={<PanelShimmer height="h-full" />}>
+                <CobeMonitorGlobe events={events} clusters={mapData?.clusters || []} instability={mapData?.instability || []} />
+              </Suspense>
+              <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-[#020617] to-transparent pointer-events-none" />
+            </div>
+          </section>
+
           <section id="mobile-live">
             <div className="flex items-center gap-2 mb-3">
               <Radio className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
@@ -797,13 +811,33 @@ function MonitorMobile() {
             </div>
           </section>
 
+          <section id="mobile-economy">
+            <div className="flex items-center gap-2 mb-3">
+              <Landmark className="w-3.5 h-3.5 text-sky-400" />
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Economic Indicators</span>
+            </div>
+            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-96">
+              <Suspense fallback={<PanelShimmer height="h-full" />}><EconomicIndicatorsPanel /></Suspense>
+            </div>
+          </section>
+
           <section id="mobile-risk">
             <div className="flex items-center gap-2 mb-3">
               <Shield className="w-3.5 h-3.5 text-sky-400" />
               <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Strategic Risk</span>
             </div>
+            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-y-auto min-h-[320px] max-h-[500px]">
+              <Suspense fallback={<PanelShimmer height="h-80" />}><StrategicRiskPanel /></Suspense>
+            </div>
+          </section>
+
+          <section id="mobile-commodities">
+            <div className="flex items-center gap-2 mb-3">
+              <CircleDollarSign className="w-3.5 h-3.5 text-sky-400" />
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Commodities & Volatility</span>
+            </div>
             <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-80">
-              <Suspense fallback={<PanelShimmer height="h-full" />}><StrategicRiskPanel /></Suspense>
+              <Suspense fallback={<PanelShimmer height="h-full" />}><CommoditiesWidget /></Suspense>
             </div>
           </section>
 
@@ -817,13 +851,33 @@ function MonitorMobile() {
             </div>
           </section>
 
+          <section id="mobile-predictions">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart3 className="w-3.5 h-3.5 text-sky-400" />
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Prediction Markets</span>
+            </div>
+            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-96">
+              <Suspense fallback={<PanelShimmer height="h-full" />}><PolymarketFinancePanel /></Suspense>
+            </div>
+          </section>
+
+          <section id="mobile-security">
+            <div className="flex items-center gap-2 mb-3">
+              <Lock className="w-3.5 h-3.5 text-sky-400" />
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Security Advisories</span>
+            </div>
+            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-80">
+              <Suspense fallback={<PanelShimmer height="h-full" />}><SecurityAdvisoriesPanel /></Suspense>
+            </div>
+          </section>
+
           <section id="mobile-policy">
             <div className="flex items-center gap-2 mb-3">
               <FileText className="w-3.5 h-3.5 text-sky-400" />
               <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Trade & Policy</span>
             </div>
-            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-80">
-              <Suspense fallback={<PanelShimmer height="h-full" />}><TradePolicyPanel /></Suspense>
+            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-y-auto min-h-[320px] max-h-[500px]">
+              <Suspense fallback={<PanelShimmer height="h-80" />}><TradePolicyPanel /></Suspense>
             </div>
           </section>
         </div>

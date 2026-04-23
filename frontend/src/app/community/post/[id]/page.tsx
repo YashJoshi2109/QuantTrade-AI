@@ -18,6 +18,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
+import MobileLayout from '@/components/layout/MobileLayout'
 import CommentTree, { type Comment } from '@/components/community/CommentTree'
 import CommentComposer from '@/components/community/CommentComposer'
 import {
@@ -286,21 +287,38 @@ export default function PostThreadPage() {
 
   // ── Render ─────────────────────────────────────────────────
 
-  return (
-    <AppLayout>
-      <div className="min-h-screen px-3 py-4 sm:p-6 lg:p-8 pb-safe">
-        <div className="max-w-3xl mx-auto">
+  const content = (
+    <div className="min-h-screen sm:p-6 lg:p-8 pb-safe">
+      {/* ── Mobile Header ── */}
+      <header className="md:hidden sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 px-3 py-2.5 flex items-center gap-3">
+        <button 
+          onClick={() => router.back()}
+          className="p-1.5 -ml-1.5 rounded-full text-slate-400 hover:text-white transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex flex-col">
+          <span className="text-sm font-bold text-white leading-tight">
+            {postLoading ? 'Loading...' : post?.community ? `c/${post.community.name}` : 'Post Details'}
+          </span>
+          {!postLoading && post?.author && (
+            <span className="text-[10px] text-slate-500 leading-none">by {post.author.username}</span>
+          )}
+        </div>
+      </header>
 
-          {/* Back button */}
-          <motion.button
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            onClick={() => router.back()}
-            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 transition-colors mb-4 sm:mb-6 group min-h-[44px] sm:min-h-0"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-            Back
-          </motion.button>
+      <div className="max-w-3xl mx-auto px-3 py-4 sm:px-0">
+
+        {/* Desktop Back button */}
+        <motion.button
+          initial={{ opacity: 0, x: -8 }}
+          animate={{ opacity: 1, x: 0 }}
+          onClick={() => router.back()}
+          className="hidden md:flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 transition-colors mb-4 sm:mb-6 group min-h-[44px] sm:min-h-0"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+          Back
+        </motion.button>
 
           {/* ── Post Card ─────────────────────────────────────── */}
 
@@ -353,14 +371,14 @@ export default function PostThreadPage() {
               </h1>
 
               {/* Author */}
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500/40 to-purple-500/40 border border-white/10 flex items-center justify-center text-xs font-bold text-slate-200 shrink-0">
+              <Link href={post.author?.username ? `/community/user/${post.author.username}` : '#'} className="flex items-center gap-2.5 mb-4 group inline-flex">
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500/40 to-purple-500/40 border border-white/10 flex items-center justify-center text-xs font-bold text-slate-200 shrink-0 group-hover:border-blue-500/50 transition-colors">
                   {post.author?.username?.[0]?.toUpperCase() || '?'}
                 </div>
-                <span className="text-sm font-semibold text-slate-200">
+                <span className="text-sm font-semibold text-slate-200 group-hover:text-blue-400 transition-colors">
                   {post.author?.username || 'Anonymous'}
                 </span>
-              </div>
+              </Link>
 
               {/* Badges row: sentiment + tickers */}
               <div className="flex items-center gap-2 flex-wrap mb-4">
@@ -501,6 +519,16 @@ export default function PostThreadPage() {
 
         </div>
       </div>
-    </AppLayout>
+  )
+
+  return (
+    <>
+      <div className="hidden md:block">
+        <AppLayout>{content}</AppLayout>
+      </div>
+      <div className="md:hidden">
+        <MobileLayout>{content}</MobileLayout>
+      </div>
+    </>
   )
 }

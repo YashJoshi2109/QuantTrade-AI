@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import AppLayout from '@/components/AppLayout'
+import MobileLayout from '@/components/layout/MobileLayout'
+import MobileCommunityMessages from '@/components/layout/MobileCommunityMessages'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   fetchDMConversations,
@@ -383,7 +385,7 @@ function EmptyThread() {
 
 // ── Main Page ───────────────────────────────────────────────────────
 
-export default function MessagesPage() {
+function DesktopMessages() {
   const { user, isAuthenticated } = useAuth()
   const router = useRouter()
   const [conversations, setConversations] = useState<DMConversation[]>([])
@@ -447,5 +449,18 @@ export default function MessagesPage() {
         </div>
       </div>
     </AppLayout>
+  )
+}
+
+export default function MessagesPage() {
+  return (
+    <>
+      <div className="hidden lg:block"><DesktopMessages /></div>
+      <div className="lg:hidden">
+        <MobileLayout>
+          <MobileCommunityMessages />
+        </MobileLayout>
+      </div>
+    </>
   )
 }
