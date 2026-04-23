@@ -83,7 +83,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1200M
+          memory: 768M
     expose:
       - "8000"
     env_file:
@@ -167,10 +167,10 @@ services:
       - NEON_AUTH_AUDIENCE=${NEON_AUTH_AUDIENCE:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 15s
+      interval: 20s
       timeout: 10s
-      start_period: 60s
-      retries: 6
+      start_period: 120s
+      retries: 8
     networks:
       - quanttrade-network
 

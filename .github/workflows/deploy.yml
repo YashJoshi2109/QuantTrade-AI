@@ -377,38 +377,58 @@ jobs:
             echo "📥 Pulling latest images..."
             docker compose -f docker-compose.prod.yml pull
             
+            # ===== CHECK MEMORY BEFORE START =====
+            echo "💾 Memory before container start:"
+            free -m || true
+
             # ===== START CONTAINERS =====
             echo "🚀 Starting containers..."
-            if ! docker compose -f docker-compose.prod.yml up -d --remove-orphans; then
-              echo "❌ docker compose up failed! Showing container status and logs..."
+            # Use --wait with timeout so compose itself waits for healthy status
+            if ! docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait --wait-timeout 300; then
+              echo "❌ docker compose up failed! Showing diagnostics..."
               docker compose -f docker-compose.prod.yml ps || true
-              docker logs --tail=100 quanttrade-backend || true
-              docker logs --tail=100 quanttrade-nginx || true
+              echo "=== Backend logs ==="
+              docker logs --tail=150 quanttrade-backend || true
+              echo "=== Nginx logs ==="
+              docker logs --tail=50 quanttrade-nginx || true
+              echo "=== Memory ==="
+              free -m || true
+              docker stats --no-stream || true
+              echo "=== dmesg OOM ==="
+              sudo dmesg | grep -i "oom\|killed process" | tail -10 || true
               exit 1
             fi
             
             # ===== WAIT AND HEALTH CHECK =====
-            echo "⏳ Waiting for backend/frontend to become healthy (start_period=60s)..."
-            sleep 25
-            
-            # Health check with retries (backend has 60s start_period)
-            # -L follows HTTP->HTTPS redirects from nginx if configured.
-            # Fallback to backend direct port in case nginx route is not ready yet.
-            for i in 1 2 3 4 5 6 7 8 9 10; do
-              if curl -sS -L -f http://localhost/health || curl -sS -L -f http://localhost:8000/health; then
-                echo "✅ Bhai Health check passed Hogaya!"
+            # Backend has start_period=120s in compose — give it time on t3.micro
+            echo "⏳ Waiting for backend to become healthy (start_period=120s)..."
+            sleep 45
+
+            # Health check with retries — try backend direct first (nginx depends on backend healthy)
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+              if curl -sS -f http://localhost:8000/health; then
+                echo "✅ Backend health check passed!"
                 break
               fi
-              echo "Waiting for services... (attempt $i/10)"
-              sleep 10
+              echo "Waiting for backend... (attempt $i/15)"
+              docker logs --tail=5 quanttrade-backend 2>&1 | tail -3 || true
+              sleep 15
             done
-            
-            # Final verification
-            if ! (curl -sS -L -f http://localhost/health || curl -sS -L -f http://localhost:8000/health); then
+
+            # Wait a bit more for nginx to pick up healthy backend
+            sleep 10
+
+            # Final verification — try both nginx and backend direct
+            if ! (curl -sS -L -f http://localhost/health 2>/dev/null || curl -sS -f http://localhost:8000/health); then
               echo "❌ Health check failed! Showing logs..."
               docker compose -f docker-compose.prod.yml ps
-              docker logs --tail=50 quanttrade-nginx
-              docker logs --tail=50 quanttrade-backend
+              echo "=== Backend logs ==="
+              docker logs --tail=80 quanttrade-backend
+              echo "=== Nginx logs ==="
+              docker logs --tail=30 quanttrade-nginx
+              echo "=== Memory usage ==="
+              free -m || true
+              docker stats --no-stream || true
               exit 1
             fi
 
