@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense, type ChangeEvent } from 'react'
 import AppLayout from '@/components/AppLayout'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -43,8 +43,10 @@ import {
   uploadImage,
   followUser,
   unfollowUser,
+  searchSymbols,
   type CommunityPost,
   type Community,
+  type SearchResult,
 } from '@/lib/api'
 
 type SortTab = 'hot' | 'new' | 'top' | 'rising' | 'following'
@@ -134,6 +136,15 @@ function CommunityPageInner() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
 
+  // Ticker autocomplete
+  const [tickerQuery, setTickerQuery] = useState('')
+  const [tickerResults, setTickerResults] = useState<SearchResult[]>([])
+  const [tickerSearching, setTickerSearching] = useState(false)
+  const [showTickerDropdown, setShowTickerDropdown] = useState(false)
+  const [selectedTickers, setSelectedTickers] = useState<{ symbol: string; name: string }[]>([])
+  const tickerDebounce = useRef<NodeJS.Timeout | null>(null)
+  const tickerInputRef = useRef<HTMLInputElement>(null)
+
   // Follow tracking
   const [followedUsers, setFollowedUsers] = useState<Set<number>>(new Set())
   const [followingUserId, setFollowingUserId] = useState<number | null>(null)
@@ -145,14 +156,53 @@ function CommunityPageInner() {
   // Auto-extract tickers from body
   const autoTickers = useMemo(() => extractTickers(createBody), [createBody])
 
-  // Merge auto-detected with manually entered tickers
+  // Merge auto-detected with manually entered + selected tickers
   const mergedTickersDisplay = useMemo(() => {
     const manual = createTickers
       .split(/[,\s]+/)
       .map((t) => t.replace('$', '').toUpperCase())
       .filter(Boolean)
-    return Array.from(new Set([...manual, ...autoTickers]))
-  }, [createTickers, autoTickers])
+    const selected = selectedTickers.map((t) => t.symbol)
+    return Array.from(new Set([...selected, ...manual, ...autoTickers]))
+  }, [createTickers, autoTickers, selectedTickers])
+
+  // Ticker search handler
+  const handleTickerSearch = useCallback((query: string) => {
+    setTickerQuery(query)
+    if (tickerDebounce.current) clearTimeout(tickerDebounce.current)
+    if (!query.trim()) {
+      setTickerResults([])
+      setShowTickerDropdown(false)
+      return
+    }
+    setTickerSearching(true)
+    setShowTickerDropdown(true)
+    tickerDebounce.current = setTimeout(async () => {
+      try {
+        const results = await searchSymbols(query, 8)
+        setTickerResults(results)
+      } catch {
+        setTickerResults([])
+      } finally {
+        setTickerSearching(false)
+      }
+    }, 250)
+  }, [])
+
+  const addTicker = useCallback((symbol: string, name: string) => {
+    setSelectedTickers((prev) => {
+      if (prev.some((t) => t.symbol === symbol)) return prev
+      return [...prev, { symbol, name }]
+    })
+    setTickerQuery('')
+    setTickerResults([])
+    setShowTickerDropdown(false)
+    tickerInputRef.current?.focus()
+  }, [])
+
+  const removeTicker = useCallback((symbol: string) => {
+    setSelectedTickers((prev) => prev.filter((t) => t.symbol !== symbol))
+  }, [])
 
   // Community search filter
   const filteredCommunities = useMemo(() => {
@@ -367,6 +417,8 @@ function CommunityPageInner() {
         setCreateBody('')
         setCreateCommunity('')
         setCreateTickers('')
+        setSelectedTickers([])
+        setTickerQuery('')
         setCreateSentiment('')
         setBodyTab('write')
         setCommunitySearch('')
@@ -884,14 +936,76 @@ function CommunityPageInner() {
                 {/* Tickers + Sentiment */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <div className="flex-1 relative">
-                    <Hash className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      placeholder="Extra tickers (e.g. AAPL, TSLA)"
-                      value={createTickers}
-                      onChange={(e) => setCreateTickers(e.target.value)}
-                      className="w-full bg-[#161b22] border border-white/[0.08] rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500/40"
-                    />
+                    {/* Selected ticker pills */}
+                    <div className="flex flex-wrap items-center gap-1.5 bg-[#161b22] border border-white/[0.08] rounded-xl px-3 py-2 min-h-[42px] focus-within:border-blue-500/40">
+                      {selectedTickers.map((t) => (
+                        <span
+                          key={t.symbol}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 rounded-md"
+                        >
+                          ${t.symbol}
+                          <button
+                            type="button"
+                            onClick={() => removeTicker(t.symbol)}
+                            className="text-slate-500 hover:text-red-400 ml-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        ref={tickerInputRef}
+                        type="text"
+                        placeholder={selectedTickers.length ? '' : 'Search ticker or company...'}
+                        value={tickerQuery}
+                        onChange={(e) => handleTickerSearch(e.target.value)}
+                        onFocus={() => tickerQuery.trim() && setShowTickerDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowTickerDropdown(false), 200)}
+                        className="flex-1 min-w-[120px] bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Autocomplete dropdown */}
+                    {showTickerDropdown && (
+                      <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-[#1a1f2e] border border-white/10 rounded-xl shadow-xl overflow-hidden max-h-[240px] overflow-y-auto">
+                        {tickerSearching && (
+                          <div className="flex items-center gap-2 px-3 py-3 text-sm text-slate-400">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Searching...
+                          </div>
+                        )}
+                        {!tickerSearching && tickerResults.length === 0 && tickerQuery.trim() && (
+                          <div className="px-3 py-3 text-sm text-slate-500">No results for &ldquo;{tickerQuery}&rdquo;</div>
+                        )}
+                        {tickerResults.map((result) => (
+                          <button
+                            key={result.symbol}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => addTicker(result.symbol, result.name || result.symbol)}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/[0.06] transition-colors text-left"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center text-xs font-bold text-cyan-400 shrink-0">
+                              {result.symbol.slice(0, 2)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-mono font-bold text-slate-100">{result.symbol}</span>
+                                {result.exchange && (
+                                  <span className="text-[10px] text-slate-500 px-1.5 py-0.5 bg-slate-800/60 rounded">{result.exchange}</span>
+                                )}
+                              </div>
+                              {result.name && (
+                                <div className="text-xs text-slate-400 truncate">{result.name}</div>
+                              )}
+                            </div>
+                            {selectedTickers.some((t) => t.symbol === result.symbol) && (
+                              <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <select
                     value={createSentiment}
