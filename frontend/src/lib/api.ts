@@ -2502,7 +2502,8 @@ export async function fetchUserPosts(username: string, cursor?: number) {
   const res = await apiFetch(`${API_URL}/api/v1/users/by-username/${encodeURIComponent(username)}/posts?${params}`)
   if (!res.ok) return { posts: [] }
   const data = await res.json()
-  return { posts: data.items || data.posts || [], next_cursor: data.next_cursor }
+  const rawPosts = data.items || data.posts || []
+  return { posts: normalizePosts(rawPosts), next_cursor: data.next_cursor }
 }
 
 export async function followUser(userId: number) {
@@ -2583,4 +2584,35 @@ export async function blockDMUser(userId: number): Promise<boolean> {
 export async function unblockDMUser(userId: number): Promise<boolean> {
   const res = await apiFetch(`${API_URL}/api/v1/messages/block/${userId}`, { method: 'DELETE' })
   return res.ok
+}
+
+// Community Search API
+export interface CommunitySearchResult {
+  query: string
+  results: {
+    posts?: CommunityPost[]
+    comments?: any[]
+    communities?: Community[]
+    users?: any[]
+  }
+}
+
+export async function searchCommunity(q: string, type?: string): Promise<{ posts: CommunityPost[], communities: Community[] }> {
+  const url = new URL(`${API_URL}/api/v1/search`)
+  url.searchParams.append('q', q)
+  if (type) url.searchParams.append('type', type)
+  
+  const response = await fetch(url.toString(), {
+    credentials: 'include',
+  })
+  
+  if (!response.ok) {
+    throw new Error('Failed to search community')
+  }
+  
+  const data = await response.json()
+  return {
+    posts: data.results?.posts || [],
+    communities: data.results?.communities || []
+  }
 }

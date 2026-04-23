@@ -19,6 +19,7 @@ Implementation Notes:
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import or_
 from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel, Field
@@ -31,6 +32,38 @@ from app.services.reputation_service import reputation_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+# ── User Search ───────────────────────────────────────────────────────────────
+
+@router.get("/users/search")
+async def search_users(
+    q: str = Query(..., min_length=1, max_length=200),
+    limit: int = Query(10, ge=1, le=20),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+):
+    """Search users by username or display name. Used for DM recipient lookup."""
+    term = f"%{q.strip()}%"
+    query = db.query(User).filter(
+        or_(User.username.ilike(term), User.full_name.ilike(term))
+    ).order_by(User.username).limit(limit)
+
+    users = query.all()
+    exclude_id = current_user.id if current_user else None
+    return {
+        "users": [
+            {
+                "id": u.id,
+                "username": u.username,
+                "full_name": u.full_name,
+                "avatar_url": getattr(u, "avatar_url", None),
+                "reputation": getattr(u, "reputation", 0) or 0,
+            }
+            for u in users
+            if u.id != exclude_id
+        ]
+    }
 
 
 # ── Pydantic Schemas ─────────────────────────────────────────────────────────
