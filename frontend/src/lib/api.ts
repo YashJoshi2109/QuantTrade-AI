@@ -2499,3 +2499,73 @@ export async function unfollowUser(userId: number) {
   const res = await apiFetch(`${API_URL}/api/v1/users/${userId}/follow`, { method: 'DELETE' })
   return res.ok
 }
+
+// ── Direct Messages (DM) ────────────────────────────────────────────
+
+export interface DMConversation {
+  id: number
+  other_user: { id: number; username: string; avatar_url?: string | null }
+  last_message_preview: string | null
+  last_message_at: string | null
+  message_count: number
+  unread: boolean
+}
+
+export interface DMMessage {
+  id: number
+  sender_id: number
+  sender_username: string
+  body: string
+  parent_id: number | null
+  is_edited: boolean
+  created_at: string
+}
+
+export async function fetchDMConversations(limit = 20, offset = 0): Promise<{ conversations: DMConversation[] }> {
+  const res = await apiFetch(`${API_URL}/api/v1/messages/conversations?limit=${limit}&offset=${offset}`)
+  if (!res.ok) return { conversations: [] }
+  return res.json()
+}
+
+export async function createDMConversation(recipientId: number, message: string): Promise<{ conversation_id?: number; message_id?: number; error?: string }> {
+  const res = await apiFetch(`${API_URL}/api/v1/messages/conversations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ recipient_id: recipientId, message }),
+  })
+  return res.json()
+}
+
+export async function fetchDMMessages(conversationId: number, limit = 50, beforeId?: number): Promise<{ messages: DMMessage[]; has_more: boolean }> {
+  let url = `${API_URL}/api/v1/messages/conversations/${conversationId}?limit=${limit}`
+  if (beforeId) url += `&before_id=${beforeId}`
+  const res = await apiFetch(url)
+  if (!res.ok) return { messages: [], has_more: false }
+  return res.json()
+}
+
+export async function sendDMMessage(conversationId: number, body: string, parentId?: number): Promise<{ message_id?: number; created_at?: string }> {
+  const res = await apiFetch(`${API_URL}/api/v1/messages/conversations/${conversationId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body, parent_id: parentId || null }),
+  })
+  return res.json()
+}
+
+export async function fetchUnreadDMCount(): Promise<number> {
+  const res = await apiFetch(`${API_URL}/api/v1/messages/unread`)
+  if (!res.ok) return 0
+  const data = await res.json()
+  return data.unread || 0
+}
+
+export async function blockDMUser(userId: number): Promise<boolean> {
+  const res = await apiFetch(`${API_URL}/api/v1/messages/block/${userId}`, { method: 'POST' })
+  return res.ok
+}
+
+export async function unblockDMUser(userId: number): Promise<boolean> {
+  const res = await apiFetch(`${API_URL}/api/v1/messages/block/${userId}`, { method: 'DELETE' })
+  return res.ok
+}

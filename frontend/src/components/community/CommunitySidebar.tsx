@@ -20,6 +20,7 @@ import {
   Star,
   LogIn,
   LogOut,
+  MessageCircle,
 } from 'lucide-react'
 import { fetchCommunities, joinCommunity, leaveCommunity, type Community } from '@/lib/api'
 
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { href: '/community?sort=hot', label: 'Popular', icon: Flame },
   { href: '/community/discover', label: 'Explore', icon: Compass },
   { href: '/community?sort=rising', label: 'Rising', icon: TrendingUp },
+  { href: '/community/messages', label: 'Messages', icon: MessageCircle },
 ]
 
 const RESOURCE_LINKS = [
