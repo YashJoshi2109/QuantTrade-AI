@@ -288,7 +288,7 @@ export default function PostThreadPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen p-3 sm:p-6 lg:p-8 pb-safe">
+      <div className="min-h-screen px-3 py-4 sm:p-6 lg:p-8 pb-safe">
         <div className="max-w-3xl mx-auto">
 
           {/* Back button */}
@@ -296,7 +296,7 @@ export default function PostThreadPage() {
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             onClick={() => router.back()}
-            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 transition-colors mb-6 group"
+            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 transition-colors mb-4 sm:mb-6 group min-h-[44px] sm:min-h-0"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
             Back
@@ -330,7 +330,7 @@ export default function PostThreadPage() {
               transition={{ duration: 0.25 }}
             >
               {/* Community link + timestamp */}
-              <div className="flex items-center gap-2 text-xs text-slate-500 mb-3 flex-wrap">
+              <div className="flex items-center gap-2 text-xs text-slate-500 mb-2 sm:mb-3 flex-wrap">
                 {post.community && (
                   <Link
                     href={`/community/${post.community.slug}`}
@@ -348,7 +348,7 @@ export default function PostThreadPage() {
               </div>
 
               {/* Title */}
-              <h1 className="text-xl sm:text-2xl font-bold text-white leading-tight mb-3 break-words">
+              <h1 className="text-lg sm:text-2xl font-bold text-white leading-tight mb-2 sm:mb-3 break-words">
                 {post.title}
               </h1>
 
@@ -381,7 +381,7 @@ export default function PostThreadPage() {
               </div>
 
               {/* Post body */}
-              <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap break-words mb-5">
+              <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap break-words mb-4 sm:mb-5 overflow-x-hidden">
                 {post.body}
               </div>
 
@@ -391,7 +391,7 @@ export default function PostThreadPage() {
               </p>
 
               {/* Vote bar + stats */}
-              <div className="flex items-center gap-4 py-3 border-t border-b border-white/[0.04]">
+              <div className="flex items-center gap-3 sm:gap-4 py-3 border-t border-b border-white/[0.04]">
                 {/* Vote buttons */}
                 <div className="flex items-center gap-1">
                   <button
@@ -460,7 +460,7 @@ export default function PostThreadPage() {
 
           {post && !postLoading && (
             <section>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">
                     Comments

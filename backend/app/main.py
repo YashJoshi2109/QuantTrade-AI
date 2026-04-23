@@ -14,6 +14,7 @@ except Exception as _aws_err:
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from app.db.database import SessionLocal
@@ -518,6 +519,13 @@ app.include_router(mlops.router, prefix="/api/v1", tags=["mlops"])
 # ML Training Pipeline — internal operator API
 from app.api import ml_runs
 app.include_router(ml_runs.router, prefix="/api/v1", tags=["ml-pipeline"])
+
+# Static files — serve locally-uploaded community media (fallback when R2 is not configured)
+import pathlib as _pathlib
+_storage_root = _pathlib.Path(os.getenv("LOCAL_STORAGE_PATH", "./storage"))
+_upload_dir = _storage_root / "community" / "uploads"
+_upload_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static/uploads", StaticFiles(directory=str(_storage_root)), name="static-uploads")
 
 
 @app.get("/")

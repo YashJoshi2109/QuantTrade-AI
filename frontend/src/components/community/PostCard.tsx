@@ -80,7 +80,9 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
     const [voteDirection, setVoteDirection] = useState<'up' | 'down' | null>(null)
     const [showReport, setShowReport] = useState(false)
     const [showMore, setShowMore] = useState(false)
+    const [showShareMenu, setShowShareMenu] = useState(false)
     const shareTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const shareMenuRef = useRef<HTMLDivElement>(null)
 
     // Sync vote state when post data changes (e.g. after page refresh / re-fetch)
     useEffect(() => {
@@ -179,17 +181,47 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
       }
     }, [bookmarked, notify, post.id])
 
-    const handleShare = useCallback(() => {
-      const url = `${window.location.origin}/community/post/${post.id}`
-      navigator.clipboard.writeText(url).then(() => {
+    const postUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/community/post/${post.id}`
+      : `/community/post/${post.id}`
+
+    const handleCopyLink = useCallback(() => {
+      navigator.clipboard.writeText(postUrl).then(() => {
         setShareConfirm(true)
+        setShowShareMenu(false)
         notify('Link copied to clipboard!', 'success')
         if (shareTimeoutRef.current) clearTimeout(shareTimeoutRef.current)
         shareTimeoutRef.current = setTimeout(() => setShareConfirm(false), 2000)
       }).catch(() => {
         notify('Failed to copy link', 'error')
       })
-    }, [post.id, notify])
+    }, [postUrl, notify])
+
+    const handleShareTwitter = useCallback(() => {
+      const text = encodeURIComponent(post.title)
+      const url = encodeURIComponent(postUrl)
+      window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank', 'noopener')
+      setShowShareMenu(false)
+    }, [post.title, postUrl])
+
+    const handleShareReddit = useCallback(() => {
+      const title = encodeURIComponent(post.title)
+      const url = encodeURIComponent(postUrl)
+      window.open(`https://www.reddit.com/submit?title=${title}&url=${url}`, '_blank', 'noopener')
+      setShowShareMenu(false)
+    }, [post.title, postUrl])
+
+    // Close share menu on outside click
+    useEffect(() => {
+      if (!showShareMenu) return
+      const handleClickOutside = (e: MouseEvent) => {
+        if (shareMenuRef.current && !shareMenuRef.current.contains(e.target as Node)) {
+          setShowShareMenu(false)
+        }
+      }
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [showShareMenu])
 
     const sentiment = post.sentiment ? sentimentConfig[post.sentiment.toLowerCase()] : null
 
@@ -205,9 +237,9 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             : 'hover:bg-[#161d27]'
         }`}
       >
-        <div className="px-4 pt-3 pb-1">
+        <div className="px-3 sm:px-4 pt-3 pb-1">
           {/* Meta line — community + author + time */}
-          <div className="flex items-center gap-1.5 text-xs mb-2">
+          <div className="flex items-center gap-1.5 text-xs mb-2 flex-wrap">
             <Link
               href={`/community/${post.community.slug}`}
               className="font-semibold text-slate-300 hover:text-white transition-colors"
@@ -277,47 +309,47 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
         </div>
 
         {/* Action bar — Reddit-style pill buttons */}
-        <div className="flex items-center gap-1 px-2 pb-2">
+        <div className="flex items-center gap-1 sm:gap-1 px-2 sm:px-2 pb-2 flex-wrap">
           {/* Upvote pill */}
           <button
             onClick={() => handleVote(1)}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full transition-colors ${
+            className={`flex items-center gap-1 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-full transition-colors min-h-[44px] sm:min-h-0 ${
               userVote === 1
                 ? 'bg-orange-500/15 text-orange-400'
                 : 'bg-[#1a2130] text-slate-400 hover:text-orange-400 hover:bg-orange-500/10'
             }`}
           >
-            <ArrowBigUp className={`w-4.5 h-4.5 ${userVote === 1 ? 'fill-orange-400' : ''}`} />
+            <ArrowBigUp className={`w-5 h-5 sm:w-4.5 sm:h-4.5 ${userVote === 1 ? 'fill-orange-400' : ''}`} />
             <span className="text-xs font-semibold tabular-nums">{post.upvote_count || 0}</span>
           </button>
 
           {/* Downvote pill */}
           <button
             onClick={() => handleVote(-1)}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full transition-colors ${
+            className={`flex items-center gap-1 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-full transition-colors min-h-[44px] sm:min-h-0 ${
               userVote === -1
                 ? 'bg-blue-500/15 text-blue-400'
                 : 'bg-[#1a2130] text-slate-400 hover:text-blue-400 hover:bg-blue-500/10'
             }`}
           >
-            <ArrowBigDown className={`w-4.5 h-4.5 ${userVote === -1 ? 'fill-blue-400' : ''}`} />
+            <ArrowBigDown className={`w-5 h-5 sm:w-4.5 sm:h-4.5 ${userVote === -1 ? 'fill-blue-400' : ''}`} />
             <span className="text-xs font-semibold tabular-nums">{post.downvote_count || 0}</span>
           </button>
 
           {/* Comments pill */}
           <Link
             href={`/community/post/${post.id}`}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a2130] rounded-full text-xs text-slate-400 hover:text-white hover:bg-[#1f2937] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-[#1a2130] rounded-full text-xs text-slate-400 hover:text-white hover:bg-[#1f2937] transition-colors min-h-[44px] sm:min-h-0"
           >
             <MessageSquare className="w-4 h-4" />
             <span>{post.comment_count}</span>
           </Link>
 
           {/* Share pill with dropdown */}
-          <div className="relative">
+          <div className="relative" ref={shareMenuRef}>
             <button
-              onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a2130] rounded-full text-xs text-slate-400 hover:text-white hover:bg-[#1f2937] transition-colors"
+              onClick={() => setShowShareMenu(!showShareMenu)}
+              className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-[#1a2130] rounded-full text-xs text-slate-400 hover:text-white hover:bg-[#1f2937] transition-colors min-h-[44px] sm:min-h-0"
             >
               {shareConfirm ? (
                 <Check className="w-4 h-4 text-emerald-400" />
@@ -326,12 +358,37 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               )}
               <span className="hidden sm:inline">{shareConfirm ? 'Copied!' : 'Share'}</span>
             </button>
+            {showShareMenu && (
+              <div className="absolute left-0 bottom-10 z-30 w-44 bg-[#1a2130] border border-white/10 rounded-xl shadow-xl py-1 text-xs">
+                <button
+                  onClick={handleCopyLink}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" /><path strokeLinecap="round" strokeLinejoin="round" d="M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.102 1.101" /></svg>
+                  Copy Link
+                </button>
+                <button
+                  onClick={handleShareTwitter}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                  Share to X
+                </button>
+                <button
+                  onClick={handleShareReddit}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 01-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 01.042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 014.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 01.14-.197.35.35 0 01.238-.042l2.906.617a1.214 1.214 0 011.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 00-.231.094.33.33 0 000 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 000-.462.342.342 0 00-.462 0c-.545.533-1.684.73-2.512.73-.828 0-1.967-.182-2.512-.73a.345.345 0 00-.205-.095z" /></svg>
+                  Share to Reddit
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Save pill */}
           <button
             onClick={handleBookmark}
-            className={`flex items-center gap-1.5 px-3 py-1.5 bg-[#1a2130] rounded-full text-xs transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-[#1a2130] rounded-full text-xs transition-colors min-h-[44px] sm:min-h-0 ${
               bookmarked ? 'text-amber-400' : 'text-slate-400 hover:text-white hover:bg-[#1f2937]'
             }`}
           >
@@ -343,7 +400,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           <div className="relative ml-auto">
             <button
               onClick={() => setShowMore(!showMore)}
-              className="p-1.5 rounded-full text-slate-500 hover:text-slate-300 hover:bg-[#1a2130] transition-colors"
+              className="p-2 sm:p-1.5 rounded-full text-slate-500 hover:text-slate-300 hover:bg-[#1a2130] transition-colors min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
             >
               <MoreHorizontal className="w-4 h-4" />
             </button>
@@ -365,7 +422,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
         </div>
 
         {/* Reaction bar */}
-        <div className="flex items-center gap-1 px-3 pb-2">
+        <div className="flex items-center gap-1.5 sm:gap-1 px-3 pb-3 sm:pb-2 flex-wrap">
           {REACTION_EMOJIS.map(({ key, icon }) => {
             const r = reactions.find((rx) => rx.emoji === key)
             const count = r?.count ?? 0
@@ -374,7 +431,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               <button
                 key={key}
                 onClick={() => handleReaction(key)}
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors ${
+                className={`flex items-center gap-1 px-2.5 sm:px-2 py-1.5 sm:py-1 rounded-full text-xs transition-colors min-h-[36px] sm:min-h-0 ${
                   reacted
                     ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
                     : 'bg-[#1a2130] text-slate-500 hover:text-slate-300 hover:bg-[#1f2937] border border-transparent'
