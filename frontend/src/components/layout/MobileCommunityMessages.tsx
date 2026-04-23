@@ -157,7 +157,7 @@ function ConversationList({
                   selectedId === conv.id ? 'bg-blue-500/8' : ''
                 }`}
               >
-                <Avatar username={conv.other_user.username} showOnline={Math.random() > 0.5} />
+                <Avatar username={conv.other_user.username} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
                     <span className={`text-sm truncate ${conv.unread ? 'font-semibold text-white' : 'text-slate-300 font-medium'}`}>
