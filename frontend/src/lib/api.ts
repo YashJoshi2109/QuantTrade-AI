@@ -2480,17 +2480,29 @@ export async function reportContent(targetId: number, targetType: string, reason
 // ── User Profile API ────────────────────────────────────────────────────
 
 export async function fetchUserProfile(username: string) {
-  const res = await apiFetch(`${API_URL}/api/v1/users/${username}`)
+  const res = await apiFetch(`${API_URL}/api/v1/users/by-username/${encodeURIComponent(username)}`)
   if (!res.ok) return null
-  return res.json()
+  const data = await res.json()
+  // Normalize field names between backend response and frontend expectations
+  return {
+    ...data,
+    display_name: data.display_name || data.full_name || data.username,
+    posts_count: data.posts_count ?? data.post_count ?? 0,
+    followers_count: data.followers_count ?? data.follower_count ?? 0,
+    following_count: data.following_count ?? data.following_count ?? 0,
+    joined_at: data.joined_at || data.created_at,
+    badges: data.badges || [],
+    is_following: data.is_following ?? false,
+  }
 }
 
 export async function fetchUserPosts(username: string, cursor?: number) {
   const params = new URLSearchParams({ limit: '20' })
   if (cursor) params.set('cursor', String(cursor))
-  const res = await apiFetch(`${API_URL}/api/v1/users/${username}/posts?${params}`)
+  const res = await apiFetch(`${API_URL}/api/v1/users/by-username/${encodeURIComponent(username)}/posts?${params}`)
   if (!res.ok) return { posts: [] }
-  return res.json()
+  const data = await res.json()
+  return { posts: data.items || data.posts || [], next_cursor: data.next_cursor }
 }
 
 export async function followUser(userId: number) {

@@ -128,11 +128,11 @@ function CommentNode({ comment, postId, isAuthenticated, onReplySubmit }: Commen
   // Collapsed state for deep threads
   if (collapsed && comment.depth >= MAX_VISIBLE_DEPTH && totalReplies > 0) {
     return (
-      <div className={`ml-3 md:ml-6 border-l-2 ${getDepthColor(comment.depth)}`}>
+      <div className={`ml-2 sm:ml-3 md:ml-6 border-l-2 ${getDepthColor(comment.depth)}`}>
         <button
           onClick={() => setCollapsed(false)}
           className="flex items-center gap-2 text-slate-500 italic text-sm cursor-pointer
-            hover:text-slate-300 transition-colors py-2 pl-3 md:pl-4 min-h-[44px] sm:min-h-0"
+            hover:text-slate-300 transition-colors py-2 pl-2 sm:pl-3 md:pl-4 min-h-[44px] sm:min-h-0"
         >
           <ChevronRight className="w-3.5 h-3.5" />
           <span>Show {totalReplies + 1} more {totalReplies === 0 ? 'reply' : 'replies'}</span>
@@ -146,12 +146,12 @@ function CommentNode({ comment, postId, isAuthenticated, onReplySubmit }: Commen
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.15 }}
-      className={`${comment.depth > 0 ? `ml-3 md:ml-6 border-l-2 ${getDepthColor(comment.depth)}` : ''}`}
+      className={`${comment.depth > 0 ? `ml-2 sm:ml-3 md:ml-6 border-l-2 ${getDepthColor(comment.depth)}` : ''}`}
     >
       <div className="group hover:bg-white/[0.02] rounded-r-lg transition-colors">
-        <div className={`py-2.5 ${comment.depth > 0 ? 'pl-4' : ''} pr-2`}>
+        <div className={`py-2.5 ${comment.depth > 0 ? 'pl-2 sm:pl-4' : ''} pr-2`}>
           {/* Author line */}
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
             {/* Avatar */}
             <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-white/10 flex items-center justify-center text-[9px] font-bold text-slate-300 shrink-0">
               {comment.author_display_name?.[0]?.toUpperCase() || '?'}

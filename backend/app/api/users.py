@@ -170,6 +170,87 @@ async def update_profile(
     }
 
 
+@router.get("/users/by-username/{username}", response_model=UserProfileResponse)
+async def get_user_profile_by_username(
+    username: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+):
+    """Get public user profile by username with reputation and stats."""
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    following = False
+    if current_user and current_user.id != user.id:
+        following = _is_following(db, current_user.id, user.id)
+
+    return UserProfileResponse(
+        id=user.id,
+        username=user.username,
+        full_name=user.full_name,
+        avatar_url=user.avatar_url,
+        bio=getattr(user, "bio", None),
+        trading_style=getattr(user, "trading_style", None),
+        experience=getattr(user, "experience", None),
+        reputation=getattr(user, "reputation", 0) or 0,
+        post_count=getattr(user, "post_count", 0) or 0,
+        follower_count=getattr(user, "follower_count", 0) or 0,
+        following_count=getattr(user, "following_count", 0) or 0,
+        created_at=user.created_at,
+        is_following=following,
+        badges=_compute_badges(user),
+    )
+
+
+@router.get("/users/by-username/{username}/posts", response_model=PaginatedUserPosts)
+async def get_user_posts_by_username(
+    username: str,
+    cursor: Optional[int] = Query(None, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """Get a user's posts by username, paginated by cursor."""
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    q = (
+        db.query(Post)
+        .options(joinedload(Post.community))
+        .filter(Post.author_id == user.id, Post.is_removed == False)
+    )
+
+    if cursor is not None:
+        q = q.filter(Post.id < cursor)
+
+    posts = q.order_by(Post.created_at.desc()).limit(limit).all()
+
+    items = [
+        PostSummary(
+            id=p.id,
+            title=p.title,
+            post_type=p.post_type,
+            upvote_count=p.upvote_count,
+            downvote_count=p.downvote_count,
+            comment_count=p.comment_count,
+            created_at=p.created_at,
+            community_slug=p.community.slug if p.community else None,
+            community_name=p.community.name if p.community else None,
+        )
+        for p in posts
+    ]
+    next_cursor = posts[-1].id if len(posts) == limit else None
+
+    return PaginatedUserPosts(items=items, next_cursor=next_cursor)
+
+
 @router.get("/users/{user_id}", response_model=UserProfileResponse)
 async def get_user_profile(
     user_id: int,

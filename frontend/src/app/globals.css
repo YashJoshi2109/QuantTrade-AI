@@ -68,6 +68,16 @@
   --glow-red:     0 0 20px rgba(239,68,68,0.45),  0 0 60px rgba(239,68,68,0.18);
   --glow-emerald: 0 0 20px rgba(52,211,153,0.35), 0 0 60px rgba(52,211,153,0.12);
   --glow-violet:  0 0 20px rgba(167,139,250,0.35),0 0 60px rgba(167,139,250,0.12);
+
+  /* ── shadcn Sidebar tokens ── */
+  --sidebar:                 8 12 22;
+  --sidebar-foreground:      203 213 225;
+  --sidebar-border:          255 255 255 / 0.08;
+  --sidebar-accent:          255 255 255 / 0.06;
+  --sidebar-accent-foreground: 226 232 240;
+  --sidebar-ring:            0 212 255 / 0.40;
+  --sidebar-primary:         0 212 255;
+  --sidebar-primary-foreground: 255 255 255;
 }
 
 /* ======================================================
@@ -1625,6 +1635,16 @@ html.light {
   --glow-red: 0 0 12px rgba(239,68,68,0.2), 0 0 40px rgba(239,68,68,0.08);
   --glow-emerald: 0 0 12px rgba(16,185,129,0.15), 0 0 40px rgba(16,185,129,0.06);
   --glow-violet: 0 0 12px rgba(139,92,246,0.15), 0 0 40px rgba(139,92,246,0.06);
+
+  /* ── shadcn Sidebar tokens (light) ── */
+  --sidebar:                 248 250 252;
+  --sidebar-foreground:      15 23 42;
+  --sidebar-border:          0 0 0 / 0.08;
+  --sidebar-accent:          0 0 0 / 0.04;
+  --sidebar-accent-foreground: 15 23 42;
+  --sidebar-ring:            37 99 235 / 0.40;
+  --sidebar-primary:         37 99 235;
+  --sidebar-primary-foreground: 255 255 255;
 }
 
 /* Light mode body */

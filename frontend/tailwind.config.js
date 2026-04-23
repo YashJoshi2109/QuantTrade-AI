@@ -40,6 +40,16 @@ module.exports = {
         accent: '#007AFF',
         success: '#00FF88',
         error: '#FF4757',
+        sidebar: {
+          DEFAULT: 'rgb(var(--sidebar) / <alpha-value>)',
+          foreground: 'rgb(var(--sidebar-foreground) / <alpha-value>)',
+          border: 'rgb(var(--sidebar-border))',
+          accent: 'rgb(var(--sidebar-accent))',
+          'accent-foreground': 'rgb(var(--sidebar-accent-foreground) / <alpha-value>)',
+          ring: 'rgb(var(--sidebar-ring))',
+          primary: 'rgb(var(--sidebar-primary) / <alpha-value>)',
+          'primary-foreground': 'rgb(var(--sidebar-primary-foreground) / <alpha-value>)',
+        },
       },
       spacing: {
         safe: 'env(safe-area-inset-bottom)',

@@ -454,7 +454,7 @@ function CommunityPageInner() {
 
           {/* ═══ Center Feed ═══ */}
           <main className="flex-1 min-w-0 border-x border-white/[0.04]">
-            <div className="px-2 sm:px-4 py-3 sm:py-4 pb-24 lg:pb-4">
+            <div className="px-2 sm:px-4 py-3 sm:py-4 pb-36 lg:pb-4">
               {/* Create Post Bar — hidden on mobile where FAB is used */}
               <div className="hidden sm:flex items-center gap-3 bg-[#131820] border border-white/[0.06] rounded-xl px-4 py-2.5 mb-3">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center text-xs font-bold text-blue-400 shrink-0 ring-1 ring-white/[0.06]">

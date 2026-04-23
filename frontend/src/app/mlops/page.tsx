@@ -393,7 +393,7 @@ function OverviewTab() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
           {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -443,7 +443,7 @@ function OverviewTab() {
       </motion.div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         <StatCard icon={Layers} label="Models" value={overview?.models?.registered || 0}
           sub={`${prodCount} in production`} color="text-purple-400" delay={0} />
         <StatCard icon={Play} label="Runs (7d)" value={metrics?.total_runs || 0}
@@ -464,16 +464,16 @@ function OverviewTab() {
         <Panel title="Latest Training Run" icon={Rocket} color="text-blue-400">
           {latestRun ? (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <code className="text-xs text-slate-400 font-mono bg-slate-800/40 px-2 py-1 rounded">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <code className="text-xs text-slate-400 font-mono bg-slate-800/40 px-2 py-1 rounded truncate">
                     {latestRun.run_id?.slice(0, 12)}...
                   </code>
                   <StatusBadge status={latestRun.status} />
                 </div>
                 <span className="text-xs text-slate-500">{relativeTime(latestRun.started_at)}</span>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-3 sm:gap-4">
                 <div>
                   <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Symbols</div>
                   <div className="text-lg font-bold text-slate-200 font-mono">
@@ -543,9 +543,9 @@ function OverviewTab() {
                     </span>
                   </div>
                   {info.metrics && (
-                    <div className="flex items-center gap-4 mt-2">
+                    <div className="flex items-center gap-3 sm:gap-4 mt-2 flex-wrap">
                       {Object.entries(info.metrics).slice(0, 4).map(([k, v]: [string, any]) => (
-                        <div key={k} className="text-center">
+                        <div key={k} className="text-center min-w-0">
                           <div className="text-[10px] text-slate-500 uppercase">{k.replace(/_/g, ' ')}</div>
                           <div className="text-xs font-mono text-slate-300">{typeof v === 'number' ? v.toFixed(4) : typeof v === 'string' ? v : '--'}</div>
                         </div>
@@ -790,7 +790,7 @@ function TrainingRunsTab() {
                   >
                     <div className="ml-2 sm:ml-12 mt-2 mb-2 p-3 sm:p-4 bg-slate-900/40 border border-white/[0.04] rounded-lg space-y-3">
                       {/* Run details */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pb-3 border-b border-white/[0.04]">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pb-3 border-b border-white/[0.04]">
                         <div>
                           <div className="text-[10px] text-slate-500 uppercase mb-0.5">Started</div>
                           <div className="text-xs text-slate-300">{formatTimestamp(run.started_at)}</div>
@@ -923,29 +923,29 @@ function ModelsTab() {
               {/* Model Header */}
               <button
                 onClick={() => toggleModel(name)}
-                className="w-full text-left p-5"
+                className="w-full text-left p-4 sm:p-5"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/20 flex items-center justify-center">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 shrink-0 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/20 flex items-center justify-center">
                       <Brain className="w-5 h-5 text-purple-400" />
                     </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-200">{name}</h3>
-                      <div className="flex items-center gap-3 mt-0.5">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-slate-200 truncate">{name}</h3>
+                      <div className="flex items-center gap-2 sm:gap-3 mt-0.5 flex-wrap">
                         <span className="text-[10px] text-slate-500">
                           {info.total_versions} version{info.total_versions !== 1 ? 's' : ''}
                         </span>
-                        <span className="text-[10px] text-slate-600">|</span>
+                        <span className="text-[10px] text-slate-600 hidden sm:inline">|</span>
                         <span className="text-[10px] text-slate-500">
                           Latest: v{info.latest_version}
                         </span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                     {info.production_version && (
-                      <span className="text-[10px] px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-full font-mono border border-emerald-500/20">
+                      <span className="text-[10px] px-2 sm:px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-full font-mono border border-emerald-500/20">
                         prod: v{info.production_version}
                       </span>
                     )}
@@ -967,7 +967,7 @@ function ModelsTab() {
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <div className="px-5 pb-5 pt-2 border-t border-white/[0.04] space-y-4">
+                    <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-2 border-t border-white/[0.04] space-y-4">
                       {/* Performance metrics */}
                       {performance[name] && (
                         <div className="space-y-3">
@@ -1124,7 +1124,7 @@ function MonitoringTab() {
                 <p className="text-xs text-amber-300">{perfData.retrain_reason}</p>
               </div>
             )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
               {perfData.performance && Object.entries(perfData.performance).map(([k, v]: [string, any]) => (
                 typeof v === 'number' && (
                   <div key={k} className="text-center p-3 rounded-lg bg-slate-800/20 border border-white/[0.04]">
@@ -1395,7 +1395,7 @@ function ConfigTab() {
           <div className="space-y-3">
             {/* Summary */}
             {shardPlan.total_shards !== undefined && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pb-3 border-b border-white/[0.04]">
+              <div className="grid grid-cols-3 gap-3 sm:gap-4 pb-3 border-b border-white/[0.04]">
                 <div>
                   <div className="text-[10px] text-slate-500 uppercase mb-0.5">Total Shards</div>
                   <div className="text-lg font-bold text-slate-200 font-mono">{shardPlan.total_shards}</div>
@@ -1480,7 +1480,7 @@ export default function MLOpsDashboard() {
   return (
     <AppLayout>
       <div className="min-h-screen bg-[#0a0a0f]">
-        <div className="max-w-[1400px] mx-auto px-3 sm:px-6 py-4 sm:py-8">
+        <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 py-4 sm:py-8">
 
           {/* ── Header ─────────────────────────────────────────────────── */}
           <motion.div
@@ -1514,7 +1514,7 @@ export default function MLOpsDashboard() {
             transition={{ delay: 0.1 }}
             className="mb-6"
           >
-            <div className="flex items-center gap-1 p-1 bg-[#0D1117] border border-white/[0.06] rounded-xl overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="flex items-center gap-1 p-1 bg-[#0D1117] border border-white/[0.06] rounded-xl overflow-x-auto whitespace-nowrap scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
