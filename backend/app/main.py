@@ -527,6 +527,8 @@ _upload_dir = _storage_root / "community" / "uploads"
 _upload_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static/uploads", StaticFiles(directory=str(_storage_root)), name="static-uploads")
 
+print("✅ FastAPI app fully loaded — all routers mounted, ready to serve requests")
+
 
 @app.get("/")
 async def root():

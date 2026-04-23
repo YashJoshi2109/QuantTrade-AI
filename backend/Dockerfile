@@ -47,14 +47,14 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+# No Dockerfile HEALTHCHECK — docker-compose.prod.yml defines it for the backend service.
+# Keeping it here would wrongly mark celery containers (same image) as unhealthy
+# since they don't serve HTTP.
 
 # Run with gunicorn + uvicorn workers for production
-# Workers = 2 * CPU cores + 1, but we use 2 for t3.micro
+# Single worker on t3.micro (1GB RAM) — 2 workers OOM under heavy imports
 CMD ["gunicorn", "app.main:app", \
-     "--workers", "2", \
+     "--workers", "1", \
      "--worker-class", "uvicorn.workers.UvicornWorker", \
      "--bind", "0.0.0.0:8000", \
      "--timeout", "300", \
