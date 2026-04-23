@@ -204,7 +204,13 @@ function CommunityPageInner() {
 
   // Load communities for the create modal
   useEffect(() => {
-    fetchCommunities().then((d) => setCommunities(d.communities || []))
+    fetchCommunities()
+      .then((d) => {
+        const list = d.communities || []
+        setCommunities(list)
+        if (list.length > 0) console.log(`Loaded ${list.length} communities for create modal`)
+      })
+      .catch((e) => console.error('Failed to load communities:', e))
   }, [])
 
   // Load feed
@@ -664,6 +670,9 @@ function CommunityPageInner() {
                     className="w-full bg-[#161b22] border border-white/[0.08] border-t-0 rounded-b-xl px-4 py-2.5 text-sm text-slate-200 appearance-none cursor-pointer focus:outline-none focus:border-blue-500/40"
                   >
                     <option value="">Select a community</option>
+                    {filteredCommunities.length === 0 && (
+                      <option value="" disabled>No communities found — create one first</option>
+                    )}
                     {filteredCommunities.map((c) => (
                       <option key={c.slug} value={c.slug}>
                         c/{c.name} ({c.member_count.toLocaleString()} members)
