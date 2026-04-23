@@ -22,6 +22,10 @@ import {
   ImagePlus,
   UserPlus,
   UserCheck,
+  Home,
+  Compass,
+  MessageSquare,
+  Plus,
 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import PostCard from '@/components/community/PostCard'
@@ -450,9 +454,9 @@ function CommunityPageInner() {
 
           {/* ═══ Center Feed ═══ */}
           <main className="flex-1 min-w-0 border-x border-white/[0.04]">
-            <div className="px-3 sm:px-4 py-4">
-              {/* Create Post Bar */}
-              <div className="flex items-center gap-3 bg-[#131820] border border-white/[0.06] rounded-xl px-4 py-2.5 mb-3">
+            <div className="px-2 sm:px-4 py-3 sm:py-4 pb-24 lg:pb-4">
+              {/* Create Post Bar — hidden on mobile where FAB is used */}
+              <div className="hidden sm:flex items-center gap-3 bg-[#131820] border border-white/[0.06] rounded-xl px-4 py-2.5 mb-3">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center text-xs font-bold text-blue-400 shrink-0 ring-1 ring-white/[0.06]">
                   U
                 </div>
@@ -473,7 +477,7 @@ function CommunityPageInner() {
 
               {/* ── Full-Width Sort Tabs ── */}
               <div className="bg-[#131820] border border-white/[0.06] rounded-xl mb-3 overflow-hidden">
-                <div className="flex">
+                <div className="flex overflow-x-auto scrollbar-none">
                   {SORT_TABS.map(({ key, label, icon: Icon }) => (
                     <button
                       key={key}
@@ -481,22 +485,22 @@ function CommunityPageInner() {
                         setSort(key)
                         if (key !== 'top') setTimeFilter('all')
                       }}
-                      className={`flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all flex-1 border-b-2 ${
+                      className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium transition-all flex-1 min-w-0 border-b-2 whitespace-nowrap ${
                         sort === key
                           ? 'border-blue-500 text-white bg-white/[0.03]'
                           : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-white/[0.02]'
                       }`}
                     >
-                      <Icon className={`w-4 h-4 ${sort === key ? 'text-blue-400' : ''}`} />
-                      <span>{label}</span>
+                      <Icon className={`w-4 h-4 shrink-0 ${sort === key ? 'text-blue-400' : ''}`} />
+                      <span className="truncate">{label}</span>
                     </button>
                   ))}
                 </div>
 
                 {/* Time filter sub-bar for Top sort */}
                 {sort === 'top' && (
-                  <div className="flex items-center gap-2 px-4 py-2 border-t border-white/[0.04] bg-white/[0.01]">
-                    <span className="text-[11px] text-slate-500 uppercase tracking-wider">Period</span>
+                  <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-t border-white/[0.04] bg-white/[0.01] overflow-x-auto scrollbar-none">
+                    <span className="text-[11px] text-slate-500 uppercase tracking-wider shrink-0">Period</span>
                     {[
                       { value: 'day', label: 'Today' },
                       { value: 'week', label: 'This Week' },
@@ -507,7 +511,7 @@ function CommunityPageInner() {
                       <button
                         key={opt.value}
                         onClick={() => setTimeFilter(opt.value)}
-                        className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
+                        className={`px-2.5 py-1 rounded-md text-xs transition-colors whitespace-nowrap ${
                           timeFilter === opt.value
                             ? 'bg-blue-500/15 text-blue-400 font-medium'
                             : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
@@ -606,6 +610,46 @@ function CommunityPageInner() {
 
       {/* Keyboard Shortcuts Help Modal */}
       <ShortcutHelpModal open={showHelp} onClose={() => setShowHelp(false)} />
+
+      {/* ═══ Mobile FAB — Create Post ═══ */}
+      <button
+        onClick={() => setShowCreate(true)}
+        className="lg:hidden fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full bg-blue-500 text-white shadow-lg shadow-blue-500/30 flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all"
+        aria-label="Create post"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+      {/* ═══ Mobile Bottom Navigation ═══ */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#131820]/95 backdrop-blur-lg border-t border-white/[0.06] safe-area-bottom">
+        <div className="flex items-center justify-around h-14">
+          {[
+            { icon: Home, label: 'Home', href: '/community', active: true },
+            { icon: Flame, label: 'Popular', action: () => setSort('hot') },
+            { icon: Compass, label: 'Explore', href: '/community?sort=rising' },
+            { icon: MessageSquare, label: 'Messages', href: '/community?sort=following' },
+          ].map((item) => (
+            <button
+              key={item.label}
+              onClick={() => {
+                if (item.action) {
+                  item.action()
+                } else if (item.href) {
+                  router.push(item.href)
+                }
+              }}
+              className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${
+                item.active
+                  ? 'text-blue-400'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <item.icon className="w-5 h-5" />
+              <span className="text-[10px] font-medium">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
 
       {/* ═══ Create Post Modal ═══ */}
       <AnimatePresence>

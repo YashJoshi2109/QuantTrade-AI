@@ -82,6 +82,12 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
     const [showMore, setShowMore] = useState(false)
     const shareTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
+    // Sync vote state when post data changes (e.g. after page refresh / re-fetch)
+    useEffect(() => {
+      setUserVote(post.user_vote)
+      setVoteCount(post.vote_count)
+    }, [post.user_vote, post.vote_count])
+
     // Reactions state
     const [reactions, setReactions] = useState<ReactionSummary[]>([])
     const [reactionsLoaded, setReactionsLoaded] = useState(false)
@@ -307,18 +313,20 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             <span>{post.comment_count}</span>
           </Link>
 
-          {/* Share pill */}
-          <button
-            onClick={handleShare}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a2130] rounded-full text-xs text-slate-400 hover:text-white hover:bg-[#1f2937] transition-colors"
-          >
-            {shareConfirm ? (
-              <Check className="w-4 h-4 text-emerald-400" />
-            ) : (
-              <Share2 className="w-4 h-4" />
-            )}
-            <span className="hidden sm:inline">{shareConfirm ? 'Copied!' : 'Share'}</span>
-          </button>
+          {/* Share pill with dropdown */}
+          <div className="relative">
+            <button
+              onClick={handleShare}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a2130] rounded-full text-xs text-slate-400 hover:text-white hover:bg-[#1f2937] transition-colors"
+            >
+              {shareConfirm ? (
+                <Check className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <Share2 className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">{shareConfirm ? 'Copied!' : 'Share'}</span>
+            </button>
+          </div>
 
           {/* Save pill */}
           <button

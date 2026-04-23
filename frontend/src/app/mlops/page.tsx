@@ -393,10 +393,10 @@ function OverviewTab() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
           {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <SkeletonTable rows={4} />
           <SkeletonTable rows={4} />
         </div>
@@ -436,14 +436,14 @@ function OverviewTab() {
         <span className="text-sm font-medium text-slate-200">
           Pipeline {health?.status === 'healthy' ? 'Operational' : health?.status === 'degraded' ? 'Degraded' : 'Down'}
         </span>
-        <span className="text-xs text-slate-500 ml-auto">
+        <span className="text-[10px] sm:text-xs text-slate-500 ml-auto hidden sm:inline">
           {health?.uptime_hours ? `Uptime: ${health.uptime_hours.toFixed(1)}h` : ''}
           {health?.last_run ? ` | Last run: ${relativeTime(health.last_run)}` : ''}
         </span>
       </motion.div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         <StatCard icon={Layers} label="Models" value={overview?.models?.registered || 0}
           sub={`${prodCount} in production`} color="text-purple-400" delay={0} />
         <StatCard icon={Play} label="Runs (7d)" value={metrics?.total_runs || 0}
@@ -706,7 +706,7 @@ function TrainingRunsTab() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <span className="text-sm text-slate-400">{runs.length} runs</span>
           {triggerMsg && (
@@ -724,7 +724,7 @@ function TrainingRunsTab() {
         <button
           onClick={triggerRun}
           disabled={triggering}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/30 transition-all disabled:opacity-40"
+          className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/30 transition-all disabled:opacity-40 w-full sm:w-auto justify-center sm:justify-start"
         >
           {triggering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
           {triggering ? 'Triggering...' : 'Trigger Nightly Run'}
@@ -788,9 +788,9 @@ function TrainingRunsTab() {
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <div className="ml-12 mt-2 mb-2 p-4 bg-slate-900/40 border border-white/[0.04] rounded-lg space-y-3">
+                    <div className="ml-2 sm:ml-12 mt-2 mb-2 p-3 sm:p-4 bg-slate-900/40 border border-white/[0.04] rounded-lg space-y-3">
                       {/* Run details */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pb-3 border-b border-white/[0.04]">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pb-3 border-b border-white/[0.04]">
                         <div>
                           <div className="text-[10px] text-slate-500 uppercase mb-0.5">Started</div>
                           <div className="text-xs text-slate-300">{formatTimestamp(run.started_at)}</div>
@@ -1124,7 +1124,7 @@ function MonitoringTab() {
                 <p className="text-xs text-amber-300">{perfData.retrain_reason}</p>
               </div>
             )}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
               {perfData.performance && Object.entries(perfData.performance).map(([k, v]: [string, any]) => (
                 typeof v === 'number' && (
                   <div key={k} className="text-center p-3 rounded-lg bg-slate-800/20 border border-white/[0.04]">
@@ -1395,7 +1395,7 @@ function ConfigTab() {
           <div className="space-y-3">
             {/* Summary */}
             {shardPlan.total_shards !== undefined && (
-              <div className="grid grid-cols-3 gap-4 pb-3 border-b border-white/[0.04]">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pb-3 border-b border-white/[0.04]">
                 <div>
                   <div className="text-[10px] text-slate-500 uppercase mb-0.5">Total Shards</div>
                   <div className="text-lg font-bold text-slate-200 font-mono">{shardPlan.total_shards}</div>
@@ -1480,7 +1480,7 @@ export default function MLOpsDashboard() {
   return (
     <AppLayout>
       <div className="min-h-screen bg-[#0a0a0f]">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="max-w-[1400px] mx-auto px-3 sm:px-6 py-4 sm:py-8">
 
           {/* ── Header ─────────────────────────────────────────────────── */}
           <motion.div
@@ -1514,18 +1514,18 @@ export default function MLOpsDashboard() {
             transition={{ delay: 0.1 }}
             className="mb-6"
           >
-            <div className="flex items-center gap-1 p-1 bg-[#0D1117] border border-white/[0.06] rounded-xl overflow-x-auto scrollbar-thin">
+            <div className="flex items-center gap-1 p-1 bg-[#0D1117] border border-white/[0.06] rounded-xl overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+                  className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${
                     activeTab === tab.id
                       ? 'bg-white/[0.08] text-slate-100 shadow-lg shadow-black/20'
                       : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.03]'
                   }`}
                 >
-                  <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-cyan-400' : ''}`} />
+                  <tab.icon className={`w-4 h-4 shrink-0 ${activeTab === tab.id ? 'text-cyan-400' : ''}`} />
                   <span>{tab.label}</span>
                   {tab.badge !== undefined && (
                     <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-red-500/20 text-red-400 min-w-[18px] text-center">
