@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import PostCard from '@/components/community/PostCard'
 import AppLayout from '@/components/AppLayout'
+import MobileLayout from '@/components/layout/MobileLayout'
 import {
   fetchUserProfile,
   fetchUserPosts,
@@ -221,21 +222,24 @@ export default function UserProfilePage() {
   /* ── Loading State ───────────────────────────────────────── */
 
   if (loading) {
-    return (
-      <AppLayout>
-      <div className="min-h-screen flex items-center justify-center">
+    const loadingContent = (
+      <div className="min-h-screen flex items-center justify-center pb-safe">
         <Loader2 className="w-8 h-8 text-slate-500 animate-spin" />
       </div>
-      </AppLayout>
+    )
+    return (
+      <>
+        <div className="hidden md:block"><AppLayout>{loadingContent}</AppLayout></div>
+        <div className="md:hidden"><MobileLayout>{loadingContent}</MobileLayout></div>
+      </>
     )
   }
 
   /* ── Not Found ───────────────────────────────────────────── */
 
   if (notFound || !profile) {
-    return (
-      <AppLayout>
-      <div className="min-h-screen flex items-center justify-center p-4">
+    const notFoundContent = (
+      <div className="min-h-screen flex items-center justify-center p-4 pb-safe">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -248,16 +252,33 @@ export default function UserProfilePage() {
           </p>
         </motion.div>
       </div>
-      </AppLayout>
+    )
+    return (
+      <>
+        <div className="hidden md:block"><AppLayout>{notFoundContent}</AppLayout></div>
+        <div className="md:hidden"><MobileLayout>{notFoundContent}</MobileLayout></div>
+      </>
     )
   }
 
   /* ── Profile Render ──────────────────────────────────────── */
 
-  return (
-    <AppLayout>
+  const content = (
     <div className="min-h-screen pb-safe">
-      <div className="max-w-3xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
+      {/* ── Mobile Header ── */}
+      <header className="md:hidden sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 px-3 py-2.5 flex items-center gap-3">
+        <button 
+          onClick={() => window.history.back()}
+          className="p-1.5 -ml-1.5 rounded-full text-slate-400 hover:text-white transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <span className="text-sm font-bold text-white leading-tight">
+          {profile.display_name || profile.username}
+        </span>
+      </header>
+
+      <div className="max-w-3xl mx-auto px-3 py-4 sm:px-6 sm:py-8">
         {/* Profile Card */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -290,11 +311,11 @@ export default function UserProfilePage() {
                   </h1>
                   <p className="text-sm text-slate-500">@{profile.username}</p>
                 </div>
-                <div className="sm:ml-auto">
+                <div className="sm:ml-auto flex items-center gap-2 mt-3 sm:mt-0">
                   <button
                     onClick={handleFollowToggle}
                     disabled={followLoading}
-                    className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
+                    className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
                       following
                         ? 'bg-white/[0.06] text-slate-300 border border-white/[0.08] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20'
                         : 'bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25'
@@ -309,6 +330,13 @@ export default function UserProfilePage() {
                     )}
                     {following ? 'Following' : 'Follow'}
                   </button>
+                  <Link
+                    href={`/community/messages/new?new=${profile.username}`}
+                    className="flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] bg-white/[0.06] text-slate-200 border border-white/[0.08] hover:bg-white/[0.1] hover:text-white"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Message
+                  </Link>
                 </div>
               </div>
 
@@ -367,22 +395,27 @@ export default function UserProfilePage() {
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-4 gap-3 mt-5 pt-4 border-t border-white/[0.06]">
+          {/* Stats - Horizontal Bar */}
+          <div className="flex flex-row items-center justify-around bg-white/[0.02] border border-white/[0.04] rounded-2xl p-4 mt-6 backdrop-blur-md">
             {[
               { label: 'Posts', value: profile.posts_count },
               { label: 'Reputation', value: profile.reputation, icon: Star },
               { label: 'Followers', value: profile.followers_count },
               { label: 'Following', value: profile.following_count },
             ].map((stat) => (
-              <div key={stat.label} className="text-center">
-                <p className="text-lg font-bold text-slate-100 tabular-nums">
-                  {formatCount(stat.value)}
-                </p>
-                <p className="text-xs text-slate-500 mt-0.5 flex items-center justify-center gap-1">
-                  {stat.icon && <stat.icon className="w-3 h-3 text-amber-400" />}
+              <div 
+                key={stat.label} 
+                className="flex flex-col items-center justify-center text-center"
+              >
+                <div className="flex items-center gap-1 mb-1">
+                  {stat.icon && <stat.icon className="w-3.5 h-3.5 text-amber-400" />}
+                  <span className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400 tabular-nums">
+                    {formatCount(stat.value)}
+                  </span>
+                </div>
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-widest">
                   {stat.label}
-                </p>
+                </span>
               </div>
             ))}
           </div>
@@ -547,6 +580,16 @@ export default function UserProfilePage() {
         </AnimatePresence>
       </div>
     </div>
-    </AppLayout>
+  )
+
+  return (
+    <>
+      <div className="hidden md:block">
+        <AppLayout>{content}</AppLayout>
+      </div>
+      <div className="md:hidden">
+        <MobileLayout>{content}</MobileLayout>
+      </div>
+    </>
   )
 }

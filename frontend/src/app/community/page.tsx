@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react'
 import AppLayout from '@/components/AppLayout'
+import MobileLayout from '@/components/layout/MobileLayout'
+import MobileCommunity from '@/components/layout/MobileCommunity'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Flame,
@@ -22,13 +24,11 @@ import {
   ImagePlus,
   UserPlus,
   UserCheck,
-  Home,
-  Compass,
-  MessageSquare,
   Plus,
 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import PostCard from '@/components/community/PostCard'
+import { useAuth } from '@/contexts/AuthContext'
 import CommunitySidebar from '@/components/community/CommunitySidebar'
 import TrendingSidebar from '@/components/community/TrendingSidebar'
 import EmptyState from '@/components/community/EmptyStates'
@@ -43,6 +43,7 @@ import {
   uploadImage,
   followUser,
   unfollowUser,
+  joinCommunity,
   type CommunityPost,
   type Community,
 } from '@/lib/api'
@@ -87,14 +88,24 @@ function extractTickers(text: string): string[] {
 
 export default function CommunityPage() {
   return (
-    <Suspense fallback={<AppLayout><div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500" /></div></AppLayout>}>
-      <CommunityPageInner />
-    </Suspense>
+    <>
+      <div className="hidden lg:block">
+        <Suspense fallback={<AppLayout><div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500" /></div></AppLayout>}>
+          <CommunityPageInner />
+        </Suspense>
+      </div>
+      <div className="lg:hidden">
+        <MobileLayout>
+          <MobileCommunity />
+        </MobileLayout>
+      </div>
+    </>
   )
 }
 
 function CommunityPageInner() {
   const router = useRouter()
+  const { user } = useAuth()
   const searchParams = useSearchParams()
   const { success: toastSuccess, error: toastError } = useToast()
 
@@ -330,6 +341,9 @@ function CommunityPageInner() {
     if (!createTitle.trim() || !createCommunity) return
     setCreating(true)
     try {
+      // Auto-join community if not a member
+      try { await joinCommunity(createCommunity) } catch {}
+
       const tickers = mergedTickersDisplay
 
       // Upload image first if present
@@ -545,9 +559,10 @@ function CommunityPageInner() {
                         toastFn={handleToast}
                       />
                       {/* Follow button overlay - shown on hover for non-self authors */}
-                      <div className="absolute top-3 right-3 opacity-0 group-hover/postrow:opacity-100 transition-opacity z-10">
-                        <button
-                          onClick={(e) => {
+                      {user?.id !== post.author.id && (
+                        <div className="absolute top-3 right-3 opacity-0 group-hover/postrow:opacity-100 transition-opacity z-10">
+                          <button
+                            onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
                             handleFollowUser(post.author.id)
@@ -572,6 +587,7 @@ function CommunityPageInner() {
                           </span>
                         </button>
                       </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -610,46 +626,6 @@ function CommunityPageInner() {
 
       {/* Keyboard Shortcuts Help Modal */}
       <ShortcutHelpModal open={showHelp} onClose={() => setShowHelp(false)} />
-
-      {/* ═══ Mobile FAB — Create Post ═══ */}
-      <button
-        onClick={() => setShowCreate(true)}
-        className="lg:hidden fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full bg-blue-500 text-white shadow-lg shadow-blue-500/30 flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all"
-        aria-label="Create post"
-      >
-        <Plus className="w-6 h-6" />
-      </button>
-
-      {/* ═══ Mobile Bottom Navigation ═══ */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#131820]/95 backdrop-blur-lg border-t border-white/[0.06] safe-area-bottom">
-        <div className="flex items-center justify-around h-14">
-          {[
-            { icon: Home, label: 'Home', href: '/community', active: true },
-            { icon: Flame, label: 'Popular', action: () => setSort('hot') },
-            { icon: Compass, label: 'Explore', href: '/community?sort=rising' },
-            { icon: MessageSquare, label: 'Messages', href: '/community?sort=following' },
-          ].map((item) => (
-            <button
-              key={item.label}
-              onClick={() => {
-                if (item.action) {
-                  item.action()
-                } else if (item.href) {
-                  router.push(item.href)
-                }
-              }}
-              className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${
-                item.active
-                  ? 'text-blue-400'
-                  : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              <item.icon className="w-5 h-5" />
-              <span className="text-[10px] font-medium">{item.label}</span>
-            </button>
-          ))}
-        </div>
-      </nav>
 
       {/* ═══ Create Post Modal ═══ */}
       <AnimatePresence>

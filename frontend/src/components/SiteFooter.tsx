@@ -46,8 +46,8 @@ export default function SiteFooter() {
     <footer className="mt-10 mb-4 text-slate-300">
       {/* Outer container */}
       <div className="max-w-6xl mx-auto">
-        {/* Top CTA bar */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0B1220] via-[#020617] to-[#0B1220] border border-sky-500/20 shadow-[0_0_40px_rgba(56,189,248,0.25)] px-5 sm:px-8 py-6 sm:py-7 mb-4">
+        {/* Top CTA bar — hidden on mobile to reduce footer bulk */}
+        <div className="hidden md:block relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0B1220] via-[#020617] to-[#0B1220] border border-sky-500/20 shadow-[0_0_40px_rgba(56,189,248,0.25)] px-5 sm:px-8 py-6 sm:py-7 mb-4">
           <div className="pointer-events-none absolute -right-24 -top-24 h-48 w-48 rounded-full bg-cyan-500/30 blur-3xl" />
           <div className="pointer-events-none absolute -left-16 bottom-0 h-40 w-40 rounded-full bg-indigo-500/25 blur-3xl" />
 
@@ -112,8 +112,8 @@ export default function SiteFooter() {
         </div>
 
         {/* Links & meta */}
-        <div className="rounded-3xl bg-slate-950/60 border border-slate-800/70 backdrop-blur-xl px-5 sm:px-8 py-5">
-          <div className="flex flex-col md:flex-row md:items-start gap-6 md:gap-8">
+        <div className="rounded-3xl bg-slate-950/60 border border-slate-800/70 backdrop-blur-xl px-4 md:px-8 py-4 md:py-5">
+          <div className="hidden md:flex flex-col md:flex-row md:items-start gap-6 md:gap-8">
             {/* Brand */}
             <div className="md:w-1/3 space-y-2">
               <div className="flex items-center gap-2">
@@ -169,7 +169,7 @@ export default function SiteFooter() {
           </div>
 
           {/* Financial disclaimer */}
-          <div className="mt-4 mb-3 p-3 rounded-xl border border-amber-500/15 bg-amber-500/[0.03]">
+          <div className="mt-3 md:mt-4 mb-2 md:mb-3 p-2.5 md:p-3 rounded-xl border border-amber-500/15 bg-amber-500/[0.03]">
             <p className="text-[10px] text-slate-500 leading-relaxed">
               <span className="text-amber-400/80 font-semibold">Risk Disclosure:</span>{' '}
               QuantTrade AI provides market data, research tools, and AI-generated analysis for informational purposes only.

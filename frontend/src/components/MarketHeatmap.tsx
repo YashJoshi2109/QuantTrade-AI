@@ -35,12 +35,12 @@ function StockTile({ stock }: { stock: StockPerformance }) {
   return (
     <button
       onClick={() => openSnapshot({ symbol: stock.symbol, name: stock.name, price: stock.price, change_percent: stock.change_percent, change: (stock.price * stock.change_percent) / 100 })}
-      className={`${bgColor} p-1.5 sm:p-2 flex flex-col items-center justify-center transition-all hover:brightness-110 hover:scale-[1.02] cursor-pointer border border-white/5 w-full`}
+      className={`${bgColor} p-1 flex flex-col items-center justify-center transition-all hover:brightness-110 hover:scale-[1.02] cursor-pointer border border-white/5 w-full min-h-[44px]`}
       title={`${stock.name}\n$${stock.price.toFixed(2)}\n${stock.change_percent >= 0 ? '+' : ''}${stock.change_percent.toFixed(2)}%`}
     >
-      <span className={`font-bold text-[8px] sm:text-[10px] md:text-xs ${textColor}`}>{stock.symbol}</span>
-      <span className={`text-[8px] sm:text-[10px] ${textColor} font-mono`}>
-        {stock.change_percent >= 0 ? '+' : ''}{stock.change_percent.toFixed(2)}%
+      <span className={`font-bold text-[8px] sm:text-[9px] md:text-[10px] ${textColor} truncate w-full px-0.5 text-center leading-tight`}>{stock.symbol.replace(/\.(JO|SR|L|DE|PA|AS|SW|T|HK|SS|NS|KS|SI|AX|TO|SA|NZ)$/i, '')}</span>
+      <span className={`text-[8px] sm:text-[9px] ${textColor} font-mono mt-0.5`}>
+        {stock.change_percent >= 0 ? '+' : ''}{stock.change_percent.toFixed(1)}%
       </span>
     </button>
   )
@@ -157,14 +157,14 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
         {displaySectors.map(sector => (
           <div key={sector.sector} className="border border-slate-700/50 rounded-lg overflow-hidden">
             {/* Sector Header */}
-            <div className={`px-4 py-2 flex items-center justify-between ${
+            <div className={`px-3 py-1.5 flex items-center justify-between ${
               sector.change_percent >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
             }`}>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-white text-sm">{sector.sector.toUpperCase()}</span>
-                <span className="text-xs text-slate-400">({sector.stocks.length} stocks)</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-white text-xs sm:text-sm">{sector.sector.toUpperCase()}</span>
+                <span className="text-[10px] text-slate-400">({sector.stocks.length})</span>
               </div>
-              <span className={`text-sm font-bold font-mono ${
+              <span className={`text-xs font-bold font-mono ${
                 sector.change_percent >= 0 ? 'text-green-400' : 'text-red-400'
               }`}>
                 {sector.change_percent >= 0 ? '+' : ''}{sector.change_percent.toFixed(2)}%
@@ -172,7 +172,7 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
             </div>
             
             {/* Stocks Grid */}
-            <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 2xl:grid-cols-[repeat(15,minmax(0,1fr))] gap-px bg-slate-900 p-px">
+            <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-14 2xl:grid-cols-[repeat(15,minmax(0,1fr))] gap-px bg-slate-900 p-px">
               {sector.stocks.map(stock => (
                 <StockTile key={stock.symbol} stock={stock} />
               ))}

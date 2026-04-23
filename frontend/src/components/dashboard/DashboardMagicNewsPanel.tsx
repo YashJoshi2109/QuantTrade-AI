@@ -47,10 +47,10 @@ function HeadlineThumb({
   const [failed, setFailed] = useState(false)
   const frame =
     layout === 'hero'
-      ? 'w-full aspect-[16/10] sm:w-[min(46%,300px)] sm:shrink-0 sm:aspect-[4/3] max-h-52 sm:max-h-[200px]'
+      ? 'w-full aspect-[16/9] sm:aspect-[2/1] max-h-[240px]'
       : layout === 'dense'
-        ? 'w-[4.75rem] h-[4.75rem] shrink-0'
-        : 'w-[3.25rem] h-[3.25rem] shrink-0'
+        ? 'w-[6.5rem] h-[4.5rem] shrink-0'
+        : 'w-12 h-12 shrink-0'
   const radius = layout === 'hero' ? 'rounded-xl' : layout === 'dense' ? 'rounded-lg' : 'rounded-md'
 
   if (!src || failed) {
@@ -70,7 +70,7 @@ function HeadlineThumb({
       <img
         src={src}
         alt={alt}
-        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover/item:scale-[1.03]"
+        className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 group-hover/item:scale-105"
         loading="lazy"
         decoding="async"
         referrerPolicy="no-referrer"
@@ -85,17 +85,18 @@ function sentimentIcon(sentiment: string | null | undefined) {
   const isBearish = sentiment === 'Bearish'
   return (
     <div
-      className={`mt-0.5 p-1.5 rounded shrink-0 ${
-        isBullish ? 'bg-emerald-500/15' : isBearish ? 'bg-rose-500/15' : 'bg-slate-700/45'
+      className={`px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1 border ${
+        isBullish ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : isBearish ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-slate-700/20 border-slate-700/40 text-slate-400'
       }`}
     >
       {isBullish ? (
-        <TrendingUp className="w-3 h-3 text-emerald-400" />
+        <TrendingUp className="w-2.5 h-2.5" />
       ) : isBearish ? (
-        <TrendingDown className="w-3 h-3 text-rose-400" />
+        <TrendingDown className="w-2.5 h-2.5" />
       ) : (
-        <Minus className="w-3 h-3 text-slate-400" />
+        <Minus className="w-2.5 h-2.5" />
       )}
+      <span className="text-[9px] font-bold uppercase tracking-wider">{sentiment || 'Neutral'}</span>
     </div>
   )
 }
@@ -112,49 +113,53 @@ function NewsCard({
   const imgAlt = news.title.slice(0, 120)
   const inner = (
     <div
-      className={`group/item flex gap-2.5 rounded-xl border transition-all duration-300 h-full ${
+      className={`group/item flex rounded-xl border transition-all duration-300 h-full ${
         isHero
-          ? 'flex-col sm:flex-row items-stretch p-4 sm:p-5 border-amber-500/25 bg-gradient-to-br from-amber-500/[0.08] via-slate-950/50 to-teal-500/[0.06] shadow-[0_0_40px_-12px_rgba(251,191,36,0.25)]'
+          ? 'flex-col gap-4 p-4 border-amber-500/20 bg-gradient-to-br from-amber-500/[0.03] via-slate-900/60 to-slate-950 shadow-lg hover:shadow-[0_0_30px_-10px_rgba(251,191,36,0.2)] hover:border-amber-500/40 hover:bg-gradient-to-br hover:from-amber-500/[0.06]'
           : isWire
-            ? 'items-center gap-3 py-2.5 px-3 border-slate-800/60 bg-slate-950/25 hover:border-teal-500/30 hover:bg-teal-500/[0.04]'
-            : 'items-start p-2.5 border-slate-800/55 bg-slate-950/35 hover:border-amber-500/20 hover:bg-amber-500/[0.04]'
+            ? 'flex-row items-center gap-3 py-2.5 px-3 border-slate-800/60 bg-slate-950/40 hover:border-amber-500/30 hover:bg-amber-500/[0.04]'
+            : 'flex-row items-start gap-3.5 p-3 border-slate-800/50 bg-slate-900/40 hover:border-amber-500/30 hover:bg-amber-500/[0.05]'
       }`}
     >
       <HeadlineThumb src={news.imageUrl} alt={imgAlt} layout={layout} />
-      <div className={`flex min-w-0 flex-1 gap-2 ${isWire ? 'items-center' : 'items-start'}`}>
-        {!isWire && sentimentIcon(news.sentiment)}
-        <div className="flex-1 min-w-0">
-        <p
-          className={`text-white font-medium leading-snug transition-colors group-hover/item:text-amber-100/95 ${
-            isHero
-              ? `text-lg sm:text-xl tracking-tight ${magicDisplay.className}`
-              : isWire
-                ? 'text-[13px] line-clamp-2 font-medium'
-                : 'text-[13px] line-clamp-2'
-          }`}
-        >
-          {news.title}
-        </p>
-        <div className={`flex items-center gap-2 flex-wrap ${isHero ? 'mt-3' : 'mt-1.5'}`}>
-          <span className="text-[10px] text-slate-500 flex items-center gap-1 min-w-0">
-            <Clock className="w-2.5 h-2.5 shrink-0" />
-            <span className="truncate">{news.source}</span>
-          </span>
-          <span className="text-[9px] font-mono text-slate-600 tabular-nums">{news.time}</span>
-          {news.tickers.length > 0 && (
-            <div className="flex gap-1 flex-wrap">
-              {news.tickers.slice(0, isHero ? 5 : 3).map((t) => (
-                <span
-                  key={t}
-                  className="px-1.5 py-0.5 text-[9px] rounded font-mono bg-teal-500/15 text-teal-300/90 border border-teal-500/20"
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          )}
+      <div className={`flex min-w-0 flex-1 gap-2.5 ${isWire ? 'items-center' : 'flex-col justify-between'}`}>
+        <div className="flex-1 min-w-0 w-full">
+          <p
+            className={`text-slate-200 font-medium leading-snug transition-colors group-hover/item:text-amber-400 ${
+              isHero
+                ? `text-lg sm:text-xl tracking-tight ${magicDisplay.className}`
+                : isWire
+                  ? 'text-xs line-clamp-2'
+                  : 'text-[13px] sm:text-sm line-clamp-2'
+            }`}
+          >
+            {news.title}
+          </p>
+          <div className={`flex items-center gap-2 flex-wrap text-slate-500 ${isHero ? 'mt-3' : 'mt-2'}`}>
+            <span className="text-[10px] flex items-center gap-1 shrink-0">
+              <Clock className="w-3 h-3" />
+              <span className="truncate max-w-[80px]">{news.source}</span>
+            </span>
+            <span className="text-[10px] font-mono text-slate-600">{news.time}</span>
+            {!isWire && news.sentiment && (
+              <span className="ml-auto flex shrink-0">
+                {sentimentIcon(news.sentiment)}
+              </span>
+            )}
+          </div>
         </div>
-        </div>
+        {!isWire && news.tickers.length > 0 && (
+          <div className="flex gap-1.5 flex-wrap w-full mt-auto">
+            {news.tickers.slice(0, isHero ? 5 : 3).map((t) => (
+              <span
+                key={t}
+                className="px-1.5 py-0.5 text-[9px] rounded font-mono bg-slate-800/80 text-slate-300 border border-slate-700/50"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -165,13 +170,13 @@ function NewsCard({
         href={news.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="block min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 rounded-xl"
+        className="block min-w-0 h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 rounded-xl"
       >
         {inner}
       </a>
     )
   }
-  return <div className="min-w-0">{inner}</div>
+  return <div className="min-w-0 h-full">{inner}</div>
 }
 
 const listStagger = {
@@ -246,9 +251,9 @@ export default function DashboardMagicNewsPanel({
         <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-amber-400/35 to-transparent" />
 
         <div className={`${dashToolbar} relative z-[1]`}>
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="inline-flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-950 bg-gradient-to-r from-amber-300 via-amber-200 to-teal-300 rounded shadow-[0_0_20px_rgba(251,191,36,0.35)] shrink-0">
-              <Sparkles className="w-2.5 h-2.5" />
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-md shadow-[0_0_15px_rgba(251,191,36,0.15)] shrink-0">
+              <Sparkles className="w-3 h-3 text-amber-400" />
               {isGlobal ? 'Live news' : 'Regional desk'}
             </span>
             {!isGlobal && (
@@ -292,7 +297,7 @@ export default function DashboardMagicNewsPanel({
             >
               {isGlobal ? (
                 <motion.div
-                  className="grid grid-cols-1 xl:grid-cols-2 gap-3 auto-rows-fr"
+                  className="flex flex-col gap-3"
                   initial="hidden"
                   animate="visible"
                   variants={listStagger}
@@ -301,7 +306,6 @@ export default function DashboardMagicNewsPanel({
                     <motion.div
                       key={news.key}
                       variants={rowReveal}
-                      className={idx === 0 ? 'xl:col-span-2' : ''}
                     >
                       <NewsCard news={news} layout={idx === 0 ? 'hero' : 'dense'} />
                     </motion.div>

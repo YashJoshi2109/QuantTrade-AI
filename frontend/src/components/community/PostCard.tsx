@@ -240,14 +240,23 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
         <div className="px-3 sm:px-4 pt-3 pb-1">
           {/* Meta line — community + author + time */}
           <div className="flex items-center gap-1.5 text-xs mb-2 flex-wrap">
+            {post.community?.slug && (
+              <>
+                <Link
+                  href={`/community/${post.community.slug}`}
+                  className="font-semibold text-slate-300 hover:text-white transition-colors"
+                >
+                  c/{post.community.name}
+                </Link>
+                <span className="text-slate-600">·</span>
+              </>
+            )}
             <Link
-              href={`/community/${post.community.slug}`}
-              className="font-semibold text-slate-300 hover:text-white transition-colors"
+              href={`/community/user/${post.author.username}`}
+              className="text-slate-500 hover:text-slate-300 transition-colors"
             >
-              c/{post.community.name}
+              {post.author.username}
             </Link>
-            <span className="text-slate-600">·</span>
-            <span className="text-slate-500">{post.author.username}</span>
             <span className="text-slate-600">·</span>
             <span className="text-slate-500">{timeAgo(post.created_at)}</span>
 

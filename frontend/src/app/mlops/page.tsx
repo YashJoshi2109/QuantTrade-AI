@@ -19,6 +19,7 @@ import {
   SlidersHorizontal, Sparkles,
 } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
+import MobileMLOps from '@/components/layout/MobileMLOps'
 
 const API = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -1456,7 +1457,7 @@ function ConfigTab() {
 // MAIN DASHBOARD
 // ══════════════════════════════════════════════════════════════════════════════
 
-export default function MLOpsDashboard() {
+function DesktopMLOps() {
   const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [alertCount, setAlertCount] = useState(0)
 
@@ -1565,5 +1566,14 @@ export default function MLOpsDashboard() {
         </div>
       </div>
     </AppLayout>
+  )
+}
+
+export default function MLOpsDashboard() {
+  return (
+    <>
+      <div className="hidden md:block"><DesktopMLOps /></div>
+      <div className="md:hidden"><MobileMLOps /></div>
+    </>
   )
 }

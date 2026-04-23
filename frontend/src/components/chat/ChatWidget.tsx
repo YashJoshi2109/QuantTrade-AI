@@ -7,14 +7,18 @@ import { Sparkles } from 'lucide-react'
 // Routes where the floating AI Copilot button should NOT appear
 const HIDDEN_ON: string[] = ['/auth', '/terms', '/legal', '/game', '/copilot']
 
+// Routes where the copilot button is hidden on ALL screen sizes (desktop + mobile)
+const HIDDEN_ALL: string[] = ['/community']
+
 export default function ChatWidget() {
   const pathname = usePathname()
   if (HIDDEN_ON.some((p) => pathname.startsWith(p))) return null
+  if (HIDDEN_ALL.some((p) => pathname.startsWith(p))) return null
 
   return (
     <Link
       href="/copilot"
-      className="fixed bottom-24 right-6 md:bottom-8 md:right-8 z-[60] group"
+      className="hidden md:block fixed bottom-8 right-8 z-[60] group"
       aria-label="Open AI Copilot"
     >
       {/* Pulse ring */}
