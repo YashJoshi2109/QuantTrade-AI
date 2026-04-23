@@ -253,7 +253,7 @@ export default function CommunityDetailPage() {
               <Link href={`/community/${slug}/members`} className="block text-sm text-slate-400 hover:text-slate-200 py-1.5 transition-colors">
                 View Members
               </Link>
-              {community.is_member && (
+              {community.is_member && (community as any).user_role && ['admin', 'owner', 'moderator'].includes((community as any).user_role) && (
                 <>
                   <Link href="/community/moderation" className="block text-sm text-slate-400 hover:text-slate-200 py-1.5 transition-colors">
                     Moderation

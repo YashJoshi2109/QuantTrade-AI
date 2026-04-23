@@ -181,8 +181,15 @@ export default function PostThreadPage() {
     try {
       const data = await fetchComments(postId, commentSort)
       // Backend returns { items: [...] } (PaginatedComments) or { comments: [...] }
-      const list: Comment[] = (data as any)?.items || (data as any)?.comments || (Array.isArray(data) ? data : [])
-      setComments(list)
+      const rawList = (data as any)?.items || (data as any)?.comments || (Array.isArray(data) ? data : [])
+      // Map backend author object → frontend author_display_name
+      const mapComment = (c: any): Comment => ({
+        ...c,
+        author_display_name: c.author_display_name || c.author?.username || c.author?.full_name || 'Anonymous',
+        author_avatar_url: c.author_avatar_url || c.author?.avatar_url || null,
+        replies: (c.replies || []).map(mapComment),
+      })
+      setComments(rawList.map(mapComment))
     } catch (err) {
       console.error('Failed to load comments:', err)
       setComments([])

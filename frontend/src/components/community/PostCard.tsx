@@ -272,45 +272,31 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
 
         {/* Action bar — Reddit-style pill buttons */}
         <div className="flex items-center gap-1 px-2 pb-2">
-          {/* Vote pill */}
-          <div className="flex items-center bg-[#1a2130] rounded-full">
-            <button
-              onClick={() => handleVote(1)}
-              className={`p-1.5 rounded-l-full transition-colors ${
-                userVote === 1
-                  ? 'text-orange-400'
-                  : 'text-slate-400 hover:text-orange-400'
-              }`}
-            >
-              <ArrowBigUp className={`w-5 h-5 ${userVote === 1 ? 'fill-orange-400' : ''}`} />
-            </button>
+          {/* Upvote pill */}
+          <button
+            onClick={() => handleVote(1)}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full transition-colors ${
+              userVote === 1
+                ? 'bg-orange-500/15 text-orange-400'
+                : 'bg-[#1a2130] text-slate-400 hover:text-orange-400 hover:bg-orange-500/10'
+            }`}
+          >
+            <ArrowBigUp className={`w-4.5 h-4.5 ${userVote === 1 ? 'fill-orange-400' : ''}`} />
+            <span className="text-xs font-semibold tabular-nums">{post.upvote_count || 0}</span>
+          </button>
 
-            <AnimatePresence mode="popLayout">
-              <motion.span
-                key={voteCount}
-                initial={{ y: voteDirection === 'up' ? 8 : -8, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: voteDirection === 'up' ? -8 : 8, opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className={`text-xs font-semibold tabular-nums min-w-[20px] text-center ${
-                  userVote === 1 ? 'text-orange-400' : userVote === -1 ? 'text-blue-400' : 'text-slate-300'
-                }`}
-              >
-                {voteCount}
-              </motion.span>
-            </AnimatePresence>
-
-            <button
-              onClick={() => handleVote(-1)}
-              className={`p-1.5 rounded-r-full transition-colors ${
-                userVote === -1
-                  ? 'text-blue-400'
-                  : 'text-slate-400 hover:text-blue-400'
-              }`}
-            >
-              <ArrowBigDown className={`w-5 h-5 ${userVote === -1 ? 'fill-blue-400' : ''}`} />
-            </button>
-          </div>
+          {/* Downvote pill */}
+          <button
+            onClick={() => handleVote(-1)}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full transition-colors ${
+              userVote === -1
+                ? 'bg-blue-500/15 text-blue-400'
+                : 'bg-[#1a2130] text-slate-400 hover:text-blue-400 hover:bg-blue-500/10'
+            }`}
+          >
+            <ArrowBigDown className={`w-4.5 h-4.5 ${userVote === -1 ? 'fill-blue-400' : ''}`} />
+            <span className="text-xs font-semibold tabular-nums">{post.downvote_count || 0}</span>
+          </button>
 
           {/* Comments pill */}
           <Link
