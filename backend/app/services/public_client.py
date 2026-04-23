@@ -60,9 +60,11 @@ def _get_sync_client():
         _sync_client = PublicApiClient(auth_config=auth)
         # Cache account ID
         try:
-            accounts = _sync_client.get_accounts()
-            if accounts:
-                _sync_client._qt_account_id = accounts[0].id if hasattr(accounts[0], 'id') else str(accounts[0])
+            resp = _sync_client.get_accounts()
+            acct_list = getattr(resp, 'accounts', None) or (resp if isinstance(resp, list) else [])
+            if acct_list:
+                acct = acct_list[0]
+                _sync_client._qt_account_id = getattr(acct, 'account_id', None) or getattr(acct, 'id', None) or str(acct)
             else:
                 _sync_client._qt_account_id = None
         except Exception:
@@ -92,9 +94,11 @@ async def _get_async_client():
         _async_client = AsyncPublicApiClient(auth_config=auth)
         # Cache account ID
         try:
-            accounts = await _async_client.get_accounts()
-            if accounts:
-                _async_client._qt_account_id = accounts[0].id if hasattr(accounts[0], 'id') else str(accounts[0])
+            resp = await _async_client.get_accounts()
+            acct_list = getattr(resp, 'accounts', None) or (resp if isinstance(resp, list) else [])
+            if acct_list:
+                acct = acct_list[0]
+                _async_client._qt_account_id = getattr(acct, 'account_id', None) or getattr(acct, 'id', None) or str(acct)
             else:
                 _async_client._qt_account_id = None
         except Exception:
@@ -108,37 +112,51 @@ async def _get_async_client():
         return None
 
 
-def _parse_quote(raw: dict) -> Optional[Dict[str, Any]]:
-    """Parse a Public.com quote response into standardized format."""
+def _parse_quote(raw) -> Optional[Dict[str, Any]]:
+    """Parse a Public.com Quote object or dict into standardized format.
+
+    The SDK returns Quote objects with enum/Decimal attributes, not plain dicts.
+    """
     try:
-        outcome = raw.get("outcome", "")
-        if outcome != "SUCCESS":
+        # Support both dict access and attribute access
+        def _get(obj, key, default=None):
+            if isinstance(obj, dict):
+                return obj.get(key, default)
+            return getattr(obj, key, default)
+
+        outcome = _get(raw, "outcome", "")
+        # Enum .value or string comparison
+        outcome_str = getattr(outcome, "value", outcome) if outcome else ""
+        if outcome_str != "SUCCESS":
             return None
 
-        instrument = raw.get("instrument", {})
-        symbol = instrument.get("symbol", "").upper()
+        instrument = _get(raw, "instrument", None)
+        symbol = (_get(instrument, "symbol", "") or "").upper() if instrument else ""
         if not symbol:
             return None
 
-        price = float(raw.get("last", 0) or 0)
+        price = float(_get(raw, "last", 0) or 0)
         if price <= 0:
             return None
 
-        prev_close = float(raw.get("previousClose", 0) or 0)
-        one_day = raw.get("oneDayChange", {}) or {}
-        change = float(one_day.get("change", 0) or 0)
-        change_pct = float(one_day.get("percentChange", 0) or 0)
+        prev_close = float(_get(raw, "previousClose", 0) or 0)
+        one_day = _get(raw, "oneDayChange", None)
+        change = float(_get(one_day, "change", 0) or 0) if one_day else 0.0
+        change_pct = float(_get(one_day, "percentChange", 0) or 0) if one_day else 0.0
 
         # If oneDayChange not available, compute from previousClose
         if not change and prev_close > 0:
             change = price - prev_close
             change_pct = (change / prev_close * 100)
 
-        volume = int(raw.get("volume", 0) or 0)
+        volume = int(_get(raw, "volume", 0) or 0)
 
         # Bid/Ask spread
-        bid = float(raw.get("bid", 0) or 0)
-        ask = float(raw.get("ask", 0) or 0)
+        bid = float(_get(raw, "bid", 0) or 0)
+        ask = float(_get(raw, "ask", 0) or 0)
+
+        ts = _get(raw, "last_timestamp", None) or _get(raw, "lastTimestamp", None)
+        ts_str = ts.isoformat() if hasattr(ts, "isoformat") else (ts or datetime.now(timezone.utc).isoformat())
 
         return {
             "symbol": symbol,
@@ -146,16 +164,16 @@ def _parse_quote(raw: dict) -> Optional[Dict[str, Any]]:
             "change": round(change, 2),
             "change_percent": round(change_pct, 4),
             "volume": volume,
-            "high": 0,  # Not provided in quote endpoint
-            "low": 0,
-            "open": 0,
+            "high": None,  # Not provided by Public.com quote endpoint
+            "low": None,
+            "open": None,
             "previous_close": round(prev_close, 2) if prev_close else 0,
             "bid": round(bid, 2) if bid else None,
             "ask": round(ask, 2) if ask else None,
-            "bid_size": int(raw.get("bidSize", 0) or 0),
-            "ask_size": int(raw.get("askSize", 0) or 0),
+            "bid_size": int(_get(raw, "bid_size", 0) or _get(raw, "bidSize", 0) or 0),
+            "ask_size": int(_get(raw, "ask_size", 0) or _get(raw, "askSize", 0) or 0),
             "market_cap": None,
-            "timestamp": raw.get("lastTimestamp") or datetime.now(timezone.utc).isoformat(),
+            "timestamp": ts_str,
             "data_source": "public.com",
         }
     except Exception as e:

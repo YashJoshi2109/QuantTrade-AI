@@ -1,5 +1,8 @@
 """
 Technical indicators computation service
+
+Computes SMA, EMA, RSI, MACD, and Bollinger Bands from either
+database price history or live yfinance data (fallback).
 """
 import pandas as pd
 import numpy as np
@@ -162,5 +165,49 @@ class IndicatorService:
         
         # Current price
         indicators["current_price"] = safe(df["close"].iloc[-1])
-        
+
         return indicators
+
+    @staticmethod
+    def get_indicators_from_yfinance(symbol: str) -> Optional[Dict]:
+        """Compute indicators from live yfinance data when DB has no price history."""
+        try:
+            import yfinance as yf
+            ticker = yf.Ticker(symbol)
+            hist = ticker.history(period="1y")
+            if hist.empty or len(hist) < 30:
+                return None
+
+            df = hist[["Open", "High", "Low", "Close", "Volume"]].copy()
+            df.columns = ["open", "high", "low", "close", "volume"]
+
+            safe = IndicatorService._safe_value
+
+            sma_20 = IndicatorService.compute_sma(df, 20)
+            sma_50 = IndicatorService.compute_sma(df, 50)
+            sma_200 = IndicatorService.compute_sma(df, 200)
+            rsi = IndicatorService.compute_rsi(df, 14)
+            macd_data = IndicatorService.compute_macd(df)
+            bb = IndicatorService.compute_bollinger_bands(df)
+
+            return {
+                "current_price": safe(df["close"].iloc[-1]),
+                "sma_20": safe(sma_20.iloc[-1]) if len(sma_20) > 0 else None,
+                "sma_50": safe(sma_50.iloc[-1]) if len(sma_50) > 0 else None,
+                "sma_200": safe(sma_200.iloc[-1]) if len(sma_200) > 0 else None,
+                "rsi": safe(rsi.iloc[-1]) if len(rsi) > 0 else None,
+                "macd": {
+                    "macd": safe(macd_data["macd"].iloc[-1]) if len(macd_data["macd"]) > 0 else None,
+                    "signal": safe(macd_data["signal"].iloc[-1]) if len(macd_data["signal"]) > 0 else None,
+                    "histogram": safe(macd_data["histogram"].iloc[-1]) if len(macd_data["histogram"]) > 0 else None,
+                },
+                "bollinger_bands": {
+                    "upper": safe(bb["upper"].iloc[-1]) if len(bb["upper"]) > 0 else None,
+                    "middle": safe(bb["middle"].iloc[-1]) if len(bb["middle"]) > 0 else None,
+                    "lower": safe(bb["lower"].iloc[-1]) if len(bb["lower"]) > 0 else None,
+                },
+                "data_source": "yfinance",
+            }
+        except Exception as e:
+            print(f"yfinance indicators error for {symbol}: {e}")
+            return None
