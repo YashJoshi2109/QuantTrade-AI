@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import AppLayout from '@/components/AppLayout'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -13,8 +13,13 @@ import {
   CheckCheck,
   Loader2,
   Inbox,
+  MessageCircle,
+  Newspaper,
+  Users,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import { useCommunityWS } from '@/hooks/useCommunityWS'
 import {
   fetchNotifications,
   markNotificationRead,
@@ -30,6 +35,9 @@ const TYPE_ICONS: Record<string, typeof MessageSquare> = {
   mention: AtSign,
   follow: UserPlus,
   alert: AlertCircle,
+  dm: MessageCircle,
+  follow_post: Newspaper,
+  community_post: Users,
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -38,6 +46,9 @@ const TYPE_COLORS: Record<string, string> = {
   mention: 'text-purple-400 bg-purple-500/15',
   follow: 'text-cyan-400 bg-cyan-500/15',
   alert: 'text-amber-400 bg-amber-500/15',
+  dm: 'text-blue-300 bg-blue-400/15',
+  follow_post: 'text-orange-400 bg-orange-500/15',
+  community_post: 'text-teal-400 bg-teal-500/15',
 }
 
 function relativeTime(dateStr: string): string {
@@ -57,12 +68,32 @@ function relativeTime(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString()
 }
 
+/** Play a soft notification chime using Web Audio API */
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(880, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.12)
+    gain.gain.setValueAtTime(0.18, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.35)
+  } catch { /* AudioContext not available */ }
+}
+
 export default function NotificationsPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('all')
   const [markingAll, setMarkingAll] = useState(false)
+  const lastCountRef = useRef(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -80,20 +111,46 @@ export default function NotificationsPage() {
     load()
   }, [load])
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length
+  // Real-time: listen for new notifications via personal WS channel
+  const handleWS = useCallback((msg: { type: string }) => {
+    if (
+      msg.type === 'dm.new' ||
+      msg.type === 'new_comment' ||
+      msg.type === 'mention' ||
+      msg.type === 'new_post' ||
+      msg.type === 'notification'
+    ) {
+      // Refresh notification list
+      fetchNotifications(50).then((data) => {
+        const fresh = data.notifications || []
+        const newUnread = fresh.filter((n: Notification) => !n.is_read).length
+        if (newUnread > lastCountRef.current) {
+          playNotificationSound()
+        }
+        lastCountRef.current = newUnread
+        setNotifications(fresh)
+      }).catch(() => {})
+    }
+  }, [])
 
+  useCommunityWS(user?.id ? `user:${user.id}` : null, handleWS)
+
+  // Track unread count for sound trigger
+  useEffect(() => {
+    lastCountRef.current = notifications.filter((n) => !n.is_read).length
+  }, [notifications])
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length
   const displayed = filter === 'unread' ? notifications.filter((n) => !n.is_read) : notifications
 
   const handleClick = async (notification: Notification) => {
     if (!notification.is_read) {
-      // Optimistic
       setNotifications((prev) =>
         prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n))
       )
       try {
         await markNotificationRead(notification.id)
       } catch {
-        // Revert
         setNotifications((prev) =>
           prev.map((n) => (n.id === notification.id ? { ...n, is_read: false } : n))
         )
@@ -110,7 +167,6 @@ export default function NotificationsPage() {
     try {
       await markAllNotificationsRead()
     } catch {
-      // Reload on failure
       load()
     } finally {
       setMarkingAll(false)
@@ -204,7 +260,7 @@ export default function NotificationsPage() {
             <p className="text-sm text-slate-500">
               {filter === 'unread'
                 ? 'Switch to "All" to see your notification history.'
-                : 'When someone replies, mentions you, or upvotes your posts, you\'ll see it here.'}
+                : "When someone replies, messages you, follows you, or upvotes your posts, you'll see it here."}
             </p>
           </motion.div>
         ) : (

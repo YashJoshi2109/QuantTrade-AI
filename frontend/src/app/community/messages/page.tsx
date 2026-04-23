@@ -8,6 +8,7 @@ import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileCommunityMessages from '@/components/layout/MobileCommunityMessages'
 import { useAuth } from '@/contexts/AuthContext'
+import { useCommunityWS } from '@/hooks/useCommunityWS'
 import {
   fetchDMConversations,
   fetchDMMessages,
@@ -392,19 +393,36 @@ function DesktopMessages() {
   const [selectedConvId, setSelectedConvId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const refreshConversations = useCallback(() => {
+    fetchDMConversations().then((data) => {
+      setConversations(data.conversations || [])
+    })
+  }, [])
+
   useEffect(() => {
     if (!isAuthenticated) return
     fetchDMConversations().then((data) => {
       setConversations(data.conversations || [])
       setLoading(false)
     })
-  }, [isAuthenticated])
+    // Poll every 15s as fallback
+    const iv = setInterval(refreshConversations, 15_000)
+    return () => clearInterval(iv)
+  }, [isAuthenticated, refreshConversations])
+
+  // Real-time: listen on user's personal WS channel for new DMs
+  const handleUserWS = useCallback((msg: { type: string; conversation_id?: number }) => {
+    if (msg.type === 'dm.new' || msg.type === 'message.new') {
+      refreshConversations()
+    }
+  }, [refreshConversations])
+  useCommunityWS(user?.id ? `user:${user.id}` : null, handleUserWS)
 
   const selectedConv = conversations.find((c) => c.id === selectedConvId)
 
   if (!isAuthenticated) {
     return (
-      <AppLayout>
+      <AppLayout hideFooter>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <MessageCircle className="w-12 h-12 text-slate-600 mx-auto mb-3" />
@@ -416,7 +434,7 @@ function DesktopMessages() {
   }
 
   return (
-    <AppLayout>
+    <AppLayout hideFooter>
       <div className="max-w-6xl mx-auto px-0 lg:px-6 py-0 lg:py-6">
         <div className="flex bg-[#0d1117] lg:rounded-2xl lg:border lg:border-white/[0.06] overflow-hidden" style={{ height: 'calc(100vh - 7rem)' }}>
           {/* Left — Conversation List */}

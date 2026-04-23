@@ -317,6 +317,31 @@ async def create_post(
     except Exception:
         pass  # WebSocket broadcast is non-critical
 
+    # Notify followers of the author (capped at 100 to avoid spam)
+    try:
+        from app.models.community import UserFollow
+        followers = (
+            db.query(UserFollow)
+            .filter(UserFollow.following_id == user.id)
+            .limit(100)
+            .all()
+        )
+        follower_notifs = []
+        for f in followers:
+            follower_notifs.append(Notification(
+                user_id=f.follower_id,
+                type="follow_post",
+                title=f"{user.username} posted: {post.title[:80]}",
+                body=community.name if community else "",
+                action_url=f"/community/post/{post.id}",
+                actor_id=user.id,
+            ))
+        if follower_notifs:
+            db.bulk_save_objects(follower_notifs)
+            db.commit()
+    except Exception:
+        pass  # Notification creation is non-critical
+
     # ── Non-blocking AI moderation (fire-and-forget) ────────────────────
     _post_id = post.id
     _title = body.title
