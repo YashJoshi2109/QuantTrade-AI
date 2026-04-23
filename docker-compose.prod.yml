@@ -91,6 +91,8 @@ services:
     environment:
       - DEBUG=false
       - LOG_LEVEL=INFO
+      # Local upload fallback path (must be writable by non-root appuser).
+      - LOCAL_STORAGE_PATH=/tmp/storage
       - APP_URL=https://www.quanttrade.us
       - BILLING_PORTAL_RETURN_URL=https://www.quanttrade.us/settings
       - ALLOWED_ORIGINS=https://www.quanttrade.us,https://quanttrade.us
@@ -186,6 +188,8 @@ services:
     env_file:
       - .env
     environment:
+      # Celery imports app modules that may initialize storage paths.
+      - LOCAL_STORAGE_PATH=/tmp/storage
       - REDIS_URL=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
       - CELERY_BROKER_URL=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
       - CELERY_RESULT_BACKEND=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
@@ -207,6 +211,8 @@ services:
     env_file:
       - .env
     environment:
+      # Celery imports app modules that may initialize storage paths.
+      - LOCAL_STORAGE_PATH=/tmp/storage
       - REDIS_URL=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
       - CELERY_BROKER_URL=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
       - CELERY_RESULT_BACKEND=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0

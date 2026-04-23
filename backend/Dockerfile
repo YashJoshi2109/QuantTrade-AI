@@ -41,6 +41,10 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy application code
 COPY --chown=appuser:appuser . .
 
+# Ensure writable local storage paths exist before dropping privileges.
+RUN mkdir -p /app/storage/community/uploads /tmp/storage/community/uploads && \
+    chown -R appuser:appuser /app/storage /tmp/storage
+
 # Switch to non-root user
 USER appuser
 
