@@ -41,6 +41,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy application code
 COPY --chown=appuser:appuser . .
 
+# Pre-create writable storage paths before dropping to non-root.
+# /app is root-owned (WORKDIR), appuser can't mkdir inside it at runtime.
+RUN mkdir -p /app/storage/community/uploads /tmp/storage/community/uploads && \
+    chown -R appuser:appuser /app/storage /tmp/storage
+
 # Switch to non-root user
 USER appuser
 
