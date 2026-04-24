@@ -184,10 +184,11 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
     async function fetchLiveData() {
       setDataLoading(true)
       try {
-        // Parallel: Finnhub quote (price) + basic-financials (52W, market cap, P/E)
-        const [quoteRes, metricsRes] = await Promise.allSettled([
+        // Parallel: Finnhub quote (price) + basic-financials (52W, market cap, P/E) + profile (exchange, name)
+        const [quoteRes, metricsRes, profileRes] = await Promise.allSettled([
           fetch(`/api/finnhub?type=quote&symbol=${encodeURIComponent(stock!.symbol)}`),
           fetch(`/api/finnhub?type=basic-financials&symbol=${encodeURIComponent(stock!.symbol)}`),
+          fetch(`/api/finnhub?type=profile&symbol=${encodeURIComponent(stock!.symbol)}`),
         ])
 
         if (cancelled) return
@@ -204,7 +205,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
             livePrice = q.c
             liveChange = q.d
             liveChangePct = q.dp
-            liveVolume = q.v
+            liveVolume = q.v || undefined
           }
         }
 
@@ -224,8 +225,23 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
           }
         }
 
+        // Profile: company name, exchange, currency, country
+        let profilePatch: Partial<SnapshotStock> = {}
+        if (profileRes.status === 'fulfilled' && profileRes.value.ok) {
+          const p = await profileRes.value.json()
+          if (p && p.name) {
+            profilePatch = {
+              name: p.name || stock!.name,
+              exchange: p.exchange || stock!.exchange,
+              currency: p.currency || stock!.currency,
+              country: p.country || stock!.country,
+            }
+          }
+        }
+
         setLiveStock({
           ...(stock as SnapshotStock),
+          ...profilePatch,
           ...metricPatch,
           ...(livePrice ? {
             price: livePrice,

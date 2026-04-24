@@ -148,6 +148,7 @@ def auto_post_news():
             # Score sentiment
             result = sentiment_service.score_text(f"{title} {description}")
 
+            image_url = article.get("urlToImage", "") or ""
             body = f"{description}\n\n---\n*Source: {source}*"
             post = Post(
                 author_id=system_user.id,
@@ -161,6 +162,7 @@ def auto_post_news():
                 source_platform="newsapi",
                 moderation_status="approved",
                 tickers=[],
+                media_urls=[image_url] if image_url else [],
             )
             db.add(post)
             created += 1

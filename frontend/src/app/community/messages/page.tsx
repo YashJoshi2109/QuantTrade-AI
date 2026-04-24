@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
+import BottomNav from '@/components/layout/BottomNav'
 import MobileCommunityMessages from '@/components/layout/MobileCommunityMessages'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCommunityWS } from '@/hooks/useCommunityWS'
@@ -198,20 +199,26 @@ function MessageThread({
     })
   }, [conversationId, scrollToBottom])
 
-  // WebSocket for real-time messages
+  // WebSocket for real-time messages + fast polling fallback
   useEffect(() => {
+    let wsAlive = false
+    let pollTimer: ReturnType<typeof setInterval> | null = null
+    let lastMsgId = 0
+
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const wsHost = API ? new URL(API).host : window.location.host
     const ws = new WebSocket(`${wsProtocol}//${wsHost}/api/v1/ws/community/dm:${conversationId}`)
     wsRef.current = ws
+
+    ws.onopen = () => { wsAlive = true }
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
         if (data.type === 'message.new' && data.message) {
           setMessages((prev) => {
-            // Avoid duplicates
             if (prev.find((m) => m.id === data.message.id)) return prev
+            lastMsgId = Math.max(lastMsgId, data.message.id)
             return [...prev, data.message]
           })
           scrollToBottom()
@@ -219,9 +226,31 @@ function MessageThread({
       } catch { /* ignore parse errors */ }
     }
 
+    // If WS closes/fails, fall back to fast polling (2s)
+    ws.onclose = () => {
+      wsAlive = false
+      if (!pollTimer) {
+        pollTimer = setInterval(async () => {
+          try {
+            const data = await fetchDMMessages(conversationId)
+            const msgs: DMMessage[] = data.messages || []
+            setMessages((prev) => {
+              const existingIds = new Set(prev.map((m) => m.id))
+              const newMsgs = msgs.filter((m) => !existingIds.has(m.id) && m.id > 0)
+              if (newMsgs.length === 0) return prev
+              scrollToBottom()
+              return [...prev, ...newMsgs]
+            })
+          } catch { /* ignore */ }
+        }, 2000)
+      }
+    }
+    ws.onerror = () => { ws.close() }
+
     return () => {
       ws.close()
       wsRef.current = null
+      if (pollTimer) clearInterval(pollTimer)
     }
   }, [conversationId, scrollToBottom])
 
@@ -267,7 +296,7 @@ function MessageThread({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Thread Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] bg-[#0d1117]/80 backdrop-blur-sm">
         <button onClick={onBack} className="lg:hidden p-1 rounded-lg text-slate-400 hover:text-white">
@@ -435,8 +464,8 @@ function DesktopMessages() {
 
   return (
     <AppLayout hideFooter>
-      <div className="max-w-6xl mx-auto px-0 lg:px-6 py-0 lg:py-6">
-        <div className="flex bg-[#0d1117] lg:rounded-2xl lg:border lg:border-white/[0.06] overflow-hidden" style={{ height: 'calc(100vh - 7rem)' }}>
+      <div className="flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
+        <div className="flex flex-1 min-h-0 lg:mx-6 lg:my-6 bg-[#0d1117] lg:rounded-2xl lg:border lg:border-white/[0.06] overflow-hidden">
           {/* Left — Conversation List */}
           <div className={`w-full lg:w-[360px] border-r border-white/[0.06] flex-shrink-0 ${
             selectedConvId ? 'hidden lg:flex lg:flex-col' : 'flex flex-col'
@@ -450,7 +479,7 @@ function DesktopMessages() {
           </div>
 
           {/* Right — Message Thread */}
-          <div className={`flex-1 ${
+          <div className={`flex-1 min-h-0 ${
             selectedConvId ? 'flex flex-col' : 'hidden lg:flex lg:flex-col'
           }`}>
             {selectedConv ? (
@@ -474,10 +503,11 @@ export default function MessagesPage() {
   return (
     <>
       <div className="hidden lg:block"><DesktopMessages /></div>
-      <div className="lg:hidden">
-        <MobileLayout>
+      <div className="lg:hidden flex flex-col bg-[#0A0E1A]" style={{ height: '100dvh' }}>
+        <div className="flex-1 min-h-0">
           <MobileCommunityMessages />
-        </MobileLayout>
+        </div>
+        <BottomNav />
       </div>
     </>
   )

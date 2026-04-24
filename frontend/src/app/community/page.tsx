@@ -145,6 +145,19 @@ function CommunityPageInner() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
 
+  // Open create modal pre-filled when navigating from crosspost/share
+  useEffect(() => {
+    const shouldCreate = searchParams.get('create') === 'true'
+    const preTitle = searchParams.get('title') || ''
+    const preBody = searchParams.get('body') || ''
+    if (shouldCreate) {
+      if (preTitle) setCreateTitle(preTitle)
+      if (preBody) setCreateBody(preBody)
+      setShowCreate(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Follow tracking
   const [followedUsers, setFollowedUsers] = useState<Set<number>>(new Set())
   const [followingUserId, setFollowingUserId] = useState<number | null>(null)
