@@ -17,8 +17,9 @@ import {
   MoreHorizontal,
   Repeat,
 } from 'lucide-react'
-import { votePost, bookmarkPost, unbookmarkPost, addReaction, removeReaction, fetchReactions, type CommunityPost, type ReactionSummary } from '@/lib/api'
+import { votePost, bookmarkPost, unbookmarkPost, addReaction, removeReaction, fetchReactions, resolveMediaUrl, type CommunityPost, type ReactionSummary } from '@/lib/api'
 import ReportModal from '@/components/community/ReportModal'
+import { useStockSnapshot } from '@/context/StockSnapshotContext'
 
 /** Render simple markdown subset to HTML for post body previews */
 function renderBodyMarkdown(text: string): string {
@@ -84,6 +85,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
     const [showMore, setShowMore] = useState(false)
     const [showShareMenu, setShowShareMenu] = useState(false)
     const router = useRouter()
+    const { openSnapshot } = useStockSnapshot()
     const shareTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const shareMenuRef = useRef<HTMLDivElement>(null)
 
@@ -227,8 +229,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
     }, [post.title, postUrl])
 
     const handleShareDM = useCallback(() => {
-      const text = `Check out this post: ${postUrl}`
-      router.push(`/community/messages/new?text=${encodeURIComponent(text)}`)
+      router.push(`/community/messages/new?message=${encodeURIComponent(postUrl)}`)
       setShowShareMenu(false)
     }, [postUrl, router])
 
@@ -324,17 +325,62 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             />
           )}
 
+          {/* Media thumbnail(s) */}
+          {post.media_urls && post.media_urls.length > 0 && (
+            <Link href={`/community/post/${post.id}`} className="block mb-2 rounded-xl overflow-hidden">
+              {post.media_urls[0].match(/\.(mp4|webm|ogg)(\?|$)/i) ? (
+                <video
+                  src={resolveMediaUrl(post.media_urls[0])}
+                  className="w-full max-h-72 object-cover rounded-xl"
+                  muted
+                  playsInline
+                  preload="metadata"
+                />
+              ) : (
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={resolveMediaUrl(post.media_urls[0])}
+                    alt="Post media"
+                    className="w-full max-h-72 object-cover rounded-xl bg-slate-900"
+                    loading="lazy"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                  {post.media_urls.length > 1 && (
+                    <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                      +{post.media_urls.length - 1} more
+                    </span>
+                  )}
+                </div>
+              )}
+            </Link>
+          )}
+
+          {/* News source link */}
+          {post.post_type === 'news' && post.source_url && (
+            <a
+              href={post.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-blue-400 transition-colors mb-2 truncate max-w-full"
+            >
+              <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+              <span className="truncate">{(() => { try { return new URL(post.source_url!).hostname.replace('www.', '') } catch { return post.source_url } })()}</span>
+            </a>
+          )}
+
           {/* Ticker + Sentiment chips */}
           {(post.tickers?.length || sentiment) && (
             <div className="flex flex-wrap items-center gap-1.5 mb-2">
               {post.tickers?.map((ticker) => (
-                <Link
+                <button
                   key={ticker}
-                  href={`/research?symbol=${ticker}`}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); openSnapshot({ symbol: ticker, name: ticker }) }}
                   className="px-2 py-0.5 text-[11px] font-mono font-bold text-cyan-400 bg-cyan-500/10 rounded-md hover:bg-cyan-500/20 transition-colors"
                 >
                   ${ticker}
-                </Link>
+                </button>
               ))}
               {sentiment && (
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold ${sentiment.bg} ${sentiment.color}`}>
@@ -396,42 +442,46 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               <span className="hidden sm:inline">{shareConfirm ? 'Copied!' : 'Share'}</span>
             </button>
             {showShareMenu && (
-              <div className="absolute left-0 bottom-10 z-30 w-44 bg-[#1a2130] border border-white/10 rounded-xl shadow-xl py-1 text-xs">
-                <button
-                  onClick={handleCopyLink}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" /><path strokeLinecap="round" strokeLinejoin="round" d="M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.102 1.101" /></svg>
-                  Copy Link
-                </button>
-                <button
-                  onClick={handleShareTwitter}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-                  Share to X
-                </button>
-                <button
-                  onClick={handleShareReddit}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 01-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 01.042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 014.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 01.14-.197.35.35 0 01.238-.042l2.906.617a1.214 1.214 0 011.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 00-.231.094.33.33 0 000 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 000-.462.342.342 0 00-.462 0c-.545.533-1.684.73-2.512.73-.828 0-1.967-.182-2.512-.73a.345.345 0 00-.205-.095z" /></svg>
-                  Share to Reddit
-                </button>
-                <button
-                  onClick={handleShareDM}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  Send via DM
-                </button>
-                <button
-                  onClick={handleCrosspost}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
-                >
-                  <Repeat className="w-3.5 h-3.5" />
-                  Crosspost to community
-                </button>
+              <div className="absolute left-0 bottom-[calc(100%+6px)] z-30 w-64 bg-[#0e1520] border border-white/[0.10] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden">
+                {/* URL bar */}
+                <div className="px-3 pt-3 pb-2">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Share</p>
+                  <div className="flex items-center gap-1.5 bg-[#1a2130] border border-white/[0.06] rounded-xl px-3 py-2">
+                    <span className="text-[11px] text-slate-400 truncate flex-1 font-mono">{postUrl}</span>
+                    <button
+                      onClick={handleCopyLink}
+                      className="shrink-0 p-1 rounded-md hover:bg-white/10 transition-colors text-slate-400 hover:text-white"
+                      title="Copy link"
+                    >
+                      {shareConfirm
+                        ? <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        : <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                      }
+                    </button>
+                  </div>
+                </div>
+                <div className="h-px bg-white/[0.06] mx-3" />
+                {/* Actions */}
+                <div className="py-1.5">
+                  <button onClick={handleShareDM} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors">
+                    <div className="w-7 h-7 rounded-full bg-blue-500/15 flex items-center justify-center shrink-0">
+                      <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+                    </div>
+                    <span className="font-medium">Send via DM</span>
+                  </button>
+                  <button onClick={handleCrosspost} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors">
+                    <div className="w-7 h-7 rounded-full bg-purple-500/15 flex items-center justify-center shrink-0">
+                      <Repeat className="w-3.5 h-3.5 text-purple-400" />
+                    </div>
+                    <span className="font-medium">Crosspost</span>
+                  </button>
+                  <button onClick={handleShareTwitter} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors">
+                    <div className="w-7 h-7 rounded-full bg-slate-700/60 flex items-center justify-center shrink-0">
+                      <svg className="w-3.5 h-3.5 text-slate-300" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                    </div>
+                    <span className="font-medium">Post to X</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

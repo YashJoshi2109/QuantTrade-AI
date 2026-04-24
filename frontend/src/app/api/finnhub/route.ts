@@ -69,6 +69,13 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(data)
       }
 
+      // ── Company Profile (exchange, name, market cap, currency) ─────────────
+      case 'profile': {
+        if (!symbol) return NextResponse.json({ error: 'symbol required' }, { status: 400 })
+        const data = await fhFetch(`/stock/profile2?symbol=${symbol}`)
+        return NextResponse.json(data)
+      }
+
       // ── Basic Financials (all metrics) ──────────────────────────────────────
       case 'basic-financials': {
         if (!symbol) return NextResponse.json({ error: 'symbol required' }, { status: 400 })

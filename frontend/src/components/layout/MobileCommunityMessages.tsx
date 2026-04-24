@@ -275,7 +275,7 @@ function MessageThread({
   const isGroupEnd = (i: number) => i === messages.length - 1 || messages[i + 1]?.sender_id !== messages[i].sender_id
 
   return (
-    <div className="flex flex-col h-full bg-[#0A0E1A]">
+    <div className="flex flex-col h-full bg-[#0A0E1A] overflow-hidden">
       {/* Thread Header */}
       <div className="flex items-center gap-3 px-4 pt-safe py-3 border-b border-white/[0.06] bg-[#0A0E1A]/95 backdrop-blur-xl shrink-0">
         <button
@@ -379,7 +379,7 @@ function MessageThread({
       </div>
 
       {/* Input Bar */}
-      <div className="px-3 py-3 border-t border-white/[0.06] bg-[#0A0E1A]/95 backdrop-blur-xl pb-safe shrink-0">
+      <div className="px-3 py-3 border-t border-white/[0.06] bg-[#0A0E1A]/95 backdrop-blur-xl shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
         <div className="flex items-center gap-2">
           <div className="flex-1 flex items-center bg-[#1A2332] rounded-full border border-white/[0.08] focus-within:border-blue-500/40 transition-colors">
             <input
@@ -449,7 +449,7 @@ export default function MobileCommunityMessages() {
   }
 
   return (
-    <div className="relative h-[calc(100vh-5rem)] overflow-hidden">
+    <div className="relative bg-[#0A0E1A] h-full overflow-hidden">
       {/* Conversation List — slides out when thread selected */}
       <AnimatePresence initial={false}>
         {!selectedConvId && (

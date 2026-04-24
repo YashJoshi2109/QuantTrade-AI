@@ -66,6 +66,7 @@ class PostCreate(BaseModel):
     tickers: Optional[List[str]] = Field(None, max_length=20)
     sentiment: Optional[str] = Field(None, max_length=10)
     community_slug: str = Field(..., min_length=3, max_length=100)
+    media_urls: Optional[List[str]] = Field(None, max_length=10)
 
 
 class PostUpdate(BaseModel):
@@ -92,6 +93,7 @@ class PostResponse(BaseModel):
     post_type: str
     tickers: Optional[List[str]] = None
     sentiment: Optional[str] = None
+    media_urls: Optional[List[str]] = None
     upvote_count: int = 0
     downvote_count: int = 0
     comment_count: int = 0
@@ -104,6 +106,8 @@ class PostResponse(BaseModel):
     community_name: Optional[str] = None
     author: Optional[AuthorInfo] = None
     user_vote: Optional[int] = None  # 1, -1, or None
+    source_url: Optional[str] = None
+    source_platform: Optional[str] = None
     disclaimer: str = "This is community discussion, not financial advice. Always do your own research."
 
     class Config:
@@ -144,6 +148,7 @@ def _post_to_response(
         post_type=post.post_type,
         tickers=post.tickers if post.tickers else [],
         sentiment=post.sentiment,
+        media_urls=post.media_urls if post.media_urls else [],
         upvote_count=post.upvote_count,
         downvote_count=post.downvote_count,
         comment_count=post.comment_count,
@@ -156,6 +161,8 @@ def _post_to_response(
         community_name=post.community.name if post.community else None,
         author=_author_info(post.author) if post.author else None,
         user_vote=user_vote,
+        source_url=getattr(post, 'source_url', None),
+        source_platform=getattr(post, 'source_platform', None),
     )
 
 
@@ -275,6 +282,7 @@ async def create_post(
         post_type=body.post_type,
         tickers=tickers,
         sentiment=body.sentiment,
+        media_urls=body.media_urls or [],
         author_id=user.id,
         community_id=community.id,
     )

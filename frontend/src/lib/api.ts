@@ -2120,6 +2120,7 @@ export interface CommunityPost {
   post_type: string
   tickers: string[]
   sentiment: string | null
+  media_urls?: string[]
   vote_count: number
   upvote_count?: number
   downvote_count?: number
@@ -2136,6 +2137,8 @@ export interface CommunityPost {
   community_slug?: string
   community_name?: string
   disclaimer?: string
+  source_url?: string
+  source_platform?: string
 }
 
 /** Normalize backend post shape (flat community_slug/name → nested community object) */
@@ -2414,7 +2417,20 @@ export async function uploadImage(file: File): Promise<{ url: string; filename: 
     const err = await res.json().catch(() => ({ detail: 'Upload failed' }))
     throw new Error(err.detail || 'Upload failed')
   }
-  return res.json()
+  const data = await res.json()
+  // Normalize relative URLs (local storage) to absolute so images load from the backend
+  if (data.url && data.url.startsWith('/')) {
+    data.url = `${API_URL}${data.url}`
+  }
+  return data
+}
+
+/** Resolve a media URL (may be relative /static/... or absolute http/https) to an absolute URL */
+export function resolveMediaUrl(url: string): string {
+  if (!url) return url
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  if (url.startsWith('/')) return `${API_URL}${url}`
+  return url
 }
 
 // ── User Profile ───────────────────────────────────────────────────────

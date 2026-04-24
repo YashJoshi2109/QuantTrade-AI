@@ -62,7 +62,7 @@ function NewMessageContent() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserResult | null>(null)
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(searchParams?.get('message') || '')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)

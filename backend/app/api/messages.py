@@ -347,7 +347,8 @@ async def _send_message_to_convo(
     try:
         from app.services.ws_manager import ws_manager
         import asyncio
-        asyncio.create_task(ws_manager.broadcast(f"dm:{convo.id}", {
+        # "community:dm:{id}" matches the WS endpoint's channel prefix
+        asyncio.create_task(ws_manager.broadcast(f"community:dm:{convo.id}", {
             "type": "message.new",
             "conversation_id": convo.id,
             "message": {
@@ -360,7 +361,7 @@ async def _send_message_to_convo(
         }))
         # Also notify the recipient's personal WS channel
         if recipient_id:
-            asyncio.create_task(ws_manager.broadcast(f"user:{recipient_id}", {
+            asyncio.create_task(ws_manager.broadcast(f"community:user:{recipient_id}", {
                 "type": "dm.new",
                 "conversation_id": convo.id,
                 "sender_username": user.username,

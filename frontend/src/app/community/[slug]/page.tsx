@@ -171,6 +171,12 @@ export default function CommunityDetailPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
+                  {/* Desktop breadcrumb */}
+                  <nav className="hidden md:flex items-center gap-1 text-xs text-slate-600 mb-3">
+                    <Link href="/community" className="hover:text-slate-400 transition-colors">Community</Link>
+                    <span>›</span>
+                    <span className="text-slate-400">{community.name}</span>
+                  </nav>
                   <div className="flex items-center gap-3 mb-2">
                     <Link href="/community" className="hidden md:block text-slate-500 hover:text-slate-300 transition-colors">
                       <ArrowLeft className="w-4 h-4" />
