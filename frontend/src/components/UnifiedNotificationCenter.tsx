@@ -16,6 +16,9 @@ import {
   X,
   ChevronRight,
   Zap,
+  MessageCircle,
+  Newspaper,
+  Users,
 } from 'lucide-react'
 import {
   fetchUnreadCount,
@@ -51,6 +54,9 @@ const COMM_ICONS: Record<string, typeof MessageSquare> = {
   mention: AtSign,
   follow: UserPlus,
   alert: AlertCircle,
+  dm: MessageCircle,
+  follow_post: Newspaper,
+  community_post: Users,
 }
 
 const COMM_COLORS: Record<string, string> = {
@@ -59,6 +65,26 @@ const COMM_COLORS: Record<string, string> = {
   mention: 'text-violet-400 bg-violet-500/15',
   follow: 'text-cyan-400 bg-cyan-500/15',
   alert: 'text-amber-400 bg-amber-500/15',
+  dm: 'text-blue-300 bg-blue-400/15',
+  follow_post: 'text-orange-400 bg-orange-500/15',
+  community_post: 'text-teal-400 bg-teal-500/15',
+}
+
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(880, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.12)
+    gain.gain.setValueAtTime(0.18, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.35)
+  } catch { /* AudioContext not available */ }
 }
 
 export default function UnifiedNotificationCenter() {
@@ -82,10 +108,17 @@ export default function UnifiedNotificationCenter() {
     return () => clearInterval(iv)
   }, [pollUnread])
 
-  // WebSocket real-time community updates
+  // WebSocket real-time community updates + sound
   const handleWSMessage = useCallback((msg: { type: string }) => {
-    if (msg.type === 'new_comment' || msg.type === 'mention' || msg.type === 'new_post') {
+    if (
+      msg.type === 'new_comment' ||
+      msg.type === 'mention' ||
+      msg.type === 'new_post' ||
+      msg.type === 'dm.new' ||
+      msg.type === 'notification'
+    ) {
       setUnreadComm((prev) => prev + 1)
+      playNotificationSound()
     }
   }, [])
   useCommunityWS(user?.id ? `user:${user.id}` : null, handleWSMessage)

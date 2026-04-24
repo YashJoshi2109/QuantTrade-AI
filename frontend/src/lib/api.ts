@@ -2176,7 +2176,7 @@ export interface Community {
 
 export interface Notification {
   id: number
-  type: 'reply' | 'upvote' | 'mention' | 'follow' | 'alert'
+  type: 'reply' | 'upvote' | 'mention' | 'follow' | 'alert' | 'dm' | 'follow_post' | 'community_post'
   title: string
   body: string
   action_url?: string

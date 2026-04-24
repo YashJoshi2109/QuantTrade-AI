@@ -4,7 +4,7 @@ Messaging API — Reddit-style direct messages (Phase 1: DM only).
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -313,6 +313,33 @@ async def _send_message_to_convo(
     if participant:
         participant.last_read_at = now
 
+    # Find the recipient (other participant)
+    other_participant = (
+        db.query(ConversationParticipant)
+        .filter(
+            ConversationParticipant.conversation_id == convo.id,
+            ConversationParticipant.user_id != user.id,
+        )
+        .first()
+    )
+    recipient_id = other_participant.user_id if other_participant else None
+
+    # Create a notification for the recipient
+    if recipient_id:
+        try:
+            from app.models.community import Notification
+            notif = Notification(
+                user_id=recipient_id,
+                type="dm",
+                title=f"{user.username} sent you a message",
+                body=body[:120],
+                action_url="/community/messages",
+                actor_id=user.id,
+            )
+            db.add(notif)
+        except Exception:
+            pass  # Notification creation is non-critical
+
     db.commit()
     db.refresh(msg)
 
@@ -331,6 +358,14 @@ async def _send_message_to_convo(
                 "created_at": msg.created_at.isoformat() if msg.created_at else None,
             },
         }))
+        # Also notify the recipient's personal WS channel
+        if recipient_id:
+            asyncio.create_task(ws_manager.broadcast(f"user:{recipient_id}", {
+                "type": "dm.new",
+                "conversation_id": convo.id,
+                "sender_username": user.username,
+                "preview": body[:80],
+            }))
     except Exception:
         pass  # WS broadcast is best-effort
 
