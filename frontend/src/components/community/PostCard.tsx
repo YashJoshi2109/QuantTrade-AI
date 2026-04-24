@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, forwardRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   ArrowBigUp,
   ArrowBigDown,
@@ -14,6 +15,7 @@ import {
   Pin,
   Lock,
   MoreHorizontal,
+  Repeat,
 } from 'lucide-react'
 import { votePost, bookmarkPost, unbookmarkPost, addReaction, removeReaction, fetchReactions, type CommunityPost, type ReactionSummary } from '@/lib/api'
 import ReportModal from '@/components/community/ReportModal'
@@ -81,6 +83,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
     const [showReport, setShowReport] = useState(false)
     const [showMore, setShowMore] = useState(false)
     const [showShareMenu, setShowShareMenu] = useState(false)
+    const router = useRouter()
     const shareTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const shareMenuRef = useRef<HTMLDivElement>(null)
 
@@ -93,14 +96,26 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
     // Reactions state
     const [reactions, setReactions] = useState<ReactionSummary[]>([])
     const [reactionsLoaded, setReactionsLoaded] = useState(false)
+    const reactionsRef = useRef<HTMLDivElement>(null)
 
-    // Load reactions on mount
+    // Lazy-load reactions only when the card scrolls near the viewport
     useEffect(() => {
-      fetchReactions(post.id).then((data) => {
-        setReactions(data)
-        setReactionsLoaded(true)
-      }).catch(() => setReactionsLoaded(true))
-    }, [post.id])
+      const el = reactionsRef.current
+      if (!el || reactionsLoaded) return
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            observer.disconnect()
+            fetchReactions(post.id)
+              .then((data) => { setReactions(data); setReactionsLoaded(true) })
+              .catch(() => setReactionsLoaded(true))
+          }
+        },
+        { rootMargin: '400px' }
+      )
+      observer.observe(el)
+      return () => observer.disconnect()
+    }, [post.id, reactionsLoaded])
 
     const notify = useCallback((msg: string, type?: string) => {
       toastFn?.(msg, type)
@@ -211,6 +226,19 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
       setShowShareMenu(false)
     }, [post.title, postUrl])
 
+    const handleShareDM = useCallback(() => {
+      const text = `Check out this post: ${postUrl}`
+      router.push(`/community/messages/new?text=${encodeURIComponent(text)}`)
+      setShowShareMenu(false)
+    }, [postUrl, router])
+
+    const handleCrosspost = useCallback(() => {
+      const title = post.title
+      const body = `${post.body ? post.body + '\n\n' : ''}Crossposted from ${postUrl}`
+      router.push(`/community?create=true&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`)
+      setShowShareMenu(false)
+    }, [post, postUrl, router])
+
     // Close share menu on outside click
     useEffect(() => {
       if (!showShareMenu) return
@@ -252,10 +280,10 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               </>
             )}
             <Link
-              href={`/community/user/${post.author.username}`}
+              href={`/community/user/${post.author?.username ?? 'unknown'}`}
               className="text-slate-500 hover:text-slate-300 transition-colors"
             >
-              {post.author.username}
+              {post.author?.username ?? 'unknown'}
             </Link>
             <span className="text-slate-600">·</span>
             <span className="text-slate-500">{timeAgo(post.created_at)}</span>
@@ -390,6 +418,20 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                   <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 01-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 01.042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 014.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 01.14-.197.35.35 0 01.238-.042l2.906.617a1.214 1.214 0 011.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 00-.231.094.33.33 0 000 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 000-.462.342.342 0 00-.462 0c-.545.533-1.684.73-2.512.73-.828 0-1.967-.182-2.512-.73a.345.345 0 00-.205-.095z" /></svg>
                   Share to Reddit
                 </button>
+                <button
+                  onClick={handleShareDM}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  Send via DM
+                </button>
+                <button
+                  onClick={handleCrosspost}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <Repeat className="w-3.5 h-3.5" />
+                  Crosspost to community
+                </button>
               </div>
             )}
           </div>
@@ -431,7 +473,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
         </div>
 
         {/* Reaction bar */}
-        <div className="flex items-center gap-1.5 sm:gap-1 px-3 pb-3 sm:pb-2 flex-wrap">
+        <div ref={reactionsRef} className="flex items-center gap-1.5 sm:gap-1 px-3 pb-3 sm:pb-2 flex-wrap">
           {REACTION_EMOJIS.map(({ key, icon }) => {
             const r = reactions.find((rx) => rx.emoji === key)
             const count = r?.count ?? 0
