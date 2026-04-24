@@ -2612,7 +2612,7 @@ export async function searchCommunity(q: string, type?: string): Promise<{ posts
   
   const data = await response.json()
   return {
-    posts: data.results?.posts || [],
+    posts: normalizePosts(data.results?.posts || []),
     communities: data.results?.communities || []
   }
 }
