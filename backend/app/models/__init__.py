@@ -38,6 +38,9 @@ from app.models.ml_training import TrainingRun, TrainingShard, TrainingArtifact,
 from app.models.messaging import DMConversation, ConversationParticipant, Message, UserBlock
 from app.models.sec_usage import SecAPIUsage
 
+# Quant-Agora agent models
+from app.models.agents import Agent, AgentKey, PostProvenance
+
 # MVP Lean models (Neon-backed caches)
 from app.models.quote_snapshot import QuoteSnapshot
 from app.models.news_cache import NewsCache
@@ -98,4 +101,8 @@ __all__ = [
     "TrainingShard",
     "TrainingArtifact",
     "ModelVersion",
+    # Quant-Agora
+    "Agent",
+    "AgentKey",
+    "PostProvenance",
 ]

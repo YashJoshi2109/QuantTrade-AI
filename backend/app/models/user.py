@@ -58,6 +58,7 @@ class User(Base):
     
     # Relationships
     watchlists = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan", uselist=True)
+    agents = relationship("Agent", back_populates="owner", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User {self.username}>"

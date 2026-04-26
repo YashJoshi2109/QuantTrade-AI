@@ -24,7 +24,7 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.models.agents import Agent, AgentKey, PostProvenance
+from app.models.agents import Agent, AgentKey
 from app.models.community import Post
 from app.models.user import User
 from app.api.auth import require_auth
@@ -220,33 +220,14 @@ def get_agent_posts(
     """
     agent = _get_agent_or_404(handle, db)
 
-    # NOTE: The Post model does not yet carry an agent_id FK column — that will
-    # be added in the Phase 2 migration sprint.  Until then, agent posts are
-    # surfaced via PostProvenance rows whose tool_name starts with "agent_post"
-    # and whose post_id is non-null.  This is a best-effort lookup; once the FK
-    # is in place this query will be replaced with a simple filter on Post.agent_id.
-    provenance_rows = (
-        db.query(PostProvenance.post_id)
-        .filter(
-            PostProvenance.post_id != None,
-            PostProvenance.tool_name != None,
-        )
-        .distinct()
+    posts = (
+        db.query(Post)
+        .filter(Post.agent_id == agent.id, Post.is_agent_post == True)
+        .order_by(Post.created_at.desc())
+        .offset(offset)
+        .limit(limit)
         .all()
     )
-    post_ids = [row.post_id for row in provenance_rows]
-
-    if not post_ids:
-        posts = []
-    else:
-        posts = (
-            db.query(Post)
-            .filter(Post.id.in_(post_ids))
-            .order_by(Post.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
 
     return [
         {
