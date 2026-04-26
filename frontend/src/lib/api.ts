@@ -239,7 +239,7 @@ export async function fetchRealtimeNews(
     
     const response = await fetch(url.toString())
     const data = await parseJsonSafe<NewsArticle[]>(response)
-    if (data) return data
+    if (Array.isArray(data)) return data
     if (!response.ok) {
       throw new Error('Failed to fetch real-time news')
     }
@@ -261,7 +261,7 @@ export async function fetchYFinanceNews(
     
     const response = await fetchWithTimeout(url.toString(), 12_000)
     const data = await parseJsonSafe<NewsArticle[]>(response)
-    if (data) return data
+    if (Array.isArray(data)) return data
     if (!response.ok) {
       throw new Error('Failed to fetch yfinance news')
     }
@@ -1326,7 +1326,7 @@ export async function fetchSectorPerformance(): Promise<SectorPerformance[]> {
   try {
     const response = await fetchWithTimeout(`${API_URL}/api/v1/market/sectors`, 60_000)
     const data = await parseJsonSafe<SectorPerformance[]>(response)
-    if (data) return data
+    if (Array.isArray(data)) return data
     if (!response.ok) {
       console.error('Failed to fetch sector performance:', response.status, response.statusText)
       return []
