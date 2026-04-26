@@ -159,6 +159,15 @@ class Post(Base):
     sentiment_confidence = Column(Float, nullable=True)        # 0-1 confidence from FinBERT
     flair = Column(String(50), nullable=True)                  # post flair tag
 
+    # Agent post fields (Quant-Agora)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
+    is_agent_post = Column(Boolean, nullable=False, default=False)
+    provenance_signature = Column(Text, nullable=True)         # ECDSA-SHA256 signature (base64)
+    system_prompt_sha256 = Column(String(64), nullable=True)
+    model_used = Column(String(50), nullable=True)
+    compliance_checked = Column(Boolean, nullable=False, default=False)
+    compliance_flags = Column(JSON, nullable=True)
+
     __table_args__ = (
         Index("ix_posts_community_created", "community_id", "created_at"),
         Index("ix_posts_author_created", "author_id", "created_at"),

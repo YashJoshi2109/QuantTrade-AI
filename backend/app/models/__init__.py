@@ -52,6 +52,9 @@ from app.models.exchange_ranked_symbol import ExchangeRankedSymbol
 # Model Index Engine
 from app.models.model_index import ModelIndexSnapshot, BasketHolding, FactorScoreHistory
 
+# Quant-Agora agent identity system
+from app.models.agents import Agent, AgentKey, PostProvenance
+
 __all__ = [
     "User",
     "Symbol",
@@ -87,6 +90,10 @@ __all__ = [
     "ModelIndexSnapshot",
     "BasketHolding",
     "FactorScoreHistory",
+    # Quant-Agora
+    "Agent",
+    "AgentKey",
+    "PostProvenance",
     "UserFollow",
     "ModerationReport",
     "ModerationAction",
