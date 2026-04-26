@@ -165,6 +165,31 @@ PRIVATE_IP_NETWORKS = [
 
 
 # ---------------------------------------------------------------------------
+# Rate limiting Lua scripts (atomic check-then-increment)
+# ---------------------------------------------------------------------------
+
+_RATE_LIMIT_LUA = """
+local cur = redis.call('GET', KEYS[1])
+if cur and tonumber(cur) >= tonumber(ARGV[1]) then
+  return -1
+end
+local next = redis.call('INCR', KEYS[1])
+redis.call('EXPIREAT', KEYS[1], ARGV[2])
+return next
+"""
+
+_RATE_LIMIT_MINUTE_LUA = """
+local cur = redis.call('GET', KEYS[1])
+if cur and tonumber(cur) >= tonumber(ARGV[1]) then
+  return -1
+end
+local next = redis.call('INCR', KEYS[1])
+redis.call('EXPIRE', KEYS[1], 60)
+return next
+"""
+
+
+# ---------------------------------------------------------------------------
 # Rate limiting
 # ---------------------------------------------------------------------------
 
@@ -197,13 +222,8 @@ async def _check_rate_limit(agent_id: int, tool_name: str, is_platform: bool) ->
             daily_key = f"tool:rate:{agent_id}:{tool_name}:daily"
             daily_limit = config.get("user_daily", 9999)
 
-        pipe = redis.pipeline()
-        pipe.incr(daily_key)
-        pipe.expireat(daily_key, midnight_ts)
-        results = await pipe.execute()
-        current_daily = results[0]
-
-        if current_daily > daily_limit:
+        result = await redis.eval(_RATE_LIMIT_LUA, 1, daily_key, daily_limit, midnight_ts)
+        if result == -1:
             raise ToolRateLimitError(
                 "rate_limit_daily",
                 f"Daily limit of {daily_limit} exceeded for tool '{tool_name}'"
@@ -214,13 +234,8 @@ async def _check_rate_limit(agent_id: int, tool_name: str, is_platform: bool) ->
             minute_key = f"tool:rate:{agent_id}:{tool_name}:minute"
             minute_limit = config["user_minute"]
 
-            pipe2 = redis.pipeline()
-            pipe2.incr(minute_key)
-            pipe2.expire(minute_key, 60)
-            results2 = await pipe2.execute()
-            current_minute = results2[0]
-
-            if current_minute > minute_limit:
+            result_minute = await redis.eval(_RATE_LIMIT_MINUTE_LUA, 1, minute_key, minute_limit)
+            if result_minute == -1:
                 raise ToolRateLimitError(
                     "rate_limit_minute",
                     f"Per-minute limit of {minute_limit} exceeded for tool '{tool_name}'"
@@ -422,6 +437,40 @@ async def _score_sentiment(input_data: dict, db: Session) -> dict:
     return {"label": "neutral", "score": 0.0}
 
 
+async def _follow_redirects_safe(url: str, max_redirects: int = 3) -> httpx.Response:
+    """Follow redirects manually, re-checking each destination against PRIVATE_IP_NETWORKS."""
+    async with httpx.AsyncClient(
+        follow_redirects=False,
+        timeout=8.0,
+        headers={"User-Agent": "QuantTrade-AgoraBot/1.0"},
+    ) as client:
+        current_url = url
+        for _ in range(max_redirects + 1):
+            resp = await client.get(current_url)
+            if resp.status_code in (301, 302, 303, 307, 308):
+                location = resp.headers.get("location", "")
+                if not location:
+                    break
+                parsed = urlparse(location)
+                redir_host = parsed.hostname or ""
+                # Re-run Layer 2 DNS+IP check on redirect target
+                infos = await asyncio.get_running_loop().run_in_executor(
+                    None, socket.getaddrinfo, redir_host, None
+                )
+                for info in infos:
+                    ip = ipaddress.ip_address(info[4][0])
+                    for network in PRIVATE_IP_NETWORKS:
+                        if ip in network:
+                            raise ToolError(
+                                "cite_source_redirect_private_ip",
+                                f"Redirect to private IP blocked: {ip}",
+                            )
+                current_url = location
+            else:
+                return resp
+        return resp
+
+
 async def _cite_source(input_data: dict, db: Session) -> dict:
     inp = CiteSourceInput(**input_data)
     url = inp.url
@@ -448,16 +497,10 @@ async def _cite_source(input_data: dict, db: Session) -> dict:
     except Exception as e:
         raise ToolError("cite_source_dns_failed", str(e))
 
-    # Layer 3: Fetch with strict timeout, no redirects to private IPs, limited response size
-    async with httpx.AsyncClient(
-        follow_redirects=True,
-        max_redirects=3,
-        timeout=8.0,
-        headers={"User-Agent": "QuantTrade-AgoraBot/1.0 (research; not-scraping)"},
-    ) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        content = resp.text[:8000]  # cap at 8KB
+    # Layer 3: Fetch with manual redirect following to re-validate each hop against private IPs
+    resp = await _follow_redirects_safe(url)
+    resp.raise_for_status()
+    content = resp.text[:8000]  # cap at 8KB
 
     return {
         "url": url,
