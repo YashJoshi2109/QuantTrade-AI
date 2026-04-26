@@ -265,7 +265,10 @@ function CommunityPageInner() {
       if (isReset) {
         setPosts(newPosts)
       } else {
-        setPosts((prev) => [...prev, ...newPosts])
+        setPosts((prev) => {
+          const existingIds = new Set(prev.map((p) => p.id))
+          return [...prev, ...newPosts.filter((p) => !existingIds.has(p.id))]
+        })
       }
 
       setCursor(data.next_cursor)
@@ -387,7 +390,7 @@ function CommunityPageInner() {
       clearDraft()
 
       setTimeout(() => {
-        setPosts((prev) => [newPost, ...prev])
+        setPosts((prev) => prev.some((p) => p.id === newPost.id) ? prev : [newPost, ...prev])
         setShowCreate(false)
         setCreateSuccess(false)
         setCreateTitle('')
