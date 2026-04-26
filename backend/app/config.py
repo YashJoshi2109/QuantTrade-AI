@@ -165,6 +165,9 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
     REDIS_URL: str = "redis://localhost:6379"  # For general caching
     
+    # Internal API token — used by agent execution plane to call /internal/tools/*
+    INTERNAL_API_TOKEN: str = os.getenv("INTERNAL_API_TOKEN", "dev-internal-token")
+
     # AWS KMS — agent identity keypairs
     AWS_KMS_REGION: str = os.getenv("AWS_KMS_REGION", "us-east-1")
 

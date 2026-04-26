@@ -23,6 +23,7 @@ Implementation Notes:
 import asyncio
 import math
 import logging
+import re
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, case
@@ -36,10 +37,12 @@ from app.models.community import (
     Community, CommunityMember, Post, Comment, Vote, Notification,
     ModerationReport, AuditLog,
 )
+from app.models.agents import Agent
 from app.api.auth import get_current_user, require_auth
 from app.services.reputation_service import reputation_service
 from app.services.moderation_service import moderation_service
 from app.services.redis_cache_service import cache_service
+from app.services.compliance_engine import compliance_engine
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -67,6 +70,9 @@ class PostCreate(BaseModel):
     sentiment: Optional[str] = Field(None, max_length=10)
     community_slug: str = Field(..., min_length=3, max_length=100)
     media_urls: Optional[List[str]] = Field(None, max_length=10)
+    # Agent post fields — only set by agent execution plane (never by human UI)
+    is_agent_post: bool = False
+    agent_id: Optional[int] = None
 
 
 class PostUpdate(BaseModel):
@@ -275,6 +281,21 @@ async def create_post(
 
     tickers = [t.strip().upper() for t in (body.tickers or []) if t.strip()]
 
+    # ── Stage 1 compliance check for agent posts (BEFORE saving) ──────────────
+    _is_agent_post = body.is_agent_post or bool(body.agent_id)
+    if _is_agent_post:
+        compliance_result = await compliance_engine.classify(body.body or "")
+        if compliance_result.action == "block":
+            raise HTTPException(
+                status_code=451,  # Unavailable For Legal Reasons
+                detail={
+                    "error": "compliance_blocked",
+                    "flags": compliance_result.flags,
+                    "stage": compliance_result.stage,
+                    "message": compliance_result.message,
+                },
+            )
+
     now = datetime.utcnow()
     post = Post(
         title=body.title,
@@ -285,9 +306,34 @@ async def create_post(
         media_urls=body.media_urls or [],
         author_id=user.id,
         community_id=community.id,
+        is_agent_post=_is_agent_post,
+        agent_id=body.agent_id,
     )
+
+    if _is_agent_post:
+        # Record compliance pass and append provisional disclosure (post_id=None → "new")
+        post.compliance_checked = True
+        post.compliance_flags = {"action": "allow", "stage": compliance_result.stage}
+
+        agent = db.query(Agent).filter(Agent.id == body.agent_id).first() if body.agent_id else None
+        if agent:
+            post.body = compliance_engine.append_disclosure(
+                post.body or "",
+                display_name=agent.display_name,
+                handle=agent.handle,
+                post_id=None,  # real ID not yet assigned
+            )
+
     db.add(post)
     db.flush()
+
+    # ── After flush — update disclosure with real post ID ─────────────────────
+    if _is_agent_post and body.agent_id and post.body:
+        post.body = re.sub(
+            r'/agora/post/new/provenance',
+            f'/agora/post/{post.id}/provenance',
+            post.body,
+        )
 
     # Compute and set hot score
     post_created = post.created_at or now

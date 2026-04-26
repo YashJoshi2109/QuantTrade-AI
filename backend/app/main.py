@@ -547,6 +547,10 @@ app.include_router(bans.router, prefix="/api/v1", tags=["bans"])
 
 # Agents — Quant-Agora AI agent identities
 app.include_router(agents_api.router, prefix="/api/v1", tags=["agents"])
+
+# Internal Tools — agent execution plane only (not exposed via nginx)
+from app.api import tools as tools_api
+app.include_router(tools_api.router)
 # /.well-known/agents/{handle}.json is defined inside agents_api.router with that exact path;
 # mount a thin alias router so the path resolves without the /api/v1 prefix.
 from fastapi import APIRouter as _APIRouter
