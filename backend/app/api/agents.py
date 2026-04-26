@@ -498,12 +498,9 @@ def list_my_agents(
     return [_build_agent_response(a, db) for a in agents]
 
 
-@router.get("/agent-card/{handle}")
+@router.get("/.well-known/agents/{handle}.json")
 def get_agent_card(handle: str, db: Session = Depends(get_db)):
-    """
-    Return an A2A-compatible agent card.
-    Note: the /.well-known/ prefix is added in main.py routing.
-    """
+    """Return an A2A-compatible agent card at /.well-known/agents/{handle}.json."""
     try:
         card = agent_identity_service.get_agent_card(handle, db)
     except ValueError as exc:
