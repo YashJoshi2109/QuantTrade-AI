@@ -18,6 +18,7 @@ import asyncio
 import ipaddress
 import logging
 import os
+import re
 import socket
 import uuid
 from datetime import datetime, timezone
@@ -25,11 +26,21 @@ from typing import Any, Dict, Literal, Optional
 from urllib.parse import urlparse
 
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.services.redis_cache_service import cache_service
+
+# ---------------------------------------------------------------------------
+# Module-level constants
+# ---------------------------------------------------------------------------
+
+INTERNAL_API_BASE_URL = os.getenv("INTERNAL_API_BASE_URL", "http://localhost:8000")
+
+MAX_CITE_BYTES = 32_768  # 32KB
+
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +98,13 @@ class FetchHistoricalBarsInput(BaseModel):
     end: str    # ISO date
     limit: int = Field(100, ge=1, le=1000)
 
+    @field_validator("start", "end")
+    @classmethod
+    def validate_iso_date(cls, v: str) -> str:
+        if not _ISO_DATE_RE.match(v):
+            raise ValueError("date must be YYYY-MM-DD")
+        return v
+
 
 class RunBacktestInput(BaseModel):
     symbol: str = Field(..., pattern=r'^[A-Z]{1,5}$')
@@ -107,11 +125,25 @@ class FetchFilingsInput(BaseModel):
     start: str = "2024-01-01"
     end: str = ""  # empty = today
 
+    @field_validator("start", "end")
+    @classmethod
+    def validate_iso_date(cls, v: str) -> str:
+        if v and not _ISO_DATE_RE.match(v):
+            raise ValueError("date must be YYYY-MM-DD")
+        return v
+
 
 class FetchNewsInput(BaseModel):
     query: str = Field(..., max_length=200)
     from_date: str = ""  # ISO date, empty = last 30 days
     page_size: int = Field(10, ge=1, le=20)
+
+    @field_validator("from_date")
+    @classmethod
+    def validate_iso_date(cls, v: str) -> str:
+        if v and not _ISO_DATE_RE.match(v):
+            raise ValueError("date must be YYYY-MM-DD")
+        return v
 
 
 class ScoreSentimentInput(BaseModel):
@@ -321,7 +353,7 @@ async def _run_backtest(input_data: dict, db: Session) -> dict:
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             await client.post(
-                "http://localhost:8000/api/v1/backtest",
+                f"{INTERNAL_API_BASE_URL}/api/v1/backtest",
                 json={
                     "symbol": inp.symbol,
                     "strategy": inp.strategy,
@@ -452,7 +484,18 @@ async def _follow_redirects_safe(url: str, max_redirects: int = 3) -> httpx.Resp
                 if not location:
                     break
                 parsed = urlparse(location)
+                # I1: Validate redirect destination — scheme, allowlist, and private IP
+                if parsed.scheme != "https":
+                    raise ToolError(
+                        "cite_source_redirect_blocked",
+                        f"Redirect to non-HTTPS URL blocked: {location}",
+                    )
                 redir_host = parsed.hostname or ""
+                if redir_host not in CITE_SOURCE_ALLOWLIST:
+                    raise ToolError(
+                        "cite_source_redirect_blocked",
+                        f"Redirect to non-allowlisted domain blocked: {redir_host}",
+                    )
                 # Re-run Layer 2 DNS+IP check on redirect target
                 infos = await asyncio.get_running_loop().run_in_executor(
                     None, socket.getaddrinfo, redir_host, None
@@ -462,12 +505,31 @@ async def _follow_redirects_safe(url: str, max_redirects: int = 3) -> httpx.Resp
                     for network in PRIVATE_IP_NETWORKS:
                         if ip in network:
                             raise ToolError(
-                                "cite_source_redirect_private_ip",
+                                "cite_source_redirect_blocked",
                                 f"Redirect to private IP blocked: {ip}",
                             )
                 current_url = location
             else:
+                # I2: Read body in chunks up to MAX_CITE_BYTES instead of buffering all
+                chunks = []
+                total = 0
+                async for chunk in resp.aiter_bytes(chunk_size=4096):
+                    chunks.append(chunk)
+                    total += len(chunk)
+                    if total >= MAX_CITE_BYTES:
+                        break
+                # Attach capped body so callers can use resp.content
+                resp._content = b"".join(chunks)[:MAX_CITE_BYTES]
                 return resp
+        # I2: Same chunked read for the final response when max_redirects is exhausted
+        chunks = []
+        total = 0
+        async for chunk in resp.aiter_bytes(chunk_size=4096):
+            chunks.append(chunk)
+            total += len(chunk)
+            if total >= MAX_CITE_BYTES:
+                break
+        resp._content = b"".join(chunks)[:MAX_CITE_BYTES]
         return resp
 
 
@@ -477,6 +539,8 @@ async def _cite_source(input_data: dict, db: Session) -> dict:
 
     # Layer 1: domain allowlist
     parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise ToolError("cite_source_https_required", "Only HTTPS URLs are allowed")
     hostname = parsed.hostname or ""
     if hostname not in CITE_SOURCE_ALLOWLIST:
         raise ToolError("cite_source_domain_not_allowed", f"Domain '{hostname}' not in allowlist")
@@ -500,7 +564,8 @@ async def _cite_source(input_data: dict, db: Session) -> dict:
     # Layer 3: Fetch with manual redirect following to re-validate each hop against private IPs
     resp = await _follow_redirects_safe(url)
     resp.raise_for_status()
-    content = resp.text[:8000]  # cap at 8KB
+    # Body is already capped at MAX_CITE_BYTES by _follow_redirects_safe
+    content = resp.content.decode("utf-8", errors="replace")
 
     return {
         "url": url,
@@ -514,10 +579,9 @@ async def _semantic_search_posts(input_data: dict, db: Session) -> dict:
     inp = SemanticSearchInput(**input_data)
 
     try:
-        from app.services.embedding_service import get_embedding  # type: ignore
-        query_vec = await asyncio.get_running_loop().run_in_executor(
-            None, get_embedding, inp.query
-        )
+        # C1: Use EmbeddingService.embed_text — get_embedding does not exist
+        from app.services.embedding_service import EmbeddingService
+        query_vec = await asyncio.to_thread(EmbeddingService().embed_text, inp.query)
         if query_vec is None:
             return {"posts": []}
 
@@ -534,7 +598,10 @@ async def _semantic_search_posts(input_data: dict, db: Session) -> dict:
             LIMIT :lim
             """
         )
-        rows = db.execute(sql, {"query_vec": vec_str, "lim": inp.limit}).fetchall()
+        # C2: Wrap sync db.execute() in asyncio.to_thread to avoid blocking the event loop
+        rows = await asyncio.to_thread(
+            lambda: db.execute(sql, {"query_vec": vec_str, "lim": inp.limit}).fetchall()
+        )
         return {
             "posts": [
                 {"id": r.id, "title": r.title, "similarity": float(r.similarity)}
