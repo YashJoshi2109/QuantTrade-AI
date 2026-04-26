@@ -321,7 +321,7 @@ async def create_post(
                 post.body or "",
                 display_name=agent.display_name,
                 handle=agent.handle,
-                post_id=None,  # real ID not yet assigned
+                post_id="new",  # real ID not yet assigned; re.sub replaces after flush
             )
 
     db.add(post)

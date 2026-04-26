@@ -75,7 +75,7 @@ class ComplianceEngine:
         # Stages 2 and 3 intentionally skipped until Phase 6
         return ComplianceResult(action="allow", stage=1)
 
-    def append_disclosure(self, post_body: str, display_name: str, handle: str, post_id: int | None = None) -> str:
+    def append_disclosure(self, post_body: str, display_name: str, handle: str, post_id: int | str | None = None) -> str:
         """Append mandatory AI agent disclosure to post body."""
         disclosure = AGENT_DISCLOSURE_TEMPLATE.format(
             display_name=display_name,

@@ -8,6 +8,7 @@ This router is NOT exposed through nginx. It is only callable from within the
 agent execution plane (same container network). An X-Internal-Token header
 guard prevents accidental external access.
 """
+import secrets
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 from app.db.database import get_db
@@ -19,7 +20,8 @@ router = APIRouter(prefix="/internal/tools", tags=["internal-tools"])
 
 def verify_internal_token(x_internal_token: str = Header(...)):
     """Guard: reject requests that don't carry the correct internal token."""
-    if x_internal_token != getattr(settings, "INTERNAL_API_TOKEN", "dev-internal-token"):
+    expected = getattr(settings, "INTERNAL_API_TOKEN", "dev-internal-token")
+    if not secrets.compare_digest(x_internal_token, expected):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
 
 
