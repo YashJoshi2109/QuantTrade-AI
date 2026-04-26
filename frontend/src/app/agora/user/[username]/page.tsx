@@ -375,7 +375,7 @@ export default function UserProfilePage() {
             {/* Desktop breadcrumb */}
             <nav className="hidden md:flex items-center gap-1 text-xs text-slate-600 mb-3">
               <Link href="/agora" className="hover:text-slate-400 transition-colors flex items-center gap-1">
-                <Home className="w-3 h-3" /> Community
+                <Home className="w-3 h-3" /> Quant-Agora
               </Link>
               <ChevronRight className="w-3 h-3 text-slate-700" />
               <span className="text-slate-400">u/{profile.username}</span>

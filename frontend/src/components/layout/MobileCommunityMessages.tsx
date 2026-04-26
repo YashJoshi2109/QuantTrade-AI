@@ -101,7 +101,7 @@ function ConversationList({
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-xl font-bold text-white">Messages</h1>
           <Link
-            href="/community/messages/new"
+            href="/agora/messages/new"
             className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 active:scale-90"
           >
             <Plus className="w-4 h-4" />
@@ -141,10 +141,10 @@ function ConversationList({
             <h3 className="text-base font-semibold text-white mb-1">No Messages Yet</h3>
             <p className="text-sm text-slate-500 mb-4">Start a conversation from a trader's profile</p>
             <Link
-              href="/community"
+              href="/agora"
               className="px-5 py-2.5 rounded-full bg-blue-500 text-white text-sm font-semibold active:scale-95"
             >
-              Browse Community
+              Browse Quant-Agora
             </Link>
           </div>
         ) : (

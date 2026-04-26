@@ -233,19 +233,19 @@ export default function MobileCommunity() {
               <MessageCircle className="w-4 h-4 text-blue-400" />
             </div>
             <div>
-              <h1 className="text-[16px] font-bold text-white leading-tight">Community</h1>
+              <h1 className="text-[16px] font-bold text-white leading-tight">Quant-Agora</h1>
               <p className="text-[10px] text-slate-500 leading-none">Financial discussions & ideas</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Link
-              href="/community/search"
+              href="/agora/search"
               className="w-8 h-8 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center text-slate-300 active:scale-90"
             >
               <Search className="w-4 h-4" />
             </Link>
             <Link
-              href="/community/messages"
+              href="/agora/messages"
               className="w-8 h-8 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center text-slate-300 active:scale-90"
             >
               <MessageCircle className="w-4 h-4" />

@@ -151,7 +151,7 @@ function Breadcrumb({ post }: { post: CommunityPost | null }) {
     <nav className="flex items-center gap-1 text-xs text-slate-500 mb-4 flex-wrap">
       <Link href="/agora" className="flex items-center gap-1 hover:text-slate-300 transition-colors">
         <Home className="w-3 h-3" />
-        <span>Community</span>
+        <span>Quant-Agora</span>
       </Link>
       {post?.community && (
         <>

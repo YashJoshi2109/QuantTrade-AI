@@ -172,9 +172,9 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
             />
             <MenuItem
               icon={<MessageCircle className="w-4 h-4 text-cyan-400" />}
-              title="Community"
+              title="Quant-Agora"
               description="Financial discussions, analysis and ideas."
-              href="/community"
+              href="/agora"
             />
             <MenuItem
               icon={<Lightbulb className="w-4 h-4 text-purple-400" />}
