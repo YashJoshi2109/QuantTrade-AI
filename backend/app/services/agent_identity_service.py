@@ -5,11 +5,13 @@ Manages ECDSA P-256 keypairs for AI agents via AWS KMS.
 Key never leaves KMS — only signatures and public keys come out.
 Verification is always local (never call KMS for verify).
 """
+import asyncio
 import base64
 import hashlib
 import json
 import logging
 from datetime import datetime, timezone
+from functools import partial
 from typing import Optional
 
 import boto3
@@ -150,25 +152,40 @@ class AgentIdentityService:
     ) -> bool:
         """
         Verify a payload signature locally (NEVER calls KMS.verify).
-        Caches public key PEM in Redis for TTL=3600s.
+        Caches {"pem": ..., "active": bool} in Redis for TTL=3600s so that
+        revoked keys are rejected even on a cache hit (tombstone pattern).
         """
         cache_key = f"agent:pubkey:{fingerprint}"
 
         # Try Redis cache first
-        public_key_pem: Optional[str] = await cache_service.get(cache_key)
+        cached = await cache_service.get(cache_key)
 
-        if public_key_pem is None:
+        if cached is not None:
+            # Cache hit — honour revocation tombstones immediately
+            if not cached.get("active", False):
+                return False
+            public_key_pem: str = cached["pem"]
+        else:
             # Cache miss — load from DB
-            agent_key = (
-                db.query(AgentKey)
+            loop = asyncio.get_running_loop()
+            agent_key = await loop.run_in_executor(
+                None,
+                lambda: db.query(AgentKey)
                 .filter(AgentKey.fingerprint == fingerprint)
-                .first()
+                .first(),
             )
             if not agent_key:
                 raise ValueError(f"Key not found: {fingerprint}")
 
+            if not agent_key.is_active:
+                # Write tombstone so subsequent calls skip the DB round-trip
+                tombstone = {"pem": "", "active": False}
+                await cache_service.set(cache_key, tombstone, ttl=_PUBKEY_CACHE_TTL)
+                return False
+
             public_key_pem = agent_key.public_key_pem
-            await cache_service.set(cache_key, public_key_pem, ttl=_PUBKEY_CACHE_TTL)
+            cache_value = {"pem": public_key_pem, "active": True}
+            await cache_service.set(cache_key, cache_value, ttl=_PUBKEY_CACHE_TTL)
 
         # Load public key object
         pub_key = serialization.load_pem_public_key(public_key_pem.encode())
@@ -197,32 +214,48 @@ class AgentIdentityService:
         """
         Revoke the active key for agent_id:
         - Mark DB row inactive with revocation metadata
-        - Evict from Redis cache
+        - Write tombstone to Redis cache (safer than plain delete: closes
+          the cache-miss → DB re-read window that delete alone would create)
         - Schedule KMS key deletion (7-day pending window)
         """
-        agent_key = (
-            db.query(AgentKey)
+        loop = asyncio.get_running_loop()
+
+        agent_key = await loop.run_in_executor(
+            None,
+            lambda: db.query(AgentKey)
             .filter(AgentKey.agent_id == agent_id, AgentKey.is_active == True)
-            .first()
+            .first(),
         )
         if not agent_key:
             raise ValueError(f"No active key for agent {agent_id}")
 
-        agent_key.is_active = False
-        agent_key.revoked_at = datetime.now(timezone.utc)
-        agent_key.revocation_reason = reason
-        db.commit()
+        def _mark_revoked():
+            agent_key.is_active = False
+            agent_key.revoked_at = datetime.now(timezone.utc)
+            agent_key.revocation_reason = reason
+            db.commit()
 
-        # Evict Redis cache
-        await cache_service.delete(f"agent:pubkey:{agent_key.fingerprint}")
+        await loop.run_in_executor(None, _mark_revoked)
 
-        # Schedule KMS key deletion
+        # Write revocation tombstone — a subsequent verify_signature cache hit
+        # will see active=False and reject immediately, even if delete is
+        # delayed or silently fails on the fallback in-memory cache.
+        tombstone = {"pem": "", "active": False}
+        await cache_service.set(
+            f"agent:pubkey:{agent_key.fingerprint}", tombstone, ttl=_PUBKEY_CACHE_TTL
+        )
+
+        # Schedule KMS key deletion (blocking boto3 call — offload to executor)
         if agent_key.kms_key_id:
             try:
                 kms = self._get_kms_client()
-                kms.schedule_key_deletion(
-                    KeyId=agent_key.kms_key_id,
-                    PendingWindowInDays=7,
+                await loop.run_in_executor(
+                    None,
+                    partial(
+                        kms.schedule_key_deletion,
+                        KeyId=agent_key.kms_key_id,
+                        PendingWindowInDays=7,
+                    ),
                 )
                 logger.info(
                     "Scheduled KMS key deletion for agent %d key %s",
@@ -246,25 +279,35 @@ class AgentIdentityService:
         Rotate: revoke the current active key, create a new one.
         Sets rotated_at on the old key row.
         Returns the new AgentKey.
+        Blocking DB/KMS calls are offloaded to the thread-pool executor so
+        the event loop is never stalled.
         """
+        loop = asyncio.get_running_loop()
+
         # Capture old key reference before revocation
-        old_key = (
-            db.query(AgentKey)
+        old_key = await loop.run_in_executor(
+            None,
+            lambda: db.query(AgentKey)
             .filter(AgentKey.agent_id == agent_id, AgentKey.is_active == True)
-            .first()
+            .first(),
         )
         if not old_key:
             raise ValueError(f"No active key for agent {agent_id}")
 
         await self.revoke_key(agent_id, "rotation", db)
 
-        # Stamp rotated_at on the old key
-        db.refresh(old_key)
-        old_key.rotated_at = datetime.now(timezone.utc)
-        db.commit()
+        # Stamp rotated_at on the old key (blocking DB write → executor)
+        def _stamp_rotated():
+            db.refresh(old_key)
+            old_key.rotated_at = datetime.now(timezone.utc)
+            db.commit()
 
-        # Create fresh keypair
-        new_key = self.create_agent_keypair(agent_id, db)
+        await loop.run_in_executor(None, _stamp_rotated)
+
+        # Create fresh keypair (blocking KMS + DB write → executor)
+        new_key = await loop.run_in_executor(
+            None, partial(self.create_agent_keypair, agent_id, db)
+        )
         logger.info("Rotated key for agent %d → new fingerprint=%s", agent_id, new_key.fingerprint[:16])
         return new_key
 
