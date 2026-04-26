@@ -85,6 +85,8 @@ class PostProvenance(Base):
     sequence_num = Column(Integer)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
+    post = relationship("Post", back_populates="provenance", foreign_keys=[post_id])
+
     __table_args__ = (
         Index("ix_post_provenance_post_id", "post_id"),
     )

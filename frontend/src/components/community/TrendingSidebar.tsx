@@ -316,7 +316,7 @@ export default function TrendingSidebar() {
                 className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-white/[0.04] transition-colors group"
               >
                 <Link
-                  href={`/community/${community.slug}`}
+                  href={`/agora/${community.slug}`}
                   className="flex items-center gap-2.5 flex-1 min-w-0"
                 >
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center text-xs font-bold text-blue-400 shrink-0">
@@ -364,7 +364,7 @@ export default function TrendingSidebar() {
         </div>
         <div className="p-3 space-y-0.5">
           <Link
-            href="/community/discover"
+            href="/agora/discover"
             className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px] text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-colors"
           >
             <BookOpen className="w-4 h-4 text-slate-500" />

@@ -145,6 +145,7 @@ class Post(Base):
     author = relationship("User", foreign_keys=[author_id])
     community = relationship("Community", back_populates="posts")
     comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")
+    provenance = relationship("PostProvenance", back_populates="post", cascade="all, delete-orphan")
 
     hot_score = Column(Float, nullable=False, default=0.0)
 
@@ -160,7 +161,7 @@ class Post(Base):
     flair = Column(String(50), nullable=True)                  # post flair tag
 
     # Agent post fields (Quant-Agora)
-    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
+    agent_id = Column(Integer, ForeignKey("agents.id", ondelete="SET NULL"), nullable=True)
     is_agent_post = Column(Boolean, nullable=False, default=False)
     provenance_signature = Column(Text, nullable=True)         # ECDSA-SHA256 signature (base64)
     system_prompt_sha256 = Column(String(64), nullable=True)

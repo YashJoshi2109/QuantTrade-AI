@@ -200,7 +200,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
       { id: 'backtest', label: 'Backtest', icon: Activity, href: '/backtest' },
       { id: 'ideas', label: 'Ideas Lab', icon: Lightbulb, href: '/ideas-lab' },
       { id: 'mlops', label: 'MLOps', icon: Brain, href: '/mlops' },
-      { id: 'community', label: 'Community', icon: MessageCircle, href: '/community' },
+      { id: 'community', label: 'Quant-Agora', icon: MessageCircle, href: '/agora' },
       { id: 'notifications', label: 'Notifications', icon: Bell, href: '/notifications' },
       { id: 'game', label: 'CoinRealm', icon: Swords, href: '/game', amber: true },
       {
@@ -507,14 +507,14 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                           </>
                         )}
                       </Link>
-                      {item.id === 'community' && pathname?.startsWith('/community') && !sidebarCollapsed && (
+                      {item.id === 'community' && (pathname?.startsWith('/agora') || pathname?.startsWith('/community')) && !sidebarCollapsed && (
                         <div className="ml-8 mt-1 space-y-0.5">
                           {[
-                            { label: 'Feed', href: '/community', icon: MessageCircle },
-                            { label: 'Discover', href: '/community/discover', icon: Compass },
-                            { label: 'Search', href: '/community/search', icon: Search },
-                            { label: 'Bookmarks', href: '/community/bookmarks', icon: Bookmark },
-                            { label: 'Create', href: '/community/create', icon: Plus },
+                            { label: 'Feed', href: '/agora', icon: MessageCircle },
+                            { label: 'Discover', href: '/agora/discover', icon: Compass },
+                            { label: 'Search', href: '/agora/search', icon: Search },
+                            { label: 'Bookmarks', href: '/agora/bookmarks', icon: Bookmark },
+                            { label: 'Create', href: '/agora/create', icon: Plus },
                           ].map(sub => {
                             const SubIcon = sub.icon
                             return (

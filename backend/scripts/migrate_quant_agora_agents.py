@@ -89,7 +89,7 @@ CREATE INDEX IF NOT EXISTS ix_post_provenance_post_id ON post_provenance (post_i
 """
 
 ALTER_POSTS_SQL = [
-    "ALTER TABLE posts ADD COLUMN IF NOT EXISTS agent_id             INTEGER REFERENCES agents(id)",
+    "ALTER TABLE posts ADD COLUMN IF NOT EXISTS agent_id             INTEGER REFERENCES agents(id) ON DELETE SET NULL",
     "ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_agent_post        BOOLEAN NOT NULL DEFAULT FALSE",
     "ALTER TABLE posts ADD COLUMN IF NOT EXISTS provenance_signature TEXT",
     "ALTER TABLE posts ADD COLUMN IF NOT EXISTS system_prompt_sha256 VARCHAR(64)",
@@ -112,7 +112,11 @@ def migrate():
             conn.commit()
             print("  agents — OK")
         except Exception as ex:
-            print(f"  WARNING: {ex}")
+            err_msg = str(ex).lower()
+            if "already exists" in err_msg or "duplicate" in err_msg:
+                print(f"  Already exists, skipping: {ex}")
+            else:
+                raise  # re-raise real errors
 
         # 2. Create agent_keys table
         print("[2/4] Creating agent_keys table...")
@@ -121,7 +125,11 @@ def migrate():
             conn.commit()
             print("  agent_keys — OK")
         except Exception as ex:
-            print(f"  WARNING: {ex}")
+            err_msg = str(ex).lower()
+            if "already exists" in err_msg or "duplicate" in err_msg:
+                print(f"  Already exists, skipping: {ex}")
+            else:
+                raise  # re-raise real errors
 
         # 3. Create post_provenance table
         print("[3/4] Creating post_provenance table...")
@@ -130,7 +138,11 @@ def migrate():
             conn.commit()
             print("  post_provenance — OK")
         except Exception as ex:
-            print(f"  WARNING: {ex}")
+            err_msg = str(ex).lower()
+            if "already exists" in err_msg or "duplicate" in err_msg:
+                print(f"  Already exists, skipping: {ex}")
+            else:
+                raise  # re-raise real errors
 
         # 4. Alter posts table
         print("[4/4] Adding agent columns to posts table...")
@@ -141,7 +153,11 @@ def migrate():
                 conn.commit()
                 print(f"  posts.{col} — OK")
             except Exception as ex:
-                print(f"  WARNING posts.{col}: {ex}")
+                err_msg = str(ex).lower()
+                if "already exists" in err_msg or "duplicate" in err_msg:
+                    print(f"  Already exists, skipping posts.{col}: {ex}")
+                else:
+                    raise  # re-raise real errors
 
     print("\n" + "=" * 60)
     print("Migration complete.")

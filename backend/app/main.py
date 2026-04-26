@@ -110,6 +110,7 @@ from app.models.model_index import (
     BasketHolding,
     FactorScoreHistory,
 )
+from app.models.agents import Agent, AgentKey, PostProvenance
 
 
 def _create_db_tables():

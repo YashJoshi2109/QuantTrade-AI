@@ -25,11 +25,11 @@ import {
 import { fetchCommunities, joinCommunity, leaveCommunity, type Community } from '@/lib/api'
 
 const NAV_ITEMS = [
-  { href: '/community', label: 'Home', icon: Home, exact: true },
-  { href: '/community?sort=hot', label: 'Popular', icon: Flame },
-  { href: '/community/discover', label: 'Explore', icon: Compass },
-  { href: '/community?sort=rising', label: 'Rising', icon: TrendingUp },
-  { href: '/community/messages', label: 'Messages', icon: MessageCircle },
+  { href: '/agora', label: 'Home', icon: Home, exact: true },
+  { href: '/agora?sort=hot', label: 'Popular', icon: Flame },
+  { href: '/agora/discover', label: 'Explore', icon: Compass },
+  { href: '/agora?sort=rising', label: 'Rising', icon: TrendingUp },
+  { href: '/agora/messages', label: 'Messages', icon: MessageCircle },
 ]
 
 const RESOURCE_LINKS = [
@@ -108,9 +108,9 @@ export default function CommunitySidebar() {
         {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
           const currentSort = searchParams.get('sort')
           const active = exact
-            ? pathname === '/community' && !currentSort
+            ? (pathname === '/agora' || pathname === '/community') && !currentSort
             : href.includes('?sort=')
-              ? pathname === '/community' && currentSort === href.split('sort=')[1]
+              ? (pathname === '/agora' || pathname === '/community') && currentSort === href.split('sort=')[1]
               : pathname === href
           return (
             <Link
@@ -140,7 +140,7 @@ export default function CommunitySidebar() {
           </h3>
           <div className="flex items-center gap-1">
             <Link
-              href="/community/create"
+              href="/agora/create"
               onClick={(e) => e.stopPropagation()}
               className="p-1 rounded text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
               title="Create Community"
@@ -177,9 +177,9 @@ export default function CommunitySidebar() {
                   {visibleMy.map((community) => (
                     <Link
                       key={community.slug}
-                      href={`/community/${community.slug}`}
+                      href={`/agora/${community.slug}`}
                       className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-all duration-150 group ${
-                        pathname === `/community/${community.slug}`
+                        pathname === `/agora/${community.slug}`
                           ? 'bg-white/[0.06] text-white'
                           : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
                       }`}
@@ -238,7 +238,7 @@ export default function CommunitySidebar() {
                     className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:bg-white/[0.04] transition-colors group"
                   >
                     <Link
-                      href={`/community/${community.slug}`}
+                      href={`/agora/${community.slug}`}
                       className="flex items-center gap-2.5 flex-1 min-w-0"
                     >
                       <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center text-[10px] font-bold text-purple-400 shrink-0">
@@ -275,7 +275,7 @@ export default function CommunitySidebar() {
                   </button>
                 )}
                 <Link
-                  href="/community/discover"
+                  href="/agora/discover"
                   className="block px-3 py-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
                 >
                   Browse all communities

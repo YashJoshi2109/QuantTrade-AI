@@ -199,8 +199,8 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
     }, [bookmarked, notify, post.id])
 
     const postUrl = typeof window !== 'undefined'
-      ? `${window.location.origin}/community/post/${post.id}`
-      : `/community/post/${post.id}`
+      ? `${window.location.origin}/agora/post/${post.id}`
+      : `/agora/post/${post.id}`
 
     const handleCopyLink = useCallback(() => {
       navigator.clipboard.writeText(postUrl).then(() => {
@@ -229,14 +229,14 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
     }, [post.title, postUrl])
 
     const handleShareDM = useCallback(() => {
-      router.push(`/community/messages/new?message=${encodeURIComponent(postUrl)}`)
+      router.push(`/agora/messages/new?message=${encodeURIComponent(postUrl)}`)
       setShowShareMenu(false)
     }, [postUrl, router])
 
     const handleCrosspost = useCallback(() => {
       const title = post.title
       const body = `${post.body ? post.body + '\n\n' : ''}Crossposted from ${postUrl}`
-      router.push(`/community?create=true&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`)
+      router.push(`/agora?create=true&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`)
       setShowShareMenu(false)
     }, [post, postUrl, router])
 
@@ -272,7 +272,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             {post.community?.slug && (
               <>
                 <Link
-                  href={`/community/${post.community.slug}`}
+                  href={`/agora/${post.community.slug}`}
                   className="font-semibold text-slate-300 hover:text-white transition-colors"
                 >
                   c/{post.community.name}
@@ -281,7 +281,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               </>
             )}
             <Link
-              href={`/community/user/${post.author?.username ?? 'unknown'}`}
+              href={`/agora/user/${post.author?.username ?? 'unknown'}`}
               className="text-slate-500 hover:text-slate-300 transition-colors"
             >
               {post.author?.username ?? 'unknown'}
@@ -311,7 +311,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           </div>
 
           {/* Title */}
-          <Link href={`/community/post/${post.id}`} className="block">
+          <Link href={`/agora/post/${post.id}`} className="block">
             <h3 className="text-[15px] font-medium text-slate-100 leading-snug mb-1 group-hover:text-white transition-colors cursor-pointer">
               {post.title}
             </h3>
@@ -327,7 +327,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
 
           {/* Media thumbnail(s) */}
           {post.media_urls && post.media_urls.length > 0 && (
-            <Link href={`/community/post/${post.id}`} className="block mb-2 rounded-xl overflow-hidden">
+            <Link href={`/agora/post/${post.id}`} className="block mb-2 rounded-xl overflow-hidden">
               {post.media_urls[0].match(/\.(mp4|webm|ogg)(\?|$)/i) ? (
                 <video
                   src={resolveMediaUrl(post.media_urls[0])}
@@ -421,7 +421,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
 
           {/* Comments pill */}
           <Link
-            href={`/community/post/${post.id}`}
+            href={`/agora/post/${post.id}`}
             className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-[#1a2130] rounded-full text-xs text-slate-400 hover:text-white hover:bg-[#1f2937] transition-colors min-h-[44px] sm:min-h-0"
           >
             <MessageSquare className="w-4 h-4" />
