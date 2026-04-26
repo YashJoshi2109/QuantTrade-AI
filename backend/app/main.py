@@ -266,13 +266,17 @@ async def lifespan(app: FastAPI):
         from app.services.redis_cache_service import cache_service
         cache_service.init_redis(redis_client)
         print(f"✅ Redis connected + cache service initialized: {redis_url.split('@')[-1] if '@' in redis_url else redis_url}")
-
-        # Register Redis cache middleware
-        from app.middleware.redis_cache import RedisCacheMiddleware
-        app.add_middleware(RedisCacheMiddleware, redis_client=redis_client)
     except Exception as e:
         app.state.redis = None
-        print(f"⚠️ Redis cache disabled: {e}")
+        print(f"⚠️ Redis unavailable: {e}")
+
+    # Register Redis cache middleware (separate block — failure must not clear app.state.redis)
+    try:
+        if getattr(app.state, "redis", None) is not None:
+            from app.middleware.redis_cache import RedisCacheMiddleware
+            app.add_middleware(RedisCacheMiddleware, redis_client=app.state.redis)
+    except Exception as e:
+        print(f"⚠️ Redis cache middleware skipped: {e}")
 
     # Run table creation in a thread so /health is available immediately
     t = threading.Thread(target=_create_db_tables, daemon=True)
