@@ -4,6 +4,7 @@ uvicorn[standard]==0.24.0
 pydantic>=2.7.4
 pydantic-settings>=2.1.0
 python-jose[cryptography]==3.3.0  # JWT auth
+cryptography>=41.0.0  # ECDSA P-256 local verification for agent identity (also a python-jose dep)
 passlib[bcrypt]==1.7.4  # Password hashing
 python-multipart==0.0.6
 

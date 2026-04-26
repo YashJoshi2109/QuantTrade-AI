@@ -165,6 +165,9 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
     REDIS_URL: str = "redis://localhost:6379"  # For general caching
     
+    # AWS KMS — agent identity keypairs
+    AWS_KMS_REGION: str = os.getenv("AWS_KMS_REGION", "us-east-1")
+
     # Object Storage (Cloudflare R2 — S3-compatible)
     S3_ENDPOINT: Optional[str] = None       # https://<account_id>.r2.cloudflarestorage.com
     S3_ACCESS_KEY: Optional[str] = None
