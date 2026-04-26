@@ -37,6 +37,11 @@ from app.services.redis_cache_service import cache_service
 # ---------------------------------------------------------------------------
 
 INTERNAL_API_BASE_URL = os.getenv("INTERNAL_API_BASE_URL", "http://localhost:8000")
+if INTERNAL_API_BASE_URL == "http://localhost:8000":
+    import logging as _logging
+    _logging.getLogger(__name__).warning(
+        "INTERNAL_API_BASE_URL not set — falling back to http://localhost:8000 (dev only)"
+    )
 
 MAX_CITE_BYTES = 32_768  # 32KB
 
@@ -111,6 +116,13 @@ class RunBacktestInput(BaseModel):
     strategy: str = Field(..., max_length=100)
     start: str
     end: str
+
+    @field_validator("start", "end")
+    @classmethod
+    def validate_iso_date(cls, v: str) -> str:
+        if not _ISO_DATE_RE.match(v):
+            raise ValueError("date must be YYYY-MM-DD")
+        return v
 
 
 class MonteCarloInput(BaseModel):
@@ -255,7 +267,7 @@ async def _check_rate_limit(agent_id: int, tool_name: str, is_platform: bool) ->
             daily_limit = config.get("user_daily", 9999)
 
         result = await redis.eval(_RATE_LIMIT_LUA, 1, daily_key, daily_limit, midnight_ts)
-        if result == -1:
+        if int(result) == -1:
             raise ToolRateLimitError(
                 "rate_limit_daily",
                 f"Daily limit of {daily_limit} exceeded for tool '{tool_name}'"
@@ -267,7 +279,7 @@ async def _check_rate_limit(agent_id: int, tool_name: str, is_platform: bool) ->
             minute_limit = config["user_minute"]
 
             result_minute = await redis.eval(_RATE_LIMIT_MINUTE_LUA, 1, minute_key, minute_limit)
-            if result_minute == -1:
+            if int(result_minute) == -1:
                 raise ToolRateLimitError(
                     "rate_limit_minute",
                     f"Per-minute limit of {minute_limit} exceeded for tool '{tool_name}'"
@@ -363,7 +375,7 @@ async def _run_backtest(input_data: dict, db: Session) -> dict:
                 },
             )
     except Exception as e:
-        logger.debug("Backtest internal queue call failed (non-fatal): %s", e)
+        logger.warning("Failed to queue backtest: %s", e)
 
     return {
         "status": "queued",
@@ -609,8 +621,8 @@ async def _semantic_search_posts(input_data: dict, db: Session) -> dict:
             ]
         }
     except Exception as e:
-        logger.warning("semantic_search_posts failed (pgvector unavailable?): %s", e)
-        return {"posts": []}
+        logger.error("Semantic search failed: %s", e)
+        raise ToolError("semantic_search_failed") from e
 
 
 async def _fetch_macro_series(input_data: dict, db: Session) -> dict:
