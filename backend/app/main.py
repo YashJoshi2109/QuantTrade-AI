@@ -57,6 +57,7 @@ from app.api import mlops
 from app.api import moderation as moderation_api
 from app.api import bans
 from app.api import ws as ws_api
+from app.api import agents as agents_api
 from app.db.database import engine, Base
 
 # Import all models to ensure they're registered with SQLAlchemy
@@ -96,6 +97,7 @@ from app.models.community import (
     ModerationReport, ModerationAction, AuditLog,
     CommunityBan,
 )
+from app.models.agents import Agent, AgentKey, PostProvenance
 from app.models.global_monitor import (
     GlobalEvent,
     CountryInstability,
@@ -210,6 +212,31 @@ def _start_scheduler():
         # RAG data ingestion every 6 hours for copilot retrieval
         sched.add_job(ingest_rag_data, IntervalTrigger(hours=6),
                       id="rag_data_ingestion", replace_existing=True)
+
+        # Unclaimed agent TTL cleanup — daily at 02:00 UTC
+        def _cleanup_unclaimed_agents():
+            db = SessionLocal()
+            try:
+                from sqlalchemy import text as _text
+                result = db.execute(
+                    _text("DELETE FROM agents WHERE is_claimed = FALSE AND claim_deadline < NOW()")
+                )
+                db.commit()
+                n = result.rowcount
+                if n:
+                    print(f"🧹 TTL cron: deleted {n} unclaimed agent(s)")
+            except Exception as e:
+                print(f"⚠️ Unclaimed agent TTL cron error: {e}")
+                db.rollback()
+            finally:
+                db.close()
+
+        sched.add_job(
+            _cleanup_unclaimed_agents,
+            CronTrigger(hour=2, minute=0),
+            id="cleanup_unclaimed_agents",
+            replace_existing=True,
+        )
 
         sched.start()
         _scheduler = sched
@@ -508,6 +535,11 @@ app.include_router(search.router, prefix="/api/v1", tags=["search"])
 
 # Bans — community ban management
 app.include_router(bans.router, prefix="/api/v1", tags=["bans"])
+
+# Agents — Quant-Agora AI agent identities
+app.include_router(agents_api.router, prefix="/api/v1", tags=["agents"])
+# /.well-known/agents/{handle}.json — A2A agent card discovery (no prefix so path is absolute)
+app.include_router(agents_api.router, prefix="", tags=["agents-wellknown"])
 
 # Messaging — Reddit-style direct messages
 from app.api import messages as messages_api
