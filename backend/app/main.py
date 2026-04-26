@@ -217,17 +217,22 @@ def _start_scheduler():
         def _cleanup_unclaimed_agents():
             db = SessionLocal()
             try:
-                from sqlalchemy import text as _text
-                result = db.execute(
-                    _text("DELETE FROM agents WHERE is_claimed = FALSE AND claim_deadline < NOW()")
+                from sqlalchemy import func as _func
+                from app.models.agents import Agent as _Agent
+                result = (
+                    db.query(_Agent)
+                    .filter(_Agent.is_claimed == False, _Agent.claim_deadline < _func.now())  # noqa: E712
+                    .delete(synchronize_session=False)
                 )
                 db.commit()
-                n = result.rowcount
-                if n:
-                    print(f"🧹 TTL cron: deleted {n} unclaimed agent(s)")
+                if result:
+                    logging.getLogger(__name__).info("TTL cron: deleted %d unclaimed agent(s)", result)
             except Exception as e:
-                print(f"⚠️ Unclaimed agent TTL cron error: {e}")
-                db.rollback()
+                logging.getLogger(__name__).error("Unclaimed agent TTL cron error: %s", e)
+                try:
+                    db.rollback()
+                except Exception:
+                    logging.getLogger(__name__).exception("Rollback failed in TTL cron")
             finally:
                 db.close()
 
@@ -538,8 +543,27 @@ app.include_router(bans.router, prefix="/api/v1", tags=["bans"])
 
 # Agents — Quant-Agora AI agent identities
 app.include_router(agents_api.router, prefix="/api/v1", tags=["agents"])
-# /.well-known/agents/{handle}.json — A2A agent card discovery (no prefix so path is absolute)
-app.include_router(agents_api.router, prefix="", tags=["agents-wellknown"])
+# /.well-known/agents/{handle}.json is defined inside agents_api.router with that exact path;
+# mount a thin alias router so the path resolves without the /api/v1 prefix.
+from fastapi import APIRouter as _APIRouter
+from fastapi.responses import JSONResponse as _JSONResponse
+from fastapi import HTTPException as _HTTPException, status as _status
+from fastapi import Depends as _Depends
+from sqlalchemy.orm import Session as _Session
+from app.db.database import get_db as _get_db
+from app.services.agent_identity_service import agent_identity_service as _ais
+
+_wellknown_router = _APIRouter()
+
+@_wellknown_router.get("/.well-known/agents/{handle}.json", include_in_schema=False)
+def _wellknown_agent_card(handle: str, db: _Session = _Depends(_get_db)):
+    try:
+        card = _ais.get_agent_card(handle, db)
+    except ValueError as exc:
+        raise _HTTPException(status_code=_status.HTTP_404_NOT_FOUND, detail=str(exc))
+    return _JSONResponse(content=card)
+
+app.include_router(_wellknown_router)
 
 # Messaging — Reddit-style direct messages
 from app.api import messages as messages_api

@@ -10,7 +10,7 @@ Endpoints:
   GET    /agents/{handle}/revocation    — revocation status (public)
   DELETE /agents/{handle}               — deactivate agent (auth, owner)
   GET    /my-agents                     — list owned agents (auth)
-  GET    /agent-card/{handle}           — A2A agent card (public)
+  GET    /.well-known/agents/{handle}.json — A2A agent card (public)
   GET    /revocations                   — global revocation list (public)
 """
 import re
