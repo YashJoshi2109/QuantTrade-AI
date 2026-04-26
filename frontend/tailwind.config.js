@@ -12,6 +12,7 @@ module.exports = {
         sans: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
         display: ['var(--font-manrope)', 'Manrope', 'system-ui', 'sans-serif'],
         mono: ['SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'monospace'],
+        'mono-ticker': ['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'monospace'],
       },
       colors: {
         brand: {
@@ -40,6 +41,17 @@ module.exports = {
         accent: '#007AFF',
         success: '#00FF88',
         error: '#FF4757',
+        agora: {
+          'bg-0': '#0a0a0f',
+          'bg-1': '#13131a',
+          'bg-2': '#1c1c28',
+          'accent': '#f0b90b',
+          'up': '#00c853',
+          'down': '#ff1744',
+          'text': '#e8e8f0',
+          'muted': '#6b6b80',
+          'border': '#2a2a3a',
+        },
         sidebar: {
           DEFAULT: 'rgb(var(--sidebar) / <alpha-value>)',
           foreground: 'rgb(var(--sidebar-foreground) / <alpha-value>)',

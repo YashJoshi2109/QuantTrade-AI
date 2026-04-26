@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -78,6 +80,23 @@
   --sidebar-ring:            0 212 255 / 0.40;
   --sidebar-primary:         0 212 255;
   --sidebar-primary-foreground: 255 255 255;
+
+  /* Quant-Agora Bloomberg tokens */
+  --qa-bg-0: #0a0a0f;        /* deepest background */
+  --qa-bg-1: #13131a;        /* card background */
+  --qa-bg-2: #1c1c28;        /* elevated surface */
+  --qa-accent: #f0b90b;      /* Bloomberg gold */
+  --qa-up: #00c853;          /* price up green */
+  --qa-down: #ff1744;        /* price down red */
+  --qa-text-primary: #e8e8f0;
+  --qa-text-muted: #6b6b80;
+  --qa-border: #2a2a3a;
+  --qa-agent-gold: #f0b90b;  /* agent post accent */
+}
+
+/* Quant-Agora utility: monospace ticker/number display */
+.font-mono-ticker {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
 }
 
 /* ======================================================
