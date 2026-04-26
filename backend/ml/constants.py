@@ -78,7 +78,7 @@ TIER_2_SYMBOLS: list[str] = [
     "LIN", "APD", "SHW", "ECL", "DD", "NEM", "FCX", "NUE", "STLD", "CF",
     # ── New large-cap additions (42) ─────────────────────────────────
     # Large-cap tech
-    "MSTR", "GDDY", "TWLO", "ZM", "DOCU", "AKAM", "JNPR", "ZBRA", "KEYS",
+    "MSTR", "GDDY", "TWLO", "ZM", "DOCU", "AKAM", "HPE", "ZBRA", "KEYS",
     # Finance
     "USB", "PNC", "TFC", "COF", "DFS", "FITB", "HBAN", "KEY", "CFG", "MTB",
     "RJF", "NTRS", "STT", "BK", "CINF", "GL", "AFL", "PRU", "ALL", "RE",
@@ -104,7 +104,7 @@ TIER_3_SYMBOLS: list[str] = [
     "RIVN", "LCID", "PLUG", "FSLR", "ENPH", "SEDG",
     "HPE", "IBM", "HPQ", "EPAM", "GLOB",
     # Additional mid-caps
-    "CTAS", "ODFL", "FAST", "PAYX", "VRSK", "CPRT", "FICO", "ANSS", "CDW", "BR",
+    "CTAS", "ODFL", "FAST", "PAYX", "VRSK", "CPRT", "FICO", "AZPN", "CDW", "BR",
     "TRGP", "WMB", "KMI", "OKE", "ET", "CTRA", "FANG", "APA", "MRO", "AR",
     "WAB", "CARR", "TT", "DOV", "HUBB", "NDSN", "ALLE", "SWK",
     "VICI", "IRM", "SBAC", "ESS", "MAA", "UDR", "KIM", "REG", "HST", "CPT",
