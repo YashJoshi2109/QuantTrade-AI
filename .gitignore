@@ -88,3 +88,4 @@ secrets/
 # Google OAuth
 deploy/*.json
 client_secret_*.json
+.worktrees/
