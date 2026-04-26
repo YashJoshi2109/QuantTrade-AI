@@ -20,7 +20,7 @@
 
 ### Approach
 
-All color decisions live in ~30 CSS variables in `globals.css`. Light values in `:root`, dark overrides in `.dark`. Tailwind reads them via `var(--token)`. Components use semantic class names (`bg-surface-raised`, `text-text-primary`) — one class, works both themes, no `dark:` prefixes.
+All color decisions live in ~30 CSS variables in `globals.css`. Light values in `:root`, dark overrides in `.dark`. Tailwind reads them via `var(--token)`. Components use semantic class names (`bg-surface-raised`, `text-fg-primary`) — one class, works both themes, no `dark:` prefixes.
 
 `next-themes` (already installed, v0.4.6) handles `.dark` class toggling on `<html>`. `ThemeProvider` and `ThemeToggle` components already exist.
 
@@ -141,13 +141,13 @@ colors: {
     hover:   'var(--surface-hover)',
     active:  'var(--surface-active)',
   },
-  text: {
+  fg: {
     primary:   'var(--text-primary)',
     secondary: 'var(--text-secondary)',
     muted:     'var(--text-muted)',
     inverted:  'var(--text-inverted)',
   },
-  border: {
+  line: {
     subtle:  'var(--border-subtle)',
     default: 'var(--border-default)',
     strong:  'var(--border-strong)',
@@ -166,11 +166,11 @@ colors: {
 | `bg-gray-800`, `bg-zinc-800`, `bg-slate-800` | `bg-surface-raised` |
 | `bg-gray-700`, `bg-zinc-700` | `bg-surface-overlay` |
 | `bg-black`, `bg-[#0a0f17]`, `bg-[#111827]` | `bg-surface-base` |
-| `text-white`, `text-gray-50`, `text-gray-100` | `text-text-primary` |
-| `text-gray-400`, `text-slate-400` | `text-text-secondary` |
-| `text-gray-500`, `text-gray-600` (used as muted) | `text-text-muted` |
-| `border-gray-700`, `border-zinc-700`, `border-white/10` | `border-border-default` |
-| `border-gray-800`, `border-white/5`, `border-white/6` | `border-border-subtle` |
+| `text-white`, `text-gray-50`, `text-gray-100` | `text-fg-primary` |
+| `text-gray-400`, `text-slate-400` | `text-fg-secondary` |
+| `text-gray-500`, `text-gray-600` (used as muted) | `text-fg-muted` |
+| `border-gray-700`, `border-zinc-700`, `border-white/10` | `border-line-default` |
+| `border-gray-800`, `border-white/5`, `border-white/6` | `border-line-subtle` |
 | `hover:bg-gray-800`, `hover:bg-white/5` | `hover:bg-surface-hover` |
 
 ---
