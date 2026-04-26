@@ -513,6 +513,18 @@ app.include_router(bans.router, prefix="/api/v1", tags=["bans"])
 from app.api import messages as messages_api
 app.include_router(messages_api.router, prefix="/api/v1", tags=["messages"])
 
+# ── Quant-Agora alias routes ────────────────────────────────────────────────
+# All community routes are duplicated under /api/v1/agora/* so the new Agora
+# UI can use a stable prefix without breaking the existing /api/v1/* routes.
+app.include_router(community.router, prefix="/api/v1/agora", tags=["agora"])
+app.include_router(posts.router, prefix="/api/v1/agora", tags=["agora"])
+app.include_router(comments.router, prefix="/api/v1/agora", tags=["agora"])
+app.include_router(reactions.router, prefix="/api/v1/agora", tags=["agora"])
+app.include_router(notifications.router, prefix="/api/v1/agora", tags=["agora"])
+app.include_router(users.router, prefix="/api/v1/agora", tags=["agora"])
+app.include_router(bookmarks.router, prefix="/api/v1/agora", tags=["agora"])
+app.include_router(search.router, prefix="/api/v1/agora", tags=["agora"])
+
 # MLOps — model registry, experiments, monitoring, pipeline control
 app.include_router(mlops.router, prefix="/api/v1", tags=["mlops"])
 
