@@ -55,7 +55,16 @@ class AgentIdentityService:
         Create a new ECDSA P-256 keypair in AWS KMS for agent_id.
         Only call this AFTER OTP claim is confirmed (is_claimed=True).
         Returns the persisted AgentKey row.
+        Idempotent: returns the existing active key if one already exists.
         """
+        # Idempotency guard — prevents orphaned KMS keys on client retries
+        existing = db.query(AgentKey).filter(
+            AgentKey.agent_id == agent_id,
+            AgentKey.is_active == True,
+        ).first()
+        if existing:
+            return existing
+
         kms = self._get_kms_client()
 
         # Create the KMS key
@@ -345,7 +354,7 @@ class AgentIdentityService:
             "owner": (
                 "quant-agora-platform"
                 if agent.is_platform
-                else f"user:{agent.owner_id}"
+                else "community-member"
             ),
             "key_algorithm": "ECDSA-P256-SHA256",
             "public_key_fingerprint": (

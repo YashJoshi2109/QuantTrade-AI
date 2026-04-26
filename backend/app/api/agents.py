@@ -20,7 +20,8 @@ from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -30,6 +31,7 @@ from app.models.user import User
 from app.api.auth import require_auth
 from app.services.agent_identity_service import agent_identity_service
 from app.services.otp_service import (
+    _get_redis,
     check_rate_limit,
     generate_otp,
     get_rate_limit_remaining_seconds,
@@ -38,6 +40,10 @@ from app.services.otp_service import (
     store_otp,
     verify_otp,
 )
+
+OTP_ATTEMPT_PREFIX = "otp_attempts:"
+OTP_ATTEMPT_TTL = 600  # 10 minutes
+OTP_MAX_ATTEMPTS = 5
 
 logger = logging.getLogger(__name__)
 
@@ -52,16 +58,74 @@ def _claim_otp_key(handle: str) -> str:
     return f"agent_claim:{handle}"
 
 
+# ── OTP attempt counter helpers ───────────────────────────────────────────────
+
+_memory_otp_attempts: dict = {}  # fallback when Redis unavailable
+
+def _get_otp_attempts(otp_key: str) -> int:
+    """Return current failed-attempt count for an OTP key."""
+    import time as _time
+    attempt_key = f"{OTP_ATTEMPT_PREFIX}{otp_key}"
+    r = _get_redis()
+    if r:
+        try:
+            val = r.get(attempt_key)
+            return int(val) if val else 0
+        except Exception:
+            pass
+    data = _memory_otp_attempts.get(attempt_key)
+    if data is None:
+        return 0
+    count, expiry = data
+    if _time.time() > expiry:
+        _memory_otp_attempts.pop(attempt_key, None)
+        return 0
+    return count
+
+
+def _increment_otp_attempts(otp_key: str) -> int:
+    """Increment and return the new failed-attempt count (TTL = OTP_ATTEMPT_TTL)."""
+    import time as _time
+    attempt_key = f"{OTP_ATTEMPT_PREFIX}{otp_key}"
+    r = _get_redis()
+    if r:
+        try:
+            pipe = r.pipeline()
+            pipe.incr(attempt_key)
+            pipe.expire(attempt_key, OTP_ATTEMPT_TTL)
+            results = pipe.execute()
+            return int(results[0])
+        except Exception:
+            pass
+    data = _memory_otp_attempts.get(attempt_key)
+    count = (data[0] if data and _time.time() <= data[1] else 0) + 1
+    _memory_otp_attempts[attempt_key] = (count, _time.time() + OTP_ATTEMPT_TTL)
+    return count
+
+
+def _delete_otp_attempts(otp_key: str) -> None:
+    """Clear the failed-attempt counter on a successful verify."""
+    attempt_key = f"{OTP_ATTEMPT_PREFIX}{otp_key}"
+    r = _get_redis()
+    if r:
+        try:
+            r.delete(attempt_key)
+            return
+        except Exception:
+            pass
+    _memory_otp_attempts.pop(attempt_key, None)
+
+
 # ── Pydantic Schemas ──────────────────────────────────────────────────────────
 
 class AgentCreate(BaseModel):
     handle: str  # alphanumeric + underscore, 3-32 chars, no @ prefix
     display_name: str  # 1-80 chars
     role: Literal["analyst", "backtester", "newshound", "debater", "filingbot", "macro", "generic"]
-    bio: Optional[str] = None
+    bio: Optional[str] = Field(None, max_length=500)
     model_tier: Literal["claude-haiku", "claude-sonnet"] = "claude-haiku"
-    persona_text: Optional[str] = None
-    scope_floors: List[int] = []
+    persona_text: Optional[str] = Field(None, max_length=4000)
+    scope_floors: List[int] = Field(default=[], max_length=20)
 
     @field_validator("handle")
     @classmethod
@@ -79,6 +143,13 @@ class AgentCreate(BaseModel):
         v = v.strip()
         if not v or len(v) > 80:
             raise ValueError("display_name must be 1-80 characters.")
+        return v
+
+    @field_validator("scope_floors")
+    @classmethod
+    def validate_scope_floors(cls, v: List[int]) -> List[int]:
+        if any(f < 1 for f in v):
+            raise ValueError("scope_floors must contain positive integers")
         return v
 
 
@@ -191,9 +262,13 @@ def create_agent(
         follower_count=0,
         claim_deadline=now + timedelta(days=7),
     )
-    db.add(agent)
-    db.commit()
-    db.refresh(agent)
+    try:
+        db.add(agent)
+        db.commit()
+        db.refresh(agent)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Handle already taken")
 
     logger.info("Agent @%s created by user %d", agent.handle, current_user.id)
     return _build_agent_response(agent, db)
@@ -285,9 +360,10 @@ def send_claim_otp(
 
     ok, err = send_otp_email(email, otp)
     if not ok:
+        logger.error("OTP email delivery failed for agent %s: %s", handle, err)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to send OTP email: {err}",
+            detail="Failed to send verification email. Please try again.",
         )
 
     logger.info("Claim OTP sent for agent @%s to user %d", agent.handle, current_user.id)
@@ -295,14 +371,19 @@ def send_claim_otp(
 
 
 @router.post("/agents/{handle}/claim/confirm", response_model=AgentResponse)
-async def confirm_claim_otp(
+def confirm_claim_otp(
     handle: str,
     body: AgentClaimConfirm,
     current_user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
     """Verify OTP and generate KMS keypair to complete agent claim."""
-    agent = _get_agent_or_404(handle, db)
+    handle_clean = handle.lstrip("@")
+
+    # SELECT FOR UPDATE serializes concurrent claim attempts on the same agent row
+    agent = db.query(Agent).filter(Agent.handle == handle_clean).with_for_update().first()
+    if not agent:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Agent @{handle_clean} not found")
 
     if agent.owner_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not own this agent.")
@@ -311,9 +392,21 @@ async def confirm_claim_otp(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Agent is already claimed.")
 
     otp_key = _claim_otp_key(agent.handle)
+
+    # Brute-force lockout: reject after OTP_MAX_ATTEMPTS failed attempts
+    if _get_otp_attempts(otp_key) >= OTP_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many incorrect attempts. Request a new OTP.",
+        )
+
     valid = verify_otp(otp_key, body.otp_code)
     if not valid:
+        _increment_otp_attempts(otp_key)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired OTP.")
+
+    # Correct OTP — clear attempt counter
+    _delete_otp_attempts(otp_key)
 
     # Mark claimed
     agent.is_claimed = True
@@ -323,6 +416,9 @@ async def confirm_claim_otp(
     # create_agent_keypair is SYNC — call directly (no await)
     try:
         agent_identity_service.create_agent_keypair(agent.id, db)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Key already exists for this agent")
     except ValueError as exc:
         # KMS not configured (likely local dev) — log warning, claim still succeeds
         logger.warning("KMS keypair creation skipped for agent %d: %s", agent.id, exc)
@@ -416,19 +512,29 @@ def get_agent_card(handle: str, db: Session = Depends(get_db)):
 
 
 @router.get("/revocations")
-def list_revocations(db: Session = Depends(get_db)):
+def list_revocations(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+):
     """
     Global revocation list — all inactive AgentKey rows across all agents.
     Intended for A2A verifiers to poll for revoked keys.
+    Supports pagination via limit/offset.
     """
-    revoked_keys = (
+    base_query = (
         db.query(AgentKey, Agent.handle)
         .join(Agent, Agent.id == AgentKey.agent_id)
         .filter(AgentKey.is_active == False)
-        .all()
     )
 
+    total = base_query.count()
+    revoked_keys = base_query.offset(offset).limit(limit).all()
+
     return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
         "revocations": [
             {
                 "fingerprint": key.fingerprint,
@@ -437,5 +543,5 @@ def list_revocations(db: Session = Depends(get_db)):
                 "agent_handle": handle,
             }
             for key, handle in revoked_keys
-        ]
+        ],
     }
