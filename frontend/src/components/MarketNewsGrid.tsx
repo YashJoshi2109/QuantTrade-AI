@@ -238,7 +238,7 @@ function HeroStory({ article }: { article: NewsArticle }) {
       className="block group"
     >
       {/* Hero image */}
-      <div className="relative w-full h-52 rounded-xl overflow-hidden bg-gradient-to-br from-[#1A2332] via-[#141B2D] to-[#0d1321] border border-white/[0.06] mb-4">
+      <div className="relative w-full h-52 rounded-xl overflow-hidden bg-gradient-to-br from-surface-overlay via-surface-base to-surface-raised border border-line-subtle mb-4">
         <img
           src={article.thumbnail || getFaviconUrl(article.url, article.source)}
           alt=""
@@ -588,7 +588,7 @@ export default function MarketNewsGrid() {
         <div className="grid grid-cols-12 gap-5">
           {/* Left Column: Stacked text headlines */}
           <div className="col-span-12 lg:col-span-3 order-2 lg:order-1">
-            <div className="border-b lg:border-b-0 lg:border-r border-white/[0.04] lg:pr-4 pb-4 lg:pb-0">
+            <div className="border-b lg:border-b-0 lg:border-r border-line-subtle lg:pr-4 pb-4 lg:pb-0">
               {leftItems.map((article, i) => (
                 <LeftColumnItem key={article.id ?? i} article={article} />
               ))}
@@ -613,7 +613,7 @@ export default function MarketNewsGrid() {
 
           {/* Right Column: Compact image + headline cards */}
           <div className="col-span-12 lg:col-span-3 order-3">
-            <div className="lg:border-l border-white/[0.04] lg:pl-4">
+            <div className="lg:border-l border-line-subtle lg:pl-4">
               {rightItems.map((article, i) => (
                 <RightColumnCard key={article.id ?? i} article={article} />
               ))}

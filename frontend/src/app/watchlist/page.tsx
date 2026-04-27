@@ -205,7 +205,7 @@ function WatchlistPerformanceChart({ watchlist }: { watchlist: WatchlistItemWith
         <div className="flex items-center gap-3">
           {/* Inline search */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg-muted" />
             <input
               type="text"
               value={chartFilter}
@@ -216,7 +216,7 @@ function WatchlistPerformanceChart({ watchlist }: { watchlist: WatchlistItemWith
             {chartFilter && (
               <button
                 onClick={() => setChartFilter('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-fg-muted hover:text-fg-secondary"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -448,7 +448,7 @@ function WatchlistFinancialTable({
                     <div className="flex items-center justify-center">
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleStar(item.symbol) }}
-                        className={`${item.starred ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-400'} transition-colors`}
+                        className={`${item.starred ? 'text-yellow-400' : 'text-fg-muted hover:text-yellow-400'} transition-colors`}
                       >
                         <Star className={`w-4 h-4 ${item.starred ? 'fill-current' : ''}`} />
                       </button>
@@ -545,7 +545,7 @@ function WatchlistFinancialTable({
                       <button
                         onClick={() => handleRemove(item.symbol)}
                         disabled={removeMutation.isPending}
-                        className="text-gray-600 hover:text-red-400 transition-colors disabled:opacity-50"
+                        className="text-fg-muted hover:text-red-400 transition-colors disabled:opacity-50"
                         aria-label={`Remove ${item.symbol}`}
                       >
                         {removeMutation.isPending && removeMutation.variables === item.symbol
@@ -942,7 +942,7 @@ function DesktopWatchlistPage() {
             <div className="hud-panel p-8">
               <LogIn className="w-16 h-16 text-blue-400 mx-auto mb-4" aria-hidden="true" />
               <h2 className="text-2xl font-bold text-white mb-2">Sign In Required</h2>
-              <p className="text-slate-400 mb-6">
+              <p className="text-fg-secondary mb-6">
                 Create an account to save and track your favorite stocks in your personalized watchlist.
               </p>
               <Link 

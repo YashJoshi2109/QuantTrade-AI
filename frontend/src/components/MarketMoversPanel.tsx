@@ -200,10 +200,10 @@ function VolumeGauge({
               className="w-2 h-2 rounded-full flex-shrink-0"
               style={{ backgroundColor: colors[i % colors.length] }}
             />
-            <span className="text-[9px] font-bold text-slate-300">
+            <span className="text-[9px] font-bold text-fg-primary">
               {stock.symbol}
             </span>
-            <span className="text-[9px] font-mono text-slate-500 ml-auto">
+            <span className="text-[9px] font-mono text-fg-muted ml-auto">
               {formatVolume(stock.volume || 0)}
             </span>
           </div>
@@ -469,7 +469,7 @@ export default function MarketMoversPanel({
           ))
         ) : (
           <div className="flex flex-col items-center justify-center h-full py-12 px-4">
-            <Activity className="w-8 h-8 text-slate-600 mb-2" />
+            <Activity className="w-8 h-8 text-fg-muted mb-2" />
             <p className="text-[12px] text-fg-muted text-center mb-2">No data available</p>
             <p className="text-[10px] text-fg-muted text-center">
               {onRefresh ? 'Click refresh to fetch latest data' : 'Data will update automatically'}

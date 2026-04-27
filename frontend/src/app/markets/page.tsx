@@ -278,7 +278,7 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1.5">
             {q.countryCode && <span className="text-sm leading-none">{countryFlag(q.countryCode)}</span>}
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">{q.exchangeName}</span>
+            <span className="text-[10px] font-black uppercase tracking-wider text-fg-primary">{q.exchangeName}</span>
           </div>
           <span
             className="text-[10px] font-black font-mono tabular-nums px-1.5 py-0.5 rounded-md"
@@ -301,7 +301,7 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
         </div>
 
         {/* Index name */}
-        <div className="text-[10px] text-slate-500 mt-0.5 truncate font-medium group-hover:text-slate-400 transition-colors">
+        <div className="text-[10px] text-fg-muted mt-0.5 truncate font-medium group-hover:text-fg-secondary transition-colors">
           {q.shortName}
         </div>
       </motion.button>
@@ -547,9 +547,9 @@ function SessionChangeLegendStrip({ className = '' }: { className?: string }) {
   ]
   return (
     <div className={`space-y-1.5 ${className}`}>
-      <div className="text-[10px] text-slate-500 text-center">1-day % change scale</div>
+      <div className="text-[10px] text-fg-muted text-center">1-day % change scale</div>
       <div
-        className="flex h-2.5 rounded-md overflow-hidden border border-white/10 max-w-lg mx-auto shadow-inner"
+        className="flex h-2.5 rounded-md overflow-hidden border border-line-subtle max-w-lg mx-auto shadow-inner"
         role="img"
         aria-label="Color scale from loss to gain"
       >
@@ -557,9 +557,9 @@ function SessionChangeLegendStrip({ className = '' }: { className?: string }) {
           <div key={i} className="flex-1 min-w-[4px]" style={{ backgroundColor: c }} />
         ))}
       </div>
-      <div className="flex justify-between text-[9px] text-slate-600 max-w-lg mx-auto font-mono px-1">
+      <div className="flex justify-between text-[9px] text-fg-muted max-w-lg mx-auto font-mono px-1">
         <span>-3%+</span>
-        <span className="text-slate-500">flat</span>
+        <span className="text-fg-muted">flat</span>
         <span>+3%+</span>
       </div>
     </div>
@@ -953,7 +953,7 @@ function DesktopMarketsPage() {
                     }`}>
                       {changePositive ? <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> : <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />}
                       {changePositive ? '+' : ''}{formatPercent(index.change_percent, 2)}
-                      <span className="text-[10px] text-slate-600 ml-1 hidden sm:inline">session</span>
+                      <span className="text-[10px] text-fg-muted ml-1 hidden sm:inline">session</span>
                     </div>
                   ) : (
                     <div className="text-xs text-fg-muted mt-1">No live price</div>
@@ -962,8 +962,8 @@ function DesktopMarketsPage() {
               )
             })
           ) : (
-            <div className="col-span-full text-center py-8 text-slate-500">
-              <Signal className="w-6 h-6 mx-auto mb-2 text-slate-600" />
+            <div className="col-span-full text-center py-8 text-fg-muted">
+              <Signal className="w-6 h-6 mx-auto mb-2 text-fg-muted" />
               <p className="text-sm">Market indices unavailable — retrying shortly</p>
             </div>
           )}
@@ -1003,8 +1003,8 @@ function DesktopMarketsPage() {
             </div>
           </div>
           <div className="hud-panel p-3 sm:p-4 flex items-center gap-3">
-            <div className="p-2 bg-slate-500/10 rounded-lg shrink-0">
-              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
+            <div className="p-2 bg-surface-raised rounded-lg shrink-0">
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-fg-secondary" />
             </div>
             <div>
               <div className="text-lg sm:text-xl font-bold text-fg-secondary">{marketStats.flat}</div>
