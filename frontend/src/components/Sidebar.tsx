@@ -73,7 +73,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                   href={item.href}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-blue-600 text-fg-inverted'
+                      ? 'bg-blue-600 text-white'
                       : 'text-fg-secondary hover:bg-surface-hover hover:text-fg-primary'
                   }`}
                 >
