@@ -29,7 +29,7 @@ export default function EconomicCalendarStrip({ className }: { className?: strin
       <div className={className}>
         <div className="flex gap-3 overflow-hidden">
           {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex-shrink-0 w-56 h-[120px] rounded-xl bg-slate-800/40 animate-pulse" />
+            <div key={i} className="flex-shrink-0 w-56 h-[120px] rounded-xl bg-surface-raised/40 animate-pulse" />
           ))}
         </div>
       </div>

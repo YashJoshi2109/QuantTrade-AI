@@ -100,7 +100,7 @@ function StockAreaChart({ positive, prices }: { positive: boolean; prices: numbe
             if (!active || !payload?.length) return null
             const val = payload[0].value as number
             return (
-              <div className="rounded-lg border border-white/10 bg-[#0f172a] px-3 py-1.5 text-xs shadow-xl">
+              <div className="rounded-lg border border-line-subtle bg-surface-raised px-3 py-1.5 text-xs shadow-xl">
                 <span className="font-mono font-bold" style={{ color }}>
                   ${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
@@ -136,10 +136,10 @@ function chartRangeParam(tab: ChartTab): string {
 
 // ── Quick Stat Row ─────────────────────────────────────────────────────────────
 function StatRow({ label, value, highlight }: { label: string; value: string; highlight?: 'green' | 'red' | 'blue' }) {
-  const cls = highlight === 'green' ? 'text-emerald-400' : highlight === 'red' ? 'text-red-400' : highlight === 'blue' ? 'text-cyan-400' : 'text-slate-100'
+  const cls = highlight === 'green' ? 'text-emerald-400' : highlight === 'red' ? 'text-red-400' : highlight === 'blue' ? 'text-cyan-400' : 'text-fg-primary'
   return (
-    <div className="flex items-center justify-between py-2.5 border-b border-white/[0.05] last:border-0">
-      <span className="text-[11px] text-slate-500 font-medium">{label}</span>
+    <div className="flex items-center justify-between py-2.5 border-b border-line-subtle last:border-0">
+      <span className="text-[11px] text-fg-muted font-medium">{label}</span>
       <span className={`text-[12px] font-bold font-mono tabular-nums ${cls}`}>{value}</span>
     </div>
   )
@@ -337,7 +337,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
               <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-3xl" style={{ background: `linear-gradient(90deg, transparent, ${neon}, transparent)` }} />
 
               {/* ── HEADER ──────────────────────────────────────────────────── */}
-              <div className="px-5 pt-5 pb-4 border-b border-white/[0.07] shrink-0">
+              <div className="px-5 pt-5 pb-4 border-b border-line-subtle shrink-0">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     {/* Company row */}
@@ -348,9 +348,9 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h2 className="text-lg font-black text-white tracking-tight truncate">{stock.name || stock.symbol}</h2>
-                          <span className="text-slate-500 font-mono text-sm font-bold">({stock.symbol})</span>
+                          <span className="text-fg-muted font-mono text-sm font-bold">({stock.symbol})</span>
                           {stock.exchange && (
-                            <span className="px-1.5 py-0.5 rounded-md bg-slate-800/80 border border-slate-700/50 text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wide">
+                            <span className="px-1.5 py-0.5 rounded-md bg-surface-raised border border-line-default text-[9px] font-bold text-fg-secondary font-mono uppercase tracking-wide">
                               {stock.exchange}
                             </span>
                           )}
@@ -364,7 +364,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                         {s?.currency === 'JPY' ? '¥' : s?.currency === 'EUR' ? '€' : s?.currency === 'GBP' ? '£' : '$'}
                         {(s?.price ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
-                      {dataLoading && <RefreshCw className="w-3.5 h-3.5 text-slate-600 animate-spin" />}
+                      {dataLoading && <RefreshCw className="w-3.5 h-3.5 text-fg-muted animate-spin" />}
                       <div className="flex items-center gap-1.5">
                         <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold"
                           style={{ background: neonBg + '0.12)', border: `1px solid ${neonBg}0.4)`, color: neon }}>
@@ -378,13 +378,13 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                     <div className="flex items-center gap-3 mt-2 text-[10px] font-bold">
                       <span className="flex items-center gap-1">
                         <Zap className="w-3 h-3 text-amber-400" />
-                        <span className="text-slate-500">AI Signal:</span>
+                        <span className="text-fg-muted">AI Signal:</span>
                         <span className={aiColor}>{aiSignal}</span>
                       </span>
-                      <span className="text-slate-700">·</span>
-                      <span className="text-slate-500">Market Open</span>
-                      <span className="text-slate-700">·</span>
-                      <span className="text-slate-500">
+                      <span className="text-fg-muted">·</span>
+                      <span className="text-fg-muted">Market Open</span>
+                      <span className="text-fg-muted">·</span>
+                      <span className="text-fg-muted">
                         {dataLoading ? 'Updating…' : `Live · ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                       </span>
                     </div>
@@ -423,18 +423,18 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
               <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
 
                 {/* LEFT: Chart */}
-                <div className="flex-1 min-w-0 flex flex-col min-h-[300px] md:min-h-0 border-b md:border-b-0 md:border-r border-white/[0.06]">
+                <div className="flex-1 min-w-0 flex flex-col min-h-[300px] md:min-h-0 border-b md:border-b-0 md:border-r border-line-subtle">
 
                   {/* Chart toolbar */}
-                  <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-white/[0.05] shrink-0 overflow-x-auto mac-scrollbar">
+                  <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-line-subtle shrink-0 overflow-x-auto mac-scrollbar">
                     {/* Time tabs (Segmented Style) */}
-                    <div className="flex items-center bg-[#060A16]/60 p-1 rounded-xl border border-white/[0.04] shadow-inner shrink-0">
+                    <div className="flex items-center bg-surface-base/60 p-1 rounded-xl border border-line-subtle shadow-inner shrink-0">
                       {CHART_TABS.map(tab => (
                         <button key={tab} onClick={() => setChartTab(tab)}
                           className={`relative flex items-center justify-center min-w-[34px] px-2 h-7 rounded-lg text-[10px] font-mono font-black transition-all ${
-                            chartTab === tab 
-                              ? 'bg-gradient-to-b from-[#1E293B] to-[#0F172A] text-white shadow-[0_1px_3px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] border border-white/[0.08]' 
-                              : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                            chartTab === tab
+                              ? 'bg-surface-raised text-white shadow-theme-sm border border-line-default'
+                              : 'text-fg-muted hover:text-fg-secondary border border-transparent'
                           }`}>
                           {chartTab === tab && (
                             <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#00D4FF] to-transparent opacity-80" />
@@ -446,21 +446,21 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
 
                     <div className="flex items-center gap-3 shrink-0">
                       {/* Chart type (Segmented Style) */}
-                      <div className="flex items-center bg-[#060A16]/60 p-1 rounded-xl border border-white/[0.04] shadow-inner">
+                      <div className="flex items-center bg-surface-base/60 p-1 rounded-xl border border-line-subtle shadow-inner">
                         <button onClick={() => setChartType('line')}
                           className={`relative flex items-center justify-center w-[34px] h-7 rounded-lg transition-all ${
-                            chartType === 'line' 
-                               ? 'bg-gradient-to-b from-[#1E293B] to-[#0F172A] text-[#00D4FF] shadow-[0_1px_3px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] border border-white/[0.08]' 
-                              : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                            chartType === 'line'
+                               ? 'bg-surface-raised text-[#00D4FF] shadow-theme-sm border border-line-default'
+                              : 'text-fg-muted hover:text-fg-secondary border border-transparent'
                           }`}>
                           {chartType === 'line' && <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#00D4FF] to-transparent opacity-80" />}
                           <LineChart className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => setChartType('candle')}
                           className={`relative flex items-center justify-center w-[34px] h-7 rounded-lg transition-all ${
-                            chartType === 'candle' 
-                               ? 'bg-gradient-to-b from-[#1E293B] to-[#0F172A] text-[#00D4FF] shadow-[0_1px_3px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] border border-white/[0.08]' 
-                              : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                            chartType === 'candle'
+                               ? 'bg-surface-raised text-[#00D4FF] shadow-theme-sm border border-line-default'
+                              : 'text-fg-muted hover:text-fg-secondary border border-transparent'
                           }`}>
                           {chartType === 'candle' && <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#00D4FF] to-transparent opacity-80" />}
                           <BarChart2 className="w-3.5 h-3.5" />
@@ -469,7 +469,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
 
                       {/* Open in Research */}
                       <Link href={`/research?symbol=${stock.symbol}`}
-                        className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-b from-slate-800 to-slate-900 border border-white/[0.08] text-slate-300 hover:text-[#00D4FF] hover:border-[#00D4FF]/30 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.3)]" 
+                        className="flex items-center justify-center w-8 h-8 rounded-xl bg-surface-raised border border-line-default text-fg-secondary hover:text-[#00D4FF] hover:border-[#00D4FF]/30 transition-all shadow-theme-sm"
                         title="Open in Research">
                         <ExternalLink className="w-3.5 h-3.5" />
                       </Link>
@@ -483,10 +483,10 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                       <StockAreaChart positive={up} prices={sparkPrices} />
 
                       {/* Price labels */}
-                      <div className="absolute top-3 left-3 text-[10px] font-mono text-slate-600 font-bold">
+                      <div className="absolute top-3 left-3 text-[10px] font-mono text-fg-muted font-bold">
                         {s?.week_52_high ? fmt(s.week_52_high) : '52W High'}
                       </div>
-                      <div className="absolute bottom-3 left-3 text-[10px] font-mono text-slate-600 font-bold">
+                      <div className="absolute bottom-3 left-3 text-[10px] font-mono text-fg-muted font-bold">
                         {s?.week_52_low ? fmt(s.week_52_low) : '52W Low'}
                       </div>
                       <div className="absolute top-3 right-3 text-[10px] font-mono font-bold" style={{ color: neon }}>
@@ -505,8 +505,8 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                   {/* Volume bar */}
                   <div className="px-4 pb-3 shrink-0">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[9px] text-slate-600 font-mono uppercase tracking-widest">Volume</span>
-                      <span className="text-[10px] text-slate-400 font-mono font-bold">{fmtVol(s?.volume)}</span>
+                      <span className="text-[9px] text-fg-muted font-mono uppercase tracking-widest">Volume</span>
+                      <span className="text-[10px] text-fg-secondary font-mono font-bold">{fmtVol(s?.volume)}</span>
                     </div>
                     <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
                       <motion.div className="h-full rounded-full"
@@ -516,14 +516,14 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                         style={{ background: neon }}
                       />
                     </div>
-                    <div className="text-[9px] text-slate-600 mt-0.5 font-mono">Avg: {fmtVol(s?.avg_volume)}</div>
+                    <div className="text-[9px] text-fg-muted mt-0.5 font-mono">Avg: {fmtVol(s?.avg_volume)}</div>
                   </div>
                 </div>
 
                 {/* RIGHT: Quick Stats */}
                 <div className="w-full md:w-52 shrink-0 flex flex-col">
-                  <div className="px-4 py-3 border-b border-white/[0.05] shrink-0">
-                    <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-600">Quick Stats</span>
+                  <div className="px-4 py-3 border-b border-line-subtle shrink-0">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-fg-muted">Quick Stats</span>
                   </div>
                   <div className="flex-1 overflow-y-auto px-4 py-1 mac-scrollbar">
                     <StatRow label="Market Cap"  value={fmt(s?.market_cap, 2, '')} />
@@ -539,7 +539,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                     {s?.week_52_high && s?.week_52_low && s?.price && (
                       <div className="mt-3">
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[9px] text-slate-600 font-mono">52W Range</span>
+                          <span className="text-[9px] text-fg-muted font-mono">52W Range</span>
                           <span className="text-[9px] text-slate-400 font-mono font-bold">
                             {Math.round(((s.price - s.week_52_low!) / (s.week_52_high! - s.week_52_low!)) * 100)}%
                           </span>
@@ -561,7 +561,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                   </div>
 
                   {/* CTA */}
-                  <div className="p-4 border-t border-white/[0.05] shrink-0 space-y-2">
+                  <div className="p-4 border-t border-line-subtle shrink-0 space-y-2">
                     <Link href={`/research?symbol=${stock.symbol}`}
                       className="mac-btn mac-btn-lg w-full flex items-center justify-center gap-2 text-[11px]"
                       style={{ background: 'linear-gradient(135deg, rgba(0,122,255,0.3), rgba(0,212,255,0.2))', borderColor: 'rgba(0,122,255,0.5)', color: '#60b0ff' }}

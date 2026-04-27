@@ -125,7 +125,7 @@ function FactorBar({ label, score }: { label: string; score: number }) {
         <span className="text-[10px] text-slate-400 capitalize">{label.replace(/_/g, ' ')}</span>
         <span className="text-[10px] font-mono font-bold text-slate-300">{score?.toFixed(0)}</span>
       </div>
-      <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-surface-raised rounded-full overflow-hidden">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${Math.min(score, 100)}%` }}
@@ -146,9 +146,9 @@ function HoldingRow({ h, rank }: { h: Holding; rank: number }) {
     <div className="group">
       <div
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-800/20 hover:bg-slate-800/40 transition-colors cursor-pointer"
+        className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface-raised/20 hover:bg-surface-hover transition-colors cursor-pointer"
       >
-        <span className="text-[10px] text-slate-600 font-mono w-5 text-right">{rank}</span>
+        <span className="text-[10px] text-fg-muted font-mono w-5 text-right">{rank}</span>
         <Link
           href={`/research?symbol=${h.ticker}`}
           onClick={(e) => e.stopPropagation()}
@@ -156,8 +156,8 @@ function HoldingRow({ h, rank }: { h: Holding; rank: number }) {
         >
           {h.ticker}
         </Link>
-        <span className="text-[10px] text-slate-500 flex-1 truncate">{h.company_name || ''}</span>
-        <span className="text-[10px] text-slate-600 hidden md:inline w-24 truncate">{h.sector || ''}</span>
+        <span className="text-[10px] text-fg-muted flex-1 truncate">{h.company_name || ''}</span>
+        <span className="text-[10px] text-fg-muted hidden md:inline w-24 truncate">{h.sector || ''}</span>
         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${gradeColor(h.grade)}`}>
           {h.grade || '—'}
         </span>
@@ -184,7 +184,7 @@ function HoldingRow({ h, rank }: { h: Holding; rank: number }) {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-4 py-3 ml-8 mr-2 mb-1 bg-slate-800/20 rounded-lg border border-slate-800/40">
+            <div className="px-4 py-3 ml-8 mr-2 mb-1 bg-surface-raised/20 rounded-lg border border-line-subtle">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[10px]">
                 {[
                   { label: 'Fundamental', value: h.fundamental_score },
@@ -207,10 +207,10 @@ function HoldingRow({ h, rank }: { h: Holding; rank: number }) {
                 )}
               </div>
               {h.role?.role_label && (
-                <div className="mt-2 pt-2 border-t border-slate-800/50">
+                <div className="mt-2 pt-2 border-t border-line-subtle">
                   <span className="text-[9px] text-violet-400 font-bold uppercase">{h.role.role_label}</span>
                   {h.role.description && (
-                    <p className="text-[10px] text-slate-500 mt-0.5">{h.role.description}</p>
+                    <p className="text-[10px] text-fg-muted mt-0.5">{h.role.description}</p>
                   )}
                 </div>
               )}
@@ -286,7 +286,7 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500/80 via-cyan-500/60 to-violet-500/20" />
 
           {/* ── Header ──────────────────────────────────────── */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/60 shrink-0">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-line-subtle shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600/20 to-cyan-600/20 border border-violet-500/25 flex items-center justify-center">
                 <Brain className="w-4 h-4 text-violet-400" />
@@ -306,7 +306,7 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl hover:bg-slate-800/60 text-slate-400 hover:text-white transition-colors"
+              className="p-2 rounded-xl hover:bg-surface-hover text-fg-secondary hover:text-fg-primary transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -325,8 +325,8 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
                 { label: 'Risk Score', value: snapshot.risk_score?.toFixed(0) ?? '—', color: riskColor },
                 { label: 'Risk Level', value: snapshot.risk_level || '—', color: riskColor },
               ].map((s) => (
-                <div key={s.label} className="bg-slate-800/30 border border-slate-800/50 rounded-xl px-3 py-2.5 text-center">
-                  <div className="text-[9px] text-slate-600 uppercase tracking-wider">{s.label}</div>
+                <div key={s.label} className="bg-surface-raised/30 border border-line-subtle rounded-xl px-3 py-2.5 text-center">
+                  <div className="text-[9px] text-fg-muted uppercase tracking-wider">{s.label}</div>
                   <div className={`text-sm font-black font-mono ${s.color}`}>{s.value}</div>
                 </div>
               ))}
@@ -383,7 +383,7 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
                   <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     <BarChart3 className="w-3 h-3" /> Factor Exposure
                   </div>
-                  <div className="space-y-2 bg-slate-800/15 border border-slate-800/40 rounded-xl p-3">
+                  <div className="space-y-2 bg-surface-raised/15 border border-line-subtle rounded-xl p-3">
                     {Object.entries(snapshot.factor_exposure).map(([factor, score]) => (
                       <FactorBar key={factor} label={factor} score={score} />
                     ))}
@@ -397,9 +397,9 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
                   <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     <Layers className="w-3 h-3" /> Sector Allocation
                   </div>
-                  <div className="bg-slate-800/15 border border-slate-800/40 rounded-xl p-3">
+                  <div className="bg-surface-raised/15 border border-line-subtle rounded-xl p-3">
                     {/* Stacked bar */}
-                    <div className="h-3 rounded-full overflow-hidden flex bg-slate-800/50 mb-3">
+                    <div className="h-3 rounded-full overflow-hidden flex bg-surface-raised/50 mb-3">
                       {Object.entries(snapshot.sector_allocation).map(([sector, pct], i) => (
                         <div
                           key={sector}
@@ -414,8 +414,8 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
                       {Object.entries(snapshot.sector_allocation).map(([sector, pct], i) => (
                         <div key={sector} className="flex items-center gap-2">
                           <div className={`w-2 h-2 rounded-full ${SECTOR_BAR_COLORS[i % SECTOR_BAR_COLORS.length]}`} />
-                          <span className="text-[10px] text-slate-400 flex-1 truncate">{sector}</span>
-                          <span className="text-[10px] text-slate-300 font-mono">{pct.toFixed(1)}%</span>
+                          <span className="text-[10px] text-fg-secondary flex-1 truncate">{sector}</span>
+                          <span className="text-[10px] text-fg-primary font-mono">{pct.toFixed(1)}%</span>
                         </div>
                       ))}
                     </div>
@@ -430,7 +430,7 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
                 <Target className="w-3 h-3" /> Holdings ({snapshot.num_holdings})
               </div>
               {/* Table header */}
-              <div className="flex items-center gap-3 px-3 py-2 text-[9px] text-slate-600 uppercase tracking-wider border-b border-slate-800/40">
+              <div className="flex items-center gap-3 px-3 py-2 text-[9px] text-fg-muted uppercase tracking-wider border-b border-line-subtle">
                 <span className="w-5 text-right">#</span>
                 <span className="min-w-[52px]">Ticker</span>
                 <span className="flex-1">Company</span>
@@ -488,13 +488,13 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
             )}
 
             {/* Footer */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-800/40">
+            <div className="flex items-center justify-between pt-3 border-t border-line-subtle">
               {snapshot.generated_at && (
-                <span className="text-[9px] text-slate-600">
+                <span className="text-[9px] text-fg-muted">
                   Generated {new Date(snapshot.generated_at).toLocaleString()}
                 </span>
               )}
-              <span className="text-[9px] text-slate-700">
+              <span className="text-[9px] text-fg-muted">
                 AI-generated analysis • Not financial advice
               </span>
             </div>

@@ -187,14 +187,14 @@ export default function UnifiedNotificationCenter() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative p-2 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 border border-transparent hover:border-slate-700/50 transition-colors"
+        className="relative p-2 rounded-lg text-fg-secondary hover:text-cyan-300 hover:bg-surface-hover border border-transparent hover:border-line-default transition-colors"
         aria-label={totalBadge > 0 ? `${totalBadge} notifications` : 'Notifications'}
         aria-expanded={open}
         aria-haspopup="true"
       >
         <Bell className="w-5 h-5" aria-hidden />
         {totalBadge > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full text-[10px] font-bold bg-red-500 text-white border-2 border-[#0d1321] leading-none animate-in fade-in">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full text-[10px] font-bold bg-red-500 text-white border-2 border-surface-base leading-none animate-in fade-in">
             {totalBadge > 99 ? '99+' : totalBadge}
           </span>
         )}
@@ -202,11 +202,11 @@ export default function UnifiedNotificationCenter() {
 
       {/* Dropdown panel */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[380px] max-w-[calc(100vw-2rem)] rounded-xl border border-slate-700/70 bg-[#0c1018]/98 shadow-2xl shadow-black/40 backdrop-blur-xl z-[60] overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-[380px] max-w-[calc(100vw-2rem)] rounded-xl border border-line-default bg-surface-overlay/98 shadow-theme-lg backdrop-blur-xl z-[60] overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50 bg-gradient-to-r from-slate-900/80 to-slate-800/40">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line-default bg-surface-raised/80">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-slate-100">Notifications</span>
+              <span className="text-sm font-semibold text-fg-primary">Notifications</span>
               {totalBadge > 0 && (
                 <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                   {totalBadge}
@@ -218,7 +218,7 @@ export default function UnifiedNotificationCenter() {
                 <button
                   type="button"
                   onClick={handleMarkAllRead}
-                  className="p-1.5 rounded-md text-slate-500 hover:text-cyan-300 hover:bg-slate-800/60 transition-colors"
+                  className="p-1.5 rounded-md text-fg-muted hover:text-cyan-300 hover:bg-surface-hover transition-colors"
                   title="Mark all read"
                 >
                   <CheckCheck className="w-4 h-4" />
@@ -227,7 +227,7 @@ export default function UnifiedNotificationCenter() {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="p-1.5 rounded-md text-slate-500 hover:text-slate-200 hover:bg-slate-800/60 transition-colors"
+                className="p-1.5 rounded-md text-fg-muted hover:text-fg-primary hover:bg-surface-hover transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -235,7 +235,7 @@ export default function UnifiedNotificationCenter() {
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-slate-800/60 bg-[#080c14]/80">
+          <div className="flex border-b border-line-subtle bg-surface-base/80">
             {tabs.map((t) => (
               <button
                 key={t.id}
@@ -244,7 +244,7 @@ export default function UnifiedNotificationCenter() {
                 className={`flex-1 px-3 py-2 text-[11px] font-medium transition-all relative ${
                   tab === t.id
                     ? 'text-cyan-300'
-                    : 'text-slate-500 hover:text-slate-300'
+                    : 'text-fg-muted hover:text-fg-secondary'
                 }`}
               >
                 {t.label}
@@ -252,7 +252,7 @@ export default function UnifiedNotificationCenter() {
                   <span className={`ml-1 px-1 py-px rounded text-[9px] font-bold ${
                     tab === t.id
                       ? 'bg-cyan-500/20 text-cyan-300'
-                      : 'bg-slate-800 text-slate-500'
+                      : 'bg-surface-raised text-fg-muted'
                   }`}>
                     {t.count > 99 ? '99+' : t.count}
                   </span>
@@ -284,7 +284,7 @@ export default function UnifiedNotificationCenter() {
                       key={n.id}
                       href={n.action_url || '/notifications'}
                       onClick={() => setOpen(false)}
-                      className={`flex items-start gap-2.5 px-3 py-2.5 hover:bg-slate-800/40 transition-colors border-b border-slate-800/30 ${
+                      className={`flex items-start gap-2.5 px-3 py-2.5 hover:bg-surface-hover transition-colors border-b border-line-subtle ${
                         !n.is_read ? 'bg-cyan-500/[0.03]' : ''
                       }`}
                     >
@@ -292,14 +292,14 @@ export default function UnifiedNotificationCenter() {
                         <Icon className="w-3.5 h-3.5" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-[12px] leading-snug ${!n.is_read ? 'text-slate-100 font-medium' : 'text-slate-400'}`}>
+                        <p className={`text-[12px] leading-snug ${!n.is_read ? 'text-fg-primary font-medium' : 'text-fg-secondary'}`}>
                           {n.title}
                         </p>
                         {n.body && (
-                          <p className="text-[11px] text-slate-600 truncate mt-0.5">{n.body}</p>
+                          <p className="text-[11px] text-fg-muted truncate mt-0.5">{n.body}</p>
                         )}
                       </div>
-                      <span className="text-[10px] text-slate-600 shrink-0 mt-0.5">
+                      <span className="text-[10px] text-fg-muted shrink-0 mt-0.5">
                         {relativeTime(n.created_at)}
                       </span>
                       {!n.is_read && (
@@ -328,7 +328,7 @@ export default function UnifiedNotificationCenter() {
                       key={`${a.symbol}-${a.timeframe}-${a.direction}-${i}`}
                       href={`/research?symbol=${a.symbol}`}
                       onClick={() => setOpen(false)}
-                      className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-slate-800/40 transition-colors border-b border-slate-800/30"
+                      className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-surface-hover transition-colors border-b border-line-subtle"
                     >
                       <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
                         isUp ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
@@ -337,24 +337,24 @@ export default function UnifiedNotificationCenter() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[12px] font-bold text-slate-100">{a.symbol}</span>
+                          <span className="text-[12px] font-bold text-fg-primary">{a.symbol}</span>
                           <span className={`text-[9px] px-1 py-px rounded font-semibold ${
                             a.severity === 'high'
                               ? 'bg-red-500/20 text-red-300 border border-red-500/30'
                               : a.severity === 'medium'
                               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                              : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
+                              : 'bg-surface-raised text-fg-secondary border border-line-default'
                           }`}>
                             {a.severity.toUpperCase()}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{a.message}</p>
+                        <p className="text-[11px] text-fg-muted mt-0.5 line-clamp-1">{a.message}</p>
                       </div>
                       <div className="text-right shrink-0">
                         <span className={`text-[11px] font-mono font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
                           {a.expected_return > 0 ? '+' : ''}{a.expected_return.toFixed(1)}%
                         </span>
-                        <div className="text-[9px] text-slate-600 mt-0.5">
+                        <div className="text-[9px] text-fg-muted mt-0.5">
                           {(a.confidence * 100).toFixed(0)}% conf
                         </div>
                       </div>
@@ -369,18 +369,18 @@ export default function UnifiedNotificationCenter() {
               (tab === 'community' && communityNotifs.length === 0) ||
               (tab === 'signals' && predAlerts.length === 0)) && (
               <div className="py-10 text-center">
-                <Bell className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-                <p className="text-xs text-slate-500">No notifications yet</p>
+                <Bell className="w-8 h-8 text-fg-muted mx-auto mb-2" />
+                <p className="text-xs text-fg-muted">No notifications yet</p>
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div className="border-t border-slate-800/60 bg-[#080c14]/80">
+          <div className="border-t border-line-subtle bg-surface-base/80">
             <Link
               href="/notifications"
               onClick={() => setOpen(false)}
-              className="flex items-center justify-center gap-1 px-3 py-2.5 text-[11px] font-medium text-slate-400 hover:text-cyan-300 transition-colors"
+              className="flex items-center justify-center gap-1 px-3 py-2.5 text-[11px] font-medium text-fg-secondary hover:text-cyan-300 transition-colors"
             >
               View all notifications
               <ChevronRight className="w-3 h-3" />

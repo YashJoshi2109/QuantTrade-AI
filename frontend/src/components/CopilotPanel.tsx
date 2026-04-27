@@ -157,7 +157,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
               <span className="text-[8px] font-bold text-white/90 tracking-wider">AI</span>
             </div>
             {/* Active indicator */}
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#0d1321] animate-pulse" />
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-surface-base animate-pulse" />
           </div>
           
           {/* Enhanced Tooltip */}
@@ -167,7 +167,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
                 <Bot className="w-4 h-4 text-cyan-400" />
                 <span className="text-sm font-bold text-white">Open AI Copilot</span>
               </div>
-              <div className="text-[10px] text-slate-400 mt-0.5 font-mono">Ask me anything</div>
+              <div className="text-[10px] text-fg-secondary mt-0.5 font-mono">Ask me anything</div>
             </div>
           </div>
         </div>
@@ -178,26 +178,26 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
   return (
     <aside className="w-80 h-full flex flex-col">
       {/* Background */}
-      <div className="absolute inset-0 bg-[#0d1321]/95 backdrop-blur-xl border-l border-blue-500/10" />
-      
+      <div className="absolute inset-0 bg-surface-raised/95 backdrop-blur-xl border-l border-line-subtle" />
+
       {/* Content */}
       <div className="relative h-full flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-blue-500/10">
+        <div className="p-4 border-b border-line-subtle">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
                   <Bot className="w-5 h-5 text-white" />
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#0d1321] animate-pulse" />
+                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-surface-base animate-pulse" />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   Copilot
                   <Zap className="w-3 h-3 text-cyan-400" />
                 </h3>
-                <div className="text-[10px] text-slate-400 font-mono">AI-POWERED ANALYSIS</div>
+                <div className="text-[10px] text-fg-secondary font-mono">AI-POWERED ANALYSIS</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -218,7 +218,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="text-[10px] text-center text-slate-600 font-mono tracking-wider mb-4">
+          <div className="text-[10px] text-center text-fg-muted font-mono tracking-wider mb-4">
             ── SESSION START ──
           </div>
           
@@ -230,7 +230,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
                   <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl rounded-tr-sm p-3 shadow-lg shadow-blue-500/20">
                     <p className="text-sm">{message.content}</p>
                   </div>
-                  <div className="text-[10px] text-slate-500 text-right mt-1 font-mono">
+                  <div className="text-[10px] text-fg-muted text-right mt-1 font-mono">
                     YOU · {message.timestamp}
                   </div>
                 </div>
@@ -238,11 +238,11 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
                 // Assistant message
                 <div className="mr-auto max-w-[90%] space-y-2">
                   {message.analysisSummary && (
-                    <div className="bg-gradient-to-br from-[#0B1728] to-[#07101E] rounded-2xl px-3 py-2 border border-cyan-500/40 shadow-[0_0_18px_rgba(0,217,255,0.25)]">
+                    <div className="bg-surface-raised rounded-2xl px-3 py-2 border border-cyan-500/40 shadow-[0_0_18px_rgba(0,217,255,0.25)]">
                       <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300 font-semibold mb-1">
                         QuantTrade Stock Analysis
                       </p>
-                      <p className="text-[11px] text-slate-100 whitespace-pre-wrap leading-relaxed">
+                      <p className="text-[11px] text-fg-primary whitespace-pre-wrap leading-relaxed">
                         {message.analysisSummary}
                       </p>
                     </div>
@@ -255,11 +255,11 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
                         Connection Error
                       </div>
                     )}
-                    <p className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                    
+                    <p className="text-sm text-fg-primary whitespace-pre-wrap leading-relaxed">{message.content}</p>
+
                     {/* Sources */}
                     {message.sources && message.sources.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-slate-700/50">
+                      <div className="mt-3 pt-3 border-t border-line-default">
                         <p className="hud-label mb-2">SOURCES</p>
                         <div className="flex flex-wrap gap-1.5">
                           {message.sources.slice(0, 4).map((source, idx) => (
@@ -274,7 +274,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
                       </div>
                     )}
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-1 font-mono flex items-center gap-1.5">
+                  <div className="text-[10px] text-fg-muted mt-1 font-mono flex items-center gap-1.5">
                     <Bot className="w-3 h-3 text-cyan-400" />
                     AI COPILOT · {message.timestamp}
                   </div>
@@ -291,7 +291,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
                   <SkeletonText className="h-4 w-1/2" />
                   <SkeletonText className="h-4 w-2/3" />
                 </div>
-                <div className="text-[10px] text-slate-600 font-mono mt-2">ANALYZING DATA...</div>
+                <div className="text-[10px] text-fg-muted font-mono mt-2">ANALYZING DATA...</div>
               </div>
             </div>
           )}
@@ -300,7 +300,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
         </div>
 
         {/* Quick Actions */}
-        <div className="px-4 py-3 border-t border-blue-500/10">
+        <div className="px-4 py-3 border-t border-line-subtle">
           <p className="hud-label mb-2">QUICK ACTIONS</p>
           <div className="flex flex-wrap gap-2">
             {quickActions.map((action, idx) => (
@@ -316,7 +316,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
         </div>
 
         {/* Input */}
-        <form onSubmit={handleSend} className="p-4 border-t border-blue-500/10">
+        <form onSubmit={handleSend} className="p-4 border-t border-line-subtle">
           <div className="relative">
             <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 blur-sm" />
             <div className="relative hud-card overflow-hidden flex items-center">
@@ -325,7 +325,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={`Ask about ${symbol}...`}
-                className="flex-1 px-4 py-3 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
+                className="flex-1 px-4 py-3 bg-transparent text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none"
               />
               <button
                 type="submit"
