@@ -177,7 +177,7 @@ function FreeCard({
           <ul className="space-y-2">
             {locked.map(label => (
               <li key={label} className="flex items-start gap-3 text-sm text-fg-muted">
-                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-600" />
+                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-fg-muted" />
                 <span>{label}</span>
               </li>
             ))}
@@ -329,7 +329,7 @@ function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic
 
   return (
     <div className="space-y-4 pb-4">
-      <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 pt-safe pb-3 px-2">
+      <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-line-subtle pt-safe pb-3 px-2">
         <h1 className="text-[20px] font-bold text-fg-primary text-center">Choose Your Plan</h1>
         <p className="text-[12px] text-fg-muted text-center mb-4 px-1 leading-relaxed">
           Pro is one bill for research tools and the full CoinRealm game—nothing extra for the game.
@@ -344,7 +344,7 @@ function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic
         )}
 
         <div className="flex flex-col items-center gap-3">
-          <div className="inline-flex bg-[#1A2332] border border-white/5 rounded-full p-1 shadow-inner">
+          <div className="inline-flex bg-[#1A2332] border border-line-subtle rounded-full p-1 shadow-inner">
             <button
               type="button"
               onClick={() => setBillingInterval('monthly')}
@@ -410,10 +410,10 @@ function MobileFreeCard({
   href: string
 }) {
   return (
-    <div className="rounded-2xl border border-white/5 bg-[#1A2332]/70 p-4">
+    <div className="rounded-2xl border border-line-subtle bg-surface-raised/70 p-4">
       <div className="mb-3 flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#0A0E1A]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-line-default bg-surface-base">
             <Zap className="h-5 w-5 text-fg-primary" />
           </div>
           <div>
@@ -438,13 +438,13 @@ function MobileFreeCard({
       <div className="mb-3 space-y-1.5">
         {locked.slice(0, 4).map(label => (
           <div key={label} className="flex items-start gap-2 text-[12px] text-fg-muted">
-            <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-600" />
+            <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-fg-muted" />
             <span>{label}</span>
           </div>
         ))}
       </div>
 
-      <div className="mb-3 rounded-lg border border-white/5 bg-black/20 px-2.5 py-2">
+      <div className="mb-3 rounded-lg border border-line-subtle bg-black/20 px-2.5 py-2">
         <p className="text-[10px] leading-snug text-fg-muted">
           Code <span className="font-mono text-cyan-400/90">{STRIPE_PROMO_CUSTOMER_CODE}</span> → {WELCOME_PROMO_AMOUNT_LABEL} off Pro (emailed after sign-in).
         </p>
@@ -452,7 +452,7 @@ function MobileFreeCard({
 
       <Link
         href={href}
-        className="flex h-11 w-full items-center justify-center rounded-xl border border-white/10 bg-[#0A0E1A] text-[13px] font-semibold text-fg-primary transition-transform active:scale-[0.98]"
+        className="flex h-11 w-full items-center justify-center rounded-xl border border-line-default bg-surface-base text-[13px] font-semibold text-fg-primary transition-transform active:scale-[0.98]"
       >
         {cta}
       </Link>
@@ -485,7 +485,7 @@ function MobileProCard({
 
       <div className="flex items-start justify-between relative z-10 mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#0A0E1A] border border-white/10 flex items-center justify-center shadow-lg">
+          <div className="w-11 h-11 rounded-xl bg-[#0A0E1A] border border-line-default flex items-center justify-center shadow-lg">
             <Crown className="w-5 h-5 text-[#00D9FF]" />
           </div>
           <div>
@@ -550,7 +550,7 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-[#020617] text-slate-50 -mx-4 md:-mx-6 -my-4 md:-my-6">
+      <div className="min-h-screen bg-surface-base text-fg-primary -mx-4 md:-mx-6 -my-4 md:-my-6">
         <div className="max-w-5xl mx-auto px-6 py-12">
           <motion.div className="text-center mb-10" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-center justify-center gap-3 mb-8">
@@ -671,7 +671,7 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
               >
                 support@quanttrade.us
               </a>
-              <span className="mx-3 text-slate-700">·</span>
+              <span className="mx-3 text-fg-muted">·</span>
               <Link href="/terms" className="text-fg-muted hover:text-fg-primary transition-colors">
                 Terms
               </Link>

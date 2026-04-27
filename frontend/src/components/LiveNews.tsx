@@ -95,7 +95,7 @@ function NewsCard({ item }: { item: NewsArticle }) {
 
   const content = (
       <div className="flex items-start gap-3">
-        <div className="shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-slate-700/50 flex items-center justify-center">
+        <div className="shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-surface-overlay/50 flex items-center justify-center">
           {showImage ? (
             <img 
               src={item.thumbnail || ''} 
@@ -153,7 +153,7 @@ function NewsCard({ item }: { item: NewsArticle }) {
       href={item.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="block p-4 glass rounded-lg hover:bg-slate-700/50 transition-all group"
+      className="block p-4 glass rounded-lg hover:bg-surface-overlay/50 transition-all group"
     >
       {content}
     </a>
@@ -195,9 +195,9 @@ export default function LiveNews({
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="animate-pulse">
-              <div className="h-4 bg-slate-700 rounded w-3/4 mb-2"></div>
-              <div className="h-3 bg-slate-700 rounded w-full"></div>
-              <div className="h-3 bg-slate-700 rounded w-1/2 mt-2"></div>
+              <div className="h-4 bg-surface-overlay rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-surface-overlay rounded w-full"></div>
+              <div className="h-3 bg-surface-overlay rounded w-1/2 mt-2"></div>
             </div>
           ))}
         </div>
@@ -254,7 +254,7 @@ export default function LiveNews({
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
+            className="p-2 hover:bg-surface-overlay/50 rounded-lg transition-colors"
             title="Refresh news"
           >
             <RefreshCw className={`w-4 h-4 text-fg-muted ${isFetching ? 'animate-spin' : ''}`} />

@@ -617,7 +617,7 @@ export function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
                   key={stock.symbol}
                   href={`/research?symbol=${stock.symbol}`}
                   title={`${stock.name}\n${stock.currency} ${stock.price.toFixed(2)}\n${stock.change_percent >= 0 ? '+' : ''}${stock.change_percent.toFixed(2)}%`}
-                  className="p-2 flex flex-col items-center justify-center border border-white/5 hover:brightness-110 hover:scale-[1.02] transition-all cursor-pointer"
+                  className="p-2 flex flex-col items-center justify-center border border-line-subtle hover:brightness-110 hover:scale-[1.02] transition-all cursor-pointer"
                   style={{ backgroundColor: getHeatColor(stock.change_percent) }}
                 >
                   <span className="font-bold text-white text-[8px] sm:text-[10px] truncate w-full text-center leading-tight">

@@ -58,7 +58,7 @@ const CAT_COLORS: Record<string, string> = {
   'Macro':        'bg-emerald-500/10 text-emerald-300 border-emerald-500/25',
   'Transport':    'bg-amber-500/10 text-amber-300 border-amber-500/25',
   'Markets':      'bg-sky-500/10 text-sky-300 border-sky-500/25',
-  'News':         'bg-slate-500/10 text-fg-primary border-slate-500/25',
+  'News':         'bg-surface-raised text-fg-primary border-line-subtle',
 }
 
 const CAP_ACCENT: Record<string, string> = {
@@ -246,7 +246,7 @@ export default function AboutPage() {
                       <div className="text-sm font-bold text-fg-primary">{s.name}</div>
                       <div className="text-[11px] text-fg-muted mt-0.5">{s.desc}</div>
                     </div>
-                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold border ${CAT_COLORS[s.category] || 'bg-slate-700 text-fg-muted border-slate-600'}`}>
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold border ${CAT_COLORS[s.category] || 'bg-surface-raised text-fg-muted border-line-subtle'}`}>
                       {s.category}
                     </span>
                   </motion.div>

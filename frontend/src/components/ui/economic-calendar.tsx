@@ -31,7 +31,7 @@ function ImpactBars({ impact }: { impact: EconomicEvent["impact"] }) {
       ? "bg-rose-400"
       : impact === "medium"
         ? "bg-amber-400"
-        : "bg-slate-500"
+        : "bg-fg-muted"
   return (
     <div className="flex items-end gap-[2px] h-3.5" title={`${impact} impact`}>
       {[0, 1, 2].map((i) => (
@@ -40,7 +40,7 @@ function ImpactBars({ impact }: { impact: EconomicEvent["impact"] }) {
           className={cn(
             "w-[3px] rounded-sm",
             i === 0 ? "h-1.5" : i === 1 ? "h-2.5" : "h-3.5",
-            i < n ? color : "bg-slate-700",
+            i < n ? color : "bg-surface-overlay",
           )}
         />
       ))}
@@ -99,7 +99,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
               whileTap={{ scale: 0.9 }}
               onClick={() => setFullscreen(true)}
               aria-label="Open fullscreen calendar"
-              className="p-1 rounded-full bg-slate-800/80 border border-slate-700/50 hover:bg-slate-700/80 transition-colors mr-1"
+              className="p-1 rounded-full bg-surface-raised/80 border border-slate-700/50 hover:bg-surface-overlay/80 transition-colors mr-1"
             >
               <Maximize2 className="h-3.5 w-3.5 text-fg-secondary" />
             </motion.button>
@@ -109,7 +109,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
                 animate={{ opacity: 1, scale: 1 }}
                 onClick={() => scroll("left")}
                 aria-label="Scroll left"
-                className="p-1 rounded-full bg-slate-800/80 border border-slate-700/50 hover:bg-slate-700/80 transition-colors"
+                className="p-1 rounded-full bg-surface-raised/80 border border-slate-700/50 hover:bg-surface-overlay/80 transition-colors"
               >
                 <ChevronLeft className="h-3.5 w-3.5 text-fg-secondary" />
               </motion.button>
@@ -120,7 +120,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
                 animate={{ opacity: 1, scale: 1 }}
                 onClick={() => scroll("right")}
                 aria-label="Scroll right"
-                className="p-1 rounded-full bg-slate-800/80 border border-slate-700/50 hover:bg-slate-700/80 transition-colors"
+                className="p-1 rounded-full bg-surface-raised/80 border border-slate-700/50 hover:bg-surface-overlay/80 transition-colors"
               >
                 <ChevronRight className="h-3.5 w-3.5 text-fg-secondary" />
               </motion.button>
@@ -146,7 +146,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
                   hidden: { y: 14, opacity: 0 },
                   visible: { y: 0, opacity: 1, transition: { type: "spring" as const, stiffness: 120, damping: 16 } },
                 }}
-                className="flex-shrink-0 w-56 rounded-xl border border-slate-800/60 bg-slate-950/60 p-3 hover:border-slate-700/70 transition-colors duration-200"
+                className="flex-shrink-0 w-56 rounded-xl border border-line-subtle bg-surface-base/60 p-3 hover:border-line-default transition-colors duration-200"
               >
                 {/* Top row: time + impact */}
                 <div className="flex items-center justify-between mb-2">
@@ -159,7 +159,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
                           ? "bg-rose-500/15 text-rose-400"
                           : ev.impact === "medium"
                             ? "bg-amber-500/15 text-amber-400"
-                            : "bg-slate-700/50 text-fg-muted",
+                            : "bg-surface-overlay/50 text-fg-muted",
                       )}
                     >
                       {ev.time}
@@ -173,7 +173,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
                   <img
                     src={`https://flagcdn.com/w40/${ev.countryCode.toLowerCase()}.png`}
                     alt={ev.countryCode}
-                    className="h-6 w-6 rounded-full object-cover bg-slate-800 shrink-0"
+                    className="h-6 w-6 rounded-full object-cover bg-surface-raised shrink-0"
                   />
                   <span className="text-[11px] font-semibold text-slate-200 truncate leading-tight">
                     {ev.eventName}

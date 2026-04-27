@@ -37,7 +37,7 @@ export default function CommunityPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-white/5 bg-black/30 backdrop-blur-md px-6 py-4 flex items-center gap-4 sticky top-0 z-30">
+      <header className="border-b border-line-subtle bg-black/30 backdrop-blur-md px-6 py-4 flex items-center gap-4 sticky top-0 z-30">
         <Link href="/game/dashboard" className="text-fg-muted hover:text-fg-primary transition text-sm">← Dashboard</Link>
         <span className="text-gray-700">|</span>
         <span style={{ color: accent }} className="font-bold text-sm">Guild Hall</span>
@@ -60,7 +60,7 @@ export default function CommunityPage() {
             <span>⚜️</span> Your Guilds
           </h2>
           {communityGroups.length === 0 && (
-            <div className="text-center py-8 text-fg-muted border border-dashed border-white/5 rounded-xl">
+            <div className="text-center py-8 text-fg-muted border border-dashed border-line-subtle rounded-xl">
               Loading your guild memberships...
             </div>
           )}
@@ -86,7 +86,7 @@ export default function CommunityPage() {
                   <div className="flex items-center gap-3 mb-1">
                     <h3 className="text-white font-bold text-lg">{group.name}</h3>
                     {group.is_global && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-fg-muted border border-white/10">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-fg-muted border border-line-default">
                         Global
                       </span>
                     )}
@@ -107,7 +107,7 @@ export default function CommunityPage() {
               </div>
 
               {/* Guild features (coming soon) */}
-              <div className="mt-5 pt-4 border-t border-white/5 grid grid-cols-3 gap-3">
+              <div className="mt-5 pt-4 border-t border-line-subtle grid grid-cols-3 gap-3">
                 {[
                   { label: 'Strategy Posts', icon: '📋', status: 'Soon' },
                   { label: 'Portfolio Share', icon: '📊', status: 'Soon' },
@@ -115,7 +115,7 @@ export default function CommunityPage() {
                 ].map((feat) => (
                   <div
                     key={feat.label}
-                    className="text-center p-3 bg-white/3 rounded-xl border border-white/5 opacity-60"
+                    className="text-center p-3 bg-white/3 rounded-xl border border-line-subtle opacity-60"
                   >
                     <div className="text-lg mb-1">{feat.icon}</div>
                     <div className="text-xs text-fg-muted">{feat.label}</div>

@@ -30,9 +30,9 @@ export default function StockVisual({ symbol, companyName, sentiment = 'neutral'
   }
 
   return (
-    <div className="rounded-2xl border border-slate-800/60 bg-slate-900/60 overflow-hidden">
+    <div className="rounded-2xl border border-line-subtle bg-surface-base/60 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/50">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line-subtle/50">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-cyan-400" />
           <span className="text-sm font-bold text-white">AI Visual</span>
@@ -45,7 +45,7 @@ export default function StockVisual({ symbol, companyName, sentiment = 'neutral'
             <>
               <button
                 onClick={() => setExpanded(true)}
-                className="text-xs text-fg-muted hover:text-fg-primary transition-colors px-2 py-1 rounded-lg hover:bg-slate-800"
+                className="text-xs text-fg-muted hover:text-fg-primary transition-colors px-2 py-1 rounded-lg hover:bg-surface-raised"
               >
                 Expand
               </button>
@@ -54,14 +54,14 @@ export default function StockVisual({ symbol, companyName, sentiment = 'neutral'
                 download={`${symbol}-visual.jpg`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1.5 rounded-lg text-fg-muted hover:text-fg-primary hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-fg-muted hover:text-fg-primary hover:bg-surface-raised transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />
               </a>
               <button
                 onClick={generate}
                 disabled={loading}
-                className="p-1.5 rounded-lg text-fg-muted hover:text-cyan-400 hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-fg-muted hover:text-cyan-400 hover:bg-surface-raised transition-colors"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               </button>

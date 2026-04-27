@@ -302,7 +302,7 @@ function MetricBar({
         <span className="text-[11px] text-fg-muted">{label}</span>
         <span className="text-[11px] font-mono font-bold" style={{ color: endColor }}>{display}</span>
       </div>
-      <div className="relative h-2 bg-slate-800/80 rounded-full overflow-hidden">
+      <div className="relative h-2 bg-surface-raised/80 rounded-full overflow-hidden">
         <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
           <defs>
             <linearGradient id={`mb-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
@@ -407,7 +407,7 @@ function MiniArcGauge({
 interface TagInfo { text: string; bg: string; fg: string }
 
 function betaTag(v: number | undefined): TagInfo {
-  if (!isNumber(v)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-fg-muted' }
+  if (!isNumber(v)) return { text: '—', bg: 'bg-surface-raised/50', fg: 'text-fg-muted' }
   const b = Math.abs(v)
   if (b <= 0.8) return { text: 'Low Vol', bg: 'bg-emerald-500/15', fg: 'text-emerald-400' }
   if (b <= 1.3) return { text: 'Normal', bg: 'bg-cyan-500/15', fg: 'text-cyan-400' }
@@ -415,7 +415,7 @@ function betaTag(v: number | undefined): TagInfo {
 }
 
 function deTag(v: number | undefined): TagInfo {
-  if (!isNumber(v)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-fg-muted' }
+  if (!isNumber(v)) return { text: '—', bg: 'bg-surface-raised/50', fg: 'text-fg-muted' }
   if (v <= 0.5) return { text: 'Low', bg: 'bg-emerald-500/15', fg: 'text-emerald-400' }
   if (v <= 1.5) return { text: 'Moderate', bg: 'bg-cyan-500/15', fg: 'text-cyan-400' }
   if (v <= 3) return { text: 'High', bg: 'bg-amber-500/15', fg: 'text-amber-400' }
@@ -423,7 +423,7 @@ function deTag(v: number | undefined): TagInfo {
 }
 
 function ratioTag(v: number | undefined): TagInfo {
-  if (!isNumber(v)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-fg-muted' }
+  if (!isNumber(v)) return { text: '—', bg: 'bg-surface-raised/50', fg: 'text-fg-muted' }
   if (v >= 2) return { text: 'Strong', bg: 'bg-emerald-500/15', fg: 'text-emerald-400' }
   if (v >= 1) return { text: 'Adequate', bg: 'bg-cyan-500/15', fg: 'text-cyan-400' }
   return { text: 'Weak', bg: 'bg-red-500/15', fg: 'text-red-400' }
@@ -458,7 +458,7 @@ function RiskStatRow({
           <span className="text-xs font-mono font-bold" style={{ color: colorEnd }}>{displayValue}</span>
         </div>
       </div>
-      <div className="relative h-2 bg-slate-800/80 rounded-full overflow-hidden">
+      <div className="relative h-2 bg-surface-raised/80 rounded-full overflow-hidden">
         <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
           <defs>
             <linearGradient id={`rs-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
@@ -580,7 +580,7 @@ export default function FundamentalsPanel({
         <div>
           <p className="hud-label mb-2">VALUATION</p>
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-slate-800/30 rounded-lg p-2.5">
+            <div className="bg-surface-raised/30 rounded-lg p-2.5">
               <div className="text-[10px] text-fg-muted mb-0.5">
                 Market Cap
               </div>
@@ -588,7 +588,7 @@ export default function FundamentalsPanel({
                 {fmtMarketCap}
               </div>
             </div>
-            <div className="bg-slate-800/30 rounded-lg p-2.5">
+            <div className="bg-surface-raised/30 rounded-lg p-2.5">
               <div className="text-[10px] text-fg-muted mb-0.5">
                 P/E &middot; Forward
               </div>
@@ -598,7 +598,7 @@ export default function FundamentalsPanel({
                 {isNumber(forwardPe) ? formatNumber(forwardPe, 1) : '\u2014'}
               </div>
             </div>
-            <div className="bg-slate-800/30 rounded-lg p-2.5">
+            <div className="bg-surface-raised/30 rounded-lg p-2.5">
               <div className="text-[10px] text-fg-muted mb-0.5">
                 PEG Ratio
               </div>
@@ -606,7 +606,7 @@ export default function FundamentalsPanel({
                 {isNumber(peg) ? formatNumber(peg, 2) : '\u2014'}
               </div>
             </div>
-            <div className="bg-slate-800/30 rounded-lg p-2.5">
+            <div className="bg-surface-raised/30 rounded-lg p-2.5">
               <div className="text-[10px] text-fg-muted mb-0.5">
                 P/S &middot; P/B
               </div>
@@ -676,7 +676,7 @@ export default function FundamentalsPanel({
         <div>
           <p className="hud-label mb-2">EARNINGS &amp; MOMENTUM</p>
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-slate-800/30 rounded-lg p-2.5">
+            <div className="bg-surface-raised/30 rounded-lg p-2.5">
               <div className="text-[10px] text-fg-muted mb-0.5">
                 EPS &middot; Next Q
               </div>
@@ -688,7 +688,7 @@ export default function FundamentalsPanel({
                   : '\u2014'}
               </div>
             </div>
-            <div className="bg-slate-800/30 rounded-lg p-2.5">
+            <div className="bg-surface-raised/30 rounded-lg p-2.5">
               <div className="text-[10px] text-fg-muted mb-0.5">
                 Target &middot; Rec
               </div>

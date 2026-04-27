@@ -530,7 +530,7 @@ function LiveIndicator({ status, sources }: { status: 'connected' | 'connecting'
   const colors = {
     connected: { dot: 'bg-emerald-500', ping: 'bg-emerald-400', text: 'text-emerald-400', label: 'LIVE' },
     connecting: { dot: 'bg-amber-500', ping: 'bg-amber-400', text: 'text-amber-400', label: 'CONNECTING' },
-    disconnected: { dot: 'bg-slate-500', ping: 'bg-slate-400', text: 'text-fg-muted', label: 'POLLING' },
+    disconnected: { dot: 'bg-surface-overlay', ping: 'bg-fg-muted', text: 'text-fg-muted', label: 'POLLING' },
   }
   const c = colors[status]
   return (
@@ -1119,7 +1119,7 @@ function DesktopIdeasLab() {
                 <BasketLoader progress={basketLoadProgress} />
               ) : indices.length === 0 ? (
                 <div className="text-center py-20">
-                  <Layers className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+                  <Layers className="w-10 h-10 text-fg-muted mx-auto mb-3" />
                   <p className="text-sm text-fg-muted">No basket indices configured</p>
                 </div>
               ) : (
@@ -1168,7 +1168,7 @@ function DesktopIdeasLab() {
                   </div>
                 ) : filtered.length === 0 ? (
                   <div className="text-center py-20">
-                    <Crosshair className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+                    <Crosshair className="w-10 h-10 text-fg-muted mx-auto mb-3" />
                     <p className="text-sm text-fg-muted">No ideas match current filters</p>
                     <button
                       onClick={() => { setSentiment('all'); setTimeframe('all'); setSector('All Sectors') }}

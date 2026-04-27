@@ -33,9 +33,9 @@ export function Ledger({ entries, showSummary = true, maxRows = 8, title = 'Dail
   )
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#080B14] overflow-hidden">
+    <div className="rounded-2xl border border-line-default bg-[#080B14] overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-line-subtle flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-amber-400">📜</span>
           <span className="text-sm font-bold text-amber-300/90" style={{ fontFamily: 'Syne, serif' }}>
@@ -48,7 +48,7 @@ export function Ledger({ entries, showSummary = true, maxRows = 8, title = 'Dail
       </div>
 
       {/* Column headers */}
-      <div className="grid grid-cols-12 px-4 py-2 text-[9px] font-semibold text-white/30 uppercase tracking-widest border-b border-white/5">
+      <div className="grid grid-cols-12 px-4 py-2 text-[9px] font-semibold text-white/30 uppercase tracking-widest border-b border-line-subtle">
         <div className="col-span-1">Day</div>
         <div className="col-span-2">Type</div>
         <div className="col-span-7">Description</div>
@@ -96,7 +96,7 @@ export function Ledger({ entries, showSummary = true, maxRows = 8, title = 'Dail
 
       {/* Summary */}
       {showSummary && entries.length > 0 && (
-        <div className="px-4 py-3 border-t border-white/5 grid grid-cols-3 gap-3">
+        <div className="px-4 py-3 border-t border-line-subtle grid grid-cols-3 gap-3">
           {[
             { label: 'Earned', value: totals.earned, color: '#00E5A0' },
             { label: 'Spent',  value: totals.spent,  color: '#FF4757' },

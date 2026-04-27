@@ -114,15 +114,15 @@ function SkeletonRows({ count = 5 }: { count?: number }) {
           className="flex items-center justify-between px-5 py-3 border-b border-white/[0.03]"
         >
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-full bg-slate-800/40 animate-pulse" />
+            <div className="w-7 h-7 rounded-full bg-surface-raised/40 animate-pulse" />
             <div>
-              <div className="h-3 w-14 bg-slate-800/40 rounded animate-pulse mb-1.5" />
-              <div className="h-2.5 w-24 bg-slate-800/25 rounded animate-pulse" />
+              <div className="h-3 w-14 bg-surface-raised/40 rounded animate-pulse mb-1.5" />
+              <div className="h-2.5 w-24 bg-surface-raised/25 rounded animate-pulse" />
             </div>
           </div>
           <div className="text-right">
-            <div className="h-3 w-16 bg-slate-800/40 rounded animate-pulse mb-1.5" />
-            <div className="h-2.5 w-12 bg-slate-800/25 rounded animate-pulse" />
+            <div className="h-3 w-16 bg-surface-raised/40 rounded animate-pulse mb-1.5" />
+            <div className="h-2.5 w-12 bg-surface-raised/25 rounded animate-pulse" />
           </div>
         </div>
       ))}

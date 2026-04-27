@@ -60,11 +60,11 @@ const TABS: { key: TabKey; label: string; icon: typeof ShieldAlert }[] = [
 ]
 
 const FLAG_STYLES: Record<string, { bg: string; text: string }> = {
-  spam: { bg: 'bg-slate-500/15 border-slate-500/25', text: 'text-fg-secondary' },
+  spam: { bg: 'bg-surface-raised border-line-subtle', text: 'text-fg-secondary' },
   misinformation: { bg: 'bg-red-500/15 border-red-500/25', text: 'text-red-400' },
   manipulation: { bg: 'bg-purple-500/15 border-purple-500/25', text: 'text-purple-400' },
   harassment: { bg: 'bg-orange-500/15 border-orange-500/25', text: 'text-orange-400' },
-  other: { bg: 'bg-slate-500/15 border-slate-500/25', text: 'text-fg-muted' },
+  other: { bg: 'bg-surface-raised border-line-subtle', text: 'text-fg-muted' },
 }
 
 const FLAG_TYPES = ['spam', 'misinformation', 'manipulation', 'harassment'] as const

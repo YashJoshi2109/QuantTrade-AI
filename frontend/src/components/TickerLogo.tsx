@@ -105,7 +105,7 @@ export default function TickerLogo({
   if (!urls.length || index >= urls.length) {
     return (
       <div
-        className={`flex items-center justify-center rounded-lg bg-slate-800/80 border border-slate-700/50 text-fg-muted font-bold shrink-0 ${className}`}
+        className={`flex items-center justify-center rounded-lg bg-surface-raised/80 border border-line-subtle text-fg-muted font-bold shrink-0 ${className}`}
         style={{ width: size, height: size, fontSize: size * 0.38 }}
       >
         {ticker.slice(0, 2)}

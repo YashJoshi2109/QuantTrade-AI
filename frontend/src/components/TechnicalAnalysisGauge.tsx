@@ -133,7 +133,7 @@ function Gauge({ signal, title, subtitle, delay = 0 }: GaugeProps) {
   const gradient = SIGNAL_GRADIENTS[signal.color] ?? ['#475569', '#94A3B8']
 
   return (
-    <div className="flex flex-col items-center relative rounded-xl bg-slate-950/40 border border-slate-700/35 px-2 pt-3 pb-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors duration-500 hover:border-slate-600/45">
+    <div className="flex flex-col items-center relative rounded-xl bg-surface-base/40 border border-line-subtle/35 px-2 pt-3 pb-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors duration-500 hover:border-line-default/45">
       <div className="text-center mb-0.5">
         <div className="text-[10px] font-bold text-fg-muted tracking-[0.18em] uppercase">{title}</div>
         {subtitle && <div className="text-[9px] text-fg-muted mt-0.5 leading-snug px-1">{subtitle}</div>}
@@ -216,14 +216,14 @@ export default function TechnicalAnalysisGauge({
 
   if (loading) {
     return (
-      <div className="hud-panel p-6 h-full bg-slate-900/50 flex flex-col justify-center min-h-[320px]">
-        <div className="h-4 w-48 bg-slate-800/80 rounded mb-4 animate-pulse" />
-        <div className="h-16 w-full bg-slate-800/40 rounded-xl mb-6 animate-pulse" />
+      <div className="hud-panel p-6 h-full bg-surface-base/50 flex flex-col justify-center min-h-[320px]">
+        <div className="h-4 w-48 bg-surface-raised/80 rounded mb-4 animate-pulse" />
+        <div className="h-16 w-full bg-surface-raised/40 rounded-xl mb-6 animate-pulse" />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="flex flex-col items-center gap-4 animate-pulse rounded-xl border border-slate-800/80 p-4">
-              <div className="w-[140px] h-[70px] bg-slate-800/60 rounded-t-full" />
-              <div className="h-4 w-20 bg-slate-800/60 rounded-full" />
+            <div key={i} className="flex flex-col items-center gap-4 animate-pulse rounded-xl border border-line-subtle/80 p-4">
+              <div className="w-[140px] h-[70px] bg-surface-raised/60 rounded-t-full" />
+              <div className="h-4 w-20 bg-surface-raised/60 rounded-full" />
             </div>
           ))}
         </div>
@@ -279,7 +279,7 @@ export default function TechnicalAnalysisGauge({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-40" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-            <span className="text-[10px] font-mono font-bold text-slate-200 bg-slate-800/90 border border-slate-600/60 px-2.5 py-1 rounded-md shadow-inner tracking-wide">
+            <span className="text-[10px] font-mono font-bold text-slate-200 bg-surface-raised/90 border border-line-default px-2.5 py-1 rounded-md shadow-inner tracking-wide">
               LIVE
             </span>
           </div>
@@ -292,7 +292,7 @@ export default function TechnicalAnalysisGauge({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="rounded-xl border border-slate-700/50 bg-slate-950/40 backdrop-blur-sm px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+            className="rounded-xl border border-line-subtle bg-surface-base/40 backdrop-blur-sm px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-fg-muted">
@@ -309,7 +309,7 @@ export default function TechnicalAnalysisGauge({
                 {summary.label}
               </div>
             </div>
-            <p className="text-[11px] text-fg-muted mt-2 leading-snug border-t border-slate-700/40 pt-2">
+            <p className="text-[11px] text-fg-muted mt-2 leading-snug border-t border-line-subtle/40 pt-2">
               Mid-gauge is the weighted blend; side gauges isolate oscillators vs. moving-average trend.
             </p>
           </motion.div>
@@ -421,7 +421,7 @@ function SignalCounts({ indicators, price, type }: SignalCountsProps) {
       <span className="text-[9px] uppercase tracking-wider text-fg-muted font-semibold text-center">
         {typeLabel}
       </span>
-      <div className="flex items-center justify-center gap-2 sm:gap-3 bg-slate-800/35 p-2.5 rounded-xl border border-slate-700/45 backdrop-blur-sm shadow-inner">
+      <div className="flex items-center justify-center gap-2 sm:gap-3 bg-surface-raised/35 p-2.5 rounded-xl border border-line-subtle/45 backdrop-blur-sm shadow-inner">
         <div className="flex flex-col items-center min-w-[36px] gap-0.5">
           <TrendingDown className="w-3.5 h-3.5 text-[#FF3366]/80" aria-hidden />
           <span className="text-[9px] text-fg-muted font-medium">Sell</span>

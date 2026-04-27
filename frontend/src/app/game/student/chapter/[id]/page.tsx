@@ -50,7 +50,7 @@ function MarketSellMechanic({ config, onComplete }: { config: MarketSellConfig; 
         <div className="text-[10px] text-white/40 uppercase tracking-wider mb-2">Today's Goods</div>
         <div className="flex gap-3 flex-wrap">
           {config.items.map((item) => (
-            <div key={item.name} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10">
+            <div key={item.name} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-line-default">
               <span>{item.emoji}</span>
               <span className="text-xs text-white/70">{item.name}</span>
               <span className="text-[10px] text-amber-400/70">{item.qty}×{item.basePrice}s</span>
@@ -108,7 +108,7 @@ function MarketSellMechanic({ config, onComplete }: { config: MarketSellConfig; 
                   <span className="text-red-400 font-mono text-xs">-{c.amount}s</span>
                 </div>
               ))}
-              <div className="col-span-2 border-t border-white/10 pt-2 flex justify-between font-bold">
+              <div className="col-span-2 border-t border-line-default pt-2 flex justify-between font-bold">
                 <span className="text-white/80">Net kept</span>
                 <span className="text-amber-300 font-mono">+{net}s</span>
               </div>
@@ -168,7 +168,7 @@ function SavingsGoalMechanic({ config, onComplete }: { config: SavingsGoalConfig
               <button
                 key={t.label}
                 onClick={() => spendTemptation(t)}
-                className="py-2 rounded-xl border border-white/10 bg-white/5 text-white/60 text-xs hover:bg-white/10 transition-colors"
+                className="py-2 rounded-xl border border-line-default bg-white/5 text-white/60 text-xs hover:bg-white/10 transition-colors"
               >
                 {t.emoji} Spend {t.cost}s on {t.label}
               </button>
@@ -420,13 +420,13 @@ function AssetBuyMechanic({ config, onComplete }: { config: AssetBuyConfig; onCo
             Buy {units} {config.asset}{units > 1 ? 's' : ''}
           </button>
           <button onClick={() => onComplete(0)}
-            className="w-full py-2 rounded-xl border border-white/10 text-white/40 text-sm hover:bg-white/5 transition-colors">
+            className="w-full py-2 rounded-xl border border-line-default text-white/40 text-sm hover:bg-white/5 transition-colors">
             Skip — too risky
           </button>
         </>
       ) : (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-          <div className="text-center rounded-xl bg-white/5 border border-white/10 p-4">
+          <div className="text-center rounded-xl bg-white/5 border border-line-default p-4">
             <div className="text-3xl mb-2">{seasonResult?.emoji}</div>
             <div className="font-bold text-white/90 mb-1">{seasonResult?.label}</div>
             <div className="text-sm text-white/50">Return: {seasonResult?.returnPct}%</div>
@@ -483,7 +483,7 @@ function AllocationMechanic({ config, onComplete }: { config: AllocateConfig; on
       </div>
 
       {/* Visual bar */}
-      <div className="h-4 rounded-full overflow-hidden flex gap-0.5 bg-white/5 border border-white/10">
+      <div className="h-4 rounded-full overflow-hidden flex gap-0.5 bg-white/5 border border-line-default">
         {config.buckets.map((b) => (
           <div
             key={b.id}
@@ -503,7 +503,7 @@ function AllocationMechanic({ config, onComplete }: { config: AllocateConfig; on
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: b.color }} />
               <span className="text-sm font-semibold text-white/80">{b.emoji} {b.label}</span>
-              <span className="text-[10px] text-white/35 border border-white/10 rounded-full px-1.5 py-0.5">{b.riskLabel}</span>
+              <span className="text-[10px] text-white/35 border border-line-default rounded-full px-1.5 py-0.5">{b.riskLabel}</span>
             </div>
             <span className="font-mono font-bold text-sm" style={{ color: b.color }}>{allocs[b.id]}s</span>
           </div>
@@ -523,7 +523,7 @@ function AllocationMechanic({ config, onComplete }: { config: AllocateConfig; on
         className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${
           remaining === 0
             ? 'bg-gradient-to-r from-amber-600 to-yellow-500 text-[#060B12] hover:opacity-90'
-            : 'bg-white/5 border border-white/10 text-white/30 cursor-not-allowed'
+            : 'bg-white/5 border border-line-default text-white/30 cursor-not-allowed'
         }`}
       >
         Confirm Allocation
@@ -658,7 +658,7 @@ export default function ChapterPage({ params }: { params: Promise<{ id: string }
       </div>
 
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 py-3 border-b border-white/5 bg-[#080810]/80 backdrop-blur">
+      <header className="relative z-10 flex items-center justify-between px-6 py-3 border-b border-line-subtle bg-[#080810]/80 backdrop-blur">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push('/game/student')}
@@ -785,7 +785,7 @@ export default function ChapterPage({ params }: { params: Promise<{ id: string }
                       🔒 Deposit 80% into Guild Vault ({Math.floor(gold * 0.8)}s)
                     </button>
                     <button onClick={() => handleMechanicComplete(0)}
-                      className="w-full py-2.5 rounded-xl border border-white/10 text-white/40 text-sm hover:bg-white/5">
+                      className="w-full py-2.5 rounded-xl border border-line-default text-white/40 text-sm hover:bg-white/5">
                       Keep at home for now
                     </button>
                   </div>
@@ -894,7 +894,7 @@ export default function ChapterPage({ params }: { params: Promise<{ id: string }
         </div>
 
         {/* ── Right sidebar: financial context ── */}
-        <aside className="w-64 shrink-0 border-l border-white/5 bg-[#060910] p-4 space-y-4 overflow-y-auto hidden lg:block">
+        <aside className="w-64 shrink-0 border-l border-line-subtle bg-[#060910] p-4 space-y-4 overflow-y-auto hidden lg:block">
           <SavingsBuckets gold={gold} savings={savings} emergency={emergency} debt={debt} />
           <Ledger entries={ledger} maxRows={6} showSummary={false} />
 

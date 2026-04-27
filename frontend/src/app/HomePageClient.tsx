@@ -1941,7 +1941,7 @@ function DesktopHome() {
                               names
                             </span>
                           </div>
-                          <div className="min-h-0 flex-1 space-y-0 overflow-y-auto overscroll-contain rounded-md border border-line-subtle bg-slate-950/30">
+                          <div className="min-h-0 flex-1 space-y-0 overflow-y-auto overscroll-contain rounded-md border border-line-subtle bg-surface-base/30">
                             {(activeContinent === 'global' ? heatmapUniverseStocks : regionalHeatRows).map(
                               (st) => {
                                 const pct = st.change_percent ?? 0
@@ -2030,7 +2030,7 @@ function DesktopHome() {
                           <Link
                             key={href}
                             href={href}
-                            className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-line-default/50 bg-slate-950/50 hover:border-slate-600 hover:bg-surface-raised/50 transition-all group"
+                            className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-line-default/50 bg-surface-base/50 hover:border-line-default hover:bg-surface-raised/50 transition-all group"
                           >
                             <Icon className={`w-3 h-3 shrink-0 ${color}`} />
                             <span className="text-[10px] text-fg-muted group-hover:text-fg-primary transition-colors font-medium truncate">

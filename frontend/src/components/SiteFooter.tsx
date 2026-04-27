@@ -57,7 +57,7 @@ export default function SiteFooter() {
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Stay in the order book
               </p>
-              <h3 className="text-lg sm:text-xl font-semibold text-slate-50">
+              <h3 className="text-lg sm:text-xl font-semibold text-fg-primary">
                 Subscribe for macro briefs and product drops.
               </h3>
               <p className="text-[12px] sm:text-[13px] text-fg-muted">
@@ -83,7 +83,7 @@ export default function SiteFooter() {
                           setMessage(null)
                         }
                       }}
-                      className="w-full rounded-2xl bg-slate-900/70 border border-slate-600/70 px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-cyan-400/70 focus:border-cyan-400/70 backdrop-blur"
+                      className="w-full rounded-2xl bg-surface-raised border border-line-default px-3.5 py-2.5 text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-cyan-400/70 focus:border-cyan-400/70 backdrop-blur"
                     />
                     <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-fg-muted">
                       ⏎
@@ -112,13 +112,13 @@ export default function SiteFooter() {
         </div>
 
         {/* Links & meta */}
-        <div className="rounded-3xl bg-slate-950/60 border border-slate-800/70 backdrop-blur-xl px-4 md:px-8 py-4 md:py-5">
+        <div className="rounded-3xl bg-surface-base border border-line-subtle backdrop-blur-xl px-4 md:px-8 py-4 md:py-5">
           <div className="hidden md:flex flex-col md:flex-row md:items-start gap-6 md:gap-8">
             {/* Brand */}
             <div className="md:w-1/3 space-y-2">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-2xl bg-gradient-to-br from-sky-500 via-cyan-400 to-emerald-400 p-[1px]">
-                  <div className="h-full w-full rounded-2xl bg-slate-950 flex items-center justify-center text-xs font-bold text-sky-100">
+                  <div className="h-full w-full rounded-2xl bg-surface-base flex items-center justify-center text-xs font-bold text-sky-100">
                     QT
                   </div>
                 </div>

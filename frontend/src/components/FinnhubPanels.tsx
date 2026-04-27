@@ -270,7 +270,7 @@ export function InsiderTransactionsPanel({ symbol }: { symbol: string }) {
     A: { label: 'Award', cls: 'text-blue-400 bg-blue-500/10' },
     D: { label: 'Disposition', cls: 'text-orange-400 bg-orange-500/10' },
     G: { label: 'Gift', cls: 'text-purple-400 bg-purple-500/10' },
-    F: { label: 'Tax', cls: 'text-fg-muted bg-slate-500/10' },
+    F: { label: 'Tax', cls: 'text-fg-muted bg-surface-raised' },
     M: { label: 'Exercise', cls: 'text-yellow-400 bg-yellow-500/10' },
   }
 
@@ -290,7 +290,7 @@ export function InsiderTransactionsPanel({ symbol }: { symbol: string }) {
       {isLoading ? <Spinner /> : !data.length ? <Empty /> : (
         <div className="divide-y divide-slate-800/40">
           {data.slice(0, 30).map((tx, i) => {
-            const code = codeLabel[tx.transactionCode] || { label: tx.transactionCode, cls: 'text-fg-muted bg-slate-500/10' }
+            const code = codeLabel[tx.transactionCode] || { label: tx.transactionCode, cls: 'text-fg-muted bg-surface-raised' }
             return (
               <div key={i} className="px-4 py-2.5">
                 <div className="flex items-start justify-between gap-2">
@@ -339,7 +339,7 @@ export function CompanyNewsPanel({ symbol }: { symbol: string }) {
               href={n.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block px-4 py-3 hover:bg-slate-800/30 transition-colors group"
+              className="block px-4 py-3 hover:bg-surface-raised/30 transition-colors group"
             >
               <div className="flex items-start gap-2">
                 <div className="flex-1 min-w-0">
@@ -392,14 +392,14 @@ export function SECFilingsPanel({ symbol }: { symbol: string }) {
         <div className="divide-y divide-slate-800/40">
           {data.map((f, i) => {
             const typeKey = f.type || f.form || ''
-            const cls = typeColor[typeKey] || 'text-fg-muted bg-slate-500/10'
+            const cls = typeColor[typeKey] || 'text-fg-muted bg-surface-raised'
             return (
               <a
                 key={i}
                 href={f.reportUrl || f.fileUrl || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/30 transition-colors group"
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-raised/30 transition-colors group"
               >
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 ${cls}`}>{typeKey}</span>
                 <div className="flex-1 min-w-0">
@@ -450,7 +450,7 @@ export function IPOCalendarPanel() {
       {isLoading ? <Spinner /> : !data.length ? <Empty msg="No upcoming IPOs" /> : (
         <div className="divide-y divide-slate-800/40">
           {data.map((ipo, i) => {
-            const cls = statusCls[ipo.status?.toLowerCase()] || 'text-fg-muted bg-slate-500/10'
+            const cls = statusCls[ipo.status?.toLowerCase()] || 'text-fg-muted bg-surface-raised'
             return (
               <div key={i} className="px-4 py-3">
                 <div className="flex items-start justify-between gap-2">
@@ -504,12 +504,12 @@ export function CountryMetadataPanel() {
     >
       {isLoading ? <Spinner /> : (
         <>
-          <div className="p-3 border-b border-slate-800/40">
+          <div className="p-3 border-b border-line-subtle/40">
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Filter by country, code, or currency…"
-              className="w-full bg-slate-800/50 border border-slate-700/60 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500/50"
+              className="w-full bg-surface-raised/50 border border-line-subtle rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500/50"
             />
           </div>
           <div className="divide-y divide-slate-800/40">

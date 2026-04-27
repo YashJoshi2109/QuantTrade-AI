@@ -135,7 +135,7 @@ export default function GameDashboard() {
       )}
 
       {/* Top navigation bar */}
-      <header className="border-b border-white/5 bg-black/30 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+      <header className="border-b border-line-subtle bg-black/30 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-4">
           <Link href="/" className="text-fg-muted hover:text-fg-primary transition text-sm">
             ← QuantTrade
@@ -153,7 +153,7 @@ export default function GameDashboard() {
           <Link href="/game/community" className="text-fg-muted hover:text-fg-primary text-sm transition">
             Guild
           </Link>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-line-default">
             <span className="text-yellow-400 text-sm">🪙</span>
             <span className="text-yellow-300 text-sm font-mono font-bold">{wallet?.gold_coins ?? 0}</span>
           </div>
@@ -224,7 +224,7 @@ export default function GameDashboard() {
             ))}
 
             {/* Streak */}
-            <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
+            <div className="mt-5 pt-4 border-t border-line-subtle flex items-center justify-between text-xs">
               <span className="text-fg-muted">🔥 Streak</span>
               <span className="text-orange-400 font-bold">{character?.streak_days ?? 0} days</span>
             </div>
@@ -256,7 +256,7 @@ export default function GameDashboard() {
                     className={`relative flex flex-col items-center p-3 rounded-xl border transition-all ${
                       s.live
                         ? 'border-white/15 bg-white/5 hover:border-white/25 cursor-pointer'
-                        : 'border-white/5 bg-white/2 opacity-50'
+                        : 'border-line-subtle bg-white/2 opacity-50'
                     } ${isCurrent ? 'ring-1 ring-offset-0' : ''}`}
                     style={isCurrent ? { borderColor: s.color } : {}}
                     onClick={() => s.href && (window.location.href = s.href)}
@@ -311,7 +311,7 @@ export default function GameDashboard() {
                   avatarStyle: character?.avatar_style,
                 }).catch(() => {})
               }
-              className="mt-3 px-3 py-1.5 rounded-lg border border-white/10 text-xs text-gray-300 hover:text-fg-primary transition"
+              className="mt-3 px-3 py-1.5 rounded-lg border border-line-default text-xs text-fg-secondary hover:text-fg-primary transition"
             >
               🔊 Play Story Voice
             </button>
@@ -323,13 +323,13 @@ export default function GameDashboard() {
               <h3 className="text-white font-bold text-lg flex items-center gap-2">
                 <span>⚔️</span> Active Quests
               </h3>
-              <span className="text-xs text-fg-muted bg-white/5 px-3 py-1 rounded-full border border-white/5">
+              <span className="text-xs text-fg-muted bg-white/5 px-3 py-1 rounded-full border border-line-subtle">
                 {activeMissions.length} active
               </span>
             </div>
             <div className="space-y-3">
               {activeMissions.length === 0 && (
-                <div className="text-center py-10 text-fg-muted border border-dashed border-white/5 rounded-xl">
+                <div className="text-center py-10 text-fg-muted border border-dashed border-line-subtle rounded-xl">
                   All quests complete! Check back tomorrow for new challenges.
                 </div>
               )}
@@ -418,7 +418,7 @@ export default function GameDashboard() {
                 { label: 'Monthly Income', value: wallet?.salary_monthly ?? 0, icon: '💼', positive: true },
                 { label: 'Monthly Expenses', value: wallet?.monthly_expenses ?? 0, icon: '🏠', positive: false },
               ].map((row) => (
-                <div key={row.label} className="flex justify-between items-center py-2 border-b border-white/5 last:border-0">
+                <div key={row.label} className="flex justify-between items-center py-2 border-b border-line-subtle last:border-0">
                   <span className="text-fg-muted text-xs">{row.icon} {row.label}</span>
                   <span className={`text-xs font-mono font-medium ${row.positive ? 'text-green-400' : 'text-red-400'}`}>
                     {formatCurrency(row.value)}
@@ -429,7 +429,7 @@ export default function GameDashboard() {
 
             {/* Savings rate */}
             {wallet && wallet.salary_monthly > 0 && (
-              <div className="mt-4 pt-4 border-t border-white/5">
+              <div className="mt-4 pt-4 border-t border-line-subtle">
                 <div className="flex justify-between text-xs mb-1">
                   <span className="text-fg-muted">Savings Rate</span>
                   <span style={{ color: accent }}>

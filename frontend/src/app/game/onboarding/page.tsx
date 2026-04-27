@@ -132,14 +132,14 @@ export default function OnboardingPage() {
             </div>
             <h2 className="text-3xl font-bold text-white mb-3">{realm || meta.realm}</h2>
             <p className="text-fg-muted text-lg mb-4 italic">"{meta.tagline}"</p>
-            <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-10 text-left">
+            <div className="bg-white/5 border border-line-default rounded-xl p-5 mb-10 text-left">
               <div className="text-xs text-fg-muted uppercase tracking-widest mb-2">Your Opening Scroll</div>
-              <p className="text-gray-300 text-sm leading-relaxed">
+              <p className="text-fg-secondary text-sm leading-relaxed">
                 {storyArc?.narrative || 'Your financial adventure begins. Every great fortune starts with a single wise decision.'}
               </p>
             </div>
             <div className="flex gap-3 justify-center">
-              <button onClick={() => setStep(0)} className="px-6 py-3 rounded-xl border border-white/10 text-fg-muted hover:text-fg-primary transition">
+              <button onClick={() => setStep(0)} className="px-6 py-3 rounded-xl border border-line-default text-fg-muted hover:text-fg-primary transition">
                 ← Back
               </button>
               <button
@@ -152,7 +152,7 @@ export default function OnboardingPage() {
               >
                 Choose Your Avatar →
               </button>
-              <button onClick={() => playNarration(storyArc?.narrative || meta.tagline)} className="px-6 py-3 rounded-xl border border-white/10 text-gray-300 hover:text-fg-primary transition">
+              <button onClick={() => playNarration(storyArc?.narrative || meta.tagline)} className="px-6 py-3 rounded-xl border border-line-default text-fg-secondary hover:text-fg-primary transition">
                 🔊 Hear Story
               </button>
             </div>
@@ -196,7 +196,7 @@ export default function OnboardingPage() {
               ))}
             </div>
             <div className="flex gap-3 justify-center">
-              <button onClick={() => setStep(1)} className="px-6 py-3 rounded-xl border border-white/10 text-fg-muted hover:text-fg-primary transition">
+              <button onClick={() => setStep(1)} className="px-6 py-3 rounded-xl border border-line-default text-fg-muted hover:text-fg-primary transition">
                 ← Back
               </button>
               <button
@@ -230,10 +230,10 @@ export default function OnboardingPage() {
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your hero's name..."
               maxLength={50}
-              className="w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white text-lg text-center placeholder-gray-600 focus:outline-none focus:border-amber-500/50 mb-10"
+              className="w-full px-5 py-4 rounded-xl bg-white/5 border border-line-default text-white text-lg text-center placeholder-fg-muted focus:outline-none focus:border-amber-500/50 mb-10"
             />
             <div className="flex gap-3 justify-center">
-              <button onClick={() => setStep(2)} className="px-6 py-3 rounded-xl border border-white/10 text-fg-muted hover:text-fg-primary transition">
+              <button onClick={() => setStep(2)} className="px-6 py-3 rounded-xl border border-line-default text-fg-muted hover:text-fg-primary transition">
                 ← Back
               </button>
               <button

@@ -252,7 +252,7 @@ const BIAS_STYLES = {
 const IMPACT_STYLES = {
   High: 'bg-red-500/15 text-red-300 border-red-500/30',
   Medium: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  Low: 'bg-slate-500/15 text-fg-secondary border-slate-500/30',
+  Low: 'bg-surface-raised text-fg-secondary border-line-subtle',
 }
 
 /* ────────────────── Factor Card ────────────────── */
@@ -296,7 +296,7 @@ function FactorCard({ factor }: { factor: KeyFactor }) {
             {factor.confidence}%
           </span>
         </div>
-        <div className="h-1.5 bg-slate-800/80 rounded-full overflow-hidden">
+        <div className="h-1.5 bg-surface-raised rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{

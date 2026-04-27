@@ -928,9 +928,9 @@ function ModelIndicator({ model, isStreaming }: { model: string; isStreaming: bo
     'openrouter': { name: 'Gemini Flash', color: 'text-blue-400 border-blue-500/30 bg-blue-500/10' },
     'deepseek-v3': { name: 'DeepSeek V3', color: 'text-violet-400 border-violet-500/30 bg-violet-500/10' },
     'deepseek-v3_cached': { name: 'DeepSeek V3 (cached)', color: 'text-violet-300 border-violet-500/20 bg-violet-500/5' },
-    'fallback': { name: 'Llama 3.1 8B', color: 'text-fg-muted border-slate-500/30 bg-slate-500/10' },
+    'fallback': { name: 'Llama 3.1 8B', color: 'text-fg-muted border-line-subtle bg-surface-raised' },
     'rate_limited': { name: 'Rate Limited', color: 'text-red-400 border-red-500/30 bg-red-500/10' },
-    'none': { name: 'No Model', color: 'text-fg-muted border-slate-600/30 bg-slate-600/10' },
+    'none': { name: 'No Model', color: 'text-fg-muted border-line-subtle bg-surface-raised' },
   }
 
   const info = modelLabels[model] || modelLabels['groq']
@@ -1361,7 +1361,7 @@ function ConversationSidebar({
           <HistoryListSkeleton />
         ) : conversations.length === 0 ? (
           <div className="text-center py-8 px-4">
-            <MessageSquare className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+            <MessageSquare className="w-8 h-8 text-fg-muted mx-auto mb-2" />
             <p className="text-xs text-fg-muted">No conversations yet</p>
             <p className="text-[10px] text-fg-muted mt-1">Start a new chat to begin</p>
           </div>

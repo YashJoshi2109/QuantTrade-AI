@@ -51,7 +51,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 }
 
 function getCategoryColor(category: string) {
-  return CATEGORY_COLORS[category.toLowerCase()] || 'bg-slate-500/15 text-fg-muted border-slate-500/30'
+  return CATEGORY_COLORS[category.toLowerCase()] || 'bg-surface-raised text-fg-muted border-line-subtle'
 }
 
 function formatCount(n: number): string {

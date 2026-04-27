@@ -33,7 +33,7 @@ const magicSans = DM_Sans({
 })
 
 const dashToolbar =
-  'h-12 px-4 border-b border-slate-700/30 flex items-center justify-between shrink-0 gap-2'
+  'h-12 px-4 border-b border-line-subtle/30 flex items-center justify-between shrink-0 gap-2'
 
 function HeadlineThumb({
   src,
@@ -56,7 +56,7 @@ function HeadlineThumb({
   if (!src || failed) {
     return (
       <div
-        className={`${frame} ${radius} flex items-center justify-center border border-slate-700/50 bg-gradient-to-br from-slate-800/90 to-slate-950/90 shrink-0`}
+        className={`${frame} ${radius} flex items-center justify-center border border-line-subtle bg-gradient-to-br from-slate-800/90 to-slate-950/90 shrink-0`}
         aria-hidden
       >
         <Newspaper className={layout === 'hero' ? 'w-10 h-10 text-fg-muted' : 'w-5 h-5 text-fg-muted'} />
@@ -65,7 +65,7 @@ function HeadlineThumb({
   }
 
   return (
-    <div className={`${frame} ${radius} relative shrink-0 overflow-hidden border border-slate-700/40 bg-slate-900`}>
+    <div className={`${frame} ${radius} relative shrink-0 overflow-hidden border border-line-subtle/40 bg-surface-base`}>
       {/* eslint-disable-next-line @next/next/no-img-element -- remote CDN hosts vary; native img avoids config churn */}
       <img
         src={src}
@@ -86,7 +86,7 @@ function sentimentIcon(sentiment: string | null | undefined) {
   return (
     <div
       className={`px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1 border ${
-        isBullish ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : isBearish ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-slate-700/20 border-slate-700/40 text-slate-400'
+        isBullish ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : isBearish ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-surface-overlay/20 border-line-subtle/40 text-fg-muted'
       }`}
     >
       {isBullish ? (
@@ -117,8 +117,8 @@ function NewsCard({
         isHero
           ? 'flex-col gap-4 p-4 border-amber-500/20 bg-gradient-to-br from-amber-500/[0.03] via-slate-900/60 to-slate-950 shadow-lg hover:shadow-[0_0_30px_-10px_rgba(251,191,36,0.2)] hover:border-amber-500/40 hover:bg-gradient-to-br hover:from-amber-500/[0.06]'
           : isWire
-            ? 'flex-row items-center gap-3 py-2.5 px-3 border-slate-800/60 bg-slate-950/40 hover:border-amber-500/30 hover:bg-amber-500/[0.04]'
-            : 'flex-row items-start gap-3.5 p-3 border-slate-800/50 bg-slate-900/40 hover:border-amber-500/30 hover:bg-amber-500/[0.05]'
+            ? 'flex-row items-center gap-3 py-2.5 px-3 border-line-subtle bg-surface-base/40 hover:border-amber-500/30 hover:bg-amber-500/[0.04]'
+            : 'flex-row items-start gap-3.5 p-3 border-line-subtle/50 bg-surface-base/40 hover:border-amber-500/30 hover:bg-amber-500/[0.05]'
       }`}
     >
       <HeadlineThumb src={news.imageUrl} alt={imgAlt} layout={layout} />
@@ -153,7 +153,7 @@ function NewsCard({
             {news.tickers.slice(0, isHero ? 5 : 3).map((t) => (
               <span
                 key={t}
-                className="px-1.5 py-0.5 text-[9px] rounded font-mono bg-slate-800/80 text-fg-secondary border border-slate-700/50"
+                className="px-1.5 py-0.5 text-[9px] rounded font-mono bg-surface-raised/80 text-fg-secondary border border-line-subtle"
               >
                 {t}
               </span>
@@ -286,7 +286,7 @@ export default function DashboardMagicNewsPanel({
               <button
                 type="button"
                 onClick={() => onRefresh()}
-                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-600 text-xs text-white hover:border-teal-500/50"
+                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-base border border-line-default text-xs text-white hover:border-teal-500/50"
               >
                 <RefreshCw className="w-3 h-3" /> Retry
               </button>
@@ -319,7 +319,7 @@ export default function DashboardMagicNewsPanel({
                       {continentLabel} · Guardian wire
                     </div>
                     {continentNewsLoading && !hero ? (
-                      <div className="rounded-xl border border-dashed border-amber-500/25 bg-slate-950/40 p-6 text-center text-sm text-fg-muted">
+                      <div className="rounded-xl border border-dashed border-amber-500/25 bg-surface-base/40 p-6 text-center text-sm text-fg-muted">
                         Pulling regional headlines…
                       </div>
                     ) : hero ? (
@@ -327,7 +327,7 @@ export default function DashboardMagicNewsPanel({
                         <NewsCard news={hero} layout="hero" />
                       </motion.div>
                     ) : (
-                      <div className="rounded-xl border border-slate-800/60 bg-slate-950/30 p-4 text-sm text-fg-muted">
+                      <div className="rounded-xl border border-line-subtle bg-surface-base/30 p-4 text-sm text-fg-muted">
                         No regional desk file for this tab yet. Wire feed still updates live.
                       </div>
                     )}
@@ -347,7 +347,7 @@ export default function DashboardMagicNewsPanel({
                     )}
                   </section>
 
-                  <section className="xl:col-span-5 flex flex-col gap-2.5 min-h-0 min-w-0 border-t xl:border-t-0 xl:border-l border-slate-800/50 pt-4 xl:pt-0 xl:pl-5">
+                  <section className="xl:col-span-5 flex flex-col gap-2.5 min-h-0 min-w-0 border-t xl:border-t-0 xl:border-l border-line-subtle/50 pt-4 xl:pt-0 xl:pl-5">
                     <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-teal-200/75 shrink-0">
                       <Zap className="w-3.5 h-3.5 text-teal-400" />
                       Global wire
@@ -374,12 +374,12 @@ export default function DashboardMagicNewsPanel({
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full py-10 text-center px-4">
-              <Activity className="w-8 h-8 text-slate-700 mb-3" />
+              <Activity className="w-8 h-8 text-fg-muted mb-3" />
               <p className="text-fg-muted text-sm">No headlines available</p>
               <button
                 type="button"
                 onClick={() => onRefresh()}
-                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-600 text-xs text-white hover:border-teal-500/50"
+                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-base border border-line-default text-xs text-white hover:border-teal-500/50"
               >
                 <RefreshCw className="w-3 h-3" /> Retry
               </button>

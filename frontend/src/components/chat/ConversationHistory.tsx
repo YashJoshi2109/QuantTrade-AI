@@ -65,7 +65,7 @@ export default function ConversationHistory({
 
         {!loading && conversations.length === 0 && (
           <div className="text-center py-8">
-            <MessageSquare className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+            <MessageSquare className="w-8 h-8 text-fg-muted mx-auto mb-2" />
             <p className="text-[12px] text-fg-muted">No conversations yet</p>
             <p className="text-[10px] text-fg-muted mt-1">Start a new chat to begin</p>
           </div>

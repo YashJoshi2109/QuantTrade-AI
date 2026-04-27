@@ -17,7 +17,7 @@ export function Skeleton({
   height,
   animation = 'pulse',
 }: SkeletonProps) {
-  const baseStyles = 'bg-slate-700/50'
+  const baseStyles = 'bg-surface-overlay/50'
   
   const variantStyles = {
     default: 'rounded-md',
@@ -98,7 +98,7 @@ export function SkeletonStatsRow() {
 
 export function SkeletonStockRow() {
   return (
-    <div className="flex items-center justify-between p-3 border-b border-slate-700/50">
+    <div className="flex items-center justify-between p-3 border-b border-line-subtle">
       <div className="flex items-center gap-3">
         <Skeleton className="h-8 w-8" variant="circular" />
         <div className="space-y-1">
@@ -116,7 +116,7 @@ export function SkeletonStockRow() {
 
 export function SkeletonTableRow({ columns = 5 }: { columns?: number }) {
   return (
-    <tr className="border-b border-slate-700/50">
+    <tr className="border-b border-line-subtle">
       {Array.from({ length: columns }).map((_, i) => (
         <td key={i} className="p-3">
           <Skeleton className="h-4 w-full" />
@@ -165,7 +165,7 @@ export function SkeletonChart({ height = 300 }: { height?: number }) {
 
 export function SkeletonWatchlistItem() {
   return (
-    <div className="flex items-center justify-between p-4 border-b border-slate-700/50">
+    <div className="flex items-center justify-between p-4 border-b border-line-subtle">
       <div className="flex items-center gap-3">
         <Skeleton className="h-10 w-10" variant="circular" />
         <div className="space-y-1">
@@ -201,7 +201,7 @@ export function SkeletonIndicators() {
   return (
     <div className="p-3 space-y-2">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+        <div key={i} className="flex items-center justify-between p-3 bg-surface-raised/30 rounded-lg">
           <Skeleton className="h-4 w-20" />
           <Skeleton className="h-4 w-16" />
         </div>
@@ -215,7 +215,7 @@ export function SkeletonWatchlistTable({ rows = 5 }: { rows?: number }) {
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-slate-700 bg-slate-800/50">
+          <tr className="border-b border-line-subtle bg-surface-raised/50">
             <th className="px-4 py-3 text-left"><Skeleton className="h-3 w-4" /></th>
             <th className="px-2 py-3 text-left"><Skeleton className="h-8 w-8 rounded-lg" /></th>
             <th className="px-4 py-3 text-left"><Skeleton className="h-3 w-14" /></th>
@@ -279,7 +279,7 @@ export function SkeletonSectorPerformance({ count = 6 }: { count?: number }) {
   return (
     <div className="space-y-3">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+        <div key={i} className="flex items-center justify-between p-3 bg-surface-raised/30 rounded-lg">
           <div className="flex items-center gap-3">
             <Skeleton className="h-8 w-8" variant="circular" />
             <Skeleton className="h-4 w-24" />

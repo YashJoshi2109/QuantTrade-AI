@@ -32,7 +32,7 @@ export function RoofMeter({
   const currentColor = segments.find((s) => pct <= s.threshold)?.color ?? '#00E5A0'
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/3 p-4 space-y-3">
+    <div className="rounded-2xl border border-line-default bg-white/3 p-4 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

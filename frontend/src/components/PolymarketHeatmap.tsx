@@ -30,7 +30,7 @@ async function fetchPolymarketForHeatmap(): Promise<PolymarketTile[]> {
 }
 
 function getTileColor(yesPercent: number | null): string {
-  if (yesPercent === null) return 'bg-slate-700/80 border-slate-600/60'
+  if (yesPercent === null) return 'bg-surface-overlay/80 border-line-default'
   if (yesPercent >= 70) return 'bg-emerald-600/90 border-emerald-500/50'
   if (yesPercent >= 50) return 'bg-emerald-500/70 border-emerald-400/40'
   if (yesPercent >= 30) return 'bg-amber-500/70 border-amber-400/40'
@@ -48,7 +48,7 @@ export default function PolymarketHeatmap() {
 
   return (
     <div className="hud-panel flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between border-b border-slate-800/70 bg-gradient-to-r from-[#050814] via-[#07101f] to-[#050814] px-4 py-3">
+      <div className="flex items-center justify-between border-b border-line-subtle/70 bg-gradient-to-r from-[#050814] via-[#07101f] to-[#050814] px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15 border border-violet-400/40">
             <BarChart3 className="h-4 w-4 text-violet-300" />
@@ -62,7 +62,7 @@ export default function PolymarketHeatmap() {
             </span>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 border border-slate-700/60 px-2 py-0.5 text-[10px] text-fg-muted">
+        <span className="inline-flex items-center gap-1 rounded-full bg-surface-base/80 border border-line-subtle px-2 py-0.5 text-[10px] text-fg-muted">
           <Activity className="w-3 h-3 text-emerald-400" />
           Live
         </span>

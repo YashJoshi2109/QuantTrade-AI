@@ -58,10 +58,10 @@ const impactColor = (impact: string) =>
     ? "bg-rose-500/15 text-rose-400 border-rose-500/30"
     : impact === "medium"
       ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
-      : "bg-slate-700/50 text-fg-muted border-slate-600/30"
+      : "bg-surface-overlay/50 text-fg-muted border-line-subtle"
 
 const impactDot = (impact: string) =>
-  impact === "high" ? "bg-rose-400" : impact === "medium" ? "bg-amber-400" : "bg-slate-500"
+  impact === "high" ? "bg-rose-400" : impact === "medium" ? "bg-amber-400" : "bg-fg-muted"
 
 // Map event names to likely affected sectors/tickers
 const EVENT_STOCK_MAP: Record<string, { tickers: string[]; sector: string }> = {
@@ -121,7 +121,7 @@ function EventDetailSnapshot({
             <img
               src={`https://flagcdn.com/w40/${event.countryCode.toLowerCase()}.png`}
               alt={event.countryCode}
-              className="w-8 h-8 rounded-full object-cover bg-slate-800 shrink-0 mt-0.5"
+              className="w-8 h-8 rounded-full object-cover bg-surface-raised shrink-0 mt-0.5"
             />
             <div>
               <h3 className="text-sm font-bold text-white leading-tight">{event.eventName}</h3>
@@ -131,14 +131,14 @@ function EventDetailSnapshot({
                 </span>
                 <span className={cn(
                   "text-[8px] font-bold uppercase px-1.5 py-0.5 rounded",
-                  event.impact === "high" ? "bg-rose-500/10 text-rose-400" : event.impact === "medium" ? "bg-amber-500/10 text-amber-400" : "bg-slate-700/30 text-fg-muted"
+                  event.impact === "high" ? "bg-rose-500/10 text-rose-400" : event.impact === "medium" ? "bg-amber-500/10 text-amber-400" : "bg-surface-overlay/30 text-fg-muted"
                 )}>
                   {event.impact} impact
                 </span>
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-800/60 text-fg-muted hover:text-fg-primary transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-raised/60 text-fg-muted hover:text-fg-primary transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -352,18 +352,18 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
 
         <div className="flex items-center gap-2">
           <div className="inline-flex rounded-lg border border-slate-700/50 overflow-hidden">
-            <button onClick={previousMonth} className="px-2.5 py-1.5 hover:bg-slate-800/60 transition-colors text-fg-muted hover:text-fg-primary">
+            <button onClick={previousMonth} className="px-2.5 py-1.5 hover:bg-surface-raised/60 transition-colors text-fg-muted hover:text-fg-primary">
               <ChevronLeftIcon className="w-4 h-4" />
             </button>
-            <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold border-x border-slate-700/50 hover:bg-slate-800/60 transition-colors text-fg-secondary hover:text-fg-primary">
+            <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold border-x border-line-subtle hover:bg-surface-raised/60 transition-colors text-fg-secondary hover:text-fg-primary">
               Today
             </button>
-            <button onClick={nextMonth} className="px-2.5 py-1.5 hover:bg-slate-800/60 transition-colors text-fg-muted hover:text-fg-primary">
+            <button onClick={nextMonth} className="px-2.5 py-1.5 hover:bg-surface-raised/60 transition-colors text-fg-muted hover:text-fg-primary">
               <ChevronRightIcon className="w-4 h-4" />
             </button>
           </div>
           {onClose && (
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-800/60 text-fg-muted hover:text-fg-primary transition-colors">
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-surface-raised/60 text-fg-muted hover:text-fg-primary transition-colors">
               <X className="w-5 h-5" />
             </button>
           )}
@@ -392,9 +392,9 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
                   className={cn(
                     "relative flex flex-col border-b border-r border-slate-800/30 p-1.5 text-left transition-colors min-h-[90px] cursor-pointer",
                     idx === 0 && colStartClasses[getDay(day)],
-                    !inMonth && "bg-slate-900/30",
+                    !inMonth && "bg-surface-base/30",
                     isSelected && "bg-cyan-500/5 ring-1 ring-inset ring-cyan-500/30",
-                    !isSelected && "hover:bg-slate-800/30",
+                    !isSelected && "hover:bg-surface-raised/30",
                   )}
                 >
                   <span
@@ -449,7 +449,7 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
                     className={cn(
                       "flex flex-col items-center py-1.5 rounded-lg transition-all",
                       isSelected && "bg-cyan-500/15 ring-1 ring-cyan-500/30",
-                      !isSelected && "hover:bg-slate-800/40",
+                      !isSelected && "hover:bg-surface-raised/40",
                     )}
                   >
                     <span
@@ -494,7 +494,7 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
               >
                 {selectedDayEvents.length === 0 ? (
                   <div className="text-center py-8">
-                    <Globe className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                    <Globe className="w-8 h-8 text-fg-muted mx-auto mb-2" />
                     <p className="text-fg-muted text-sm">No economic events</p>
                   </div>
                 ) : (
@@ -510,7 +510,7 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
                       <img
                         src={`https://flagcdn.com/w40/${ev.countryCode.toLowerCase()}.png`}
                         alt={ev.countryCode}
-                        className="w-6 h-6 rounded-full object-cover bg-slate-800 shrink-0 mt-0.5"
+                        className="w-6 h-6 rounded-full object-cover bg-surface-raised shrink-0 mt-0.5"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">

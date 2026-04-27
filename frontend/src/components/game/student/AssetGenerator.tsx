@@ -124,7 +124,7 @@ export function AssetGenerator({ defaultType = 'character', compact = false }: A
                 key={preset.label}
                 onClick={() => generate(preset.name)}
                 disabled={generating}
-                className="text-[11px] px-2.5 py-1 rounded-lg border border-white/10 bg-white/3 text-white/60 hover:border-amber-500/30 hover:text-amber-300 hover:bg-amber-500/8 transition-all disabled:opacity-40"
+                className="text-[11px] px-2.5 py-1 rounded-lg border border-line-default bg-white/3 text-white/60 hover:border-amber-500/30 hover:text-amber-300 hover:bg-amber-500/8 transition-all disabled:opacity-40"
               >
                 {preset.label}
               </button>
