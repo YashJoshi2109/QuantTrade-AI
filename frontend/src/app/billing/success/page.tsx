@@ -63,10 +63,10 @@ function BillingSuccessContent() {
             </>
           ) : error ? (
             <>
-              <h1 className="text-xl font-semibold text-white mb-2">
+              <h1 className="text-xl font-semibold text-fg-primary mb-2">
                 Thanks for your purchase
               </h1>
-              <p className="text-sm text-slate-400 mb-2">
+              <p className="text-sm text-fg-muted mb-2">
                 Your payment should still be processed. If you don&apos;t see Plus features unlocked,
                 please contact support with your email and we&apos;ll sort it out.
               </p>
@@ -75,10 +75,10 @@ function BillingSuccessContent() {
           ) : (
             <>
               <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-4" />
-              <h1 className="text-xl font-semibold text-white mb-2">
+              <h1 className="text-xl font-semibold text-fg-primary mb-2">
                 Subscription activated
               </h1>
-              <p className="text-sm text-slate-400 mb-2">
+              <p className="text-sm text-fg-muted mb-2">
                 You now have access to QuantTrade Pro. Redirecting you back to your dashboard...
               </p>
             </>

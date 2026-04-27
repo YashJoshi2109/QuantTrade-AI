@@ -143,25 +143,25 @@ function FreeCard({
   href: string
 }) {
   return (
-    <div className="relative rounded-2xl border border-slate-700/50 bg-gradient-to-b from-slate-900/75 to-slate-950/90 backdrop-blur-sm p-8 flex flex-col h-full overflow-hidden">
+    <div className="relative rounded-2xl border border-line-subtle bg-gradient-to-b from-slate-900/75 to-slate-950/90 backdrop-blur-sm p-8 flex flex-col h-full overflow-hidden">
       <div className="pointer-events-none absolute -right-8 -top-8 h-36 w-36 rounded-full bg-cyan-500/[0.06] blur-2xl" />
       <div className="relative mb-5">
-        <div className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2">Free</div>
+        <div className="text-[11px] font-black uppercase tracking-widest text-fg-muted mb-2">Free</div>
         <div className="flex items-baseline gap-2 mb-2">
-          <span className="text-4xl font-black text-white">$0</span>
-          <span className="text-slate-500 text-sm">/month</span>
+          <span className="text-4xl font-black text-fg-primary">$0</span>
+          <span className="text-fg-muted text-sm">/month</span>
         </div>
-        <p className="text-slate-400 text-sm leading-relaxed">
+        <p className="text-fg-muted text-sm leading-relaxed">
           Enough to explore the product. Upgrade when you want the heavy tools and the full game.
         </p>
       </div>
 
       <div className="relative flex-1 space-y-5 mb-6">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3">What you get</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-fg-muted mb-3">What you get</p>
           <ul className="space-y-2.5">
             {included.map(label => (
-              <li key={label} className="flex items-start gap-3 text-sm text-slate-200">
+              <li key={label} className="flex items-start gap-3 text-sm text-fg-primary">
                 <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-md border border-cyan-500/25 bg-cyan-500/10">
                   <Check className="h-2.5 w-2.5 text-cyan-400" />
                 </span>
@@ -171,12 +171,12 @@ function FreeCard({
           </ul>
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-3 border-t border-slate-800/90 pt-4">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-fg-muted mb-3 border-t border-line-subtle/90 pt-4">
             Unlocks with Pro
           </p>
           <ul className="space-y-2">
             {locked.map(label => (
-              <li key={label} className="flex items-start gap-3 text-sm text-slate-500">
+              <li key={label} className="flex items-start gap-3 text-sm text-fg-muted">
                 <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-600" />
                 <span>{label}</span>
               </li>
@@ -185,17 +185,17 @@ function FreeCard({
         </div>
       </div>
 
-      <div className="relative mb-5 rounded-xl border border-slate-700/50 bg-slate-950/50 px-3 py-2.5">
-        <p className="text-[11px] leading-snug text-slate-400">
+      <div className="relative mb-5 rounded-xl border border-line-subtle bg-surface-overlay/50 px-3 py-2.5">
+        <p className="text-[11px] leading-snug text-fg-muted">
           Sign in and we&apos;ll email you code{' '}
           <span className="font-mono text-cyan-400/90">{STRIPE_PROMO_CUSTOMER_CODE}</span> for{' '}
-          <span className="text-slate-300">{WELCOME_PROMO_AMOUNT_LABEL} off</span> Pro (monthly or yearly) at checkout.
+          <span className="text-fg-primary">{WELCOME_PROMO_AMOUNT_LABEL} off</span> Pro (monthly or yearly) at checkout.
         </p>
       </div>
 
       <Link
         href={href}
-        className="relative block text-center py-3 px-6 rounded-xl border border-slate-600 text-slate-200 font-bold text-sm hover:border-cyan-500/40 hover:bg-slate-800/40 hover:text-white transition-all"
+        className="relative block text-center py-3 px-6 rounded-xl border border-line-default text-fg-primary font-bold text-sm hover:border-cyan-500/40 hover:bg-surface-hover hover:text-fg-primary transition-all"
       >
         {cta}
       </Link>
@@ -223,7 +223,7 @@ function ProCard({
       <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-sky-600/5 to-blue-700/10 rounded-2xl" />
       <div className="absolute inset-0 rounded-2xl border border-cyan-500/30 shadow-[0_0_60px_rgba(6,182,212,0.12)]" />
 
-      <div className="relative p-8 flex flex-col h-full bg-slate-900/80 backdrop-blur-sm rounded-2xl">
+      <div className="relative p-8 flex flex-col h-full bg-surface-raised/80 backdrop-blur-sm rounded-2xl">
         <div className="absolute -top-px left-1/2 -translate-x-1/2">
           <div className="flex items-center gap-1.5 px-4 py-1 rounded-b-xl text-[10px] font-black text-white uppercase tracking-widest shadow-lg bg-gradient-to-r from-cyan-500 to-sky-500 shadow-cyan-500/30">
             <Star className="w-3 h-3 fill-white" /> Most Popular
@@ -239,12 +239,12 @@ function ProCard({
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
-                className="text-5xl font-black text-white"
+                className="text-5xl font-black text-fg-primary"
               >
                 {billingInterval === 'monthly' ? `$${PRO_MONTHLY.toFixed(2)}` : `$${YEARLY_PER_MONTH_LABEL}`}
               </motion.span>
             </AnimatePresence>
-            <span className="text-slate-400 text-sm">/month</span>
+            <span className="text-fg-muted text-sm">/month</span>
           </div>
           {billingInterval === 'yearly' && (
             <motion.div
@@ -261,7 +261,7 @@ function ProCard({
           {features.map(f => {
             const Icon = f.icon
             return (
-              <li key={f.label} className="flex items-center gap-3 text-sm text-slate-200">
+              <li key={f.label} className="flex items-center gap-3 text-sm text-fg-primary">
                 <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 bg-cyan-500/20 border border-cyan-500/30">
                   <Icon className="w-3 h-3 text-cyan-400" />
                 </div>
@@ -315,7 +315,7 @@ function ProCard({
           </p>
         </div>
 
-        <p className="text-center text-[10px] text-slate-600 mt-3 flex items-center justify-center gap-1">
+        <p className="text-center text-[10px] text-fg-muted mt-3 flex items-center justify-center gap-1">
           <CreditCard className="w-3 h-3" /> Powered by Stripe · Cancel anytime
         </p>
       </div>
@@ -330,8 +330,8 @@ function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic
   return (
     <div className="space-y-4 pb-4">
       <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 pt-safe pb-3 px-2">
-        <h1 className="text-[20px] font-bold text-white text-center">Choose Your Plan</h1>
-        <p className="text-[12px] text-slate-400 text-center mb-4 px-1 leading-relaxed">
+        <h1 className="text-[20px] font-bold text-fg-primary text-center">Choose Your Plan</h1>
+        <p className="text-[12px] text-fg-muted text-center mb-4 px-1 leading-relaxed">
           Pro is one bill for research tools and the full CoinRealm game—nothing extra for the game.
         </p>
         {onPro && (
@@ -349,7 +349,7 @@ function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic
               type="button"
               onClick={() => setBillingInterval('monthly')}
               className={`px-5 py-1.5 text-[11px] font-bold rounded-full transition-colors ${
-                billingInterval === 'monthly' ? 'bg-[#00D9FF] text-[#0A0E1A]' : 'text-slate-400'
+                billingInterval === 'monthly' ? 'bg-[#00D9FF] text-[#0A0E1A]' : 'text-fg-muted'
               }`}
             >
               Monthly
@@ -358,7 +358,7 @@ function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic
               type="button"
               onClick={() => setBillingInterval('yearly')}
               className={`px-4 py-1.5 text-[11px] font-bold rounded-full transition-colors flex items-center gap-1.5 ${
-                billingInterval === 'yearly' ? 'bg-[#00D9FF] text-[#0A0E1A]' : 'text-slate-400'
+                billingInterval === 'yearly' ? 'bg-[#00D9FF] text-[#0A0E1A]' : 'text-fg-muted'
               }`}
             >
               Yearly
@@ -414,30 +414,30 @@ function MobileFreeCard({
       <div className="mb-3 flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#0A0E1A]">
-            <Zap className="h-5 w-5 text-slate-300" />
+            <Zap className="h-5 w-5 text-fg-primary" />
           </div>
           <div>
-            <h2 className="text-[16px] font-semibold text-white">Free</h2>
-            <p className="text-[11px] leading-snug text-slate-400">Try the core experience before you pay.</p>
+            <h2 className="text-[16px] font-semibold text-fg-primary">Free</h2>
+            <p className="text-[11px] leading-snug text-fg-muted">Try the core experience before you pay.</p>
           </div>
         </div>
-        <div className="text-[22px] font-bold text-white">$0</div>
+        <div className="text-[22px] font-bold text-fg-primary">$0</div>
       </div>
 
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Included</p>
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-fg-muted">Included</p>
       <div className="mb-3 space-y-1.5">
         {included.map(label => (
-          <div key={label} className="flex items-start gap-2 text-[12px] text-slate-200">
+          <div key={label} className="flex items-start gap-2 text-[12px] text-fg-primary">
             <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-500/80" />
             <span>{label}</span>
           </div>
         ))}
       </div>
 
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-600">With Pro</p>
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-fg-muted">With Pro</p>
       <div className="mb-3 space-y-1.5">
         {locked.slice(0, 4).map(label => (
-          <div key={label} className="flex items-start gap-2 text-[12px] text-slate-500">
+          <div key={label} className="flex items-start gap-2 text-[12px] text-fg-muted">
             <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-600" />
             <span>{label}</span>
           </div>
@@ -445,14 +445,14 @@ function MobileFreeCard({
       </div>
 
       <div className="mb-3 rounded-lg border border-white/5 bg-black/20 px-2.5 py-2">
-        <p className="text-[10px] leading-snug text-slate-400">
+        <p className="text-[10px] leading-snug text-fg-muted">
           Code <span className="font-mono text-cyan-400/90">{STRIPE_PROMO_CUSTOMER_CODE}</span> → {WELCOME_PROMO_AMOUNT_LABEL} off Pro (emailed after sign-in).
         </p>
       </div>
 
       <Link
         href={href}
-        className="flex h-11 w-full items-center justify-center rounded-xl border border-white/10 bg-[#0A0E1A] text-[13px] font-semibold text-slate-300 transition-transform active:scale-[0.98]"
+        className="flex h-11 w-full items-center justify-center rounded-xl border border-white/10 bg-[#0A0E1A] text-[13px] font-semibold text-fg-primary transition-transform active:scale-[0.98]"
       >
         {cta}
       </Link>
@@ -490,12 +490,12 @@ function MobileProCard({
           </div>
           <div>
             <div className="text-[9px] uppercase tracking-[0.18em] mb-1 font-bold text-[#00D9FF]">Most Popular</div>
-            <h2 className="text-[18px] font-bold text-white leading-tight">QuantTrade Pro</h2>
+            <h2 className="text-[18px] font-bold text-fg-primary leading-tight">QuantTrade Pro</h2>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-[26px] font-black text-white">{amountLabel}</div>
-          <div className="text-[10px] text-slate-400">/{periodLabel}</div>
+          <div className="text-[26px] font-black text-fg-primary">{amountLabel}</div>
+          <div className="text-[10px] text-fg-muted">/{periodLabel}</div>
         </div>
       </div>
       {yearlySave && <div className="text-right text-[10px] text-emerald-400 font-bold mb-3">{yearlySave}</div>}
@@ -504,7 +504,7 @@ function MobileProCard({
         {features.map(f => {
           const Icon = f.icon
           return (
-            <div key={f.label} className="flex items-center gap-2.5 text-[12px] text-slate-100">
+            <div key={f.label} className="flex items-center gap-2.5 text-[12px] text-fg-primary">
               <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 bg-black/20 border border-[#00D9FF]">
                 <Icon className="w-2.5 h-2.5 text-[#00D9FF]" />
               </div>
@@ -537,7 +537,7 @@ function MobileProCard({
         {STRIPE_PROMO_CUSTOMER_CODE} at checkout → {WELCOME_PROMO_AMOUNT_LABEL} off
       </p>
 
-      <div className="relative z-10 mt-2 flex items-center justify-center gap-1.5 text-center text-[9px] text-slate-500">
+      <div className="relative z-10 mt-2 flex items-center justify-center gap-1.5 text-center text-[9px] text-fg-muted">
         <CreditCard className="h-3 w-3" /> Stripe checkout
       </div>
     </div>
@@ -554,21 +554,21 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
         <div className="max-w-5xl mx-auto px-6 py-12">
           <motion.div className="text-center mb-10" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-center justify-center gap-3 mb-8">
-              <div className="w-9 h-9 rounded-xl bg-slate-900 border border-cyan-500/20 overflow-hidden">
+              <div className="w-9 h-9 rounded-xl bg-surface-raised border border-cyan-500/20 overflow-hidden">
                 <Image src="/logo.png" alt="QuantTrade" width={36} height={36} className="object-contain" />
               </div>
               <span className="text-xl font-black bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
                 QuantTrade AI
               </span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-black text-white mb-5 leading-tight">
+            <h1 className="text-4xl md:text-5xl font-black text-fg-primary mb-5 leading-tight">
               Choose Your
               <br />
               <span className="bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 bg-clip-text text-transparent">
                 QuantTrade Pro Plan
               </span>
             </h1>
-            <p className="text-slate-400 max-w-xl mx-auto text-base leading-relaxed">
+            <p className="text-fg-muted max-w-xl mx-auto text-base leading-relaxed">
               Free tier gets you real usage: markets, a small Copilot allowance, and the opening arc of CoinRealm. Pro is
               when you want the full research stack and the rest of the game—still a single subscription, not two.
             </p>
@@ -593,12 +593,12 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
           >
-            <div className="inline-flex items-center bg-slate-900 border border-slate-700/60 rounded-full p-1 gap-0.5">
+            <div className="inline-flex items-center bg-surface-raised border border-line-default/60 rounded-full p-1 gap-0.5">
               <button
                 type="button"
                 onClick={() => setBillingInterval('monthly')}
                 className={`px-5 py-1.5 text-xs font-bold rounded-full transition-all ${
-                  billingInterval === 'monthly' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'
+                  billingInterval === 'monthly' ? 'bg-line-default text-fg-primary' : 'text-fg-muted hover:text-fg-primary'
                 }`}
               >
                 Monthly
@@ -607,7 +607,7 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
                 type="button"
                 onClick={() => setBillingInterval('yearly')}
                 className={`px-5 py-1.5 text-xs font-bold rounded-full transition-all flex items-center gap-2 ${
-                  billingInterval === 'yearly' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'
+                  billingInterval === 'yearly' ? 'bg-line-default text-fg-primary' : 'text-fg-muted hover:text-fg-primary'
                 }`}
               >
                 Yearly
@@ -656,14 +656,14 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
             transition={{ delay: 0.3 }}
           >
             {TRUST.map(b => (
-              <div key={b.label} className="flex items-center gap-2 text-sm text-slate-500">
-                <b.icon className="w-4 h-4 text-slate-600" /> {b.label}
+              <div key={b.label} className="flex items-center gap-2 text-sm text-fg-muted">
+                <b.icon className="w-4 h-4 text-fg-muted" /> {b.label}
               </div>
             ))}
           </motion.div>
 
           <motion.div className="text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-fg-muted">
               Questions?{' '}
               <a
                 href="mailto:support@quanttrade.us"
@@ -672,7 +672,7 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
                 support@quanttrade.us
               </a>
               <span className="mx-3 text-slate-700">·</span>
-              <Link href="/terms" className="text-slate-500 hover:text-slate-300 transition-colors">
+              <Link href="/terms" className="text-fg-muted hover:text-fg-primary transition-colors">
                 Terms
               </Link>
             </p>

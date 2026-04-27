@@ -184,8 +184,8 @@ export default function NotificationsPage() {
               <Bell className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-100">Notifications</h1>
-              <p className="text-sm text-slate-500 mt-0.5">
+              <h1 className="text-xl sm:text-2xl font-bold text-fg-primary">Notifications</h1>
+              <p className="text-sm text-fg-muted mt-0.5">
                 {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
               </p>
             </div>
@@ -207,15 +207,15 @@ export default function NotificationsPage() {
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex gap-1 bg-[#0D1117] border border-white/[0.06] rounded-xl p-1 mb-5">
+        <div className="flex gap-1 bg-surface-base border border-line-subtle rounded-xl p-1 mb-5">
           {(['all', 'unread'] as Filter[]).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 filter === f
-                  ? 'bg-white/[0.06] text-slate-100'
-                  : 'text-slate-500 hover:text-slate-300'
+                  ? 'bg-surface-hover text-fg-primary'
+                  : 'text-fg-muted hover:text-fg-primary'
               }`}
             >
               {f === 'all' ? 'All' : 'Unread'}
@@ -234,15 +234,15 @@ export default function NotificationsPage() {
             {Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
-                className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4 animate-pulse"
+                className="bg-surface-base border border-line-subtle rounded-xl p-4 animate-pulse"
               >
                 <div className="flex gap-3">
-                  <div className="w-9 h-9 bg-slate-800 rounded-lg" />
+                  <div className="w-9 h-9 bg-surface-raised rounded-lg" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 w-3/4 bg-slate-800 rounded" />
-                    <div className="h-3 w-1/2 bg-slate-800 rounded" />
+                    <div className="h-4 w-3/4 bg-surface-raised rounded" />
+                    <div className="h-3 w-1/2 bg-surface-raised rounded" />
                   </div>
-                  <div className="h-3 w-12 bg-slate-800 rounded" />
+                  <div className="h-3 w-12 bg-surface-raised rounded" />
                 </div>
               </div>
             ))}
@@ -251,13 +251,13 @@ export default function NotificationsPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-12 text-center"
+            className="bg-surface-base border border-line-subtle rounded-xl p-12 text-center"
           >
-            <Inbox className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-300 mb-2">
+            <Inbox className="w-12 h-12 text-fg-muted mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-fg-primary mb-2">
               {filter === 'unread' ? 'No unread notifications' : "You're all caught up!"}
             </h3>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-fg-muted">
               {filter === 'unread'
                 ? 'Switch to "All" to see your notification history.'
                 : "When someone replies, messages you, follows you, or upvotes your posts, you'll see it here."}
@@ -268,7 +268,7 @@ export default function NotificationsPage() {
             <AnimatePresence initial={false}>
               {displayed.map((notification, i) => {
                 const Icon = TYPE_ICONS[notification.type] || Bell
-                const colorClass = TYPE_COLORS[notification.type] || 'text-slate-400 bg-slate-500/15'
+                const colorClass = TYPE_COLORS[notification.type] || 'text-fg-muted bg-surface-raised'
 
                 return (
                   <motion.button
@@ -278,10 +278,10 @@ export default function NotificationsPage() {
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.15, delay: i * 0.02 }}
                     onClick={() => handleClick(notification)}
-                    className={`w-full text-left bg-[#0D1117] border rounded-xl p-3 sm:p-4 transition-colors group ${
+                    className={`w-full text-left bg-surface-base border rounded-xl p-3 sm:p-4 transition-colors group ${
                       notification.is_read
-                        ? 'border-white/[0.06] hover:border-white/[0.1]'
-                        : 'border-l-2 border-l-blue-500 border-t border-r border-b border-white/[0.08] bg-blue-500/[0.02]'
+                        ? 'border-line-subtle hover:border-line-default'
+                        : 'border-l-2 border-l-blue-500 border-t border-r border-b border-line-subtle bg-blue-500/[0.02]'
                     }`}
                   >
                     <div className="flex gap-3 items-start">
@@ -293,18 +293,18 @@ export default function NotificationsPage() {
                       <div className="flex-1 min-w-0">
                         <p
                           className={`text-sm leading-snug ${
-                            notification.is_read ? 'text-slate-300' : 'text-slate-100 font-medium'
+                            notification.is_read ? 'text-fg-primary' : 'text-fg-primary font-medium'
                           }`}
                         >
                           {notification.title}
                         </p>
                         {notification.body && (
-                          <p className="text-xs text-slate-500 mt-0.5 truncate">
+                          <p className="text-xs text-fg-muted mt-0.5 truncate">
                             {notification.body}
                           </p>
                         )}
                       </div>
-                      <span className="text-[11px] text-slate-600 whitespace-nowrap shrink-0 mt-0.5">
+                      <span className="text-[11px] text-fg-muted whitespace-nowrap shrink-0 mt-0.5">
                         {relativeTime(notification.created_at)}
                       </span>
                     </div>

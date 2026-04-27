@@ -19,7 +19,7 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean
         }
       }}
       className={`relative w-12 h-6 rounded-full transition-colors border ${
-        enabled ? 'bg-[#00D9FF] border-[#00D9FF]' : 'bg-slate-600 border-white/10'
+        enabled ? 'bg-[#00D9FF] border-[#00D9FF]' : 'bg-line-default border-line-default'
       }`}
       aria-checked={enabled}
     >
@@ -42,16 +42,16 @@ function MobileNotifications() {
 
   return (
     <div className="space-y-4 pb-4">
-      <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 pt-safe pb-2 px-1 flex items-center gap-2">
+      <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe pb-2 px-1 flex items-center gap-2">
         <Link
           href="/settings"
-          className="h-8 w-8 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center"
+          className="h-8 w-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center"
         >
-          <ArrowLeft className="w-4 h-4 text-slate-200" />
+          <ArrowLeft className="w-4 h-4 text-fg-primary" />
         </Link>
         <div className="flex items-center gap-2">
           <Bell className="w-4 h-4 text-amber-400" />
-          <h1 className="text-[18px] font-semibold text-white">Notifications</h1>
+          <h1 className="text-[18px] font-semibold text-fg-primary">Notifications</h1>
         </div>
       </header>
 
@@ -62,10 +62,10 @@ function MobileNotifications() {
           { id: 'breaking', label: 'Breaking news', desc: 'Market-moving headlines and events' },
           { id: 'product', label: 'Product updates', desc: 'New features and improvements' },
         ].map((x) => (
-          <div key={x.id} className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-4 flex items-center justify-between">
+          <div key={x.id} className="rounded-2xl bg-surface-raised border border-line-subtle p-4 flex items-center justify-between">
             <div className="min-w-0">
-              <p className="text-[13px] font-semibold text-white">{x.label}</p>
-              <p className="text-[11px] text-slate-500">{x.desc}</p>
+              <p className="text-[13px] font-semibold text-fg-primary">{x.label}</p>
+              <p className="text-[11px] text-fg-muted">{x.desc}</p>
             </div>
             <Toggle
               enabled={(alerts as any)[x.id]}
@@ -73,7 +73,7 @@ function MobileNotifications() {
             />
           </div>
         ))}
-        <p className="text-[10px] text-slate-500 px-1">
+        <p className="text-[10px] text-fg-muted px-1">
           Preferences saved to your account.
         </p>
       </section>
@@ -102,13 +102,13 @@ function DesktopNotifications() {
     <AppLayout>
       <div className="p-6">
         <div className="max-w-3xl mx-auto space-y-4">
-          <h1 className="text-2xl font-bold text-white">Notification Preferences</h1>
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-6 space-y-4">
+          <h1 className="text-2xl font-bold text-fg-primary">Notification Preferences</h1>
+          <div className="bg-surface-hover border border-line-subtle rounded-xl p-6 space-y-4">
             {ITEMS.map((x) => (
               <div key={x.id} className="flex items-center justify-between py-2">
                 <div>
-                  <p className="text-sm font-medium text-white">{x.label}</p>
-                  <p className="text-xs text-slate-500">{x.desc}</p>
+                  <p className="text-sm font-medium text-fg-primary">{x.label}</p>
+                  <p className="text-xs text-fg-muted">{x.desc}</p>
                 </div>
                 <Toggle
                   enabled={(alerts as any)[x.id]}

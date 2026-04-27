@@ -217,7 +217,7 @@ function WorldIndicesBar({
     role === 'volume' ? 'VOL' : role === 'gainer' ? '↑' : '↓'
 
   return (
-    <div className="relative w-full min-h-[3.25rem] bg-[#0D1117]/80 border-b border-[rgba(0,122,255,0.12)] overflow-hidden">
+    <div className="relative w-full min-h-[3.25rem] bg-surface-base/80 border-b border-[rgba(0,122,255,0.12)] overflow-hidden">
       <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-r from-[#0D1117] via-[#0D1117]/90 to-transparent" />
       <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-l from-[#0D1117] via-[#0D1117]/90 to-transparent" />
 
@@ -227,7 +227,7 @@ function WorldIndicesBar({
           <span className="text-[9px] font-black uppercase tracking-[0.12em] text-[#007AFF] font-mono whitespace-nowrap leading-tight">
             {continent === 'global' ? 'WORLD' : continentLabel.toUpperCase()}
             <br />
-            <span className="text-[8px] text-slate-400 font-bold tracking-normal">TAPE</span>
+            <span className="text-[8px] text-fg-muted font-bold tracking-normal">TAPE</span>
           </span>
         </div>
 
@@ -243,20 +243,20 @@ function WorldIndicesBar({
                     <Link
                       key={`${m.symbol}-${it.role}-${i}`}
                       href={`/research?symbol=${encodeURIComponent(m.symbol)}`}
-                      className="shrink-0 flex items-center gap-2 px-3 py-2 border-r border-slate-800/40 text-left transition-colors hover:bg-emerald-500/5 group"
+                      className="shrink-0 flex items-center gap-2 px-3 py-2 border-r border-line-subtle text-left transition-colors hover:bg-emerald-500/5 group"
                     >
                       <TickerLogo symbol={m.symbol} companyName={m.name} size={22} />
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold text-white font-mono group-hover:text-[#007AFF]">
+                          <span className="text-[10px] font-bold text-fg-primary font-mono group-hover:text-[#007AFF]">
                             {m.symbol}
                           </span>
-                          <span className="text-[9px] text-slate-500 hidden sm:block max-w-[72px] truncate">
+                          <span className="text-[9px] text-fg-muted hidden sm:block max-w-[72px] truncate">
                             {m.exchange}
                           </span>
                         </div>
                         <div className="flex items-center gap-1 mt-0.5">
-                          <span className="text-[11px] font-mono font-bold text-white">
+                          <span className="text-[11px] font-mono font-bold text-fg-primary">
                             {displayPrice > 0
                               ? `${currSymbol}${formatNumber(displayPrice, displayPrice > 100 ? 0 : 2)}`
                               : '—'}
@@ -285,23 +285,23 @@ function WorldIndicesBar({
                     key={`${q.symbol}-${i}`}
                     type="button"
                     onClick={() => onToggleExchange(q.exchangeId)}
-                    className={`shrink-0 flex items-center gap-2 px-3 py-2 border-r border-slate-800/40 text-left transition-colors group ${
+                    className={`shrink-0 flex items-center gap-2 px-3 py-2 border-r border-line-subtle text-left transition-colors group ${
                       active ? 'bg-[#007AFF]/15 ring-1 ring-inset ring-[#007AFF]/40' : 'hover:bg-[#007AFF]/5'
                     }`}
                   >
                     <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: q.color }} />
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-bold text-white font-mono group-hover:text-[#007AFF] transition-colors">
+                        <span className="text-[10px] font-bold text-fg-primary font-mono group-hover:text-[#007AFF] transition-colors">
                           {q.shortName}
                         </span>
                         <span className="text-[8px] font-bold text-cyan-500/80 uppercase hidden sm:inline">IDX</span>
-                        <span className="text-[9px] text-slate-500 hidden sm:block max-w-[56px] truncate">
+                        <span className="text-[9px] text-fg-muted hidden sm:block max-w-[56px] truncate">
                           {q.exchangeName}
                         </span>
                       </div>
                       <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-[11px] font-mono font-bold text-white">
+                        <span className="text-[11px] font-mono font-bold text-fg-primary">
                           {displayPrice > 0
                             ? `${currSymbol}${formatNumber(displayPrice, displayPrice > 100 ? 0 : 2)}`
                             : '—'}
@@ -347,7 +347,7 @@ function ContinentTabBar({
       className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
         active === c.id
           ? 'bg-[#007AFF] text-white shadow-lg shadow-[rgba(0,122,255,0.25)]'
-          : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          : 'text-fg-muted hover:text-fg-primary hover:bg-surface-hover'
       }`}
     >
       <span>{c.emoji}</span>
@@ -356,7 +356,7 @@ function ContinentTabBar({
   ))
 
   return (
-    <div className="border-b border-slate-800/40 bg-[#0B0E14]/60">
+    <div className="border-b border-line-subtle bg-surface-base/60">
       <div className="hidden md:flex flex-wrap items-center justify-center gap-1.5 py-2.5 px-4">
         {tabs}
       </div>
@@ -383,7 +383,7 @@ function CurrencySelector({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-slate-700/60 bg-slate-900/60 hover:border-[rgba(0,122,255,0.4)] transition-colors text-[11px] text-slate-300 font-medium"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-line-subtle bg-surface-raised hover:border-[rgba(0,122,255,0.4)] transition-colors text-[11px] text-fg-primary font-medium"
       >
         <DollarSign className="w-3 h-3 text-[#007AFF]" />
         <span>{curr.flag} {curr.code}</span>
@@ -394,7 +394,7 @@ function CurrencySelector({
             initial={{ opacity: 0, y: -4, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.95 }}
-            className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl border border-slate-700/60 bg-[#101928] shadow-2xl overflow-hidden"
+            className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl border border-line-subtle bg-surface-raised shadow-2xl overflow-hidden"
           >
             <div className="max-h-64 overflow-y-auto py-1">
               {DISPLAY_CURRENCIES.map((c) => (
@@ -405,12 +405,12 @@ function CurrencySelector({
                   className={`w-full flex items-center gap-2 px-3 py-2 text-[11px] transition-colors ${
                     c.code === value
                       ? 'text-[#007AFF] bg-[#007AFF]/10'
-                      : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                      : 'text-fg-primary hover:bg-surface-hover'
                   }`}
                 >
                   <span>{c.flag}</span>
                   <span className="font-bold font-mono">{c.code}</span>
-                  <span className="text-slate-500 truncate">{c.name}</span>
+                  <span className="text-fg-muted truncate">{c.name}</span>
                 </button>
               ))}
             </div>
@@ -482,7 +482,7 @@ function ExchangeSessionsPopover({ continent }: { continent: Continent }) {
         <span className="hidden sm:inline font-bold tracking-wide">Sessions</span>
         <span
           className={`px-1.5 py-0.5 rounded-md text-[9px] font-black ${
-            openCount > 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-700/60 text-slate-400'
+            openCount > 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-line-default text-fg-muted'
           }`}
         >
           {openCount}/{list.length} OPEN
@@ -499,18 +499,18 @@ function ExchangeSessionsPopover({ continent }: { continent: Continent }) {
             return (
               <div
                 key={ex.id}
-                className="flex items-start justify-between gap-2 rounded-lg border border-slate-800/60 bg-slate-900/40 px-2.5 py-2"
+                className="flex items-start justify-between gap-2 rounded-lg border border-line-subtle bg-surface-raised px-2.5 py-2"
               >
                 <div className="min-w-0">
-                  <div className="font-bold text-white text-[11px]">{ex.shortName}</div>
-                  <div className="text-slate-500 truncate">{ex.country}</div>
-                  <div className="text-slate-400 mt-0.5 leading-snug">{s.line}</div>
+                  <div className="font-bold text-fg-primary text-[11px]">{ex.shortName}</div>
+                  <div className="text-fg-muted truncate">{ex.country}</div>
+                  <div className="text-fg-muted mt-0.5 leading-snug">{s.line}</div>
                 </div>
                 <div
                   className={`shrink-0 px-2 py-1 rounded-md text-[9px] font-black uppercase ${
                     s.open
                       ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25'
-                      : 'bg-slate-800 text-slate-500 border border-slate-700/60'
+                      : 'bg-surface-raised text-fg-muted border border-line-subtle'
                   }`}
                 >
                   {s.open ? 'Open' : 'Shut'}
@@ -543,21 +543,21 @@ function PredictionAlertsWidget({ contextSymbols }: { contextSymbols?: Set<strin
   const severityColor = (s: string) =>
     s === 'high' ? 'text-red-400 bg-red-500/10 border-red-500/20' :
     s === 'medium' ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' :
-    'text-slate-400 bg-slate-700/30 border-slate-600/20'
+    'text-fg-muted bg-line-default border-line-subtle'
 
   return (
     <div className="hud-panel h-full flex flex-col">
-      <div className="p-4 border-b border-slate-700/30 flex items-center justify-between shrink-0">
+      <div className="p-4 border-b border-line-subtle flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <Target className="w-4 h-4 text-violet-400" />
-          <h3 className="font-bold text-white text-sm">AI Alerts</h3>
+          <h3 className="font-bold text-fg-primary text-sm">AI Alerts</h3>
           <span className="px-1.5 py-0.5 text-[9px] bg-violet-500/20 text-violet-400 rounded font-bold">
             LIVE
           </span>
         </div>
         <Link
           href="/research"
-          className="text-[10px] text-violet-400 hover:text-white font-medium transition-colors"
+          className="text-[10px] text-violet-400 hover:text-fg-primary font-medium transition-colors"
         >
           Research →
         </Link>
@@ -567,7 +567,7 @@ function PredictionAlertsWidget({ contextSymbols }: { contextSymbols?: Set<strin
         {isLoading ? (
           <div className="p-4 space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-10 rounded bg-slate-800/40 animate-pulse" />
+              <div key={i} className="h-10 rounded bg-surface-hover animate-pulse" />
             ))}
           </div>
         ) : (() => {
@@ -580,8 +580,8 @@ function PredictionAlertsWidget({ contextSymbols }: { contextSymbols?: Set<strin
             if (display.length === 0) {
               return (
                 <div className="flex flex-col items-center justify-center h-full py-8 text-center px-4">
-                  <Target className="w-8 h-8 text-slate-700 mb-2" />
-                  <p className="text-slate-500 text-xs">No active alerts above threshold</p>
+                  <Target className="w-8 h-8 text-fg-muted mb-2" />
+                  <p className="text-fg-muted text-xs">No active alerts above threshold</p>
                 </div>
               )
             }
@@ -589,7 +589,7 @@ function PredictionAlertsWidget({ contextSymbols }: { contextSymbols?: Set<strin
             <Link
               key={`${alert.symbol}-${idx}`}
               href={`/research?symbol=${alert.symbol}`}
-              className="flex items-start gap-2.5 p-3 hover:bg-slate-800/30 transition-colors group"
+              className="flex items-start gap-2.5 p-3 hover:bg-surface-hover transition-colors group"
             >
               <TickerLogo
                 symbol={alert.symbol}
@@ -599,7 +599,7 @@ function PredictionAlertsWidget({ contextSymbols }: { contextSymbols?: Set<strin
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-white text-xs group-hover:text-violet-400 transition-colors font-mono">
+                  <span className="font-bold text-fg-primary text-xs group-hover:text-violet-400 transition-colors font-mono">
                     {alert.symbol}
                   </span>
                   <span
@@ -618,13 +618,13 @@ function PredictionAlertsWidget({ contextSymbols }: { contextSymbols?: Set<strin
                     {formatPercent(alert.expected_return, 1)}
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">{alert.message}</p>
+                <p className="text-[10px] text-fg-muted line-clamp-1 mt-0.5">{alert.message}</p>
               </div>
               <div className="text-right shrink-0">
                 <div className="text-xs font-bold font-mono text-violet-400">
                   {Math.round(alert.confidence * 100)}%
                 </div>
-                <div className="text-[9px] text-slate-600">conf</div>
+                <div className="text-[9px] text-fg-muted">conf</div>
               </div>
             </Link>
           ))
@@ -687,15 +687,15 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
       <div
         className={
           toolbarClassName ??
-          'flex h-12 shrink-0 items-center justify-between gap-2 border-b border-slate-700/30 px-4'
+          'flex h-12 shrink-0 items-center justify-between gap-2 border-b border-line-subtle px-4'
         }
       >
         <div className="flex min-w-0 items-center gap-2">
           <Eye className="h-4 w-4 shrink-0 text-cyan-400" />
-          <h3 className="truncate text-sm font-bold text-white">
+          <h3 className="truncate text-sm font-bold text-fg-primary">
             Watchlist
             {watchlist.length > 0 && (
-              <span className="ml-1.5 text-[10px] font-mono font-normal text-slate-500">
+              <span className="ml-1.5 text-[10px] font-mono font-normal text-fg-muted">
                 ({watchlist.length})
               </span>
             )}
@@ -703,7 +703,7 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
         </div>
         <Link
           href="/watchlist"
-          className="shrink-0 text-[10px] font-medium text-cyan-400 transition-colors hover:text-white"
+          className="shrink-0 text-[10px] font-medium text-cyan-400 transition-colors hover:text-fg-primary"
         >
           View All →
         </Link>
@@ -712,8 +712,8 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {!isAuthenticated ? (
           <div className="flex flex-col items-center justify-center h-full py-6 text-center px-4">
-            <Eye className="w-7 h-7 text-slate-700 mb-2" />
-            <p className="text-slate-500 text-xs">Sign in to see your watchlist</p>
+            <Eye className="w-7 h-7 text-fg-muted mb-2" />
+            <p className="text-fg-muted text-xs">Sign in to see your watchlist</p>
             <Link
               href="/auth"
               className="mt-3 px-3 py-1.5 text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded hover:bg-cyan-500/30 transition-colors"
@@ -724,13 +724,13 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
         ) : isLoading ? (
           <div className="p-3 space-y-2">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-9 rounded bg-slate-800/40 animate-pulse" />
+              <div key={i} className="h-9 rounded bg-surface-hover animate-pulse" />
             ))}
           </div>
         ) : watchlist.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-6 text-center px-4">
-            <Eye className="w-7 h-7 text-slate-700 mb-2" />
-            <p className="text-slate-500 text-xs">No symbols in watchlist</p>
+            <Eye className="w-7 h-7 text-fg-muted mb-2" />
+            <p className="text-fg-muted text-xs">No symbols in watchlist</p>
             <Link
               href="/research"
               className="mt-3 px-3 py-1.5 text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded hover:bg-cyan-500/30 transition-colors"
@@ -752,11 +752,11 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
                   <div className="flex items-center gap-2.5">
                     <TickerLogo symbol={item.symbol} companyName={item.name} size={28} />
                     <div>
-                      <div className="font-bold text-white text-xs font-mono group-hover:text-cyan-400 transition-colors">
+                      <div className="font-bold text-fg-primary text-xs font-mono group-hover:text-cyan-400 transition-colors">
                         {item.symbol}
                       </div>
                       {item.name && (
-                        <div className="text-[10px] text-slate-500 truncate max-w-[min(11rem,42vw)] sm:max-w-[13rem]">
+                        <div className="text-[10px] text-fg-muted truncate max-w-[min(11rem,42vw)] sm:max-w-[13rem]">
                           {item.name}
                         </div>
                       )}
@@ -765,7 +765,7 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
                   <div className="text-right">
                     {q ? (
                       <>
-                        <div className="text-xs font-mono text-white font-bold">
+                        <div className="text-xs font-mono text-fg-primary font-bold">
                           {q.price > 0 ? `$${formatNumber(q.price, 2)}` : '—'}
                         </div>
                         <div
@@ -782,7 +782,7 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
                         </div>
                       </>
                     ) : (
-                      <div className="text-[10px] text-slate-600">—</div>
+                      <div className="text-[10px] text-fg-muted">—</div>
                     )}
                   </div>
                 </Link>
@@ -829,8 +829,8 @@ function SectorHeatmap({
   if (sectors.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 px-2 py-8 text-center">
-        <BarChart3 className="mx-auto h-8 w-8 text-slate-700" />
-        <p className="text-[11px] leading-snug text-slate-500">{emptyLabel}</p>
+        <BarChart3 className="mx-auto h-8 w-8 text-fg-muted" />
+        <p className="text-[11px] leading-snug text-fg-muted">{emptyLabel}</p>
       </div>
     )
   }
@@ -860,7 +860,7 @@ function SectorHeatmap({
               border: `1px solid ${up ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
             }}
           >
-            <div className="text-[9px] text-slate-400 truncate">{s.sector}</div>
+            <div className="text-[9px] text-fg-muted truncate">{s.sector}</div>
             <div
               className={`text-xs font-bold font-mono ${up ? 'text-emerald-400' : 'text-red-400'}`}
             >
@@ -902,7 +902,7 @@ function ContinentIndicesGrid({
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="h-16 rounded-lg bg-slate-800/40 animate-pulse" />
+          <div key={i} className="h-16 rounded-lg bg-surface-hover animate-pulse" />
         ))}
       </div>
     )
@@ -928,7 +928,7 @@ function ContinentIndicesGrid({
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full shrink-0" style={{ background: q.color }} />
-                  <span className="text-[10px] font-bold text-slate-400 group-hover:text-white transition-colors">
+                  <span className="text-[10px] font-bold text-fg-muted group-hover:text-fg-primary transition-colors">
                     {q.exchangeName}
                   </span>
                 </div>
@@ -941,16 +941,16 @@ function ContinentIndicesGrid({
                   {formatPercent(q.change_percent, 2)}
                 </span>
               </div>
-              <div className="text-sm font-bold font-mono text-white group-hover:text-[#007AFF] transition-colors">
+              <div className="text-sm font-bold font-mono text-fg-primary group-hover:text-[#007AFF] transition-colors">
                 {displayPrice > 0
                   ? `${currSymbol}${formatNumber(displayPrice, displayPrice > 1000 ? 0 : 2)}`
                   : '—'}
               </div>
-              <div className="text-[10px] text-slate-500 truncate mt-0.5">{q.shortName}</div>
+              <div className="text-[10px] text-fg-muted truncate mt-0.5">{q.shortName}</div>
             </button>
             <Link
               href={`/research?symbol=${encodeURIComponent(q.symbol)}`}
-              className="absolute top-2 right-2 p-1 rounded-md text-[9px] text-slate-500 hover:text-[#007AFF] hover:bg-slate-800/80"
+              className="absolute top-2 right-2 p-1 rounded-md text-[9px] text-fg-muted hover:text-[#007AFF] hover:bg-surface-raised/80"
               title="Open in Research"
               onClick={(e) => e.stopPropagation()}
             >
@@ -996,7 +996,7 @@ function MajorIndicesMacroGrid({
     return (
       <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
         {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="h-24 rounded-xl bg-slate-800/40 animate-pulse" />
+          <div key={i} className="h-24 rounded-xl bg-surface-hover animate-pulse" />
         ))}
       </div>
     )
@@ -1006,8 +1006,8 @@ function MajorIndicesMacroGrid({
     <div className="mb-6">
       <div className="flex items-center gap-2 mb-3 px-1">
         <BarChart3 className="w-4 h-4 text-amber-400" />
-        <h3 className="text-sm font-bold text-white">1-Day performance</h3>
-        <span className="text-[10px] text-slate-500 font-mono truncate">{title}</span>
+        <h3 className="text-sm font-bold text-fg-primary">1-Day performance</h3>
+        <span className="text-[10px] text-fg-muted font-mono truncate">{title}</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
         {quotes
@@ -1024,11 +1024,11 @@ function MajorIndicesMacroGrid({
                 key={q.symbol}
                 href={`/research?symbol=${encodeURIComponent(q.symbol)}`}
                 className={`group hud-panel p-3 sm:p-4 rounded-xl border transition-all hover:border-[rgba(0,122,255,0.35)] ${
-                  isMacro ? 'border-amber-500/20 bg-amber-500/[0.04]' : 'border-slate-800/50'
+                  isMacro ? 'border-amber-500/20 bg-amber-500/[0.04]' : 'border-line-subtle/50'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-[10px] font-bold text-slate-500 font-mono group-hover:text-white">
+                  <span className="text-[10px] font-bold text-fg-muted font-mono group-hover:text-fg-primary">
                     {q.shortName}
                   </span>
                   <span
@@ -1040,12 +1040,12 @@ function MajorIndicesMacroGrid({
                     {formatPercent(q.change_percent, 2)}
                   </span>
                 </div>
-                <div className="text-lg sm:text-xl font-bold font-mono text-white group-hover:text-[#007AFF] transition-colors">
+                <div className="text-lg sm:text-xl font-bold font-mono text-fg-primary group-hover:text-[#007AFF] transition-colors">
                   {displayPrice > 0
                     ? `${currSymbol}${formatNumber(displayPrice, displayPrice > 10_000 ? 0 : 2)}`
                     : '—'}
                 </div>
-                <div className="text-[10px] text-slate-500 truncate mt-0.5">{q.exchangeName}</div>
+                <div className="text-[10px] text-fg-muted truncate mt-0.5">{q.exchangeName}</div>
               </Link>
             )
           })}
@@ -1091,9 +1091,9 @@ function ContinentMoversPanel({
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {/* Gainers */}
       <div className="hud-panel flex flex-col">
-        <div className="px-4 py-3 border-b border-slate-700/30 flex items-center gap-2 shrink-0">
+        <div className="px-4 py-3 border-b border-line-subtle flex items-center gap-2 shrink-0">
           <TrendingUp className="w-4 h-4 text-emerald-400" />
-          <h3 className="font-bold text-white text-sm">Top Gainers</h3>
+          <h3 className="font-bold text-fg-primary text-sm">Top Gainers</h3>
           <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded font-bold uppercase">
             {scopeLabel}
           </span>
@@ -1102,7 +1102,7 @@ function ContinentMoversPanel({
           {isLoading ? (
             <SkeletonMoversSection count={6} />
           ) : gainers.length === 0 ? (
-            <div className="flex items-center justify-center h-20 text-slate-500 text-xs">No data</div>
+            <div className="flex items-center justify-center h-20 text-fg-muted text-xs">No data</div>
           ) : (
             gainers.map((s, i) => (
               <Link
@@ -1111,15 +1111,15 @@ function ContinentMoversPanel({
                 className="flex items-center justify-between px-4 py-2.5 hover:bg-emerald-500/5 transition-all group"
               >
                 <div className="flex items-center gap-2">
-                  <span className="w-4 text-[10px] text-slate-600 font-mono text-right">{i + 1}</span>
+                  <span className="w-4 text-[10px] text-fg-muted font-mono text-right">{i + 1}</span>
                   <TickerLogo symbol={s.symbol} companyName={s.name} size={24} />
                   <div>
-                    <span className="font-bold text-white group-hover:text-emerald-400 transition-colors text-xs font-mono">{s.symbol}</span>
-                    <div className="text-[10px] text-slate-500 truncate max-w-[110px]">{s.name}</div>
+                    <span className="font-bold text-fg-primary group-hover:text-emerald-400 transition-colors text-xs font-mono">{s.symbol}</span>
+                    <div className="text-[10px] text-fg-muted truncate max-w-[110px]">{s.name}</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-mono text-xs text-white">{s.price > 0 ? `$${formatNumber(s.price, 2)}` : '—'}</div>
+                  <div className="font-mono text-xs text-fg-primary">{s.price > 0 ? `$${formatNumber(s.price, 2)}` : '—'}</div>
                   <div className="font-mono text-[10px] text-emerald-400 font-bold">+{formatPercent(s.change_percent, 2)}</div>
                 </div>
               </Link>
@@ -1130,9 +1130,9 @@ function ContinentMoversPanel({
 
       {/* Losers */}
       <div className="hud-panel flex flex-col">
-        <div className="px-4 py-3 border-b border-slate-700/30 flex items-center gap-2 shrink-0">
+        <div className="px-4 py-3 border-b border-line-subtle flex items-center gap-2 shrink-0">
           <TrendingDown className="w-4 h-4 text-red-400" />
-          <h3 className="font-bold text-white text-sm">Top Losers</h3>
+          <h3 className="font-bold text-fg-primary text-sm">Top Losers</h3>
           <span className="text-[9px] px-1.5 py-0.5 bg-red-500/10 text-red-400 rounded font-bold uppercase">
             {scopeLabel}
           </span>
@@ -1141,7 +1141,7 @@ function ContinentMoversPanel({
           {isLoading ? (
             <SkeletonMoversSection count={6} />
           ) : losers.length === 0 ? (
-            <div className="flex items-center justify-center h-20 text-slate-500 text-xs">No data</div>
+            <div className="flex items-center justify-center h-20 text-fg-muted text-xs">No data</div>
           ) : (
             losers.map((s, i) => (
               <Link
@@ -1150,15 +1150,15 @@ function ContinentMoversPanel({
                 className="flex items-center justify-between px-4 py-2.5 hover:bg-red-500/5 transition-all group"
               >
                 <div className="flex items-center gap-2">
-                  <span className="w-4 text-[10px] text-slate-600 font-mono text-right">{i + 1}</span>
+                  <span className="w-4 text-[10px] text-fg-muted font-mono text-right">{i + 1}</span>
                   <TickerLogo symbol={s.symbol} companyName={s.name} size={24} />
                   <div>
-                    <span className="font-bold text-white group-hover:text-red-400 transition-colors text-xs font-mono">{s.symbol}</span>
-                    <div className="text-[10px] text-slate-500 truncate max-w-[110px]">{s.name}</div>
+                    <span className="font-bold text-fg-primary group-hover:text-red-400 transition-colors text-xs font-mono">{s.symbol}</span>
+                    <div className="text-[10px] text-fg-muted truncate max-w-[110px]">{s.name}</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-mono text-xs text-white">{s.price > 0 ? `$${formatNumber(s.price, 2)}` : '—'}</div>
+                  <div className="font-mono text-xs text-fg-primary">{s.price > 0 ? `$${formatNumber(s.price, 2)}` : '—'}</div>
                   <div className="font-mono text-[10px] text-red-400 font-bold">{formatPercent(s.change_percent, 2)}</div>
                 </div>
               </Link>
@@ -1340,7 +1340,7 @@ function DesktopHome() {
 
   /** Align Live News / Gainers / Losers toolbars and equal column height on large screens */
   const dashToolbar =
-    'h-12 px-4 border-b border-slate-700/30 flex items-center justify-between shrink-0 gap-2'
+    'h-12 px-4 border-b border-line-subtle flex items-center justify-between shrink-0 gap-2'
   const topRowTripleHeight =
     'h-full w-full flex flex-col min-h-[min(380px,62vh)] lg:h-[520px] lg:max-h-[min(520px,78vh)]'
 
@@ -1424,7 +1424,7 @@ function DesktopHome() {
         {/* Dashboard header */}
         <div className="px-4 pt-4 pb-2 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-white flex items-center gap-2">
+            <h1 className="text-lg font-bold text-fg-primary flex items-center gap-2">
               <Layers className="w-4 h-4 text-[#007AFF]" />
               {isAuthenticated && user ? (
                 <>
@@ -1446,7 +1446,7 @@ function DesktopHome() {
                 </span>
               )}
             </h1>
-            <p className="text-[11px] text-slate-500 mt-0.5 font-mono">
+            <p className="text-[11px] text-fg-muted mt-0.5 font-mono">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
               {(activeContinent === 'global' || selectedExchangeId) && (
                 <>
@@ -1458,7 +1458,7 @@ function DesktopHome() {
                       <span className="text-emerald-400">{pulseBreadthUp}↑</span>{' '}
                       <span className="text-red-400">{pulseBreadthDown}↓</span>
                       {useSectorBreadth && (
-                        <span className="text-slate-600"> /{sectorTotal}</span>
+                        <span className="text-fg-muted"> /{sectorTotal}</span>
                       )}
                     </>
                   )}
@@ -1471,7 +1471,7 @@ function DesktopHome() {
             <CurrencySelector value={displayCurrency} onChange={setDisplayCurrency} />
             <div className="flex items-center gap-2" title="Quote activity on refresh">
               <QuoteActivityFlash fingerprint={dashboardActivityFingerprint} />
-              <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">Quotes</span>
+              <span className="text-[10px] text-fg-muted font-mono hidden sm:inline">Quotes</span>
             </div>
           </div>
         </div>
@@ -1556,7 +1556,7 @@ function DesktopHome() {
                   <div className={dashToolbar}>
                     <div className="flex items-center gap-2 min-w-0">
                       <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <h3 className="font-bold text-white text-sm truncate">Top Gainers</h3>
+                      <h3 className="font-bold text-fg-primary text-sm truncate">Top Gainers</h3>
                       {selectedExchangeId && (
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-mono shrink-0 truncate max-w-[72px]">
                           {getExchangeById(selectedExchangeId)?.shortName ?? selectedExchangeId}
@@ -1570,7 +1570,7 @@ function DesktopHome() {
                       <button
                         type="button"
                         onClick={() => refetchRegionMovers()}
-                        className="p-1.5 rounded text-slate-500 hover:text-white hover:bg-slate-800/60 transition-colors"
+                        className="p-1.5 rounded text-fg-muted hover:text-fg-primary hover:bg-surface-hover transition-colors"
                         aria-label="Refresh movers"
                       >
                         <RefreshCw className="w-3 h-3" />
@@ -1585,23 +1585,23 @@ function DesktopHome() {
                         <Link
                           key={stock.symbol || `gainer-${idx}`}
                           href={`/research?symbol=${stock.symbol}`}
-                          className="flex items-center justify-between px-4 py-2.5 hover:bg-emerald-500/5 border-b border-slate-800/30 transition-all group"
+                          className="flex items-center justify-between px-4 py-2.5 hover:bg-emerald-500/5 border-b border-line-subtle/30 transition-all group"
                         >
                           <div className="flex items-center gap-2.5">
-                            <span className="w-4 text-[10px] text-slate-600 font-mono text-right">
+                            <span className="w-4 text-[10px] text-fg-muted font-mono text-right">
                               {idx + 1}
                             </span>
                             <div>
-                              <span className="font-bold text-white group-hover:text-emerald-400 transition-colors text-xs font-mono">
+                              <span className="font-bold text-fg-primary group-hover:text-emerald-400 transition-colors text-xs font-mono">
                                 {stock.symbol}
                               </span>
-                              <div className="text-[10px] text-slate-500 truncate max-w-[110px]">
+                              <div className="text-[10px] text-fg-muted truncate max-w-[110px]">
                                 {stock.name}
                               </div>
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-mono text-xs text-white">
+                            <div className="font-mono text-xs text-fg-primary">
                               {isNumber(stock.price) ? `$${formatNumber(stock.price, 2)}` : '—'}
                             </div>
                             <div className="font-mono text-[10px] text-emerald-400 font-bold">
@@ -1611,15 +1611,15 @@ function DesktopHome() {
                         </Link>
                       ))
                     ) : (
-                      <div className="flex items-center justify-center h-24 text-slate-500 text-xs">
+                      <div className="flex items-center justify-center h-24 text-fg-muted text-xs">
                         No data
                       </div>
                     )}
                   </div>
-                  <div className="px-4 py-2.5 border-t border-slate-700/30 shrink-0">
+                  <div className="px-4 py-2.5 border-t border-line-subtle shrink-0">
                     <Link
                       href="/markets"
-                      className="flex items-center justify-center gap-1.5 text-xs text-emerald-400 hover:text-white font-medium transition-colors"
+                      className="flex items-center justify-center gap-1.5 text-xs text-emerald-400 hover:text-fg-primary font-medium transition-colors"
                     >
                       All Gainers <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
@@ -1641,7 +1641,7 @@ function DesktopHome() {
                   <div className={dashToolbar}>
                     <div className="flex items-center gap-2 min-w-0">
                       <TrendingDown className="w-4 h-4 text-red-400 shrink-0" />
-                      <h3 className="font-bold text-white text-sm truncate">Top Losers</h3>
+                      <h3 className="font-bold text-fg-primary text-sm truncate">Top Losers</h3>
                     </div>
                     <div className="flex items-center justify-end gap-2 shrink-0 min-w-[4.5rem]">
                       {topLosers.length > 0 ? (
@@ -1649,7 +1649,7 @@ function DesktopHome() {
                           {formatPercent(topLosers[0]?.change_percent, 1)}
                         </span>
                       ) : (
-                        <span className="text-[10px] text-slate-600 font-mono w-8" aria-hidden />
+                        <span className="text-[10px] text-fg-muted font-mono w-8" aria-hidden />
                       )}
                     </div>
                   </div>
@@ -1661,23 +1661,23 @@ function DesktopHome() {
                         <Link
                           key={stock.symbol || `loser-${idx}`}
                           href={`/research?symbol=${stock.symbol}`}
-                          className="flex items-center justify-between px-4 py-2.5 hover:bg-red-500/5 border-b border-slate-800/30 transition-all group"
+                          className="flex items-center justify-between px-4 py-2.5 hover:bg-red-500/5 border-b border-line-subtle/30 transition-all group"
                         >
                           <div className="flex items-center gap-2.5">
-                            <span className="w-4 text-[10px] text-slate-600 font-mono text-right">
+                            <span className="w-4 text-[10px] text-fg-muted font-mono text-right">
                               {idx + 1}
                             </span>
                             <div>
-                              <span className="font-bold text-white group-hover:text-red-400 transition-colors text-xs font-mono">
+                              <span className="font-bold text-fg-primary group-hover:text-red-400 transition-colors text-xs font-mono">
                                 {stock.symbol}
                               </span>
-                              <div className="text-[10px] text-slate-500 truncate max-w-[90px] sm:max-w-[110px]">
+                              <div className="text-[10px] text-fg-muted truncate max-w-[90px] sm:max-w-[110px]">
                                 {stock.name}
                               </div>
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-mono text-xs text-white">
+                            <div className="font-mono text-xs text-fg-primary">
                               {isNumber(stock.price) ? `$${formatNumber(stock.price, 2)}` : '—'}
                             </div>
                             <div className="font-mono text-[10px] text-red-400 font-bold">
@@ -1687,15 +1687,15 @@ function DesktopHome() {
                         </Link>
                       ))
                     ) : (
-                      <div className="flex items-center justify-center h-24 text-slate-500 text-xs">
+                      <div className="flex items-center justify-center h-24 text-fg-muted text-xs">
                         No data
                       </div>
                     )}
                   </div>
-                  <div className="px-4 py-2.5 border-t border-slate-700/30 shrink-0">
+                  <div className="px-4 py-2.5 border-t border-line-subtle shrink-0">
                     <Link
                       href="/markets"
-                      className="flex items-center justify-center gap-1.5 text-xs text-red-400 hover:text-white font-medium transition-colors"
+                      className="flex items-center justify-center gap-1.5 text-xs text-red-400 hover:text-fg-primary font-medium transition-colors"
                     >
                       All Losers <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
@@ -1743,13 +1743,13 @@ function DesktopHome() {
                   <div className={dashToolbar}>
                     <div className="flex min-w-0 items-center gap-2">
                       <BarChart3 className="h-4 w-4 shrink-0 text-blue-400" />
-                      <h3 className="truncate text-sm font-bold text-white">Sector heatmap</h3>
+                      <h3 className="truncate text-sm font-bold text-fg-primary">Sector heatmap</h3>
                       {activeContinent === 'global' ? (
-                        <span className="max-w-[72px] truncate font-mono text-[9px] text-slate-500">
+                        <span className="max-w-[72px] truncate font-mono text-[9px] text-fg-muted">
                           US
                         </span>
                       ) : (
-                        <span className="max-w-[100px] truncate font-mono text-[9px] text-slate-500">
+                        <span className="max-w-[100px] truncate font-mono text-[9px] text-fg-muted">
                           {selectedExchangeId
                             ? getExchangeById(selectedExchangeId)?.shortName ?? selectedExchangeId
                             : continentInfo?.label}
@@ -1758,7 +1758,7 @@ function DesktopHome() {
                     </div>
                     <Link
                       href="/markets"
-                      className="shrink-0 text-[10px] font-medium text-blue-400 transition-colors hover:text-white"
+                      className="shrink-0 text-[10px] font-medium text-blue-400 transition-colors hover:text-fg-primary"
                     >
                       Markets →
                     </Link>
@@ -1786,7 +1786,7 @@ function DesktopHome() {
                       <SkeletonSectorPerformance count={4} />
                     ) : regionalHeatRows.length > 0 ? (
                       <div className="space-y-2">
-                        <p className="px-0.5 text-[9px] leading-snug text-slate-500">
+                        <p className="px-0.5 text-[9px] leading-snug text-fg-muted">
                           Sector quotes unavailable — showing movers until FMP/Yahoo data loads.
                         </p>
                         <MoversHeatmap rows={regionalHeatRows} emptyLabel="No regional movers" />
@@ -1825,13 +1825,13 @@ function DesktopHome() {
                 transition={{ duration: 0.3, delay: 0.18 }}
                 className="flex h-full min-h-[320px] w-full flex-col lg:min-h-[420px]"
               >
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-slate-800/50 shadow-lg shadow-black/20 hud-panel lg:flex-row">
-                  <div className="relative flex min-h-0 min-w-0 flex-1 flex-col border-b border-slate-800/60 lg:max-w-[420px] 2xl:max-w-[480px] lg:shrink-0 lg:border-b-0 lg:border-r">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-line-subtle/50 shadow-lg shadow-black/20 hud-panel lg:flex-row">
+                  <div className="relative flex min-h-0 min-w-0 flex-1 flex-col border-b border-line-subtle lg:max-w-[420px] 2xl:max-w-[480px] lg:shrink-0 lg:border-b-0 lg:border-r">
                     <div className="absolute top-0 right-0 w-28 h-28 bg-cyan-500/6 rounded-full blur-3xl pointer-events-none" />
                     <div className={`${dashToolbar} relative`}>
                       <div className="flex items-center gap-2 min-w-0">
                         <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
-                        <h3 className="font-bold text-white text-sm truncate">Market Pulse</h3>
+                        <h3 className="font-bold text-fg-primary text-sm truncate">Market Pulse</h3>
                         <span className="px-1.5 py-0.5 text-[9px] bg-cyan-500/20 text-cyan-400 rounded font-bold shrink-0">
                           LIVE
                         </span>
@@ -1842,14 +1842,14 @@ function DesktopHome() {
                         <div className="mb-1.5 flex items-center justify-between gap-2">
                           <div className="flex min-w-0 items-center gap-1.5">
                             <Activity className="h-3.5 w-3.5 shrink-0 text-blue-400" />
-                            <span className="text-[11px] font-bold text-white">Breadth</span>
+                            <span className="text-[11px] font-bold text-fg-primary">Breadth</span>
                           </div>
                           <span className={`shrink-0 font-mono text-[11px] font-bold ${breadthColor}`}>
                             {breadthTone}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800/90 ring-1 ring-slate-700/40">
+                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-raised/90 ring-1 ring-slate-700/40">
                             <div
                               className="h-full bg-gradient-to-r from-emerald-500 via-cyan-500/90 to-emerald-400 transition-all duration-700"
                               style={{
@@ -1863,7 +1863,7 @@ function DesktopHome() {
                               }}
                             />
                           </div>
-                          <span className="shrink-0 font-mono text-[10px] tabular-nums text-slate-500">
+                          <span className="shrink-0 font-mono text-[10px] tabular-nums text-fg-muted">
                             {pulseBreadthUp}↑ {pulseBreadthDown}↓
                           </span>
                         </div>
@@ -1872,16 +1872,16 @@ function DesktopHome() {
                       <ProCard className="p-2.5 sm:p-3">
                         <div className="mb-1.5 flex items-center gap-1.5">
                           <Signal className="h-3.5 w-3.5 shrink-0 text-sky-400" />
-                          <span className="text-[11px] font-bold text-white">Benchmark pulse</span>
+                          <span className="text-[11px] font-bold text-fg-primary">Benchmark pulse</span>
                         </div>
                         {indicesLoading ? (
                           <div className="space-y-2">
                             {[1, 2, 3].map((i) => (
-                              <div key={i} className="h-2 rounded bg-slate-800/60 animate-pulse" />
+                              <div key={i} className="h-2 rounded bg-surface-hover animate-pulse" />
                             ))}
                           </div>
                         ) : benchmarkPulse.length === 0 ? (
-                          <p className="text-[10px] text-slate-500">No index quotes yet.</p>
+                          <p className="text-[10px] text-fg-muted">No index quotes yet.</p>
                         ) : (
                           <ul className="space-y-2">
                             {benchmarkPulse.map((q) => {
@@ -1897,7 +1897,7 @@ function DesktopHome() {
                                       className="h-1.5 w-1.5 shrink-0 rounded-full"
                                       style={{ background: q.color }}
                                     />
-                                    <span className="truncate text-[10px] font-medium text-slate-400">
+                                    <span className="truncate text-[10px] font-medium text-fg-muted">
                                       {q.shortName || q.symbol}
                                     </span>
                                   </div>
@@ -1909,7 +1909,7 @@ function DesktopHome() {
                                     {up ? '+' : ''}
                                     {formatPercent(pct, 2)}
                                   </span>
-                                  <div className="col-span-2 h-1.5 overflow-hidden rounded-full bg-slate-800/80">
+                                  <div className="col-span-2 h-1.5 overflow-hidden rounded-full bg-surface-raised/80">
                                     <div
                                       className={`h-full rounded-full transition-all duration-500 ${
                                         up ? 'bg-gradient-to-r from-emerald-600 to-cyan-500' : 'bg-gradient-to-r from-amber-600 to-red-500'
@@ -1929,19 +1929,19 @@ function DesktopHome() {
                         <ProCard className="flex min-h-0 max-h-[min(240px,32vh)] flex-1 flex-col p-2.5 sm:p-3">
                           <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2">
                             <div className="flex min-w-0 items-center gap-1.5">
-                              <Layers className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                              <span className="truncate text-[11px] font-bold text-white">
+                              <Layers className="h-3.5 w-3.5 shrink-0 text-fg-muted" />
+                              <span className="truncate text-[11px] font-bold text-fg-primary">
                                 {activeContinent === 'global' ? 'Full heatmap universe' : 'Regional movers'}
                               </span>
                             </div>
-                            <span className="shrink-0 font-mono text-[9px] text-slate-500">
+                            <span className="shrink-0 font-mono text-[9px] text-fg-muted">
                               {activeContinent === 'global'
                                 ? heatmapUniverseStocks.length
                                 : regionalHeatRows.length}{' '}
                               names
                             </span>
                           </div>
-                          <div className="min-h-0 flex-1 space-y-0 overflow-y-auto overscroll-contain rounded-md border border-slate-800/40 bg-slate-950/30">
+                          <div className="min-h-0 flex-1 space-y-0 overflow-y-auto overscroll-contain rounded-md border border-line-subtle bg-slate-950/30">
                             {(activeContinent === 'global' ? heatmapUniverseStocks : regionalHeatRows).map(
                               (st) => {
                                 const pct = st.change_percent ?? 0
@@ -1950,16 +1950,16 @@ function DesktopHome() {
                                   <Link
                                     key={st.symbol}
                                     href={`/research?symbol=${encodeURIComponent(st.symbol)}`}
-                                    className="flex items-center justify-between gap-2 border-b border-slate-800/25 px-2 py-1.5 last:border-b-0 hover:bg-slate-800/40"
+                                    className="flex items-center justify-between gap-2 border-b border-line-subtle/25 px-2 py-1.5 last:border-b-0 hover:bg-surface-hover"
                                   >
                                     <div className="min-w-0 flex-1">
-                                      <div className="truncate font-mono text-[10px] font-bold text-slate-200">
+                                      <div className="truncate font-mono text-[10px] font-bold text-fg-primary">
                                         {st.symbol}
                                       </div>
                                       {activeContinent === 'global' &&
                                       'sector' in st &&
                                       typeof st.sector === 'string' ? (
-                                        <div className="truncate text-[9px] text-slate-600">{st.sector}</div>
+                                        <div className="truncate text-[9px] text-fg-muted">{st.sector}</div>
                                       ) : null}
                                     </div>
                                     <span
@@ -1981,19 +1981,19 @@ function DesktopHome() {
                       <ProCard className="p-2.5 sm:p-3">
                         <div className="flex items-center gap-1.5 mb-1">
                           <BarChart3 className="w-3.5 h-3.5 text-green-400 shrink-0" />
-                          <span className="text-[11px] font-bold text-white">
+                          <span className="text-[11px] font-bold text-fg-primary">
                             {activeContinent === 'global' ? 'Sector leader' : 'Top mover'}
                           </span>
                         </div>
                         {activeContinent !== 'global' ? (
                           regionMoversLoading ? (
-                            <div className="h-4 w-24 bg-slate-800/60 rounded animate-pulse" />
+                            <div className="h-4 w-24 bg-surface-hover rounded animate-pulse" />
                           ) : topGainers[0] ? (
                             <Link
                               href={`/research?symbol=${encodeURIComponent(topGainers[0].symbol)}`}
                               className="flex items-center justify-between gap-2 group"
                             >
-                              <span className="text-[11px] text-slate-300 font-mono truncate group-hover:text-emerald-400">
+                              <span className="text-[11px] text-fg-primary font-mono truncate group-hover:text-emerald-400">
                                 {topGainers[0].symbol}
                               </span>
                               <span className="text-[11px] font-mono font-bold text-emerald-400 shrink-0">
@@ -2001,13 +2001,13 @@ function DesktopHome() {
                               </span>
                             </Link>
                           ) : (
-                            <span className="text-[10px] text-slate-500">No movers</span>
+                            <span className="text-[10px] text-fg-muted">No movers</span>
                           )
                         ) : sectorsLoading ? (
-                          <div className="h-4 w-24 bg-slate-800/60 rounded animate-pulse" />
+                          <div className="h-4 w-24 bg-surface-hover rounded animate-pulse" />
                         ) : sectors.length > 0 ? (
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] text-slate-300 truncate">{sectors[0]?.sector}</span>
+                            <span className="text-[11px] text-fg-primary truncate">{sectors[0]?.sector}</span>
                             <span
                               className={`text-[11px] font-mono font-bold shrink-0 ${
                                 sectors[0]?.change_percent >= 0 ? 'text-emerald-400' : 'text-red-400'
@@ -2030,10 +2030,10 @@ function DesktopHome() {
                           <Link
                             key={href}
                             href={href}
-                            className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-slate-700/50 bg-slate-950/50 hover:border-slate-600 hover:bg-slate-800/50 transition-all group"
+                            className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-line-default/50 bg-slate-950/50 hover:border-slate-600 hover:bg-surface-raised/50 transition-all group"
                           >
                             <Icon className={`w-3 h-3 shrink-0 ${color}`} />
-                            <span className="text-[10px] text-slate-400 group-hover:text-white transition-colors font-medium truncate">
+                            <span className="text-[10px] text-fg-muted group-hover:text-fg-primary transition-colors font-medium truncate">
                               {label}
                             </span>
                           </Link>

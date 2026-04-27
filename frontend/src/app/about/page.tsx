@@ -58,7 +58,7 @@ const CAT_COLORS: Record<string, string> = {
   'Macro':        'bg-emerald-500/10 text-emerald-300 border-emerald-500/25',
   'Transport':    'bg-amber-500/10 text-amber-300 border-amber-500/25',
   'Markets':      'bg-sky-500/10 text-sky-300 border-sky-500/25',
-  'News':         'bg-slate-500/10 text-slate-300 border-slate-500/25',
+  'News':         'bg-slate-500/10 text-fg-primary border-slate-500/25',
 }
 
 const CAP_ACCENT: Record<string, string> = {
@@ -88,28 +88,28 @@ export default function AboutPage() {
 
       {/* ─── Desktop / tablet view ───────────────────── */}
     <AppLayout>
-      <div className="hidden md:block min-h-screen bg-[#020617] -mx-4 md:-mx-6 -my-4 md:-my-6">
+      <div className="hidden md:block min-h-screen bg-surface-base -mx-4 md:-mx-6 -my-4 md:-my-6">
         <div className="max-w-4xl mx-auto px-6 py-16">
 
           {/* HERO */}
           <motion.header className="mb-20" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
             <div className="flex items-center gap-4 mb-8">
-              <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-cyan-500/20 overflow-hidden shadow-lg shadow-cyan-500/10">
+              <div className="w-14 h-14 rounded-2xl bg-surface-raised border border-cyan-500/20 overflow-hidden shadow-lg shadow-cyan-500/10">
                 <Image src="/logo.png" alt="QuantTrade AI" width={56} height={56} className="object-contain" />
               </div>
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-0.5">QuantTrade Technologies, Inc.</div>
-                <h1 className="text-3xl font-black text-white">QuantTrade AI</h1>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted mb-0.5">QuantTrade Technologies, Inc.</div>
+                <h1 className="text-3xl font-black text-fg-primary">QuantTrade AI</h1>
               </div>
             </div>
             <div className="pl-6 border-l-2 border-cyan-500/40">
-              <p className="text-2xl md:text-3xl font-light text-slate-300 leading-relaxed mb-6">
-                Institutional-grade intelligence at <span className="text-white font-semibold">retail price.</span>
+              <p className="text-2xl md:text-3xl font-light text-fg-primary leading-relaxed mb-6">
+                Institutional-grade intelligence at <span className="text-fg-primary font-semibold">retail price.</span>
               </p>
-              <p className="text-slate-400 text-base leading-relaxed max-w-2xl mb-4">
+              <p className="text-fg-muted text-base leading-relaxed max-w-2xl mb-4">
                 QuantTrade combines real-time market data, geopolitical risk monitoring, AI research, and strategy backtesting into a single cohesive workflow. Built end-to-end by a single engineer who found the existing retail tooling insufficient for serious research.
               </p>
-              <p className="text-slate-500 text-sm leading-relaxed max-w-2xl">
+              <p className="text-fg-muted text-sm leading-relaxed max-w-2xl">
                 Most retail platforms give you charts and news. QuantTrade gives you the same decision-support infrastructure a professional desk would build internally — conflict tracking on a live globe, SEC filing analysis with retrieval-augmented generation, and a strategy backtester with Monte Carlo simulation — all accessible from a browser with no Bloomberg terminal required.
               </p>
             </div>
@@ -124,10 +124,10 @@ export default function AboutPage() {
                 { label: 'AI Queries', value: '∞ Pro', icon: Brain },
                 { label: 'Markets', value: '60+', icon: Globe },
               ].map(s => (
-                <div key={s.label} className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-5 backdrop-blur-sm">
-                  <s.icon className="w-4 h-4 text-slate-600 mb-3" />
-                  <div className="text-2xl font-black text-white mb-0.5">{s.value}</div>
-                  <div className="text-[11px] text-slate-500 uppercase tracking-wider">{s.label}</div>
+                <div key={s.label} className="bg-surface-raised border border-line-subtle rounded-2xl p-5 backdrop-blur-sm">
+                  <s.icon className="w-4 h-4 text-fg-muted mb-3" />
+                  <div className="text-2xl font-black text-fg-primary mb-0.5">{s.value}</div>
+                  <div className="text-[11px] text-fg-muted uppercase tracking-wider">{s.label}</div>
                 </div>
               ))}
             </div>
@@ -136,13 +136,13 @@ export default function AboutPage() {
           {/* MISSION */}
           <FadeIn>
             <div className="mb-20">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-6">Mission</div>
-              <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-8 backdrop-blur-sm space-y-4">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted mb-6">Mission</div>
+              <div className="bg-surface-raised border border-line-subtle rounded-2xl p-8 backdrop-blur-sm space-y-4">
                 <div className="flex items-start gap-3">
                   <Target className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
                   <div>
-                    <h2 className="text-lg font-black text-white mb-2">Close the information gap between institutional and retail traders</h2>
-                    <p className="text-slate-400 text-sm leading-relaxed">
+                    <h2 className="text-lg font-black text-fg-primary mb-2">Close the information gap between institutional and retail traders</h2>
+                    <p className="text-fg-muted text-sm leading-relaxed">
                       A proprietary trading desk at a major fund has access to real-time conflict tracking, satellite imagery, alternative data pipelines, and AI researchers who synthesize it all before market open. A retail investor has CNBC and a brokerage app.
                     </p>
                   </div>
@@ -150,7 +150,7 @@ export default function AboutPage() {
                 <div className="flex items-start gap-3">
                   <Shield className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-slate-400 text-sm leading-relaxed">
+                    <p className="text-fg-muted text-sm leading-relaxed">
                       QuantTrade AI is the answer to that gap. By aggregating 14 live data sources, building an AI research pipeline on top of them, and wrapping everything in a Bloomberg-inspired interface, we make institutional-grade decision support accessible to discretionary traders, systematic researchers, and independent analysts at a price point that doesn't require a fund budget.
                     </p>
                   </div>
@@ -158,7 +158,7 @@ export default function AboutPage() {
                 <div className="flex items-start gap-3">
                   <Clock className="w-5 h-5 text-violet-400 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-slate-400 text-sm leading-relaxed">
+                    <p className="text-fg-muted text-sm leading-relaxed">
                       Every feature on this platform was built because it solved a real research problem: the Global Monitor exists because geopolitical risk is systematically underpriced by retail investors. The backtester exists because paper trading without historical validation is guesswork. The AI Copilot exists because reading a 100-page 10-K before an earnings call takes hours that most traders don't have.
                     </p>
                   </div>
@@ -170,27 +170,27 @@ export default function AboutPage() {
           {/* OPERATOR */}
           <FadeIn>
             <div className="mb-20">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-6">Builder</div>
-              <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-8 backdrop-blur-sm">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted mb-6">Builder</div>
+              <div className="bg-surface-raised border border-line-subtle rounded-2xl p-8 backdrop-blur-sm">
                 <div className="flex items-start gap-6">
                   <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/20 border border-cyan-500/20 flex items-center justify-center shrink-0 text-xl font-black text-cyan-300">Y</div>
                   <div className="flex-1">
-                    <h2 className="text-xl font-black text-white mb-1">Yash Joshi</h2>
-                    <div className="text-[11px] text-slate-500 uppercase tracking-wider mb-4">Founder · Full-Stack Engineer</div>
-                    <p className="text-slate-400 text-sm leading-relaxed mb-4">
+                    <h2 className="text-xl font-black text-fg-primary mb-1">Yash Joshi</h2>
+                    <div className="text-[11px] text-fg-muted uppercase tracking-wider mb-4">Founder · Full-Stack Engineer</div>
+                    <p className="text-fg-muted text-sm leading-relaxed mb-4">
                       Yash built QuantTrade end-to-end — from data ingestion pipelines and FastAPI microservices to Three.js globe visualizations and LLM-powered research tools. The platform spans a Python backend with Celery workers, a Next.js 15 frontend with server-side rendering, and a vector database for RAG-based SEC filing analysis.
                     </p>
-                    <p className="text-slate-400 text-sm leading-relaxed mb-4">
+                    <p className="text-fg-muted text-sm leading-relaxed mb-4">
                       The motivation was simple: after years of working with retail trading platforms, it became clear that the tooling available to independent traders was fundamentally different from what institutional desks operate. QuantTrade is the attempt to close that gap without institutional pricing.
                     </p>
-                    <p className="text-slate-500 text-sm leading-relaxed mb-6">
+                    <p className="text-fg-muted text-sm leading-relaxed mb-6">
                       The platform is actively maintained and updated. Feature requests and feedback are welcomed at the contact below.
                     </p>
                     <div className="flex flex-wrap gap-3">
-                      <a href="https://github.com/YashJoshi2109" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700/50 text-slate-300 text-sm font-medium hover:border-slate-500 hover:text-white transition-all">
+                      <a href="https://github.com/YashJoshi2109" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-hover border border-line-subtle text-fg-primary text-sm font-medium hover:border-line-default hover:text-fg-primary transition-all">
                         <Github className="w-4 h-4" /> GitHub
                       </a>
-                      <a href="mailto:support@quanttrade.us" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700/50 text-slate-300 text-sm font-medium hover:border-slate-500 hover:text-white transition-all">
+                      <a href="mailto:support@quanttrade.us" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-hover border border-line-subtle text-fg-primary text-sm font-medium hover:border-line-default hover:text-fg-primary transition-all">
                         <Mail className="w-4 h-4" /> support@quanttrade.us
                       </a>
                     </div>
@@ -203,7 +203,7 @@ export default function AboutPage() {
           {/* CAPABILITIES */}
           <FadeIn>
             <div className="mb-20">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-6">Platform Capabilities</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted mb-6">Platform Capabilities</div>
               <div className="grid md:grid-cols-2 gap-4">
                 {CAPABILITIES.map((cap, i) => {
                   const accent = CAP_ACCENT[cap.accent]
@@ -212,12 +212,12 @@ export default function AboutPage() {
                       className={`relative rounded-2xl border bg-gradient-to-br backdrop-blur-sm p-6 ${accent}`}
                     >
                       <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-slate-900/60 border border-slate-700/40 flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-surface-raised border border-line-subtle flex items-center justify-center shrink-0">
                           <cap.icon className={`w-5 h-5 ${accent.split(' ').at(-1)}`} />
                         </div>
                         <div>
-                          <h3 className="text-white font-bold mb-2">{cap.title}</h3>
-                          <p className="text-slate-400 text-sm leading-relaxed">{cap.body}</p>
+                          <h3 className="text-fg-primary font-bold mb-2">{cap.title}</h3>
+                          <p className="text-fg-muted text-sm leading-relaxed">{cap.body}</p>
                         </div>
                       </div>
                     </motion.div>
@@ -231,22 +231,22 @@ export default function AboutPage() {
           <FadeIn>
             <div className="mb-20">
               <div className="flex items-center justify-between mb-6">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Data Sources & Attribution</div>
-                <div className="text-[11px] text-slate-600 font-mono">{DATA_SOURCES.length} live integrations</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted">Data Sources & Attribution</div>
+                <div className="text-[11px] text-fg-muted font-mono">{DATA_SOURCES.length} live integrations</div>
               </div>
-              <p className="text-sm text-slate-500 leading-relaxed mb-5">
+              <p className="text-sm text-fg-muted leading-relaxed mb-5">
                 QuantTrade aggregates data from {DATA_SOURCES.length} independent sources across market data, geopolitical intelligence, macro economics, and transport tracking. All data is attributed to its source and displayed with appropriate caveats on the relevant platform page.
               </p>
               <div className="grid sm:grid-cols-2 gap-2">
                 {DATA_SOURCES.map((s, i) => (
                   <motion.div key={s.name} initial={{ opacity: 0, x: -8 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.04 }}
-                    className="flex items-center gap-4 py-3 px-4 rounded-xl bg-slate-900/40 border border-slate-800/40 hover:border-slate-700/60 transition-colors"
+                    className="flex items-center gap-4 py-3 px-4 rounded-xl bg-surface-raised border border-line-subtle hover:border-line-subtle transition-colors"
                   >
                     <div className="flex-1">
-                      <div className="text-sm font-bold text-slate-200">{s.name}</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">{s.desc}</div>
+                      <div className="text-sm font-bold text-fg-primary">{s.name}</div>
+                      <div className="text-[11px] text-fg-muted mt-0.5">{s.desc}</div>
                     </div>
-                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold border ${CAT_COLORS[s.category] || 'bg-slate-700 text-slate-400 border-slate-600'}`}>
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold border ${CAT_COLORS[s.category] || 'bg-slate-700 text-fg-muted border-slate-600'}`}>
                       {s.category}
                     </span>
                   </motion.div>
@@ -258,12 +258,12 @@ export default function AboutPage() {
           {/* STACK */}
           <FadeIn>
             <div className="mb-20">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-6">Technology Stack</div>
-              <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-6 backdrop-blur-sm space-y-0.5">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted mb-6">Technology Stack</div>
+              <div className="bg-surface-raised border border-line-subtle rounded-2xl p-6 backdrop-blur-sm space-y-0.5">
                 {STACK.map(s => (
-                  <div key={s.label} className="flex items-start gap-4 py-3 border-b border-slate-800/40 last:border-0">
-                    <div className="w-20 shrink-0 text-[11px] text-slate-600 uppercase tracking-wider font-bold pt-0.5">{s.label}</div>
-                    <div className="text-sm text-slate-400">{s.value}</div>
+                  <div key={s.label} className="flex items-start gap-4 py-3 border-b border-line-subtle last:border-0">
+                    <div className="w-20 shrink-0 text-[11px] text-fg-muted uppercase tracking-wider font-bold pt-0.5">{s.label}</div>
+                    <div className="text-sm text-fg-muted">{s.value}</div>
                   </div>
                 ))}
               </div>
@@ -277,10 +277,10 @@ export default function AboutPage() {
                 <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
                 <div>
                   <h3 className="text-sm font-bold text-amber-200/90 mb-2">Risk Disclosure</h3>
-                  <p className="text-sm leading-relaxed text-slate-400 mb-3">
+                  <p className="text-sm leading-relaxed text-fg-muted mb-3">
                     Securities trading involves substantial risk of loss. QuantTrade AI provides software tools and market information — not personalized investment, tax, or legal advice. AI outputs can be wrong, delayed, or biased. Past backtest results do not predict future performance. You are solely responsible for all investment decisions.
                   </p>
-                  <p className="text-sm leading-relaxed text-slate-500">
+                  <p className="text-sm leading-relaxed text-fg-muted">
                     All data displayed on this platform is sourced from third-party providers and is provided "as is" without warranty of accuracy or completeness. Market data may be delayed. Geopolitical intelligence data reflects publicly available sources and does not constitute classified or proprietary analysis. QuantTrade AI is not a registered investment adviser, broker-dealer, or financial institution.
                   </p>
                 </div>
@@ -295,7 +295,7 @@ export default function AboutPage() {
                 <Link href="/pricing" className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 text-white font-bold hover:from-cyan-400 hover:to-sky-400 transition-all shadow-lg shadow-cyan-500/25">
                   <Zap className="w-4 h-4" /> View Pricing <ChevronRight className="w-4 h-4" />
                 </Link>
-                <Link href="/" className="flex items-center gap-2 px-8 py-4 rounded-2xl border border-slate-700 text-slate-300 font-bold hover:border-slate-500 hover:text-white transition-all">
+                <Link href="/" className="flex items-center gap-2 px-8 py-4 rounded-2xl border border-line-default text-fg-primary font-bold hover:border-line-default hover:text-fg-primary transition-all">
                   Open Dashboard
                 </Link>
               </div>
@@ -329,7 +329,7 @@ function MobileAbout() {
   ]
 
   return (
-    <div className="md:hidden min-h-screen bg-[#020617] text-white flex flex-col pb-28">
+    <div className="md:hidden min-h-screen bg-surface-base text-fg-primary flex flex-col pb-28">
       {/* Hero */}
       <div className="relative overflow-hidden px-5 pt-14 pb-10">
         <div className="absolute inset-0 opacity-20">
@@ -343,18 +343,18 @@ function MobileAbout() {
           transition={{ duration: 0.5 }}
         >
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-cyan-500/25 overflow-hidden shadow-lg shadow-cyan-500/15">
+            <div className="w-12 h-12 rounded-2xl bg-surface-raised border border-cyan-500/25 overflow-hidden shadow-lg shadow-cyan-500/15">
               <Image src="/logo.png" alt="QuantTrade AI" width={48} height={48} className="object-contain" />
             </div>
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600">QuantTrade Technologies</p>
-              <h1 className="text-xl font-black text-white">QuantTrade AI</h1>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-fg-muted">QuantTrade Technologies</p>
+              <h1 className="text-xl font-black text-fg-primary">QuantTrade AI</h1>
             </div>
           </div>
-          <p className="text-lg font-light text-slate-300 leading-relaxed mb-3">
-            Institutional-grade intelligence at <span className="text-white font-semibold">retail price.</span>
+          <p className="text-lg font-light text-fg-primary leading-relaxed mb-3">
+            Institutional-grade intelligence at <span className="text-fg-primary font-semibold">retail price.</span>
           </p>
-          <p className="text-[13px] text-slate-500 leading-relaxed">
+          <p className="text-[13px] text-fg-muted leading-relaxed">
             Real-time data, geopolitical risk, AI research, and strategy backtesting in one tool. Built by a single engineer for serious discretionary traders.
           </p>
         </motion.div>
@@ -369,10 +369,10 @@ function MobileAbout() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.07 }}
-              className="bg-slate-900/70 border border-slate-800/60 rounded-2xl p-3 text-center"
+              className="bg-surface-raised border border-line-subtle rounded-2xl p-3 text-center"
             >
-              <div className="text-[17px] font-black text-white">{s.value}</div>
-              <div className="text-[9px] text-slate-500 uppercase tracking-wider mt-0.5 leading-tight">{s.label}</div>
+              <div className="text-[17px] font-black text-fg-primary">{s.value}</div>
+              <div className="text-[9px] text-fg-muted uppercase tracking-wider mt-0.5 leading-tight">{s.label}</div>
             </motion.div>
           ))}
         </div>
@@ -380,7 +380,7 @@ function MobileAbout() {
 
       {/* Capabilities */}
       <div className="px-5 mb-6 space-y-2">
-        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-3">Capabilities</p>
+        <p className="text-[9px] font-bold uppercase tracking-widest text-fg-muted mb-3">Capabilities</p>
         {capabs.map((c, i) => {
           const Icon = c.icon
           return (
@@ -389,7 +389,7 @@ function MobileAbout() {
               initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 + i * 0.06 }}
-              className="flex items-center gap-3 bg-slate-900/60 border border-slate-800/60 rounded-2xl px-4 py-3"
+              className="flex items-center gap-3 bg-surface-raised border border-line-subtle rounded-2xl px-4 py-3"
             >
               <div
                 className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
@@ -398,8 +398,8 @@ function MobileAbout() {
                 <Icon className="w-4 h-4" style={{ color: c.color }} />
               </div>
               <div className="min-w-0">
-                <div className="text-[13px] font-bold text-white">{c.title}</div>
-                <div className="text-[11px] text-slate-500 truncate">{c.body}</div>
+                <div className="text-[13px] font-bold text-fg-primary">{c.title}</div>
+                <div className="text-[11px] text-fg-muted truncate">{c.body}</div>
               </div>
             </motion.div>
           )
@@ -408,8 +408,8 @@ function MobileAbout() {
 
       {/* Tech stack */}
       <div className="px-5 mb-6">
-        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-3">Tech Stack</p>
-        <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 space-y-2.5">
+        <p className="text-[9px] font-bold uppercase tracking-widest text-fg-muted mb-3">Tech Stack</p>
+        <div className="bg-surface-raised border border-line-subtle rounded-2xl p-4 space-y-2.5">
           {[
             { label: 'Frontend', value: 'Next.js 15, React 18, Framer Motion, Three.js' },
             { label: 'Backend',  value: 'FastAPI, SQLAlchemy, Celery, WebSockets' },
@@ -418,8 +418,8 @@ function MobileAbout() {
             { label: 'Infra',    value: 'Vercel Edge, Railway, Cloudflare CDN' },
           ].map((s) => (
             <div key={s.label} className="flex gap-2">
-              <span className="text-[11px] text-slate-600 w-16 shrink-0 font-bold">{s.label}</span>
-              <span className="text-[11px] text-slate-400 leading-snug">{s.value}</span>
+              <span className="text-[11px] text-fg-muted w-16 shrink-0 font-bold">{s.label}</span>
+              <span className="text-[11px] text-fg-muted leading-snug">{s.value}</span>
             </div>
           ))}
         </div>
@@ -432,7 +432,7 @@ function MobileAbout() {
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
             <span className="text-[11px] font-bold text-amber-300">Not investment advice</span>
           </div>
-          <p className="text-[11px] text-slate-500 leading-relaxed">
+          <p className="text-[11px] text-fg-muted leading-relaxed">
             All data is sourced from third parties and provided "as is". Market data may be delayed. QuantTrade AI is not a registered investment adviser or broker-dealer.
           </p>
         </div>
@@ -448,7 +448,7 @@ function MobileAbout() {
         </Link>
         <Link
           href="/"
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-slate-700 text-slate-300 font-bold text-[14px]"
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-line-default text-fg-primary font-bold text-[14px]"
         >
           Open Dashboard
         </Link>

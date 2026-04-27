@@ -60,11 +60,11 @@ export default function ConnectPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-[#020617] -mx-4 md:-mx-6 -my-4 md:-my-6 px-4 py-6 md:px-8 md:py-10">
+      <div className="min-h-screen bg-surface-base -mx-4 md:-mx-6 -my-4 md:-my-6 px-4 py-6 md:px-8 md:py-10">
         <div className="max-w-5xl mx-auto space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 md:p-6">
-            <h1 className="text-xl md:text-2xl font-bold text-white">Stripe Connect Control Center</h1>
-            <p className="text-slate-400 text-sm mt-1">
+          <div className="rounded-2xl border border-line-subtle bg-surface-raised p-5 md:p-6">
+            <h1 className="text-xl md:text-2xl font-bold text-fg-primary">Stripe Connect Control Center</h1>
+            <p className="text-fg-muted text-sm mt-1">
               Create connected accounts, onboard, publish products, and charge customers/subscriptions.
             </p>
             {error && <div className="mt-3 text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">{error}</div>}
@@ -88,24 +88,24 @@ export default function ConnectPage() {
               >
                 Onboard to Collect Payments
               </button>
-              <button disabled={loading} onClick={() => run(refreshStatus)} className="h-11 rounded-xl border border-slate-700 text-slate-200 font-semibold">
+              <button disabled={loading} onClick={() => run(refreshStatus)} className="h-11 rounded-xl border border-line-default text-fg-primary font-semibold">
                 Refresh Status
               </button>
             </div>
-            <div className="mt-4 text-xs text-slate-300 space-y-1">
-              <p><span className="text-slate-500">Account:</span> {accountId || 'Not created yet'}</p>
-              <p><span className="text-slate-500">Onboarding complete:</span> {String(Boolean(status?.onboarding_complete))}</p>
-              <p><span className="text-slate-500">Card payments:</span> {status?.ready_to_process_payments ? 'active' : 'not active yet'}</p>
-              <p><span className="text-slate-500">Requirements:</span> {status?.requirements_status || 'unknown'}</p>
+            <div className="mt-4 text-xs text-fg-primary space-y-1">
+              <p><span className="text-fg-muted">Account:</span> {accountId || 'Not created yet'}</p>
+              <p><span className="text-fg-muted">Onboarding complete:</span> {String(Boolean(status?.onboarding_complete))}</p>
+              <p><span className="text-fg-muted">Card payments:</span> {status?.ready_to_process_payments ? 'active' : 'not active yet'}</p>
+              <p><span className="text-fg-muted">Requirements:</span> {status?.requirements_status || 'unknown'}</p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 md:p-6">
-            <h2 className="text-lg font-semibold text-white">Create Product (Connected Account)</h2>
-            <p className="text-slate-400 text-xs mt-1">Uses Stripe-Account header via server endpoint.</p>
+          <div className="rounded-2xl border border-line-subtle bg-surface-raised p-5 md:p-6">
+            <h2 className="text-lg font-semibold text-fg-primary">Create Product (Connected Account)</h2>
+            <p className="text-fg-muted text-xs mt-1">Uses Stripe-Account header via server endpoint.</p>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-              <input value={productName} onChange={(e) => setProductName(e.target.value)} className="h-11 rounded-xl bg-slate-800 border border-slate-700 px-3 text-sm text-white" />
-              <input value={productPrice} onChange={(e) => setProductPrice(e.target.value)} className="h-11 rounded-xl bg-slate-800 border border-slate-700 px-3 text-sm text-white" />
+              <input value={productName} onChange={(e) => setProductName(e.target.value)} className="h-11 rounded-xl bg-surface-raised border border-line-default px-3 text-sm text-fg-primary" />
+              <input value={productPrice} onChange={(e) => setProductPrice(e.target.value)} className="h-11 rounded-xl bg-surface-raised border border-line-default px-3 text-sm text-fg-primary" />
               <button
                 disabled={loading || !accountId}
                 onClick={() =>
@@ -128,25 +128,25 @@ export default function ConnectPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 md:p-6">
-            <h2 className="text-lg font-semibold text-white">Storefront</h2>
-            <p className="text-slate-400 text-xs mt-1">
+          <div className="rounded-2xl border border-line-subtle bg-surface-raised p-5 md:p-6">
+            <h2 className="text-lg font-semibold text-fg-primary">Storefront</h2>
+            <p className="text-fg-muted text-xs mt-1">
               Demo page uses connected account ID in URL. Replace with your own seller slug for production.
             </p>
             <div className="mt-4 space-y-3">
-              {storefrontProducts.length === 0 && <p className="text-xs text-slate-500">No products yet.</p>}
+              {storefrontProducts.length === 0 && <p className="text-xs text-fg-muted">No products yet.</p>}
               {storefrontProducts.map((p) => {
                 const amount = p?.default_price?.unit_amount || 0
                 return (
-                  <div key={p.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-xl border border-slate-700/60 bg-slate-800/40 p-3">
+                  <div key={p.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-xl border border-line-subtle bg-surface-hover p-3">
                     <div>
-                      <p className="text-sm text-white font-medium">{p.name}</p>
-                      <p className="text-xs text-slate-400">{p.description || 'No description'}</p>
+                      <p className="text-sm text-fg-primary font-medium">{p.name}</p>
+                      <p className="text-xs text-fg-muted">{p.description || 'No description'}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-sm text-emerald-300 font-semibold">${(amount / 100).toFixed(2)}</span>
                       <button
-                        className="h-9 px-4 rounded-lg bg-cyan-500 text-slate-950 text-sm font-semibold"
+                        className="h-9 px-4 rounded-lg bg-cyan-500 text-fg-primary text-sm font-semibold"
                         onClick={() =>
                           run(async () => {
                             if (!accountId) return
@@ -169,9 +169,9 @@ export default function ConnectPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 md:p-6">
-            <h2 className="text-lg font-semibold text-white">Connected Account Subscription</h2>
-            <p className="text-slate-400 text-xs mt-1">Platform charges connected account via hosted Checkout and customer_account.</p>
+          <div className="rounded-2xl border border-line-subtle bg-surface-raised p-5 md:p-6">
+            <h2 className="text-lg font-semibold text-fg-primary">Connected Account Subscription</h2>
+            <p className="text-fg-muted text-xs mt-1">Platform charges connected account via hosted Checkout and customer_account.</p>
             <div className="mt-4 flex flex-col md:flex-row gap-3">
               <button
                 disabled={loading || !accountId}
@@ -199,7 +199,7 @@ export default function ConnectPage() {
               >
                 Open Billing Portal
               </button>
-              <Link href="/pricing" className="h-11 px-5 rounded-xl border border-slate-700 text-slate-200 font-semibold inline-flex items-center justify-center">
+              <Link href="/pricing" className="h-11 px-5 rounded-xl border border-line-default text-fg-primary font-semibold inline-flex items-center justify-center">
                 Existing Pricing Page
               </Link>
             </div>
