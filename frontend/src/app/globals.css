@@ -999,13 +999,20 @@ body {
 
 /* HUD Panel - Main glass panel with tech borders */
 .hud-panel {
-  background: linear-gradient(135deg, rgba(13, 17, 23, 0.95) 0%, rgba(16, 25, 40, 0.9) 100%);
+  background: var(--surface-raised);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 122, 255, 0.15);
+  border: 1px solid var(--border-default);
   border-radius: 16px;
   position: relative;
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.dark .hud-panel {
+  background: linear-gradient(135deg, rgba(13, 17, 23, 0.95) 0%, rgba(16, 25, 40, 0.9) 100%);
+  border-color: rgba(0, 122, 255, 0.15);
+  box-shadow: none;
 }
 
 .hud-panel::before {
@@ -1030,13 +1037,20 @@ body {
 
 /* HUD Card - Smaller interactive elements */
 .hud-card {
-  background: linear-gradient(145deg, rgba(16, 25, 40, 0.8) 0%, rgba(13, 17, 23, 0.95) 100%);
+  background: var(--surface-overlay);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(71, 85, 105, 0.25);
+  border: 1px solid var(--border-subtle);
   border-radius: 12px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  box-shadow: var(--shadow-sm);
+}
+
+.dark .hud-card {
+  background: linear-gradient(145deg, rgba(16, 25, 40, 0.8) 0%, rgba(13, 17, 23, 0.95) 100%);
+  border-color: rgba(71, 85, 105, 0.25);
+  box-shadow: none;
 }
 
 .hud-card:hover {
@@ -1046,11 +1060,16 @@ body {
 
 /* HUD Stat Box - For displaying metrics */
 .hud-stat {
-  background: rgba(13, 17, 23, 0.7);
-  border: 1px solid rgba(71, 85, 105, 0.2);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
   position: relative;
   overflow: hidden;
+}
+
+.dark .hud-stat {
+  background: rgba(13, 17, 23, 0.7);
+  border-color: rgba(71, 85, 105, 0.2);
 }
 
 .hud-stat::before {
@@ -1171,7 +1190,7 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--text-muted);
 }
 
 /* HUD Value */

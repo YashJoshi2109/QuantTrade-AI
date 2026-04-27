@@ -281,7 +281,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0e1a]">
+    <div className="min-h-screen bg-surface-base">
       {/* Market Ticker Bar */}
       <div className="fixed top-0 left-0 right-0 z-[51] hidden md:block">
         <MarketTicker />
@@ -289,7 +289,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
 
       {/* Fixed Header — md:top-11 clears ticker a bit more so the alert bell badge does not crowd API usage chip */}
       <header className="fixed top-0 md:top-11 left-0 right-0 h-14 z-50">
-        <div className="absolute inset-0 bg-[#0d1321]/90 backdrop-blur-xl border-b border-blue-500/10" />
+        <div className="absolute inset-0 bg-surface-raised/90 backdrop-blur-xl border-b border-line-subtle" />
         <div className="relative h-full flex items-center px-4 md:px-6 gap-2 md:gap-4 md:pt-1">
           {/* Menu Button */}
           <button
@@ -464,7 +464,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
         } ${!hideSidebar ? 'lg:translate-x-0' : ''}`}
           style={{ width: sidebarWidth }}
         >
-          <div className="absolute inset-0 bg-[#0d1321]/90 backdrop-blur-xl border-r border-blue-500/10" />
+          <div className="absolute inset-0 bg-surface-raised/90 backdrop-blur-xl border-r border-line-subtle" />
           <div className="relative h-full flex flex-col overflow-hidden">
             {/* Navigation */}
             <nav className="flex-1 p-4 overflow-y-auto">

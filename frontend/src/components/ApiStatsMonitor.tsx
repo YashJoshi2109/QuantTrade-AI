@@ -86,9 +86,9 @@ function GlassPopoverShell({ children }: { children: React.ReactNode }) {
       />
       <div
         className={cn(
-          'relative overflow-hidden rounded-2xl border border-line-default',
-          'bg-[rgba(6,10,22,0.78)] backdrop-blur-xl backdrop-saturate-150',
-          'shadow-[0_24px_48px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
+          'relative overflow-hidden rounded-2xl border border-white/[0.09]',
+          'bg-surface-glass backdrop-blur-xl backdrop-saturate-150',
+          'shadow-theme-glass'
         )}
       >
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-cyan-500/[0.07] via-transparent to-violet-500/[0.06]" />
@@ -172,7 +172,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
           className={cn(
             'relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-mono',
             'transition-all duration-300 overflow-hidden',
-            'bg-[rgba(8,12,28,0.55)] backdrop-blur-md border-line-subtle',
+            'bg-surface-glass backdrop-blur-md border-line-subtle',
             'hover:border-cyan-400/25 hover:shadow-[0_0_20px_rgba(34,211,238,0.12)]',
             isRateLimited && 'border-rose-500/35 bg-rose-950/20',
             fetchError && !stats && 'border-amber-500/40 bg-amber-950/15'
@@ -188,7 +188,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
             )}
           />
           {loading && !stats ? (
-            <span className="relative z-10 flex items-center gap-1.5 text-fg-muted">
+            <span className="relative z-10 flex items-center gap-1.5 text-slate-500">
               <span className="h-3.5 w-10 rounded bg-white/10 animate-pulse" />
             </span>
           ) : (
@@ -206,7 +206,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
               </span>
               <RefreshCw
                 className={cn(
-                  'w-3 h-3 text-fg-muted opacity-0 group-hover:opacity-100 transition-opacity',
+                  'w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity',
                   refreshing && 'animate-spin opacity-100'
                 )}
               />
@@ -236,16 +236,16 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
               <GlassPopoverShell>
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div>
-                    <div className="flex items-center gap-2 text-[11px] font-bold tracking-wide text-white">
+                    <div className="flex items-center gap-2 text-[11px] font-bold tracking-wide text-fg-primary">
                       <Radio className="w-3.5 h-3.5 text-cyan-400" />
                       API pulse
                     </div>
-                    <p className="text-[9px] text-fg-muted mt-0.5 leading-snug">
+                    <p className="text-[9px] text-slate-500 mt-0.5 leading-snug">
                       Live Finnhub limits from your API server. FMP counts this Next.js instance (UTC day).
                     </p>
                   </div>
                   {lastUpdated && (
-                    <span className="text-[9px] font-mono text-fg-muted shrink-0 tabular-nums">
+                    <span className="text-[9px] font-mono text-slate-600 shrink-0 tabular-nums">
                       {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   )}
@@ -260,9 +260,9 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
                 ) : (
                   <>
                     <div className="space-y-3">
-                      <div className="rounded-xl border border-line-subtle bg-white/[0.02] p-3">
+                      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-1.5">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                             <Activity className="w-3.5 h-3.5 text-cyan-400" />
                             Finnhub
                           </span>
@@ -280,9 +280,9 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
                       </div>
 
                       {fmpStats && (
-                        <div className="rounded-xl border border-line-subtle bg-white/[0.02] p-3">
+                        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
                           <div className="flex items-center justify-between gap-2 mb-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-1.5">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                               <Database className="w-3.5 h-3.5 text-violet-400" />
                               FMP (daily)
                             </span>
@@ -291,30 +291,30 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
                             </span>
                           </div>
                           <GlassMeter value={fmpStats.used} max={fmpStats.limit} tone={fmpTone} />
-                          <p className="text-[9px] text-fg-muted mt-1.5">Resets UTC midnight · {fmpStats.date}</p>
+                          <p className="text-[9px] text-slate-600 mt-1.5">Resets UTC midnight · {fmpStats.date}</p>
                         </div>
                       )}
 
                       {cache?.entries != null && (
-                        <div className="rounded-xl border border-line-subtle bg-white/[0.02] p-3">
+                        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-1.5">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                               <Zap className="w-3.5 h-3.5 text-emerald-400/90" />
                               Finnhub cache
                             </span>
                             <span className="text-[11px] font-mono text-slate-100">{formatNumber(cache.entries, 0)} keys</span>
                           </div>
-                          <div className="flex items-center justify-between text-[10px] text-fg-muted mt-2 pt-2 border-t border-line-subtle">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 mt-2 pt-2 border-t border-white/[0.05]">
                             <span>Hits / misses</span>
-                            <span className="font-mono text-fg-secondary">
+                            <span className="font-mono text-slate-300">
                               {formatNumber(cache.hits ?? 0, 0)} / {formatNumber(cache.misses ?? 0, 0)}
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-[10px] mt-1">
-                            <span className="text-fg-muted">Hit ratio</span>
+                            <span className="text-slate-500">Hit ratio</span>
                             <span className="font-mono font-bold text-emerald-400/95">{hitLabel}</span>
                           </div>
-                          <p className="text-[8px] text-fg-muted mt-2 leading-relaxed">
+                          <p className="text-[8px] text-slate-600 mt-2 leading-relaxed">
                             Ratio is measured on the API process (resets on deploy). Entries = warmed in-memory cache.
                           </p>
                         </div>
@@ -334,20 +334,20 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
   if (isInSidebar) {
     if (!stats) {
       return (
-        <div className="hud-stat p-3 rounded-xl border border-line-subtle bg-white/[0.02] animate-pulse h-24" />
+        <div className="hud-stat p-3 rounded-xl border border-white/[0.06] bg-white/[0.02] animate-pulse h-24" />
       )
     }
     return (
-      <div className="rounded-xl border border-line-subtle bg-[rgba(6,10,22,0.55)] backdrop-blur-md p-3 shadow-lg">
+      <div className="rounded-xl border border-line-subtle bg-surface-raised backdrop-blur-md p-3 shadow-theme-sm">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Activity className={`w-4 h-4 ${isRateLimited ? 'text-rose-400 animate-pulse' : 'text-cyan-400'}`} />
-            <span className="text-xs font-bold text-white tracking-wide">API STATUS</span>
+            <span className="text-xs font-bold text-fg-primary tracking-wide">API STATUS</span>
           </div>
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-fg-muted">Finnhub / min</span>
+            <span className="text-slate-500">Finnhub / min</span>
             <span
               className={cn(
                 'font-mono font-bold',
@@ -378,7 +378,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
           onClick={() => setIsExpanded(true)}
           className={cn(
             'group relative px-4 py-2.5 rounded-2xl border transition-all duration-300',
-            'bg-[rgba(6,10,22,0.72)] backdrop-blur-xl border-line-default',
+            'bg-surface-glass backdrop-blur-xl border-line-default',
             'hover:border-cyan-400/30 hover:shadow-[0_12px_40px_rgba(0,0,0,0.45)]',
             isRateLimited && 'border-rose-500/40 bg-rose-950/30'
           )}
@@ -410,12 +410,12 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">API status</h3>
+              <h3 className="text-sm font-bold text-fg-primary">API status</h3>
             </div>
             <button
               type="button"
               onClick={() => setIsExpanded(false)}
-              className="text-fg-muted hover:text-white transition-colors text-sm px-2 py-1 rounded-lg hover:bg-white/5"
+              className="text-fg-muted hover:text-fg-primary transition-colors text-sm px-2 py-1 rounded-lg hover:bg-surface-hover"
               aria-label="Close"
             >
               ✕
@@ -424,7 +424,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
           {stats ? (
             <div className="space-y-3 text-sm">
               <div>
-                <div className="flex items-center justify-between mb-1 text-xs text-fg-muted">
+                <div className="flex items-center justify-between mb-1 text-xs text-slate-400">
                   <span className="flex items-center gap-1">
                     <Zap className="w-3 h-3" />
                     Finnhub / min
@@ -435,12 +435,12 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
                 </div>
                 <GlassMeter value={usedCalls} max={maxCalls} tone={isRateLimited ? 'rose' : usagePercent > 80 ? 'amber' : 'cyan'} />
               </div>
-              <div className="text-xs text-fg-muted border-t border-line-subtle pt-2">
+              <div className="text-xs text-slate-500 border-t border-white/[0.06] pt-2">
                 Cache {formatNumber(cache?.entries ?? 0, 0)} entries · hit {hitLabel}
               </div>
             </div>
           ) : (
-            <p className="text-xs text-fg-muted">No data yet.</p>
+            <p className="text-xs text-slate-500">No data yet.</p>
           )}
         </GlassPopoverShell>
       )}

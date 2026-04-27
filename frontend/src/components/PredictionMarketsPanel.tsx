@@ -62,7 +62,7 @@ export default function PredictionMarketsPanel() {
       </div>
 
       {/* Body */}
-      <div className="flex-1 min-h-0 overflow-y-auto bg-[#050816]/95 px-3 py-3 space-y-2">
+      <div className="flex-1 min-h-0 overflow-y-auto bg-surface-base px-3 py-3 space-y-2">
         {isLoading && !events.length && (
           <div className="flex items-center justify-center py-8 text-xs text-fg-muted">
             Loading prediction markets…

@@ -247,7 +247,7 @@ export default function ChatWindow({ onClose }: { onClose: () => void }) {
 
       {/* Desktop: full-screen mode */}
       {isFullscreen && (
-        <div className="hidden md:flex fixed inset-0 bg-[#050810]/90 backdrop-blur-2xl z-50 flex-col animate-slide-in-bottom">
+        <div className="hidden md:flex fixed inset-0 bg-surface-base/90 backdrop-blur-2xl z-50 flex-col animate-slide-in-bottom">
           <div className="mx-auto w-full max-w-3xl h-full md:mt-8 md:mb-8 overflow-hidden flex flex-col relative">
             <div className="absolute -inset-[1px] rounded-3xl bg-gradient-to-b from-cyan-500/15 via-white/[0.06] to-purple-500/15" />
             <div className="absolute inset-0 rounded-3xl bg-[#0A0E1A]/95 backdrop-blur-2xl" />

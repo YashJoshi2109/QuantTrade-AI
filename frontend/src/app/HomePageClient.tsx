@@ -489,7 +489,7 @@ function ExchangeSessionsPopover({ continent }: { continent: Continent }) {
         </span>
       </button>
       {open && (
-      <div className="absolute right-0 top-full mt-2 w-[min(100vw-2rem,22rem)] max-h-[min(70vh,420px)] overflow-y-auto rounded-2xl border border-cyan-500/20 bg-[#0a101f]/95 backdrop-blur-xl px-3 py-3 text-[10px] shadow-2xl shadow-black/40 z-[60]">
+      <div className="absolute right-0 top-full mt-2 w-[min(100vw-2rem,22rem)] max-h-[min(70vh,420px)] overflow-y-auto rounded-2xl border border-line-default bg-surface-overlay backdrop-blur-xl px-3 py-3 text-[10px] shadow-theme-lg z-[60]">
         <div className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-400/90 mb-2 px-1">
           Exchange local time
         </div>
@@ -2042,7 +2042,7 @@ function DesktopHome() {
                     </div>
                   </div>
 
-                  <div className="flex min-h-[200px] min-w-0 flex-1 flex-col bg-[#0a0d12]/40 lg:min-h-0">
+                  <div className="flex min-h-[200px] min-w-0 flex-1 flex-col bg-surface-raised lg:min-h-0">
                     <IpoRadarWidget
                       variant="inline"
                       className="h-full min-h-0 px-3 sm:px-4"

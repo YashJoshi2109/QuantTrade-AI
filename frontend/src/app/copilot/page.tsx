@@ -836,7 +836,7 @@ function WelcomeScreen({ onPrompt }: { onPrompt: (p: string) => void }) {
                     'group flex min-h-0 items-start gap-1.5 rounded-xl border p-2 text-left transition-all duration-300 sm:gap-2.5 sm:rounded-2xl sm:p-3 md:p-3.5',
                     '[@media(min-width:720px)_and_(max-height:680px)]:flex-col [@media(min-width:720px)_and_(max-height:680px)]:items-stretch [@media(min-width:720px)_and_(max-height:680px)]:gap-1.5 [@media(min-width:720px)_and_(max-height:680px)]:p-2',
                     '[@media(max-height:520px)]:gap-1 [@media(max-height:520px)]:p-1.5 [@media(max-height:520px)]:rounded-lg',
-                    'border-line-subtle bg-[rgba(10,14,26,0.55)] backdrop-blur-md',
+                    'border-line-subtle bg-surface-glass backdrop-blur-md',
                     'hover:border-[#007AFF]/35 hover:bg-[rgba(0,122,255,0.08)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.3)]',
                     'active:scale-[0.99]'
                   )}
@@ -897,9 +897,9 @@ function LiveQuoteStrip() {
   const ok = price > 0
 
   return (
-    <div className="hidden sm:flex items-center gap-2 rounded-xl border border-line-subtle bg-[rgba(8,12,24,0.55)] px-2.5 py-1 text-[10px] font-mono text-fg-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md">
+    <div className="hidden sm:flex items-center gap-2 rounded-xl border border-line-subtle bg-surface-glass px-2.5 py-1 text-[10px] font-mono text-fg-primary shadow-theme-sm backdrop-blur-md">
       <BarChart3 className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
-      <span className="font-bold text-white tracking-tight">SPY</span>
+      <span className="font-bold text-fg-primary tracking-tight">SPY</span>
       {ok ? (
         <>
           <span className="text-fg-primary tabular-nums">${price.toFixed(2)}</span>
@@ -1700,7 +1700,7 @@ function CopilotInner() {
         }`}
       >
         {/* Header — liquid glass */}
-        <div className="relative shrink-0 border-b border-line-subtle bg-[rgba(6,10,22,0.72)] px-3 py-2 backdrop-blur-xl sm:px-5 sm:py-2.5">
+        <div className="relative shrink-0 border-b border-line-subtle bg-surface-glass px-3 py-2 backdrop-blur-xl sm:px-5 sm:py-2.5">
           <div
             className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent"
             aria-hidden
@@ -1823,7 +1823,7 @@ function CopilotInner() {
         </div>
 
         {/* Input — glass composer */}
-        <div className="relative shrink-0 border-t border-line-subtle bg-[rgba(6,10,22,0.78)] px-3 py-3 backdrop-blur-xl sm:px-5 sm:py-4">
+        <div className="relative shrink-0 border-t border-line-subtle bg-surface-glass px-3 py-3 backdrop-blur-xl sm:px-5 sm:py-4">
           <div
             className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#007AFF]/35 to-transparent"
             aria-hidden
@@ -1881,7 +1881,7 @@ export default function CopilotPage() {
         <div className="flex min-h-screen items-center justify-center px-4">
           <div
             className={cn(
-              'w-full max-w-md rounded-2xl border border-line-subtle bg-[rgba(8,12,24,0.75)] p-8 text-center shadow-[0_24px_64px_rgba(0,0,0,0.5)] backdrop-blur-xl',
+              'w-full max-w-md rounded-2xl border border-line-subtle bg-surface-overlay p-8 text-center shadow-theme-lg backdrop-blur-xl',
               'relative overflow-hidden'
             )}
           >
