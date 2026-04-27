@@ -79,6 +79,23 @@ button, a, input, textarea, select,
   --accent-rose:        #f43f5e;
   --accent-amber:       #f59e0b;
   --accent-amber-theme: #f59e0b;
+  /* shadcn compatibility aliases */
+  --background: var(--surface-base);
+  --foreground: var(--text-primary);
+  --card: var(--surface-raised);
+  --card-foreground: var(--text-primary);
+  --muted: var(--surface-overlay);
+  --muted-foreground: var(--text-muted);
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--accent);
+  --primary: var(--accent);
+  --primary-foreground: var(--text-inverted);
+  --secondary: var(--surface-hover);
+  --secondary-foreground: var(--text-secondary);
+  --accent: var(--surface-active);
+  --accent-foreground: var(--text-primary);
+
   /* legacy aliases — point to new semantic vars */
   --bg-primary:   var(--surface-base);
   --bg-secondary: var(--surface-raised);

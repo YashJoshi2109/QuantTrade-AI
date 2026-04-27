@@ -40,7 +40,7 @@ export function Switch({ checked, onChange, label, disabled = false, size = 'md'
           'inline-block rounded-full shadow-lg',
           s.thumb,
           s.padding,
-          checked ? 'bg-white' : 'bg-fg-muted',
+          checked ? 'bg-white' : 'bg-surface-overlay',
         )}
         animate={{ x: checked ? s.translate : 0 }}
         transition={{ type: 'spring', stiffness: 700, damping: 30 }}

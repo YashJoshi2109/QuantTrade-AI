@@ -141,7 +141,7 @@ export function PredictionMarketCard({
         </motion.div>
 
         <motion.div variants={shouldAnimate ? itemVariants : {}}>
-          <Separator className="bg-gradient-to-r from-transparent via-slate-700/50 to-transparent" />
+          <Separator className="bg-gradient-to-r from-transparent via-line-subtle to-transparent" />
         </motion.div>
 
         {/* Outcome display */}
@@ -197,7 +197,7 @@ export function PredictionMarketCard({
               return (
                 <div key={i} className="relative h-5 rounded bg-surface-overlay/60 overflow-hidden">
                   <div
-                    className={`absolute inset-y-0 left-0 rounded bg-gradient-to-r ${barColors[i] ?? "from-slate-600 to-slate-500"} transition-all duration-500 opacity-50`}
+                    className={`absolute inset-y-0 left-0 rounded bg-gradient-to-r ${barColors[i] ?? "from-line-default to-surface-overlay"} transition-all duration-500 opacity-50`}
                     style={{ width: `${Math.max(pct, 3)}%` }}
                   />
                   <div className="absolute inset-0 flex items-center justify-between px-2">
