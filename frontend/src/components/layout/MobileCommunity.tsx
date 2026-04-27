@@ -401,7 +401,7 @@ export default function MobileCommunity() {
                     onChange={(e) => setCreateTitle(e.target.value)}
                     placeholder="What's your post about?"
                     maxLength={300}
-                    className="w-full h-10 rounded-xl bg-surface-raised border border-line-subtle px-3 text-[13px] text-fg-primary placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500/60"
+                    className="w-full h-10 rounded-xl bg-surface-raised border border-line-subtle px-3 text-[13px] text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-blue-500/60"
                   />
                   <span className="text-[10px] text-fg-muted float-right mt-1">{createTitle.length}/300</span>
                 </div>
@@ -431,7 +431,7 @@ export default function MobileCommunity() {
                       onChange={(e) => { if (e.target.value.length <= MAX_BODY) setCreateBody(e.target.value) }}
                       placeholder={"Share analysis, ideas... Use $AAPL to tag tickers.\nSupports **bold**, *italic*, `code`"}
                       rows={5}
-                      className="w-full rounded-xl bg-surface-raised border border-line-subtle px-3 py-2.5 text-[13px] text-fg-primary placeholder-slate-500 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/60 font-mono leading-relaxed"
+                      className="w-full rounded-xl bg-surface-raised border border-line-subtle px-3 py-2.5 text-[13px] text-fg-primary placeholder:text-fg-muted resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/60 font-mono leading-relaxed"
                     />
                   ) : (
                     <div

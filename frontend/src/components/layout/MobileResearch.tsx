@@ -540,7 +540,7 @@ export default function MobileResearch() {
                     className={`text-[10px] px-2 py-0.5 rounded-full border ${
                       aiReport.sentiment === 'Bullish'
                         ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                        : 'bg-slate-500/10 text-fg-secondary border-line-subtle'
+                        : 'bg-surface-raised text-fg-secondary border-line-subtle'
                     }`}
                   >
                     {aiReport.sentiment}

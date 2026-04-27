@@ -80,7 +80,7 @@ function StatusBadge({ status, size = 'sm' }: { status: string; size?: 'xs' | 's
   const c = isOk ? 'text-emerald-400 bg-emerald-500/10 dot-emerald-400'
     : isWarn ? 'text-amber-400 bg-amber-500/10 dot-amber-400'
     : isErr ? 'text-red-400 bg-red-500/10 dot-red-400'
-    : 'text-fg-secondary bg-slate-500/10 dot-slate-400'
+    : 'text-fg-secondary bg-surface-raised dot-slate-400'
 
   const [textC, bgC, dotC] = c.split(' ')
 

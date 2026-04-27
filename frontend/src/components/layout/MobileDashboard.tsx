@@ -63,7 +63,7 @@ function MarketStatusPill({ status }: { status?: MarketStatus }) {
     <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-raised border border-line-subtle">
       <span
         className={`w-2 h-2 rounded-full ${
-          isOpen ? 'bg-[#00FF88] animate-pulse' : 'bg-slate-500'
+          isOpen ? 'bg-[#00FF88] animate-pulse' : 'bg-fg-muted'
         }`}
       />
       <span className="text-[10px] font-medium text-fg-primary">
@@ -350,7 +350,7 @@ export default function MobileDashboard() {
                 key={result.symbol}
                 type="button"
                 onClick={() => handleSearchSelect(result.symbol)}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-hover active:bg-white/10 transition-colors text-left"
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-hover active:bg-surface-hover transition-colors text-left"
               >
                 <TickerLogo symbol={result.symbol} companyName={result.name} size={36} />
                 <div className="flex-1 min-w-0">
@@ -370,7 +370,7 @@ export default function MobileDashboard() {
 
       {/* Greeting */}
       <section className="px-1">
-        <div className="rounded-2xl bg-gradient-to-br from-[#141B2D] via-[#0A0E1A] to-[#141B2D] border border-line-subtle p-4 relative overflow-hidden">
+        <div className="rounded-2xl bg-gradient-to-br from-surface-overlay via-surface-base to-surface-overlay border border-line-subtle p-4 relative overflow-hidden">
           <div className="absolute -top-8 -right-10 w-28 h-28 bg-[#00D9FF]/15 blur-3xl" />
           <div className="relative space-y-1">
             <p className="text-[11px] text-fg-secondary">{dateString}</p>
@@ -615,7 +615,7 @@ export default function MobileDashboard() {
                   ? 'bg-emerald-400'
                   : sentiment === 'bearish'
                   ? 'bg-red-400'
-                  : 'bg-slate-500'
+                  : 'bg-fg-muted'
 
               return (
                 <a
