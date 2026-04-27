@@ -5,12 +5,18 @@ import { useTheme } from 'next-themes'
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? ''
 
 async function fetchThemePreference(token: string): Promise<'light' | 'dark'> {
-  const res = await fetch(`${API_BASE}/api/v1/user/me/preferences`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!res.ok) return 'light'
-  const data = await res.json()
-  return data.theme === 'dark' ? 'dark' : 'light'
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/user/me/preferences`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return 'light'
+    const ct = res.headers.get('content-type') ?? ''
+    if (!ct.includes('application/json')) return 'light'
+    const data = await res.json()
+    return data.theme === 'dark' ? 'dark' : 'light'
+  } catch {
+    return 'light'
+  }
 }
 
 async function saveThemePreference(theme: string, token: string): Promise<void> {
