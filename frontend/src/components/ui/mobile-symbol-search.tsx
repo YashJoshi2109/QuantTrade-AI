@@ -75,7 +75,7 @@ export default function MobileSymbolSearch({
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted pointer-events-none" />
         <input
           ref={inputRef}
           type="text"
@@ -83,7 +83,7 @@ export default function MobileSymbolSearch({
           onChange={handleInputChange}
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
-          className="w-full h-11 rounded-xl bg-[#0A0E1A]/80 border border-slate-700/40 pl-9 pr-9 text-sm text-white font-mono placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all"
+          className="w-full h-11 rounded-xl bg-surface-raised border border-line-subtle pl-9 pr-9 text-sm text-fg-primary font-mono placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all"
         />
         {query && (
           <button
@@ -93,7 +93,7 @@ export default function MobileSymbolSearch({
               onChange('')
               inputRef.current?.focus()
             }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted hover:text-fg-secondary transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -108,15 +108,15 @@ export default function MobileSymbolSearch({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="absolute top-full left-0 right-0 mt-1 z-50 max-h-72 overflow-y-auto rounded-xl border border-slate-700/50 bg-[#0D1117]/98 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+            className="absolute top-full left-0 right-0 mt-1 z-50 max-h-72 overflow-y-auto rounded-xl border border-line-subtle bg-surface-overlay backdrop-blur-xl shadow-theme-lg"
           >
             {isLoading ? (
-              <div className="flex items-center justify-center gap-2 py-6 text-slate-500 text-sm">
+              <div className="flex items-center justify-center gap-2 py-6 text-fg-muted text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Searching...
               </div>
             ) : results.length === 0 ? (
-              <div className="py-5 text-center text-slate-600 text-xs">
+              <div className="py-5 text-center text-fg-muted text-xs">
                 No results for &quot;{query}&quot;
               </div>
             ) : (
@@ -128,7 +128,7 @@ export default function MobileSymbolSearch({
                   transition={{ delay: i * 0.03, duration: 0.15 }}
                   type="button"
                   onClick={() => handleSelect(result)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/[0.04] active:bg-white/[0.08] transition-colors text-left border-b border-slate-800/30 last:border-0"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-surface-hover active:bg-surface-active transition-colors text-left border-b border-line-subtle last:border-0"
                 >
                   <TickerLogo
                     symbol={result.symbol}
@@ -141,12 +141,12 @@ export default function MobileSymbolSearch({
                         {result.symbol}
                       </span>
                       {result.exchange && (
-                        <span className="text-[9px] px-1 py-0.5 rounded bg-white/5 border border-white/10 text-slate-500">
+                        <span className="text-[9px] px-1 py-0.5 rounded bg-surface-hover border border-line-subtle text-fg-muted">
                           {result.exchange}
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-500 truncate leading-tight">
+                    <p className="text-[11px] text-fg-muted truncate leading-tight">
                       {result.name}
                     </p>
                   </div>

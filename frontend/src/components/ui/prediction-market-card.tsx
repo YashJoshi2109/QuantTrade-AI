@@ -97,7 +97,7 @@ export function PredictionMarketCard({
 
   return (
     <motion.div
-      className="w-full bg-slate-950/80 border border-slate-800/60 rounded-xl overflow-hidden hover:border-slate-700/70 transition-colors duration-300"
+      className="w-full bg-surface-raised border border-line-subtle rounded-xl overflow-hidden hover:border-line-default transition-colors duration-300"
       initial={shouldAnimate ? "hidden" : "visible"}
       animate="visible"
       variants={shouldAnimate ? containerVariants : {}}
@@ -115,7 +115,7 @@ export function PredictionMarketCard({
               </span>
             )}
             {category && (
-              <span className="px-1.5 py-0.5 rounded bg-slate-700/50 text-[8px] font-bold text-slate-400 uppercase tracking-wider">
+              <span className="px-1.5 py-0.5 rounded bg-surface-overlay/50 text-[8px] font-bold text-fg-secondary uppercase tracking-wider">
                 {category}
               </span>
             )}
@@ -135,7 +135,7 @@ export function PredictionMarketCard({
 
         {/* Question */}
         <motion.div variants={shouldAnimate ? itemVariants : {}}>
-          <h4 className="text-[11px] font-semibold text-slate-200 leading-snug line-clamp-2">
+          <h4 className="text-[11px] font-semibold text-fg-primary leading-snug line-clamp-2">
             {question}
           </h4>
         </motion.div>
@@ -152,7 +152,7 @@ export function PredictionMarketCard({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <TrendingDown className="w-3 h-3 text-rose-400" />
-                  <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">No</span>
+                  <span className="text-[9px] text-fg-muted uppercase tracking-wider font-bold">No</span>
                   <span className="text-sm font-black font-mono text-rose-400">
                     {noPct ?? 0}%
                   </span>
@@ -161,7 +161,7 @@ export function PredictionMarketCard({
                   <span className="text-sm font-black font-mono text-emerald-400">
                     {yesPct ?? 0}%
                   </span>
-                  <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">Yes</span>
+                  <span className="text-[9px] text-fg-muted uppercase tracking-wider font-bold">Yes</span>
                   <TrendingUp className="w-3 h-3 text-emerald-400" />
                 </div>
               </div>
@@ -177,7 +177,7 @@ export function PredictionMarketCard({
                   style={{ width: `${progressValue}%` }}
                 />
                 <div
-                  className="absolute top-0 h-full w-[3px] bg-slate-950 rounded-full"
+                  className="absolute top-0 h-full w-[3px] bg-surface-base rounded-full"
                   style={{ left: `${progressValue}%`, transform: "translateX(-50%)" }}
                 />
               </motion.div>
@@ -195,16 +195,16 @@ export function PredictionMarketCard({
                 "from-emerald-600 to-emerald-400",
               ]
               return (
-                <div key={i} className="relative h-5 rounded bg-slate-800/60 overflow-hidden">
+                <div key={i} className="relative h-5 rounded bg-surface-overlay/60 overflow-hidden">
                   <div
                     className={`absolute inset-y-0 left-0 rounded bg-gradient-to-r ${barColors[i] ?? "from-slate-600 to-slate-500"} transition-all duration-500 opacity-50`}
                     style={{ width: `${Math.max(pct, 3)}%` }}
                   />
                   <div className="absolute inset-0 flex items-center justify-between px-2">
-                    <span className="text-[9px] font-medium text-slate-200 truncate max-w-[65%] z-10">
+                    <span className="text-[9px] font-medium text-fg-primary truncate max-w-[65%] z-10">
                       {o.name}
                     </span>
-                    <span className="text-[9px] font-bold font-mono text-slate-200 z-10">
+                    <span className="text-[9px] font-bold font-mono text-fg-primary z-10">
                       {pct}%
                     </span>
                   </div>
@@ -212,7 +212,7 @@ export function PredictionMarketCard({
               )
             })}
             {outcomes.length > 4 && (
-              <span className="text-[8px] text-slate-600 pl-1">
+              <span className="text-[8px] text-fg-muted pl-1">
                 +{outcomes.length - 4} more
               </span>
             )}
@@ -225,7 +225,7 @@ export function PredictionMarketCard({
             className="flex items-center justify-end pt-0.5"
             variants={shouldAnimate ? itemVariants : {}}
           >
-            <span className="text-[9px] text-slate-600 font-mono">
+            <span className="text-[9px] text-fg-muted font-mono">
               Vol: {volume}
             </span>
           </motion.div>

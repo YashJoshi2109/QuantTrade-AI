@@ -103,10 +103,10 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
       className={`relative flex items-start gap-3 px-4 py-3 rounded-xl border backdrop-blur-lg shadow-2xl shadow-black/40 min-w-[300px] max-w-[420px] ${config.bg} ${config.border}`}
     >
       <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${config.iconColor}`} />
-      <p className="text-sm text-slate-200 flex-1 leading-snug pr-6">{toast.message}</p>
+      <p className="text-sm text-fg-primary flex-1 leading-snug pr-6">{toast.message}</p>
       <button
         onClick={() => onRemove(toast.id)}
-        className="absolute top-2.5 right-2.5 p-1 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.05] transition-colors"
+        className="absolute top-2.5 right-2.5 p-1 rounded-lg text-fg-muted hover:text-fg-secondary hover:bg-surface-hover transition-colors"
         aria-label="Dismiss notification"
       >
         <X className="w-3.5 h-3.5" />

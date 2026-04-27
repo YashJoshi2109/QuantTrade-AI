@@ -17,11 +17,7 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
   return (
     <button
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      className={`relative w-14 h-7 rounded-full transition-colors duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
-        isDark
-          ? 'bg-slate-800 border border-white/10'
-          : 'bg-sky-100 border border-sky-200'
-      } ${className}`}
+      className={`relative w-14 h-7 rounded-full transition-colors duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 bg-surface-raised border border-line-subtle ${className}`}
       title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
       aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
     >
@@ -38,7 +34,7 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
           transition={{ duration: 0.35, ease: [0.175, 0.885, 0.32, 1.275] }}
           className={`absolute top-0.5 w-6 h-6 rounded-full flex items-center justify-center shadow-md ${
             isDark
-              ? 'bg-slate-700 text-cyan-400'
+              ? 'bg-surface-overlay text-cyan-400'
               : 'bg-white text-amber-500'
           }`}
         >
