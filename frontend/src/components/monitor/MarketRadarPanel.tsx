@@ -10,7 +10,7 @@ function getStatusColor(color: string) {
     case 'red': return 'bg-red-500/20 text-red-400 border-red-500/30'
     case 'yellow': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
     case 'orange': return 'bg-orange-500/20 text-orange-400 border-orange-500/30'
-    default: return 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+    default: return 'bg-surface-raised text-fg-muted border-line-subtle'
   }
 }
 
@@ -19,7 +19,7 @@ function getOverallColor(signal: string) {
     case 'INVEST': return 'border-l-emerald-500 text-emerald-400'
     case 'CASH': return 'border-l-orange-500 text-orange-400'
     case 'CAUTIOUS': return 'border-l-yellow-500 text-yellow-400'
-    default: return 'border-l-slate-500 text-slate-400'
+    default: return 'border-l-line-default text-fg-muted'
   }
 }
 
@@ -103,7 +103,7 @@ export default function MarketRadarPanel() {
 
           {/* Fear & Greed */}
           {data.fear_greed_index != null && (
-            <div className="mx-3 mb-3 bg-slate-900/60 border border-slate-800/60 rounded-lg p-3">
+            <div className="mx-3 mb-3 bg-surface-base border border-line-subtle rounded-lg p-3">
               <div className="flex items-center gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">

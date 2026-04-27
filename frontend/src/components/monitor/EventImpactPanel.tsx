@@ -40,7 +40,7 @@ function threatColor(level: string) {
     high: 'text-orange-400',
     medium: 'text-yellow-400',
     low: 'text-blue-400',
-    unknown: 'text-slate-400',
+    unknown: 'text-fg-muted',
   }
   return map[level] ?? map.unknown
 }
@@ -51,7 +51,7 @@ function threatBg(level: string) {
     high: 'bg-orange-500/15 border-orange-500/40',
     medium: 'bg-yellow-500/15 border-yellow-500/40',
     low: 'bg-blue-500/15 border-blue-500/40',
-    unknown: 'bg-slate-500/15 border-slate-500/40',
+    unknown: 'bg-surface-raised border-line-subtle',
   }
   return map[level] ?? map.unknown
 }
@@ -142,12 +142,12 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
             <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${threatBg(event.threat_level)} ${threatColor(event.threat_level)}`}>
               {event.threat_level}
             </span>
-            <span className="text-[10px] text-slate-500">{CATEGORY_ICON[event.category] || '🌐'} {event.category}</span>
+            <span className="text-[10px] text-fg-muted">{CATEGORY_ICON[event.category] || '🌐'} {event.category}</span>
             {event.is_anomaly && (
               <span className="px-1.5 py-0.5 rounded text-[9px] bg-purple-500/20 border border-purple-500/40 text-purple-400 font-bold">ANOMALY</span>
             )}
           </div>
-          <h3 className="text-sm font-bold text-slate-50 leading-snug">{event.title}</h3>
+          <h3 className="text-sm font-bold text-fg-primary leading-snug">{event.title}</h3>
           {event.description && (
             <p className="text-[11px] text-fg-secondary mt-2 leading-relaxed line-clamp-3">{event.description}</p>
           )}
@@ -166,7 +166,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
           {event.market_impact_score != null && event.market_impact_score > 0 && (
             <div className="mt-2.5 pt-2.5 border-t border-line-subtle">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[9px] text-slate-500 uppercase">Market Impact</span>
+                <span className="text-[9px] text-fg-muted uppercase">Market Impact</span>
                 <span className="text-[10px] font-bold text-orange-400">{event.market_impact_score.toFixed(0)}%</span>
               </div>
               {riskBar(event.market_impact_score, 'bg-orange-500')}
@@ -210,7 +210,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
                     <div>
                       <Link
                         href={`/research?symbol=${impact.ticker}`}
-                        className="text-sm font-bold text-slate-50 hover:text-sky-400 transition-colors"
+                        className="text-sm font-bold text-fg-primary hover:text-sky-400 transition-colors"
                       >
                         {impact.ticker}
                       </Link>
@@ -245,7 +245,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
                           ) : added.has(impact.ticker) ? (
                             <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
                           ) : (
-                            <Plus className="w-3 h-3 text-slate-400" />
+                            <Plus className="w-3 h-3 text-fg-muted" />
                           )}
                         </button>
                       )}
@@ -275,7 +275,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
                   )}
 
                   {/* Impact bar */}
-                  {riskBar(impact.impact_score, impact.expected_direction === 'positive' ? 'bg-emerald-500' : impact.expected_direction === 'negative' ? 'bg-red-500' : 'bg-slate-500')}
+                  {riskBar(impact.impact_score, impact.expected_direction === 'positive' ? 'bg-emerald-500' : impact.expected_direction === 'negative' ? 'bg-red-500' : 'bg-line-default')}
 
                   {/* ETFs row */}
                   {impact.related_etfs && impact.related_etfs.length > 0 && (
@@ -292,7 +292,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
             </div>
           ) : (
             <div className="py-8 text-center">
-              <BarChart2 className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+              <BarChart2 className="w-8 h-8 text-fg-muted mx-auto mb-2" />
               <p className="text-[11px] text-fg-muted">No significant market impact detected</p>
             </div>
           )}
@@ -324,7 +324,7 @@ function CountryRiskView({
   )
 
   const riskLevel = instability?.risk_level || 'unknown'
-  const colorClass = riskLevel === 'critical' ? 'text-red-400' : riskLevel === 'high' ? 'text-orange-400' : riskLevel === 'medium' ? 'text-yellow-400' : riskLevel === 'low' ? 'text-blue-400' : 'text-slate-400'
+  const colorClass = riskLevel === 'critical' ? 'text-red-400' : riskLevel === 'high' ? 'text-orange-400' : riskLevel === 'medium' ? 'text-yellow-400' : riskLevel === 'low' ? 'text-blue-400' : 'text-fg-muted'
 
   return (
     <div className="flex flex-col h-full">
@@ -340,10 +340,10 @@ function CountryRiskView({
           <div className="m-3 p-3 bg-surface-raised/70 border border-line-subtle rounded-xl">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <div className="text-[9px] text-slate-500 uppercase">Instability Index</div>
+                <div className="text-[9px] text-fg-muted uppercase">Instability Index</div>
                 <div className={`text-2xl font-black font-mono mt-0.5 ${colorClass}`}>
                   {instability.instability_index.toFixed(0)}
-                  <span className="text-sm text-slate-500">/100</span>
+                  <span className="text-sm text-fg-muted">/100</span>
                 </div>
               </div>
               <div className={`px-3 py-1.5 rounded-lg border text-xs font-bold uppercase ${threatBg(riskLevel)} ${colorClass}`}>
@@ -380,7 +380,7 @@ function CountryRiskView({
                 <div className="text-lg font-black text-fg-primary font-mono">{instability.active_event_count}</div>
               </div>
               <div className="bg-surface-hover rounded-lg p-2 text-center">
-                <div className="text-[9px] text-slate-500">Critical</div>
+                <div className="text-[9px] text-fg-muted">Critical</div>
                 <div className="text-lg font-black text-red-400 font-mono">{instability.critical_event_count}</div>
               </div>
             </div>
@@ -487,7 +487,7 @@ function GlobalOverview({ mapData }: { mapData: MapData | null }) {
       {mapData && (
         <div className="px-3 pt-3 grid grid-cols-2 gap-2">
           {[
-            { label: 'Active Events', value: mapData.stats.total_events, color: 'text-slate-100', icon: Activity },
+            { label: 'Active Events', value: mapData.stats.total_events, color: 'text-fg-primary', icon: Activity },
             { label: 'Critical', value: mapData.stats.critical_events, color: 'text-red-400', icon: Flame },
             { label: 'Hotspots', value: mapData.stats.total_hotspots, color: 'text-purple-400', icon: Zap },
             { label: 'High Risk', value: mapData.stats.high_risk_countries, color: 'text-orange-400', icon: Shield },
@@ -573,7 +573,7 @@ function GlobalOverview({ mapData }: { mapData: MapData | null }) {
       {!mapData && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <Globe className="w-10 h-10 text-slate-700 mx-auto mb-3 animate-pulse" />
+            <Globe className="w-10 h-10 text-fg-muted mx-auto mb-3 animate-pulse" />
             <p className="text-sm text-fg-muted">Loading intelligence data...</p>
           </div>
         </div>

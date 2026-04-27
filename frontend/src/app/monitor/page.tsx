@@ -160,7 +160,7 @@ const THREAT_LEVELS = [
   { value: 'high', label: 'High', color: 'text-orange-400', bg: 'bg-orange-500/15 border-orange-500/50', dot: 'bg-orange-500' },
   { value: 'medium', label: 'Medium', color: 'text-yellow-400', bg: 'bg-yellow-500/15 border-yellow-500/50', dot: 'bg-yellow-500' },
   { value: 'low', label: 'Low', color: 'text-sky-400', bg: 'bg-sky-500/15 border-sky-500/50', dot: 'bg-sky-500' },
-  { value: 'unknown', label: 'Monitor', color: 'text-slate-400', bg: 'bg-slate-500/15 border-slate-500/50', dot: 'bg-slate-500' },
+  { value: 'unknown', label: 'Monitor', color: 'text-fg-muted', bg: 'bg-surface-raised border-line-subtle', dot: 'bg-line-default' },
 ]
 
 const CATEGORIES: { value: string; label: string; Icon: LucideIcon }[] = [
@@ -382,7 +382,7 @@ function MonitorDesktop() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <StatCard label="Events" value={mapData.stats.total_events} color="text-slate-200" sublabel="total monitored" />
+                <StatCard label="Events" value={mapData.stats.total_events} color="text-fg-primary" sublabel="total monitored" />
                 <StatCard label="Critical" value={mapData.stats.critical_events} color="text-red-400" icon={AlertTriangle} sublabel="immediate action" />
                 <StatCard label="High" value={mapData.stats.high_threat_events} color="text-orange-400" icon={Zap} sublabel="elevated risk" />
                 <StatCard label="Hotspots" value={mapData.stats.total_hotspots} color="text-purple-400" icon={Map} sublabel="cluster zones" />
@@ -538,7 +538,7 @@ function MonitorDesktop() {
                 )}
 
                 {/* CENTER: Globe / Flat Map */}
-                <div className="relative bg-slate-950 border border-slate-800/60 rounded-2xl overflow-hidden" style={{ height: globeExpanded ? '620px' : '540px' }}>
+                <div className="relative bg-surface-base border border-line-subtle rounded-2xl overflow-hidden" style={{ height: globeExpanded ? '620px' : '540px' }}>
                   {/* Expand button */}
                   <div className="absolute top-3 right-3 z-20">
                     <button onClick={() => setGlobeExpanded(e => !e)} className="mac-btn mac-btn-icon" aria-label={globeExpanded ? 'Shrink' : 'Expand'}>

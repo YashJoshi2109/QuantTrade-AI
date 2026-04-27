@@ -66,7 +66,7 @@ export default function CommoditiesWidget() {
           ))}
         </div>
       ) : (
-        <div className="divide-y divide-slate-800/40">
+        <div className="divide-y divide-line-subtle">
           {(commodities || []).slice(0, 10).map((c) => (
             <div key={c.symbol} className="flex items-center justify-between px-4 py-2.5 hover:bg-surface-hover transition-colors">
               <div className="flex items-center gap-2.5">
@@ -75,7 +75,7 @@ export default function CommoditiesWidget() {
                 ) : c.direction === 'down' ? (
                   <TrendingDown className="w-3.5 h-3.5 text-red-400" />
                 ) : (
-                  <Minus className="w-3.5 h-3.5 text-slate-500" />
+                  <Minus className="w-3.5 h-3.5 text-fg-muted" />
                 )}
                 <div>
                   <span className="text-[11px] font-medium text-fg-primary">{c.name}</span>

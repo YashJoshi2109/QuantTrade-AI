@@ -120,7 +120,7 @@ export default function SecurityAdvisoriesPanel() {
             <div className="space-y-1">
               {(energyData?.data || []).slice(0, 5).map((e) => (
                 <div key={e.series_id} className="flex items-center justify-between px-2 py-1.5 rounded-md bg-surface-raised/60 border border-line-subtle">
-                  <span className="text-[10px] text-slate-300 truncate max-w-[55%]">{e.name}</span>
+                  <span className="text-[10px] text-fg-secondary truncate max-w-[55%]">{e.name}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-mono text-fg-primary">{e.value} <span className="text-fg-muted">{e.unit}</span></span>
                   </div>

@@ -67,7 +67,7 @@ export default function StrategicRiskPanel() {
                     <span className="text-[10px] text-fg-muted font-mono w-3">{i + 1}.</span>
                     <span className={`text-[11px] font-medium ${
                       risk.fatalities > 10 ? 'text-red-400' :
-                      risk.fatalities > 0 ? 'text-orange-400' : 'text-slate-300'
+                      risk.fatalities > 0 ? 'text-orange-400' : 'text-fg-secondary'
                     }`}>
                       {risk.country}
                     </span>
@@ -100,7 +100,7 @@ export default function StrategicRiskPanel() {
                     <span className="text-[9px] text-fg-muted">{alert.event_date}</span>
                     {alert.fatalities > 0 && (
                       <>
-                        <span className="text-[9px] text-slate-700">·</span>
+                        <span className="text-[9px] text-fg-muted">·</span>
                         <span className="text-[9px] text-red-400">{alert.fatalities} fatalities</span>
                       </>
                     )}

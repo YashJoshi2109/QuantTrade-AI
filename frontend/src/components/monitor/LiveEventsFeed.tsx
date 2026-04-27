@@ -27,7 +27,7 @@ export default function LiveEventsFeed({ events, onEventClick, maxItems = 40 }: 
 
   if (sortedEvents.length === 0) {
     return (
-      <div className="flex items-center justify-center h-32 text-slate-600 text-xs">
+      <div className="flex items-center justify-center h-32 text-fg-muted text-xs">
         No events in current filter
       </div>
     )
@@ -74,7 +74,7 @@ export default function LiveEventsFeed({ events, onEventClick, maxItems = 40 }: 
                       <span className="text-[9px] text-fg-muted">{event.location_name || 'Global'}</span>
                       {isRecent && (
                         <>
-                          <span className="text-[9px] text-slate-700">·</span>
+                          <span className="text-[9px] text-fg-muted">·</span>
                           <span className="text-[9px] text-amber-400 font-bold">NEW</span>
                         </>
                       )}

@@ -94,8 +94,8 @@ function GridFeed({ feed }: { feed: FeedType }) {
   if (feed.articles.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-        <Newspaper className="w-10 h-10 text-slate-700" aria-hidden />
-        <p className="text-[11px] text-slate-500 leading-relaxed max-w-xs">
+        <Newspaper className="w-10 h-10 text-fg-muted" aria-hidden />
+        <p className="text-[11px] text-fg-muted leading-relaxed max-w-xs">
           No headlines for {feed.continent} right now. Sources rotate between The Guardian and GDELT — try refresh in a minute.
         </p>
       </div>
