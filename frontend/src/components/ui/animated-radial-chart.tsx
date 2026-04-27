@@ -155,7 +155,7 @@ export function AnimatedRadialChart({
             </span>
           )}
           {bottomLabel && (
-            <span className="text-slate-500 font-mono font-bold uppercase tracking-wider" style={{ fontSize: `${labelFontSize}px` }}>
+            <span className="text-fg-muted font-mono font-bold uppercase tracking-wider" style={{ fontSize: `${labelFontSize}px` }}>
               {bottomLabel}
             </span>
           )}
@@ -166,7 +166,7 @@ export function AnimatedRadialChart({
       {showLabels && (
         <>
           <motion.div
-            className="absolute text-slate-600 font-mono font-medium"
+            className="absolute text-fg-muted font-mono font-medium"
             style={{ fontSize: `${labelFontSize}px`, left: center - radius - 5, top: center + strokeWidth / 2 }}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -175,7 +175,7 @@ export function AnimatedRadialChart({
             0%
           </motion.div>
           <motion.div
-            className="absolute text-slate-600 font-mono font-medium"
+            className="absolute text-fg-muted font-mono font-medium"
             style={{ fontSize: `${labelFontSize}px`, left: center + radius - (labelFontSize * 2.2), top: center + strokeWidth / 2 }}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}

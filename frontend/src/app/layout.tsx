@@ -10,6 +10,7 @@ import ChatWidget from '@/components/chat/ChatWidget'
 import BrandIntroGate from '@/components/BrandIntroGate'
 import { StockSnapshotProvider } from '@/context/StockSnapshotContext'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import { ThemeSyncProvider } from '@/components/ThemeSyncProvider'
 import VisitorHeartbeat from '@/components/VisitorHeartbeat'
 
 const manrope = Manrope({
@@ -214,20 +215,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         )}
         <ThemeProvider>
-          <ErrorBoundary>
-            <AuthProvider>
-              <ReactQueryProvider>
-                <ToastProvider>
-                  <StockSnapshotProvider>
-                    <VisitorHeartbeat />
-                    <BrandIntroGate />
-                    {children}
-                    <ChatWidget />
-                  </StockSnapshotProvider>
-                </ToastProvider>
-              </ReactQueryProvider>
-            </AuthProvider>
-          </ErrorBoundary>
+          <ThemeSyncProvider>
+            <ErrorBoundary>
+              <AuthProvider>
+                <ReactQueryProvider>
+                  <ToastProvider>
+                    <StockSnapshotProvider>
+                      <VisitorHeartbeat />
+                      <BrandIntroGate />
+                      {children}
+                      <ChatWidget />
+                    </StockSnapshotProvider>
+                  </ToastProvider>
+                </ReactQueryProvider>
+              </AuthProvider>
+            </ErrorBoundary>
+          </ThemeSyncProvider>
         </ThemeProvider>
       </body>
     </html>

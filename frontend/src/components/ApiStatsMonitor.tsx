@@ -87,8 +87,8 @@ function GlassPopoverShell({ children }: { children: React.ReactNode }) {
       <div
         className={cn(
           'relative overflow-hidden rounded-2xl border border-white/[0.09]',
-          'bg-[rgba(6,10,22,0.78)] backdrop-blur-xl backdrop-saturate-150',
-          'shadow-[0_24px_48px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
+          'bg-surface-glass backdrop-blur-xl backdrop-saturate-150',
+          'shadow-theme-glass'
         )}
       >
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-cyan-500/[0.07] via-transparent to-violet-500/[0.06]" />
@@ -172,7 +172,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
           className={cn(
             'relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-mono',
             'transition-all duration-300 overflow-hidden',
-            'bg-[rgba(8,12,28,0.55)] backdrop-blur-md border-white/[0.08]',
+            'bg-surface-glass backdrop-blur-md border-line-subtle',
             'hover:border-cyan-400/25 hover:shadow-[0_0_20px_rgba(34,211,238,0.12)]',
             isRateLimited && 'border-rose-500/35 bg-rose-950/20',
             fetchError && !stats && 'border-amber-500/40 bg-amber-950/15'
@@ -236,7 +236,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
               <GlassPopoverShell>
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div>
-                    <div className="flex items-center gap-2 text-[11px] font-bold tracking-wide text-white">
+                    <div className="flex items-center gap-2 text-[11px] font-bold tracking-wide text-fg-primary">
                       <Radio className="w-3.5 h-3.5 text-cyan-400" />
                       API pulse
                     </div>
@@ -338,11 +338,11 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
       )
     }
     return (
-      <div className="rounded-xl border border-white/[0.08] bg-[rgba(6,10,22,0.55)] backdrop-blur-md p-3 shadow-lg">
+      <div className="rounded-xl border border-line-subtle bg-surface-raised backdrop-blur-md p-3 shadow-theme-sm">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Activity className={`w-4 h-4 ${isRateLimited ? 'text-rose-400 animate-pulse' : 'text-cyan-400'}`} />
-            <span className="text-xs font-bold text-white tracking-wide">API STATUS</span>
+            <span className="text-xs font-bold text-fg-primary tracking-wide">API STATUS</span>
           </div>
         </div>
         <div className="space-y-2">
@@ -378,7 +378,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
           onClick={() => setIsExpanded(true)}
           className={cn(
             'group relative px-4 py-2.5 rounded-2xl border transition-all duration-300',
-            'bg-[rgba(6,10,22,0.72)] backdrop-blur-xl border-white/[0.1]',
+            'bg-surface-glass backdrop-blur-xl border-line-default',
             'hover:border-cyan-400/30 hover:shadow-[0_12px_40px_rgba(0,0,0,0.45)]',
             isRateLimited && 'border-rose-500/40 bg-rose-950/30'
           )}
@@ -410,12 +410,12 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">API status</h3>
+              <h3 className="text-sm font-bold text-fg-primary">API status</h3>
             </div>
             <button
               type="button"
               onClick={() => setIsExpanded(false)}
-              className="text-slate-500 hover:text-white transition-colors text-sm px-2 py-1 rounded-lg hover:bg-white/5"
+              className="text-fg-muted hover:text-fg-primary transition-colors text-sm px-2 py-1 rounded-lg hover:bg-surface-hover"
               aria-label="Close"
             >
               ✕

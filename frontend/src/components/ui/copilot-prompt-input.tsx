@@ -70,7 +70,7 @@ const CopilotPromptInput = React.forwardRef<HTMLTextAreaElement, CopilotPromptIn
         <div
           className={cn(
             'relative flex h-full w-full flex-col rounded-[15px]',
-            'border border-white/[0.06] bg-[rgba(10,14,28,0.92)]',
+            'border border-line-subtle bg-surface-raised',
             'shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
           )}
         >
@@ -83,10 +83,10 @@ const CopilotPromptInput = React.forwardRef<HTMLTextAreaElement, CopilotPromptIn
                 transition={{ duration: 0.28, ease: 'easeInOut' }}
                 className="overflow-hidden"
               >
-                <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-3 py-2 text-xs sm:px-4 sm:text-sm">
-                  <span className="text-left text-slate-400">
-                    <span className="font-semibold text-white">{usageForBanner.free_remaining}</span>
-                    <span className="text-slate-500"> / {usageForBanner.free_limit} </span>
+                <div className="flex items-center justify-between gap-3 border-b border-line-subtle px-3 py-2 text-xs sm:px-4 sm:text-sm">
+                  <span className="text-left text-fg-secondary">
+                    <span className="font-semibold text-fg-primary">{usageForBanner.free_remaining}</span>
+                    <span className="text-fg-muted"> / {usageForBanner.free_limit} </span>
                     free requests today
                   </span>
                   <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -103,7 +103,7 @@ const CopilotPromptInput = React.forwardRef<HTMLTextAreaElement, CopilotPromptIn
                       type="button"
                       onClick={() => setShowBanner(false)}
                       aria-label="Dismiss usage notice"
-                      className="rounded-md p-1 text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-slate-200"
+                      className="rounded-md p-1 text-fg-muted transition-colors hover:bg-surface-hover hover:text-fg-primary"
                     >
                       <X className="h-4 w-4" aria-hidden />
                     </button>
@@ -121,8 +121,8 @@ const CopilotPromptInput = React.forwardRef<HTMLTextAreaElement, CopilotPromptIn
               minRows={1}
               maxRows={10}
               className={cn(
-                'w-full resize-none bg-transparent text-sm text-white sm:text-base',
-                'placeholder:text-slate-600',
+                'w-full resize-none bg-transparent text-sm text-fg-primary sm:text-base',
+                'placeholder:text-fg-muted',
                 'focus:outline-none focus:ring-0',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
@@ -130,7 +130,7 @@ const CopilotPromptInput = React.forwardRef<HTMLTextAreaElement, CopilotPromptIn
             />
 
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 sm:mt-4">
-              <div className="flex items-center gap-1.5 text-slate-500 sm:gap-2">
+              <div className="flex items-center gap-1.5 text-fg-muted sm:gap-2">
                 {actionButtons.map((item) => {
                   const Icon = item.icon
                   return (
@@ -140,7 +140,7 @@ const CopilotPromptInput = React.forwardRef<HTMLTextAreaElement, CopilotPromptIn
                       aria-label={item.label}
                       title={item.label}
                       disabled={Boolean(disabled) || Boolean(streaming)}
-                      className="rounded-lg p-2 transition-colors hover:bg-white/[0.06] hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="rounded-lg p-2 transition-colors hover:bg-surface-hover hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Icon className="h-5 w-5" aria-hidden />
                     </button>
@@ -172,8 +172,8 @@ const CopilotPromptInput = React.forwardRef<HTMLTextAreaElement, CopilotPromptIn
                     'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition-all',
                     'bg-gradient-to-br from-fuchsia-500 to-indigo-600 shadow-[0_0_20px_rgba(168,85,247,0.35)]',
                     'hover:brightness-110',
-                    'disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500 disabled:shadow-none disabled:brightness-100',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(10,14,28,0.92)]'
+                    'disabled:cursor-not-allowed disabled:bg-surface-raised disabled:text-fg-muted disabled:shadow-none disabled:brightness-100',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised'
                   )}
                 >
                   <ArrowUp className="h-5 w-5" aria-hidden />

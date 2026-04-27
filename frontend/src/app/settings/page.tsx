@@ -51,15 +51,15 @@ function SettingsCard({ icon: Icon, title, subtitle, children, accent = 'cyan' }
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="bg-slate-900/60 border border-slate-800/60 rounded-2xl overflow-hidden backdrop-blur-sm"
+      className="bg-surface-raised border border-line-subtle rounded-2xl overflow-hidden backdrop-blur-sm"
     >
-      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-800/50 flex items-center gap-3">
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-line-subtle flex items-center gap-3">
         <div className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${colors[accent]}`}>
           <Icon className="w-4 h-4" />
         </div>
         <div className="min-w-0">
-          <h3 className="text-sm font-bold text-white truncate">{title}</h3>
-          {subtitle && <p className="text-[11px] text-slate-500 mt-0.5 truncate">{subtitle}</p>}
+          <h3 className="text-sm font-bold text-fg-primary truncate">{title}</h3>
+          {subtitle && <p className="text-[11px] text-fg-muted mt-0.5 truncate">{subtitle}</p>}
         </div>
       </div>
       <div className="p-4 sm:p-6">{children}</div>
@@ -186,13 +186,13 @@ function SettingsPageContent() {
   // Auth gate
   if (!authLoading && !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center py-12 px-4">
+      <div className="min-h-screen bg-surface-base flex items-center justify-center py-12 px-4">
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-md px-6">
-          <div className="w-20 h-20 rounded-2xl bg-slate-900 border border-cyan-500/20 flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 rounded-2xl bg-surface-raised border border-cyan-500/20 flex items-center justify-center mx-auto mb-6">
             <Lock className="w-8 h-8 text-cyan-500" />
           </div>
-          <h2 className="text-2xl font-black text-white mb-3">Authentication Required</h2>
-          <p className="text-slate-400 mb-8 text-sm leading-relaxed">Sign in to access your settings and personalize your QuantTrade AI experience.</p>
+          <h2 className="text-2xl font-black text-fg-primary mb-3">Authentication Required</h2>
+          <p className="text-fg-muted mb-8 text-sm leading-relaxed">Sign in to access your settings and personalize your QuantTrade AI experience.</p>
           <Link href="/auth" className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 text-white font-bold hover:from-cyan-400 hover:to-sky-400 transition-all shadow-lg shadow-cyan-500/25">
             <LogIn className="w-4 h-4" /> Sign In to Continue
           </Link>
@@ -202,20 +202,20 @@ function SettingsPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] -mx-4 md:-mx-6 -my-4 md:-my-6">
+    <div className="min-h-screen bg-surface-base -mx-4 md:-mx-6 -my-4 md:-my-6">
         <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 sm:py-10 pb-safe">
 
           {/* Header */}
           <motion.div className="flex items-center gap-4 mb-10" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="w-10 h-10 rounded-xl bg-slate-900 border border-cyan-500/20 overflow-hidden">
+            <div className="w-10 h-10 rounded-xl bg-surface-raised border border-cyan-500/20 overflow-hidden">
               <Image src="/logo.png" alt="QuantTrade AI" width={40} height={40} className="object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <Settings className="w-4 h-4 text-slate-600" />
-                <h1 className="text-xl font-black text-white">Settings</h1>
+                <Settings className="w-4 h-4 text-fg-muted" />
+                <h1 className="text-xl font-black text-fg-primary">Settings</h1>
               </div>
-              <p className="text-[11px] text-slate-500 font-mono mt-0.5">Account · AI · Notifications · Billing</p>
+              <p className="text-[11px] text-fg-muted font-mono mt-0.5">Account · AI · Notifications · Billing</p>
             </div>
           </motion.div>
 
@@ -226,7 +226,7 @@ function SettingsPageContent() {
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
                 <div className="relative group shrink-0">
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt={displayName} className="w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] rounded-2xl object-cover border-2 border-slate-700" />
+                    <img src={avatarUrl} alt={displayName} className="w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] rounded-2xl object-cover border-2 border-line-default" />
                   ) : (
                     <div className="w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] rounded-2xl bg-gradient-to-br from-cyan-500/40 to-blue-600/20 border border-cyan-500/20 flex items-center justify-center text-cyan-300 text-2xl font-black">
                       {displayName.slice(0, 1).toUpperCase()}
@@ -247,11 +247,11 @@ function SettingsPageContent() {
                     { label: 'Email', value: email, readOnly: true },
                   ].map(f => (
                     <div key={f.label}>
-                      <label className="block text-[11px] text-slate-500 font-bold uppercase tracking-wider mb-1.5">{f.label}</label>
-                      <div className="px-3 py-2.5 bg-slate-800/60 border border-slate-700/40 rounded-xl text-sm text-slate-300 font-mono opacity-75 truncate">{f.value || '—'}</div>
+                      <label className="block text-[11px] text-fg-muted font-bold uppercase tracking-wider mb-1.5">{f.label}</label>
+                      <div className="px-3 py-2.5 bg-surface-hover border border-line-subtle rounded-xl text-sm text-fg-primary font-mono opacity-75 truncate">{f.value || '—'}</div>
                     </div>
                   ))}
-                  <div className="text-[11px] text-slate-600">
+                  <div className="text-[11px] text-fg-muted">
                     Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
                   </div>
                 </div>
@@ -261,7 +261,7 @@ function SettingsPageContent() {
             {/* Passkey / Security */}
             <SettingsCard icon={Fingerprint} title="Passkeys & Security" subtitle="Sign in with biometrics — no password needed" accent="violet">
               <div className="space-y-4">
-                <p className="text-sm text-slate-400 leading-relaxed">
+                <p className="text-sm text-fg-muted leading-relaxed">
                   Passkeys use your device's biometrics (Face ID, Touch ID, Windows Hello) to sign you
                   in instantly and securely — no password required.
                 </p>
@@ -276,7 +276,7 @@ function SettingsPageContent() {
                     {passkeyLoading ? 'Setting up…' : 'Add a Passkey to This Device'}
                   </button>
                   {!passkeySupported && (
-                    <span className="text-slate-500 text-xs">Your browser may not support biometric passkeys. Try Chrome or Safari.</span>
+                    <span className="text-fg-muted text-xs">Your browser may not support biometric passkeys. Try Chrome or Safari.</span>
                   )}
                 </div>
 
@@ -294,31 +294,31 @@ function SettingsPageContent() {
                   </motion.p>
                 )}
 
-                <div className="border-t border-slate-800/50 pt-4">
+                <div className="border-t border-line-subtle pt-4">
                   <div className="mb-3">
-                    <p className="text-[11px] text-slate-500 uppercase tracking-wider font-bold mb-3">Registered Devices</p>
+                    <p className="text-[11px] text-fg-muted uppercase tracking-wider font-bold mb-3">Registered Devices</p>
                     {savedPasskeys.length === 0 ? (
-                      <p className="text-xs text-slate-500">No passkeys saved on your account yet.</p>
+                      <p className="text-xs text-fg-muted">No passkeys saved on your account yet.</p>
                     ) : (
                       <div className="space-y-2">
                         {savedPasskeys.map((pk) => (
-                          <div key={pk.id} className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 group hover:bg-slate-800/70 transition-colors">
+                          <div key={pk.id} className="p-3 rounded-xl bg-surface-hover border border-line-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-2 group hover:bg-surface-raised/70 transition-colors">
                             <div className="flex items-center gap-3 min-w-0">
                               <div className="w-10 h-10 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
                                 <Fingerprint className="w-4 h-4 text-violet-400" />
                               </div>
                               <div className="min-w-0">
-                                <div className="font-bold text-sm text-slate-200 truncate">
+                                <div className="font-bold text-sm text-fg-primary truncate">
                                   {pk.device_name || `Unknown Device`}
                                 </div>
-                                <div className="text-[11px] text-slate-500 mt-0.5 font-mono truncate">
+                                <div className="text-[11px] text-fg-muted mt-0.5 font-mono truncate">
                                   ID: ••••{pk.credential_id_suffix}
                                 </div>
                               </div>
                             </div>
                             <div className="text-left sm:text-right pl-13 sm:pl-0 shrink-0">
-                              <div className="text-[10px] uppercase font-bold text-slate-600 mb-0.5 tracking-wider">Added</div>
-                              <div className="text-xs text-slate-400">
+                              <div className="text-[10px] uppercase font-bold text-fg-muted mb-0.5 tracking-wider">Added</div>
+                              <div className="text-xs text-fg-muted">
                                 {pk.created_at ? new Date(pk.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                               </div>
                             </div>
@@ -327,7 +327,7 @@ function SettingsPageContent() {
                       </div>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-600">
+                  <p className="text-[11px] text-fg-muted">
                     Each device you use needs its own passkey. You can add passkeys on multiple devices.
                     Your existing password login continues to work alongside passkeys.
                   </p>
@@ -339,10 +339,10 @@ function SettingsPageContent() {
             <SettingsCard icon={Brain} title="AI Copilot" subtitle="Tailor the AI to your trading style (Pro)" accent="violet">
               <div className="relative min-h-[200px]">
                 {!isPro && (
-                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-xl bg-slate-950/75 backdrop-blur-md border border-slate-700/50 px-6 py-8 text-center">
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-xl bg-surface-overlay backdrop-blur-md border border-line-default/50 px-6 py-8 text-center">
                     <Lock className="w-8 h-8 text-cyan-400/80 mb-3" />
-                    <p className="text-sm text-slate-200 font-bold mb-1">Pro feature</p>
-                    <p className="text-xs text-slate-500 mb-4 max-w-sm">
+                    <p className="text-sm text-fg-primary font-bold mb-1">Pro feature</p>
+                    <p className="text-xs text-fg-muted mb-4 max-w-sm">
                       Analyst personality and data-source routing apply to Copilot answers. Upgrade to unlock.
                     </p>
                     <Link
@@ -355,9 +355,9 @@ function SettingsPageContent() {
                 )}
                 <div className={`space-y-6 ${!isPro ? 'opacity-40 pointer-events-none select-none' : ''}`}>
                   <div>
-                    <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mb-3">Analyst Personality</div>
-                    <p className="text-xs text-slate-500 mb-4">Adjusts the tone and risk-aversion of generated insights.</p>
-                    <div className="flex items-center gap-1 bg-slate-800/60 border border-slate-700/40 rounded-xl p-1">
+                    <div className="text-[11px] text-fg-muted font-bold uppercase tracking-wider mb-3">Analyst Personality</div>
+                    <p className="text-xs text-fg-muted mb-4">Adjusts the tone and risk-aversion of generated insights.</p>
+                    <div className="flex items-center gap-1 bg-surface-hover border border-line-subtle rounded-xl p-1">
                       {(['conservative', 'balanced', 'aggressive'] as const).map((type) => (
                         <button
                           key={type}
@@ -366,7 +366,7 @@ function SettingsPageContent() {
                             setAnalystPersonality(type)
                             patchPreferences({ analyst_personality: type })
                           }}
-                          className={`flex-1 px-2 sm:px-4 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all capitalize ${analystPersonality === type ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                          className={`flex-1 px-2 sm:px-4 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all capitalize ${analystPersonality === type ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm' : 'text-fg-muted hover:text-fg-primary'}`}
                         >
                           {type}
                         </button>
@@ -374,10 +374,10 @@ function SettingsPageContent() {
                     </div>
                   </div>
 
-                  <div className="border-t border-slate-800/50" />
+                  <div className="border-t border-line-subtle" />
 
                   <div>
-                    <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mb-4">Data Sources Priority</div>
+                    <div className="text-[11px] text-fg-muted font-bold uppercase tracking-wider mb-4">Data Sources Priority</div>
                     <div className="space-y-4">
                       {[
                         { id: 'sec' as const, label: 'SEC Filings Analysis', desc: 'Deep 10-K/10-Q analysis via RAG pipeline' },
@@ -386,8 +386,8 @@ function SettingsPageContent() {
                       ].map((s) => (
                         <div key={s.id} className="flex items-center justify-between">
                           <div>
-                            <div className="text-sm text-slate-200 font-medium">{s.label}</div>
-                            <div className="text-[11px] text-slate-500 mt-0.5">{s.desc}</div>
+                            <div className="text-sm text-fg-primary font-medium">{s.label}</div>
+                            <div className="text-[11px] text-fg-muted mt-0.5">{s.desc}</div>
                           </div>
                           <Toggle
                             checked={!!dataSources[s.id]}
@@ -404,7 +404,7 @@ function SettingsPageContent() {
                     </div>
                   </div>
                   {prefsSaving && isPro && (
-                    <p className="text-[10px] text-slate-500">Saving…</p>
+                    <p className="text-[10px] text-fg-muted">Saving…</p>
                   )}
                 </div>
               </div>
@@ -443,10 +443,10 @@ function SettingsPageContent() {
                       value: user?.created_at ? new Date(user.created_at).toLocaleDateString() : '—',
                     },
                   ].map((row) => (
-                    <div key={row.label} className="bg-slate-800/40 border border-slate-700/30 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3">
-                      <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">{row.label}</div>
+                    <div key={row.label} className="bg-surface-hover border border-line-subtle rounded-xl px-3 sm:px-4 py-2.5 sm:py-3">
+                      <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">{row.label}</div>
                       <div
-                        className={`text-xs sm:text-sm font-bold ${row.green ? 'text-emerald-400' : 'text-white'} flex items-center gap-1 capitalize truncate`}
+                        className={`text-xs sm:text-sm font-bold ${row.green ? 'text-emerald-400' : 'text-fg-primary'} flex items-center gap-1 capitalize truncate`}
                       >
                         {row.green && <CheckCircle className="w-3 h-3" />}
                         {row.value}
@@ -461,17 +461,17 @@ function SettingsPageContent() {
                     update payment methods in the billing portal.
                   </p>
                 )}
-                <div className="rounded-xl border border-slate-700/40 bg-slate-800/30 px-4 py-3 space-y-2">
-                  <p className="text-xs text-slate-400 leading-relaxed">
+                <div className="rounded-xl border border-line-subtle bg-surface-hover px-4 py-3 space-y-2">
+                  <p className="text-xs text-fg-muted leading-relaxed">
                     <Shield className="w-3.5 h-3.5 inline-block mr-1 text-emerald-400 align-text-bottom" />
-                    Payments are processed by <strong className="text-slate-300">Stripe</strong>. We never store your full
+                    Payments are processed by <strong className="text-fg-primary">Stripe</strong>. We never store your full
                     card number. Invoices and receipts are available in the customer portal.
                   </p>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-fg-muted">
                     Need an official receipt or tax details? Open <strong>Manage billing</strong> → Stripe portal.
                   </p>
                 </div>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-fg-muted">
                   Billing is handled securely by Stripe. Update payment methods, change plans, or cancel anytime.
                 </p>
                 {billingError && <p className="text-xs text-amber-300">{billingError}</p>}
@@ -509,7 +509,7 @@ function SettingsPageContent() {
                           setCancelLoading(false)
                         }
                       }}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-600 text-slate-300 text-sm font-bold hover:bg-slate-800/60 transition-all disabled:opacity-50"
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-line-default text-fg-primary text-sm font-bold hover:bg-surface-hover transition-all disabled:opacity-50"
                     >
                       {cancelLoading ? 'Working…' : 'Cancel subscription'}
                     </button>
@@ -527,10 +527,10 @@ function SettingsPageContent() {
                   { id: 'security', label: 'Security Login Alerts', desc: 'Email notification whenever a new device signs in' },
                   { id: 'updates', label: 'Product Updates', desc: 'News about new AI features and platform improvements' },
                 ].map((n) => (
-                  <div key={n.id} className="flex items-center justify-between py-2 border-b border-slate-800/40 last:border-0">
+                  <div key={n.id} className="flex items-center justify-between py-2 border-b border-line-subtle last:border-0">
                     <div>
-                      <p className="text-sm font-bold text-white">{n.label}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{n.desc}</p>
+                      <p className="text-sm font-bold text-fg-primary">{n.label}</p>
+                      <p className="text-[11px] text-fg-muted mt-0.5">{n.desc}</p>
                     </div>
                     <Toggle
                       checked={notifications[n.id as keyof typeof notifications]}
@@ -544,17 +544,17 @@ function SettingsPageContent() {
                   </div>
                 ))}
 
-                <div className="border-t border-slate-800/50 pt-4 mt-2">
+                <div className="border-t border-line-subtle pt-4 mt-2">
                   <div className="flex items-center gap-2 mb-3">
                     <Sparkles className="w-4 h-4 text-cyan-400" />
-                    <p className="text-sm font-bold text-white">Pro email alerts</p>
+                    <p className="text-sm font-bold text-fg-primary">Pro email alerts</p>
                     {isPro && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
                         Active
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-500 mb-4">
+                  <p className="text-[11px] text-fg-muted mb-4">
                     Pro members can get emails when watchlist prices move meaningfully or fresh news hits their symbols
                     (server checks about every 20 minutes when the app is running).
                   </p>
@@ -572,11 +572,11 @@ function SettingsPageContent() {
                   ].map((row) => (
                     <div
                       key={row.key}
-                      className="flex items-center justify-between py-2 border-b border-slate-800/40 last:border-0"
+                      className="flex items-center justify-between py-2 border-b border-line-subtle last:border-0"
                     >
                       <div>
-                        <p className="text-sm font-bold text-white">{row.label}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{row.desc}</p>
+                        <p className="text-sm font-bold text-fg-primary">{row.label}</p>
+                        <p className="text-[11px] text-fg-muted mt-0.5">{row.desc}</p>
                       </div>
                       <Toggle
                         checked={!!proAlerts[row.key]}
@@ -636,13 +636,13 @@ function SettingsPageContent() {
                     initial={{ scale: 0.95, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.95, opacity: 0 }}
-                    className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"
+                    className="w-full max-w-md rounded-2xl border border-line-default bg-surface-raised p-6 shadow-2xl"
                   >
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-bold text-white">Delete account</h3>
+                      <h3 className="text-lg font-bold text-fg-primary">Delete account</h3>
                       <button
                         type="button"
-                        className="p-1 text-slate-400 hover:text-white"
+                        className="p-1 text-fg-muted hover:text-fg-primary"
                         onClick={() => !deleteBusy && setDeleteOpen(false)}
                         aria-label="Close"
                       >
@@ -651,8 +651,8 @@ function SettingsPageContent() {
                     </div>
                     {deletePhase === 'ask' ? (
                       <>
-                        <p className="text-sm text-slate-400 mb-4">
-                          We&apos;ll send a verification code to <strong className="text-slate-200">{email}</strong>. Your
+                        <p className="text-sm text-fg-muted mb-4">
+                          We&apos;ll send a verification code to <strong className="text-fg-primary">{email}</strong>. Your
                           Stripe subscription (if any) will be cancelled when the account is deleted.
                         </p>
                         {deleteErr && <p className="text-xs text-red-400 mb-3">{deleteErr}</p>}
@@ -661,7 +661,7 @@ function SettingsPageContent() {
                             type="button"
                             disabled={deleteBusy}
                             onClick={() => setDeleteOpen(false)}
-                            className="px-4 py-2 rounded-xl text-sm text-slate-300 border border-slate-600"
+                            className="px-4 py-2 rounded-xl text-sm text-fg-primary border border-line-default"
                           >
                             Cancel
                           </button>
@@ -688,12 +688,12 @@ function SettingsPageContent() {
                       </>
                     ) : (
                       <>
-                        <p className="text-sm text-slate-400 mb-3">Enter the code from your email.</p>
+                        <p className="text-sm text-fg-muted mb-3">Enter the code from your email.</p>
                         <input
                           value={deleteOtp}
                           onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
                           placeholder="6-digit code"
-                          className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-600 text-white font-mono text-center tracking-widest mb-3"
+                          className="w-full px-4 py-3 rounded-xl bg-surface-raised border border-line-default text-fg-primary font-mono text-center tracking-widest mb-3"
                           autoComplete="one-time-code"
                         />
                         {deleteErr && <p className="text-xs text-red-400 mb-3">{deleteErr}</p>}
@@ -705,7 +705,7 @@ function SettingsPageContent() {
                               setDeletePhase('ask')
                               setDeleteErr(null)
                             }}
-                            className="px-4 py-2 rounded-xl text-sm text-slate-300 border border-slate-600"
+                            className="px-4 py-2 rounded-xl text-sm text-fg-primary border border-line-default"
                           >
                             Back
                           </button>

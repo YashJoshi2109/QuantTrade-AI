@@ -27,11 +27,11 @@ export function Switch({ checked, onChange, label, disabled = false, size = 'md'
       disabled={disabled}
       onClick={() => !disabled && onChange(!checked)}
       className={cn(
-        'relative inline-flex shrink-0 cursor-pointer rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900',
+        'relative inline-flex shrink-0 cursor-pointer rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base',
         s.track,
         checked
           ? 'bg-gradient-to-r from-cyan-500 to-blue-500 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
-          : 'bg-slate-700/80 hover:bg-slate-600/80',
+          : 'bg-surface-raised hover:bg-surface-hover',
         disabled && 'opacity-40 cursor-not-allowed',
       )}
     >
@@ -40,7 +40,7 @@ export function Switch({ checked, onChange, label, disabled = false, size = 'md'
           'inline-block rounded-full shadow-lg',
           s.thumb,
           s.padding,
-          checked ? 'bg-white' : 'bg-slate-300',
+          checked ? 'bg-white' : 'bg-surface-overlay',
         )}
         animate={{ x: checked ? s.translate : 0 }}
         transition={{ type: 'spring', stiffness: 700, damping: 30 }}
@@ -75,7 +75,7 @@ export function RockerSwitch({
   return (
     <div
       className={cn(
-        'relative inline-flex h-8 rounded-lg bg-slate-800/80 border border-slate-700/50 overflow-hidden',
+        'relative inline-flex h-8 rounded-lg bg-surface-raised border border-line-subtle overflow-hidden',
         disabled && 'opacity-40 cursor-not-allowed',
       )}
     >
@@ -87,7 +87,7 @@ export function RockerSwitch({
           'relative z-10 px-3 text-xs font-bold transition-colors duration-200',
           checked
             ? 'text-emerald-300'
-            : 'text-slate-500 hover:text-slate-300',
+            : 'text-fg-muted hover:text-fg-secondary',
         )}
       >
         {labelOn}
@@ -100,7 +100,7 @@ export function RockerSwitch({
           'relative z-10 px-3 text-xs font-bold transition-colors duration-200',
           !checked
             ? 'text-red-300'
-            : 'text-slate-500 hover:text-slate-300',
+            : 'text-fg-muted hover:text-fg-secondary',
         )}
       >
         {labelOff}

@@ -228,7 +228,7 @@ function NavSidebarContent() {
                 className={
                   item.active
                     ? "text-cyan-400 bg-white/[0.08]"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+                    : "text-fg-muted hover:text-fg-primary hover:bg-white/[0.06]"
                 }
               >
                 <item.icon className="h-5 w-5" />
@@ -243,7 +243,7 @@ function NavSidebarContent() {
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Settings"
-              className="text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+              className="text-fg-muted hover:text-fg-primary hover:bg-white/[0.06]"
             >
               <Settings className="h-5 w-5" />
             </SidebarMenuButton>
@@ -265,7 +265,7 @@ function NavSidebarContent() {
               <DropdownMenuContent
                 side="right"
                 align="end"
-                className="w-56 bg-[#1a1f2e] border-white/10 text-slate-200"
+                className="w-56 bg-[#1a1f2e] border-line-default text-fg-primary"
               >
                 <div className="flex items-center gap-3 px-3 py-2">
                   <Avatar className="h-10 w-10">
@@ -274,29 +274,29 @@ function NavSidebarContent() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-sm font-medium text-slate-200">Yash Joshi</p>
-                    <p className="text-xs text-slate-400">yash@quanttrade.ai</p>
+                    <p className="text-sm font-medium text-fg-primary">Yash Joshi</p>
+                    <p className="text-xs text-fg-muted">yash@quanttrade.ai</p>
                   </div>
                 </div>
                 <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem className="text-slate-300 focus:bg-white/[0.06] focus:text-slate-200">
+                <DropdownMenuItem className="text-fg-secondary focus:bg-white/[0.06] focus:text-fg-primary">
                   <Star className="mr-2 h-4 w-4" />
                   Starred Messages
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-slate-300 focus:bg-white/[0.06] focus:text-slate-200">
+                <DropdownMenuItem className="text-fg-secondary focus:bg-white/[0.06] focus:text-fg-primary">
                   <Archive className="mr-2 h-4 w-4" />
                   Archived
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem className="text-slate-300 focus:bg-white/[0.06] focus:text-slate-200">
+                <DropdownMenuItem className="text-fg-secondary focus:bg-white/[0.06] focus:text-fg-primary">
                   <Bell className="mr-2 h-4 w-4" />
                   Notifications
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-slate-300 focus:bg-white/[0.06] focus:text-slate-200">
+                <DropdownMenuItem className="text-fg-secondary focus:bg-white/[0.06] focus:text-fg-primary">
                   <Lock className="mr-2 h-4 w-4" />
                   Privacy
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-slate-300 focus:bg-white/[0.06] focus:text-slate-200">
+                <DropdownMenuItem className="text-fg-secondary focus:bg-white/[0.06] focus:text-fg-primary">
                   <HelpCircle className="mr-2 h-4 w-4" />
                   Help
                 </DropdownMenuItem>
@@ -324,22 +324,22 @@ function ChatListPanel() {
   )
 
   return (
-    <div className="flex h-full flex-col bg-[#0a0e14]">
+    <div className="flex h-full flex-col bg-surface-base">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <h2 className="text-lg font-semibold text-slate-200">Chats</h2>
+      <div className="flex items-center justify-between border-b border-line-default px-4 py-3">
+        <h2 className="text-lg font-semibold text-fg-primary">Chats</h2>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+            className="h-8 w-8 text-fg-muted hover:text-fg-primary hover:bg-white/[0.06]"
           >
             <Plus className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+            className="h-8 w-8 text-fg-muted hover:text-fg-primary hover:bg-white/[0.06]"
           >
             <MoreVertical className="h-4 w-4" />
           </Button>
@@ -349,12 +349,12 @@ function ChatListPanel() {
       {/* Search */}
       <div className="px-3 py-2">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-muted" />
           <Input
             placeholder="Search or start new chat"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-9 bg-white/[0.04] border-white/10 pl-9 text-sm text-slate-200 placeholder:text-slate-500 focus-visible:ring-cyan-500/30"
+            className="h-9 bg-white/[0.04] border-line-default pl-9 text-sm text-fg-primary placeholder:text-fg-muted focus-visible:ring-cyan-500/30"
           />
         </div>
       </div>
@@ -377,7 +377,7 @@ function ChatListPanel() {
                   {contact.avatar ? (
                     <AvatarImage src={contact.avatar} alt={contact.name} />
                   ) : null}
-                  <AvatarFallback className="bg-gradient-to-br from-slate-700 to-slate-800 text-slate-300 text-xs font-medium border border-white/10">
+                  <AvatarFallback className="bg-gradient-to-br from-surface-overlay to-surface-overlay text-fg-secondary text-xs font-medium border border-line-default">
                     {contact.initials}
                   </AvatarFallback>
                 </Avatar>
@@ -387,19 +387,19 @@ function ChatListPanel() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-200 truncate">
+                  <span className="text-sm font-medium text-fg-primary truncate">
                     {contact.name}
                   </span>
                   <span
                     className={`text-[11px] flex-shrink-0 ${
-                      contact.unread ? "text-cyan-400" : "text-slate-500"
+                      contact.unread ? "text-cyan-400" : "text-fg-muted"
                     }`}
                   >
                     {contact.time}
                   </span>
                 </div>
                 <div className="flex items-center justify-between mt-0.5">
-                  <span className="text-xs text-slate-400 truncate pr-2">
+                  <span className="text-xs text-fg-muted truncate pr-2">
                     {contact.typing ? (
                       <span className="text-emerald-400 italic">typing...</span>
                     ) : (
@@ -427,13 +427,13 @@ function ActiveChatPanel() {
   const activeContact = contacts[0] // Sarah Chen
 
   return (
-    <div className="flex h-full flex-col bg-[#0a0e14]">
+    <div className="flex h-full flex-col bg-surface-base">
       {/* Chat Header */}
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+      <div className="flex items-center justify-between border-b border-line-default px-4 py-2.5">
         <div className="flex items-center gap-3">
           <div className="relative">
             <Avatar className="h-10 w-10">
-              <AvatarFallback className="bg-gradient-to-br from-slate-700 to-slate-800 text-slate-300 text-xs font-medium border border-white/10">
+              <AvatarFallback className="bg-gradient-to-br from-surface-overlay to-surface-overlay text-fg-secondary text-xs font-medium border border-line-default">
                 {activeContact.initials}
               </AvatarFallback>
             </Avatar>
@@ -442,7 +442,7 @@ function ActiveChatPanel() {
             )}
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-200">
+            <h3 className="text-sm font-semibold text-fg-primary">
               {activeContact.name}
             </h3>
             <p className="text-[11px] text-emerald-400">online</p>
@@ -452,28 +452,28 @@ function ActiveChatPanel() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+            className="h-9 w-9 text-fg-muted hover:text-fg-primary hover:bg-white/[0.06]"
           >
             <Video className="h-5 w-5" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+            className="h-9 w-9 text-fg-muted hover:text-fg-primary hover:bg-white/[0.06]"
           >
             <PhoneCall className="h-5 w-5" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+            className="h-9 w-9 text-fg-muted hover:text-fg-primary hover:bg-white/[0.06]"
           >
             <Search className="h-5 w-5" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+            className="h-9 w-9 text-fg-muted hover:text-fg-primary hover:bg-white/[0.06]"
           >
             <MoreVertical className="h-5 w-5" />
           </Button>
@@ -484,7 +484,7 @@ function ActiveChatPanel() {
       <ScrollArea className="flex-1 px-4 py-4">
         <div className="mx-auto flex max-w-3xl flex-col gap-2">
           {/* Encryption notice */}
-          <div className="mx-auto mb-4 flex items-center gap-1.5 rounded-lg bg-white/[0.03] px-3 py-1.5 text-[11px] text-slate-500 border border-white/[0.05]">
+          <div className="mx-auto mb-4 flex items-center gap-1.5 rounded-lg bg-white/[0.03] px-3 py-1.5 text-[11px] text-fg-muted border border-line-subtle">
             <Lock className="h-3 w-3" />
             Messages are end-to-end encrypted
           </div>
@@ -492,7 +492,7 @@ function ActiveChatPanel() {
           {/* Date separator */}
           <div className="flex items-center gap-3 my-2">
             <div className="h-px flex-1 bg-white/[0.06]" />
-            <span className="text-[11px] text-slate-500 bg-[#131820] px-3 py-0.5 rounded-full">
+            <span className="text-[11px] text-fg-muted bg-[#131820] px-3 py-0.5 rounded-full">
               Today
             </span>
             <div className="h-px flex-1 bg-white/[0.06]" />
@@ -507,10 +507,10 @@ function ActiveChatPanel() {
                 className={`group relative max-w-[75%] rounded-2xl px-3.5 py-2 ${
                   message.sent
                     ? "bg-cyan-600/20 border border-cyan-500/20 rounded-br-md"
-                    : "bg-[#131820] border border-white/[0.06] rounded-bl-md"
+                    : "bg-[#131820] border border-line-subtle rounded-bl-md"
                 }`}
               >
-                <p className="text-[13px] leading-relaxed text-slate-200">
+                <p className="text-[13px] leading-relaxed text-fg-primary">
                   {message.content}
                 </p>
                 <div
@@ -518,11 +518,11 @@ function ActiveChatPanel() {
                     message.sent ? "justify-end" : "justify-start"
                   }`}
                 >
-                  <span className="text-[10px] text-slate-500">
+                  <span className="text-[10px] text-fg-muted">
                     {message.time}
                   </span>
                   {message.sent && message.status && (
-                    <span className="text-slate-500">
+                    <span className="text-fg-muted">
                       {message.status === "read" ? (
                         <CheckCheck className="h-3.5 w-3.5 text-cyan-400" />
                       ) : message.status === "delivered" ? (
@@ -540,13 +540,13 @@ function ActiveChatPanel() {
       </ScrollArea>
 
       {/* Input Bar */}
-      <div className="border-t border-white/10 px-4 py-3">
+      <div className="border-t border-line-default px-4 py-3">
         <div className="mx-auto flex max-w-3xl items-center gap-2">
           {/* Emoji */}
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 flex-shrink-0 text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+            className="h-9 w-9 flex-shrink-0 text-fg-muted hover:text-fg-primary hover:bg-white/[0.06]"
           >
             <Smile className="h-5 w-5" />
           </Button>
@@ -557,7 +557,7 @@ function ActiveChatPanel() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 flex-shrink-0 text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+                className="h-9 w-9 flex-shrink-0 text-fg-muted hover:text-fg-primary hover:bg-white/[0.06]"
               >
                 <Paperclip className="h-5 w-5" />
               </Button>
@@ -565,25 +565,25 @@ function ActiveChatPanel() {
             <DropdownMenuContent
               side="top"
               align="start"
-              className="w-48 bg-[#1a1f2e] border-white/10 text-slate-200"
+              className="w-48 bg-[#1a1f2e] border-line-default text-fg-primary"
             >
-              <DropdownMenuItem className="text-slate-300 focus:bg-white/[0.06] focus:text-slate-200">
+              <DropdownMenuItem className="text-fg-secondary focus:bg-white/[0.06] focus:text-fg-primary">
                 <Image className="mr-2 h-4 w-4 text-violet-400" />
                 Photos & Videos
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-slate-300 focus:bg-white/[0.06] focus:text-slate-200">
+              <DropdownMenuItem className="text-fg-secondary focus:bg-white/[0.06] focus:text-fg-primary">
                 <Camera className="mr-2 h-4 w-4 text-rose-400" />
                 Camera
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-slate-300 focus:bg-white/[0.06] focus:text-slate-200">
+              <DropdownMenuItem className="text-fg-secondary focus:bg-white/[0.06] focus:text-fg-primary">
                 <FileText className="mr-2 h-4 w-4 text-cyan-400" />
                 Document
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-slate-300 focus:bg-white/[0.06] focus:text-slate-200">
+              <DropdownMenuItem className="text-fg-secondary focus:bg-white/[0.06] focus:text-fg-primary">
                 <User className="mr-2 h-4 w-4 text-blue-400" />
                 Contact
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-slate-300 focus:bg-white/[0.06] focus:text-slate-200">
+              <DropdownMenuItem className="text-fg-secondary focus:bg-white/[0.06] focus:text-fg-primary">
                 <MapPin className="mr-2 h-4 w-4 text-emerald-400" />
                 Location
               </DropdownMenuItem>
@@ -596,7 +596,7 @@ function ActiveChatPanel() {
               placeholder="Type a message"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="h-10 bg-[#131820] border-white/10 text-sm text-slate-200 placeholder:text-slate-500 pr-10 focus-visible:ring-cyan-500/30"
+              className="h-10 bg-[#131820] border-line-default text-sm text-fg-primary placeholder:text-fg-muted pr-10 focus-visible:ring-cyan-500/30"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && inputValue.trim()) {
                   setInputValue("")
@@ -618,7 +618,7 @@ function ActiveChatPanel() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9 flex-shrink-0 text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+              className="h-9 w-9 flex-shrink-0 text-fg-muted hover:text-fg-primary hover:bg-white/[0.06]"
             >
               <Mic className="h-5 w-5" />
             </Button>
@@ -641,24 +641,24 @@ export function Home() {
         } as React.CSSProperties
       }
     >
-      <div className="flex h-screen w-full overflow-hidden bg-[#0a0e14]">
+      <div className="flex h-screen w-full overflow-hidden bg-surface-base">
         {/* Left icon sidebar */}
         <Sidebar
           collapsible="icon"
-          className="border-r border-white/10 bg-[#060a10]"
+          className="border-r border-line-default bg-surface-raised"
         >
           <NavSidebarContent />
         </Sidebar>
 
         {/* Main content area */}
-        <SidebarInset className="flex-1 p-0 bg-[#0a0e14]">
+        <SidebarInset className="flex-1 p-0 bg-surface-base">
           <ResizablePanelGroup orientation="horizontal" className="h-full">
             {/* Chat list panel */}
             <ResizablePanel
               defaultSize={25}
               minSize={20}
               maxSize={35}
-              className="border-r border-white/10"
+              className="border-r border-line-default"
             >
               <ChatListPanel />
             </ResizablePanel>

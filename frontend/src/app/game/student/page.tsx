@@ -58,7 +58,7 @@ export default function StudentWorldPage() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');`}</style>
 
       {/* ── Top Nav ── */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-white/5 bg-[#080810]/90 backdrop-blur sticky top-0 z-30">
+      <header className="flex items-center justify-between px-6 py-3 border-b border-line-subtle bg-[#080810]/90 backdrop-blur sticky top-0 z-30">
         <div className="flex items-center gap-3">
           <Link href="/game/dashboard"
             className="flex items-center gap-1.5 text-white/40 hover:text-white/70 transition-colors text-sm">
@@ -90,7 +90,7 @@ export default function StudentWorldPage() {
             <span>Day {dayNumber}</span>
           </div>
           {/* Level */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-line-default">
             <Star className="w-3 h-3 text-amber-400" />
             <span className="text-xs font-bold text-white/80">Lv.{level}</span>
             <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -108,9 +108,9 @@ export default function StudentWorldPage() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Left Panel: Chapter list / Finance / Ledger ── */}
-        <aside className="w-72 shrink-0 border-r border-white/5 flex flex-col bg-[#060910]">
+        <aside className="w-72 shrink-0 border-r border-line-subtle flex flex-col bg-[#060910]">
           {/* Panel tabs */}
-          <div className="flex border-b border-white/5">
+          <div className="flex border-b border-line-subtle">
             {([
               { id: 'chapters', label: 'Quests', emoji: '⚔️' },
               { id: 'finance', label: 'Treasury', emoji: '💰' },
@@ -174,7 +174,7 @@ export default function StudentWorldPage() {
                             ? 'border-amber-500/35 bg-amber-500/8 hover:bg-amber-500/15 cursor-pointer'
                             : isCompleted
                             ? 'border-emerald-500/25 bg-emerald-500/5 cursor-default'
-                            : 'border-white/6 bg-white/2 cursor-not-allowed opacity-50'
+                            : 'border-line-subtle bg-white/2 cursor-not-allowed opacity-50'
                         }`}
                       >
                         <div className="flex items-start gap-2.5">
@@ -182,7 +182,7 @@ export default function StudentWorldPage() {
                           <div className={`mt-0.5 w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold border ${
                             isCompleted ? 'bg-emerald-500/30 border-emerald-500/50 text-emerald-300'
                             : isAvailable ? 'bg-amber-500/30 border-amber-500/50 text-amber-300'
-                            : 'bg-white/5 border-white/15 text-white/30'
+                            : 'bg-white/5 border-line-default text-white/30'
                           }`}>
                             {isCompleted ? '✓' : isLocked ? '🔒' : ch.number}
                           </div>
@@ -207,7 +207,7 @@ export default function StudentWorldPage() {
                   })}
 
                   {/* Progress summary */}
-                  <div className="pt-3 border-t border-white/5">
+                  <div className="pt-3 border-t border-line-subtle">
                     <div className="flex items-center justify-between text-xs text-white/40 mb-2">
                       <span>Progress</span>
                       <span>{completedChapters.length} / {CHAPTERS.length}</span>
@@ -240,7 +240,7 @@ export default function StudentWorldPage() {
 
                   {/* Goal meter mini */}
                   {currentGoalTarget > 0 && (
-                    <div className="mt-4 rounded-xl bg-white/3 border border-white/8 p-3">
+                    <div className="mt-4 rounded-xl bg-white/3 border border-line-subtle p-3">
                       <div className="flex items-center justify-between text-xs mb-2">
                         <span className="text-white/50">{currentGoalLabel}</span>
                         <span className="font-mono text-white/70">{currentGoalSaved}/{currentGoalTarget}s</span>
@@ -285,7 +285,7 @@ export default function StudentWorldPage() {
 
           {/* Town instruction overlay */}
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 text-xs text-white/50">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-sm border border-line-default text-xs text-white/50">
               <span className="text-amber-400 animate-pulse">●</span>
               Click glowing buildings to begin a chapter
             </div>
@@ -327,7 +327,7 @@ export default function StudentWorldPage() {
         </main>
 
         {/* ── Right Panel: Chapter detail / NPC info ── */}
-        <aside className="w-64 shrink-0 border-l border-white/5 bg-[#060910] p-4 flex flex-col gap-4">
+        <aside className="w-64 shrink-0 border-l border-line-subtle bg-[#060910] p-4 flex flex-col gap-4">
           {/* Stage info */}
           <div className="rounded-xl bg-amber-500/8 border border-amber-500/20 p-3">
             <div className="text-[9px] text-amber-400/60 uppercase tracking-widest font-semibold mb-1">
@@ -340,7 +340,7 @@ export default function StudentWorldPage() {
           </div>
 
           {/* XP progress */}
-          <div className="rounded-xl bg-white/3 border border-white/8 p-3">
+          <div className="rounded-xl bg-white/3 border border-line-subtle p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-white/50">Experience</span>
               <span className="font-mono text-xs text-amber-400">{xp} XP</span>
@@ -370,7 +370,7 @@ export default function StudentWorldPage() {
                 { name: 'Headmaster Aldus', role: 'Graduation', emoji: '🎓', color: '#C9A84C' },
               ].map((npc) => (
                 <div key={npc.name}
-                  className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/3 border border-white/6">
+                  className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/3 border border-line-subtle">
                   <span className="text-base">{npc.emoji}</span>
                   <div className="min-w-0">
                     <div className="text-[10px] font-semibold text-white/70 truncate">{npc.name}</div>

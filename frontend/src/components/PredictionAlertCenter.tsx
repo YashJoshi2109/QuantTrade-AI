@@ -50,35 +50,35 @@ export default function PredictionAlertCenter() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-slate-700/70 bg-slate-900/95 shadow-2xl z-50">
-          <div className="px-3 py-2 border-b border-slate-700/60 flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-100">Prediction Alerts</span>
-            <span className="text-[10px] text-slate-500">Auto-refresh 2m</span>
+        <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-line-default bg-surface-overlay/95 shadow-theme-lg z-50">
+          <div className="px-3 py-2 border-b border-line-subtle flex items-center justify-between">
+            <span className="text-xs font-semibold text-fg-primary">Prediction Alerts</span>
+            <span className="text-[10px] text-fg-muted">Auto-refresh 2m</span>
           </div>
           <div className="max-h-80 overflow-y-auto">
             {topAlerts.length === 0 ? (
-              <div className="p-3 text-xs text-slate-500">No active alerts.</div>
+              <div className="p-3 text-xs text-fg-muted">No active alerts.</div>
             ) : (
               topAlerts.map((a, i) => (
                 <Link
                   key={`${a.symbol}-${a.timeframe}-${a.direction}-${i}`}
                   href={`/research?symbol=${a.symbol}`}
-                  className="block px-3 py-2 border-b last:border-b-0 border-slate-800/60 hover:bg-slate-800/40 transition-colors"
+                  className="block px-3 py-2 border-b last:border-b-0 border-line-subtle hover:bg-surface-hover transition-colors"
                   onClick={() => setOpen(false)}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-100">{a.symbol}</span>
+                    <span className="text-xs font-bold text-fg-primary">{a.symbol}</span>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded ${
                       a.severity === 'high'
                         ? 'bg-red-500/20 text-red-300'
                         : a.severity === 'medium'
                         ? 'bg-yellow-500/20 text-yellow-300'
-                        : 'bg-slate-700 text-slate-300'
+                        : 'bg-surface-raised text-fg-secondary'
                     }`}>
                       {a.severity.toUpperCase()}
                     </span>
                   </div>
-                  <div className="mt-1 text-[11px] text-slate-400 flex items-center gap-1">
+                  <div className="mt-1 text-[11px] text-fg-secondary flex items-center gap-1">
                     {String(a.direction ?? '')
                       .trim()
                       .toUpperCase() === 'UP' ? (

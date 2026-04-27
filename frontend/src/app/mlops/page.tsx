@@ -168,13 +168,13 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T | null> 
 
 function Skeleton({ className = '' }: { className?: string }) {
   return (
-    <div className={`animate-pulse rounded bg-slate-800/60 ${className}`} />
+    <div className={`animate-pulse rounded bg-surface-raised ${className}`} />
   )
 }
 
 function SkeletonCard() {
   return (
-    <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-5 space-y-3">
+    <div className="bg-surface-raised border border-line-subtle rounded-xl p-5 space-y-3">
       <Skeleton className="h-4 w-24" />
       <Skeleton className="h-8 w-16" />
       <Skeleton className="h-3 w-32" />
@@ -205,10 +205,10 @@ function StatusBadge({ status, size = 'sm' }: { status: string; size?: 'xs' | 's
     running:    { bg: 'bg-amber-500/10',   text: 'text-amber-400',   dot: 'bg-amber-400',   label: 'Running' },
     training:   { bg: 'bg-amber-500/10',   text: 'text-amber-400',   dot: 'bg-amber-400',   label: 'Training' },
     staging:    { bg: 'bg-amber-500/10',   text: 'text-amber-400',   dot: 'bg-amber-400',   label: 'Staging' },
-    pending:    { bg: 'bg-slate-500/10',   text: 'text-slate-400',   dot: 'bg-slate-400',   label: 'Pending' },
-    queued:     { bg: 'bg-slate-500/10',   text: 'text-slate-400',   dot: 'bg-slate-400',   label: 'Queued' },
-    archived:   { bg: 'bg-slate-500/10',   text: 'text-slate-400',   dot: 'bg-slate-400',   label: 'Archived' },
-    none:       { bg: 'bg-slate-500/10',   text: 'text-slate-400',   dot: 'bg-slate-400',   label: 'None' },
+    pending:    { bg: 'bg-surface-raised',   text: 'text-fg-muted',   dot: 'bg-line-strong',   label: 'Pending' },
+    queued:     { bg: 'bg-surface-raised',   text: 'text-fg-muted',   dot: 'bg-line-strong',   label: 'Queued' },
+    archived:   { bg: 'bg-surface-raised',   text: 'text-fg-muted',   dot: 'bg-line-strong',   label: 'Archived' },
+    none:       { bg: 'bg-surface-raised',   text: 'text-fg-muted',   dot: 'bg-line-strong',   label: 'None' },
     failed:     { bg: 'bg-red-500/10',     text: 'text-red-400',     dot: 'bg-red-400',     label: 'Failed' },
     error:      { bg: 'bg-red-500/10',     text: 'text-red-400',     dot: 'bg-red-400',     label: 'Error' },
     degraded:   { bg: 'bg-red-500/10',     text: 'text-red-400',     dot: 'bg-red-400',     label: 'Degraded' },
@@ -216,7 +216,7 @@ function StatusBadge({ status, size = 'sm' }: { status: string; size?: 'xs' | 's
     warning:    { bg: 'bg-amber-500/10',   text: 'text-amber-400',   dot: 'bg-amber-400',   label: 'Warning' },
     info:       { bg: 'bg-blue-500/10',    text: 'text-blue-400',    dot: 'bg-blue-400',    label: 'Info' },
   }
-  const c = config[normalized] || { bg: 'bg-slate-500/10', text: 'text-slate-400', dot: 'bg-slate-400', label: status }
+  const c = config[normalized] || { bg: 'bg-surface-raised', text: 'text-fg-muted', dot: 'bg-line-strong', label: status }
   const textSize = size === 'xs' ? 'text-[10px]' : 'text-xs'
   const dotSize = size === 'xs' ? 'w-1.5 h-1.5' : 'w-2 h-2'
   const px = size === 'xs' ? 'px-1.5 py-0.5' : 'px-2 py-0.5'
@@ -240,14 +240,14 @@ function StatCard({ icon: Icon, label, value, sub, color = 'text-cyan-400', tren
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay }}
-      className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4 hover:border-white/[0.12] transition-colors group"
+      className="bg-surface-raised border border-line-subtle rounded-xl p-4 hover:border-line-default transition-colors group"
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className={`w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center border border-white/[0.06] group-hover:border-white/[0.1] transition-colors`}>
+          <div className={`w-8 h-8 rounded-lg bg-surface-hover flex items-center justify-center border border-line-subtle group-hover:border-line-default transition-colors`}>
             <Icon className={`w-4 h-4 ${color}`} />
           </div>
-          <span className="text-[11px] text-slate-500 uppercase tracking-wider font-medium">{label}</span>
+          <span className="text-[11px] text-fg-muted uppercase tracking-wider font-medium">{label}</span>
         </div>
         {trend && (
           <div className={`flex items-center gap-0.5 ${trend === 'up' ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -255,8 +255,8 @@ function StatCard({ icon: Icon, label, value, sub, color = 'text-cyan-400', tren
           </div>
         )}
       </div>
-      <div className="text-2xl font-bold text-slate-100 font-mono tracking-tight">{value}</div>
-      {sub && <div className="text-[11px] text-slate-500 mt-1">{sub}</div>}
+      <div className="text-2xl font-bold text-fg-primary font-mono tracking-tight">{value}</div>
+      {sub && <div className="text-[11px] text-fg-muted mt-1">{sub}</div>}
     </motion.div>
   )
 }
@@ -272,12 +272,12 @@ function Panel({ title, icon: Icon, children, className = '', actions, color = '
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className={`bg-[#0D1117] border border-white/[0.06] rounded-xl overflow-hidden ${className}`}
+      className={`bg-surface-raised border border-line-subtle rounded-xl overflow-hidden ${className}`}
     >
-      <div className="px-3 sm:px-5 py-3 sm:py-3.5 border-b border-white/[0.06] flex items-center justify-between gap-2">
+      <div className="px-3 sm:px-5 py-3 sm:py-3.5 border-b border-line-subtle flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <Icon className={`w-4 h-4 shrink-0 ${color}`} />
-          <h3 className="text-xs sm:text-sm font-semibold text-slate-200 uppercase tracking-wider truncate">{title}</h3>
+          <h3 className="text-xs sm:text-sm font-semibold text-fg-secondary uppercase tracking-wider truncate">{title}</h3>
         </div>
         {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
       </div>
@@ -294,7 +294,7 @@ function MiniBar({ value, max = 1, color = 'bg-cyan-500', width = 80 }: {
   const pct = Math.min(100, Math.max(0, (value / max) * 100))
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden" style={{ width }}>
+      <div className="h-1.5 rounded-full bg-surface-raised overflow-hidden" style={{ width }}>
         <motion.div
           className={`h-full rounded-full ${color}`}
           initial={{ width: 0 }}
@@ -302,7 +302,7 @@ function MiniBar({ value, max = 1, color = 'bg-cyan-500', width = 80 }: {
           transition={{ duration: 0.6, ease: 'easeOut' }}
         />
       </div>
-      <span className="text-[11px] text-slate-400 font-mono">{(value * 100).toFixed(1)}%</span>
+      <span className="text-[11px] text-fg-muted font-mono">{(value * 100).toFixed(1)}%</span>
     </div>
   )
 }
@@ -316,7 +316,7 @@ function MetricPill({ label, value, thresholds }: {
   const color = metricColor(value, thresholds)
   return (
     <div className="flex flex-col items-center">
-      <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">{label}</span>
+      <span className="text-[10px] text-fg-muted uppercase tracking-wider mb-0.5">{label}</span>
       <span className={`text-sm font-bold font-mono ${color}`}>{value.toFixed(4)}</span>
     </div>
   )
@@ -326,7 +326,7 @@ function MetricPill({ label, value, thresholds }: {
 
 function EmptyState({ icon: Icon, message }: { icon: LucideIcon; message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+    <div className="flex flex-col items-center justify-center py-12 text-fg-muted">
       <Icon className="w-10 h-10 mb-3 opacity-40" />
       <p className="text-sm">{message}</p>
     </div>
@@ -434,10 +434,10 @@ function OverviewTab() {
           health?.status === 'degraded' ? 'bg-amber-400 animate-pulse' :
           'bg-red-400 animate-pulse'
         }`} />
-        <span className="text-sm font-medium text-slate-200">
+        <span className="text-sm font-medium text-fg-secondary">
           Pipeline {health?.status === 'healthy' ? 'Operational' : health?.status === 'degraded' ? 'Degraded' : 'Down'}
         </span>
-        <span className="text-[10px] sm:text-xs text-slate-500 ml-auto hidden sm:inline">
+        <span className="text-[10px] sm:text-xs text-fg-muted ml-auto hidden sm:inline">
           {health?.uptime_hours ? `Uptime: ${health.uptime_hours.toFixed(1)}h` : ''}
           {health?.last_run ? ` | Last run: ${relativeTime(health.last_run)}` : ''}
         </span>
@@ -457,7 +457,7 @@ function OverviewTab() {
           sub="Risk-adj. return" color="text-amber-400" delay={0.2} />
         <StatCard icon={AlertTriangle} label="Alerts" value={activeAlerts.length}
           sub={activeAlerts.length > 0 ? 'Requires attention' : 'All clear'}
-          color={activeAlerts.length > 0 ? 'text-red-400' : 'text-slate-500'} delay={0.25} />
+          color={activeAlerts.length > 0 ? 'text-red-400' : 'text-fg-muted'} delay={0.25} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -467,29 +467,29 @@ function OverviewTab() {
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                  <code className="text-xs text-slate-400 font-mono bg-slate-800/40 px-2 py-1 rounded truncate">
+                  <code className="text-xs text-fg-muted font-mono bg-surface-hover px-2 py-1 rounded truncate">
                     {latestRun.run_id?.slice(0, 12)}...
                   </code>
                   <StatusBadge status={latestRun.status} />
                 </div>
-                <span className="text-xs text-slate-500">{relativeTime(latestRun.started_at)}</span>
+                <span className="text-xs text-fg-muted">{relativeTime(latestRun.started_at)}</span>
               </div>
               <div className="grid grid-cols-3 gap-3 sm:gap-4">
                 <div>
-                  <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Symbols</div>
-                  <div className="text-lg font-bold text-slate-200 font-mono">
-                    {latestRun.symbols_completed}<span className="text-slate-500">/{latestRun.total_symbols}</span>
+                  <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">Symbols</div>
+                  <div className="text-lg font-bold text-fg-secondary font-mono">
+                    {latestRun.symbols_completed}<span className="text-fg-muted">/{latestRun.total_symbols}</span>
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Failed</div>
-                  <div className={`text-lg font-bold font-mono ${latestRun.symbols_failed > 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                  <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">Failed</div>
+                  <div className={`text-lg font-bold font-mono ${latestRun.symbols_failed > 0 ? 'text-red-400' : 'text-fg-secondary'}`}>
                     {latestRun.symbols_failed}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Runtime</div>
-                  <div className="text-lg font-bold text-slate-200 font-mono">
+                  <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">Runtime</div>
+                  <div className="text-lg font-bold text-fg-secondary font-mono">
                     {formatDuration(latestRun.runtime_seconds)}
                   </div>
                 </div>
@@ -497,12 +497,12 @@ function OverviewTab() {
               {latestRun.total_symbols > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider">Progress</span>
-                    <span className="text-[11px] text-slate-400 font-mono">
+                    <span className="text-[10px] text-fg-muted uppercase tracking-wider">Progress</span>
+                    <span className="text-[11px] text-fg-muted font-mono">
                       {((latestRun.symbols_completed / latestRun.total_symbols) * 100).toFixed(0)}%
                     </span>
                   </div>
-                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-2 bg-surface-raised rounded-full overflow-hidden">
                     <motion.div
                       className={`h-full rounded-full ${
                         latestRun.status === 'completed' ? 'bg-emerald-500' :
@@ -533,11 +533,11 @@ function OverviewTab() {
           ) : (
             <div className="space-y-3">
               {Object.entries(prodModels).map(([name, info]: [string, any]) => (
-                <div key={name} className="p-3 bg-slate-800/20 rounded-lg border border-white/[0.04] hover:border-white/[0.08] transition-colors">
+                <div key={name} className="p-3 bg-surface-hover rounded-lg border border-line-subtle hover:border-line-default transition-colors">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <Package className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-sm font-medium text-slate-200">{name}</span>
+                      <span className="text-sm font-medium text-fg-secondary">{name}</span>
                     </div>
                     <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full font-mono">
                       v{info.version}
@@ -547,8 +547,8 @@ function OverviewTab() {
                     <div className="flex items-center gap-3 sm:gap-4 mt-2 flex-wrap">
                       {Object.entries(info.metrics).slice(0, 4).map(([k, v]: [string, any]) => (
                         <div key={k} className="text-center min-w-0">
-                          <div className="text-[10px] text-slate-500 uppercase">{k.replace(/_/g, ' ')}</div>
-                          <div className="text-xs font-mono text-slate-300">{typeof v === 'number' ? v.toFixed(4) : typeof v === 'string' ? v : '--'}</div>
+                          <div className="text-[10px] text-fg-muted uppercase">{k.replace(/_/g, ' ')}</div>
+                          <div className="text-xs font-mono text-fg-secondary">{typeof v === 'number' ? v.toFixed(4) : typeof v === 'string' ? v : '--'}</div>
                         </div>
                       ))}
                     </div>
@@ -560,11 +560,11 @@ function OverviewTab() {
         </Panel>
 
         {/* Active Alerts */}
-        <Panel title="Active Alerts" icon={AlertTriangle} color={activeAlerts.length > 0 ? 'text-red-400' : 'text-slate-500'}
-          actions={<span className="text-[10px] text-slate-500 font-mono">{activeAlerts.length} active</span>}
+        <Panel title="Active Alerts" icon={AlertTriangle} color={activeAlerts.length > 0 ? 'text-red-400' : 'text-fg-muted'}
+          actions={<span className="text-[10px] text-fg-muted font-mono">{activeAlerts.length} active</span>}
         >
           {activeAlerts.length === 0 ? (
-            <div className="flex items-center gap-3 py-6 justify-center text-slate-500">
+            <div className="flex items-center gap-3 py-6 justify-center text-fg-muted">
               <Shield className="w-5 h-5 opacity-40" />
               <span className="text-sm">No active alerts</span>
             </div>
@@ -587,12 +587,12 @@ function OverviewTab() {
                     alert.severity === 'warning' ? 'text-amber-400' : 'text-blue-400'
                   }`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-slate-200 leading-relaxed">{alert.message}</p>
+                    <p className="text-xs text-fg-secondary leading-relaxed">{alert.message}</p>
                     <div className="flex items-center gap-2 mt-1">
                       {alert.model_name && (
-                        <span className="text-[10px] text-slate-500 font-mono">{alert.model_name}</span>
+                        <span className="text-[10px] text-fg-muted font-mono">{alert.model_name}</span>
                       )}
-                      <span className="text-[10px] text-slate-600">{relativeTime(alert.timestamp)}</span>
+                      <span className="text-[10px] text-fg-muted">{relativeTime(alert.timestamp)}</span>
                     </div>
                   </div>
                   <StatusBadge status={alert.severity} size="xs" />
@@ -618,14 +618,14 @@ function OverviewTab() {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.06 }}
-                className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/[0.02] transition-colors group"
+                className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-hover transition-colors group"
               >
-                <div className="w-7 h-7 rounded-lg bg-white/[0.04] flex items-center justify-center border border-white/[0.06] group-hover:border-white/[0.1] transition-colors">
-                  <item.icon className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
+                <div className="w-7 h-7 rounded-lg bg-surface-hover flex items-center justify-center border border-line-subtle group-hover:border-line-default transition-colors">
+                  <item.icon className="w-3.5 h-3.5 text-fg-muted group-hover:text-fg-secondary transition-colors" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-slate-300">{item.stage}</div>
-                  <div className="text-[10px] text-slate-600">{item.desc}</div>
+                  <div className="text-xs font-medium text-fg-secondary">{item.stage}</div>
+                  <div className="text-[10px] text-fg-muted">{item.desc}</div>
                 </div>
                 <div className="w-2 h-2 rounded-full bg-emerald-500/40" />
               </motion.div>
@@ -709,7 +709,7 @@ function TrainingRunsTab() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-400">{runs.length} runs</span>
+          <span className="text-sm text-fg-muted">{runs.length} runs</span>
           {triggerMsg && (
             <motion.span
               initial={{ opacity: 0, x: -8 }}
@@ -746,34 +746,34 @@ function TrainingRunsTab() {
             >
               <button
                 onClick={() => toggleExpand(run.run_id)}
-                className="w-full text-left p-4 bg-[#0D1117] border border-white/[0.06] rounded-xl hover:border-white/[0.12] transition-colors"
+                className="w-full text-left p-4 bg-surface-raised border border-line-subtle rounded-xl hover:border-line-default transition-colors"
               >
                 <div className="flex items-center gap-4">
                   <div className={`p-1.5 rounded-md ${
-                    expandedRun === run.run_id ? 'bg-white/[0.06]' : 'bg-white/[0.03]'
+                    expandedRun === run.run_id ? 'bg-surface-active' : 'bg-surface-hover'
                   }`}>
                     {expandedRun === run.run_id
-                      ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                      : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                      ? <ChevronDown className="w-3.5 h-3.5 text-fg-muted" />
+                      : <ChevronRight className="w-3.5 h-3.5 text-fg-muted" />
                     }
                   </div>
                   <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-3 items-center">
                     <div>
-                      <code className="text-xs text-slate-300 font-mono">{run.run_id?.slice(0, 16)}</code>
+                      <code className="text-xs text-fg-secondary font-mono">{run.run_id?.slice(0, 16)}</code>
                     </div>
                     <div>
                       <StatusBadge status={run.status} />
                     </div>
                     <div className="hidden md:block">
-                      <span className="text-xs text-slate-400">{formatTimestamp(run.started_at)}</span>
+                      <span className="text-xs text-fg-muted">{formatTimestamp(run.started_at)}</span>
                     </div>
                     <div className="hidden md:block">
-                      <span className="text-xs text-slate-400 font-mono">
+                      <span className="text-xs text-fg-muted font-mono">
                         {run.symbols_completed}/{run.total_symbols} symbols
                       </span>
                     </div>
                     <div className="hidden md:block text-right">
-                      <span className="text-xs text-slate-500 font-mono">{formatDuration(run.runtime_seconds)}</span>
+                      <span className="text-xs text-fg-muted font-mono">{formatDuration(run.runtime_seconds)}</span>
                     </div>
                   </div>
                 </div>
@@ -789,26 +789,26 @@ function TrainingRunsTab() {
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <div className="ml-2 sm:ml-12 mt-2 mb-2 p-3 sm:p-4 bg-slate-900/40 border border-white/[0.04] rounded-lg space-y-3">
+                    <div className="ml-2 sm:ml-12 mt-2 mb-2 p-3 sm:p-4 bg-surface-hover border border-line-subtle rounded-lg space-y-3">
                       {/* Run details */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pb-3 border-b border-white/[0.04]">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pb-3 border-b border-line-subtle">
                         <div>
-                          <div className="text-[10px] text-slate-500 uppercase mb-0.5">Started</div>
-                          <div className="text-xs text-slate-300">{formatTimestamp(run.started_at)}</div>
+                          <div className="text-[10px] text-fg-muted uppercase mb-0.5">Started</div>
+                          <div className="text-xs text-fg-secondary">{formatTimestamp(run.started_at)}</div>
                         </div>
                         <div>
-                          <div className="text-[10px] text-slate-500 uppercase mb-0.5">Finished</div>
-                          <div className="text-xs text-slate-300">{formatTimestamp(run.finished_at)}</div>
+                          <div className="text-[10px] text-fg-muted uppercase mb-0.5">Finished</div>
+                          <div className="text-xs text-fg-secondary">{formatTimestamp(run.finished_at)}</div>
                         </div>
                         <div>
-                          <div className="text-[10px] text-slate-500 uppercase mb-0.5">Failed Symbols</div>
-                          <div className={`text-xs font-mono ${run.symbols_failed > 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                          <div className="text-[10px] text-fg-muted uppercase mb-0.5">Failed Symbols</div>
+                          <div className={`text-xs font-mono ${run.symbols_failed > 0 ? 'text-red-400' : 'text-fg-muted'}`}>
                             {run.symbols_failed}
                           </div>
                         </div>
                         <div>
-                          <div className="text-[10px] text-slate-500 uppercase mb-0.5">Runtime</div>
-                          <div className="text-xs text-slate-300 font-mono">{formatDuration(run.runtime_seconds)}</div>
+                          <div className="text-[10px] text-fg-muted uppercase mb-0.5">Runtime</div>
+                          <div className="text-xs text-fg-secondary font-mono">{formatDuration(run.runtime_seconds)}</div>
                         </div>
                       </div>
 
@@ -820,18 +820,18 @@ function TrainingRunsTab() {
 
                       {/* Shards */}
                       <div>
-                        <h4 className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Shards</h4>
+                        <h4 className="text-[10px] text-fg-muted uppercase tracking-wider mb-2">Shards</h4>
                         {(!shards[run.run_id] || shards[run.run_id].length === 0) ? (
-                          <p className="text-xs text-slate-600">No shard data available</p>
+                          <p className="text-xs text-fg-muted">No shard data available</p>
                         ) : (
                           <div className="space-y-1.5">
                             {shards[run.run_id].map((shard: any, si: number) => (
-                              <div key={si} className="flex items-center gap-3 p-2 rounded bg-slate-800/20 border border-white/[0.03]">
-                                <Hash className="w-3 h-3 text-slate-600" />
-                                <span className="text-xs text-slate-400 font-mono flex-1">
+                              <div key={si} className="flex items-center gap-3 p-2 rounded bg-surface-hover border border-line-subtle">
+                                <Hash className="w-3 h-3 text-fg-muted" />
+                                <span className="text-xs text-fg-muted font-mono flex-1">
                                   Shard {shard.shard_index ?? si}
                                 </span>
-                                <span className="text-[10px] text-slate-500 font-mono">
+                                <span className="text-[10px] text-fg-muted font-mono">
                                   {shard.symbols_count || shard.symbols?.length || '?'} sym
                                 </span>
                                 <StatusBadge status={shard.status || 'pending'} size="xs" />
@@ -906,7 +906,7 @@ function ModelsTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <span className="text-sm text-slate-400">{modelEntries.length} registered models</span>
+        <span className="text-sm text-fg-muted">{modelEntries.length} registered models</span>
       </div>
 
       {modelEntries.length === 0 ? (
@@ -919,7 +919,7 @@ function ModelsTab() {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
-              className="bg-[#0D1117] border border-white/[0.06] rounded-xl overflow-hidden hover:border-white/[0.1] transition-colors"
+              className="bg-surface-raised border border-line-subtle rounded-xl overflow-hidden hover:border-line-default transition-colors"
             >
               {/* Model Header */}
               <button
@@ -932,13 +932,13 @@ function ModelsTab() {
                       <Brain className="w-5 h-5 text-purple-400" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-sm font-semibold text-slate-200 truncate">{name}</h3>
+                      <h3 className="text-sm font-semibold text-fg-secondary truncate">{name}</h3>
                       <div className="flex items-center gap-2 sm:gap-3 mt-0.5 flex-wrap">
-                        <span className="text-[10px] text-slate-500">
+                        <span className="text-[10px] text-fg-muted">
                           {info.total_versions} version{info.total_versions !== 1 ? 's' : ''}
                         </span>
-                        <span className="text-[10px] text-slate-600 hidden sm:inline">|</span>
-                        <span className="text-[10px] text-slate-500">
+                        <span className="text-[10px] text-fg-muted hidden sm:inline">|</span>
+                        <span className="text-[10px] text-fg-muted">
                           Latest: v{info.latest_version}
                         </span>
                       </div>
@@ -951,8 +951,8 @@ function ModelsTab() {
                       </span>
                     )}
                     {expandedModel === name
-                      ? <ChevronDown className="w-4 h-4 text-slate-500" />
-                      : <ChevronRight className="w-4 h-4 text-slate-500" />
+                      ? <ChevronDown className="w-4 h-4 text-fg-muted" />
+                      : <ChevronRight className="w-4 h-4 text-fg-muted" />
                     }
                   </div>
                 </div>
@@ -968,12 +968,12 @@ function ModelsTab() {
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-2 border-t border-white/[0.04] space-y-4">
+                    <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-2 border-t border-line-subtle space-y-4">
                       {/* Performance metrics */}
                       {performance[name] && (
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
-                            <h4 className="text-[10px] text-slate-500 uppercase tracking-wider">Performance (30d)</h4>
+                            <h4 className="text-[10px] text-fg-muted uppercase tracking-wider">Performance (30d)</h4>
                             {performance[name].should_retrain && (
                               <span className="text-[10px] px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20">
                                 Retrain recommended
@@ -999,8 +999,8 @@ function ModelsTab() {
 
                       {/* Version list from /models endpoint */}
                       <div>
-                        <h4 className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Version History</h4>
-                        <div className="grid grid-cols-3 gap-2 text-[10px] text-slate-500 uppercase tracking-wider px-3 pb-1 border-b border-white/[0.04]">
+                        <h4 className="text-[10px] text-fg-muted uppercase tracking-wider mb-2">Version History</h4>
+                        <div className="grid grid-cols-3 gap-2 text-[10px] text-fg-muted uppercase tracking-wider px-3 pb-1 border-b border-line-subtle">
                           <span>Version</span>
                           <span>Stage</span>
                           <span>Status</span>
@@ -1010,8 +1010,8 @@ function ModelsTab() {
                           const stage = ver === info.production_version ? 'production'
                             : ver === info.latest_version ? 'staging' : 'archived'
                           return (
-                            <div key={vi} className="grid grid-cols-3 gap-2 items-center px-3 py-2 hover:bg-white/[0.02] rounded transition-colors">
-                              <span className="text-xs text-slate-300 font-mono">v{ver}</span>
+                            <div key={vi} className="grid grid-cols-3 gap-2 items-center px-3 py-2 hover:bg-surface-hover rounded transition-colors">
+                              <span className="text-xs text-fg-secondary font-mono">v{ver}</span>
                               <StatusBadge status={stage} size="xs" />
                               <div className="flex items-center gap-1.5">
                                 {stage === 'production' && (
@@ -1020,7 +1020,7 @@ function ModelsTab() {
                                   </span>
                                 )}
                                 {stage === 'archived' && (
-                                  <span className="text-[10px] text-slate-500">Superseded</span>
+                                  <span className="text-[10px] text-fg-muted">Superseded</span>
                                 )}
                                 {stage === 'staging' && (
                                   <span className="text-[10px] text-amber-400">Candidate</span>
@@ -1128,8 +1128,8 @@ function MonitoringTab() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
               {perfData.performance && Object.entries(perfData.performance).map(([k, v]: [string, any]) => (
                 typeof v === 'number' && (
-                  <div key={k} className="text-center p-3 rounded-lg bg-slate-800/20 border border-white/[0.04]">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">{k.replace(/_/g, ' ')}</div>
+                  <div key={k} className="text-center p-3 rounded-lg bg-surface-hover border border-line-subtle">
+                    <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">{k.replace(/_/g, ' ')}</div>
                     <div className={`text-lg font-bold font-mono ${metricColor(v)}`}>{v.toFixed(4)}</div>
                   </div>
                 )
@@ -1144,7 +1144,7 @@ function MonitoringTab() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Drift detection */}
         <Panel title="Drift Detection" icon={Eye} color="text-violet-400"
-          actions={<span className="text-[10px] text-slate-500 font-mono">{symbols.length} symbols</span>}
+          actions={<span className="text-[10px] text-fg-muted font-mono">{symbols.length} symbols</span>}
         >
           <div className="space-y-3">
             {/* Symbol selector */}
@@ -1156,40 +1156,40 @@ function MonitoringTab() {
                   className={`text-[10px] px-2 py-1 rounded-md font-mono transition-all ${
                     selectedSymbol === sym
                       ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
-                      : 'bg-slate-800/30 text-slate-400 border border-white/[0.04] hover:border-white/[0.08]'
+                      : 'bg-surface-hover text-fg-secondary border border-line-subtle hover:border-line-default'
                   }`}
                 >
                   {sym}
                 </button>
               ))}
               {symbols.length > 30 && (
-                <span className="text-[10px] text-slate-600 self-center ml-1">+{symbols.length - 30} more</span>
+                <span className="text-[10px] text-fg-muted self-center ml-1">+{symbols.length - 30} more</span>
               )}
             </div>
 
             {/* Drift report */}
             {selectedSymbol && (
-              <div className="pt-2 border-t border-white/[0.04]">
+              <div className="pt-2 border-t border-line-subtle">
                 {driftLoading ? (
                   <div className="flex items-center gap-2 py-4 justify-center">
                     <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />
-                    <span className="text-xs text-slate-500">Checking drift for {selectedSymbol}...</span>
+                    <span className="text-xs text-fg-muted">Checking drift for {selectedSymbol}...</span>
                   </div>
                 ) : drift ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-200">{selectedSymbol}</span>
+                      <span className="text-sm font-medium text-fg-secondary">{selectedSymbol}</span>
                       <StatusBadge status={drift.drift_detected ? 'warning' : 'healthy'} />
                     </div>
                     {drift.drift_score !== undefined && (
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] text-slate-500 uppercase">Drift Score</span>
+                          <span className="text-[10px] text-fg-muted uppercase">Drift Score</span>
                           <span className={`text-xs font-mono ${drift.drift_score > 0.5 ? 'text-red-400' : drift.drift_score > 0.3 ? 'text-amber-400' : 'text-emerald-400'}`}>
                             {drift.drift_score.toFixed(4)}
                           </span>
                         </div>
-                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-2 bg-surface-raised rounded-full overflow-hidden">
                           <motion.div
                             className={`h-full rounded-full ${
                               drift.drift_score > 0.5 ? 'bg-red-500' :
@@ -1204,7 +1204,7 @@ function MonitoringTab() {
                     )}
                     {drift.features_drifted && drift.features_drifted.length > 0 && (
                       <div>
-                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">Drifted Features</span>
+                        <span className="text-[10px] text-fg-muted uppercase tracking-wider">Drifted Features</span>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {drift.features_drifted.map(f => (
                             <span key={f} className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 font-mono">
@@ -1216,7 +1216,7 @@ function MonitoringTab() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500 py-4 text-center">No drift data for {selectedSymbol}</p>
+                  <p className="text-xs text-fg-muted py-4 text-center">No drift data for {selectedSymbol}</p>
                 )}
               </div>
             )}
@@ -1225,10 +1225,10 @@ function MonitoringTab() {
 
         {/* Alerts */}
         <Panel title="All Alerts" icon={AlertTriangle} color="text-red-400"
-          actions={<span className="text-[10px] text-slate-500 font-mono">{alerts.length} total</span>}
+          actions={<span className="text-[10px] text-fg-muted font-mono">{alerts.length} total</span>}
         >
           {alerts.length === 0 ? (
-            <div className="flex items-center gap-3 py-8 justify-center text-slate-500">
+            <div className="flex items-center gap-3 py-8 justify-center text-fg-muted">
               <Shield className="w-5 h-5 opacity-40" />
               <span className="text-sm">No alerts</span>
             </div>
@@ -1241,7 +1241,7 @@ function MonitoringTab() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.04 }}
                   className={`p-3 rounded-lg border ${
-                    alert.resolved ? 'bg-slate-800/10 border-white/[0.03] opacity-60' :
+                    alert.resolved ? 'bg-surface-hover border-line-subtle opacity-60' :
                     alert.severity === 'critical' ? 'bg-red-500/5 border-red-500/15' :
                     alert.severity === 'warning' ? 'bg-amber-500/5 border-amber-500/15' :
                     'bg-blue-500/5 border-blue-500/15'
@@ -1249,17 +1249,17 @@ function MonitoringTab() {
                 >
                   <div className="flex items-start gap-2">
                     <AlertTriangle className={`w-3 h-3 mt-0.5 shrink-0 ${
-                      alert.resolved ? 'text-slate-600' :
+                      alert.resolved ? 'text-fg-muted' :
                       alert.severity === 'critical' ? 'text-red-400' :
                       alert.severity === 'warning' ? 'text-amber-400' : 'text-blue-400'
                     }`} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-300 leading-relaxed">{alert.message}</p>
+                      <p className="text-xs text-fg-secondary leading-relaxed">{alert.message}</p>
                       <div className="flex items-center gap-2 mt-1">
                         {alert.model_name && (
-                          <span className="text-[10px] text-slate-500 font-mono">{alert.model_name}</span>
+                          <span className="text-[10px] text-fg-muted font-mono">{alert.model_name}</span>
                         )}
-                        <span className="text-[10px] text-slate-600">{relativeTime(alert.timestamp)}</span>
+                        <span className="text-[10px] text-fg-muted">{relativeTime(alert.timestamp)}</span>
                         {alert.resolved && <span className="text-[10px] text-emerald-500">Resolved</span>}
                       </div>
                     </div>
@@ -1327,8 +1327,8 @@ function ConfigTab() {
     if (value === null || value === undefined) {
       return (
         <div key={key} className="flex items-center justify-between py-1.5" style={{ paddingLeft: depth * 16 }}>
-          <span className="text-xs text-slate-400">{key}</span>
-          <span className="text-xs text-slate-600 font-mono">null</span>
+          <span className="text-xs text-fg-secondary">{key}</span>
+          <span className="text-xs text-fg-muted font-mono">null</span>
         </div>
       )
     }
@@ -1336,8 +1336,8 @@ function ConfigTab() {
       return (
         <div key={key}>
           <div className="flex items-center gap-2 py-1.5" style={{ paddingLeft: depth * 16 }}>
-            <ChevronRight className="w-3 h-3 text-slate-600" />
-            <span className="text-xs font-medium text-slate-300">{key}</span>
+            <ChevronRight className="w-3 h-3 text-fg-muted" />
+            <span className="text-xs font-medium text-fg-secondary">{key}</span>
           </div>
           {Object.entries(value).map(([k, v]) => renderConfigValue(k, v, depth + 1))}
         </div>
@@ -1346,7 +1346,7 @@ function ConfigTab() {
     if (Array.isArray(value)) {
       return (
         <div key={key} className="flex items-start justify-between py-1.5" style={{ paddingLeft: depth * 16 }}>
-          <span className="text-xs text-slate-400">{key}</span>
+          <span className="text-xs text-fg-secondary">{key}</span>
           <span className="text-xs text-cyan-300 font-mono max-w-[60%] text-right truncate" title={JSON.stringify(value)}>
             [{value.length} items]
           </span>
@@ -1355,7 +1355,7 @@ function ConfigTab() {
     }
     return (
       <div key={key} className="flex items-center justify-between py-1.5" style={{ paddingLeft: depth * 16 }}>
-        <span className="text-xs text-slate-400">{key}</span>
+        <span className="text-xs text-fg-secondary">{key}</span>
         <span className={`text-xs font-mono ${
           typeof value === 'boolean' ? (value ? 'text-emerald-400' : 'text-red-400') :
           typeof value === 'number' ? 'text-amber-300' : 'text-cyan-300'
@@ -1371,7 +1371,7 @@ function ConfigTab() {
       {/* Effective Config */}
       <Panel title="Effective Training Config" icon={Terminal} color="text-cyan-400">
         {config ? (
-          <div className="divide-y divide-white/[0.04] max-h-[500px] overflow-y-auto scrollbar-thin">
+          <div className="divide-y divide-line-subtle max-h-[500px] overflow-y-auto scrollbar-thin">
             {Object.entries(config).map(([k, v]) => renderConfigValue(k, v))}
           </div>
         ) : (
@@ -1396,18 +1396,18 @@ function ConfigTab() {
           <div className="space-y-3">
             {/* Summary */}
             {shardPlan.total_shards !== undefined && (
-              <div className="grid grid-cols-3 gap-3 sm:gap-4 pb-3 border-b border-white/[0.04]">
+              <div className="grid grid-cols-3 gap-3 sm:gap-4 pb-3 border-b border-line-subtle">
                 <div>
-                  <div className="text-[10px] text-slate-500 uppercase mb-0.5">Total Shards</div>
-                  <div className="text-lg font-bold text-slate-200 font-mono">{shardPlan.total_shards}</div>
+                  <div className="text-[10px] text-fg-muted uppercase mb-0.5">Total Shards</div>
+                  <div className="text-lg font-bold text-fg-secondary font-mono">{shardPlan.total_shards}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-slate-500 uppercase mb-0.5">Total Symbols</div>
-                  <div className="text-lg font-bold text-slate-200 font-mono">{shardPlan.total_symbols || '?'}</div>
+                  <div className="text-[10px] text-fg-muted uppercase mb-0.5">Total Symbols</div>
+                  <div className="text-lg font-bold text-fg-secondary font-mono">{shardPlan.total_symbols || '?'}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-slate-500 uppercase mb-0.5">Symbols/Shard</div>
-                  <div className="text-lg font-bold text-slate-200 font-mono">{shardPlan.symbols_per_shard || '?'}</div>
+                  <div className="text-[10px] text-fg-muted uppercase mb-0.5">Symbols/Shard</div>
+                  <div className="text-lg font-bold text-fg-secondary font-mono">{shardPlan.symbols_per_shard || '?'}</div>
                 </div>
               </div>
             )}
@@ -1415,37 +1415,37 @@ function ConfigTab() {
             {shardPlan.shards && Array.isArray(shardPlan.shards) && (
               <div className="space-y-1.5 max-h-[300px] overflow-y-auto scrollbar-thin">
                 {shardPlan.shards.map((shard: any, i: number) => (
-                  <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-800/20 border border-white/[0.04]">
+                  <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-surface-hover border border-line-subtle">
                     <div className="w-6 h-6 rounded bg-violet-500/10 flex items-center justify-center">
                       <span className="text-[10px] font-bold text-violet-400">{i}</span>
                     </div>
                     <div className="flex-1">
                       <div className="flex flex-wrap gap-1">
                         {(shard.symbols || []).slice(0, 8).map((s: string) => (
-                          <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800/40 text-slate-400 font-mono">{s}</span>
+                          <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-surface-raised text-fg-secondary font-mono">{s}</span>
                         ))}
                         {(shard.symbols || []).length > 8 && (
-                          <span className="text-[10px] text-slate-600">+{(shard.symbols || []).length - 8}</span>
+                          <span className="text-[10px] text-fg-muted">+{(shard.symbols || []).length - 8}</span>
                         )}
                       </div>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-mono">{(shard.symbols || []).length} sym</span>
+                    <span className="text-[10px] text-fg-muted font-mono">{(shard.symbols || []).length} sym</span>
                   </div>
                 ))}
               </div>
             )}
             {/* Raw fallback */}
             {!shardPlan.shards && (
-              <pre className="text-[11px] text-slate-400 font-mono bg-slate-800/20 p-3 rounded-lg overflow-x-auto max-h-[300px]">
+              <pre className="text-[11px] text-fg-secondary font-mono bg-surface-hover p-3 rounded-lg overflow-x-auto max-h-[300px]">
                 {JSON.stringify(shardPlan, null, 2)}
               </pre>
             )}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-10 text-slate-500">
+          <div className="flex flex-col items-center justify-center py-10 text-fg-muted">
             <Layers className="w-8 h-8 mb-3 opacity-30" />
             <p className="text-sm mb-1">No shard plan computed yet</p>
-            <p className="text-[11px] text-slate-600">Click "Dry Run" to preview how symbols will be distributed across shards</p>
+            <p className="text-[11px] text-fg-muted">Click "Dry Run" to preview how symbols will be distributed across shards</p>
           </div>
         )}
       </Panel>
@@ -1480,7 +1480,7 @@ function DesktopMLOps() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-[#0a0a0f]">
+      <div className="min-h-screen bg-surface-base">
         <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 py-4 sm:py-8">
 
           {/* ── Header ─────────────────────────────────────────────────── */}
@@ -1495,16 +1495,16 @@ function DesktopMLOps() {
                 <Brain className="w-6 h-6 text-purple-400" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight">MLOps Command Center</h1>
-                <p className="text-xs text-slate-500 mt-0.5">Model lifecycle, training pipeline, drift monitoring</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-fg-primary tracking-tight">MLOps Command Center</h1>
+                <p className="text-xs text-fg-muted mt-0.5">Model lifecycle, training pipeline, drift monitoring</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/40 border border-white/[0.06]">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-raised border border-line-subtle">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[10px] text-slate-400 font-mono">LIVE</span>
+                <span className="text-[10px] text-fg-secondary font-mono">LIVE</span>
               </div>
-              <span className="text-[10px] text-slate-600">Auto-refresh 30s</span>
+              <span className="text-[10px] text-fg-muted">Auto-refresh 30s</span>
             </div>
           </motion.div>
 
@@ -1515,15 +1515,15 @@ function DesktopMLOps() {
             transition={{ delay: 0.1 }}
             className="mb-6"
           >
-            <div className="flex items-center gap-1 p-1 bg-[#0D1117] border border-white/[0.06] rounded-xl overflow-x-auto whitespace-nowrap scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="flex items-center gap-1 p-1 bg-surface-raised border border-line-subtle rounded-xl overflow-x-auto whitespace-nowrap scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 ${
                     activeTab === tab.id
-                      ? 'bg-white/[0.08] text-slate-100 shadow-lg shadow-black/20'
-                      : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.03]'
+                      ? 'bg-surface-active text-fg-primary shadow-lg shadow-black/20'
+                      : 'text-fg-muted hover:text-fg-secondary hover:bg-surface-hover'
                   }`}
                 >
                   <tab.icon className={`w-4 h-4 shrink-0 ${activeTab === tab.id ? 'text-cyan-400' : ''}`} />
@@ -1536,7 +1536,7 @@ function DesktopMLOps() {
                   {activeTab === tab.id && (
                     <motion.div
                       layoutId="mlops-tab-indicator"
-                      className="absolute inset-0 bg-white/[0.06] rounded-lg border border-white/[0.08]"
+                      className="absolute inset-0 bg-surface-hover rounded-lg border border-line-subtle"
                       style={{ zIndex: -1 }}
                       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                     />

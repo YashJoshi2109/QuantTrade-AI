@@ -94,7 +94,7 @@ export default function ScreenerTable({ data: initialData }: Props) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-white/[0.06] overflow-hidden"
+      className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-line-subtle overflow-hidden"
     >
       {/* Tab header */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
@@ -108,7 +108,7 @@ export default function ScreenerTable({ data: initialData }: Props) {
                   ? t === 'gainers'
                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                     : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                  : 'text-slate-500 border border-transparent hover:text-slate-300'
+                  : 'text-fg-muted border border-transparent hover:text-fg-secondary'
               }`}
             >
               {t === 'gainers' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
@@ -117,19 +117,19 @@ export default function ScreenerTable({ data: initialData }: Props) {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 text-[9px] text-slate-500">
+          <div className="flex items-center gap-1 text-[9px] text-fg-muted">
             <BarChart3 className="w-3 h-3" />
             <span>{items?.length ?? 0} stocks</span>
           </div>
           <button
             onClick={() => refreshData(true)}
             disabled={isRefreshing}
-            className="flex items-center gap-1 text-[9px] text-slate-500 hover:text-cyan-400 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1 text-[9px] text-fg-muted hover:text-cyan-400 transition-colors disabled:opacity-50"
             title="Refresh data"
           >
             <RotateCcw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
-          <div className="flex items-center gap-1 text-[8px] text-slate-600">
+          <div className="flex items-center gap-1 text-[8px] text-fg-muted">
             <Clock className="w-2.5 h-2.5" />
             <span>{timeAgo()}</span>
           </div>
@@ -138,9 +138,9 @@ export default function ScreenerTable({ data: initialData }: Props) {
 
       {/* Table */}
       <div className="px-3 pb-3">
-        <div className="rounded-lg overflow-hidden border border-white/[0.04]">
+        <div className="rounded-lg overflow-hidden border border-line-subtle">
           {/* Header row */}
-          <div className="grid grid-cols-[1fr_60px_70px_70px] text-[9px] text-slate-500 font-medium uppercase tracking-wider bg-white/[0.02] px-2.5 py-1.5">
+          <div className="grid grid-cols-[1fr_60px_70px_70px] text-[9px] text-fg-muted font-medium uppercase tracking-wider bg-white/[0.02] px-2.5 py-1.5">
             <span>Symbol</span>
             <span className="text-right">Price</span>
             <span className="text-center">Strength</span>
@@ -172,8 +172,8 @@ export default function ScreenerTable({ data: initialData }: Props) {
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-[11px] font-bold text-white">{item.symbol}</span>
-                        <span className="text-[9px] text-slate-500 truncate hidden sm:inline">{item.name}</span>
-                        <ExternalLink className="w-2.5 h-2.5 text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                        <span className="text-[9px] text-fg-muted truncate hidden sm:inline">{item.name}</span>
+                        <ExternalLink className="w-2.5 h-2.5 text-fg-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                       </div>
                       <span className="text-[11px] font-semibold text-white tabular-nums text-right">
                         ${item.price?.toFixed(2) ?? '—'}
@@ -188,7 +188,7 @@ export default function ScreenerTable({ data: initialData }: Props) {
                   </motion.div>
                 )
               }) : (
-                <div className="text-center py-4 text-[10px] text-slate-500">No data available</div>
+                <div className="text-center py-4 text-[10px] text-fg-muted">No data available</div>
               )}
             </motion.div>
           </AnimatePresence>

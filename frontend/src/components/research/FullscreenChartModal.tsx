@@ -104,8 +104,7 @@ export default function FullscreenChartModal({
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-[9999] flex"
-          style={{ background: '#0a0e1a' }}
+          className="fixed inset-0 z-[9999] flex bg-surface-base"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
         >
@@ -116,26 +115,25 @@ export default function FullscreenChartModal({
               .fullscreen-chart-rotate-prompt { display: flex !important; }
             }
           `}</style>
-          <div className="fullscreen-chart-rotate-prompt hidden fixed inset-0 z-[10000] items-center justify-center flex-col gap-4" style={{ background: '#0a0e1a' }}>
+          <div className="fullscreen-chart-rotate-prompt hidden fixed inset-0 z-[10000] items-center justify-center flex-col gap-4 bg-surface-base">
             <svg className="w-16 h-16 text-blue-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
             </svg>
-            <p className="text-slate-300 text-lg font-medium">Rotate your device to landscape</p>
-            <button onClick={onClose} className="mt-4 px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-sm hover:bg-slate-700 transition-colors">Close</button>
+            <p className="text-fg-secondary text-lg font-medium">Rotate your device to landscape</p>
+            <button onClick={onClose} className="mt-4 px-4 py-2 rounded-lg bg-surface-raised text-fg-secondary text-sm hover:bg-surface-active transition-colors">Close</button>
           </div>
 
           <div className="fullscreen-chart-landscape-only flex flex-1 min-h-0 min-w-0">
             {/* Indicator sidebar */}
             <motion.div
-              className="shrink-0 border-r border-slate-800/60 flex flex-col overflow-y-auto"
-              style={{ background: 'rgba(10,14,26,0.95)' }}
+              className="shrink-0 border-r border-line-subtle flex flex-col overflow-y-auto bg-surface-glass"
               initial={false}
               animate={{ width: sidebarOpen ? 200 : 44 }}
               transition={{ duration: 0.2 }}
             >
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-3 text-slate-400 hover:text-white transition-colors self-end"
+                className="p-3 text-fg-muted hover:text-white transition-colors self-end"
                 title={sidebarOpen ? 'Collapse' : 'Expand'}
               >
                 <svg className={`w-5 h-5 transition-transform ${sidebarOpen ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -146,15 +144,15 @@ export default function FullscreenChartModal({
               {sidebarOpen && (
                 <div className="flex flex-col gap-1 px-3 pb-4">
                   {/* Overlays */}
-                  <span className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-semibold">Overlays</span>
+                  <span className="text-[10px] uppercase tracking-wider text-fg-muted mb-1 font-semibold">Overlays</span>
                   {OVERLAY_INDICATORS.map(({ id, label, color }) => (
                     <button
                       key={id}
                       onClick={() => toggleOverlay(id as OverlayIndicatorId)}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${
                         activeOverlays.has(id as OverlayIndicatorId)
-                          ? 'bg-slate-800 text-white'
-                          : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
+                          ? 'bg-surface-raised text-fg-primary'
+                          : 'text-fg-muted hover:text-fg-secondary hover:bg-surface-hover'
                       }`}
                     >
                       <span
@@ -169,15 +167,15 @@ export default function FullscreenChartModal({
                   ))}
 
                   {/* Pane indicators */}
-                  <span className="text-[10px] uppercase tracking-wider text-slate-500 mt-3 mb-1 font-semibold">Indicators</span>
+                  <span className="text-[10px] uppercase tracking-wider text-fg-muted mt-3 mb-1 font-semibold">Indicators</span>
                   {PANE_INDICATORS.map(({ id, label, color }) => (
                     <button
                       key={id}
                       onClick={() => togglePane(id as PaneIndicatorId)}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${
                         activePanes.has(id as PaneIndicatorId)
-                          ? 'bg-slate-800 text-white'
-                          : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
+                          ? 'bg-surface-raised text-fg-primary'
+                          : 'text-fg-muted hover:text-fg-secondary hover:bg-surface-hover'
                       }`}
                     >
                       <span
@@ -197,10 +195,10 @@ export default function FullscreenChartModal({
             {/* Chart area */}
             <div className="flex-1 flex flex-col min-w-0 min-h-0">
               {/* Top bar */}
-              <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800/60 shrink-0">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-line-subtle shrink-0">
                 <div className="flex items-center gap-3">
-                  <span className="text-white font-bold text-lg tracking-wide">{symbol}</span>
-                  <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">Fullscreen</span>
+                  <span className="text-fg-primary font-bold text-lg tracking-wide">{symbol}</span>
+                  <span className="text-[10px] uppercase tracking-wider text-fg-muted font-medium">Fullscreen</span>
                 </div>
                 <div className="flex items-center gap-1">
                   {TIME_PERIODS.map((tp) => (
@@ -210,14 +208,14 @@ export default function FullscreenChartModal({
                       className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                         period === tp
                           ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                          : 'text-fg-muted hover:text-white hover:bg-surface-hover'
                       }`}
                     >
                       {tp}
                     </button>
                   ))}
                 </div>
-                <button onClick={onClose} className="ml-4 p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Close (Esc)">
+                <button onClick={onClose} className="ml-4 p-2 rounded-lg text-fg-muted hover:text-white hover:bg-surface-raised transition-colors" title="Close (Esc)">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -236,7 +234,7 @@ export default function FullscreenChartModal({
                     exchangeTimezone={exchangeTimezone}
                   />
                 ) : (
-                  <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                  <div className="flex items-center justify-center h-full text-fg-muted text-sm">
                     No data available for the selected period.
                   </div>
                 )}

@@ -139,17 +139,17 @@ export default function GlobalStockTicker({ events }: Props) {
 
   if (tickers.length === 0) {
     return (
-      <div className="flex items-center gap-2 px-4 py-2 bg-slate-950/80">
-        <BarChart2 className="w-3 h-3 text-slate-600 shrink-0" />
-        <span className="text-[10px] text-slate-600 font-mono">Loading impact signals...</span>
+      <div className="flex items-center gap-2 px-4 py-2 bg-surface-base/80">
+        <BarChart2 className="w-3 h-3 text-fg-muted shrink-0" />
+        <span className="text-[10px] text-fg-muted font-mono">Loading impact signals...</span>
       </div>
     )
   }
 
   return (
-    <div className="flex items-center bg-slate-950/90 border-b border-slate-800/50 overflow-hidden">
+    <div className="flex items-center bg-surface-base/90 border-b border-line-subtle overflow-hidden">
       {/* Label */}
-      <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-r border-slate-800/60 bg-sky-500/10">
+      <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-r border-line-subtle bg-sky-500/10">
         <BarChart2 className="w-3 h-3 text-sky-400" />
         <span className="text-[9px] font-black uppercase tracking-[0.2em] text-sky-400 font-mono whitespace-nowrap">IMPACT WATCH</span>
       </div>
@@ -164,13 +164,13 @@ export default function GlobalStockTicker({ events }: Props) {
                 href={entry.href || `/research?symbol=${entry.ticker}`}
                 className="flex items-center gap-1.5 hover:opacity-80 transition-opacity group"
               >
-                <span className="text-[11px] font-bold text-slate-100 font-mono group-hover:text-sky-400 transition-colors">
+                <span className="text-[11px] font-bold text-fg-primary font-mono group-hover:text-sky-400 transition-colors">
                   {entry.ticker}
                 </span>
                 <div className={`flex items-center gap-0.5 text-[9px] font-bold ${
                   entry.direction === 'positive' ? 'text-emerald-400' :
                   entry.direction === 'negative' ? 'text-red-400' :
-                  'text-slate-400'
+                  'text-fg-secondary'
                 }`}>
                   {entry.direction === 'positive' ? <TrendingUp className="w-2.5 h-2.5" /> :
                    entry.direction === 'negative' ? <TrendingDown className="w-2.5 h-2.5" /> :
@@ -179,11 +179,11 @@ export default function GlobalStockTicker({ events }: Props) {
                 <span className={`text-[9px] font-mono ${
                   entry.impact >= 60 ? 'text-orange-400' :
                   entry.impact >= 30 ? 'text-yellow-400' :
-                  'text-slate-500'
+                  'text-fg-muted'
                 }`}>
                   {Math.min(99, entry.impact).toFixed(0)}%
                 </span>
-                <span className="w-px h-3 bg-slate-800 ml-2" />
+                <span className="w-px h-3 bg-line-default ml-2" />
               </Link>
             ))}
           </div>

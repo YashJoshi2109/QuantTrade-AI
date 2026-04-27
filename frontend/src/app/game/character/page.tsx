@@ -73,9 +73,9 @@ export default function CharacterPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-white/5 bg-black/30 backdrop-blur-md px-6 py-4 flex items-center gap-4 sticky top-0 z-30">
-        <Link href="/game/dashboard" className="text-gray-500 hover:text-white transition text-sm">← Dashboard</Link>
-        <span className="text-gray-700">|</span>
+      <header className="border-b border-line-subtle bg-black/30 backdrop-blur-md px-6 py-4 flex items-center gap-4 sticky top-0 z-30">
+        <Link href="/game/dashboard" className="text-fg-muted hover:text-fg-primary transition text-sm">← Dashboard</Link>
+        <span className="text-fg-muted">|</span>
         <span style={{ color: accent }} className="font-bold text-sm">Character Scroll</span>
       </header>
 
@@ -102,44 +102,44 @@ export default function CharacterPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     maxLength={50}
-                    className="bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white text-xl font-bold focus:outline-none focus:border-amber-500/50"
+                    className="bg-white/5 border border-line-default rounded-lg px-4 py-2 text-white text-xl font-bold focus:outline-none focus:border-amber-500/50"
                   />
                   <button onClick={handleSaveName} disabled={saving} className="px-4 py-2 text-sm rounded-lg font-bold text-black" style={{ backgroundColor: accent }}>
                     {saving ? '...' : 'Save'}
                   </button>
-                  <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm rounded-lg border border-white/10 text-gray-400 hover:text-white">
+                  <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm rounded-lg border border-line-default text-fg-muted hover:text-fg-primary">
                     Cancel
                   </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-3 mb-2">
                   <h1 className="text-3xl font-bold text-white">{character?.name || 'Adventurer'}</h1>
-                  <button onClick={() => setEditing(true)} className="text-gray-600 hover:text-gray-400 text-xs border border-white/10 px-2 py-0.5 rounded">
+                  <button onClick={() => setEditing(true)} className="text-fg-muted hover:text-fg-muted text-xs border border-line-default px-2 py-0.5 rounded">
                     edit
                   </button>
                 </div>
               )}
               <div className="text-sm font-medium mb-1" style={{ color: accent }}>{stageMeta.label}</div>
-              <div className="text-gray-600 text-xs mb-4">{realm}</div>
+              <div className="text-fg-muted text-xs mb-4">{realm}</div>
               <div className="flex gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-white">{character?.level}</div>
-                  <div className="text-xs text-gray-600">Level</div>
+                  <div className="text-xs text-fg-muted">Level</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-white">{character?.streak_days}</div>
-                  <div className="text-xs text-gray-600">Day Streak 🔥</div>
+                  <div className="text-xs text-fg-muted">Day Streak 🔥</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold" style={{ color: accent }}>{character?.xp}</div>
-                  <div className="text-xs text-gray-600">XP Earned</div>
+                  <div className="text-xs text-fg-muted">XP Earned</div>
                 </div>
               </div>
             </div>
           </div>
           {/* XP bar */}
           <div className="mt-6">
-            <div className="flex justify-between text-xs mb-2 text-gray-600">
+            <div className="flex justify-between text-xs mb-2 text-fg-muted">
               <span>XP Progress</span>
               <span>{character?.xp} / {character?.xp_to_next_level}</span>
             </div>
@@ -166,17 +166,17 @@ export default function CharacterPage() {
               key={card.label}
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white/3 border border-white/8 rounded-xl p-5 text-center"
+              className="bg-white/3 border border-line-subtle rounded-xl p-5 text-center"
             >
               <div className="text-2xl mb-2">{card.icon}</div>
-              <div className="text-xs text-gray-600 mb-1">{card.label}</div>
+              <div className="text-xs text-fg-muted mb-1">{card.label}</div>
               <div className="text-sm font-semibold text-white">{card.value}</div>
             </motion.div>
           ))}
         </div>
 
         {/* Trait radar */}
-        <div className="bg-white/3 border border-white/8 rounded-2xl p-6">
+        <div className="bg-white/3 border border-line-subtle rounded-2xl p-6">
           <h2 className="text-white font-bold text-lg mb-6 flex items-center gap-2">
             <span>🔮</span> Behavioral Profile
           </h2>
@@ -186,7 +186,7 @@ export default function CharacterPage() {
                 <div className="flex justify-between items-center mb-1">
                   <div className="flex items-center gap-2">
                     <span>{trait.icon}</span>
-                    <span className="text-sm text-gray-300">{trait.label}</span>
+                    <span className="text-sm text-fg-secondary">{trait.label}</span>
                   </div>
                   <span className="text-sm font-mono font-bold" style={{ color: accent }}>
                     {trait.value.toFixed(0)}/100
@@ -201,7 +201,7 @@ export default function CharacterPage() {
                     style={{ backgroundColor: accent }}
                   />
                 </div>
-                <p className="text-xs text-gray-600">{trait.desc}</p>
+                <p className="text-xs text-fg-muted">{trait.desc}</p>
               </div>
             ))}
           </div>
@@ -209,15 +209,15 @@ export default function CharacterPage() {
 
         {/* Behavioral flags */}
         {character?.behavioral_profile && Object.keys(character.behavioral_profile).length > 0 && (
-          <div className="mt-6 bg-white/3 border border-white/8 rounded-2xl p-6">
+          <div className="mt-6 bg-white/3 border border-line-subtle rounded-2xl p-6">
             <h2 className="text-white font-bold mb-4 flex items-center gap-2">
               <span>🧠</span> AI Behavior Patterns
             </h2>
             <div className="grid grid-cols-3 gap-4">
               {Object.entries(character.behavioral_profile).map(([key, val]) => (
-                <div key={key} className="text-center p-3 bg-white/3 rounded-xl border border-white/5">
+                <div key={key} className="text-center p-3 bg-white/3 rounded-xl border border-line-subtle">
                   <div className="text-xl font-bold text-white mb-1">{Number(val).toFixed(0)}</div>
-                  <div className="text-xs text-gray-600 capitalize">{key.replace(/_/g, ' ')}</div>
+                  <div className="text-xs text-fg-muted capitalize">{key.replace(/_/g, ' ')}</div>
                 </div>
               ))}
             </div>

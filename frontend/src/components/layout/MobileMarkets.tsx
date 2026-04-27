@@ -22,7 +22,7 @@ function MarketPulse({ continent }: { continent: Continent }) {
   const { data, isLoading } = useExchangeHeatmap(continent)
   
   if (isLoading) {
-    return <div className="h-20 rounded-xl bg-slate-800/40 animate-pulse border border-white/5" />
+    return <div className="h-20 rounded-xl bg-surface-raised/40 animate-pulse border border-line-subtle" />
   }
 
   const sectors = data?.sectors ?? []
@@ -44,13 +44,13 @@ function MarketPulse({ continent }: { continent: Continent }) {
   const flatPct = (flat / total) * 100
 
   return (
-    <div className="rounded-2xl bg-[#1A2332]/60 backdrop-blur-md border border-white/[0.06] p-4 shadow-lg">
+    <div className="rounded-2xl bg-surface-raised backdrop-blur-md border border-line-subtle p-4 shadow-lg">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
+        <h3 className="text-xs font-bold text-fg-secondary uppercase tracking-widest flex items-center gap-1.5">
           <BarChart3 className="w-3.5 h-3.5 text-[#00D9FF]" />
           Market Pulse
         </h3>
-        <span className="text-[10px] text-slate-500 font-mono bg-black/20 px-2 py-0.5 rounded-md">
+        <span className="text-[10px] text-fg-muted font-mono bg-black/20 px-2 py-0.5 rounded-md">
           {total} tracked
         </span>
       </div>
@@ -64,15 +64,15 @@ function MarketPulse({ continent }: { continent: Continent }) {
           <div className="text-sm font-bold text-red-400">{losers}</div>
           <div className="text-[9px] text-red-500/70 uppercase">Declining</div>
         </div>
-        <div className="text-center bg-slate-500/10 border border-slate-500/20 rounded-lg py-1.5">
-          <div className="text-sm font-bold text-slate-400">{flat}</div>
-          <div className="text-[9px] text-slate-500/70 uppercase">Unchanged</div>
+        <div className="text-center bg-surface-raised border border-line-subtle rounded-lg py-1.5">
+          <div className="text-sm font-bold text-fg-secondary">{flat}</div>
+          <div className="text-[9px] text-fg-muted/70 uppercase">Unchanged</div>
         </div>
       </div>
 
-      <div className="flex h-2 rounded-full overflow-hidden bg-slate-800 shadow-inner">
+      <div className="flex h-2 rounded-full overflow-hidden bg-surface-raised shadow-inner">
         <div className="bg-emerald-500 transition-all duration-1000" style={{ width: `${gainPct}%` }} />
-        <div className="bg-slate-600 transition-all duration-1000" style={{ width: `${flatPct}%` }} />
+        <div className="bg-surface-raised transition-all duration-1000" style={{ width: `${flatPct}%` }} />
         <div className="bg-red-500 transition-all duration-1000" style={{ width: `${lossPct}%` }} />
       </div>
     </div>
@@ -94,22 +94,22 @@ export default function MobileMarkets() {
   })
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0A0E1A] pb-24">
+    <div className="flex flex-col min-h-screen bg-surface-base pb-24">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/[0.06] pt-safe px-4 py-3 shrink-0">
+      <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe px-4 py-3 shrink-0">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-emerald-500/20 flex items-center justify-center">
               <Globe className="w-4 h-4 text-emerald-400" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-white leading-tight">Global Markets</h1>
+              <h1 className="text-base font-bold text-fg-primary leading-tight">Global Markets</h1>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                 </span>
-                <p className="text-[10px] text-slate-500 font-mono tracking-wider">LIVE FEED</p>
+                <p className="text-[10px] text-fg-muted font-mono tracking-wider">LIVE FEED</p>
               </div>
             </div>
           </div>
@@ -145,10 +145,10 @@ export default function MobileMarkets() {
         {/* Sector Performance Heatmap */}
         <section>
           {activeContinent === 'global' ? (
-            <div className="bg-[#1A2332]/60 backdrop-blur-md border border-white/[0.06] rounded-2xl p-4 shadow-lg">
+            <div className="bg-surface-raised backdrop-blur-md border border-line-subtle rounded-2xl p-4 shadow-lg">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 className="w-5 h-5 text-blue-400" />
-                <h2 className="text-base font-bold text-white">1-Day Performance Map</h2>
+                <h2 className="text-base font-bold text-fg-primary">1-Day Performance Map</h2>
               </div>
               <MarketHeatmap sectors={usSectors} />
             </div>

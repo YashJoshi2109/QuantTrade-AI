@@ -4,6 +4,13 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
+/** Parse JSON only if the response has a JSON content-type. Avoids "Unexpected token '<'" errors when the backend returns HTML error pages. */
+async function parseErrorJson(response: Response): Promise<{ detail?: string }> {
+  const ct = response.headers.get('content-type') ?? ''
+  if (!ct.includes('application/json')) return {}
+  try { return await response.json() } catch { return {} }
+}
+
 export interface User {
   id: number
   email: string
@@ -88,7 +95,7 @@ export async function register(
   })
   
   if (!response.ok) {
-    const error = await response.json()
+    const error = await parseErrorJson(response)
     throw new Error(error.detail || 'Registration failed')
   }
   
@@ -109,7 +116,7 @@ export async function login(email: string, password: string, turnstileToken?: st
   })
   
   if (!response.ok) {
-    const error = await response.json()
+    const error = await parseErrorJson(response)
     throw new Error(error.detail || 'Login failed')
   }
   
@@ -138,7 +145,7 @@ export async function googleLogin(
   })
   
   if (!response.ok) {
-    const error = await response.json()
+    const error = await parseErrorJson(response)
     throw new Error(error.detail || 'Google login failed')
   }
   
@@ -157,7 +164,7 @@ export async function googleVerify(credential: string): Promise<AuthResponse> {
   })
   
   if (!response.ok) {
-    const error = await response.json()
+    const error = await parseErrorJson(response)
     throw new Error(error.detail || 'Google verification failed')
   }
   
@@ -186,9 +193,17 @@ export async function checkSession(): Promise<{ authenticated: boolean; user: Us
 }
 
 export async function validateEmail(email: string): Promise<{ valid: boolean; message: string; status: string }> {
-  const response = await fetch(`${API_URL}/api/v1/auth/validate-email?email=${encodeURIComponent(email)}`)
-  const data = await response.json()
-  return { valid: data.valid, message: data.message || '', status: data.status || 'UNKNOWN' }
+  const fallback = { valid: true, message: '', status: 'UNKNOWN' }
+  try {
+    const response = await fetch(`${API_URL}/api/v1/auth/validate-email?email=${encodeURIComponent(email)}`)
+    if (!response.ok) return fallback
+    const ct = response.headers.get('content-type') ?? ''
+    if (!ct.includes('application/json')) return fallback
+    const data = await response.json()
+    return { valid: data.valid ?? true, message: data.message || '', status: data.status || 'UNKNOWN' }
+  } catch {
+    return fallback
+  }
 }
 
 export async function sendOtp(email: string, purpose: 'register' | 'reset' = 'register'): Promise<void> {
@@ -199,7 +214,7 @@ export async function sendOtp(email: string, purpose: 'register' | 'reset' = 're
     body: JSON.stringify({ email })
   })
   if (!response.ok) {
-    const err = await response.json()
+    const err = await parseErrorJson(response)
     throw new Error(err.detail || 'Failed to send verification code')
   }
 }

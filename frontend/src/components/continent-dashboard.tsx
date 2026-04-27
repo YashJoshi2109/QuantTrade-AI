@@ -72,8 +72,8 @@ function MoverRow({
         href={`/research?symbol=${encodeURIComponent(stock.symbol)}`}
         className={`flex items-center justify-between px-5 py-3 transition-all duration-150 group ${
           up
-            ? 'hover:bg-emerald-500/[0.03] border-b border-white/[0.03]'
-            : 'hover:bg-red-500/[0.03] border-b border-white/[0.03]'
+            ? 'hover:bg-emerald-500/[0.03] border-b border-line-subtle'
+            : 'hover:bg-red-500/[0.03] border-b border-line-subtle'
         }`}
       >
         <div className="flex items-center gap-3 min-w-0">
@@ -82,7 +82,7 @@ function MoverRow({
             <span className="text-[13px] font-bold text-white font-mono block">
               {stock.symbol}
             </span>
-            <span className="text-[10px] text-slate-500 truncate block max-w-[130px]">
+            <span className="text-[10px] text-fg-muted truncate block max-w-[130px]">
               {stock.name}
             </span>
           </div>
@@ -111,18 +111,18 @@ function SkeletonRows({ count = 5 }: { count?: number }) {
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="flex items-center justify-between px-5 py-3 border-b border-white/[0.03]"
+          className="flex items-center justify-between px-5 py-3 border-b border-line-subtle"
         >
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-full bg-slate-800/40 animate-pulse" />
+            <div className="w-7 h-7 rounded-full bg-surface-raised/40 animate-pulse" />
             <div>
-              <div className="h-3 w-14 bg-slate-800/40 rounded animate-pulse mb-1.5" />
-              <div className="h-2.5 w-24 bg-slate-800/25 rounded animate-pulse" />
+              <div className="h-3 w-14 bg-surface-raised/40 rounded animate-pulse mb-1.5" />
+              <div className="h-2.5 w-24 bg-surface-raised/25 rounded animate-pulse" />
             </div>
           </div>
           <div className="text-right">
-            <div className="h-3 w-16 bg-slate-800/40 rounded animate-pulse mb-1.5" />
-            <div className="h-2.5 w-12 bg-slate-800/25 rounded animate-pulse" />
+            <div className="h-3 w-16 bg-surface-raised/40 rounded animate-pulse mb-1.5" />
+            <div className="h-2.5 w-12 bg-surface-raised/25 rounded animate-pulse" />
           </div>
         </div>
       ))}
@@ -146,7 +146,7 @@ export function GlassMoversPanel({
     >
       {/* ─── Top Gainers ─── */}
       <div className="glass-panel overflow-hidden">
-        <div className="px-5 py-4 border-b border-white/[0.05] flex items-center gap-3">
+        <div className="px-5 py-4 border-b border-line-subtle flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <ArrowUpRight className="w-4 h-4 text-emerald-400" />
             <h3 className="text-[14px] font-bold text-white tracking-[-0.01em]">
@@ -164,7 +164,7 @@ export function GlassMoversPanel({
           {isLoading ? (
             <SkeletonRows />
           ) : gainers.length === 0 ? (
-            <div className="flex items-center justify-center h-24 text-slate-600 text-xs">
+            <div className="flex items-center justify-center h-24 text-fg-muted text-xs">
               No gainers data available
             </div>
           ) : (
@@ -177,7 +177,7 @@ export function GlassMoversPanel({
 
       {/* ─── Top Losers ─── */}
       <div className="glass-panel overflow-hidden">
-        <div className="px-5 py-4 border-b border-white/[0.05] flex items-center gap-3">
+        <div className="px-5 py-4 border-b border-line-subtle flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <ArrowDownRight className="w-4 h-4 text-red-400" />
             <h3 className="text-[14px] font-bold text-white tracking-[-0.01em]">
@@ -195,7 +195,7 @@ export function GlassMoversPanel({
           {isLoading ? (
             <SkeletonRows />
           ) : losers.length === 0 ? (
-            <div className="flex items-center justify-center h-24 text-slate-600 text-xs">
+            <div className="flex items-center justify-center h-24 text-fg-muted text-xs">
               No losers data available
             </div>
           ) : (

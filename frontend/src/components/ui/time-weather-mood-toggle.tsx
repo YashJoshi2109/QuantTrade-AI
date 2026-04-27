@@ -162,7 +162,7 @@ export default function TimeWeatherMoodToggle({ className = '' }: { className?: 
     return (
       <div
         className={cn(
-          'h-9 w-9 shrink-0 rounded-xl border border-white/10 bg-slate-900/50 animate-pulse',
+          'h-9 w-9 shrink-0 rounded-xl border border-line-subtle bg-surface-raised/50 animate-pulse',
           className
         )}
         aria-hidden
@@ -178,8 +178,8 @@ export default function TimeWeatherMoodToggle({ className = '' }: { className?: 
       aria-label={title}
       className={cn(
         'relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border transition-colors',
-        'border-white/[0.1] bg-[rgba(10,14,26,0.75)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]',
-        'hover:border-cyan-400/30 hover:bg-[rgba(0,122,255,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60',
+        'border-line-subtle bg-surface-raised shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]',
+        'hover:border-cyan-400/30 hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60',
         className
       )}
     >

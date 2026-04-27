@@ -61,9 +61,9 @@ const BADGE_CONFIG: Record<string, { label: string; emoji: string; color: string
   verified_trader: { label: 'Verified Trader', emoji: '✓', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
   top_analyst: { label: 'Top Analyst', emoji: '📊', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/30' },
   early_adopter: { label: 'Early Adopter', emoji: '🚀', color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/30' },
-  contributor: { label: 'Contributor', emoji: '⭐', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30' },
+  contributor: { label: 'Contributor', emoji: '⭐', color: 'text-qa-accent', bg: 'bg-qa-accent/10 border-qa-border' },
   moderator: { label: 'Moderator', emoji: '🛡️', color: 'text-cyan-400', bg: 'bg-cyan-500/10 border-cyan-500/30' },
-  pro: { label: 'Pro Trader', emoji: '💎', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/30' },
+  pro: { label: 'Pro Trader', emoji: '💎', color: 'text-qa-accent', bg: 'bg-qa-accent/10 border-qa-border' },
 }
 
 /* ── Helpers ───────────────────────────────────────────────── */
@@ -203,7 +203,7 @@ export default function UserProfilePage() {
   if (loading) {
     const lc = (
       <div className="min-h-screen flex items-center justify-center pb-safe">
-        <Loader2 className="w-8 h-8 text-slate-500 animate-spin" />
+        <Loader2 className="w-8 h-8 text-fg-muted animate-spin" />
       </div>
     )
     return (
@@ -219,10 +219,10 @@ export default function UserProfilePage() {
     const nf = (
       <div className="min-h-screen flex items-center justify-center p-4 pb-safe">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-[#0D1117] border border-white/[0.06] rounded-2xl p-12 text-center max-w-md">
-          <Users className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+          className="bg-surface-base border border-line-subtle rounded-2xl p-12 text-center max-w-md">
+          <Users className="w-12 h-12 text-fg-muted mx-auto mb-4" />
           <h2 className="text-xl font-bold text-slate-100 mb-2">User Not Found</h2>
-          <p className="text-sm text-slate-500">The user <span className="text-slate-300">@{username}</span> does not exist.</p>
+          <p className="text-sm text-fg-muted">The user <span className="text-fg-secondary">@{username}</span> does not exist.</p>
         </motion.div>
       </div>
     )
@@ -244,9 +244,9 @@ export default function UserProfilePage() {
   const content = (
     <div className="min-h-screen pb-safe">
       {/* Mobile Header */}
-      <header className="md:hidden sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/[0.06] px-3 py-2.5 flex items-center gap-3">
+      <header className="md:hidden sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle px-3 py-2.5 flex items-center gap-3">
         <button onClick={() => window.history.back()}
-          className="p-1.5 -ml-1.5 rounded-full text-slate-400 hover:text-white transition-colors">
+          className="p-1.5 -ml-1.5 rounded-full text-fg-muted hover:text-white transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
         </button>
         <span className="text-sm font-bold text-white truncate">{profile.display_name || profile.username}</span>
@@ -264,12 +264,12 @@ export default function UserProfilePage() {
 
       <div className="max-w-4xl mx-auto px-3 sm:px-6">
         {/* ── Profile header card ── */}
-        <div className="relative bg-[#0D1117] border border-white/[0.06] rounded-2xl -mt-6 mb-4 overflow-hidden">
+        <div className="relative bg-surface-base border border-line-subtle rounded-2xl -mt-6 mb-4 overflow-hidden">
           {/* Avatar row */}
           <div className="flex items-end gap-4 px-4 sm:px-6 pt-0 pb-4">
             {/* Avatar — overlaps the banner */}
             <div className="-mt-10 sm:-mt-12 shrink-0">
-              <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br ${grad} border-4 border-[#0D1117] flex items-center justify-center overflow-hidden ring-2 ring-white/10 shadow-2xl`}>
+              <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br ${grad} border-4 border-surface-base flex items-center justify-center overflow-hidden ring-2 ring-line-subtle shadow-2xl`}>
                 {profile.avatar_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={profile.avatar_url} alt={profile.username} className="w-full h-full object-cover" />
@@ -289,7 +289,7 @@ export default function UserProfilePage() {
                       <span className="ml-1.5 inline-flex items-center justify-center w-4.5 h-4.5 bg-blue-500 rounded-full text-[10px] text-white font-bold">✓</span>
                     )}
                   </h1>
-                  <p className="text-sm text-slate-500">u/{profile.username}</p>
+                  <p className="text-sm text-fg-muted">u/{profile.username}</p>
                 </div>
                 <div className="flex items-center gap-2 sm:ml-auto">
                   <button
@@ -297,7 +297,7 @@ export default function UserProfilePage() {
                     disabled={followLoading}
                     className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all min-h-[36px] ${
                       following
-                        ? 'bg-white/[0.08] text-slate-300 border border-white/[0.10] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20'
+                        ? 'bg-surface-raised text-fg-secondary border border-line-default hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20'
                         : 'bg-blue-500 text-white hover:bg-blue-400 shadow-lg shadow-blue-500/20'
                     } disabled:opacity-50`}
                   >
@@ -306,14 +306,14 @@ export default function UserProfilePage() {
                   </button>
                   <Link
                     href={`/community/messages/new?new=${profile.username}`}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-white/[0.06] text-slate-200 border border-white/[0.08] hover:bg-white/[0.12] hover:text-white transition-colors min-h-[36px]"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-surface-raised text-fg-primary border border-line-subtle hover:bg-surface-active hover:text-fg-primary transition-colors min-h-[36px]"
                   >
                     <MessageSquare className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Message</span>
                   </Link>
                   <button
                     onClick={handleShare}
-                    className="p-2 rounded-full bg-white/[0.06] border border-white/[0.08] text-slate-400 hover:text-white hover:bg-white/[0.12] transition-colors"
+                    className="p-2 rounded-full bg-surface-raised border border-line-subtle text-fg-muted hover:text-fg-primary hover:bg-surface-active transition-colors"
                     title={shareConfirm ? 'Copied!' : 'Share profile'}
                   >
                     <Share2 className="w-4 h-4" />
@@ -323,27 +323,27 @@ export default function UserProfilePage() {
 
               {/* Bio */}
               {profile.bio && (
-                <p className="text-sm text-slate-300 mt-2 leading-relaxed">{profile.bio}</p>
+                <p className="text-sm text-fg-secondary mt-2 leading-relaxed">{profile.bio}</p>
               )}
 
               {/* Meta info chips */}
               <div className="flex flex-wrap items-center gap-2 mt-2.5">
                 {profile.location && (
-                  <span className="flex items-center gap-1 text-xs text-slate-500">
+                  <span className="flex items-center gap-1 text-xs text-fg-muted">
                     <MapPin className="w-3 h-3" /> {profile.location}
                   </span>
                 )}
                 {profile.trading_style && (
-                  <span className="flex items-center gap-1 text-xs text-slate-500">
+                  <span className="flex items-center gap-1 text-xs text-fg-muted">
                     <TrendingUp className="w-3 h-3" /> {profile.trading_style}
                   </span>
                 )}
                 {profile.experience_level && (
-                  <span className="flex items-center gap-1 text-xs text-slate-500">
+                  <span className="flex items-center gap-1 text-xs text-fg-muted">
                     <Briefcase className="w-3 h-3" /> {profile.experience_level}
                   </span>
                 )}
-                <span className="flex items-center gap-1 text-xs text-slate-500">
+                <span className="flex items-center gap-1 text-xs text-fg-muted">
                   <Calendar className="w-3 h-3" /> Joined {formatJoined(profile.joined_at)}
                 </span>
               </div>
@@ -351,7 +351,7 @@ export default function UserProfilePage() {
           </div>
 
           {/* Stats bar */}
-          <div className="grid grid-cols-4 divide-x divide-white/[0.05] border-t border-white/[0.05]">
+          <div className="grid grid-cols-4 divide-x divide-white/[0.05] border-t border-line-subtle">
             {[
               { label: 'Posts', value: profile.posts_count, sub: 'karma' },
               { label: 'Reputation', value: profile.reputation, sub: 'pts', accent: true },
@@ -359,10 +359,10 @@ export default function UserProfilePage() {
               { label: 'Acct Age', value: accountAge(profile.joined_at), sub: formatJoined(profile.joined_at), isStr: true },
             ].map((s) => (
               <div key={s.label} className="flex flex-col items-center py-3 px-2">
-                <span className={`text-base sm:text-lg font-black tabular-nums ${s.accent ? 'text-amber-400' : 'text-white'}`}>
+                <span className={`text-base sm:text-lg font-black tabular-nums ${s.accent ? 'text-qa-accent' : 'text-white'}`}>
                   {s.isStr ? s.value : formatCount(s.value as number)}
                 </span>
-                <span className="text-[10px] text-slate-500 font-medium mt-0.5">{s.label}</span>
+                <span className="text-[10px] text-fg-muted font-medium mt-0.5">{s.label}</span>
               </div>
             ))}
           </div>
@@ -373,22 +373,22 @@ export default function UserProfilePage() {
           {/* ── Main content ── */}
           <div className="flex-1 min-w-0">
             {/* Desktop breadcrumb */}
-            <nav className="hidden md:flex items-center gap-1 text-xs text-slate-600 mb-3">
-              <Link href="/community" className="hover:text-slate-400 transition-colors flex items-center gap-1">
+            <nav className="hidden md:flex items-center gap-1 text-xs text-fg-muted mb-3">
+              <Link href="/community" className="hover:text-fg-muted transition-colors flex items-center gap-1">
                 <Home className="w-3 h-3" /> Community
               </Link>
-              <ChevronRight className="w-3 h-3 text-slate-700" />
-              <span className="text-slate-400">u/{profile.username}</span>
+              <ChevronRight className="w-3 h-3 text-fg-muted" />
+              <span className="text-fg-muted">u/{profile.username}</span>
             </nav>
 
             {/* Tabs */}
-            <div className="flex items-center gap-1 mb-4 border-b border-white/[0.05] pb-0">
+            <div className="flex items-center gap-1 mb-4 border-b border-line-subtle pb-0">
               {TABS.map(({ key, label }) => (
                 <button
                   key={key}
                   onClick={() => setTab(key)}
                   className={`relative px-4 py-2.5 text-sm font-semibold transition-colors ${
-                    tab === key ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+                    tab === key ? 'text-white' : 'text-fg-muted hover:text-fg-secondary'
                   }`}
                 >
                   {label}
@@ -407,13 +407,13 @@ export default function UserProfilePage() {
                   {postsLoading && posts.length === 0 ? (
                     <div className="space-y-3">
                       {[1,2,3].map(i => (
-                        <div key={i} className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4 animate-pulse h-24" />
+                        <div key={i} className="bg-surface-base border border-line-subtle rounded-xl p-4 animate-pulse h-24" />
                       ))}
                     </div>
                   ) : posts.length === 0 ? (
-                    <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-12 text-center">
-                      <BarChart3 className="w-10 h-10 text-slate-700 mx-auto mb-3" />
-                      <p className="text-sm text-slate-500">No posts yet</p>
+                    <div className="bg-surface-base border border-line-subtle rounded-xl p-12 text-center">
+                      <BarChart3 className="w-10 h-10 text-fg-muted mx-auto mb-3" />
+                      <p className="text-sm text-fg-muted">No posts yet</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -424,10 +424,10 @@ export default function UserProfilePage() {
                   )}
                   <div ref={tab === 'posts' ? sentinelRef : undefined} className="h-px" />
                   {postsLoading && posts.length > 0 && (
-                    <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 text-slate-500 animate-spin" /></div>
+                    <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 text-fg-muted animate-spin" /></div>
                   )}
                   {!hasMorePosts && posts.length > 0 && (
-                    <p className="text-center text-xs text-slate-600 py-6">All posts loaded</p>
+                    <p className="text-center text-xs text-fg-muted py-6">All posts loaded</p>
                   )}
                 </motion.div>
               )}
@@ -436,27 +436,27 @@ export default function UserProfilePage() {
                 <motion.div key="comments" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                   {commentsLoading ? (
                     <div className="space-y-3">
-                      {[1,2,3].map(i => <div key={i} className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4 animate-pulse h-20" />)}
+                      {[1,2,3].map(i => <div key={i} className="bg-surface-base border border-line-subtle rounded-xl p-4 animate-pulse h-20" />)}
                     </div>
                   ) : comments.length === 0 ? (
-                    <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-12 text-center">
-                      <MessageSquare className="w-10 h-10 text-slate-700 mx-auto mb-3" />
-                      <p className="text-sm text-slate-500">No comments yet</p>
+                    <div className="bg-surface-base border border-line-subtle rounded-xl p-12 text-center">
+                      <MessageSquare className="w-10 h-10 text-fg-muted mx-auto mb-3" />
+                      <p className="text-sm text-fg-muted">No comments yet</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {comments.map((comment: any) => (
                         <Link key={comment.id} href={`/community/post/${comment.post_id}`}
-                          className="block bg-[#0D1117] border border-white/[0.06] rounded-xl p-4 hover:border-white/[0.12] transition-colors group">
+                          className="block bg-surface-base border border-line-subtle rounded-xl p-4 hover:border-line-default transition-colors group">
                           {comment.post_title && (
-                            <div className="text-xs text-slate-500 mb-2 flex items-center gap-1">
+                            <div className="text-xs text-fg-muted mb-2 flex items-center gap-1">
                               <MessageSquare className="w-3 h-3" />
                               Commented on: <span className="text-blue-400 group-hover:text-blue-300 transition-colors ml-1">{comment.post_title}</span>
                             </div>
                           )}
-                          <p className="text-sm text-slate-300 line-clamp-3 leading-relaxed">{comment.body}</p>
-                          <div className="flex items-center gap-3 mt-2 text-xs text-slate-600">
-                            <span className={`font-medium ${(comment.upvote_count - comment.downvote_count) > 0 ? 'text-orange-400' : 'text-slate-500'}`}>
+                          <p className="text-sm text-fg-secondary line-clamp-3 leading-relaxed">{comment.body}</p>
+                          <div className="flex items-center gap-3 mt-2 text-xs text-fg-muted">
+                            <span className={`font-medium ${(comment.upvote_count - comment.downvote_count) > 0 ? 'text-orange-400' : 'text-fg-muted'}`}>
                               {comment.upvote_count - comment.downvote_count} pts
                             </span>
                             <span>{comment.created_at ? new Date(comment.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
@@ -473,57 +473,57 @@ export default function UserProfilePage() {
           {/* ── Desktop Sidebar ── */}
           <div className="hidden lg:flex flex-col gap-3 w-72 shrink-0">
             {/* Profile card */}
-            <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl overflow-hidden">
+            <div className="bg-surface-base border border-line-subtle rounded-xl overflow-hidden">
               <div className={`h-10 bg-gradient-to-r ${grad}`} />
               <div className="px-4 pb-4 pt-2">
-                <p className="text-xs font-bold text-white uppercase tracking-widest mb-3">About</p>
-                <p className="text-sm text-slate-400 leading-relaxed mb-4">
+                <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3">About</p>
+                <p className="text-sm text-fg-muted leading-relaxed mb-4">
                   {profile.bio || `Trading on QuantTrade since ${formatJoined(profile.joined_at)}.`}
                 </p>
 
                 <div className="space-y-2.5 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Reputation</span>
-                    <span className="font-bold text-amber-400 flex items-center gap-1">
+                    <span className="text-fg-muted">Reputation</span>
+                    <span className="font-bold text-qa-accent flex items-center gap-1">
                       <Star className="w-3.5 h-3.5" /> {formatCount(profile.reputation)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Followers</span>
-                    <span className="font-semibold text-white">{formatCount(profile.followers_count)}</span>
+                    <span className="text-fg-muted">Followers</span>
+                    <span className="font-semibold text-fg-primary">{formatCount(profile.followers_count)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Following</span>
-                    <span className="font-semibold text-white">{formatCount(profile.following_count)}</span>
+                    <span className="text-fg-muted">Following</span>
+                    <span className="font-semibold text-fg-primary">{formatCount(profile.following_count)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Acct Age</span>
-                    <span className="font-semibold text-white">{accountAge(profile.joined_at)}</span>
+                    <span className="text-fg-muted">Acct Age</span>
+                    <span className="font-semibold text-fg-primary">{accountAge(profile.joined_at)}</span>
                   </div>
                   {profile.trading_style && (
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Style</span>
+                      <span className="text-fg-muted">Style</span>
                       <span className="font-semibold text-cyan-400">{profile.trading_style}</span>
                     </div>
                   )}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-white/[0.05]">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Joined</p>
-                  <p className="text-sm text-white">{new Date(profile.joined_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                <div className="mt-4 pt-4 border-t border-line-subtle">
+                  <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wider mb-2">Joined</p>
+                  <p className="text-sm text-fg-primary">{new Date(profile.joined_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
                 </div>
               </div>
             </div>
 
             {/* Achievements / Badges */}
             {profile.badges.length > 0 && (
-              <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4">
-                <p className="text-xs font-bold text-white uppercase tracking-widest mb-3 flex items-center gap-2">
-                  <Award className="w-3.5 h-3.5 text-amber-400" /> Achievements
+              <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
+                <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <Award className="w-3.5 h-3.5 text-qa-accent" /> Achievements
                 </p>
                 <div className="space-y-2">
                   {profile.badges.map((badge) => {
-                    const cfg = BADGE_CONFIG[badge] || { label: badge.replace(/_/g, ' '), emoji: '🏅', color: 'text-slate-400', bg: 'bg-slate-500/10 border-slate-500/20' }
+                    const cfg = BADGE_CONFIG[badge] || { label: badge.replace(/_/g, ' '), emoji: '🏅', color: 'text-fg-muted', bg: 'bg-surface-raised border-line-subtle' }
                     return (
                       <div key={badge} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border ${cfg.bg}`}>
                         <span className="text-base leading-none">{cfg.emoji}</span>
@@ -537,16 +537,16 @@ export default function UserProfilePage() {
 
             {/* Communities */}
             {profile.communities && profile.communities.length > 0 && (
-              <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4">
-                <p className="text-xs font-bold text-white uppercase tracking-widest mb-3 flex items-center gap-2">
+              <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
+                <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3 flex items-center gap-2">
                   <Users className="w-3.5 h-3.5 text-cyan-400" /> Communities
                 </p>
                 <div className="space-y-1.5">
                   {profile.communities.slice(0, 6).map((c) => (
                     <Link key={c.slug} href={`/community/${c.slug}`}
-                      className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors group">
-                      <span className="text-sm text-slate-300 group-hover:text-white transition-colors">c/{c.name}</span>
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                      className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-surface-hover transition-colors group">
+                      <span className="text-sm text-fg-secondary group-hover:text-white transition-colors">c/{c.name}</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-fg-muted group-hover:text-fg-muted transition-colors" />
                     </Link>
                   ))}
                 </div>
@@ -554,16 +554,16 @@ export default function UserProfilePage() {
             )}
 
             {/* Settings shortcuts (only shown for own profile) */}
-            <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4">
-              <p className="text-xs font-bold text-white uppercase tracking-widest mb-3 flex items-center gap-2">
-                <Settings className="w-3.5 h-3.5 text-slate-400" /> Profile
+            <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
+              <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3 flex items-center gap-2">
+                <Settings className="w-3.5 h-3.5 text-fg-muted" /> Profile
               </p>
               <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between text-slate-400">
+                <div className="flex items-center justify-between text-fg-muted">
                   <span>Curate your profile</span>
                   <Link href="/settings/profile" className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-semibold">Update</Link>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">Manage what others see when they visit your profile.</p>
+                <p className="text-xs text-fg-muted leading-relaxed">Manage what others see when they visit your profile.</p>
               </div>
             </div>
           </div>
@@ -572,13 +572,13 @@ export default function UserProfilePage() {
         {/* Mobile: badges + communities below posts */}
         <div className="lg:hidden space-y-3 pb-8">
           {profile.badges.length > 0 && (
-            <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4">
-              <p className="text-xs font-bold text-white uppercase tracking-widest mb-3 flex items-center gap-2">
-                <Award className="w-3.5 h-3.5 text-amber-400" /> Achievements
+            <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
+              <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3 flex items-center gap-2">
+                <Award className="w-3.5 h-3.5 text-qa-accent" /> Achievements
               </p>
               <div className="flex flex-wrap gap-2">
                 {profile.badges.map((badge) => {
-                  const cfg = BADGE_CONFIG[badge] || { label: badge.replace(/_/g, ' '), emoji: '🏅', color: 'text-slate-400', bg: 'bg-slate-500/10 border-slate-500/20' }
+                  const cfg = BADGE_CONFIG[badge] || { label: badge.replace(/_/g, ' '), emoji: '🏅', color: 'text-fg-muted', bg: 'bg-surface-raised border-line-subtle' }
                   return (
                     <span key={badge} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold ${cfg.bg} ${cfg.color}`}>
                       <span>{cfg.emoji}</span> {cfg.label}

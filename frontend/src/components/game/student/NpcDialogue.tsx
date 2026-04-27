@@ -12,7 +12,7 @@ interface NpcDialogueProps {
 }
 
 const EMOTION_STYLES: Record<string, { border: string; bg: string; textColor: string }> = {
-  neutral:    { border: 'border-white/10', bg: 'bg-white/5',         textColor: 'text-slate-200' },
+  neutral:    { border: 'border-line-default', bg: 'bg-white/5',         textColor: 'text-slate-200' },
   happy:      { border: 'border-amber-500/30', bg: 'bg-amber-500/8', textColor: 'text-amber-100' },
   warning:    { border: 'border-red-500/30',   bg: 'bg-red-500/8',   textColor: 'text-red-100'   },
   wise:       { border: 'border-blue-400/30',  bg: 'bg-blue-400/8',  textColor: 'text-blue-100'  },
@@ -92,7 +92,7 @@ export function NpcDialogue({ lines, npcColor, onComplete, autoAdvance = false }
           {/* NPC header */}
           <div className="flex items-center gap-2.5 mb-3">
             <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 border border-white/10"
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 border border-line-default"
               style={{ backgroundColor: `${npcColor}30` }}
             >
               {currentLine.avatar}
@@ -126,7 +126,7 @@ export function NpcDialogue({ lines, npcColor, onComplete, autoAdvance = false }
               className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 done
                   ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 cursor-pointer'
-                  : 'bg-white/5 border border-white/10 text-white/30 cursor-wait'
+                  : 'bg-white/5 border border-line-default text-white/30 cursor-wait'
               }`}
             >
               {!done ? (

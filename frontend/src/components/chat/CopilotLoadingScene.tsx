@@ -43,7 +43,7 @@ export default function CopilotLoadingScene({
       className="flex flex-col items-center gap-3"
     >
       {/* WebGL Scene */}
-      <div className="relative w-full max-w-[320px] sm:max-w-[400px] aspect-[16/9] rounded-2xl overflow-hidden border border-white/[0.08] shadow-[0_0_40px_rgba(0,122,255,0.12)]">
+      <div className="relative w-full max-w-[320px] sm:max-w-[400px] aspect-[16/9] rounded-2xl overflow-hidden border border-line-subtle shadow-[0_0_40px_rgba(0,122,255,0.12)]">
         <UnicornScene
           projectId={PROJECT_ID}
           sdkUrl={SDK_URL}

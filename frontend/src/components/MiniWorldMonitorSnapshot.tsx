@@ -60,9 +60,9 @@ export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { con
       <div className="pointer-events-none absolute -left-12 bottom-0 h-32 w-32 rounded-full bg-blue-500/10 blur-[60px]" />
 
       {/* Header — h-12 to align with dashboard watchlist / heatmap toolbars */}
-      <div className="relative z-10 flex h-12 shrink-0 items-center justify-between border-b border-slate-700/40 px-4 bg-slate-900/40 backdrop-blur-sm">
+      <div className="relative z-10 flex h-12 shrink-0 items-center justify-between border-b border-line-subtle/40 px-4 bg-surface-base/40 backdrop-blur-sm">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-slate-900/90 shadow-md shadow-cyan-500/10">
+          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-surface-base/90 shadow-md shadow-cyan-500/10">
             <Globe2 className="h-4 w-4 text-cyan-400" />
           </div>
           <h3 className="truncate text-sm font-bold tracking-tight text-white">
@@ -74,7 +74,7 @@ export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { con
             aria-hidden
           />
         </div>
-        <div className="hidden items-center gap-1.5 rounded-md border border-slate-700/50 bg-slate-800/50 px-2 py-1 md:flex">
+        <div className="hidden items-center gap-1.5 rounded-md border border-line-subtle bg-surface-raised/50 px-2 py-1 md:flex">
           <Activity className="h-3 w-3 text-emerald-400" />
           <span className="text-[10px] font-mono text-emerald-300">MAP</span>
         </div>
@@ -91,7 +91,7 @@ export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { con
           {/* Globe Glow Background */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] h-[90%] bg-blue-500/10 rounded-full blur-3xl -z-10"></div>
           
-          <div className="w-full h-full overflow-hidden rounded-full border border-white/5 shadow-[0_0_50px_rgba(14,165,233,0.15)] bg-slate-950/50 backdrop-blur-sm">
+          <div className="w-full h-full overflow-hidden rounded-full border border-line-subtle shadow-[0_0_50px_rgba(14,165,233,0.15)] bg-surface-base/50 backdrop-blur-sm">
             <div
               ref={globeRef}
               className="w-full h-full" 
@@ -100,7 +100,7 @@ export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { con
 
           {/* Floating Data Points (Mobile & Desktop) */}
           <div className="absolute top-4 left-0 animate-fade-in-up delay-75 pointer-events-none">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 border border-yellow-500/30 backdrop-blur-md shadow-lg transform -translate-x-4 md:translate-x-0">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-base/80 border border-yellow-500/30 backdrop-blur-md shadow-lg transform -translate-x-4 md:translate-x-0">
               <Zap className="h-3 w-3 text-yellow-400" />
               <span className="text-[10px] font-bold text-yellow-100">Macro Events</span>
               <span className="text-[10px] bg-yellow-500/20 text-yellow-300 px-1 rounded">12</span>
@@ -108,7 +108,7 @@ export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { con
           </div>
 
           <div className="absolute bottom-8 right-0 animate-fade-in-up delay-150 pointer-events-none">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 border border-red-500/30 backdrop-blur-md shadow-lg transform translate-x-4 md:translate-x-0">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-base/80 border border-red-500/30 backdrop-blur-md shadow-lg transform translate-x-4 md:translate-x-0">
               <ShieldAlert className="h-3 w-3 text-red-400" />
               <span className="text-[10px] font-bold text-red-100">Risk Zones</span>
               <span className="text-[10px] bg-red-500/20 text-red-300 px-1 rounded">3</span>
@@ -117,14 +117,14 @@ export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { con
         </div>
         
         {/* Mobile Instruction */}
-        <div className="md:hidden absolute bottom-2 text-[10px] text-slate-500 flex items-center gap-1 opacity-60">
+        <div className="md:hidden absolute bottom-2 text-[10px] text-fg-muted flex items-center gap-1 opacity-60">
           <Globe2 className="w-3 h-3" />
           Tap full map to interact
         </div>
       </div>
 
       {/* Key Metrics Grid - Mobile Optimized */}
-      <div className="relative z-10 grid grid-cols-3 gap-px border-t border-slate-700/40 bg-slate-700/30">
+      <div className="relative z-10 grid grid-cols-3 gap-px border-t border-line-subtle/40 bg-surface-overlay/30">
         {[
           { label: 'Volatility', value: 'High', icon: Activity, color: 'text-orange-400' },
           { label: 'Sentiment', value: 'Bullish', icon: BarChart3, color: 'text-emerald-400' },
@@ -137,14 +137,14 @@ export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { con
             <metric.icon
               className={`mb-0.5 h-3.5 w-3.5 ${metric.color} opacity-70 transition-opacity group-hover/metric:opacity-100`}
             />
-            <span className="text-[9px] font-medium uppercase tracking-wider text-slate-400">{metric.label}</span>
+            <span className="text-[9px] font-medium uppercase tracking-wider text-fg-muted">{metric.label}</span>
             <span className="mt-0.5 text-[11px] font-bold text-slate-200">{metric.value}</span>
           </div>
         ))}
       </div>
 
       {/* Footer CTA */}
-      <div className="relative z-10 border-t border-slate-700/40 bg-slate-900/40 p-2 md:bg-transparent md:p-2.5">
+      <div className="relative z-10 border-t border-line-subtle/40 bg-surface-base/40 p-2 md:bg-transparent md:p-2.5">
         <Link
           href="/monitor"
           className="flex items-center justify-between gap-3 w-full group/btn p-1"

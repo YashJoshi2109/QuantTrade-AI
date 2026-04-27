@@ -143,8 +143,8 @@ const DottedFlatMap    = lazy(() => import('@/components/monitor/DottedFlatMap')
 
 function PanelShimmer({ height = 'h-48' }: { height?: string }) {
   return (
-    <div className={`${height} rounded-xl border border-slate-800/60 animate-pulse overflow-hidden relative`}>
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 to-slate-950/80" />
+    <div className={`${height} rounded-xl border border-line-subtle animate-pulse overflow-hidden relative`}>
+      <div className="absolute inset-0 bg-surface-raised/80" />
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-sky-500/30 border-t-sky-500 rounded-full animate-spin" />
       </div>
@@ -160,7 +160,7 @@ const THREAT_LEVELS = [
   { value: 'high', label: 'High', color: 'text-orange-400', bg: 'bg-orange-500/15 border-orange-500/50', dot: 'bg-orange-500' },
   { value: 'medium', label: 'Medium', color: 'text-yellow-400', bg: 'bg-yellow-500/15 border-yellow-500/50', dot: 'bg-yellow-500' },
   { value: 'low', label: 'Low', color: 'text-sky-400', bg: 'bg-sky-500/15 border-sky-500/50', dot: 'bg-sky-500' },
-  { value: 'unknown', label: 'Monitor', color: 'text-slate-400', bg: 'bg-slate-500/15 border-slate-500/50', dot: 'bg-slate-500' },
+  { value: 'unknown', label: 'Monitor', color: 'text-fg-muted', bg: 'bg-surface-raised border-line-subtle', dot: 'bg-line-default' },
 ]
 
 const CATEGORIES: { value: string; label: string; Icon: LucideIcon }[] = [
@@ -197,16 +197,16 @@ const WORLD_LAYERS: {
 function StatCard({ label, value, color, icon: Icon, sublabel }: { label: string; value: number | string; color: string; icon?: LucideIcon; sublabel?: string }) {
   return (
     <motion.div
-      className={`relative overflow-hidden rounded-xl border bg-slate-900/60 backdrop-blur-sm px-4 py-3 ${color.includes('red') ? 'border-red-900/40' : color.includes('orange') ? 'border-orange-900/40' : color.includes('yellow') ? 'border-yellow-900/40' : color.includes('purple') ? 'border-purple-900/40' : color.includes('sky') ? 'border-sky-900/40' : 'border-slate-800/60'}`}
+      className={`relative overflow-hidden rounded-xl border bg-surface-raised backdrop-blur-sm px-4 py-3 ${color.includes('red') ? 'border-red-900/40' : color.includes('orange') ? 'border-orange-900/40' : color.includes('yellow') ? 'border-yellow-900/40' : color.includes('purple') ? 'border-purple-900/40' : color.includes('sky') ? 'border-sky-900/40' : 'border-line-subtle'}`}
       whileHover={{ scale: 1.02 }}
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
     >
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">{label}</span>
+        <span className="text-[9px] font-bold uppercase tracking-widest text-fg-muted">{label}</span>
         {Icon && <Icon className={`w-3 h-3 ${color}`} />}
       </div>
       <div className={`text-2xl font-black tabular-nums ${color} font-mono leading-none`}>{value}</div>
-      {sublabel && <div className="text-[9px] text-slate-600 font-mono mt-0.5">{sublabel}</div>}
+      {sublabel && <div className="text-[9px] text-fg-muted font-mono mt-0.5">{sublabel}</div>}
     </motion.div>
   )
 }
@@ -276,14 +276,14 @@ function MonitorDesktop() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-[#020617] text-slate-50 flex flex-col -mx-4 md:-mx-6 -my-4 md:-my-6">
+      <div className="min-h-screen bg-surface-base text-fg-primary flex flex-col -mx-4 md:-mx-6 -my-4 md:-my-6">
 
         {/* ── TOP STATUS BAR ─────────────────────────────────────── */}
-        <div className="border-b border-slate-800/60 bg-[#020617]/98 backdrop-blur-xl sticky top-0 z-30 shrink-0">
+        <div className="border-b border-line-subtle bg-surface-base/98 backdrop-blur-xl sticky top-0 z-30 shrink-0">
 
           {/* World clock strip */}
-          <div className="border-b border-slate-800/30 px-4 py-1 flex justify-center">
-            <Suspense fallback={<div className="h-7 flex items-center text-[10px] text-slate-600 font-mono">Loading clocks…</div>}>
+          <div className="border-b border-line-subtle/50 px-4 py-1 flex justify-center">
+            <Suspense fallback={<div className="h-7 flex items-center text-[10px] text-fg-muted font-mono">Loading clocks…</div>}>
               <WorldClockWidget />
             </Suspense>
           </div>
@@ -294,7 +294,7 @@ function MonitorDesktop() {
               {/* Left: Brand + title */}
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-900 border border-cyan-500/20 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg overflow-hidden bg-surface-raised border border-cyan-500/20 flex items-center justify-center">
                     <Image src="/logo.png" alt="QuantTrade AI" width={28} height={28} className="object-contain" />
                   </div>
                   <div>
@@ -382,7 +382,7 @@ function MonitorDesktop() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <StatCard label="Events" value={mapData.stats.total_events} color="text-slate-200" sublabel="total monitored" />
+                <StatCard label="Events" value={mapData.stats.total_events} color="text-fg-primary" sublabel="total monitored" />
                 <StatCard label="Critical" value={mapData.stats.critical_events} color="text-red-400" icon={AlertTriangle} sublabel="immediate action" />
                 <StatCard label="High" value={mapData.stats.high_threat_events} color="text-orange-400" icon={Zap} sublabel="elevated risk" />
                 <StatCard label="Hotspots" value={mapData.stats.total_hotspots} color="text-purple-400" icon={Map} sublabel="cluster zones" />
@@ -401,28 +401,28 @@ function MonitorDesktop() {
                   transition={{ duration: 0.2 }}
                   className="mt-3 overflow-hidden"
                 >
-                  <div className="p-3 bg-slate-800/40 rounded-xl border border-slate-700/40 space-y-4">
+                  <div className="p-3 bg-surface-hover rounded-xl border border-line-default space-y-4">
                     {/* Row 1: Threat + Category */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Threat Level</div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted mb-2">Threat Level</div>
                         <div className="flex flex-wrap gap-1.5">
                           {THREAT_LEVELS.map(l => (
                             <button key={l.value} onClick={() => toggleThreat(l.value)}
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all flex items-center gap-1.5 ${activeThreats.has(l.value) ? l.bg + ' ' + l.color : 'bg-slate-800/60 border-slate-700/50 text-slate-500'}`}
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all flex items-center gap-1.5 ${activeThreats.has(l.value) ? l.bg + ' ' + l.color : 'bg-surface-raised border-line-default text-fg-muted'}`}
                             >
-                              <span className={`w-1.5 h-1.5 rounded-full ${activeThreats.has(l.value) ? l.dot : 'bg-slate-600'}`} />
+                              <span className={`w-1.5 h-1.5 rounded-full ${activeThreats.has(l.value) ? l.dot : 'bg-line-default'}`} />
                               {l.label}
                             </button>
                           ))}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Category</div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted mb-2">Category</div>
                         <div className="flex flex-wrap gap-1.5">
                           {CATEGORIES.map(c => (
                             <button key={c.value} onClick={() => toggleCategory(c.value)}
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all flex items-center gap-1.5 ${activeCategories.has(c.value) ? 'bg-sky-500/15 border-sky-500/50 text-sky-300' : 'bg-slate-800/60 border-slate-700/50 text-slate-500'}`}
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all flex items-center gap-1.5 ${activeCategories.has(c.value) ? 'bg-sky-500/15 border-sky-500/50 text-sky-300' : 'bg-surface-raised border-line-default text-fg-muted'}`}
                             >
                               <c.Icon className="w-2.5 h-2.5" />
                               {c.label}
@@ -435,15 +435,15 @@ function MonitorDesktop() {
                     {/* Row 2: WorldMonitor Intelligence Layers */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted">
                           Intelligence Layers
                         </div>
                         <div className="flex items-center gap-2">
                           <button onClick={() => setActiveLayers(new Set(WORLD_LAYERS.map(l => l.id)))}
                             className="text-[9px] text-sky-500 hover:text-sky-300 font-mono transition-colors">ALL ON</button>
-                          <span className="text-slate-700">·</span>
+                          <span className="text-fg-muted">·</span>
                           <button onClick={() => setActiveLayers(new Set())}
-                            className="text-[9px] text-slate-500 hover:text-slate-300 font-mono transition-colors">ALL OFF</button>
+                            className="text-[9px] text-fg-muted hover:text-fg-secondary font-mono transition-colors">ALL OFF</button>
                         </div>
                       </div>
                       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
@@ -456,7 +456,7 @@ function MonitorDesktop() {
                             className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all overflow-hidden ${
                               activeLayers.has(layer.id)
                                 ? 'border-opacity-50 text-white'
-                                : 'bg-slate-900/60 border-slate-800/50 text-slate-600'
+                                : 'bg-surface-raised border-line-subtle text-fg-muted'
                             }`}
                             style={activeLayers.has(layer.id) ? {
                               background: `${layer.color}18`,
@@ -474,7 +474,7 @@ function MonitorDesktop() {
                           </motion.button>
                         ))}
                       </div>
-                      <div className="mt-1.5 text-[9px] text-slate-600 font-mono">
+                      <div className="mt-1.5 text-[9px] text-fg-muted font-mono">
                         {activeLayers.size}/{WORLD_LAYERS.length} layers active · Data: ACLED, GDELT, USGS, OpenSky, AIS Stream, EIA
                       </div>
                     </div>
@@ -485,8 +485,8 @@ function MonitorDesktop() {
           </div>
 
           {/* Global stock impact ticker */}
-          <div className="border-t border-slate-800/30 pb-1">
-            <Suspense fallback={<div className="h-8 bg-slate-950" />}>
+          <div className="border-t border-line-subtle/50 pb-1">
+            <Suspense fallback={<div className="h-8 bg-surface-base" />}>
               <GlobalStockTicker events={filteredEvents} />
             </Suspense>
           </div>
@@ -523,13 +523,13 @@ function MonitorDesktop() {
               >
                 {/* LEFT: Live events feed */}
                 {!globeExpanded && (
-                  <div className="bg-slate-950/90 border border-slate-800/60 rounded-2xl overflow-hidden flex flex-col" style={{ height: '540px' }}>
-                    <div className="px-4 py-3 border-b border-slate-800/50 flex items-center justify-between shrink-0">
+                  <div className="bg-surface-base/90 border border-line-subtle rounded-2xl overflow-hidden flex flex-col" style={{ height: '540px' }}>
+                    <div className="px-4 py-3 border-b border-line-subtle flex items-center justify-between shrink-0">
                       <div className="flex items-center gap-2">
                         <Radio className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Live Events</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-fg-secondary">Live Events</span>
                       </div>
-                      <div className="text-[10px] font-mono text-slate-600">{filteredEvents.length} active</div>
+                      <div className="text-[10px] font-mono text-fg-muted">{filteredEvents.length} active</div>
                     </div>
                     <Suspense fallback={<PanelShimmer height="h-full" />}>
                       <LiveEventsFeed events={filteredEvents} onEventClick={handleEventClick} maxItems={80} />
@@ -538,7 +538,7 @@ function MonitorDesktop() {
                 )}
 
                 {/* CENTER: Globe / Flat Map */}
-                <div className="relative bg-slate-950 border border-slate-800/60 rounded-2xl overflow-hidden" style={{ height: globeExpanded ? '620px' : '540px' }}>
+                <div className="relative bg-surface-base border border-line-subtle rounded-2xl overflow-hidden" style={{ height: globeExpanded ? '620px' : '540px' }}>
                   {/* Expand button */}
                   <div className="absolute top-3 right-3 z-20">
                     <button onClick={() => setGlobeExpanded(e => !e)} className="mac-btn mac-btn-icon" aria-label={globeExpanded ? 'Shrink' : 'Expand'}>
@@ -553,7 +553,7 @@ function MonitorDesktop() {
                         <div className="absolute inset-2 rounded-full border-2 border-cyan-400/30 animate-spin" style={{ borderTopColor: '#00d4ff' }} />
                         <Globe className="absolute inset-0 m-auto w-6 h-6 text-cyan-400" />
                       </div>
-                      <p className="text-slate-500 text-[11px] font-mono tracking-wider animate-pulse">LOADING INTELLIGENCE DATA</p>
+                      <p className="text-fg-muted text-[11px] font-mono tracking-wider animate-pulse">LOADING INTELLIGENCE DATA</p>
                     </div>
                   ) : mapData ? (
                     <AnimatePresence mode="wait">
@@ -591,7 +591,7 @@ function MonitorDesktop() {
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full gap-3">
                       <AlertTriangle className="w-10 h-10 text-yellow-500" />
-                      <p className="text-slate-400 text-sm">Intelligence data unavailable</p>
+                      <p className="text-fg-secondary text-sm">Intelligence data unavailable</p>
                     </div>
                   )}
                 </div>
@@ -609,13 +609,13 @@ function MonitorDesktop() {
               {/* Expanded mode: Live Events + Event Impact side by side below map */}
               {globeExpanded && (
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-950/90 border border-slate-800/60 rounded-2xl overflow-hidden flex flex-col" style={{ height: '400px' }}>
-                    <div className="px-4 py-3 border-b border-slate-800/50 flex items-center justify-between shrink-0">
+                  <div className="bg-surface-base/90 border border-line-subtle rounded-2xl overflow-hidden flex flex-col" style={{ height: '400px' }}>
+                    <div className="px-4 py-3 border-b border-line-subtle flex items-center justify-between shrink-0">
                       <div className="flex items-center gap-2">
                         <Radio className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Live Events</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-fg-secondary">Live Events</span>
                       </div>
-                      <div className="text-[10px] font-mono text-slate-600">{filteredEvents.length} active</div>
+                      <div className="text-[10px] font-mono text-fg-muted">{filteredEvents.length} active</div>
                     </div>
                     <Suspense fallback={<PanelShimmer height="h-full" />}>
                       <LiveEventsFeed events={filteredEvents} onEventClick={handleEventClick} maxItems={80} />
@@ -647,10 +647,10 @@ function MonitorDesktop() {
                 { component: <StrategicRiskPanel />, label: 'Strategic Risk', icon: Shield },
                 { component: <SecurityAdvisoriesPanel />, label: 'Security Advisories', icon: Lock },
               ].map(({ component, label, icon: Icon }, i) => (
-                <div key={label} className="rounded-2xl overflow-hidden h-[36rem] border border-slate-800/50 bg-slate-950/60 backdrop-blur-sm">
-                  <div className="px-4 py-2.5 border-b border-slate-800/50 flex items-center gap-2 shrink-0">
+                <div key={label} className="rounded-2xl overflow-hidden h-[36rem] border border-line-subtle bg-surface-raised/60 backdrop-blur-sm">
+                  <div className="px-4 py-2.5 border-b border-line-subtle flex items-center gap-2 shrink-0">
                     <Icon className="w-3.5 h-3.5 text-sky-400" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{label}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-fg-muted">{label}</span>
                   </div>
                   <div className="h-[calc(100%-2.5rem)] overflow-y-auto">
                     <Suspense fallback={<PanelShimmer height="h-full" />}>{component}</Suspense>
@@ -659,10 +659,10 @@ function MonitorDesktop() {
               ))}
 
               {/* Continent news - full width below all panels */}
-              <div className="col-span-full rounded-2xl overflow-hidden h-[36rem] border border-slate-800/50 bg-slate-950/60 backdrop-blur-sm">
-                <div className="px-4 py-2.5 border-b border-slate-800/50 flex items-center gap-2 shrink-0">
+              <div className="col-span-full rounded-2xl overflow-hidden h-[36rem] border border-line-subtle bg-surface-raised/60 backdrop-blur-sm">
+                <div className="px-4 py-2.5 border-b border-line-subtle flex items-center gap-2 shrink-0">
                   <Globe className="w-3.5 h-3.5 text-sky-400" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">World News</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-fg-muted">World News</span>
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[8px] text-emerald-400 font-bold ml-1">
                     LIVE
                   </span>
@@ -675,15 +675,15 @@ function MonitorDesktop() {
 
             {/* Data source attribution */}
             <div className="px-1 pb-2">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[9px] text-slate-700 font-mono">
-                <span className="text-slate-600 font-semibold">DATA:</span>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[9px] text-fg-muted font-mono">
+                <span className="text-fg-secondary font-semibold">DATA:</span>
                 {['ACLED (conflict)', 'GDELT (news/events)', 'USGS (earthquakes)', 'OpenSky (ADS-B aviation)', 'AIS Stream (maritime)', 'EIA (energy/pipelines)', 'Polymarket (prediction)'].map(src => (
                   <span key={src} className="flex items-center gap-1">
-                    <span className="w-1 h-1 rounded-full bg-slate-700" />
+                    <span className="w-1 h-1 rounded-full bg-line-default" />
                     {src}
                   </span>
                 ))}
-                <span className="ml-auto text-slate-700">All geopolitical data is provided for informational purposes only.</span>
+                <span className="ml-auto text-fg-muted">All geopolitical data is provided for informational purposes only.</span>
               </div>
             </div>
 
@@ -721,13 +721,13 @@ function MonitorMobile() {
 
   return (
     <MobileLayout>
-      <div className="flex flex-col min-h-screen pb-20 bg-[#020617]">
+      <div className="flex flex-col min-h-screen pb-20 bg-surface-base">
         {/* Sticky header */}
-        <div className="sticky top-0 z-30 bg-[#020617]/95 backdrop-blur-xl border-b border-slate-800/50">
+        <div className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle">
           <div className="px-4 pt-4 pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-900 border border-cyan-500/20">
+                <div className="w-8 h-8 rounded-lg overflow-hidden bg-surface-raised border border-cyan-500/20">
                   <Image src="/logo.png" alt="QuantTrade AI" width={32} height={32} className="object-contain" />
                 </div>
                 <div>
@@ -737,11 +737,11 @@ function MonitorMobile() {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                     </span>
-                    <p className="text-[10px] text-slate-400 font-mono">{isLoading ? 'SYNCING...' : `LIVE · ${events.length} EVENTS`}</p>
+                    <p className="text-[10px] text-fg-secondary font-mono">{isLoading ? 'SYNCING...' : `LIVE · ${events.length} EVENTS`}</p>
                   </div>
                 </div>
               </div>
-              <button onClick={() => refetch()} className="p-2 rounded-xl bg-slate-800/60 border border-slate-700/50 text-slate-400 active:scale-90 transition-all">
+              <button onClick={() => refetch()} className="p-2 rounded-xl bg-surface-hover border border-line-default text-fg-secondary active:scale-90 transition-all">
                 <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-sky-400' : ''}`} />
               </button>
             </div>
@@ -750,14 +750,14 @@ function MonitorMobile() {
             {mapData && (
               <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar pb-1">
                 {[
-                  { label: 'Events', value: mapData.stats.total_events, color: 'text-slate-200' },
+                  { label: 'Events', value: mapData.stats.total_events, color: 'text-fg-primary' },
                   { label: 'Critical', value: mapData.stats.critical_events, color: 'text-red-400' },
                   { label: 'High', value: mapData.stats.high_threat_events, color: 'text-orange-400' },
                   { label: 'At Risk', value: mapData.stats.high_risk_countries, color: 'text-yellow-400' },
                 ].map(s => (
-                  <div key={s.label} className="shrink-0 px-3 py-1.5 rounded-full bg-slate-800/60 border border-slate-700/40 flex items-center gap-1.5">
+                  <div key={s.label} className="shrink-0 px-3 py-1.5 rounded-full bg-surface-hover border border-line-subtle flex items-center gap-1.5">
                     <span className={`text-xs font-black ${s.color} font-mono`}>{s.value}</span>
-                    <span className="text-[10px] text-slate-500">{s.label}</span>
+                    <span className="text-[10px] text-fg-muted">{s.label}</span>
                   </div>
                 ))}
               </div>
@@ -768,7 +768,7 @@ function MonitorMobile() {
           <nav className="flex gap-1 px-4 pb-3 overflow-x-auto no-scrollbar">
             {sections.map((sec, i) => (
               <a key={sec.id} href={`#mobile-${sec.id}`} onClick={() => setActiveSection(i)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap transition-all border ${activeSection === i ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-800/40 text-slate-400 border-slate-700/30 active:scale-95'}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap transition-all border ${activeSection === i ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-surface-hover text-fg-secondary border-line-subtle active:scale-95'}`}
               >
                 <sec.Icon className="w-3 h-3" />
                 {sec.label}
@@ -781,20 +781,20 @@ function MonitorMobile() {
         <div className="flex-1 px-4 py-4 space-y-4">
           {/* Globe Preview */}
           <section id="mobile-globe">
-            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-64 relative">
+            <div className="bg-surface-raised/80 rounded-2xl border border-line-subtle overflow-hidden h-64 relative">
               <Suspense fallback={<PanelShimmer height="h-full" />}>
                 <CobeMonitorGlobe events={events} clusters={mapData?.clusters || []} instability={mapData?.instability || []} />
               </Suspense>
-              <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-[#020617] to-transparent pointer-events-none" />
+              <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-[var(--surface-base)] to-transparent pointer-events-none" />
             </div>
           </section>
 
           <section id="mobile-live">
             <div className="flex items-center gap-2 mb-3">
               <Radio className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Live Events</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-fg-muted">Live Events</span>
             </div>
-            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-96">
+            <div className="bg-surface-raised/80 rounded-2xl border border-line-subtle overflow-hidden h-96">
               <Suspense fallback={<PanelShimmer height="h-full" />}>
                 <LiveEventsFeed events={events} onEventClick={setSelectedEvent} maxItems={30} />
               </Suspense>
@@ -804,9 +804,9 @@ function MonitorMobile() {
           <section id="mobile-markets">
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="w-3.5 h-3.5 text-sky-400" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Market Radar</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-fg-muted">Market Radar</span>
             </div>
-            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-80">
+            <div className="bg-surface-raised/80 rounded-2xl border border-line-subtle overflow-hidden h-80">
               <Suspense fallback={<PanelShimmer height="h-full" />}><MarketRadarPanel /></Suspense>
             </div>
           </section>
@@ -814,9 +814,9 @@ function MonitorMobile() {
           <section id="mobile-economy">
             <div className="flex items-center gap-2 mb-3">
               <Landmark className="w-3.5 h-3.5 text-sky-400" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Economic Indicators</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-fg-muted">Economic Indicators</span>
             </div>
-            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-96">
+            <div className="bg-surface-raised/80 rounded-2xl border border-line-subtle overflow-hidden h-96">
               <Suspense fallback={<PanelShimmer height="h-full" />}><EconomicIndicatorsPanel /></Suspense>
             </div>
           </section>
@@ -824,9 +824,9 @@ function MonitorMobile() {
           <section id="mobile-risk">
             <div className="flex items-center gap-2 mb-3">
               <Shield className="w-3.5 h-3.5 text-sky-400" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Strategic Risk</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-fg-muted">Strategic Risk</span>
             </div>
-            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-y-auto min-h-[320px] max-h-[500px]">
+            <div className="bg-surface-raised/80 rounded-2xl border border-line-subtle overflow-y-auto min-h-[320px] max-h-[500px]">
               <Suspense fallback={<PanelShimmer height="h-80" />}><StrategicRiskPanel /></Suspense>
             </div>
           </section>
@@ -834,9 +834,9 @@ function MonitorMobile() {
           <section id="mobile-commodities">
             <div className="flex items-center gap-2 mb-3">
               <CircleDollarSign className="w-3.5 h-3.5 text-sky-400" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Commodities & Volatility</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-fg-muted">Commodities & Volatility</span>
             </div>
-            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-80">
+            <div className="bg-surface-raised/80 rounded-2xl border border-line-subtle overflow-hidden h-80">
               <Suspense fallback={<PanelShimmer height="h-full" />}><CommoditiesWidget /></Suspense>
             </div>
           </section>
@@ -844,9 +844,9 @@ function MonitorMobile() {
           <section id="mobile-news">
             <div className="flex items-center gap-2 mb-3">
               <Globe className="w-3.5 h-3.5 text-sky-400" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Continental News</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-fg-muted">Continental News</span>
             </div>
-            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-96">
+            <div className="bg-surface-raised/80 rounded-2xl border border-line-subtle overflow-hidden h-96">
               <Suspense fallback={<PanelShimmer height="h-full" />}><ContinentNewsFeedGrid /></Suspense>
             </div>
           </section>
@@ -854,9 +854,9 @@ function MonitorMobile() {
           <section id="mobile-predictions">
             <div className="flex items-center gap-2 mb-3">
               <BarChart3 className="w-3.5 h-3.5 text-sky-400" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Prediction Markets</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-fg-muted">Prediction Markets</span>
             </div>
-            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-96">
+            <div className="bg-surface-raised/80 rounded-2xl border border-line-subtle overflow-hidden h-96">
               <Suspense fallback={<PanelShimmer height="h-full" />}><PolymarketFinancePanel /></Suspense>
             </div>
           </section>
@@ -864,9 +864,9 @@ function MonitorMobile() {
           <section id="mobile-security">
             <div className="flex items-center gap-2 mb-3">
               <Lock className="w-3.5 h-3.5 text-sky-400" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Security Advisories</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-fg-muted">Security Advisories</span>
             </div>
-            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-hidden h-80">
+            <div className="bg-surface-raised/80 rounded-2xl border border-line-subtle overflow-hidden h-80">
               <Suspense fallback={<PanelShimmer height="h-full" />}><SecurityAdvisoriesPanel /></Suspense>
             </div>
           </section>
@@ -874,9 +874,9 @@ function MonitorMobile() {
           <section id="mobile-policy">
             <div className="flex items-center gap-2 mb-3">
               <FileText className="w-3.5 h-3.5 text-sky-400" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Trade & Policy</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-fg-muted">Trade & Policy</span>
             </div>
-            <div className="bg-slate-900/80 rounded-2xl border border-slate-800/60 overflow-y-auto min-h-[320px] max-h-[500px]">
+            <div className="bg-surface-raised/80 rounded-2xl border border-line-subtle overflow-y-auto min-h-[320px] max-h-[500px]">
               <Suspense fallback={<PanelShimmer height="h-80" />}><TradePolicyPanel /></Suspense>
             </div>
           </section>

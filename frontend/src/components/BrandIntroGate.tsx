@@ -105,7 +105,7 @@ export default function BrandIntroGate() {
       <button
         type="button"
         onClick={dismiss}
-        className="pointer-events-auto absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-10 -translate-x-1/2 px-5 py-2.5 text-xs font-semibold uppercase tracking-widest text-slate-200 bg-slate-900/90 border border-slate-600/80 rounded-xl hover:border-emerald-500/50 hover:text-white transition-colors sm:bottom-8"
+        className="pointer-events-auto absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-10 -translate-x-1/2 px-5 py-2.5 text-xs font-semibold uppercase tracking-widest text-fg-secondary bg-surface-base border border-line-default rounded-xl hover:border-emerald-500/50 hover:text-white transition-colors sm:bottom-8"
       >
         Skip intro
       </button>

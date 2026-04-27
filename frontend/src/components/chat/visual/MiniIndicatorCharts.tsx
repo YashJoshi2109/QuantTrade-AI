@@ -148,10 +148,10 @@ export function RSIChart({ symbol }: MiniChartProps) {
   }, [render])
 
   return (
-    <div className="mt-2 rounded-lg bg-white/[0.01] border border-white/[0.03] overflow-hidden relative">
+    <div className="mt-2 rounded-lg bg-white/[0.01] border border-line-subtle overflow-hidden relative">
       <div className="px-2 pt-1.5 flex items-center justify-between">
-        <span className="text-[8px] text-slate-500 font-semibold uppercase tracking-wider">RSI (14)</span>
-        <div className="flex gap-2 text-[7px] text-slate-600">
+        <span className="text-[8px] text-fg-muted font-semibold uppercase tracking-wider">RSI (14)</span>
+        <div className="flex gap-2 text-[7px] text-fg-muted">
           <span className="text-red-400/70">70 Overbought</span>
           <span className="text-emerald-400/70">30 Oversold</span>
         </div>
@@ -238,9 +238,9 @@ export function MACDChart({ symbol }: MiniChartProps) {
   }, [render])
 
   return (
-    <div className="mt-2 rounded-lg bg-white/[0.01] border border-white/[0.03] overflow-hidden relative">
+    <div className="mt-2 rounded-lg bg-white/[0.01] border border-line-subtle overflow-hidden relative">
       <div className="px-2 pt-1.5 flex items-center justify-between">
-        <span className="text-[8px] text-slate-500 font-semibold uppercase tracking-wider">MACD (12, 26, 9)</span>
+        <span className="text-[8px] text-fg-muted font-semibold uppercase tracking-wider">MACD (12, 26, 9)</span>
         <div className="flex gap-2 text-[7px]">
           <span className="text-cyan-400/70">MACD</span>
           <span className="text-orange-400/70">Signal</span>
@@ -318,9 +318,9 @@ export function VolumeProfileChart({ symbol }: MiniChartProps) {
   }, [render])
 
   return (
-    <div className="mt-2 rounded-lg bg-white/[0.01] border border-white/[0.03] overflow-hidden relative">
+    <div className="mt-2 rounded-lg bg-white/[0.01] border border-line-subtle overflow-hidden relative">
       <div className="px-2 pt-1.5">
-        <span className="text-[8px] text-slate-500 font-semibold uppercase tracking-wider">Volume (60D)</span>
+        <span className="text-[8px] text-fg-muted font-semibold uppercase tracking-wider">Volume (60D)</span>
       </div>
       {loading && (
         <div className="flex items-center justify-center h-[80px]">

@@ -14,8 +14,8 @@ export default function SectorHeatmapChat({ data }: Props) {
 
   if (!sorted.length) {
     return (
-      <div className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-white/[0.06] p-4 text-center">
-        <p className="text-[10px] text-slate-500">No sector data available</p>
+      <div className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-line-subtle p-4 text-center">
+        <p className="text-[10px] text-fg-muted">No sector data available</p>
       </div>
     )
   }
@@ -27,11 +27,11 @@ export default function SectorHeatmapChat({ data }: Props) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-white/[0.06] overflow-hidden"
+      className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-line-subtle overflow-hidden"
     >
       <div className="px-3 pt-3 pb-2 flex items-center gap-2">
         <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />
-        <span className="text-[11px] font-semibold text-slate-300">Sector Performance</span>
+        <span className="text-[11px] font-semibold text-fg-secondary">Sector Performance</span>
       </div>
 
       <div className="px-3 pb-3 space-y-1.5">
@@ -48,7 +48,7 @@ export default function SectorHeatmapChat({ data }: Props) {
               transition={{ delay: i * 0.04 }}
               className="flex items-center gap-2"
             >
-              <span className="text-[10px] text-slate-400 w-28 truncate flex-shrink-0">
+              <span className="text-[10px] text-fg-muted w-28 truncate flex-shrink-0">
                 {sector.sector}
               </span>
               <div className="flex-1 h-4 bg-white/[0.02] rounded overflow-hidden relative">

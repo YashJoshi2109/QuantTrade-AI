@@ -153,7 +153,7 @@ export function CurrencySelector({ value, onChange }: { value: string; onChange:
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-slate-700/60 bg-slate-900/60 hover:border-[rgba(0,122,255,0.4)] transition-colors text-[11px] text-slate-300 font-medium"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-line-subtle bg-surface-raised hover:border-[rgba(0,122,255,0.4)] transition-colors text-[11px] text-fg-secondary font-medium"
       >
         <DollarSign className="w-3 h-3 text-[#007AFF]" />
         {curr.flag} {curr.code}
@@ -164,7 +164,7 @@ export function CurrencySelector({ value, onChange }: { value: string; onChange:
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl border border-slate-700/60 bg-[#101928] shadow-2xl overflow-hidden"
+            className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl border border-line-default bg-surface-overlay shadow-theme-lg overflow-hidden"
           >
             <div className="max-h-64 overflow-y-auto py-1">
               {DISPLAY_CURRENCIES.map((c) => (
@@ -173,12 +173,12 @@ export function CurrencySelector({ value, onChange }: { value: string; onChange:
                   type="button"
                   onClick={() => { onChange(c.code); setOpen(false) }}
                   className={`w-full flex items-center gap-2 px-3 py-2 text-[11px] transition-colors ${
-                    c.code === value ? 'text-[#007AFF] bg-[#007AFF]/10' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                    c.code === value ? 'text-[#007AFF] bg-[#007AFF]/10' : 'text-fg-secondary hover:bg-surface-hover hover:text-white'
                   }`}
                 >
                   <span>{c.flag}</span>
                   <span className="font-bold font-mono">{c.code}</span>
-                  <span className="text-slate-500 truncate">{c.name}</span>
+                  <span className="text-fg-muted truncate">{c.name}</span>
                 </button>
               ))}
             </div>
@@ -214,7 +214,7 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6">
         {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="h-28 rounded-xl bg-slate-800/40 animate-pulse" />
+          <div key={i} className="h-28 rounded-xl bg-surface-raised animate-pulse" />
         ))}
       </div>
     )
@@ -278,7 +278,7 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1.5">
             {q.countryCode && <span className="text-sm leading-none">{countryFlag(q.countryCode)}</span>}
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">{q.exchangeName}</span>
+            <span className="text-[10px] font-black uppercase tracking-wider text-fg-primary">{q.exchangeName}</span>
           </div>
           <span
             className="text-[10px] font-black font-mono tabular-nums px-1.5 py-0.5 rounded-md"
@@ -301,7 +301,7 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
         </div>
 
         {/* Index name */}
-        <div className="text-[10px] text-slate-500 mt-0.5 truncate font-medium group-hover:text-slate-400 transition-colors">
+        <div className="text-[10px] text-fg-muted mt-0.5 truncate font-medium group-hover:text-fg-secondary transition-colors">
           {q.shortName}
         </div>
       </motion.button>
@@ -313,8 +313,8 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
       {/* Section header */}
       <div className="flex items-center gap-2 mb-3 px-0.5">
         <div className="w-1 h-4 rounded-full bg-[#007AFF]" />
-        <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Global Exchange Indices</span>
-        <div className="ml-auto flex items-center gap-1.5 text-[10px] text-slate-600 font-mono">
+        <span className="text-xs font-bold text-fg-secondary uppercase tracking-widest">Global Exchange Indices</span>
+        <div className="ml-auto flex items-center gap-1.5 text-[10px] text-fg-muted font-mono">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           Live
         </div>
@@ -401,12 +401,12 @@ export function UniverseExchangeTable({
   const visible = expanded ? stocks : stocks.slice(0, 10)
 
   return (
-    <div className="rounded-xl border border-slate-700/40 overflow-hidden bg-[#0d1526]/60">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-800/30 border-b border-slate-700/30">
+    <div className="rounded-xl border border-line-subtle overflow-hidden bg-surface-raised/60">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-surface-hover/30 border-b border-line-subtle">
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-white">{label}</span>
           {!isLoading && (
-            <span className="text-[10px] text-slate-500 font-mono">
+            <span className="text-[10px] text-fg-muted font-mono">
               {stocks.length} stocks
             </span>
           )}
@@ -425,17 +425,17 @@ export function UniverseExchangeTable({
       {isLoading ? (
         <div className="p-3 space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-8 rounded bg-slate-800/30 animate-pulse" />
+            <div key={i} className="h-8 rounded bg-surface-raised animate-pulse" />
           ))}
         </div>
       ) : stocks.length === 0 ? (
-        <div className="p-4 text-center text-slate-500 text-xs">
+        <div className="p-4 text-center text-fg-muted text-xs">
           No data — universe syncs nightly via FMP
         </div>
       ) : (
-        <div className="divide-y divide-slate-800/40">
+        <div className="divide-y divide-line-subtle">
           {/* Header row */}
-          <div className="grid grid-cols-[24px_1fr_60px_60px_60px] sm:grid-cols-[28px_1fr_80px_80px_80px] gap-1 px-3 py-1.5 text-[10px] text-slate-600 font-medium uppercase tracking-wide">
+          <div className="grid grid-cols-[24px_1fr_60px_60px_60px] sm:grid-cols-[28px_1fr_80px_80px_80px] gap-1 px-3 py-1.5 text-[10px] text-fg-muted font-medium uppercase tracking-wide">
             <span>#</span>
             <span>Company</span>
             <span className="text-right">Price</span>
@@ -464,14 +464,14 @@ export function UniverseExchangeTable({
                   exchange: exchangeKey.toUpperCase(),
                   currency: s.currency,
                 })}
-                className="w-full grid grid-cols-[24px_1fr_60px_60px_60px] sm:grid-cols-[28px_1fr_80px_80px_80px] gap-1 px-3 py-2 hover:bg-slate-800/40 text-left transition-colors group"
+                className="w-full grid grid-cols-[24px_1fr_60px_60px_60px] sm:grid-cols-[28px_1fr_80px_80px_80px] gap-1 px-3 py-2 hover:bg-surface-hover text-left transition-colors group"
               >
-                <span className="text-[10px] text-slate-600 font-mono self-center">{s.rank}</span>
+                <span className="text-[10px] text-fg-muted font-mono self-center">{s.rank}</span>
                 <div className="min-w-0 self-center">
                   <div className="text-xs font-bold text-white font-mono group-hover:text-[#007AFF] transition-colors truncate">
                     {s.symbol}
                   </div>
-                  <div className="text-[10px] text-slate-500 truncate">{s.name}</div>
+                  <div className="text-[10px] text-fg-muted truncate">{s.name}</div>
                 </div>
                 <span className="text-xs font-mono text-white self-center text-right">
                   {s.price > 0 ? `${s.currency === 'USD' ? '$' : ''}${formatNumber(s.price, 2)}` : '—'}
@@ -479,7 +479,7 @@ export function UniverseExchangeTable({
                 <span className={`text-xs font-mono font-bold self-center text-right ${up ? 'text-emerald-400' : 'text-red-400'}`}>
                   {up ? '+' : ''}{formatPercent(s.change_percent, 2)}
                 </span>
-                <span className="text-[10px] font-mono text-slate-400 self-center text-right">{mcap}</span>
+                <span className="text-[10px] font-mono text-fg-secondary self-center text-right">{mcap}</span>
               </button>
             )
           })}
@@ -497,10 +497,10 @@ export function ExchangeUniverseSection({ continent }: { continent: Continent })
     <div className="hud-panel p-4 sm:p-6 mb-6">
       <div className="flex items-center gap-2 mb-4">
         <Database className="w-5 h-5 text-purple-400" />
-        <h2 className="text-base font-bold text-white">
+        <h2 className="text-base font-bold text-fg-primary">
           Ranked Universe — {CONTINENTS.find((c) => c.id === continent)?.label}
         </h2>
-        <span className="text-[10px] text-slate-500 ml-1">
+        <span className="text-[10px] text-fg-muted ml-1">
           Sorted by market cap · 6h cache
         </span>
       </div>
@@ -547,9 +547,9 @@ function SessionChangeLegendStrip({ className = '' }: { className?: string }) {
   ]
   return (
     <div className={`space-y-1.5 ${className}`}>
-      <div className="text-[10px] text-slate-500 text-center">1-day % change scale</div>
+      <div className="text-[10px] text-fg-muted text-center">1-day % change scale</div>
       <div
-        className="flex h-2.5 rounded-md overflow-hidden border border-white/10 max-w-lg mx-auto shadow-inner"
+        className="flex h-2.5 rounded-md overflow-hidden border border-line-subtle max-w-lg mx-auto shadow-inner"
         role="img"
         aria-label="Color scale from loss to gain"
       >
@@ -557,9 +557,9 @@ function SessionChangeLegendStrip({ className = '' }: { className?: string }) {
           <div key={i} className="flex-1 min-w-[4px]" style={{ backgroundColor: c }} />
         ))}
       </div>
-      <div className="flex justify-between text-[9px] text-slate-600 max-w-lg mx-auto font-mono px-1">
+      <div className="flex justify-between text-[9px] text-fg-muted max-w-lg mx-auto font-mono px-1">
         <span>-3%+</span>
-        <span className="text-slate-500">flat</span>
+        <span className="text-fg-muted">flat</span>
         <span>+3%+</span>
       </div>
     </div>
@@ -573,10 +573,10 @@ export function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
   if (isLoading) {
     return (
       <div className="hud-panel p-4 sm:p-6 mb-6">
-        <div className="h-6 w-48 bg-slate-800/60 rounded animate-pulse mb-4" />
+        <div className="h-6 w-48 bg-surface-raised rounded animate-pulse mb-4" />
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-1">
           {Array.from({ length: 24 }).map((_, i) => (
-            <div key={i} className="h-14 rounded bg-slate-800/40 animate-pulse" />
+            <div key={i} className="h-14 rounded bg-surface-raised animate-pulse" />
           ))}
         </div>
       </div>
@@ -593,31 +593,31 @@ export function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
             <BarChart3 className="w-5 h-5 text-blue-400" />
             Sector Heatmap — {CONTINENTS.find((c) => c.id === continent)?.label}
           </h2>
-          <p className="text-[11px] text-slate-500 mt-1">
+          <p className="text-[11px] text-fg-muted mt-1">
             Regional names grouped by sector; tile color = session % change vs prior close.
           </p>
         </div>
-        <div className="flex items-center gap-3 text-[11px] text-slate-400">
+        <div className="flex items-center gap-3 text-[11px] text-fg-secondary">
           <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-[#15803d]" /> Up</span>
           <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-[#dc2626]" /> Down</span>
         </div>
       </div>
       <div className="space-y-4">
         {sectors.map((sector) => (
-          <div key={sector.sector} className="border border-slate-700/40 rounded-lg overflow-hidden">
+          <div key={sector.sector} className="border border-line-subtle rounded-lg overflow-hidden">
             <div className={`px-3 py-2 flex items-center justify-between ${sector.change_percent >= 0 ? 'bg-emerald-900/20' : 'bg-red-900/20'}`}>
               <span className="font-bold text-white text-sm">{sector.sector}</span>
               <span className={`font-mono font-bold text-sm ${sector.change_percent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {sector.change_percent >= 0 ? '+' : ''}{sector.change_percent.toFixed(2)}%
               </span>
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-px bg-slate-900 p-px">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-px bg-surface-base p-px">
               {sector.stocks.map((stock) => (
                 <Link
                   key={stock.symbol}
                   href={`/research?symbol=${stock.symbol}`}
                   title={`${stock.name}\n${stock.currency} ${stock.price.toFixed(2)}\n${stock.change_percent >= 0 ? '+' : ''}${stock.change_percent.toFixed(2)}%`}
-                  className="p-2 flex flex-col items-center justify-center border border-white/5 hover:brightness-110 hover:scale-[1.02] transition-all cursor-pointer"
+                  className="p-2 flex flex-col items-center justify-center border border-line-subtle hover:brightness-110 hover:scale-[1.02] transition-all cursor-pointer"
                   style={{ backgroundColor: getHeatColor(stock.change_percent) }}
                 >
                   <span className="font-bold text-white text-[8px] sm:text-[10px] truncate w-full text-center leading-tight">
@@ -633,7 +633,7 @@ export function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
         ))}
       </div>
       <SessionChangeLegendStrip className="mt-4" />
-      <p className="text-center text-[10px] text-slate-500 mt-3">
+      <p className="text-center text-[10px] text-fg-muted mt-3">
         Click any stock for detailed analysis · Powered by live market data
       </p>
     </div>
@@ -656,7 +656,7 @@ export function ContinentMovers({ continent }: { continent: Continent }) {
         { label: 'Most Active (Vol.)', items: actives, color: 'cyan' as const },
       ].map(({ label, items, color }) => (
         <div key={label} className="hud-panel">
-          <div className="px-4 py-3 border-b border-slate-700/30 flex items-center gap-2">
+          <div className="px-4 py-3 border-b border-line-subtle flex items-center gap-2">
             {color === 'emerald' ? (
               <TrendingUp className="w-4 h-4 text-emerald-400" />
             ) : color === 'red' ? (
@@ -666,24 +666,24 @@ export function ContinentMovers({ continent }: { continent: Continent }) {
             )}
             <h3 className="font-bold text-white text-sm">{label}</h3>
           </div>
-          <div className="divide-y divide-slate-800/30 max-h-64 overflow-y-auto">
+          <div className="divide-y divide-line-subtle max-h-64 overflow-y-auto">
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-10 mx-4 my-1 rounded bg-slate-800/40 animate-pulse" />
+                <div key={i} className="h-10 mx-4 my-1 rounded bg-surface-raised animate-pulse" />
               ))
             ) : items.length === 0 ? (
-              <div className="flex items-center justify-center h-16 text-slate-500 text-xs">No data available</div>
+              <div className="flex items-center justify-center h-16 text-fg-muted text-xs">No data available</div>
             ) : (
               items.map((s, i) => (
                 <button key={s.symbol}
                   onClick={() => openSnapshot({ symbol: s.symbol, name: s.name, price: s.price, change_percent: s.change_percent, exchange: s.exchange, currency: s.currency, market_cap: s.market_cap })}
-                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-800/30 transition-colors group text-left"
+                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-surface-hover transition-colors group text-left"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-slate-600 font-mono w-4">{i + 1}</span>
+                    <span className="text-[10px] text-fg-muted font-mono w-4">{i + 1}</span>
                     <div>
                       <span className="font-bold text-white text-xs font-mono group-hover:text-[#007AFF] transition-colors">{s.symbol}</span>
-                      <div className="text-[10px] text-slate-500 truncate max-w-[120px]">{s.name}</div>
+                      <div className="text-[10px] text-fg-muted truncate max-w-[120px]">{s.name}</div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -812,11 +812,11 @@ function DesktopMarketsPage() {
           <div className="flex items-center gap-2 sm:gap-3">
             <CurrencySelector value={displayCurrency} onChange={setDisplayCurrency} />
             {/* View Toggle */}
-            <div className="flex items-center gap-1 p-1 bg-slate-800/50 rounded-lg">
+            <div className="flex items-center gap-1 p-1 bg-surface-raised rounded-lg">
               <button
                 onClick={() => setView('heatmap')}
                 className={`p-2 rounded-md transition-all ${
-                  view === 'heatmap' ? 'bg-[#007AFF]/20 text-[#007AFF]' : 'text-slate-400 hover:text-white'
+                  view === 'heatmap' ? 'bg-[#007AFF]/20 text-[#007AFF]' : 'text-fg-secondary hover:text-white'
                 }`}
                 aria-label="Heatmap view"
               >
@@ -825,7 +825,7 @@ function DesktopMarketsPage() {
               <button
                 onClick={() => setView('list')}
                 className={`p-2 rounded-md transition-all ${
-                  view === 'list' ? 'bg-[#007AFF]/20 text-[#007AFF]' : 'text-slate-400 hover:text-white'
+                  view === 'list' ? 'bg-[#007AFF]/20 text-[#007AFF]' : 'text-fg-secondary hover:text-white'
                 }`}
                 aria-label="List view"
               >
@@ -923,10 +923,10 @@ function DesktopMarketsPage() {
                 <div key={index.symbol || `index-${idx}`} className="hud-panel p-3 sm:p-4 relative group flex flex-col min-h-[120px]">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0 flex-1">
-                      <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wide truncate" title={index.symbol}>
+                      <div className="text-[10px] font-mono text-fg-muted uppercase tracking-wide truncate" title={index.symbol}>
                         {index.symbol}
                       </div>
-                      <div className="text-[11px] sm:text-xs font-semibold text-white mt-0.5 line-clamp-2 leading-snug" title={label}>
+                      <div className="text-[11px] sm:text-xs font-semibold text-fg-primary mt-0.5 line-clamp-2 leading-snug" title={label}>
                         {label}
                       </div>
                     </div>
@@ -953,17 +953,17 @@ function DesktopMarketsPage() {
                     }`}>
                       {changePositive ? <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" /> : <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />}
                       {changePositive ? '+' : ''}{formatPercent(index.change_percent, 2)}
-                      <span className="text-[10px] text-slate-600 ml-1 hidden sm:inline">session</span>
+                      <span className="text-[10px] text-fg-muted ml-1 hidden sm:inline">session</span>
                     </div>
                   ) : (
-                    <div className="text-xs text-slate-500 mt-1">No live price</div>
+                    <div className="text-xs text-fg-muted mt-1">No live price</div>
                   )}
                 </div>
               )
             })
           ) : (
-            <div className="col-span-full text-center py-8 text-slate-500">
-              <Signal className="w-6 h-6 mx-auto mb-2 text-slate-600" />
+            <div className="col-span-full text-center py-8 text-fg-muted">
+              <Signal className="w-6 h-6 mx-auto mb-2 text-fg-muted" />
               <p className="text-sm">Market indices unavailable — retrying shortly</p>
             </div>
           )}
@@ -979,7 +979,7 @@ function DesktopMarketsPage() {
               <div className="text-lg sm:text-xl font-bold text-white tabular-nums">
                 {formatNumber(marketStats.totalStocks, 0)}
               </div>
-              <div className="text-[10px] sm:text-xs text-slate-500 leading-snug">
+              <div className="text-[10px] sm:text-xs text-fg-muted leading-snug">
                 Stocks tracked
               </div>
             </div>
@@ -990,7 +990,7 @@ function DesktopMarketsPage() {
             </div>
             <div>
               <div className="text-lg sm:text-xl font-bold text-green-400">{marketStats.gainers}</div>
-              <div className="text-[10px] sm:text-xs text-slate-500">Gainers</div>
+              <div className="text-[10px] sm:text-xs text-fg-muted">Gainers</div>
             </div>
           </div>
           <div className="hud-panel p-3 sm:p-4 flex items-center gap-3">
@@ -999,16 +999,16 @@ function DesktopMarketsPage() {
             </div>
             <div>
               <div className="text-lg sm:text-xl font-bold text-red-400">{marketStats.losers}</div>
-              <div className="text-[10px] sm:text-xs text-slate-500">Losers</div>
+              <div className="text-[10px] sm:text-xs text-fg-muted">Losers</div>
             </div>
           </div>
           <div className="hud-panel p-3 sm:p-4 flex items-center gap-3">
-            <div className="p-2 bg-slate-500/10 rounded-lg shrink-0">
-              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
+            <div className="p-2 bg-surface-raised rounded-lg shrink-0">
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-fg-secondary" />
             </div>
             <div>
-              <div className="text-lg sm:text-xl font-bold text-slate-300">{marketStats.flat}</div>
-              <div className="text-[10px] sm:text-xs text-slate-500">Flat</div>
+              <div className="text-lg sm:text-xl font-bold text-fg-secondary">{marketStats.flat}</div>
+              <div className="text-[10px] sm:text-xs text-fg-muted">Flat</div>
             </div>
           </div>
         </div>
@@ -1026,7 +1026,7 @@ function DesktopMarketsPage() {
                 </h2>
                 <div className="flex items-center gap-2">
                   <QuoteActivityFlash fingerprint={marketsActivityFingerprint} />
-                  <span className="text-xs text-slate-400 ml-2">Updates</span>
+                  <span className="text-xs text-fg-secondary ml-2">Updates</span>
                 </div>
               </div>
               
@@ -1038,7 +1038,7 @@ function DesktopMarketsPage() {
                 /* List View */
                 <div className="space-y-4">
                   {sectors.map((sector, sectorIdx) => (
-                    <div key={sector.sector || `sector-${sectorIdx}`} className="border border-slate-700/50 rounded-lg overflow-hidden">
+                    <div key={sector.sector || `sector-${sectorIdx}`} className="border border-line-subtle rounded-lg overflow-hidden">
                       <div className={`px-4 py-3 flex items-center justify-between ${
                         sector.change_percent >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
                       }`}>
@@ -1049,16 +1049,16 @@ function DesktopMarketsPage() {
                           {sector.change_percent >= 0 ? '+' : ''}{formatPercent(sector.change_percent, 2)}
                         </span>
                       </div>
-                      <div className="divide-y divide-slate-700/30">
+                      <div className="divide-y divide-line-subtle">
                         {sector.stocks.slice(0, 10).map((stock, stockIdx) => (
                           <Link
                             key={stock.symbol || `${sector.sector}-${stock.name || stockIdx}`}
                             href={`/research?symbol=${stock.symbol}`}
-                              className="flex items-center justify-between p-2 sm:p-3 hover:bg-slate-800/30 transition-colors"
+                              className="flex items-center justify-between p-2 sm:p-3 hover:bg-surface-hover transition-colors"
                           >
                               <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                                 <span className="font-bold text-white text-sm sm:text-base w-12 sm:w-16">{stock.symbol}</span>
-                                <span className="text-xs sm:text-sm text-slate-400 truncate">{stock.name}</span>
+                                <span className="text-xs sm:text-sm text-fg-secondary truncate">{stock.name}</span>
                             </div>
                               <div className="flex items-center gap-2 sm:gap-6">
                                 <span className="text-white font-mono text-sm sm:text-base">
@@ -1077,7 +1077,7 @@ function DesktopMarketsPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-20 text-slate-500">
+                <div className="text-center py-20 text-fg-muted">
                   No market data available
                 </div>
               )}
@@ -1100,8 +1100,8 @@ function DesktopMarketsPage() {
       </div>
 
       {/* Data source attribution */}
-      <div className="px-4 py-2 border-t border-slate-800/30 mt-2">
-        <p className="text-[9px] text-slate-700 font-mono">
+      <div className="px-4 py-2 border-t border-line-subtle mt-2">
+        <p className="text-[9px] text-fg-muted font-mono">
           Market data: Finnhub (real-time quotes) · Polygon.io (NYSE/NASDAQ/AMEX symbols) · Alpha Vantage (historical OHLCV) · Data is delayed 15 min for non-Pro users.
         </p>
       </div>

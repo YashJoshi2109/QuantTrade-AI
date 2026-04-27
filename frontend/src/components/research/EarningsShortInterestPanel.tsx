@@ -24,10 +24,10 @@ interface EarningsShortInterestPanelProps {
 
 function StatCell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-900/40">
-      <span className="text-xs text-slate-400 truncate">{label}</span>
-      <span className="text-sm font-semibold text-white tabular-nums">{value}</span>
-    </div>
+    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-raised">
+      <span className="text-xs text-fg-muted truncate">{label}</span>
+      <span className="text-sm font-semibold text-fg-primary tabular-nums">{value}</span>
+  </div>
   )
 }
 
@@ -50,10 +50,10 @@ function GaugeBar({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-400">{label}</span>
-        <span className="text-xs font-semibold text-white tabular-nums">{display}</span>
+        <span className="text-xs text-fg-muted">{label}</span>
+        <span className="text-xs font-semibold text-fg-primary tabular-nums">{display}</span>
       </div>
-      <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+      <div className="h-2 rounded-full bg-surface-raised overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{ width: `${pct}%`, background: color }}
@@ -138,10 +138,10 @@ export default function EarningsShortInterestPanel({
 
   if (loading && !tickerInfo) {
     return (
-      <div className="hud-panel rounded-xl border border-slate-800/50 p-6">
-        <div className="flex h-32 flex-col items-center justify-center gap-2 text-slate-500">
+      <div className="hud-panel rounded-xl border border-line-subtle p-6">
+        <div className="flex h-32 flex-col items-center justify-center gap-2 text-fg-muted">
           <span className="text-sm">Loading data for {symbol}…</span>
-          <span className="text-[11px] text-slate-600">Fetching quote summary…</span>
+          <span className="text-[11px] text-fg-muted">Fetching quote summary…</span>
         </div>
       </div>
     )
@@ -151,8 +151,8 @@ export default function EarningsShortInterestPanel({
     return (
       <div className="hud-panel rounded-xl border border-amber-500/20 bg-amber-950/10 p-6">
         <div className="flex h-32 flex-col items-center justify-center gap-3 text-center">
-          <p className="text-sm text-slate-300">
-            Could not load earnings &amp; short interest for <span className="font-mono text-white">{symbol}</span>.
+          <p className="text-sm text-fg-secondary">
+            Could not load earnings &amp; short interest for <span className="font-mono text-fg-primary">{symbol}</span>.
           </p>
           {onRetry && (
             <button
@@ -170,8 +170,8 @@ export default function EarningsShortInterestPanel({
 
   if (!tickerInfo) {
     return (
-      <div className="hud-panel rounded-xl border border-slate-800/50 p-6">
-        <div className="flex h-32 flex-col items-center justify-center gap-2 text-slate-500">
+      <div className="hud-panel rounded-xl border border-line-subtle p-6">
+        <div className="flex h-32 flex-col items-center justify-center gap-2 text-fg-muted">
           <span className="text-sm">No quote data for {symbol}.</span>
           {onRetry && (
             <button
@@ -191,8 +191,8 @@ export default function EarningsShortInterestPanel({
     <div className="space-y-4">
       {/* ---- Earnings Card (only when next date is known) ---- */}
       {hasEarnings && (
-        <div className="hud-panel rounded-xl border border-slate-800/50 p-5">
-          <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-3">
+        <div className="hud-panel rounded-xl border border-line-subtle p-5">
+          <h3 className="text-xs uppercase tracking-wider text-fg-muted font-semibold mb-3">
             Earnings
           </h3>
 
@@ -217,19 +217,19 @@ export default function EarningsShortInterestPanel({
             </div>
 
             <div className="flex-1 space-y-2">
-              <p className="text-slate-300 text-sm font-medium">
+              <p className="text-fg-secondary text-sm font-medium">
                 Next Earnings Report
               </p>
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg bg-slate-900/60 px-3 py-2">
-                  <span className="text-[10px] uppercase text-slate-500 block">EPS (TTM)</span>
-                  <span className="text-white font-semibold text-sm">
+                <div className="rounded-lg bg-surface-raised px-3 py-2">
+                  <span className="text-[10px] uppercase text-fg-muted block">EPS (TTM)</span>
+                  <span className="text-fg-primary font-semibold text-sm">
                     {isNumber(tickerInfo.eps) ? `$${formatNumber(tickerInfo.eps)}` : 'N/A'}
                   </span>
                 </div>
-                <div className="rounded-lg bg-slate-900/60 px-3 py-2">
-                  <span className="text-[10px] uppercase text-slate-500 block">Fwd EPS</span>
-                  <span className="text-white font-semibold text-sm">
+                <div className="rounded-lg bg-surface-raised px-3 py-2">
+                  <span className="text-[10px] uppercase text-fg-muted block">Fwd EPS</span>
+                  <span className="text-fg-primary font-semibold text-sm">
                     {isNumber(tickerInfo.forward_eps)
                       ? `$${formatNumber(tickerInfo.forward_eps)}`
                       : 'N/A'}
@@ -243,8 +243,8 @@ export default function EarningsShortInterestPanel({
 
       {/* ---- Earnings History Chart (Finnhub) ---- */}
       {earningsQuarters.length > 0 && (
-        <div className="hud-panel rounded-xl border border-slate-800/50 p-5">
-          <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-4">
+        <div className="hud-panel rounded-xl border border-line-subtle p-5">
+          <h3 className="text-xs uppercase tracking-wider text-fg-muted font-semibold mb-4">
             Earnings History — EPS Actual vs Estimate
           </h3>
           <div className="flex items-end gap-3 justify-center h-32">
@@ -261,7 +261,7 @@ export default function EarningsShortInterestPanel({
                   <div className="flex items-end gap-0.5 h-20">
                     {q.estimate != null && (
                       <div
-                        className="w-3 rounded-t bg-slate-600/60 transition-all"
+                        className="w-3 rounded-t bg-line-default transition-all"
                         style={{ height: `${Math.max(estH, 4)}%` }}
                         title={`Est: $${q.estimate.toFixed(2)}`}
                       />
@@ -274,7 +274,7 @@ export default function EarningsShortInterestPanel({
                       />
                     )}
                   </div>
-                  <span className="text-[9px] text-slate-500 text-center leading-tight">
+                  <span className="text-[9px] text-fg-muted text-center leading-tight">
                     Q{q.quarter} {String(q.year).slice(-2)}
                   </span>
                   {q.actual != null && (
@@ -286,9 +286,9 @@ export default function EarningsShortInterestPanel({
               )
             })}
           </div>
-          <div className="flex items-center justify-center gap-4 mt-3 text-[10px] text-slate-500">
+          <div className="flex items-center justify-center gap-4 mt-3 text-[10px] text-fg-muted">
             <span className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-sm bg-slate-600/60" /> Estimate
+              <div className="w-2 h-2 rounded-sm bg-line-default" /> Estimate
             </span>
             <span className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-sm bg-emerald-500" /> Beat
@@ -302,8 +302,8 @@ export default function EarningsShortInterestPanel({
 
       {/* ---- Short Interest (omit when feed has no non-zero figures) ---- */}
       {showShortInterest && (
-        <div className="hud-panel rounded-xl border border-slate-800/50 p-5">
-          <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-4">
+        <div className="hud-panel rounded-xl border border-line-subtle p-5">
+          <h3 className="text-xs uppercase tracking-wider text-fg-muted font-semibold mb-4">
             Short Interest
           </h3>
 
@@ -327,8 +327,8 @@ export default function EarningsShortInterestPanel({
             />
           </div>
 
-          <div className="mt-4 rounded-lg bg-slate-900/40 px-3 py-2">
-            <p className="text-[10px] text-slate-500 leading-relaxed">
+          <div className="mt-4 rounded-lg bg-surface-raised px-3 py-2">
+            <p className="text-[10px] text-fg-muted leading-relaxed">
               {isNumber(tickerInfo.short_percent_of_float) &&
               tickerInfo.short_percent_of_float > 0.2
                 ? 'Elevated short interest may indicate bearish sentiment or potential squeeze conditions.'
@@ -339,8 +339,8 @@ export default function EarningsShortInterestPanel({
       )}
 
       {/* ---- Key Statistics Grid ---- */}
-      <div className="hud-panel rounded-xl border border-slate-800/50 p-5">
-        <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-3">
+      <div className="hud-panel rounded-xl border border-line-subtle p-5">
+        <h3 className="text-xs uppercase tracking-wider text-fg-muted font-semibold mb-3">
           Key Statistics
         </h3>
         <div className="grid grid-cols-2 gap-1.5">

@@ -37,8 +37,8 @@ export default function CommunityPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-white/5 bg-black/30 backdrop-blur-md px-6 py-4 flex items-center gap-4 sticky top-0 z-30">
-        <Link href="/game/dashboard" className="text-gray-500 hover:text-white transition text-sm">← Dashboard</Link>
+      <header className="border-b border-line-subtle bg-black/30 backdrop-blur-md px-6 py-4 flex items-center gap-4 sticky top-0 z-30">
+        <Link href="/game/dashboard" className="text-fg-muted hover:text-fg-primary transition text-sm">← Dashboard</Link>
         <span className="text-gray-700">|</span>
         <span style={{ color: accent }} className="font-bold text-sm">Guild Hall</span>
       </header>
@@ -49,7 +49,7 @@ export default function CommunityPage() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10">
           <div className="text-5xl mb-4">🏰</div>
           <h1 className="text-3xl font-bold text-white mb-2">The Guild Hall</h1>
-          <p className="text-gray-500 text-sm max-w-md mx-auto">
+          <p className="text-fg-muted text-sm max-w-md mx-auto">
             Every great knight learns from the fellowship. Share strategies, earn reputation, and grow together.
           </p>
         </motion.div>
@@ -60,7 +60,7 @@ export default function CommunityPage() {
             <span>⚜️</span> Your Guilds
           </h2>
           {communityGroups.length === 0 && (
-            <div className="text-center py-8 text-gray-600 border border-dashed border-white/5 rounded-xl">
+            <div className="text-center py-8 text-fg-muted border border-dashed border-line-subtle rounded-xl">
               Loading your guild memberships...
             </div>
           )}
@@ -70,7 +70,7 @@ export default function CommunityPage() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="bg-white/3 border border-white/8 rounded-2xl p-6 hover:border-white/15 transition-all"
+              className="bg-white/3 border border-line-subtle rounded-2xl p-6 hover:border-line-default transition-all"
             >
               <div className="flex items-start gap-5">
                 {/* Icon */}
@@ -86,7 +86,7 @@ export default function CommunityPage() {
                   <div className="flex items-center gap-3 mb-1">
                     <h3 className="text-white font-bold text-lg">{group.name}</h3>
                     {group.is_global && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-gray-500 border border-white/10">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-fg-muted border border-line-default">
                         Global
                       </span>
                     )}
@@ -96,8 +96,8 @@ export default function CommunityPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-gray-500 text-sm mb-4">{group.description}</p>
-                  <div className="flex items-center gap-6 text-xs text-gray-600">
+                  <p className="text-fg-muted text-sm mb-4">{group.description}</p>
+                  <div className="flex items-center gap-6 text-xs text-fg-muted">
                     <span>👥 {group.member_count} members</span>
                     {group.my_reputation !== undefined && (
                       <span>⭐ {group.my_reputation} reputation</span>
@@ -107,7 +107,7 @@ export default function CommunityPage() {
               </div>
 
               {/* Guild features (coming soon) */}
-              <div className="mt-5 pt-4 border-t border-white/5 grid grid-cols-3 gap-3">
+              <div className="mt-5 pt-4 border-t border-line-subtle grid grid-cols-3 gap-3">
                 {[
                   { label: 'Strategy Posts', icon: '📋', status: 'Soon' },
                   { label: 'Portfolio Share', icon: '📊', status: 'Soon' },
@@ -115,10 +115,10 @@ export default function CommunityPage() {
                 ].map((feat) => (
                   <div
                     key={feat.label}
-                    className="text-center p-3 bg-white/3 rounded-xl border border-white/5 opacity-60"
+                    className="text-center p-3 bg-white/3 rounded-xl border border-line-subtle opacity-60"
                   >
                     <div className="text-lg mb-1">{feat.icon}</div>
-                    <div className="text-xs text-gray-500">{feat.label}</div>
+                    <div className="text-xs text-fg-muted">{feat.label}</div>
                     <div className="text-xs text-gray-700 mt-0.5">{feat.status}</div>
                   </div>
                 ))}
@@ -145,7 +145,7 @@ export default function CommunityPage() {
               return (
                 <div
                   key={g.name}
-                  className="bg-white/3 border border-white/8 rounded-xl p-4 flex items-center gap-4"
+                  className="bg-white/3 border border-line-subtle rounded-xl p-4 flex items-center gap-4"
                 >
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center text-lg border shrink-0"
@@ -155,7 +155,7 @@ export default function CommunityPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{g.name}</div>
-                    <div className="text-xs text-gray-600 capitalize">{g.stage.replace(/_/g, ' ')}</div>
+                    <div className="text-xs text-fg-muted capitalize">{g.stage.replace(/_/g, ' ')}</div>
                   </div>
                   {isMember && (
                     <span className="text-xs text-green-400 border border-green-500/30 px-2 py-0.5 rounded-full shrink-0">
@@ -181,7 +181,7 @@ export default function CommunityPage() {
             </div>
             <div>
               <h3 className="text-white font-bold mb-1">AI Community Moderator</h3>
-              <p className="text-gray-500 text-sm">
+              <p className="text-fg-muted text-sm">
                 Financial misinformation filtering, strategy validation, and peer learning — powered by Claude.
                 <span className="text-purple-400 ml-2">Coming in v1.1</span>
               </p>

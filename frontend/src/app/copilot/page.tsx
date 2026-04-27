@@ -102,7 +102,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={copy}
-      className="p-1.5 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 transition-colors"
+      className="p-1.5 rounded text-fg-muted hover:text-fg-primary hover:bg-surface-hover transition-colors"
       title="Copy"
     >
       {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -117,16 +117,16 @@ function TechnicalSignalsCard({ data }: { data: StockAnalysisData }) {
   if (!ts) return null
 
   return (
-    <div className="bg-[#0D1117] border border-slate-700/50 rounded-xl p-4">
+    <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
         <Activity className="w-4 h-4 text-cyan-400" />
-        <span className="text-xs font-bold text-white">Technical Signals</span>
+        <span className="text-xs font-bold text-fg-primary">Technical Signals</span>
         <span className={`ml-auto text-xs font-bold ${trendColor(ts.trend)}`}>
           {ts.bullish_pct?.toFixed(0)}% Bullish
         </span>
       </div>
 
-      <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-3">
+      <div className="h-2 bg-surface-raised rounded-full overflow-hidden mb-3">
         <div
           className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-700"
           style={{ width: `${ts.bullish_pct ?? 50}%` }}
@@ -136,14 +136,14 @@ function TechnicalSignalsCard({ data }: { data: StockAnalysisData }) {
       <div className="space-y-1.5">
         {ts.signals.slice(0, 5).map((sig, i) => (
           <div key={i} className="flex items-center justify-between text-[11px]">
-            <span className="text-slate-400">{sig.name}</span>
+            <span className="text-fg-muted">{sig.name}</span>
             <span
               className={
                 sig.signal === 'bullish'
                   ? 'text-emerald-400'
                   : sig.signal === 'bearish'
                   ? 'text-red-400'
-                  : 'text-slate-500'
+                  : 'text-fg-muted'
               }
             >
               {sig.signal.toUpperCase()}
@@ -177,10 +177,10 @@ function FundamentalsCard({ data }: { data: StockAnalysisData }) {
   ].filter((m) => m.value != null)
 
   return (
-    <div className="bg-[#0D1117] border border-slate-700/50 rounded-xl p-4">
+    <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
         <PieChart className="w-4 h-4 text-violet-400" />
-        <span className="text-xs font-bold text-white">Fundamentals</span>
+        <span className="text-xs font-bold text-fg-primary">Fundamentals</span>
         {f.recommendation && (
           <span className="ml-auto px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
             {f.recommendation}
@@ -190,18 +190,18 @@ function FundamentalsCard({ data }: { data: StockAnalysisData }) {
       <div className="grid grid-cols-3 gap-x-4 gap-y-2">
         {metrics.map((m) => (
           <div key={m.label}>
-            <div className="text-[10px] text-slate-500">{m.label}</div>
-            <div className="text-xs text-slate-200 font-mono">{m.value}</div>
+            <div className="text-[10px] text-fg-muted">{m.label}</div>
+            <div className="text-xs text-fg-primary font-mono">{m.value}</div>
           </div>
         ))}
       </div>
       {f.week_52_high != null && f.week_52_low != null && (
-        <div className="mt-3 pt-3 border-t border-slate-800">
-          <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
+        <div className="mt-3 pt-3 border-t border-line-subtle">
+          <div className="flex items-center justify-between text-[10px] text-fg-muted mb-1">
             <span>52W Low: {formatPrice(f.week_52_low)}</span>
             <span>52W High: {formatPrice(f.week_52_high)}</span>
           </div>
-          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-surface-raised rounded-full overflow-hidden">
             {data.quote?.price != null && (
               <div
                 className="h-full bg-gradient-to-r from-red-500 via-amber-500 to-emerald-500 rounded-full"
@@ -232,16 +232,16 @@ function RegimeForecastCard({ data }: { data: StockAnalysisData }) {
   if (!regime && !horizons) return null
 
   return (
-    <div className="bg-[#0D1117] border border-slate-700/50 rounded-xl p-4">
+    <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
         <Brain className="w-4 h-4 text-amber-400" />
-        <span className="text-xs font-bold text-white">Regime & Forecast</span>
+        <span className="text-xs font-bold text-fg-primary">Regime & Forecast</span>
       </div>
 
       {regime && (
         <div className="mb-3">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-[10px] text-slate-500">Market Regime:</span>
+            <span className="text-[10px] text-fg-muted">Market Regime:</span>
             <span
               className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${trendBg(
                 regime.regime
@@ -249,7 +249,7 @@ function RegimeForecastCard({ data }: { data: StockAnalysisData }) {
             >
               {regime.regime}
             </span>
-            <span className="text-[10px] text-slate-500">
+            <span className="text-[10px] text-fg-muted">
               ({regime.confidence.toFixed(1)}% conf.)
             </span>
           </div>
@@ -262,7 +262,7 @@ function RegimeForecastCard({ data }: { data: StockAnalysisData }) {
                     ? 'bg-emerald-500/20 text-emerald-400'
                     : label === 'BEARISH'
                     ? 'bg-red-500/20 text-red-400'
-                    : 'bg-slate-700/40 text-slate-400'
+                    : 'bg-surface-raised/40 text-fg-muted'
                 }`}
                 style={{ width: `${pct}%` }}
               >
@@ -286,12 +286,12 @@ function RegimeForecastCard({ data }: { data: StockAnalysisData }) {
             if (!h) return null
             return (
               <div key={key} className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400">{label}</span>
+                <span className="text-[11px] text-fg-muted">{label}</span>
                 <div className="flex items-center gap-2">
                   <span className={`text-[11px] font-semibold ${trendColor(h.direction)}`}>
                     {h.direction.toUpperCase()}
                   </span>
-                  <span className="text-[10px] text-slate-500">{h.confidence.toFixed(0)}%</span>
+                  <span className="text-[10px] text-fg-muted">{h.confidence.toFixed(0)}%</span>
                 </div>
               </div>
             )
@@ -316,16 +316,16 @@ function RiskCard({ data }: { data: StockAnalysisData }) {
     score >= 70 ? 'text-red-400' : score >= 40 ? 'text-amber-400' : 'text-emerald-400'
 
   return (
-    <div className="bg-[#0D1117] border border-slate-700/50 rounded-xl p-4">
+    <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
         <Shield className="w-4 h-4 text-red-400" />
-        <span className="text-xs font-bold text-white">Risk Assessment</span>
+        <span className="text-xs font-bold text-fg-primary">Risk Assessment</span>
         <span className={`ml-auto text-xs font-bold ${riskColor}`}>
           {score}/100 · {riskLevel}
         </span>
       </div>
 
-      <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-3">
+      <div className="h-2 bg-surface-raised rounded-full overflow-hidden mb-3">
         <div
           className="h-full rounded-full transition-all duration-700"
           style={{
@@ -345,8 +345,8 @@ function RiskCard({ data }: { data: StockAnalysisData }) {
             { label: 'Beta', value: enhanced.beta?.toFixed(2) },
           ].map((m) => (
             <div key={m.label}>
-              <div className="text-[10px] text-slate-500">{m.label}</div>
-              <div className="text-xs text-slate-200 font-mono">{m.value}</div>
+              <div className="text-[10px] text-fg-muted">{m.label}</div>
+              <div className="text-xs text-fg-primary font-mono">{m.value}</div>
             </div>
           ))}
         </div>
@@ -362,10 +362,10 @@ function SentimentCard({ data }: { data: StockAnalysisData }) {
   if (!sent) return null
 
   return (
-    <div className="bg-[#0D1117] border border-slate-700/50 rounded-xl p-4">
+    <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
         <Newspaper className="w-4 h-4 text-blue-400" />
-        <span className="text-xs font-bold text-white">Sentiment & Analyst</span>
+        <span className="text-xs font-bold text-fg-primary">Sentiment & Analyst</span>
         <span
           className={`ml-auto px-2 py-0.5 rounded-md text-[10px] font-bold border ${trendBg(
             sent.overall
@@ -378,19 +378,19 @@ function SentimentCard({ data }: { data: StockAnalysisData }) {
       <div className="space-y-2">
         {sent.analyst_recommendation && (
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-slate-400">Analyst Rating</span>
-            <span className="text-slate-200 font-semibold">{sent.analyst_recommendation}</span>
+            <span className="text-fg-muted">Analyst Rating</span>
+            <span className="text-fg-primary font-semibold">{sent.analyst_recommendation}</span>
           </div>
         )}
         {sent.target_price != null && (
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-slate-400">Price Target</span>
-            <span className="text-slate-200 font-mono">{formatPrice(sent.target_price)}</span>
+            <span className="text-fg-muted">Price Target</span>
+            <span className="text-fg-primary font-mono">{formatPrice(sent.target_price)}</span>
           </div>
         )}
         {sent.target_upside != null && (
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-slate-400">Target Upside</span>
+            <span className="text-fg-muted">Target Upside</span>
             <span
               className={`font-semibold ${
                 sent.target_upside >= 0 ? 'text-emerald-400' : 'text-red-400'
@@ -401,8 +401,8 @@ function SentimentCard({ data }: { data: StockAnalysisData }) {
           </div>
         )}
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-slate-400">Sentiment Score</span>
-          <span className="text-slate-200 font-mono">{sent.score.toFixed(2)}</span>
+          <span className="text-fg-muted">Sentiment Score</span>
+          <span className="text-fg-primary font-mono">{sent.score.toFixed(2)}</span>
         </div>
       </div>
     </div>
@@ -423,11 +423,11 @@ function MonteCarloCard({ data }: { data: StockAnalysisData }) {
   if (periods.length === 0) return null
 
   return (
-    <div className="bg-[#0D1117] border border-slate-700/50 rounded-xl p-4">
+    <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
         <LineChart className="w-4 h-4 text-purple-400" />
-        <span className="text-xs font-bold text-white">Monte Carlo Simulation</span>
-        <span className="text-[10px] text-slate-500 ml-auto">10K paths</span>
+        <span className="text-xs font-bold text-fg-primary">Monte Carlo Simulation</span>
+        <span className="text-[10px] text-fg-muted ml-auto">10K paths</span>
       </div>
       <div className="space-y-3">
         {periods.map((p) => {
@@ -443,7 +443,7 @@ function MonteCarloCard({ data }: { data: StockAnalysisData }) {
           return (
             <div key={p.key}>
               <div className="flex items-center justify-between mb-1">
-                <div className="text-[10px] text-slate-400">{p.label}</div>
+                <div className="text-[10px] text-fg-muted">{p.label}</div>
                 {expectedReturn != null && (
                   <div className={`text-[10px] font-bold font-mono ${expectedReturn >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     E[R]: {expectedReturn > 0 ? '+' : ''}{expectedReturn.toFixed(2)}%
@@ -465,7 +465,7 @@ function MonteCarloCard({ data }: { data: StockAnalysisData }) {
                 </div>
               </div>
               {probUp != null && (
-                <div className="text-[10px] text-slate-500 mt-1 text-center">
+                <div className="text-[10px] text-fg-muted mt-1 text-center">
                   {(probUp * 100).toFixed(1)}% probability above current price
                 </div>
               )}
@@ -473,17 +473,17 @@ function MonteCarloCard({ data }: { data: StockAnalysisData }) {
               {d.confidence_intervals && (
                 <div className="grid grid-cols-2 gap-2 mt-2">
                   {d.confidence_intervals['80'] && (
-                    <div className="bg-slate-800/40 rounded-lg px-2 py-1 text-center">
-                      <div className="text-[8px] text-slate-600 uppercase">80% CI</div>
-                      <div className="text-[10px] text-slate-300 font-mono">
+                    <div className="bg-surface-raised/40 rounded-lg px-2 py-1 text-center">
+                      <div className="text-[8px] text-fg-muted uppercase">80% CI</div>
+                      <div className="text-[10px] text-fg-primary font-mono">
                         {formatPrice(d.confidence_intervals['80'].lower)} – {formatPrice(d.confidence_intervals['80'].upper)}
                       </div>
                     </div>
                   )}
                   {d.confidence_intervals['95'] && (
-                    <div className="bg-slate-800/40 rounded-lg px-2 py-1 text-center">
-                      <div className="text-[8px] text-slate-600 uppercase">95% CI</div>
-                      <div className="text-[10px] text-slate-300 font-mono">
+                    <div className="bg-surface-raised/40 rounded-lg px-2 py-1 text-center">
+                      <div className="text-[8px] text-fg-muted uppercase">95% CI</div>
+                      <div className="text-[10px] text-fg-primary font-mono">
                         {formatPrice(d.confidence_intervals['95'].lower)} – {formatPrice(d.confidence_intervals['95'].upper)}
                       </div>
                     </div>
@@ -514,10 +514,10 @@ function ConfidenceBreakdownCard({ data }: { data: StockAnalysisData }) {
   if (!conf) return null
 
   return (
-    <div className="bg-[#0D1117] border border-slate-700/50 rounded-xl p-4">
+    <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
         <Gauge className="w-4 h-4 text-cyan-400" />
-        <span className="text-xs font-bold text-white">Confidence Breakdown</span>
+        <span className="text-xs font-bold text-fg-primary">Confidence Breakdown</span>
       </div>
       <div className="space-y-2">
         {Object.entries(conf.components).map(([key, value]) => {
@@ -527,12 +527,12 @@ function ConfidenceBreakdownCard({ data }: { data: StockAnalysisData }) {
           return (
             <div key={key}>
               <div className="flex items-center justify-between mb-0.5">
-                <span className="text-[11px] text-slate-400">{label}</span>
+                <span className="text-[11px] text-fg-muted">{label}</span>
                 <span className={`text-[11px] font-mono ${confidenceColor(value)}`}>
                   {value.toFixed(0)}%
                 </span>
               </div>
-              <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-surface-raised rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-700"
                   style={{
@@ -567,14 +567,14 @@ function AnalysisDashboard({
 }) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50 shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line-subtle shrink-0">
         <div className="flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-[#007AFF]" />
-          <span className="text-sm font-bold text-white">{data.symbol} Analysis</span>
+          <span className="text-sm font-bold text-fg-primary">{data.symbol} Analysis</span>
         </div>
         <button
           onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-slate-800/60 text-slate-400 hover:text-white transition-colors"
+          className="p-1.5 rounded-lg hover:bg-surface-raised/60 text-fg-muted hover:text-white transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
@@ -610,7 +610,7 @@ function MessageBubble({ msg }: { msg: Message }) {
         className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
           isUser
             ? 'bg-[#007AFF] text-white'
-            : 'bg-[#101928] border border-[rgba(0,122,255,0.2)] text-[#007AFF]'
+            : 'bg-surface-raised border border-[rgba(0,122,255,0.2)] text-[#007AFF]'
         }`}
       >
         {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
@@ -623,7 +623,7 @@ function MessageBubble({ msg }: { msg: Message }) {
               ? 'bg-[#007AFF] text-white rounded-tr-sm'
               : msg.error
               ? 'bg-red-500/10 border border-red-500/30 text-red-300 rounded-tl-sm'
-              : 'bg-[#101928] border border-[rgba(0,122,255,0.12)] text-slate-100 rounded-tl-sm'
+              : 'bg-surface-raised border border-[rgba(0,122,255,0.12)] text-fg-primary rounded-tl-sm'
           }`}
         >
           {isUser ? (
@@ -636,15 +636,15 @@ function MessageBubble({ msg }: { msg: Message }) {
               <div className="prose prose-invert prose-sm max-w-none">
               <ReactMarkdown
                 components={{
-                  p: ({ children }) => <p className="mb-2 last:mb-0 text-slate-200">{children}</p>,
+                  p: ({ children }) => <p className="mb-2 last:mb-0 text-fg-primary">{children}</p>,
                   strong: ({ children }) => (
-                    <strong className="font-bold text-white">{children}</strong>
+                    <strong className="font-bold text-fg-primary">{children}</strong>
                   ),
-                  em: ({ children }) => <em className="text-slate-400 italic text-xs">{children}</em>,
+                  em: ({ children }) => <em className="text-fg-muted italic text-xs">{children}</em>,
                   code: ({ children, className }) => {
                     const isBlock = className?.includes('language-')
                     return isBlock ? (
-                      <code className="block bg-[#0D1117] border border-slate-700/50 rounded-lg p-3 text-xs font-mono text-emerald-300 my-2 overflow-x-auto whitespace-pre">
+                      <code className="block bg-[#0D1117] border border-line-subtle rounded-lg p-3 text-xs font-mono text-emerald-300 my-2 overflow-x-auto whitespace-pre">
                         {children}
                       </code>
                     ) : (
@@ -657,9 +657,9 @@ function MessageBubble({ msg }: { msg: Message }) {
                   ol: ({ children }) => (
                     <ol className="list-decimal pl-4 space-y-1 my-2">{children}</ol>
                   ),
-                  li: ({ children }) => <li className="text-slate-300">{children}</li>,
+                  li: ({ children }) => <li className="text-fg-primary">{children}</li>,
                   h1: ({ children }) => (
-                    <h1 className="text-white font-bold text-base mt-3 mb-1">{children}</h1>
+                    <h1 className="text-fg-primary font-bold text-base mt-3 mb-1">{children}</h1>
                   ),
                   h2: ({ children }) => (
                     <h2 className="text-[#007AFF] font-bold text-sm mt-4 mb-1.5 flex items-center gap-1.5">
@@ -668,31 +668,31 @@ function MessageBubble({ msg }: { msg: Message }) {
                     </h2>
                   ),
                   h3: ({ children }) => (
-                    <h3 className="text-slate-100 font-semibold text-sm mt-2 mb-1">{children}</h3>
+                    <h3 className="text-fg-primary font-semibold text-sm mt-2 mb-1">{children}</h3>
                   ),
                   table: ({ children }) => (
                     <div className="overflow-x-auto my-2">
-                      <table className="w-full text-xs border-collapse border border-slate-700/50 rounded-lg overflow-hidden">
+                      <table className="w-full text-xs border-collapse border border-line-subtle rounded-lg overflow-hidden">
                         {children}
                       </table>
                     </div>
                   ),
                   th: ({ children }) => (
-                    <th className="border border-slate-700/50 bg-[#0D1117] px-3 py-1.5 text-left text-slate-300 font-semibold">
+                    <th className="border border-line-subtle bg-[#0D1117] px-3 py-1.5 text-left text-fg-primary font-semibold">
                       {children}
                     </th>
                   ),
                   td: ({ children }) => (
-                    <td className="border border-slate-700/30 px-3 py-1.5 text-slate-400">
+                    <td className="border border-line-subtle px-3 py-1.5 text-fg-muted">
                       {children}
                     </td>
                   ),
                   blockquote: ({ children }) => (
-                    <blockquote className="border-l-2 border-[#007AFF]/40 pl-3 text-slate-400 italic my-2">
+                    <blockquote className="border-l-2 border-[#007AFF]/40 pl-3 text-fg-muted italic my-2">
                       {children}
                     </blockquote>
                   ),
-                  hr: () => <hr className="border-slate-700/50 my-3" />,
+                  hr: () => <hr className="border-line-subtle my-3" />,
                 }}
               >
                 {msg.content}
@@ -709,11 +709,11 @@ function MessageBubble({ msg }: { msg: Message }) {
           <div className="flex items-center gap-1 mt-1 px-1">
             <CopyButton text={msg.content} />
             {msg.meta?.sources && msg.meta.sources.length > 0 && (
-              <span className="text-[9px] text-slate-600 font-mono">
+              <span className="text-[9px] text-fg-muted font-mono">
                 Sources: {msg.meta.sources.slice(0, 3).join(', ')}
               </span>
             )}
-            <span className="text-[10px] text-slate-600 font-mono ml-auto">
+            <span className="text-[10px] text-fg-muted font-mono ml-auto">
               {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
@@ -770,7 +770,7 @@ function WelcomeScreen({ onPrompt }: { onPrompt: (p: string) => void }) {
         >
           <div
             className={cn(
-              'mb-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/[0.1] px-3 py-1 text-[10px] font-semibold text-slate-200 sm:mb-2 sm:gap-2 sm:px-4 sm:py-1.5 sm:text-[11px] [@media(max-height:520px)]:mb-1 [@media(max-height:520px)]:py-0.5',
+              'mb-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-line-subtle px-3 py-1 text-[10px] font-semibold text-fg-primary sm:mb-2 sm:gap-2 sm:px-4 sm:py-1.5 sm:text-[11px] [@media(max-height:520px)]:mb-1 [@media(max-height:520px)]:py-0.5',
               'bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md'
             )}
           >
@@ -794,7 +794,7 @@ function WelcomeScreen({ onPrompt }: { onPrompt: (p: string) => void }) {
               Copilot
             </span>
           </h2>
-          <p className="mb-2 max-w-md px-1 text-[clamp(0.65rem,0.55vw+0.5rem,0.875rem)] leading-snug text-slate-400 sm:mb-3 sm:max-w-lg sm:leading-relaxed [@media(max-height:520px)]:mb-1.5 [@media(max-height:520px)]:line-clamp-2">
+          <p className="mb-2 max-w-md px-1 text-[clamp(0.65rem,0.55vw+0.5rem,0.875rem)] leading-snug text-fg-muted sm:mb-3 sm:max-w-lg sm:leading-relaxed [@media(max-height:520px)]:mb-1.5 [@media(max-height:520px)]:line-clamp-2">
             Institutional-grade analysis: quant models, RAG retrieval, and live market data.
           </p>
 
@@ -836,14 +836,14 @@ function WelcomeScreen({ onPrompt }: { onPrompt: (p: string) => void }) {
                     'group flex min-h-0 items-start gap-1.5 rounded-xl border p-2 text-left transition-all duration-300 sm:gap-2.5 sm:rounded-2xl sm:p-3 md:p-3.5',
                     '[@media(min-width:720px)_and_(max-height:680px)]:flex-col [@media(min-width:720px)_and_(max-height:680px)]:items-stretch [@media(min-width:720px)_and_(max-height:680px)]:gap-1.5 [@media(min-width:720px)_and_(max-height:680px)]:p-2',
                     '[@media(max-height:520px)]:gap-1 [@media(max-height:520px)]:p-1.5 [@media(max-height:520px)]:rounded-lg',
-                    'border-white/[0.08] bg-[rgba(10,14,26,0.55)] backdrop-blur-md',
+                    'border-line-subtle bg-surface-glass backdrop-blur-md',
                     'hover:border-[#007AFF]/35 hover:bg-[rgba(0,122,255,0.08)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.3)]',
                     'active:scale-[0.99]'
                   )}
                 >
                   <div
                     className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.06] sm:h-9 sm:w-9 sm:rounded-xl',
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line-subtle sm:h-9 sm:w-9 sm:rounded-xl',
                       '[@media(min-width:720px)_and_(max-height:680px)]:h-8 [@media(min-width:720px)_and_(max-height:680px)]:w-8',
                       'bg-gradient-to-br from-[#007AFF]/20 to-transparent group-hover:from-[#007AFF]/35'
                     )}
@@ -862,7 +862,7 @@ function WelcomeScreen({ onPrompt }: { onPrompt: (p: string) => void }) {
                     </div>
                     <div
                       className={cn(
-                        'mt-0.5 line-clamp-2 text-[9px] leading-tight text-slate-500 sm:mt-1 sm:text-[10px] sm:leading-snug',
+                        'mt-0.5 line-clamp-2 text-[9px] leading-tight text-fg-muted sm:mt-1 sm:text-[10px] sm:leading-snug',
                         '[@media(min-width:720px)_and_(max-height:680px)]:line-clamp-2 [@media(min-width:720px)_and_(max-height:680px)]:text-[9px]',
                         '[@media(max-height:520px)]:line-clamp-1 [@media(max-height:520px)]:text-[8px]'
                       )}
@@ -870,7 +870,7 @@ function WelcomeScreen({ onPrompt }: { onPrompt: (p: string) => void }) {
                       {qp.prompt}
                     </div>
                   </div>
-                  <ChevronRight className="mt-0.5 hidden h-3.5 w-3.5 shrink-0 text-slate-600 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100 sm:mt-0.5 sm:block sm:h-4 sm:w-4 [@media(min-width:720px)_and_(max-height:680px)]:hidden" />
+                  <ChevronRight className="mt-0.5 hidden h-3.5 w-3.5 shrink-0 text-fg-muted opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100 sm:mt-0.5 sm:block sm:h-4 sm:w-4 [@media(min-width:720px)_and_(max-height:680px)]:hidden" />
                 </button>
               )
             })}
@@ -897,19 +897,19 @@ function LiveQuoteStrip() {
   const ok = price > 0
 
   return (
-    <div className="hidden sm:flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[rgba(8,12,24,0.55)] px-2.5 py-1 text-[10px] font-mono text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md">
+    <div className="hidden sm:flex items-center gap-2 rounded-xl border border-line-subtle bg-surface-glass px-2.5 py-1 text-[10px] font-mono text-fg-primary shadow-theme-sm backdrop-blur-md">
       <BarChart3 className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
-      <span className="font-bold text-white tracking-tight">SPY</span>
+      <span className="font-bold text-fg-primary tracking-tight">SPY</span>
       {ok ? (
         <>
-          <span className="text-slate-300 tabular-nums">${price.toFixed(2)}</span>
+          <span className="text-fg-primary tabular-nums">${price.toFixed(2)}</span>
           <span className={up ? 'text-emerald-400' : 'text-red-400'}>
             {up ? '+' : ''}
             {pct.toFixed(2)}%
           </span>
         </>
       ) : (
-        <span className="text-slate-500">--</span>
+        <span className="text-fg-muted">--</span>
       )}
     </div>
   )
@@ -928,9 +928,9 @@ function ModelIndicator({ model, isStreaming }: { model: string; isStreaming: bo
     'openrouter': { name: 'Gemini Flash', color: 'text-blue-400 border-blue-500/30 bg-blue-500/10' },
     'deepseek-v3': { name: 'DeepSeek V3', color: 'text-violet-400 border-violet-500/30 bg-violet-500/10' },
     'deepseek-v3_cached': { name: 'DeepSeek V3 (cached)', color: 'text-violet-300 border-violet-500/20 bg-violet-500/5' },
-    'fallback': { name: 'Llama 3.1 8B', color: 'text-slate-400 border-slate-500/30 bg-slate-500/10' },
+    'fallback': { name: 'Llama 3.1 8B', color: 'text-fg-muted border-line-subtle bg-surface-raised' },
     'rate_limited': { name: 'Rate Limited', color: 'text-red-400 border-red-500/30 bg-red-500/10' },
-    'none': { name: 'No Model', color: 'text-slate-500 border-slate-600/30 bg-slate-600/10' },
+    'none': { name: 'No Model', color: 'text-fg-muted border-line-subtle bg-surface-raised' },
   }
 
   const info = modelLabels[model] || modelLabels['groq']
@@ -1054,32 +1054,32 @@ function UsageBadge() {
 
   const DetailPanel = ({ className }: { className?: string }) => (
     <div
-      className={`rounded-lg border border-slate-700/80 bg-[#0d1117] p-3 text-left shadow-xl shadow-black/40 ${className ?? ''}`}
+      className={`rounded-lg border border-line-subtle/80 bg-surface-base p-3 text-left shadow-xl shadow-black/40 ${className ?? ''}`}
     >
-      <div className="mb-2 flex items-center gap-2 border-b border-slate-800/80 pb-2">
+      <div className="mb-2 flex items-center gap-2 border-b border-line-subtle/80 pb-2">
         <Gauge className="h-4 w-4 shrink-0 text-cyan-400" />
-        <span className="text-xs font-bold text-white">API usage</span>
+        <span className="text-xs font-bold text-fg-primary">API usage</span>
         {data.is_pro ? (
           <span className="ml-auto rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400">
             PRO
           </span>
         ) : (
-          <span className="ml-auto rounded bg-slate-700/50 px-1.5 py-0.5 text-[9px] font-mono text-slate-400">
+          <span className="ml-auto rounded bg-surface-raised/50 px-1.5 py-0.5 text-[9px] font-mono text-fg-muted">
             Free
           </span>
         )}
       </div>
-      <div className="space-y-2.5 text-[11px] text-slate-300">
+      <div className="space-y-2.5 text-[11px] text-fg-primary">
         <div>
-          <div className="mb-1 flex justify-between font-mono text-[10px] text-slate-500">
+          <div className="mb-1 flex justify-between font-mono text-[10px] text-fg-muted">
             <span>Daily requests</span>
-            <span className="text-slate-300">
+            <span className="text-fg-primary">
               {data.today_requests}
               {!data.is_pro && data.free_limit > 0 ? ` / ${data.free_limit}` : ''}
             </span>
           </div>
           {!data.is_pro && data.free_limit > 0 && (
-            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-surface-raised">
               <div
                 className={`h-full rounded-full transition-all ${barColor}`}
                 style={{ width: `${pctUsed}%` }}
@@ -1087,25 +1087,25 @@ function UsageBadge() {
             </div>
           )}
           {!data.is_pro && data.free_limit > 0 && (
-            <p className="mt-1 font-mono text-[10px] text-slate-500">
+            <p className="mt-1 font-mono text-[10px] text-fg-muted">
               {data.free_remaining} remaining ({pctRemaining.toFixed(0)}% of daily free quota)
             </p>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-2 font-mono text-[10px] text-slate-500">
+        <div className="grid grid-cols-2 gap-2 font-mono text-[10px] text-fg-muted">
           <div>
-            <div className="text-slate-600">Input tokens</div>
-            <div className="text-slate-300">{formatLargeNumber(data.today_input_tokens)}</div>
+            <div className="text-fg-muted">Input tokens</div>
+            <div className="text-fg-primary">{formatLargeNumber(data.today_input_tokens)}</div>
           </div>
           <div>
-            <div className="text-slate-600">Output tokens</div>
-            <div className="text-slate-300">{formatLargeNumber(data.today_output_tokens)}</div>
+            <div className="text-fg-muted">Output tokens</div>
+            <div className="text-fg-primary">{formatLargeNumber(data.today_output_tokens)}</div>
           </div>
         </div>
-        <div className="border-t border-slate-800/80 pt-2 font-mono text-[10px] text-slate-500">
+        <div className="border-t border-line-subtle/80 pt-2 font-mono text-[10px] text-fg-muted">
           <div className="flex justify-between">
             <span>Est. cost today</span>
-            <span className="text-slate-300">${data.today_cost_usd.toFixed(4)}</span>
+            <span className="text-fg-primary">${data.today_cost_usd.toFixed(4)}</span>
           </div>
           <div className="mt-1 flex justify-between">
             <span>Budget left</span>
@@ -1156,7 +1156,7 @@ function UsageBadge() {
           className={
             data.is_pro
               ? 'flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-mono text-emerald-400 transition-colors hover:bg-emerald-500/15'
-              : 'flex items-center gap-1.5 rounded-lg border border-slate-700/40 bg-slate-800/30 px-2 py-1 text-[10px] font-mono text-slate-400 transition-colors hover:border-slate-600 hover:bg-slate-800/50'
+              : 'flex items-center gap-1.5 rounded-lg border border-line-subtle/40 bg-surface-raised/30 px-2 py-1 text-[10px] font-mono text-fg-muted transition-colors hover:border-slate-600 hover:bg-surface-raised/50'
           }
           aria-expanded={open}
           aria-haspopup="dialog"
@@ -1169,7 +1169,7 @@ function UsageBadge() {
             </>
           ) : (
             <>
-              <div className="h-1.5 w-10 overflow-hidden rounded-full bg-slate-700">
+              <div className="h-1.5 w-10 overflow-hidden rounded-full bg-surface-raised">
                 <div
                   className={`h-full rounded-full ${barColor} transition-all`}
                   style={{ width: `${pctUsed}%` }}
@@ -1230,7 +1230,7 @@ function PipelineStatus({
                       ? 'bg-[#007AFF] text-white'
                       : done
                       ? 'bg-emerald-500/20 text-emerald-400'
-                      : 'bg-slate-800 text-slate-500'
+                      : 'bg-surface-raised text-fg-muted'
                   }`}
                 >
                   {done ? (
@@ -1240,7 +1240,7 @@ function PipelineStatus({
                   )}
                 </div>
                 {i < stages.length - 1 && (
-                  <ChevronRight className="w-3 h-3 text-slate-600 mx-0.5" />
+                  <ChevronRight className="w-3 h-3 text-fg-muted mx-0.5" />
                 )}
               </div>
             )
@@ -1251,7 +1251,7 @@ function PipelineStatus({
             {stages[currentIdx]?.label ?? 'Processing'}
           </span>
           {symbol && (
-            <span className="text-[10px] text-slate-500 ml-1.5">
+            <span className="text-[10px] text-fg-muted ml-1.5">
               {intent === 'stock_analysis' ? `Analyzing ${symbol}` : ''}
             </span>
           )}
@@ -1311,14 +1311,14 @@ function ConversationSidebar({
       {Array.from({ length: 7 }).map((_, idx) => (
         <div
           key={idx}
-          className="rounded-xl border border-slate-800/90 bg-gradient-to-r from-[#0a0f1d] to-[#0d1220] p-3 animate-pulse"
+          className="rounded-xl border border-line-subtle/90 bg-gradient-to-r from-[#0a0f1d] to-[#0d1220] p-3 animate-pulse"
         >
-          <div className="h-3 w-3/4 rounded bg-slate-700/60" />
-          <div className="mt-2 h-2.5 w-full rounded bg-slate-800/80" />
-          <div className="mt-1.5 h-2.5 w-2/3 rounded bg-slate-800/70" />
+          <div className="h-3 w-3/4 rounded bg-surface-raised/60" />
+          <div className="mt-2 h-2.5 w-full rounded bg-surface-raised/80" />
+          <div className="mt-1.5 h-2.5 w-2/3 rounded bg-surface-raised/70" />
           <div className="mt-2.5 flex items-center gap-2">
-            <div className="h-2.5 w-16 rounded bg-slate-700/70" />
-            <div className="h-2.5 w-10 rounded bg-slate-700/70" />
+            <div className="h-2.5 w-16 rounded bg-surface-raised/70" />
+            <div className="h-2.5 w-10 rounded bg-surface-raised/70" />
           </div>
         </div>
       ))}
@@ -1326,16 +1326,16 @@ function ConversationSidebar({
   )
 
   return (
-    <div className="flex flex-col h-full bg-[#080C14] border-r border-slate-700/50">
+    <div className="flex flex-col h-full bg-surface-base border-r border-line-subtle">
       {/* Sidebar Header */}
-      <div className="flex items-center justify-between px-3 py-3 border-b border-slate-700/50 shrink-0 bg-gradient-to-r from-[#0b1220] via-[#0a101b] to-[#080c14]">
+      <div className="flex items-center justify-between px-3 py-3 border-b border-line-subtle shrink-0 bg-gradient-to-r from-[#0b1220] via-[#0a101b] to-[#080c14]">
         <div className="flex items-center gap-2">
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#007AFF]/35 bg-[#007AFF]/10 shadow-[0_0_16px_rgba(0,122,255,0.15)]">
             <History className="w-4 h-4 text-[#52a8ff]" />
           </span>
           <div className="leading-tight">
-            <span className="text-xs font-bold text-white">History</span>
-            <p className="text-[10px] text-slate-500">Session memory and analytics trail</p>
+            <span className="text-xs font-bold text-fg-primary">History</span>
+            <p className="text-[10px] text-fg-muted">Session memory and analytics trail</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -1348,7 +1348,7 @@ function ConversationSidebar({
           </button>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-800/60 transition-colors lg:hidden"
+            className="p-1.5 rounded-lg text-fg-muted hover:bg-surface-raised/60 transition-colors lg:hidden"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -1361,9 +1361,9 @@ function ConversationSidebar({
           <HistoryListSkeleton />
         ) : conversations.length === 0 ? (
           <div className="text-center py-8 px-4">
-            <MessageSquare className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-            <p className="text-xs text-slate-500">No conversations yet</p>
-            <p className="text-[10px] text-slate-600 mt-1">Start a new chat to begin</p>
+            <MessageSquare className="w-8 h-8 text-fg-muted mx-auto mb-2" />
+            <p className="text-xs text-fg-muted">No conversations yet</p>
+            <p className="text-[10px] text-fg-muted mt-1">Start a new chat to begin</p>
           </div>
         ) : (
           <div className="py-2 px-2">
@@ -1373,7 +1373,7 @@ function ConversationSidebar({
                 className={`group relative px-3 py-3 rounded-xl cursor-pointer transition-all border backdrop-blur-sm ${
                   activeId === conv.id
                     ? 'bg-gradient-to-r from-[#007AFF]/14 to-cyan-500/8 border-[#007AFF]/45 shadow-[0_8px_24px_rgba(0,122,255,0.12)]'
-                    : 'bg-gradient-to-r from-[#0b101b] to-[#0a0e18] border-slate-800/80 hover:border-slate-700/70 hover:from-[#0d1422] hover:to-[#0c1220]'
+                    : 'bg-gradient-to-r from-[#0b101b] to-[#0a0e18] border-line-subtle/80 hover:border-line-subtle/70 hover:from-[#0d1422] hover:to-[#0c1220]'
                 }`}
                 onClick={() => onSelect(conv.id)}
               >
@@ -1382,15 +1382,15 @@ function ConversationSidebar({
                     <p className="text-[12px] font-semibold text-white leading-snug line-clamp-2">
                       {buildConversationSummary(conv)}
                     </p>
-                    <p className="text-[10px] text-slate-500 line-clamp-2 mt-1">
+                    <p className="text-[10px] text-fg-muted line-clamp-2 mt-1">
                       {buildConversationPreview(conv)}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[9px] text-slate-500 flex items-center gap-1">
+                      <span className="text-[9px] text-fg-muted flex items-center gap-1">
                         <Clock className="w-2.5 h-2.5" />
                         {timeAgo(conv.updated_at)}
                       </span>
-                      <span className="text-[9px] text-slate-500">
+                      <span className="text-[9px] text-fg-muted">
                         {conv.message_count} msgs
                       </span>
                       <span className="text-[9px] text-cyan-400/90 ml-auto rounded-md border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-0.5">
@@ -1403,7 +1403,7 @@ function ConversationSidebar({
                       e.stopPropagation()
                       onDelete(conv.id)
                     }}
-                    className="p-1 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                    className="p-1 rounded text-fg-muted hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all shrink-0"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -1700,7 +1700,7 @@ function CopilotInner() {
         }`}
       >
         {/* Header — liquid glass */}
-        <div className="relative shrink-0 border-b border-white/[0.07] bg-[rgba(6,10,22,0.72)] px-3 py-2 backdrop-blur-xl sm:px-5 sm:py-2.5">
+        <div className="relative shrink-0 border-b border-line-subtle bg-surface-glass px-3 py-2 backdrop-blur-xl sm:px-5 sm:py-2.5">
           <div
             className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent"
             aria-hidden
@@ -1715,7 +1715,7 @@ function CopilotInner() {
                   'flex shrink-0 rounded-xl border p-2 transition-all',
                   showHistory
                     ? 'border-[#007AFF]/40 bg-[#007AFF]/15 text-cyan-200 shadow-[0_0_20px_rgba(0,122,255,0.15)]'
-                    : 'border-transparent text-slate-400 hover:border-white/[0.08] hover:bg-white/[0.05] hover:text-white'
+                    : 'border-transparent text-fg-muted hover:border-line-subtle hover:bg-white/[0.05] hover:text-white'
                 )}
                 title="Chat History"
               >
@@ -1734,7 +1734,7 @@ function CopilotInner() {
                   <h1 className="font-display truncate text-xs font-bold text-white sm:text-sm">
                     AI Copilot
                   </h1>
-                  <p className="hidden truncate font-mono text-[10px] leading-none text-slate-500 sm:block">
+                  <p className="hidden truncate font-mono text-[10px] leading-none text-fg-muted sm:block">
                     RAG + Quant Models + GROQ LLM
                   </p>
                 </div>
@@ -1759,7 +1759,7 @@ function CopilotInner() {
               <button
                 type="button"
                 onClick={newChat}
-                className="shrink-0 rounded-xl border border-transparent p-2 text-slate-500 transition-colors hover:border-white/[0.08] hover:bg-white/[0.05] hover:text-white"
+                className="shrink-0 rounded-xl border border-transparent p-2 text-fg-muted transition-colors hover:border-line-subtle hover:bg-white/[0.05] hover:text-white"
                 title="New conversation"
               >
                 <Plus className="h-4 w-4" />
@@ -1805,7 +1805,7 @@ function CopilotInner() {
                       animate={{ opacity: 1, y: 0 }}
                       className="flex gap-2.5 items-start"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00D9FF]/20 to-[#7C3AED]/20 flex items-center justify-center flex-shrink-0 border border-white/[0.06]">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00D9FF]/20 to-[#7C3AED]/20 flex items-center justify-center flex-shrink-0 border border-line-subtle">
                         <Zap className="w-4 h-4 text-cyan-400" />
                       </div>
                       <CopilotLoadingScene
@@ -1823,7 +1823,7 @@ function CopilotInner() {
         </div>
 
         {/* Input — glass composer */}
-        <div className="relative shrink-0 border-t border-white/[0.07] bg-[rgba(6,10,22,0.78)] px-3 py-3 backdrop-blur-xl sm:px-5 sm:py-4">
+        <div className="relative shrink-0 border-t border-line-subtle bg-surface-glass px-3 py-3 backdrop-blur-xl sm:px-5 sm:py-4">
           <div
             className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#007AFF]/35 to-transparent"
             aria-hidden
@@ -1845,7 +1845,7 @@ function CopilotInner() {
             />
           </div>
 
-          <p className="mt-2.5 text-center text-[10px] leading-relaxed text-slate-600">
+          <p className="mt-2.5 text-center text-[10px] leading-relaxed text-fg-muted">
             Enter to send · Shift+Enter for new line · Full pipeline: RAG → Quant → LLM · Not
             financial advice
           </p>
@@ -1860,7 +1860,7 @@ function CopilotInner() {
             animate={{ width: '45%', opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="hidden lg:flex flex-col border-l border-slate-700/50 bg-[#0A0E1A] overflow-hidden"
+            className="hidden lg:flex flex-col border-l border-line-subtle bg-[#0A0E1A] overflow-hidden"
           >
             <AnalysisDashboard data={analysisData} onClose={() => setShowDashboard(false)} />
           </motion.div>
@@ -1881,7 +1881,7 @@ export default function CopilotPage() {
         <div className="flex min-h-screen items-center justify-center px-4">
           <div
             className={cn(
-              'w-full max-w-md rounded-2xl border border-white/[0.1] bg-[rgba(8,12,24,0.75)] p-8 text-center shadow-[0_24px_64px_rgba(0,0,0,0.5)] backdrop-blur-xl',
+              'w-full max-w-md rounded-2xl border border-line-subtle bg-surface-overlay p-8 text-center shadow-theme-lg backdrop-blur-xl',
               'relative overflow-hidden'
             )}
           >
@@ -1894,7 +1894,7 @@ export default function CopilotPage() {
                 <Brain className="h-8 w-8 text-white" />
               </div>
               <h2 className="mb-2 font-display text-xl font-bold text-white">Sign in to access AI Copilot</h2>
-              <p className="mb-6 text-sm leading-relaxed text-slate-400">
+              <p className="mb-6 text-sm leading-relaxed text-fg-muted">
                 Institutional-grade analysis with RAG, quant models, and real-time data.
               </p>
               <a

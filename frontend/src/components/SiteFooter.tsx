@@ -43,7 +43,7 @@ export default function SiteFooter() {
   }
 
   return (
-    <footer className="mt-10 mb-4 text-slate-300">
+    <footer className="mt-10 mb-4 text-fg-secondary">
       {/* Outer container */}
       <div className="max-w-6xl mx-auto">
         {/* Top CTA bar — hidden on mobile to reduce footer bulk */}
@@ -57,10 +57,10 @@ export default function SiteFooter() {
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Stay in the order book
               </p>
-              <h3 className="text-lg sm:text-xl font-semibold text-slate-50">
+              <h3 className="text-lg sm:text-xl font-semibold text-fg-primary">
                 Subscribe for macro briefs and product drops.
               </h3>
-              <p className="text-[12px] sm:text-[13px] text-slate-400">
+              <p className="text-[12px] sm:text-[13px] text-fg-muted">
                 Only high-signal updates from QuantTrade AI – no spam, just edge.
               </p>
             </div>
@@ -83,9 +83,9 @@ export default function SiteFooter() {
                           setMessage(null)
                         }
                       }}
-                      className="w-full rounded-2xl bg-slate-900/70 border border-slate-600/70 px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-400/70 focus:border-cyan-400/70 backdrop-blur"
+                      className="w-full rounded-2xl bg-surface-raised border border-line-default px-3.5 py-2.5 text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-cyan-400/70 focus:border-cyan-400/70 backdrop-blur"
                     />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-500">
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-fg-muted">
                       ⏎
                     </span>
                   </div>
@@ -112,13 +112,13 @@ export default function SiteFooter() {
         </div>
 
         {/* Links & meta */}
-        <div className="rounded-3xl bg-slate-950/60 border border-slate-800/70 backdrop-blur-xl px-4 md:px-8 py-4 md:py-5">
+        <div className="rounded-3xl bg-surface-base border border-line-subtle backdrop-blur-xl px-4 md:px-8 py-4 md:py-5">
           <div className="hidden md:flex flex-col md:flex-row md:items-start gap-6 md:gap-8">
             {/* Brand */}
             <div className="md:w-1/3 space-y-2">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-2xl bg-gradient-to-br from-sky-500 via-cyan-400 to-emerald-400 p-[1px]">
-                  <div className="h-full w-full rounded-2xl bg-slate-950 flex items-center justify-center text-xs font-bold text-sky-100">
+                  <div className="h-full w-full rounded-2xl bg-surface-base flex items-center justify-center text-xs font-bold text-sky-100">
                     QT
                   </div>
                 </div>
@@ -126,7 +126,7 @@ export default function SiteFooter() {
                   QuantTrade AI
                 </span>
               </div>
-              <p className="text-[12px] text-slate-500 leading-relaxed">
+              <p className="text-[12px] text-fg-muted leading-relaxed">
                 An AI focused stock radar for discretionary traders and
                 systematic desks. Built for fast reads, not dashboards that fight you.
               </p>
@@ -135,10 +135,10 @@ export default function SiteFooter() {
             {/* Link columns */}
             <div className="flex-1 grid grid-cols-3 gap-4 text-[12px]">
               <div className="space-y-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
                   Product
                 </p>
-                <ul className="space-y-1.5 text-slate-400">
+                <ul className="space-y-1.5 text-fg-muted">
                   <li>Dashboard</li>
                   <li>Markets Monitor</li>
                   <li>Ideas Lab</li>
@@ -146,20 +146,20 @@ export default function SiteFooter() {
                 </ul>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
                   Resources
                 </p>
-                <ul className="space-y-1.5 text-slate-400">
+                <ul className="space-y-1.5 text-fg-muted">
                   <li>Changelog</li>
                   <li>API Docs</li>
                   <li>Security</li>
                 </ul>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
                   Contact
                 </p>
-                <ul className="space-y-1.5 text-slate-400">
+                <ul className="space-y-1.5 text-fg-muted">
                   <li>support@quanttrade.us</li>
                   <li>Feedback & feature requests</li>
                   <li>Partnerships</li>
@@ -170,7 +170,7 @@ export default function SiteFooter() {
 
           {/* Financial disclaimer */}
           <div className="mt-3 md:mt-4 mb-2 md:mb-3 p-2.5 md:p-3 rounded-xl border border-amber-500/15 bg-amber-500/[0.03]">
-            <p className="text-[10px] text-slate-500 leading-relaxed">
+            <p className="text-[10px] text-fg-muted leading-relaxed">
               <span className="text-amber-400/80 font-semibold">Risk Disclosure:</span>{' '}
               QuantTrade AI provides market data, research tools, and AI-generated analysis for informational purposes only.
               Nothing on this platform constitutes personalized investment, tax, or legal advice.
@@ -180,9 +180,9 @@ export default function SiteFooter() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-slate-800/80 pt-3">
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-fg-muted">
               © {new Date().getFullYear()}{' '}
-              <span className="text-slate-300">QuantTrade AI</span>. All rights reserved.
+              <span className="text-fg-secondary">QuantTrade AI</span>. All rights reserved.
               {' '}Crafted by{' '}
               <Link
                 href="https://www.github.com/YashJoshi2109"
@@ -194,10 +194,10 @@ export default function SiteFooter() {
               </Link>
               .
             </p>
-            <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
-              <Link href="/terms" className="hover:text-slate-300 transition-colors">Privacy Policy</Link>
-              <Link href="/terms" className="hover:text-slate-300 transition-colors">Terms of Service</Link>
-              <Link href="/about" className="hover:text-slate-300 transition-colors">Risk Disclosure</Link>
+            <div className="flex flex-wrap gap-3 text-[11px] text-fg-muted">
+              <Link href="/terms" className="hover:text-fg-secondary transition-colors">Privacy Policy</Link>
+              <Link href="/terms" className="hover:text-fg-secondary transition-colors">Terms of Service</Link>
+              <Link href="/about" className="hover:text-fg-secondary transition-colors">Risk Disclosure</Link>
             </div>
           </div>
         </div>

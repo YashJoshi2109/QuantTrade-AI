@@ -42,18 +42,18 @@ function CollapsibleSection({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] overflow-hidden">
+    <div className="rounded-xl bg-white/[0.02] border border-line-subtle overflow-hidden">
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-white/[0.02] transition-colors"
       >
         <Icon className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
-        <span className="text-[11px] font-semibold text-slate-300 flex-1">{title}</span>
+        <span className="text-[11px] font-semibold text-fg-secondary flex-1">{title}</span>
         {badge && (
           <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${badge.color}`}>{badge.text}</span>
         )}
         <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+          <ChevronDown className="w-3.5 h-3.5 text-fg-muted" />
         </motion.div>
       </button>
       <AnimatePresence initial={false}>
@@ -75,7 +75,7 @@ function CollapsibleSection({
 
 function Chip({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <span className={`inline-flex items-center gap-1 text-[9px] font-mono font-semibold px-2 py-0.5 rounded-md bg-white/[0.03] border border-white/[0.04] ${color}`}>
+    <span className={`inline-flex items-center gap-1 text-[9px] font-mono font-semibold px-2 py-0.5 rounded-md bg-white/[0.03] border border-line-subtle ${color}`}>
       {label}: {value}
     </span>
   )
@@ -107,7 +107,7 @@ function TechnicalInsight({ data }: { data: StockAnalysisData }) {
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <TrendBadge trend={trend} />
-        <span className="text-[10px] text-slate-500 font-mono">Confidence: {confidence.toFixed(0)}%</span>
+        <span className="text-[10px] text-fg-muted font-mono">Confidence: {confidence.toFixed(0)}%</span>
       </div>
 
       {ts?.signals && ts.signals.length > 0 && (
@@ -117,7 +117,7 @@ function TechnicalInsight({ data }: { data: StockAnalysisData }) {
               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
                 s.signal === 'bullish' ? 'bg-emerald-400' : s.signal === 'bearish' ? 'bg-red-400' : 'bg-amber-400'
               }`} />
-              <span className="text-slate-400">{s.name}</span>
+              <span className="text-fg-muted">{s.name}</span>
             </div>
           ))}
         </div>
@@ -125,7 +125,7 @@ function TechnicalInsight({ data }: { data: StockAnalysisData }) {
 
       <div className="flex flex-wrap gap-1.5 mt-2">
         {ind?.rsi != null && (
-          <Chip label="RSI" value={ind.rsi.toFixed(1)} color={ind.rsi > 70 ? 'text-red-400' : ind.rsi < 30 ? 'text-emerald-400' : 'text-slate-400'} />
+          <Chip label="RSI" value={ind.rsi.toFixed(1)} color={ind.rsi > 70 ? 'text-red-400' : ind.rsi < 30 ? 'text-emerald-400' : 'text-fg-muted'} />
         )}
         {ind?.macd?.macd != null && (
           <Chip
@@ -135,13 +135,13 @@ function TechnicalInsight({ data }: { data: StockAnalysisData }) {
           />
         )}
         {ind?.sma_50 != null && (
-          <Chip label="SMA50" value={`$${ind.sma_50.toFixed(2)}`} color="text-slate-400" />
+          <Chip label="SMA50" value={`$${ind.sma_50.toFixed(2)}`} color="text-fg-muted" />
         )}
         {ind?.sma_200 != null && (
-          <Chip label="SMA200" value={`$${ind.sma_200.toFixed(2)}`} color="text-slate-400" />
+          <Chip label="SMA200" value={`$${ind.sma_200.toFixed(2)}`} color="text-fg-muted" />
         )}
         {ind?.bollinger_bands?.upper != null && (
-          <Chip label="BB Upper" value={`$${ind.bollinger_bands.upper.toFixed(2)}`} color="text-slate-400" />
+          <Chip label="BB Upper" value={`$${ind.bollinger_bands.upper.toFixed(2)}`} color="text-fg-muted" />
         )}
       </div>
 
@@ -217,7 +217,7 @@ function RegimeDonut({ probs }: { probs: { BULLISH: number; BEARISH: number; NEU
         {segments.map((seg) => (
           <div key={seg.key} className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color, opacity: 0.7 }} />
-            <span className="text-[10px] text-slate-400 flex-1">{seg.label}</span>
+            <span className="text-[10px] text-fg-muted flex-1">{seg.label}</span>
             <span className="text-[11px] font-bold text-white font-mono">{(seg.pct * 100).toFixed(1)}%</span>
           </div>
         ))}
@@ -239,17 +239,17 @@ function RegimePrediction({ data }: { data: StockAnalysisData }) {
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <TrendBadge trend={trend} />
-        <span className="text-[10px] text-slate-500 font-mono">Confidence: {confidence.toFixed(0)}%</span>
+        <span className="text-[10px] text-fg-muted font-mono">Confidence: {confidence.toFixed(0)}%</span>
       </div>
 
       {probs && (
-        <div className="rounded-xl bg-white/[0.015] backdrop-blur-sm border border-white/[0.04] p-3">
+        <div className="rounded-xl bg-white/[0.015] backdrop-blur-sm border border-line-subtle p-3">
           <RegimeDonut probs={probs} />
         </div>
       )}
 
       {pred?.summary && (
-        <p className="text-[10px] text-slate-500 leading-relaxed line-clamp-3">{pred.summary}</p>
+        <p className="text-[10px] text-fg-muted leading-relaxed line-clamp-3">{pred.summary}</p>
       )}
     </div>
   )
@@ -263,7 +263,7 @@ function SentimentMeter({ score, overall }: { score: number; overall: string }) 
   const label = overall === 'positive' ? 'Bullish' : overall === 'negative' ? 'Bearish' : 'Neutral'
 
   return (
-    <div className="rounded-xl bg-white/[0.015] backdrop-blur-sm border border-white/[0.04] p-3 relative overflow-hidden">
+    <div className="rounded-xl bg-white/[0.015] backdrop-blur-sm border border-line-subtle p-3 relative overflow-hidden">
       {/* Glow */}
       <div
         className="absolute top-0 left-0 w-full h-full opacity-[0.06] pointer-events-none"
@@ -321,7 +321,7 @@ function SentimentMeter({ score, overall }: { score: number; overall: string }) 
               transition={{ duration: 0.8, ease: 'easeOut' }}
             />
           </div>
-          <div className="flex justify-between text-[7px] text-slate-600">
+          <div className="flex justify-between text-[7px] text-fg-muted">
             <span>Bearish</span>
             <span>Neutral</span>
             <span>Bullish</span>
@@ -344,14 +344,14 @@ function SentimentPanel({ data }: { data: StockAnalysisData }) {
       {(sent?.analyst_recommendation || sent?.target_price != null) && (
         <div className="grid grid-cols-2 gap-2">
           {sent?.analyst_recommendation && (
-            <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] px-2.5 py-2">
-              <p className="text-[8px] text-slate-500 uppercase tracking-wider mb-0.5">Analyst</p>
+            <div className="rounded-lg bg-white/[0.02] border border-line-subtle px-2.5 py-2">
+              <p className="text-[8px] text-fg-muted uppercase tracking-wider mb-0.5">Analyst</p>
               <p className="text-[11px] font-semibold text-white">{sent.analyst_recommendation}</p>
             </div>
           )}
           {sent?.target_price != null && (
-            <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] px-2.5 py-2">
-              <p className="text-[8px] text-slate-500 uppercase tracking-wider mb-0.5">Target</p>
+            <div className="rounded-lg bg-white/[0.02] border border-line-subtle px-2.5 py-2">
+              <p className="text-[8px] text-fg-muted uppercase tracking-wider mb-0.5">Target</p>
               <div className="flex items-baseline gap-1">
                 <span className="text-[11px] font-semibold text-cyan-400">${sent.target_price.toFixed(2)}</span>
                 {sent?.target_upside != null && (
@@ -444,7 +444,7 @@ function RiskRadar({ data }: { data: StockAnalysisData }) {
 function RiskPanel({ data }: { data: StockAnalysisData }) {
   const risk = data.risk
   if (!risk) {
-    return <p className="text-[10px] text-slate-500">Risk data not available for this symbol</p>
+    return <p className="text-[10px] text-fg-muted">Risk data not available for this symbol</p>
   }
 
   const riskColor = risk.risk_level === 'Low' ? 'text-emerald-400' : risk.risk_level === 'High' ? 'text-red-400' : 'text-amber-400'
@@ -455,7 +455,7 @@ function RiskPanel({ data }: { data: StockAnalysisData }) {
     <div className="space-y-2.5">
       <div className="flex items-center gap-3">
         <span className={`text-[11px] font-bold ${riskColor}`}>Risk: {risk.risk_level}</span>
-        <span className="text-[10px] text-slate-500 font-mono">Score: {risk.risk_score.toFixed(0)}/100</span>
+        <span className="text-[10px] text-fg-muted font-mono">Score: {risk.risk_score.toFixed(0)}/100</span>
       </div>
 
       <div className="w-full h-2 bg-white/[0.04] rounded-full overflow-hidden">
@@ -474,17 +474,17 @@ function RiskPanel({ data }: { data: StockAnalysisData }) {
       <div className="flex flex-wrap gap-1.5">
         {enh ? (
           <>
-            <Chip label="Sharpe" value={enh.sharpe_ratio.toFixed(2)} color={enh.sharpe_ratio > 1 ? 'text-emerald-400' : enh.sharpe_ratio > 0 ? 'text-slate-400' : 'text-red-400'} />
-            <Chip label="Vol" value={`${enh.annualized_volatility.toFixed(1)}%`} color="text-slate-400" />
+            <Chip label="Sharpe" value={enh.sharpe_ratio.toFixed(2)} color={enh.sharpe_ratio > 1 ? 'text-emerald-400' : enh.sharpe_ratio > 0 ? 'text-fg-muted' : 'text-red-400'} />
+            <Chip label="Vol" value={`${enh.annualized_volatility.toFixed(1)}%`} color="text-fg-muted" />
             <Chip label="VaR 95" value={`${enh.var_95.toFixed(1)}%`} color="text-red-400" />
             <Chip label="Max DD" value={`${enh.max_drawdown_pct.toFixed(1)}%`} color="text-red-400" />
-            <Chip label="Beta" value={enh.beta.toFixed(2)} color="text-slate-400" />
+            <Chip label="Beta" value={enh.beta.toFixed(2)} color="text-fg-muted" />
           </>
         ) : (
           <>
-            <Chip label="Volatility" value={`${risk.factors.volatility.toFixed(1)}%`} color="text-slate-400" />
+            <Chip label="Volatility" value={`${risk.factors.volatility.toFixed(1)}%`} color="text-fg-muted" />
             <Chip label="Max DD" value={`${risk.factors.max_drawdown.toFixed(1)}%`} color="text-red-400" />
-            <Chip label="Beta" value={risk.factors.beta.toFixed(2)} color="text-slate-400" />
+            <Chip label="Beta" value={risk.factors.beta.toFixed(2)} color="text-fg-muted" />
           </>
         )}
       </div>
@@ -498,7 +498,7 @@ function RiskPanel({ data }: { data: StockAnalysisData }) {
             { label: 'Momentum', value: risk.breakdown.momentum_contribution, max: 10 },
           ].map((item) => (
             <div key={item.label} className="flex items-center gap-2">
-              <span className="text-[8px] text-slate-500 w-16">{item.label}</span>
+              <span className="text-[8px] text-fg-muted w-16">{item.label}</span>
               <div className="flex-1 h-1 bg-white/[0.04] rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
@@ -507,7 +507,7 @@ function RiskPanel({ data }: { data: StockAnalysisData }) {
                   className="h-full rounded-full bg-cyan-500/50"
                 />
               </div>
-              <span className="text-[8px] text-slate-500 font-mono w-8 text-right">{item.value.toFixed(0)}</span>
+              <span className="text-[8px] text-fg-muted font-mono w-8 text-right">{item.value.toFixed(0)}</span>
             </div>
           ))}
         </div>
@@ -553,7 +553,7 @@ export default function InsightPanel({ data }: Props) {
       {aiSummary && (
         <div className="rounded-xl bg-gradient-to-r from-cyan-500/[0.06] to-blue-500/[0.04] border border-cyan-500/[0.1] px-3 py-2.5">
           <p className="text-[9px] uppercase tracking-wider text-cyan-400/70 font-semibold mb-1">AI Reasoning</p>
-          <p className="text-[10px] text-slate-400 leading-relaxed line-clamp-4">{aiSummary}</p>
+          <p className="text-[10px] text-fg-muted leading-relaxed line-clamp-4">{aiSummary}</p>
         </div>
       )}
 

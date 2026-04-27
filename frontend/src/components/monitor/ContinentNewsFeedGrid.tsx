@@ -16,7 +16,7 @@ function TagBadge({ tag }: { tag: string }) {
     TRADE: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
   }
   return (
-    <span className={`px-1.5 py-0.5 rounded text-[7px] font-bold uppercase tracking-wider border ${colors[tag] || 'bg-slate-500/20 text-slate-400 border-slate-500/30'}`}>
+    <span className={`px-1.5 py-0.5 rounded text-[7px] font-bold uppercase tracking-wider border ${colors[tag] || 'bg-surface-raised text-fg-secondary border-line-default'}`}>
       {tag}
     </span>
   )
@@ -32,10 +32,10 @@ function NewsCard({ article, featured = false }: { article: ContinentNewsArticle
   return (
     <Wrapper
       {...linkProps}
-      className={`group block rounded-xl overflow-hidden border border-slate-800/40 bg-slate-900/50 hover:border-sky-500/30 hover:bg-slate-800/40 transition-all duration-200 h-full`}
+      className={`group block rounded-xl overflow-hidden border border-line-subtle bg-surface-raised/50 hover:border-sky-500/30 hover:bg-surface-hover transition-all duration-200 h-full`}
     >
       {hasImage && (
-        <div className={`relative overflow-hidden bg-slate-800/60 ${featured ? 'h-40' : 'h-28'}`}>
+        <div className={`relative overflow-hidden bg-surface-hover ${featured ? 'h-40' : 'h-28'}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={article.image_url!}
@@ -55,7 +55,7 @@ function NewsCard({ article, featured = false }: { article: ContinentNewsArticle
           <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse mb-1.5" />
         )}
 
-        <h3 className={`font-semibold text-slate-200 leading-snug group-hover:text-sky-300 transition-colors ${featured ? 'text-[13px] line-clamp-3' : 'text-[11px] line-clamp-2'}`}>
+        <h3 className={`font-semibold text-fg-primary leading-snug group-hover:text-sky-300 transition-colors ${featured ? 'text-[13px] line-clamp-3' : 'text-[11px] line-clamp-2'}`}>
           {article.title}
         </h3>
 
@@ -75,11 +75,11 @@ function NewsCard({ article, featured = false }: { article: ContinentNewsArticle
           </div>
         )}
 
-        <div className="mt-auto flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800/30">
-          <span className="text-[9px] text-slate-500 font-mono truncate max-w-[60%]">{article.source}</span>
+        <div className="mt-auto flex items-center justify-between mt-2 pt-1.5 border-t border-line-subtle">
+          <span className="text-[9px] text-fg-muted font-mono truncate max-w-[60%]">{article.source}</span>
           <div className="flex items-center gap-1.5">
-            <span className="text-[9px] text-slate-600">{article.time_ago}</span>
-            {article.url && <ExternalLink className="w-2.5 h-2.5 text-slate-700 group-hover:text-sky-500 transition-colors" />}
+            <span className="text-[9px] text-fg-muted">{article.time_ago}</span>
+            {article.url && <ExternalLink className="w-2.5 h-2.5 text-fg-muted group-hover:text-sky-500 transition-colors" />}
           </div>
         </div>
       </div>
@@ -94,8 +94,8 @@ function GridFeed({ feed }: { feed: FeedType }) {
   if (feed.articles.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-        <Newspaper className="w-10 h-10 text-slate-700" aria-hidden />
-        <p className="text-[11px] text-slate-500 leading-relaxed max-w-xs">
+        <Newspaper className="w-10 h-10 text-fg-muted" aria-hidden />
+        <p className="text-[11px] text-fg-muted leading-relaxed max-w-xs">
           No headlines for {feed.continent} right now. Sources rotate between The Guardian and GDELT — try refresh in a minute.
         </p>
       </div>
@@ -139,12 +139,12 @@ export default function ContinentNewsFeedGrid() {
       <div className="p-3 space-y-3">
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
           {[...Array(7)].map((_, i) => (
-            <div key={i} className="h-7 w-24 bg-slate-800/50 rounded-lg animate-pulse shrink-0" />
+            <div key={i} className="h-7 w-24 bg-surface-hover rounded-lg animate-pulse shrink-0" />
           ))}
         </div>
         <div className="grid grid-cols-4 gap-3">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="bg-slate-800/30 rounded-xl animate-pulse" style={{ height: `${120 + (i % 3) * 40}px` }} />
+            <div key={i} className="bg-surface-hover rounded-xl animate-pulse" style={{ height: `${120 + (i % 3) * 40}px` }} />
           ))}
         </div>
       </div>
@@ -157,7 +157,7 @@ export default function ContinentNewsFeedGrid() {
   return (
     <div className="flex flex-col h-full">
       {/* Continent Tabs */}
-      <div className="px-3 pt-2 pb-0 flex items-center gap-0.5 overflow-x-auto no-scrollbar border-b border-slate-800/40 shrink-0">
+      <div className="px-3 pt-2 pb-0 flex items-center gap-0.5 overflow-x-auto no-scrollbar border-b border-line-subtle shrink-0">
         {feeds.map((feed, i) => (
           <button
             key={feed.continent}
@@ -165,7 +165,7 @@ export default function ContinentNewsFeedGrid() {
             className={`shrink-0 flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-all border-b-2 ${
               activeTab === i
                 ? 'text-sky-400 border-sky-500'
-                : 'text-slate-500 border-transparent hover:text-slate-300 hover:border-slate-700'
+                : 'text-fg-muted border-transparent hover:text-fg-secondary hover:border-line-default'
             }`}
           >
             {feed.continent}
@@ -175,7 +175,7 @@ export default function ContinentNewsFeedGrid() {
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
               </span>
             )}
-            <span className="text-[9px] font-mono text-slate-600 ml-0.5">{feed.count}</span>
+            <span className="text-[9px] font-mono text-fg-muted ml-0.5">{feed.count}</span>
             {activeTab === i && <ChevronRight className="w-2.5 h-2.5 text-sky-500" />}
           </button>
         ))}

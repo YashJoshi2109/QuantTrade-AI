@@ -29,11 +29,11 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-900">
-          <div className="text-center p-8 bg-gray-800 rounded-lg border border-red-500 max-w-md">
+        <div className="flex items-center justify-center min-h-screen bg-surface-base">
+          <div className="text-center p-8 bg-surface-raised rounded-lg border border-red-500 max-w-md">
             <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-white mb-2">Something went wrong</h2>
-            <p className="text-gray-400 mb-4">
+            <h2 className="text-xl font-semibold text-fg-primary mb-2">Something went wrong</h2>
+            <p className="text-fg-secondary mb-4">
               {this.state.error?.message || 'An unexpected error occurred'}
             </p>
             <button

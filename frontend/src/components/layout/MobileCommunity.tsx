@@ -48,9 +48,9 @@ function extractTickers(text: string): string[] {
 function renderMarkdownPreview(text: string): string {
   return text
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-100">$1</strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-fg-primary">$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code class="px-1 py-0.5 bg-slate-800 rounded text-cyan-400 text-xs">$1</code>')
+    .replace(/`(.+?)`/g, '<code class="px-1 py-0.5 bg-surface-raised rounded text-cyan-400 text-xs">$1</code>')
     .replace(/\n/g, '<br/>')
     .replace(/\$([A-Z]{1,5})/g, '<span class="px-1 py-0.5 text-xs font-mono font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 rounded inline-block">$$1</span>')
 }
@@ -226,27 +226,27 @@ export default function MobileCommunity() {
   return (
     <div className="space-y-0 pb-4">
       {/* ── Sticky Header ── */}
-      <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 pt-safe">
+      <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe">
         <div className="flex items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/20 flex items-center justify-center">
               <MessageCircle className="w-4 h-4 text-blue-400" />
             </div>
             <div>
-              <h1 className="text-[16px] font-bold text-white leading-tight">Community</h1>
-              <p className="text-[10px] text-slate-500 leading-none">Financial discussions & ideas</p>
+              <h1 className="text-[16px] font-bold text-fg-primary leading-tight">Community</h1>
+              <p className="text-[10px] text-fg-muted leading-none">Financial discussions & ideas</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Link
               href="/community/search"
-              className="w-8 h-8 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center text-slate-300 active:scale-90"
+              className="w-8 h-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center text-fg-secondary active:scale-90"
             >
               <Search className="w-4 h-4" />
             </Link>
             <Link
               href="/community/messages"
-              className="w-8 h-8 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center text-slate-300 active:scale-90"
+              className="w-8 h-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center text-fg-secondary active:scale-90"
             >
               <MessageCircle className="w-4 h-4" />
             </Link>
@@ -268,7 +268,7 @@ export default function MobileCommunity() {
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium border transition-all active:scale-95 ${
                 sort === key
                   ? 'bg-blue-500 text-white border-blue-500 shadow-sm shadow-blue-500/30'
-                  : 'bg-[#1A2332] text-slate-400 border-white/10'
+                  : 'bg-surface-raised text-fg-secondary border-line-subtle'
               }`}
             >
               {label}
@@ -287,7 +287,7 @@ export default function MobileCommunity() {
                 key={opt.value}
                 onClick={() => setTimeFilter(opt.value)}
                 className={`flex-shrink-0 px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
-                  timeFilter === opt.value ? 'bg-blue-500/15 text-blue-400' : 'text-slate-500'
+                  timeFilter === opt.value ? 'bg-blue-500/15 text-blue-400' : 'text-fg-muted'
                 }`}
               >
                 {opt.label}
@@ -317,7 +317,7 @@ export default function MobileCommunity() {
                     className={`pointer-events-auto flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border backdrop-blur-sm transition-all ${
                       followedUsers.has(post.author.id)
                         ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
-                        : 'bg-[#131820]/90 border-white/10 text-slate-400'
+                        : 'bg-surface-base border-line-subtle text-fg-secondary'
                     }`}
                   >
                     {followingUserId === post.author.id
@@ -333,11 +333,11 @@ export default function MobileCommunity() {
             <div ref={sentinelRef} className="h-px" />
             {loadingMore && (
               <div className="flex justify-center py-4">
-                <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+                <Loader2 className="w-5 h-5 text-fg-muted animate-spin" />
               </div>
             )}
             {!hasMore && posts.length > 0 && (
-              <p className="text-center text-[11px] text-slate-600 py-6">You've reached the end of the feed</p>
+              <p className="text-center text-[11px] text-fg-muted py-6">You've reached the end of the feed</p>
             )}
           </>
         )}
@@ -359,18 +359,18 @@ export default function MobileCommunity() {
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 26, stiffness: 320 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full bg-[#0A0E1A] border-t border-white/10 rounded-t-3xl overflow-hidden"
+              className="w-full bg-surface-base border-t border-line-subtle rounded-t-3xl overflow-hidden"
               style={{ maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
             >
               {/* Handle */}
               <div className="flex justify-center pt-2.5 pb-1 shrink-0">
-                <div className="w-10 h-1 rounded-full bg-slate-700" />
+                <div className="w-10 h-1 rounded-full bg-surface-raised" />
               </div>
 
               {/* Sheet Header */}
-              <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] shrink-0">
-                <h3 className="text-[15px] font-bold text-white">Create Post</h3>
-                <button onClick={() => setShowCreate(false)} className="w-7 h-7 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center text-slate-400 active:scale-90">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-line-subtle shrink-0">
+                <h3 className="text-[15px] font-bold text-fg-primary">Create Post</h3>
+                <button onClick={() => setShowCreate(false)} className="w-7 h-7 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center text-fg-secondary active:scale-90">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -379,11 +379,11 @@ export default function MobileCommunity() {
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {/* Community */}
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1.5 uppercase tracking-wider">Community</label>
+                  <label className="block text-[11px] text-fg-secondary mb-1.5 uppercase tracking-wider">Community</label>
                   <select
                     value={createCommunity}
                     onChange={(e) => setCreateCommunity(e.target.value)}
-                    className="w-full h-10 rounded-xl bg-[#1A2332] border border-white/10 px-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-blue-500/60"
+                    className="w-full h-10 rounded-xl bg-surface-raised border border-line-subtle px-3 text-[13px] text-fg-primary focus:outline-none focus:ring-1 focus:ring-blue-500/60"
                   >
                     <option value="">Select a community...</option>
                     {communities.map((c) => (
@@ -394,29 +394,29 @@ export default function MobileCommunity() {
 
                 {/* Title */}
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1.5 uppercase tracking-wider">Title</label>
+                  <label className="block text-[11px] text-fg-secondary mb-1.5 uppercase tracking-wider">Title</label>
                   <input
                     type="text"
                     value={createTitle}
                     onChange={(e) => setCreateTitle(e.target.value)}
                     placeholder="What's your post about?"
                     maxLength={300}
-                    className="w-full h-10 rounded-xl bg-[#1A2332] border border-white/10 px-3 text-[13px] text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500/60"
+                    className="w-full h-10 rounded-xl bg-surface-raised border border-line-subtle px-3 text-[13px] text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-blue-500/60"
                   />
-                  <span className="text-[10px] text-slate-600 float-right mt-1">{createTitle.length}/300</span>
+                  <span className="text-[10px] text-fg-muted float-right mt-1">{createTitle.length}/300</span>
                 </div>
 
                 {/* Body — Write/Preview tabs */}
                 <div>
                   <div className="flex items-center gap-2 mb-1.5">
-                    <label className="text-[11px] text-slate-400 uppercase tracking-wider">Body</label>
+                    <label className="text-[11px] text-fg-secondary uppercase tracking-wider">Body</label>
                     <div className="ml-auto flex gap-1">
                       {(['write', 'preview'] as const).map((tab) => (
                         <button
                           key={tab}
                           onClick={() => setBodyTab(tab)}
                           className={`flex items-center gap-1 px-2 py-0.5 text-[10px] rounded-md transition-colors ${
-                            bodyTab === tab ? 'bg-white/[0.06] text-slate-200' : 'text-slate-500'
+                            bodyTab === tab ? 'bg-surface-hover text-fg-primary' : 'text-fg-muted'
                           }`}
                         >
                           {tab === 'write' ? <Pencil className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
@@ -431,27 +431,27 @@ export default function MobileCommunity() {
                       onChange={(e) => { if (e.target.value.length <= MAX_BODY) setCreateBody(e.target.value) }}
                       placeholder={"Share analysis, ideas... Use $AAPL to tag tickers.\nSupports **bold**, *italic*, `code`"}
                       rows={5}
-                      className="w-full rounded-xl bg-[#1A2332] border border-white/10 px-3 py-2.5 text-[13px] text-white placeholder-slate-500 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/60 font-mono leading-relaxed"
+                      className="w-full rounded-xl bg-surface-raised border border-line-subtle px-3 py-2.5 text-[13px] text-fg-primary placeholder:text-fg-muted resize-none focus:outline-none focus:ring-1 focus:ring-blue-500/60 font-mono leading-relaxed"
                     />
                   ) : (
                     <div
-                      className="min-h-[120px] rounded-xl bg-[#1A2332] border border-white/10 px-3 py-2.5 text-[13px] text-slate-300 leading-relaxed"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(createBody) || '<span class="text-slate-600 italic">Nothing to preview yet...</span>' }}
+                      className="min-h-[120px] rounded-xl bg-surface-raised border border-line-subtle px-3 py-2.5 text-[13px] text-fg-secondary leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(createBody) || '<span class="text-fg-muted italic">Nothing to preview yet...</span>' }}
                     />
                   )}
-                  <div className="text-[10px] text-slate-600 mt-1">{createBody.length.toLocaleString()}/{MAX_BODY.toLocaleString()}</div>
+                  <div className="text-[10px] text-fg-muted mt-1">{createBody.length.toLocaleString()}/{MAX_BODY.toLocaleString()}</div>
                 </div>
 
                 {/* Image upload */}
                 <div>
                   <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
                   {imagePreview ? (
-                    <div className="relative rounded-xl overflow-hidden border border-white/10">
+                    <div className="relative rounded-xl overflow-hidden border border-line-subtle">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={imagePreview} alt="Preview" className="w-full h-32 object-cover" />
                       <button
                         onClick={() => { setImageFile(null); setImagePreview(null) }}
-                        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center text-white"
+                        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center text-fg-primary"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -459,7 +459,7 @@ export default function MobileCommunity() {
                   ) : (
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full h-10 rounded-xl bg-[#1A2332] border border-dashed border-white/20 flex items-center justify-center gap-2 text-[12px] text-slate-500"
+                      className="w-full h-10 rounded-xl bg-surface-raised border border-dashed border-line-default flex items-center justify-center gap-2 text-[12px] text-fg-muted"
                     >
                       <ImagePlus className="w-4 h-4" />
                       Add image (optional)
@@ -469,7 +469,7 @@ export default function MobileCommunity() {
 
                 {/* Sentiment */}
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1.5 uppercase tracking-wider">Sentiment</label>
+                  <label className="block text-[11px] text-fg-secondary mb-1.5 uppercase tracking-wider">Sentiment</label>
                   <div className="grid grid-cols-4 gap-2">
                     {[
                       { value: '', label: 'None', cls: '' },
@@ -484,9 +484,9 @@ export default function MobileCommunity() {
                           createSentiment === s.value
                             ? s.value === 'Bullish' ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
                               : s.value === 'Bearish' ? 'bg-red-500/15 border-red-500/40 text-red-300'
-                              : s.value === 'Neutral' ? 'bg-slate-600/15 border-slate-500/40 text-slate-300'
-                              : 'bg-[#1A2332] border-blue-500/40 text-blue-300'
-                            : 'bg-[#1A2332] border-white/10 text-slate-500'
+                              : s.value === 'Neutral' ? 'bg-surface-raised/15 border-line-subtle text-fg-secondary'
+                              : 'bg-surface-raised border-blue-500/40 text-blue-300'
+                            : 'bg-surface-raised border-line-subtle text-fg-muted'
                         }`}
                       >
                         {s.label}
@@ -498,7 +498,7 @@ export default function MobileCommunity() {
                 {/* Auto-detected tickers */}
                 {autoTickers.length > 0 && (
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1.5 uppercase tracking-wider">Detected Tickers</label>
+                    <label className="block text-[11px] text-fg-secondary mb-1.5 uppercase tracking-wider">Detected Tickers</label>
                     <div className="flex flex-wrap gap-1.5">
                       {autoTickers.map((t) => (
                         <span key={t} className="px-2 py-0.5 text-[10px] rounded font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">${t}</span>
@@ -509,7 +509,7 @@ export default function MobileCommunity() {
               </div>
 
               {/* Footer CTA */}
-              <div className="p-4 border-t border-white/[0.06] pb-safe shrink-0">
+              <div className="p-4 border-t border-line-subtle pb-safe shrink-0">
                 <button
                   onClick={handleCreate}
                   disabled={creating || !createTitle.trim() || !createCommunity}

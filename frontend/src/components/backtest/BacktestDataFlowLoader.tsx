@@ -120,7 +120,7 @@ export default function BacktestDataFlowLoader({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="relative flex flex-col items-center justify-center h-[600px] bg-[#0a0f1e]/60 backdrop-blur-2xl border border-slate-800/40 rounded-2xl overflow-hidden"
+      className="relative flex flex-col items-center justify-center h-[600px] bg-surface-glass backdrop-blur-2xl border border-line-subtle rounded-2xl overflow-hidden"
     >
       {/* Ambient glow — shifts red on error */}
       <div className="absolute inset-0 pointer-events-none">
@@ -184,7 +184,7 @@ export default function BacktestDataFlowLoader({
               {hasError ? "Failed" : "Simulating"}
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+          <p className="text-[11px] text-fg-muted font-mono mt-0.5">
             {strategyName}
             {monteCarlo ? " · Monte Carlo" : ""}
             {walkForward ? " · Walk-forward" : ""}
@@ -308,7 +308,7 @@ export default function BacktestDataFlowLoader({
                     whileHover={{ scale: 1.04 }}
                     whileTap={{ scale: 0.96 }}
                     onClick={onDismissError}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/60 border border-slate-700/40 text-slate-400 text-xs font-bold hover:text-slate-300 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-raised border border-line-default text-fg-secondary text-xs font-bold hover:text-fg-primary transition-colors"
                   >
                     Dismiss
                   </motion.button>
@@ -340,7 +340,7 @@ export default function BacktestDataFlowLoader({
 
               {/* Progress bar */}
               <div className="mt-2 w-56 mx-auto">
-                <div className="h-[3px] bg-slate-800/80 rounded-full overflow-hidden">
+                <div className="h-[3px] bg-surface-raised rounded-full overflow-hidden">
                   <motion.div
                     className="h-full rounded-full"
                     style={{
@@ -370,7 +370,7 @@ export default function BacktestDataFlowLoader({
                   <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="text-[11px] text-slate-600 font-mono mt-2 tabular-nums"
+                    className="text-[11px] text-fg-muted font-mono mt-2 tabular-nums"
                   >
                     {elapsedSec}s elapsed
                   </motion.p>

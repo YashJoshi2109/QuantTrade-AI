@@ -34,7 +34,7 @@ export default function ChatInput({ value, onChange, onSend, isLoading, isAuthen
           <LogIn className="w-4 h-4" />
           Sign up to start chatting
         </Link>
-        <p className="text-[10px] text-slate-600 mt-1.5 text-center">
+        <p className="text-[10px] text-fg-muted mt-1.5 text-center">
           Free account required for AI analysis
         </p>
       </div>
@@ -44,7 +44,7 @@ export default function ChatInput({ value, onChange, onSend, isLoading, isAuthen
   return (
     <div className="shrink-0 p-3 pb-4">
       {/* Glass input container */}
-      <div className="relative rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] focus-within:border-cyan-500/30 focus-within:bg-white/[0.06] transition-all shadow-lg shadow-black/20">
+      <div className="relative rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-line-subtle focus-within:border-cyan-500/30 focus-within:bg-white/[0.06] transition-all shadow-lg shadow-black/20">
         <div className="absolute -inset-px rounded-2xl bg-gradient-to-r from-cyan-500/0 via-cyan-500/0 to-purple-500/0 opacity-0 focus-within:opacity-100 transition-opacity pointer-events-none" />
 
         <div className="relative flex items-end gap-2 p-2">
@@ -55,7 +55,7 @@ export default function ChatInput({ value, onChange, onSend, isLoading, isAuthen
             placeholder="Type your question..."
             rows={1}
             maxLength={500}
-            className="flex-1 bg-transparent px-3 py-2 text-[13px] text-white placeholder:text-slate-600 focus:outline-none resize-none max-h-24 leading-relaxed"
+            className="flex-1 bg-transparent px-3 py-2 text-[13px] text-white placeholder:text-fg-muted focus:outline-none resize-none max-h-24 leading-relaxed"
           />
           <button
             onClick={handleSend}
@@ -70,7 +70,7 @@ export default function ChatInput({ value, onChange, onSend, isLoading, isAuthen
           </button>
         </div>
       </div>
-      <p className="text-[10px] text-slate-600 mt-1.5 text-center">
+      <p className="text-[10px] text-fg-muted mt-1.5 text-center">
         Enter to send · Shift+Enter for new line
       </p>
     </div>

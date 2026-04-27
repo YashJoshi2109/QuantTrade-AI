@@ -108,7 +108,7 @@ function CircularProgress({ value, size = 36 }: { value: number; size?: number }
           transition={{ duration: 0.8, ease: 'easeOut' }}
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center font-mono text-[10px] text-slate-300 tabular-nums">
+      <span className="absolute inset-0 flex items-center justify-center font-mono text-[10px] text-fg-secondary tabular-nums">
         {value.toFixed(0)}%
       </span>
     </div>
@@ -137,10 +137,10 @@ function FilterSlider({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-400">{label}</span>
+        <span className="text-xs font-medium text-fg-secondary">{label}</span>
         <span className="font-mono text-xs tabular-nums text-white">{format ? format(value) : value}</span>
       </div>
-      <div className="relative h-1.5 w-full rounded-full bg-slate-800/60">
+      <div className="relative h-1.5 w-full rounded-full bg-surface-raised">
         <div
           className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400"
           style={{ width: `${pct}%` }}
@@ -328,7 +328,7 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl border border-slate-800/40 bg-[#0F1629]/80 p-6 backdrop-blur-xl"
+        className="relative overflow-hidden rounded-2xl border border-line-subtle bg-surface-glass p-6 backdrop-blur-xl"
       >
         {/* Subtle gradient border glow */}
         <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/[0.04]" />
@@ -345,7 +345,7 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">Market Scanner</h2>
-              <p className="text-xs text-slate-500">Scan multiple symbols against a strategy</p>
+              <p className="text-xs text-fg-muted">Scan multiple symbols against a strategy</p>
             </div>
           </div>
 
@@ -353,11 +353,11 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
           <div className="grid gap-4 md:grid-cols-2">
             {/* Strategy */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-400">Strategy</label>
+              <label className="text-xs font-medium text-fg-secondary">Strategy</label>
               <select
                 value={strategy}
                 onChange={(e) => setStrategy(e.target.value)}
-                className="w-full appearance-none rounded-lg border border-slate-700/50 bg-[#0A0E1A] px-3 py-2 text-sm text-white outline-none ring-1 ring-transparent transition-all focus:border-cyan-500/50 focus:ring-cyan-500/20"
+                className="w-full appearance-none rounded-lg border border-line-default bg-surface-base px-3 py-2 text-sm text-white outline-none ring-1 ring-transparent transition-all focus:border-cyan-500/50 focus:ring-cyan-500/20"
               >
                 {STRATEGIES.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -369,13 +369,13 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
 
             {/* Presets */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-400">Quick Add</label>
+              <label className="text-xs font-medium text-fg-secondary">Quick Add</label>
               <div className="flex flex-wrap gap-2">
                 {(Object.keys(PRESETS) as (keyof typeof PRESETS)[]).map((key) => (
                   <button
                     key={key}
                     onClick={() => addPreset(key)}
-                    className="group relative rounded-lg border border-slate-700/40 bg-slate-800/40 px-3 py-1.5 text-xs font-medium text-slate-300 transition-all hover:border-cyan-500/30 hover:bg-cyan-500/[0.06] hover:text-cyan-300"
+                    className="group relative rounded-lg border border-line-default bg-surface-raised px-3 py-1.5 text-xs font-medium text-fg-secondary transition-all hover:border-cyan-500/30 hover:bg-cyan-500/[0.06] hover:text-cyan-300"
                   >
                     <span className="relative z-10">{key}</span>
                     <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-cyan-500/0 to-indigo-500/0 opacity-0 transition-opacity group-hover:opacity-100 group-hover:from-cyan-500/[0.04] group-hover:to-indigo-500/[0.04]" />
@@ -388,8 +388,8 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
           {/* Symbol textarea */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-slate-400">Symbols</label>
-              <span className="font-mono text-xs tabular-nums text-slate-500">
+              <label className="text-xs font-medium text-fg-secondary">Symbols</label>
+              <span className="font-mono text-xs tabular-nums text-fg-muted">
                 {parsedSymbols.length} symbol{parsedSymbols.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -398,7 +398,7 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
               onChange={(e) => setSymbolText(e.target.value)}
               placeholder="AAPL, MSFT, GOOGL ..."
               rows={3}
-              className="w-full resize-none rounded-lg border border-slate-700/50 bg-[#0A0E1A] px-3 py-2 font-mono text-sm text-white placeholder-slate-600 outline-none ring-1 ring-transparent transition-all focus:border-cyan-500/50 focus:ring-cyan-500/20"
+              className="w-full resize-none rounded-lg border border-line-default bg-surface-base px-3 py-2 font-mono text-sm text-white placeholder-fg-muted outline-none ring-1 ring-transparent transition-all focus:border-cyan-500/50 focus:ring-cyan-500/20"
             />
           </div>
 
@@ -450,15 +450,15 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">
-                      Scanning <span className="font-mono tabular-nums text-white">{progress.current}</span> of{' '}
-                      <span className="font-mono tabular-nums text-white">{progress.total}</span> ...
+                    <span className="text-fg-muted">
+                      Scanning <span className="font-mono tabular-nums text-fg-primary">{progress.current}</span> of{' '}
+                      <span className="font-mono tabular-nums text-fg-primary">{progress.total}</span> ...
                     </span>
                     <span className="font-mono tabular-nums text-cyan-400">
                       {progress.total > 0 ? ((progress.current / progress.total) * 100).toFixed(0) : 0}%
                     </span>
                   </div>
-                  <div className="h-1 w-full overflow-hidden rounded-full bg-slate-800/60">
+                  <div className="h-1 w-full overflow-hidden rounded-full bg-surface-raised">
                     <motion.div
                       className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400"
                       initial={{ width: '0%' }}
@@ -503,7 +503,7 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
             className="grid grid-cols-2 gap-3 sm:grid-cols-5"
           >
             {[
-              { label: 'Scanned', value: String(summary.total), color: 'text-white' },
+              { label: 'Scanned', value: String(summary.total), color: 'text-fg-primary' },
               { label: 'Passed Filters', value: String(summary.passed), color: 'text-emerald-400' },
               { label: 'Best Performer', value: `${summary.best.symbol} ${fmtPct(summary.best.total_return)}`, color: 'text-emerald-400' },
               { label: 'Worst Performer', value: `${summary.worst.symbol} ${fmtPct(summary.worst.total_return)}`, color: 'text-red-400' },
@@ -514,10 +514,10 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="relative overflow-hidden rounded-xl border border-slate-800/40 bg-[#0F1629]/80 px-4 py-3 backdrop-blur-xl"
+                className="relative overflow-hidden rounded-xl border border-line-subtle bg-surface-raised/80 px-4 py-3 backdrop-blur-xl"
               >
                 <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-white/[0.03]" />
-                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{stat.label}</p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-fg-muted">{stat.label}</p>
                 <p className={`mt-0.5 truncate font-mono text-sm font-semibold tabular-nums ${stat.color}`}>{stat.value}</p>
               </motion.div>
             ))}
@@ -528,16 +528,16 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
       {/* ── View Toggle ────────────────────────────────────────────────── */}
       {results && results.results.length > 0 && (
         <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-500">
-            Showing <span className="font-mono tabular-nums text-slate-300">{sortedResults.length}</span> results
+          <p className="text-xs text-fg-muted">
+            Showing <span className="font-mono tabular-nums text-fg-secondary">{sortedResults.length}</span> results
           </p>
-          <div className="flex overflow-hidden rounded-lg border border-slate-800/40 bg-slate-900/60">
+          <div className="flex overflow-hidden rounded-lg border border-line-subtle bg-surface-raised/60">
             {(['grid', 'table'] as const).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
                 className={`px-3 py-1.5 text-xs font-medium capitalize transition-all ${
-                  viewMode === mode ? 'bg-slate-800/80 text-white' : 'text-slate-500 hover:text-slate-300'
+                  viewMode === mode ? 'bg-surface-hover text-fg-primary' : 'text-fg-muted hover:text-fg-secondary'
                 }`}
               >
                 {mode === 'grid' ? (
@@ -566,16 +566,16 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-20 text-center">
           <div className="relative mb-4">
             <div className="absolute inset-0 animate-ping rounded-full bg-cyan-500/10" />
-            <div className="relative flex h-16 w-16 items-center justify-center rounded-full border border-slate-800/60 bg-slate-900/80">
-              <svg className="h-7 w-7 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-full border border-line-subtle bg-surface-raised/80">
+              <svg className="h-7 w-7 text-fg-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" />
                 <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                 <path d="M2 12h20" />
               </svg>
             </div>
           </div>
-          <h3 className="text-sm font-medium text-slate-400">Configure and scan</h3>
-          <p className="mt-1 max-w-xs text-xs text-slate-600">Select a strategy, add symbols, and run a scan to discover top performers</p>
+          <h3 className="text-sm font-medium text-fg-muted">Configure and scan</h3>
+          <p className="mt-1 max-w-xs text-xs text-fg-muted">Select a strategy, add symbols, and run a scan to discover top performers</p>
         </motion.div>
       )}
 
@@ -601,7 +601,7 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
                     layout
                     layoutId={`card-${item.symbol}`}
                     onClick={() => setExpandedSymbol(isExpanded ? null : item.symbol)}
-                    className="group relative cursor-pointer overflow-hidden rounded-xl border border-slate-800/40 bg-[#0F1629]/80 p-4 backdrop-blur-xl transition-shadow hover:shadow-lg hover:shadow-indigo-500/[0.05]"
+                    className="group relative cursor-pointer overflow-hidden rounded-xl border border-line-subtle bg-surface-raised/80 p-4 backdrop-blur-xl transition-shadow hover:shadow-lg hover:shadow-indigo-500/[0.05]"
                     whileHover={{ y: -2 }}
                   >
                     <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-white/[0.03] transition-all group-hover:ring-white/[0.06]" />
@@ -626,7 +626,7 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
                     {/* Symbol + sparkline row */}
                     <div className="flex items-start gap-3">
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-base font-bold tracking-tight text-white">{item.symbol}</h3>
+                        <h3 className="text-base font-bold tracking-tight text-fg-primary">{item.symbol}</h3>
                         <p className={`mt-0.5 font-mono text-lg font-bold tabular-nums ${positive ? 'text-emerald-400' : 'text-red-400'}`}>
                           {fmtPct(item.total_return)}
                         </p>
@@ -636,15 +636,15 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
 
                     {/* Metrics row */}
                     <div className="mt-3 flex items-center gap-3">
-                      <div className="flex items-center gap-1.5 rounded-md bg-slate-800/50 px-2 py-1">
-                        <span className="text-[10px] text-slate-500">Sharpe</span>
+                      <div className="flex items-center gap-1.5 rounded-md bg-surface-hover px-2 py-1">
+                        <span className="text-[10px] text-fg-muted">Sharpe</span>
                         <span className={`font-mono text-xs font-semibold tabular-nums ${item.sharpe_ratio >= 1 ? 'text-emerald-400' : item.sharpe_ratio >= 0.5 ? 'text-yellow-400' : 'text-red-400'}`}>
                           {fmtNum(item.sharpe_ratio)}
                         </span>
                       </div>
                       <CircularProgress value={item.win_rate} />
                       <div className="ml-auto text-right">
-                        <span className="text-[10px] text-slate-500">Max DD</span>
+                        <span className="text-[10px] text-fg-muted">Max DD</span>
                         <p className="font-mono text-xs font-medium tabular-nums text-red-400">{fmtPct(item.max_drawdown)}</p>
                       </div>
                     </div>
@@ -659,7 +659,7 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
                           transition={{ type: 'spring', stiffness: 300, damping: 28 }}
                           className="overflow-hidden"
                         >
-                          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-slate-800/40 pt-3">
+                          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-line-subtle pt-3">
                             {[
                               { label: 'Sortino', value: fmtNum(item.sortino_ratio) },
                               { label: 'Profit Factor', value: fmtNum(item.profit_factor) },
@@ -667,8 +667,8 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
                               { label: 'Total Trades', value: String(item.total_trades) },
                             ].map((m) => (
                               <div key={m.label}>
-                                <span className="text-[10px] text-slate-500">{m.label}</span>
-                                <p className="font-mono text-xs font-medium tabular-nums text-slate-200">{m.value}</p>
+                                <span className="text-[10px] text-fg-muted">{m.label}</span>
+                                <p className="font-mono text-xs font-medium tabular-nums text-fg-secondary">{m.value}</p>
                               </div>
                             ))}
                           </div>
@@ -689,14 +689,14 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="relative overflow-hidden rounded-xl border border-slate-800/40 bg-[#0F1629]/80 backdrop-blur-xl"
+            className="relative overflow-hidden rounded-xl border border-line-subtle bg-surface-raised/80 backdrop-blur-xl"
           >
             <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-white/[0.03]" />
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-slate-800/40">
-                    <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">#</th>
+                  <tr className="border-b border-line-subtle">
+                    <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">#</th>
                     {(
                       [
                         { key: 'symbol', label: 'Symbol' },
@@ -712,7 +712,7 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
                       <th
                         key={col.key}
                         onClick={() => handleSort(col.key)}
-                        className="cursor-pointer select-none px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500 transition-colors hover:text-slate-300"
+                        className="cursor-pointer select-none px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-fg-muted transition-colors hover:text-fg-secondary"
                       >
                         <span className="inline-flex items-center gap-1">
                           {col.label}
@@ -724,7 +724,7 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
                         </span>
                       </th>
                     ))}
-                    <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Filter</th>
+                    <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">Filter</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -734,11 +734,11 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: idx * 0.02 }}
-                      className="border-b border-slate-800/20 transition-colors hover:bg-slate-800/20"
+                      className="border-b border-line-subtle transition-colors hover:bg-surface-hover"
                     >
-                      <td className="px-4 py-2.5 font-mono text-xs tabular-nums text-slate-600">{idx + 1}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs tabular-nums text-fg-muted">{idx + 1}</td>
                       <td className="px-4 py-2.5">
-                        <span className="font-semibold text-white">{item.symbol}</span>
+                        <span className="font-semibold text-fg-primary">{item.symbol}</span>
                       </td>
                       <td className={`px-4 py-2.5 font-mono text-xs font-semibold tabular-nums ${item.total_return >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                         {fmtPct(item.total_return)}
@@ -748,7 +748,7 @@ export default function MarketScanner({ initialStrategy, startDate, endDate }: M
                       <td className={`px-4 py-2.5 font-mono text-xs tabular-nums ${heatColor(item.win_rate, true, [30, 70])}`}>{fmtNum(item.win_rate, 1)}%</td>
                       <td className={`px-4 py-2.5 font-mono text-xs tabular-nums ${heatColor(Math.abs(item.max_drawdown), false, [0, 50])}`}>{fmtPct(item.max_drawdown)}</td>
                       <td className={`px-4 py-2.5 font-mono text-xs tabular-nums ${heatColor(item.profit_factor, true, [0.5, 2.5])}`}>{fmtNum(item.profit_factor)}</td>
-                      <td className="px-4 py-2.5 font-mono text-xs tabular-nums text-slate-400">{item.total_trades}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs tabular-nums text-fg-muted">{item.total_trades}</td>
                       <td className="px-4 py-2.5">
                         {item.passed_filters ? (
                           <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10">

@@ -65,7 +65,7 @@ export default function DottedFlatMap({ events, onEventClick }: Props) {
       </div>
 
       <div className="absolute top-3 left-3 z-10">
-        <div className="frosted-chip px-2.5 py-1 text-[9px] font-mono text-slate-400 flex items-center gap-1.5">
+        <div className="frosted-chip px-2.5 py-1 text-[9px] font-mono text-fg-secondary flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
           FLAT MAP · {eventMarkers.length} events
         </div>
@@ -81,7 +81,7 @@ export default function DottedFlatMap({ events, onEventClick }: Props) {
           <div key={l.label} className="frosted-chip px-2 py-1 flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full" style={{ background: l.c }} />
             <span className="text-[9px] font-bold font-mono" style={{ color: l.c }}>{l.n}</span>
-            <span className="text-[8px] text-slate-600">{l.label}</span>
+            <span className="text-[8px] text-fg-muted">{l.label}</span>
           </div>
         ))}
       </div>

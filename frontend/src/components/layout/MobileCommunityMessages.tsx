@@ -95,11 +95,11 @@ function ConversationList({
     : conversations
 
   return (
-    <div className="flex flex-col h-full bg-[#0A0E1A]">
+    <div className="flex flex-col h-full bg-surface-base">
       {/* Header */}
-      <div className="px-4 pt-safe pt-4 pb-3 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/[0.06] shrink-0">
+      <div className="px-4 pt-safe pt-4 pb-3 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-bold text-white">Messages</h1>
+          <h1 className="text-xl font-bold text-fg-primary">Messages</h1>
           <Link
             href="/community/messages/new"
             className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 active:scale-90"
@@ -108,13 +108,13 @@ function ConversationList({
           </Link>
         </div>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted pointer-events-none" />
           <input
             type="text"
             placeholder="Search conversations..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2.5 bg-[#1A2332] border border-white/[0.06] rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/40"
+            className="w-full pl-9 pr-3 py-2.5 bg-surface-raised border border-line-subtle rounded-xl text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-blue-500/40"
           />
         </div>
       </div>
@@ -125,10 +125,10 @@ function ConversationList({
           <div className="flex flex-col gap-1 p-4">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="flex items-center gap-3 px-2 py-3">
-                <div className="w-11 h-11 rounded-full bg-slate-800/60 animate-pulse shrink-0" />
+                <div className="w-11 h-11 rounded-full bg-surface-raised/60 animate-pulse shrink-0" />
                 <div className="flex-1 space-y-1.5">
-                  <div className="h-3 w-24 rounded bg-slate-800/60 animate-pulse" />
-                  <div className="h-2.5 w-40 rounded bg-slate-800/40 animate-pulse" />
+                  <div className="h-3 w-24 rounded bg-surface-raised/60 animate-pulse" />
+                  <div className="h-2.5 w-40 rounded bg-surface-raised/40 animate-pulse" />
                 </div>
               </div>
             ))}
@@ -138,8 +138,8 @@ function ConversationList({
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 flex items-center justify-center mb-4">
               <MessageCircle className="w-8 h-8 text-blue-400" />
             </div>
-            <h3 className="text-base font-semibold text-white mb-1">No Messages Yet</h3>
-            <p className="text-sm text-slate-500 mb-4">Start a conversation from a trader's profile</p>
+            <h3 className="text-base font-semibold text-fg-primary mb-1">No Messages Yet</h3>
+            <p className="text-sm text-fg-muted mb-4">Start a conversation from a trader's profile</p>
             <Link
               href="/community"
               className="px-5 py-2.5 rounded-full bg-blue-500 text-white text-sm font-semibold active:scale-95"
@@ -153,19 +153,19 @@ function ConversationList({
               <button
                 key={conv.id}
                 onClick={() => onSelect(conv.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 transition-colors text-left active:bg-white/[0.03] ${
+                className={`w-full flex items-center gap-3 px-4 py-3.5 transition-colors text-left active:bg-surface-active ${
                   selectedId === conv.id ? 'bg-blue-500/8' : ''
                 }`}
               >
                 <Avatar username={conv.other_user.username} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className={`text-sm truncate ${conv.unread ? 'font-semibold text-white' : 'text-slate-300 font-medium'}`}>
+                    <span className={`text-sm truncate ${conv.unread ? 'font-semibold text-fg-primary' : 'text-fg-secondary font-medium'}`}>
                       {conv.other_user.username}
                     </span>
-                    <span className="text-[10px] text-slate-600 shrink-0 ml-2">{relativeTime(conv.last_message_at)}</span>
+                    <span className="text-[10px] text-fg-muted shrink-0 ml-2">{relativeTime(conv.last_message_at)}</span>
                   </div>
-                  <p className={`text-xs truncate ${conv.unread ? 'text-slate-300 font-medium' : 'text-slate-500'}`}>
+                  <p className={`text-xs truncate ${conv.unread ? 'text-fg-secondary font-medium' : 'text-fg-muted'}`}>
                     {conv.last_message_preview || 'No messages yet'}
                   </p>
                 </div>
@@ -275,28 +275,28 @@ function MessageThread({
   const isGroupEnd = (i: number) => i === messages.length - 1 || messages[i + 1]?.sender_id !== messages[i].sender_id
 
   return (
-    <div className="flex flex-col h-full bg-[#0A0E1A] overflow-hidden">
+    <div className="flex flex-col h-full bg-surface-base overflow-hidden">
       {/* Thread Header */}
-      <div className="flex items-center gap-3 px-4 pt-safe py-3 border-b border-white/[0.06] bg-[#0A0E1A]/95 backdrop-blur-xl shrink-0">
+      <div className="flex items-center gap-3 px-4 pt-safe py-3 border-b border-line-subtle bg-surface-base/95 backdrop-blur-xl shrink-0">
         <button
           onClick={onBack}
-          className="w-8 h-8 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center text-slate-300 active:scale-90 shrink-0"
+          className="w-8 h-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center text-fg-secondary active:scale-90 shrink-0"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <Avatar username={otherUser.username} size="sm" showOnline />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white truncate">{otherUser.username}</p>
+          <p className="text-sm font-semibold text-fg-primary truncate">{otherUser.username}</p>
           <p className="text-[10px] text-emerald-400 font-medium">Active now</p>
         </div>
         <div className="flex items-center gap-1.5">
-          <button className="w-8 h-8 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center text-slate-400 active:scale-90">
+          <button className="w-8 h-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center text-fg-secondary active:scale-90">
             <Phone className="w-3.5 h-3.5" />
           </button>
-          <button className="w-8 h-8 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center text-slate-400 active:scale-90">
+          <button className="w-8 h-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center text-fg-secondary active:scale-90">
             <Video className="w-3.5 h-3.5" />
           </button>
-          <button className="w-8 h-8 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center text-slate-400 active:scale-90">
+          <button className="w-8 h-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center text-fg-secondary active:scale-90">
             <MoreHorizontal className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -311,8 +311,8 @@ function MessageThread({
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center pb-8">
             <Avatar username={otherUser.username} size="lg" />
-            <p className="text-base font-semibold text-white mt-4">{otherUser.username}</p>
-            <p className="text-sm text-slate-500 mt-1 max-w-[220px]">Start your conversation — say something!</p>
+            <p className="text-base font-semibold text-fg-primary mt-4">{otherUser.username}</p>
+            <p className="text-sm text-fg-muted mt-1 max-w-[220px]">Start your conversation — say something!</p>
           </div>
         ) : (
           messages.map((msg, i) => {
@@ -329,7 +329,7 @@ function MessageThread({
                 {groupStart && !isMe && (
                   <div className={`flex items-end gap-2 ${groupStart ? 'mt-4' : 'mt-0.5'}`}>
                     <Avatar username={msg.sender_username} size="xs" />
-                    <span className="text-[10px] text-slate-500 mb-1">{msg.sender_username}</span>
+                    <span className="text-[10px] text-fg-muted mb-1">{msg.sender_username}</span>
                   </div>
                 )}
                 <motion.div
@@ -349,7 +349,7 @@ function MessageThread({
                             : groupEnd ? 'rounded-2xl rounded-tr-sm rounded-br-md'
                             : 'rounded-2xl rounded-r-sm'
                           }`
-                        : `bg-[#1A2332] text-slate-200 border border-white/[0.06] ${
+                        : `bg-surface-raised text-fg-primary border border-line-subtle ${
                             groupStart && groupEnd ? 'rounded-2xl rounded-bl-md'
                             : groupStart ? 'rounded-2xl rounded-bl-sm'
                             : groupEnd ? 'rounded-2xl rounded-tl-sm rounded-bl-md'
@@ -367,7 +367,7 @@ function MessageThread({
                 </motion.div>
 
                 {showTime && (
-                  <p className="text-center text-[10px] text-slate-600 my-3">
+                  <p className="text-center text-[10px] text-fg-muted my-3">
                     {formatMessageTime(messages[i + 1]?.created_at || msg.created_at)}
                   </p>
                 )}
@@ -379,9 +379,9 @@ function MessageThread({
       </div>
 
       {/* Input Bar */}
-      <div className="px-3 py-3 border-t border-white/[0.06] bg-[#0A0E1A]/95 backdrop-blur-xl shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+      <div className="px-3 py-3 border-t border-line-subtle bg-surface-base/95 backdrop-blur-xl shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
         <div className="flex items-center gap-2">
-          <div className="flex-1 flex items-center bg-[#1A2332] rounded-full border border-white/[0.08] focus-within:border-blue-500/40 transition-colors">
+          <div className="flex-1 flex items-center bg-surface-raised rounded-full border border-line-subtle focus-within:border-blue-500/40 transition-colors">
             <input
               ref={inputRef}
               type="text"
@@ -389,9 +389,9 @@ function MessageThread({
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
               placeholder="Message..."
-              className="flex-1 px-4 py-3 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
+              className="flex-1 px-4 py-3 bg-transparent text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none"
             />
-            <button className="pr-3 text-slate-500 active:scale-90">
+            <button className="pr-3 text-fg-muted active:scale-90">
               <Smile className="w-5 h-5" />
             </button>
           </div>
@@ -401,7 +401,7 @@ function MessageThread({
             className={`w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-90 shrink-0 ${
               input.trim()
                 ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25'
-                : 'bg-[#1A2332] text-slate-600'
+                : 'bg-surface-raised text-fg-muted'
             }`}
           >
             {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
@@ -436,8 +436,8 @@ export default function MobileCommunityMessages() {
         <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 flex items-center justify-center mb-4">
           <MessageCircle className="w-8 h-8 text-blue-400" />
         </div>
-        <h3 className="text-base font-semibold text-white mb-1">Sign In to Message</h3>
-        <p className="text-sm text-slate-500 mb-4">Connect with traders and share insights</p>
+        <h3 className="text-base font-semibold text-fg-primary mb-1">Sign In to Message</h3>
+        <p className="text-sm text-fg-muted mb-4">Connect with traders and share insights</p>
         <Link
           href="/auth"
           className="px-6 py-2.5 rounded-full bg-blue-500 text-white text-sm font-semibold active:scale-95"
@@ -449,7 +449,7 @@ export default function MobileCommunityMessages() {
   }
 
   return (
-    <div className="relative bg-[#0A0E1A] h-full overflow-hidden">
+    <div className="relative bg-surface-base h-full overflow-hidden">
       {/* Conversation List — slides out when thread selected */}
       <AnimatePresence initial={false}>
         {!selectedConvId && (

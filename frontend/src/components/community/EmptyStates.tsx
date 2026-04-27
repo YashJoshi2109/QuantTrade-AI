@@ -97,7 +97,7 @@ export default function EmptyState({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-      className={`bg-[#0D1117] border border-white/[0.06] rounded-xl p-10 sm:p-12 text-center ${className}`}
+      className={`bg-surface-base border border-line-subtle rounded-xl p-10 sm:p-12 text-center ${className}`}
     >
       {/* Icon with gradient glow */}
       <motion.div
@@ -109,8 +109,8 @@ export default function EmptyState({
         <div
           className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${state.gradient} blur-lg opacity-60`}
         />
-        <div className="relative w-16 h-16 rounded-2xl bg-[#161b22] border border-white/[0.08] flex items-center justify-center">
-          <Icon className="w-7 h-7 text-slate-400" />
+        <div className="relative w-16 h-16 rounded-2xl bg-surface-raised border border-line-subtle flex items-center justify-center">
+          <Icon className="w-7 h-7 text-fg-muted" />
         </div>
       </motion.div>
 
@@ -119,10 +119,10 @@ export default function EmptyState({
         animate={{ opacity: 1 }}
         transition={{ delay: 0.15 }}
       >
-        <h3 className="text-lg font-semibold text-slate-200 mb-1.5">
+        <h3 className="text-lg font-semibold text-fg-primary mb-1.5">
           {state.emoji} {state.title}
         </h3>
-        <p className="text-sm text-slate-500 mb-5 max-w-sm mx-auto leading-relaxed">
+        <p className="text-sm text-fg-muted mb-5 max-w-sm mx-auto leading-relaxed">
           {state.description}
         </p>
       </motion.div>

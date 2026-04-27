@@ -73,18 +73,18 @@ function PostSkeleton() {
     <div className="animate-pulse">
       <div className="flex gap-4">
         <div className="hidden sm:flex flex-col items-center gap-2 w-10">
-          <div className="h-8 w-8 bg-slate-800 rounded-lg" />
-          <div className="h-4 w-6 bg-slate-800 rounded" />
-          <div className="h-8 w-8 bg-slate-800 rounded-lg" />
+          <div className="h-8 w-8 bg-surface-raised rounded-lg" />
+          <div className="h-4 w-6 bg-surface-raised rounded" />
+          <div className="h-8 w-8 bg-surface-raised rounded-lg" />
         </div>
         <div className="flex-1 space-y-3">
-          <div className="h-3 w-32 bg-slate-800 rounded" />
-          <div className="h-7 w-3/4 bg-slate-800 rounded" />
+          <div className="h-3 w-32 bg-surface-raised rounded" />
+          <div className="h-7 w-3/4 bg-surface-raised rounded" />
           <div className="flex gap-2">
-            <div className="h-5 w-20 bg-slate-800 rounded-full" />
-            <div className="h-5 w-16 bg-slate-800 rounded-full" />
+            <div className="h-5 w-20 bg-surface-raised rounded-full" />
+            <div className="h-5 w-16 bg-surface-raised rounded-full" />
           </div>
-          <div className="h-32 w-full bg-slate-800 rounded-xl" />
+          <div className="h-32 w-full bg-surface-raised rounded-xl" />
         </div>
       </div>
     </div>
@@ -97,11 +97,11 @@ function CommentsSkeleton() {
       {[1, 2, 3].map((i) => (
         <div key={i} className="space-y-2">
           <div className="flex items-center gap-2">
-            <div className="h-5 w-5 bg-slate-800 rounded-full" />
-            <div className="h-3 w-24 bg-slate-800 rounded" />
+            <div className="h-5 w-5 bg-surface-raised rounded-full" />
+            <div className="h-3 w-24 bg-surface-raised rounded" />
           </div>
-          <div className="h-3 w-full bg-slate-800 rounded ml-7" />
-          <div className="h-3 w-3/4 bg-slate-800 rounded ml-7" />
+          <div className="h-3 w-full bg-surface-raised rounded ml-7" />
+          <div className="h-3 w-3/4 bg-surface-raised rounded ml-7" />
         </div>
       ))}
     </div>
@@ -148,17 +148,17 @@ function SentimentBadge({ sentiment }: { sentiment: string | null }) {
 
 function Breadcrumb({ post }: { post: CommunityPost | null }) {
   return (
-    <nav className="flex items-center gap-1 text-xs text-slate-500 mb-4 flex-wrap">
-      <Link href="/community" className="flex items-center gap-1 hover:text-slate-300 transition-colors">
+    <nav className="flex items-center gap-1 text-xs text-fg-muted mb-4 flex-wrap">
+      <Link href="/community" className="flex items-center gap-1 hover:text-fg-secondary transition-colors">
         <Home className="w-3 h-3" />
         <span>Community</span>
       </Link>
       {post?.community && (
         <>
-          <ChevronRight className="w-3 h-3 text-slate-700" />
+          <ChevronRight className="w-3 h-3 text-fg-muted" />
           <Link
             href={`/community/${post.community.slug}`}
-            className="hover:text-slate-300 transition-colors font-medium text-slate-400"
+            className="hover:text-fg-secondary transition-colors font-medium text-fg-muted"
           >
             c/{post.community.name}
           </Link>
@@ -166,8 +166,8 @@ function Breadcrumb({ post }: { post: CommunityPost | null }) {
       )}
       {post && (
         <>
-          <ChevronRight className="w-3 h-3 text-slate-700" />
-          <span className="text-slate-600 truncate max-w-[200px]">{post.title}</span>
+          <ChevronRight className="w-3 h-3 text-fg-muted" />
+          <span className="text-fg-muted truncate max-w-[200px]">{post.title}</span>
         </>
       )}
     </nav>
@@ -191,7 +191,7 @@ function MediaGallery({ urls }: { urls: string[] }) {
   return (
     <div className="mb-5">
       {/* Main media */}
-      <div className="relative rounded-xl overflow-hidden bg-[#0d1117] border border-white/[0.06]">
+      <div className="relative rounded-xl overflow-hidden bg-surface-base border border-line-subtle">
         {isVideo ? (
           <video
             src={currentUrl}
@@ -234,12 +234,12 @@ function MediaGallery({ urls }: { urls: string[] }) {
                 key={i}
                 onClick={() => setActive(i)}
                 className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors ${
-                  i === active ? 'border-blue-500' : 'border-transparent hover:border-white/20'
+                  i === active ? 'border-blue-500' : 'border-transparent hover:border-line-default'
                 }`}
               >
                 {url.match(/\.(mp4|webm|ogg)(\?|$)/i) ? (
-                  <div className="w-full h-full bg-slate-800 flex items-center justify-center">
-                    <Play className="w-4 h-4 text-slate-400" />
+                  <div className="w-full h-full bg-surface-raised flex items-center justify-center">
+                    <Play className="w-4 h-4 text-fg-muted" />
                   </div>
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -280,14 +280,14 @@ function VoteColumn({
         className={`p-2 rounded-lg transition-all group ${
           userVote === 1
             ? 'bg-orange-500/15 text-orange-400'
-            : 'text-slate-500 hover:text-orange-400 hover:bg-orange-500/10'
+            : 'text-fg-muted hover:text-orange-400 hover:bg-orange-500/10'
         } disabled:opacity-30 disabled:cursor-not-allowed`}
         title="Upvote"
       >
         <ChevronUp className={`w-5 h-5 transition-transform group-hover:-translate-y-0.5 ${userVote === 1 ? '' : ''}`} />
       </button>
       <span className={`text-sm font-bold font-mono tabular-nums ${
-        voteCount > 0 ? 'text-orange-400' : voteCount < 0 ? 'text-blue-400' : 'text-slate-500'
+        voteCount > 0 ? 'text-orange-400' : voteCount < 0 ? 'text-blue-400' : 'text-fg-muted'
       }`}>
         {voteCount > 999 ? `${(voteCount / 1000).toFixed(1)}k` : voteCount}
       </span>
@@ -297,7 +297,7 @@ function VoteColumn({
         className={`p-2 rounded-lg transition-all group ${
           userVote === -1
             ? 'bg-blue-500/15 text-blue-400'
-            : 'text-slate-500 hover:text-blue-400 hover:bg-blue-500/10'
+            : 'text-fg-muted hover:text-blue-400 hover:bg-blue-500/10'
         } disabled:opacity-30 disabled:cursor-not-allowed`}
         title="Downvote"
       >
@@ -457,10 +457,10 @@ export default function PostThreadPage() {
   const content = (
     <div className="min-h-screen pb-safe">
       {/* Mobile Header */}
-      <header className="md:hidden sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/[0.06] px-3 py-2.5 flex items-center gap-3">
+      <header className="md:hidden sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle px-3 py-2.5 flex items-center gap-3">
         <button
           onClick={() => router.back()}
-          className="p-1.5 -ml-1.5 rounded-full text-slate-400 hover:text-white transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
+          className="p-1.5 -ml-1.5 rounded-full text-fg-muted hover:text-fg-primary transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -469,7 +469,7 @@ export default function PostThreadPage() {
             {postLoading ? 'Loading…' : post?.title || 'Post'}
           </span>
           {post?.community && (
-            <span className="text-[10px] text-slate-500 leading-none">c/{post.community.name}</span>
+            <span className="text-[10px] text-fg-muted leading-none">c/{post.community.name}</span>
           )}
         </div>
       </header>
@@ -480,7 +480,7 @@ export default function PostThreadPage() {
         <div className="hidden md:block mb-4">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 transition-colors mb-3 group"
+            className="flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg-secondary transition-colors mb-3 group"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
             Back
@@ -490,7 +490,7 @@ export default function PostThreadPage() {
 
         {/* Loading */}
         {postLoading && (
-          <div className="bg-[#0D1117] border border-white/[0.06] rounded-2xl p-5">
+          <div className="bg-surface-base border border-line-subtle rounded-2xl p-5">
             <PostSkeleton />
           </div>
         )}
@@ -503,7 +503,7 @@ export default function PostThreadPage() {
             className="flex flex-col items-center justify-center py-16 text-center"
           >
             <AlertTriangle className="w-12 h-12 text-amber-500/60 mb-4" />
-            <p className="text-sm text-slate-400 mb-2">{postError}</p>
+            <p className="text-sm text-fg-muted mb-2">{postError}</p>
             <button
               onClick={() => router.back()}
               className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
@@ -519,7 +519,7 @@ export default function PostThreadPage() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
-            className="bg-[#0D1117] border border-white/[0.06] rounded-2xl overflow-hidden mb-4"
+            className="bg-surface-base border border-line-subtle rounded-2xl overflow-hidden mb-4"
           >
             {/* Hero image for news posts */}
             {post.post_type === 'news' && post.media_urls && post.media_urls.length > 0 && (
@@ -531,7 +531,7 @@ export default function PostThreadPage() {
                   className="w-full max-h-64 sm:max-h-80 object-cover"
                   onError={(e) => { (e.target as HTMLElement).parentElement!.style.display = 'none' }}
                 />
-                <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0D1117] to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-surface-base to-transparent" />
                 <div className="absolute top-3 left-3">
                   <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                     News
@@ -552,27 +552,27 @@ export default function PostThreadPage() {
               {/* Post content */}
               <div className="flex-1 min-w-0">
                 {/* Meta: community + author + time */}
-                <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-2 flex-wrap">
+                <div className="flex items-center gap-1.5 text-xs text-fg-muted mb-2 flex-wrap">
                   {post.community?.slug && (
                     <Link
                       href={`/community/${post.community.slug}`}
-                      className="flex items-center gap-1 font-semibold text-slate-300 hover:text-white transition-colors"
+                      className="flex items-center gap-1 font-semibold text-fg-secondary hover:text-fg-primary transition-colors"
                     >
                       <Users className="w-3 h-3" />
                       c/{post.community.name}
                     </Link>
                   )}
-                  <span className="text-slate-700">·</span>
+                  <span className="text-fg-muted">·</span>
                   <span>Posted by</span>
                   <Link
                     href={post.author?.username ? `/community/user/${post.author.username}` : '#'}
-                    className="text-slate-400 hover:text-blue-400 transition-colors font-medium"
+                    className="text-fg-muted hover:text-blue-400 transition-colors font-medium"
                   >
                     {post.author?.username || 'Anonymous'}
                   </Link>
-                  <span className="text-slate-700">·</span>
+                  <span className="text-fg-muted">·</span>
                   <span
-                    className="flex items-center gap-1 text-slate-500"
+                    className="flex items-center gap-1 text-fg-muted"
                     title={formatFullDate(post.created_at)}
                   >
                     <Clock className="w-3 h-3" />
@@ -611,7 +611,7 @@ export default function PostThreadPage() {
 
                 {/* Post body */}
                 {post.body && (
-                  <div className="text-sm sm:text-[15px] text-slate-300 leading-relaxed whitespace-pre-wrap break-words mb-4 overflow-x-hidden">
+                  <div className="text-sm sm:text-[15px] text-fg-secondary leading-relaxed whitespace-pre-wrap break-words mb-4 overflow-x-hidden">
                     {post.body}
                   </div>
                 )}
@@ -622,7 +622,7 @@ export default function PostThreadPage() {
                     href={post.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-blue-400 transition-colors mb-4 bg-[#131820] border border-white/[0.06] rounded-lg px-3 py-2 hover:border-blue-500/30"
+                    className="inline-flex items-center gap-2 text-xs text-fg-muted hover:text-blue-400 transition-colors mb-4 bg-surface-raised border border-line-subtle rounded-lg px-3 py-2 hover:border-blue-500/30"
                   >
                     <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                     <span className="truncate">
@@ -630,7 +630,7 @@ export default function PostThreadPage() {
                         try { return new URL(post.source_url).hostname.replace('www.', '') } catch { return post.source_url }
                       })()}
                     </span>
-                    <span className="text-slate-600 ml-auto shrink-0">Read article →</span>
+                    <span className="text-fg-muted ml-auto shrink-0">Read article →</span>
                   </a>
                 )}
 
@@ -644,7 +644,7 @@ export default function PostThreadPage() {
                       className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors min-h-[36px] ${
                         userVote === 1
                           ? 'bg-orange-500/15 text-orange-400'
-                          : 'bg-[#131820] text-slate-400 hover:text-orange-400 hover:bg-orange-500/10'
+                          : 'bg-surface-raised text-fg-muted hover:text-orange-400 hover:bg-orange-500/10'
                       } disabled:opacity-40`}
                     >
                       <ChevronUp className="w-4 h-4" />
@@ -656,21 +656,21 @@ export default function PostThreadPage() {
                       className={`p-1.5 rounded-full transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center ${
                         userVote === -1
                           ? 'bg-blue-500/15 text-blue-400'
-                          : 'bg-[#131820] text-slate-400 hover:text-blue-400 hover:bg-blue-500/10'
+                          : 'bg-surface-raised text-fg-muted hover:text-blue-400 hover:bg-blue-500/10'
                       } disabled:opacity-40`}
                     >
                       <ChevronDown className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-[#131820] hover:bg-[#1a2130] rounded-full text-xs text-slate-400 hover:text-white transition-colors min-h-[36px]">
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-raised hover:bg-surface-hover rounded-full text-xs text-fg-muted hover:text-fg-primary transition-colors min-h-[36px]">
                     <MessageSquare className="w-3.5 h-3.5" />
                     <span>{post.comment_count} {post.comment_count === 1 ? 'comment' : 'comments'}</span>
                   </button>
 
                   <button
                     onClick={handleShare}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#131820] hover:bg-[#1a2130] rounded-full text-xs transition-colors min-h-[36px] text-slate-400 hover:text-white"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-raised hover:bg-surface-hover rounded-full text-xs transition-colors min-h-[36px] text-fg-muted hover:text-fg-primary"
                   >
                     <Share2 className="w-3.5 h-3.5" />
                     <span>{shareConfirm ? 'Copied!' : 'Share'}</span>
@@ -690,8 +690,8 @@ export default function PostThreadPage() {
                 onSubmit={handleCommentSubmit}
               />
             ) : (
-              <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4 text-center">
-                <p className="text-sm text-slate-500">
+              <div className="bg-surface-base border border-line-subtle rounded-xl p-4 text-center">
+                <p className="text-sm text-fg-muted">
                   <Link href="/login" className="text-blue-400 hover:text-blue-300 transition-colors font-medium">
                     Sign in
                   </Link>
@@ -707,16 +707,16 @@ export default function PostThreadPage() {
           <section>
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                <h2 className="text-xs font-bold text-fg-muted uppercase tracking-widest">
                   {comments.length > 0 ? `${comments.length} Comment${comments.length !== 1 ? 's' : ''}` : 'Comments'}
                 </h2>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-600 uppercase tracking-wider">Sort</span>
+                <span className="text-[10px] text-fg-muted uppercase tracking-wider">Sort</span>
                 <select
                   value={commentSort}
                   onChange={(e) => setCommentSort(e.target.value)}
-                  className="bg-[#0D1117] border border-white/[0.06] rounded-lg px-2.5 py-1.5 text-xs text-slate-400 focus:outline-none focus:border-blue-500/30 cursor-pointer"
+                  className="bg-surface-base border border-line-subtle rounded-lg px-2.5 py-1.5 text-xs text-fg-muted focus:outline-none focus:border-blue-500/30 cursor-pointer"
                 >
                   <option value="best">Best</option>
                   <option value="top">Top</option>
@@ -730,8 +730,8 @@ export default function PostThreadPage() {
               <CommentsSkeleton />
             ) : comments.length === 0 ? (
               <div className="py-12 text-center">
-                <MessageSquare className="w-8 h-8 text-slate-700 mx-auto mb-3" />
-                <p className="text-sm text-slate-600">No comments yet. Be the first!</p>
+                <MessageSquare className="w-8 h-8 text-fg-muted mx-auto mb-3" />
+                <p className="text-sm text-fg-muted">No comments yet. Be the first!</p>
               </div>
             ) : (
               <CommentTree

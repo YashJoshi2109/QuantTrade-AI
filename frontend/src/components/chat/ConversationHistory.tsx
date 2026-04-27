@@ -43,7 +43,7 @@ export default function ConversationHistory({
         <div className="flex items-center justify-between px-1 mb-1">
           <button
             onClick={onClose}
-            className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-white transition-colors"
+            className="flex items-center gap-1 text-[11px] text-fg-muted hover:text-fg-primary transition-colors"
           >
             <ArrowLeft className="w-3 h-3" />
             Back
@@ -65,9 +65,9 @@ export default function ConversationHistory({
 
         {!loading && conversations.length === 0 && (
           <div className="text-center py-8">
-            <MessageSquare className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-            <p className="text-[12px] text-slate-500">No conversations yet</p>
-            <p className="text-[10px] text-slate-600 mt-1">Start a new chat to begin</p>
+            <MessageSquare className="w-8 h-8 text-fg-muted mx-auto mb-2" />
+            <p className="text-[12px] text-fg-muted">No conversations yet</p>
+            <p className="text-[10px] text-fg-muted mt-1">Start a new chat to begin</p>
           </div>
         )}
 
@@ -80,29 +80,29 @@ export default function ConversationHistory({
               className={`w-full text-left rounded-xl px-3 py-2.5 transition-all group ${
                 isActive
                   ? 'bg-cyan-500/10 border border-cyan-500/20'
-                  : 'bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] hover:border-white/[0.08]'
+                  : 'bg-white/[0.02] border border-line-subtle hover:bg-white/[0.05] hover:border-line-subtle'
               }`}
             >
               <div className="flex items-start gap-2.5">
                 <MessageSquare className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${
-                  isActive ? 'text-cyan-400' : 'text-slate-600'
+                  isActive ? 'text-cyan-400' : 'text-fg-muted'
                 }`} />
                 <div className="flex-1 min-w-0">
                   <p className={`text-[12px] font-medium truncate ${
-                    isActive ? 'text-white' : 'text-slate-300'
+                    isActive ? 'text-white' : 'text-fg-secondary'
                   }`}>
                     {conv.title || 'New conversation'}
                   </p>
                   {conv.last_message && (
-                    <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                    <p className="text-[10px] text-fg-muted truncate mt-0.5">
                       {conv.last_message}
                     </p>
                   )}
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[9px] text-slate-600">
+                    <span className="text-[9px] text-fg-muted">
                       {timeAgo(conv.updated_at)}
                     </span>
-                    <span className="text-[9px] text-slate-600">
+                    <span className="text-[9px] text-fg-muted">
                       {conv.message_count} msg{conv.message_count !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -115,7 +115,7 @@ export default function ConversationHistory({
                   className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-500/10 transition-all"
                   title="Delete conversation"
                 >
-                  <Trash2 className="w-3 h-3 text-slate-600 hover:text-red-400" />
+                  <Trash2 className="w-3 h-3 text-fg-muted hover:text-red-400" />
                 </button>
               </div>
             </button>

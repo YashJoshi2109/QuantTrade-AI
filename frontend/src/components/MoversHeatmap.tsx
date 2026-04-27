@@ -44,9 +44,9 @@ function ChangeScaleLegend() {
   ]
   return (
     <div className="mt-4 pt-3 border-t border-slate-800/50 space-y-1.5">
-      <div className="text-[10px] text-slate-500 text-center">1-day % change (stronger color = larger move)</div>
+      <div className="text-[10px] text-fg-muted text-center">1-day % change (stronger color = larger move)</div>
       <div
-        className="flex h-2 rounded-md overflow-hidden border border-white/10 max-w-md mx-auto"
+        className="flex h-2 rounded-md overflow-hidden border border-line-default max-w-md mx-auto"
         role="img"
         aria-label="Loss to gain color scale"
       >
@@ -54,9 +54,9 @@ function ChangeScaleLegend() {
           <div key={i} className="flex-1 min-w-[3px]" style={{ backgroundColor: c }} />
         ))}
       </div>
-      <div className="flex justify-between text-[9px] text-slate-600 max-w-md mx-auto font-mono px-1">
+      <div className="flex justify-between text-[9px] text-fg-muted max-w-md mx-auto font-mono px-1">
         <span>Losers</span>
-        <span className="text-slate-500">0</span>
+        <span className="text-fg-muted">0</span>
         <span>Gainers</span>
       </div>
     </div>
@@ -77,7 +77,7 @@ export default function MoversHeatmap({
 }) {
   if (!rows.length) {
     return (
-      <div className={`rounded-lg border border-slate-800/60 bg-slate-950/40 py-12 text-center text-xs text-slate-500 ${className}`}>
+      <div className={`rounded-lg border border-line-subtle bg-surface-base/40 py-12 text-center text-xs text-fg-muted ${className}`}>
         {emptyLabel}
       </div>
     )
@@ -98,7 +98,7 @@ export default function MoversHeatmap({
             <Link
               key={r.symbol}
               href={`/research?symbol=${encodeURIComponent(r.symbol)}`}
-              className={`${bg} rounded-md p-2 sm:p-2.5 flex flex-col items-center justify-center min-h-[56px] sm:min-h-[60px] border border-white/5 transition-all hover:brightness-110 hover:scale-[1.02] hover:z-[1] hover:shadow-lg`}
+              className={`${bg} rounded-md p-2 sm:p-2.5 flex flex-col items-center justify-center min-h-[56px] sm:min-h-[60px] border border-line-subtle transition-all hover:brightness-110 hover:scale-[1.02] hover:z-[1] hover:shadow-lg`}
               title={`${r.name ?? r.symbol}\n${pct}${r.change_percent.toFixed(2)}%`}
               role="listitem"
             >

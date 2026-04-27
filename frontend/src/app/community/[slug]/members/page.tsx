@@ -17,9 +17,9 @@ interface Member {
 }
 
 const roleBadge: Record<string, { label: string; color: string; icon: typeof Crown }> = {
-  owner: { label: 'Owner', color: 'text-amber-400 bg-amber-500/10', icon: Crown },
+  owner: { label: 'Owner', color: 'text-qa-accent bg-qa-accent/10', icon: Crown },
   moderator: { label: 'Mod', color: 'text-blue-400 bg-blue-500/10', icon: Shield },
-  member: { label: 'Member', color: 'text-slate-400 bg-slate-500/10', icon: Users },
+  member: { label: 'Member', color: 'text-fg-muted bg-surface-raised', icon: Users },
 }
 
 export default function CommunityMembersPage() {
@@ -55,7 +55,7 @@ export default function CommunityMembersPage() {
       <div className="max-w-2xl mx-auto px-4 py-6">
         <Link
           href={`/community/${slug}`}
-          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 transition-colors mb-6"
+          className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg-secondary transition-colors mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to c/{communityName || slug}
@@ -64,15 +64,15 @@ export default function CommunityMembersPage() {
         <div className="flex items-center gap-3 mb-6">
           <Users className="w-5 h-5 text-blue-400" />
           <h1 className="text-xl font-bold text-white">Members</h1>
-          <span className="text-sm text-slate-500">({members.length})</span>
+          <span className="text-sm text-fg-muted">({members.length})</span>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
+            <Loader2 className="w-6 h-6 text-fg-muted animate-spin" />
           </div>
         ) : sorted.length === 0 ? (
-          <div className="text-center py-16 text-slate-500 text-sm">
+          <div className="text-center py-16 text-fg-muted text-sm">
             No members found
           </div>
         ) : (
@@ -84,16 +84,16 @@ export default function CommunityMembersPage() {
                 <Link
                   key={m.user_id}
                   href={`/community/user/${m.username}`}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#131820] hover:bg-[#161d27] transition-colors group"
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-raised hover:bg-surface-hover transition-colors group"
                 >
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500/30 to-cyan-500/30 flex items-center justify-center text-sm font-bold text-blue-400 shrink-0">
                     {m.username?.charAt(0).toUpperCase() || '?'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-slate-200 group-hover:text-white transition-colors truncate">
+                    <div className="text-sm font-medium text-fg-primary group-hover:text-fg-primary transition-colors truncate">
                       {m.username}
                     </div>
-                    <div className="text-[10px] text-slate-600">
+                    <div className="text-[10px] text-fg-muted">
                       Joined {new Date(m.joined_at).toLocaleDateString()}
                     </div>
                   </div>

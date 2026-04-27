@@ -124,12 +124,12 @@ function BasketLoader({ progress: externalProgress }: { progress?: number }) {
           className="flex items-center gap-2 mb-4"
         >
           <span className="text-lg">{currentStep.icon}</span>
-          <span className="text-sm font-bold text-white">{currentStep.label}</span>
+          <span className="text-sm font-bold text-fg-primary">{currentStep.label}</span>
         </motion.div>
       </AnimatePresence>
 
       {/* Progress bar */}
-      <div className="w-72 h-2 bg-slate-800 rounded-full overflow-hidden mb-3">
+      <div className="w-72 h-2 bg-surface-raised rounded-full overflow-hidden mb-3">
         <motion.div
           className="h-full bg-gradient-to-r from-violet-500 via-cyan-500 to-violet-500 rounded-full"
           style={{ backgroundSize: '200% 100%' }}
@@ -145,14 +145,14 @@ function BasketLoader({ progress: externalProgress }: { progress?: number }) {
       </div>
 
       {/* Progress percentage */}
-      <span className="text-xs text-slate-500 font-mono">{Math.round(progress)}%</span>
+      <span className="text-xs text-fg-muted font-mono">{Math.round(progress)}%</span>
 
       {/* Step indicators */}
       <div className="flex items-center gap-1.5 mt-4">
         {LOADER_STEPS.map((_, i) => (
           <motion.div
             key={i}
-            className={`w-1.5 h-1.5 rounded-full ${i <= step ? 'bg-violet-400' : 'bg-slate-700'}`}
+            className={`w-1.5 h-1.5 rounded-full ${i <= step ? 'bg-violet-400' : 'bg-line-default'}`}
             animate={i === step ? { scale: [1, 1.4, 1] } : {}}
             transition={{ repeat: Infinity, duration: 1 }}
           />
@@ -166,19 +166,19 @@ function BasketLoader({ progress: externalProgress }: { progress?: number }) {
 
 function SkeletonCard() {
   return (
-    <div className="bg-[#0F1629]/80 border border-slate-800/50 rounded-2xl p-5 animate-pulse">
+    <div className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-2xl p-5 animate-pulse">
       <div className="flex items-center gap-3 mb-4">
-        <div className="h-7 w-16 bg-slate-800 rounded-full" />
-        <div className="h-4 w-24 bg-slate-800 rounded" />
-        <div className="ml-auto h-8 w-14 bg-slate-800 rounded-lg" />
+        <div className="h-7 w-16 bg-surface-raised rounded-full" />
+        <div className="h-4 w-24 bg-surface-raised rounded" />
+        <div className="ml-auto h-8 w-14 bg-surface-raised rounded-lg" />
       </div>
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="h-12 bg-slate-800/60 rounded-xl" />
-        <div className="h-12 bg-slate-800/60 rounded-xl" />
-        <div className="h-12 bg-slate-800/60 rounded-xl" />
+        <div className="h-12 bg-surface-hover rounded-xl" />
+        <div className="h-12 bg-surface-hover rounded-xl" />
+        <div className="h-12 bg-surface-hover rounded-xl" />
       </div>
-      <div className="h-3 w-full bg-slate-800 rounded mb-2" />
-      <div className="h-3 w-2/3 bg-slate-800 rounded" />
+      <div className="h-3 w-full bg-surface-raised rounded mb-2" />
+      <div className="h-3 w-2/3 bg-surface-raised rounded" />
     </div>
   )
 }
@@ -187,7 +187,7 @@ function SkeletonPulse() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-pulse">
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="h-14 bg-slate-800/40 rounded-xl" />
+        <div key={i} className="h-14 bg-surface-hover rounded-xl" />
       ))}
     </div>
   )
@@ -281,7 +281,7 @@ function IdeaCard({ idea, index }: { idea: TradeIdea; index: number }) {
                   {TIMEFRAME_MAP[idea.timeframe] || idea.timeframe}
                 </span>
                 {/* Sector */}
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800/80 border border-slate-700/40 text-slate-400">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface-raised/80 border border-line-subtle text-fg-muted">
                   {idea.sector}
                 </span>
                 {/* Data source */}
@@ -298,11 +298,11 @@ function IdeaCard({ idea, index }: { idea: TradeIdea; index: number }) {
                   <Link
                     href={`/research?symbol=${idea.symbol}`}
                     onClick={e => e.stopPropagation()}
-                    className="text-lg font-black text-white hover:text-cyan-300 transition-colors font-mono"
+                    className="text-lg font-black text-fg-primary hover:text-cyan-300 transition-colors font-mono"
                   >
                     {idea.symbol}
                   </Link>
-                  <span className="text-xs text-slate-500 truncate">{idea.company_name}</span>
+                  <span className="text-xs text-fg-muted truncate">{idea.company_name}</span>
                 </div>
               </div>
             </div>
@@ -312,20 +312,20 @@ function IdeaCard({ idea, index }: { idea: TradeIdea; index: number }) {
 
           {/* Price levels */}
           <div className="grid grid-cols-3 gap-2 mb-4">
-            <div className="bg-slate-800/30 rounded-xl px-3 py-2 text-center">
-              <div className="text-[9px] text-slate-600 uppercase tracking-wider mb-0.5">Entry</div>
-              <div className="text-sm font-black text-white font-mono">
+            <div className="bg-surface-raised/30 rounded-xl px-3 py-2 text-center">
+              <div className="text-[9px] text-fg-muted uppercase tracking-wider mb-0.5">Entry</div>
+              <div className="text-sm font-black text-fg-primary font-mono">
                 ${idea.entry_price?.toFixed(2) ?? '--'}
               </div>
             </div>
             <div className={`bg-${dirColor}-500/5 rounded-xl px-3 py-2 text-center border border-${dirColor}-500/10`}>
-              <div className="text-[9px] text-slate-600 uppercase tracking-wider mb-0.5">Target</div>
+              <div className="text-[9px] text-fg-muted uppercase tracking-wider mb-0.5">Target</div>
               <div className={`text-sm font-black font-mono text-${dirColor}-400`}>
                 ${idea.target_price?.toFixed(2) ?? '--'}
               </div>
             </div>
             <div className="bg-orange-500/5 rounded-xl px-3 py-2 text-center border border-orange-500/10">
-              <div className="text-[9px] text-slate-600 uppercase tracking-wider mb-0.5">Stop</div>
+              <div className="text-[9px] text-fg-muted uppercase tracking-wider mb-0.5">Stop</div>
               <div className="text-sm font-black text-orange-400 font-mono">
                 ${idea.stop_loss?.toFixed(2) ?? '--'}
               </div>
@@ -341,7 +341,7 @@ function IdeaCard({ idea, index }: { idea: TradeIdea; index: number }) {
               </span>
             )}
             {idea.rsi != null && (
-              <span className="text-xs text-slate-500 font-mono">
+              <span className="text-xs text-fg-muted font-mono">
                 RSI {idea.rsi.toFixed(0)}
               </span>
             )}
@@ -361,7 +361,7 @@ function IdeaCard({ idea, index }: { idea: TradeIdea; index: number }) {
           </div>
 
           {/* Catalyst */}
-          <p className={`text-xs text-slate-400 leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}>
+          <p className={`text-xs text-fg-muted leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}>
             <Zap className="w-3 h-3 inline text-yellow-500 mr-1 -mt-px" />
             {idea.catalyst}
           </p>
@@ -369,9 +369,9 @@ function IdeaCard({ idea, index }: { idea: TradeIdea; index: number }) {
           {/* Expand indicator */}
           <div className="flex justify-center mt-3">
             {expanded ? (
-              <ChevronUp className="w-4 h-4 text-slate-600" />
+              <ChevronUp className="w-4 h-4 text-fg-muted" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-slate-600 group-hover:text-slate-400 transition-colors" />
+              <ChevronDown className="w-4 h-4 text-fg-muted group-hover:text-fg-muted transition-colors" />
             )}
           </div>
 
@@ -385,33 +385,33 @@ function IdeaCard({ idea, index }: { idea: TradeIdea; index: number }) {
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
-                <div className="mt-4 pt-4 border-t border-slate-800/50">
+                <div className="mt-4 pt-4 border-t border-line-subtle/50">
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div>
-                      <span className="text-slate-600">Risk per share</span>
-                      <div className="text-white font-mono font-bold">
+                      <span className="text-fg-muted">Risk per share</span>
+                      <div className="text-fg-primary font-mono font-bold">
                         ${idea.entry_price && idea.stop_loss
                           ? Math.abs(idea.entry_price - idea.stop_loss).toFixed(2)
                           : '--'}
                       </div>
                     </div>
                     <div>
-                      <span className="text-slate-600">Reward per share</span>
-                      <div className="text-white font-mono font-bold">
+                      <span className="text-fg-muted">Reward per share</span>
+                      <div className="text-fg-primary font-mono font-bold">
                         ${idea.entry_price && idea.target_price
                           ? Math.abs(idea.target_price - idea.entry_price).toFixed(2)
                           : '--'}
                       </div>
                     </div>
                     <div>
-                      <span className="text-slate-600">Direction</span>
+                      <span className="text-fg-muted">Direction</span>
                       <div className={`font-bold ${isLong ? 'text-emerald-400' : 'text-red-400'}`}>
                         {isLong ? 'Bullish Setup' : 'Bearish Setup'}
                       </div>
                     </div>
                     <div>
-                      <span className="text-slate-600">Timeframe</span>
-                      <div className="text-white font-bold">
+                      <span className="text-fg-muted">Timeframe</span>
+                      <div className="text-fg-primary font-bold">
                         {TIMEFRAME_MAP[idea.timeframe] || idea.timeframe}
                       </div>
                     </div>
@@ -458,7 +458,7 @@ function MarketPulse({
               <div key={i} className="flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-3 py-2">
                 <TickerLogo symbol={s.symbol} companyName={s.company_name} size={20} />
                 <span className="text-xs font-black text-emerald-400 font-mono w-12">{s.symbol}</span>
-                <span className="text-[11px] text-slate-400 flex-1 truncate">{s.catalyst}</span>
+                <span className="text-[11px] text-fg-muted flex-1 truncate">{s.catalyst}</span>
                 <span className="text-xs font-bold text-emerald-400 font-mono">{s.confidence}%</span>
               </div>
             ))}
@@ -477,7 +477,7 @@ function MarketPulse({
               <div key={i} className="flex items-center gap-2 bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2">
                 <TickerLogo symbol={s.symbol} companyName={s.company_name} size={20} />
                 <span className="text-xs font-black text-red-400 font-mono w-12">{s.symbol}</span>
-                <span className="text-[11px] text-slate-400 flex-1 truncate">{s.catalyst}</span>
+                <span className="text-[11px] text-fg-muted flex-1 truncate">{s.catalyst}</span>
                 <span className="text-xs font-bold text-red-400 font-mono">{s.confidence}%</span>
               </div>
             ))}
@@ -488,7 +488,7 @@ function MarketPulse({
       {/* Sector rotation */}
       {pulse.sector_rotation && Object.keys(pulse.sector_rotation).length > 0 && (
         <div>
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <h3 className="text-xs font-bold text-fg-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5" /> Sector Rotation
           </h3>
           <div className="grid grid-cols-2 gap-1.5">
@@ -498,9 +498,9 @@ function MarketPulse({
               const total = bullish + bearish
               const bullPct = total > 0 ? (bullish / total) * 100 : 50
               return (
-                <div key={sector} className="bg-slate-800/30 rounded-lg px-3 py-2">
-                  <div className="text-[10px] text-slate-500 mb-1">{sector}</div>
-                  <div className="w-full h-1.5 bg-slate-700/50 rounded-full overflow-hidden flex">
+                <div key={sector} className="bg-surface-raised/30 rounded-lg px-3 py-2">
+                  <div className="text-[10px] text-fg-muted mb-1">{sector}</div>
+                  <div className="w-full h-1.5 bg-line-default/50 rounded-full overflow-hidden flex">
                     <div
                       className="h-full bg-emerald-500/70 rounded-l-full"
                       style={{ width: `${bullPct}%` }}
@@ -530,7 +530,7 @@ function LiveIndicator({ status, sources }: { status: 'connected' | 'connecting'
   const colors = {
     connected: { dot: 'bg-emerald-500', ping: 'bg-emerald-400', text: 'text-emerald-400', label: 'LIVE' },
     connecting: { dot: 'bg-amber-500', ping: 'bg-amber-400', text: 'text-amber-400', label: 'CONNECTING' },
-    disconnected: { dot: 'bg-slate-500', ping: 'bg-slate-400', text: 'text-slate-400', label: 'POLLING' },
+    disconnected: { dot: 'bg-surface-overlay', ping: 'bg-fg-muted', text: 'text-fg-muted', label: 'POLLING' },
   }
   const c = colors[status]
   return (
@@ -543,7 +543,7 @@ function LiveIndicator({ status, sources }: { status: 'connected' | 'connecting'
       </span>
       <span className={`text-[10px] font-mono font-bold ${c.text}`}>{c.label}</span>
       {sources && sources.length > 0 && (
-        <span className="text-[9px] text-slate-600 font-mono">
+        <span className="text-[9px] text-fg-muted font-mono">
           via {sources.join(', ')}
         </span>
       )}
@@ -574,7 +574,7 @@ function RegimeBadge({ regime }: { regime: RegimeData | null }) {
     fed_easing: 'from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400',
     fed_tightening: 'from-orange-500/20 to-red-500/20 border-orange-500/30 text-orange-400',
   }
-  const colorClass = colors[regime.regime] || 'from-slate-500/20 to-slate-600/20 border-slate-500/30 text-slate-400'
+  const colorClass = colors[regime.regime] || 'from-slate-500/20 to-slate-600/20 border-slate-500/30 text-fg-muted'
 
   return (
     <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r ${colorClass} border`}>
@@ -592,10 +592,10 @@ function FactorBar({ label, score, compact }: { label: string; score: number; co
   return (
     <div className={compact ? 'flex items-center gap-2' : ''}>
       <div className="flex items-center justify-between mb-0.5">
-        <span className="text-[10px] text-slate-500">{label}</span>
-        <span className="text-[10px] font-mono font-bold text-slate-300">{score?.toFixed(0)}</span>
+        <span className="text-[10px] text-fg-muted">{label}</span>
+        <span className="text-[10px] font-mono font-bold text-fg-primary">{score?.toFixed(0)}</span>
       </div>
-      <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-surface-raised rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color} transition-all duration-500`} style={{ width: `${Math.min(score, 100)}%` }} />
       </div>
     </div>
@@ -639,7 +639,7 @@ function BasketCard({
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-[#0F1629]/90 to-[#0A0E1A]/90 hover:border-cyan-500/20 transition-all duration-300"
+      className="relative overflow-hidden rounded-2xl border border-line-subtle/50 bg-gradient-to-br from-[#0F1629]/90 to-[#0A0E1A]/90 hover:border-cyan-500/20 transition-all duration-300"
     >
       {/* Top accent */}
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500/60 via-cyan-500/40 to-transparent" />
@@ -649,15 +649,15 @@ function BasketCard({
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${categoryColors[index.category] || 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${categoryColors[index.category] || 'bg-surface-raised border-line-default text-fg-muted'}`}>
                 {index.category}
               </span>
-              <span className={`text-[10px] font-bold ${riskColors[index.risk_profile] || 'text-slate-400'}`}>
+              <span className={`text-[10px] font-bold ${riskColors[index.risk_profile] || 'text-fg-muted'}`}>
                 {index.risk_profile} Risk
               </span>
             </div>
-            <h3 className="text-base font-black text-white">{index.short_name}</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{index.description}</p>
+            <h3 className="text-base font-black text-fg-primary">{index.short_name}</h3>
+            <p className="text-[11px] text-fg-muted mt-0.5 line-clamp-2">{index.description}</p>
           </div>
 
           {hasData && (
@@ -669,13 +669,13 @@ function BasketCard({
         {hasData && (
           <div className="grid grid-cols-4 gap-2 mb-3">
             {[
-              { label: 'Holdings', value: snapshot!.num_holdings, color: 'text-white' },
+              { label: 'Holdings', value: snapshot!.num_holdings, color: 'text-fg-primary' },
               { label: 'Avg Score', value: `${snapshot!.avg_ai_score?.toFixed(0)}`, color: 'text-cyan-400' },
               { label: 'Beta', value: snapshot!.portfolio_beta?.toFixed(2), color: 'text-blue-400' },
-              { label: 'Risk', value: snapshot!.risk_level, color: riskColors[snapshot!.risk_level || ''] || 'text-slate-400' },
+              { label: 'Risk', value: snapshot!.risk_level, color: riskColors[snapshot!.risk_level || ''] || 'text-fg-muted' },
             ].map(s => (
-              <div key={s.label} className="bg-slate-800/30 rounded-lg px-2 py-1.5 text-center">
-                <div className="text-[8px] text-slate-600 uppercase">{s.label}</div>
+              <div key={s.label} className="bg-surface-raised/30 rounded-lg px-2 py-1.5 text-center">
+                <div className="text-[8px] text-fg-muted uppercase">{s.label}</div>
                 <div className={`text-xs font-black font-mono ${s.color}`}>{s.value}</div>
               </div>
             ))}
@@ -685,8 +685,8 @@ function BasketCard({
         {/* Sector allocation bar */}
         {hasData && snapshot!.sector_allocation && (
           <div className="mb-3">
-            <div className="text-[9px] text-slate-600 uppercase mb-1">Sector Allocation</div>
-            <div className="h-2 rounded-full overflow-hidden flex bg-slate-800/50">
+            <div className="text-[9px] text-fg-muted uppercase mb-1">Sector Allocation</div>
+            <div className="h-2 rounded-full overflow-hidden flex bg-surface-raised/50">
               {Object.entries(snapshot!.sector_allocation).map(([sector, pct], i) => {
                 const sectorColors = ['bg-violet-500', 'bg-cyan-500', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-500', 'bg-pink-500', 'bg-orange-500', 'bg-red-500', 'bg-green-500', 'bg-indigo-500']
                 return (
@@ -701,7 +701,7 @@ function BasketCard({
             </div>
             <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
               {Object.entries(snapshot!.sector_allocation).slice(0, 4).map(([sector, pct]) => (
-                <span key={sector} className="text-[9px] text-slate-500">{sector} {pct.toFixed(0)}%</span>
+                <span key={sector} className="text-[9px] text-fg-muted">{sector} {pct.toFixed(0)}%</span>
               ))}
             </div>
           </div>
@@ -712,7 +712,7 @@ function BasketCard({
           {hasData ? (
             <button
               onClick={() => onViewDetails?.(index, snapshot!)}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/30 text-xs font-bold text-slate-300 hover:bg-slate-700/50 hover:border-cyan-500/20 transition-all"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-surface-raised/50 border border-line-default/30 text-xs font-bold text-fg-primary hover:bg-line-default/50 hover:border-cyan-500/20 transition-all"
             >
               <Layers className="w-3.5 h-3.5" />
               View {snapshot!.num_holdings} Holdings
@@ -752,7 +752,7 @@ function BasketCard({
             <button
               onClick={() => onRefresh(index.index_id)}
               disabled={refreshing}
-              className="p-2 rounded-xl bg-slate-800/50 border border-slate-700/30 text-slate-400 hover:text-cyan-400 transition-all disabled:opacity-40"
+              className="p-2 rounded-xl bg-surface-raised/50 border border-line-default/30 text-fg-muted hover:text-cyan-400 transition-all disabled:opacity-40"
               title="Refresh basket"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
@@ -959,23 +959,23 @@ function DesktopIdeasLab() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="text-xl font-black text-white">AI Ideas Lab</h1>
+                    <h1 className="text-xl font-black text-fg-primary">AI Ideas Lab</h1>
                     <LiveIndicator status={connectionStatus} sources={dataSources} />
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="text-[11px] text-fg-muted mt-0.5">
                     Real-time AI stock baskets & trade setups
                   </p>
                 </div>
               </div>
 
               {/* Tab switcher */}
-              <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-slate-800/50 rounded-xl p-1 mr-3">
+              <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1 mr-3">
                 <button
                   onClick={() => setActiveTab('baskets')}
                   className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                     activeTab === 'baskets'
                       ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25'
-                      : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                      : 'text-fg-muted hover:text-fg-primary border border-transparent'
                   }`}
                 >
                   <Layers className="w-3.5 h-3.5" /> AI Baskets
@@ -985,7 +985,7 @@ function DesktopIdeasLab() {
                   className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                     activeTab === 'ideas'
                       ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/25'
-                      : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                      : 'text-fg-muted hover:text-fg-primary border border-transparent'
                   }`}
                 >
                   <Zap className="w-3.5 h-3.5" /> Trade Ideas
@@ -1019,15 +1019,15 @@ function DesktopIdeasLab() {
             {activeTab === 'ideas' && <>
             <div className="grid grid-cols-4 gap-3 mb-6">
               {[
-                { label: 'Total Ideas', value: ideas.length, color: 'text-white', icon: Crosshair },
+                { label: 'Total Ideas', value: ideas.length, color: 'text-fg-primary', icon: Crosshair },
                 { label: 'Bullish', value: bullishCount, color: 'text-emerald-400', icon: TrendingUp },
                 { label: 'Bearish', value: bearishCount, color: 'text-red-400', icon: TrendingDown },
                 { label: 'Avg Confidence', value: `${avgConfidence}%`, color: 'text-cyan-400', icon: Activity },
               ].map(s => (
-                <div key={s.label} className="bg-[#0F1629]/80 border border-slate-800/50 rounded-xl px-4 py-3">
+                <div key={s.label} className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-4 py-3">
                   <div className="flex items-center gap-1.5 mb-1">
-                    <s.icon className="w-3 h-3 text-slate-600" />
-                    <span className="text-[10px] text-slate-600 uppercase tracking-wider">{s.label}</span>
+                    <s.icon className="w-3 h-3 text-fg-muted" />
+                    <span className="text-[10px] text-fg-muted uppercase tracking-wider">{s.label}</span>
                   </div>
                   <div className={`text-xl font-black ${s.color} font-mono`}>{s.value}</div>
                 </div>
@@ -1037,7 +1037,7 @@ function DesktopIdeasLab() {
             {/* Filters Bar */}
             <div className="flex items-center gap-3 flex-wrap">
               {/* Sentiment */}
-              <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-slate-800/50 rounded-xl p-1">
+              <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1">
                 {(['all', 'bullish', 'bearish'] as const).map(s => (
                   <button
                     key={s}
@@ -1046,8 +1046,8 @@ function DesktopIdeasLab() {
                       sentiment === s
                         ? s === 'bullish' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
                           : s === 'bearish' ? 'bg-red-500/15 text-red-400 border border-red-500/25'
-                          : 'bg-slate-700/50 text-white border border-slate-600/30'
-                        : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                          : 'bg-line-default/50 text-fg-primary border border-line-default/30'
+                        : 'text-fg-muted hover:text-fg-primary border border-transparent'
                     }`}
                   >
                     {s}
@@ -1056,7 +1056,7 @@ function DesktopIdeasLab() {
               </div>
 
               {/* Timeframe */}
-              <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-slate-800/50 rounded-xl p-1">
+              <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1">
                 {(['all', 'intraday', 'swing', 'position'] as const).map(t => (
                   <button
                     key={t}
@@ -1064,7 +1064,7 @@ function DesktopIdeasLab() {
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
                       timeframe === t
                         ? 'bg-blue-500/15 text-blue-400 border border-blue-500/25'
-                        : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                        : 'text-fg-muted hover:text-fg-primary border border-transparent'
                     }`}
                   >
                     {t === 'all' ? 'All TF' : t}
@@ -1076,11 +1076,11 @@ function DesktopIdeasLab() {
               <select
                 value={sector}
                 onChange={e => setSector(e.target.value)}
-                className="bg-[#0F1629]/80 border border-slate-800/50 rounded-xl px-3 py-2 text-xs font-bold text-slate-300 outline-none focus:border-cyan-500/30 cursor-pointer appearance-none"
+                className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-xs font-bold text-fg-primary outline-none focus:border-cyan-500/30 cursor-pointer appearance-none"
                 style={{ backgroundImage: 'none' }}
               >
                 {SECTORS.map(s => (
-                  <option key={s} value={s} className="bg-[#0F1629] text-slate-300">{s}</option>
+                  <option key={s} value={s} className="bg-[#0F1629] text-fg-primary">{s}</option>
                 ))}
               </select>
             </div>
@@ -1107,10 +1107,10 @@ function DesktopIdeasLab() {
               <div className="flex items-center gap-3 mb-6">
                 <RegimeBadge regime={regime} />
                 {regime?.signals && (
-                  <div className="flex items-center gap-3 text-[10px] text-slate-600">
-                    {regime.signals.vix != null && <span>VIX: <strong className="text-slate-400">{regime.signals.vix?.toFixed(1)}</strong></span>}
-                    <span>Breadth: <strong className="text-slate-400">{regime.signals.breadth_sma200_pct?.toFixed(0)}%</strong></span>
-                    <span>Momentum: <strong className="text-slate-400">{regime.signals.momentum_breadth_pct?.toFixed(0)}%</strong></span>
+                  <div className="flex items-center gap-3 text-[10px] text-fg-muted">
+                    {regime.signals.vix != null && <span>VIX: <strong className="text-fg-muted">{regime.signals.vix?.toFixed(1)}</strong></span>}
+                    <span>Breadth: <strong className="text-fg-muted">{regime.signals.breadth_sma200_pct?.toFixed(0)}%</strong></span>
+                    <span>Momentum: <strong className="text-fg-muted">{regime.signals.momentum_breadth_pct?.toFixed(0)}%</strong></span>
                   </div>
                 )}
               </div>
@@ -1119,8 +1119,8 @@ function DesktopIdeasLab() {
                 <BasketLoader progress={basketLoadProgress} />
               ) : indices.length === 0 ? (
                 <div className="text-center py-20">
-                  <Layers className="w-10 h-10 text-slate-700 mx-auto mb-3" />
-                  <p className="text-sm text-slate-500">No basket indices configured</p>
+                  <Layers className="w-10 h-10 text-fg-muted mx-auto mb-3" />
+                  <p className="text-sm text-fg-muted">No basket indices configured</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1151,7 +1151,7 @@ function DesktopIdeasLab() {
               {/* Disclaimer */}
               <div className="flex items-start gap-2 px-4 py-3 mt-6 bg-amber-500/5 border border-amber-500/15 rounded-xl">
                 <Shield className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <span className="text-[10px] text-slate-500 leading-relaxed">
+                <span className="text-[10px] text-fg-muted leading-relaxed">
                   AI-generated baskets are for informational purposes only. Not financial advice.
                   Multi-factor scoring uses real market data but past performance does not guarantee future results.
                 </span>
@@ -1168,8 +1168,8 @@ function DesktopIdeasLab() {
                   </div>
                 ) : filtered.length === 0 ? (
                   <div className="text-center py-20">
-                    <Crosshair className="w-10 h-10 text-slate-700 mx-auto mb-3" />
-                    <p className="text-sm text-slate-500">No ideas match current filters</p>
+                    <Crosshair className="w-10 h-10 text-fg-muted mx-auto mb-3" />
+                    <p className="text-sm text-fg-muted">No ideas match current filters</p>
                     <button
                       onClick={() => { setSentiment('all'); setTimeframe('all'); setSector('All Sectors') }}
                       className="mt-3 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
@@ -1190,8 +1190,8 @@ function DesktopIdeasLab() {
 
               {/* Market Pulse sidebar — 1 col */}
               <div className="lg:col-span-1 space-y-4">
-                <div className="bg-[#0F1629]/80 border border-slate-800/50 rounded-2xl p-4">
-                  <h2 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                <div className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-2xl p-4">
+                  <h2 className="text-sm font-bold text-fg-primary mb-4 flex items-center gap-2">
                     <Activity className="w-4 h-4 text-cyan-400" />
                     Market Pulse
                   </h2>
@@ -1201,7 +1201,7 @@ function DesktopIdeasLab() {
                 {/* Disclaimer */}
                 <div className="flex items-start gap-2 px-4 py-3 bg-amber-500/5 border border-amber-500/15 rounded-xl">
                   <Shield className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                  <span className="text-[10px] text-slate-500 leading-relaxed">
+                  <span className="text-[10px] text-fg-muted leading-relaxed">
                     AI-generated ideas are for informational purposes only. Not financial advice.
                     Always do your own due diligence before trading.
                   </span>
@@ -1345,17 +1345,17 @@ function MobileIdeasLab() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Brain className="w-5 h-5 text-violet-400" />
-            <h1 className="text-lg font-black text-white">AI Ideas Lab</h1>
+            <h1 className="text-lg font-black text-fg-primary">AI Ideas Lab</h1>
             <LiveIndicator status={mobileWsStatus} />
           </div>
         </div>
 
         {/* Tab switcher */}
-        <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-slate-800/50 rounded-xl p-1 mb-4">
+        <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1 mb-4">
           <button
             onClick={() => setMobileTab('baskets')}
             className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              mobileTab === 'baskets' ? 'bg-violet-500/15 text-violet-400' : 'text-slate-500'
+              mobileTab === 'baskets' ? 'bg-violet-500/15 text-violet-400' : 'text-fg-muted'
             }`}
           >
             <Layers className="w-3.5 h-3.5" /> AI Baskets
@@ -1363,7 +1363,7 @@ function MobileIdeasLab() {
           <button
             onClick={() => setMobileTab('ideas')}
             className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              mobileTab === 'ideas' ? 'bg-cyan-500/15 text-cyan-400' : 'text-slate-500'
+              mobileTab === 'ideas' ? 'bg-cyan-500/15 text-cyan-400' : 'text-fg-muted'
             }`}
           >
             <Zap className="w-3.5 h-3.5" /> Trade Ideas
@@ -1424,22 +1424,22 @@ function MobileIdeasLab() {
 
             {/* Quick stats */}
             <div className="grid grid-cols-3 gap-2 mb-4">
-              <div className="bg-[#0F1629]/80 border border-slate-800/50 rounded-xl px-3 py-2 text-center">
-                <div className="text-[9px] text-slate-600 uppercase">Ideas</div>
-                <div className="text-base font-black text-white font-mono">{ideas.length}</div>
+              <div className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-center">
+                <div className="text-[9px] text-fg-muted uppercase">Ideas</div>
+                <div className="text-base font-black text-fg-primary font-mono">{ideas.length}</div>
               </div>
-              <div className="bg-[#0F1629]/80 border border-slate-800/50 rounded-xl px-3 py-2 text-center">
+              <div className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-center">
                 <div className="text-[9px] text-emerald-500 uppercase">Bull</div>
                 <div className="text-base font-black text-emerald-400 font-mono">{ideas.filter(i => i.idea_type === 'long').length}</div>
               </div>
-              <div className="bg-[#0F1629]/80 border border-slate-800/50 rounded-xl px-3 py-2 text-center">
+              <div className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-center">
                 <div className="text-[9px] text-red-500 uppercase">Bear</div>
                 <div className="text-base font-black text-red-400 font-mono">{ideas.filter(i => i.idea_type === 'short').length}</div>
               </div>
             </div>
 
             {/* Sentiment filter */}
-            <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-slate-800/50 rounded-xl p-1 mb-4">
+            <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1 mb-4">
           {(['all', 'bullish', 'bearish'] as const).map(s => (
             <button
               key={s}
@@ -1448,8 +1448,8 @@ function MobileIdeasLab() {
                 sentiment === s
                   ? s === 'bullish' ? 'bg-emerald-500/15 text-emerald-400'
                     : s === 'bearish' ? 'bg-red-500/15 text-red-400'
-                    : 'bg-slate-700/50 text-white'
-                  : 'text-slate-500'
+                    : 'bg-line-default/50 text-fg-primary'
+                  : 'text-fg-muted'
               }`}
             >
               {s}
@@ -1474,8 +1474,8 @@ function MobileIdeasLab() {
 
         {/* Market pulse */}
         {!loading && pulse.top_bullish && (
-          <div className="mt-6 bg-[#0F1629]/80 border border-slate-800/50 rounded-2xl p-4">
-            <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+          <div className="mt-6 bg-[#0F1629]/80 border border-line-subtle/50 rounded-2xl p-4">
+            <h2 className="text-sm font-bold text-fg-primary mb-3 flex items-center gap-2">
               <Activity className="w-4 h-4 text-cyan-400" /> Market Pulse
             </h2>
             <MarketPulse pulse={pulse} loading={false} />
@@ -1486,7 +1486,7 @@ function MobileIdeasLab() {
         {/* Disclaimer */}
         <div className="flex items-start gap-2 px-3 py-2.5 mt-4 bg-amber-500/5 border border-amber-500/15 rounded-xl">
           <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-          <span className="text-[10px] text-slate-500 leading-relaxed">
+          <span className="text-[10px] text-fg-muted leading-relaxed">
             AI-generated content for informational purposes only. Not financial advice.
           </span>
         </div>

@@ -40,6 +40,7 @@ import { fetchLiveVisitors } from '@/lib/monitor-extended-api'
 import { useAuth } from '@/contexts/AuthContext'
 import { useQuery } from '@tanstack/react-query'
 import LiveVisitorCounter from '@/components/ui/live-visitor'
+import { BB8ThemeToggle } from '@/components/ui/star-wars-toggle-switch'
 
 interface AppLayoutProps {
   children: ReactNode
@@ -60,9 +61,9 @@ function HeaderTooltip({
   return (
     <div className="relative group">
       {children}
-      <div className="pointer-events-none absolute top-full right-0 mt-2 w-52 rounded-lg border border-slate-700/70 bg-slate-900/95 px-3 py-2 text-[10px] opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all shadow-xl z-50">
+      <div className="pointer-events-none absolute top-full right-0 mt-2 w-52 rounded-lg border border-line-subtle bg-surface-base/95 px-3 py-2 text-[10px] opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all shadow-xl z-50">
         <div className="text-slate-200 font-semibold">{label}</div>
-        <div className="text-slate-400 mt-0.5">{detail}</div>
+        <div className="text-fg-muted mt-0.5">{detail}</div>
       </div>
     </div>
   )
@@ -89,11 +90,11 @@ function MarketStatusIndicator({ compact = false }: { compact?: boolean }) {
           className={`hidden lg:flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-mono ${
             isOpen
               ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-              : 'bg-slate-800/50 border-slate-700/60 text-slate-300'
+              : 'bg-surface-raised/50 border-line-subtle text-fg-secondary'
           }`}
         >
           <span className={`w-2 h-2 rounded-full ${isOpen ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
-          <span className="uppercase tracking-wider text-[10px] text-slate-400">MKT</span>
+          <span className="uppercase tracking-wider text-[10px] text-fg-muted">MKT</span>
           <span className={`font-bold ${isOpen ? 'text-emerald-300' : 'text-red-300'}`}>
             {isLoading ? 'LOAD' : statusText}
           </span>
@@ -103,7 +104,7 @@ function MarketStatusIndicator({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div className="p-4 border-t border-slate-800/50">
+    <div className="p-4 border-t border-line-subtle/50">
       <div className="hud-stat p-3">
         <div className="flex items-center gap-2 mb-2">
           <div className={`w-2 h-2 rounded-full ${isOpen ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
@@ -111,7 +112,7 @@ function MarketStatusIndicator({ compact = false }: { compact?: boolean }) {
             {isLoading ? 'LOADING...' : statusText}
           </span>
         </div>
-        <div className="text-[10px] text-slate-500 font-mono">
+        <div className="text-[10px] text-fg-muted font-mono">
           {isLoading ? 'Checking...' : `Market: ${statusText} · NYSE · NASDAQ`}
         </div>
       </div>
@@ -281,7 +282,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0e1a]">
+    <div className="min-h-screen bg-surface-base">
       {/* Market Ticker Bar */}
       <div className="fixed top-0 left-0 right-0 z-[51] hidden md:block">
         <MarketTicker />
@@ -289,12 +290,12 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
 
       {/* Fixed Header — md:top-11 clears ticker a bit more so the alert bell badge does not crowd API usage chip */}
       <header className="fixed top-0 md:top-11 left-0 right-0 h-14 z-50">
-        <div className="absolute inset-0 bg-[#0d1321]/90 backdrop-blur-xl border-b border-blue-500/10" />
+        <div className="absolute inset-0 bg-surface-raised/90 backdrop-blur-xl border-b border-line-subtle" />
         <div className="relative h-full flex items-center px-4 md:px-6 gap-2 md:gap-4 md:pt-1">
           {/* Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className={`${!hideSidebar ? 'lg:hidden' : ''} p-2 rounded-lg hover:bg-slate-800/50 text-slate-400 hover:text-white transition-colors`}
+            className={`${!hideSidebar ? 'lg:hidden' : ''} p-2 rounded-lg hover:bg-surface-raised/50 text-fg-muted hover:text-fg-primary transition-colors`}
             aria-label="Toggle menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -302,7 +303,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-xl bg-slate-900/60 border border-cyan-500/20 flex items-center justify-center overflow-hidden">
+            <div className="w-8 h-8 rounded-xl bg-surface-base/60 border border-cyan-500/20 flex items-center justify-center overflow-hidden">
               <img src="/logo.png" alt="QuantTrade AI" className="w-7 h-7 object-contain" />
             </div>
             <span className="hidden sm:block text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
@@ -314,7 +315,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
           {!hideSidebar && (
             <button
               onClick={toggleSidebar}
-              className="hidden lg:flex p-2 rounded-lg hover:bg-slate-800/50 text-slate-400 hover:text-white transition-colors"
+              className="hidden lg:flex p-2 rounded-lg hover:bg-surface-raised/50 text-fg-muted hover:text-fg-primary transition-colors"
               title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
@@ -344,18 +345,18 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                   {/* Local DB results */}
                   {searchResults.length > 0 && (
                     <>
-                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-700/40">
+                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-fg-muted border-b border-line-subtle/40">
                         Your Database
                       </div>
                       {searchResults.slice(0, 8).map((sym) => (
                         <button
                           key={sym.symbol}
                           onClick={() => handleSymbolSelect(sym)}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-slate-800/50 transition-colors text-left"
+                          className="w-full flex items-center gap-3 p-3 hover:bg-surface-raised/50 transition-colors text-left"
                         >
                           <div className="flex-1">
                             <div className="font-bold text-white text-sm">{sym.symbol}</div>
-                            <div className="text-xs text-slate-400 truncate">{sym.name}</div>
+                            <div className="text-xs text-fg-muted truncate">{sym.name}</div>
                           </div>
                           {sym.market_cap && (
                             <div className="text-[#007AFF] font-mono text-xs">
@@ -369,7 +370,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                   {/* Global Yahoo Finance results */}
                   {globalResults.length > 0 && (
                     <>
-                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-y border-slate-700/40">
+                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-fg-muted border-y border-line-subtle/40">
                         Global Markets · {globalResults.length} results
                       </div>
                       {globalResults.slice(0, 8).map((g) => (
@@ -381,15 +382,15 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                             syncSymbol(g.symbol).catch(() => {})
                             router.push(`/research?symbol=${g.symbol}`)
                           }}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-slate-800/50 transition-colors text-left"
+                          className="w-full flex items-center gap-3 p-3 hover:bg-surface-raised/50 transition-colors text-left"
                         >
                           <div className="flex-1">
                             <div className="font-bold text-white text-sm">{g.symbol}</div>
-                            <div className="text-xs text-slate-400 truncate">{g.name}</div>
+                            <div className="text-xs text-fg-muted truncate">{g.name}</div>
                           </div>
                           <div className="text-right shrink-0">
-                            <div className="text-[10px] text-slate-500 font-mono">{g.exchange_display}</div>
-                            <div className="text-[9px] text-slate-600">{g.country}</div>
+                            <div className="text-[10px] text-fg-muted font-mono">{g.exchange_display}</div>
+                            <div className="text-[9px] text-fg-muted">{g.country}</div>
                           </div>
                         </button>
                       ))}
@@ -413,13 +414,16 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
             >
               <Link
                 href="/about"
-                className="hud-button p-2 flex items-center justify-center text-slate-400 hover:text-cyan-300 transition-colors rounded-lg hover:bg-slate-800/60 border border-transparent hover:border-slate-700/50 shrink-0"
+                className="hud-button p-2 flex items-center justify-center text-fg-muted hover:text-cyan-300 transition-colors rounded-lg hover:bg-surface-raised/60 border border-transparent hover:border-line-subtle shrink-0"
                 aria-label="About this product"
                 title="About"
               >
                 <Info className="w-5 h-5" aria-hidden />
               </Link>
             </HeaderTooltip>
+            <div className="shrink-0">
+              <BB8ThemeToggle />
+            </div>
             <div className="shrink-0 relative z-[52]">
               <UnifiedNotificationCenter />
             </div>
@@ -430,7 +434,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
               <button
                 type="button"
                 onClick={() => setHelpOpen(true)}
-                className="hud-button p-2 hidden sm:flex items-center justify-center text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 rounded-lg border border-transparent hover:border-slate-700/50 transition-colors"
+                className="hud-button p-2 hidden sm:flex items-center justify-center text-fg-muted hover:text-cyan-300 hover:bg-surface-raised/60 rounded-lg border border-transparent hover:border-line-subtle transition-colors"
                 aria-label="Help"
                 aria-expanded={helpOpen}
                 aria-haspopup="dialog"
@@ -464,7 +468,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
         } ${!hideSidebar ? 'lg:translate-x-0' : ''}`}
           style={{ width: sidebarWidth }}
         >
-          <div className="absolute inset-0 bg-[#0d1321]/90 backdrop-blur-xl border-r border-blue-500/10" />
+          <div className="absolute inset-0 bg-surface-raised/90 backdrop-blur-xl border-r border-line-subtle" />
           <div className="relative h-full flex flex-col overflow-hidden">
             {/* Navigation */}
             <nav className="flex-1 p-4 overflow-y-auto">
@@ -485,7 +489,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                               : 'text-amber-500/70 hover:text-amber-400 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20'
                             : isActive
                             ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/10 text-white'
-                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                            : 'text-fg-muted hover:text-fg-primary hover:bg-surface-raised/50'
                         }`}
                         title={sidebarCollapsed ? item.label : undefined}
                       >
@@ -524,7 +528,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
                                   pathname === sub.href
                                     ? 'text-cyan-400 bg-cyan-500/10'
-                                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]'
+                                    : 'text-fg-muted hover:text-fg-secondary hover:bg-white/[0.03]'
                                 }`}
                               >
                                 <SubIcon className="w-3.5 h-3.5" />
@@ -541,7 +545,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
             </nav>
 
             {/* User Profile */}
-            <div className={`p-4 border-t border-slate-800/50 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
+            <div className={`p-4 border-t border-line-subtle/50 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
               {isAuthenticated && user ? (
                 <div className={`hud-card p-3 flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
                   <div className="relative" title={sidebarCollapsed ? (user.username || user.full_name || undefined) : undefined}>
@@ -561,7 +565,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                       <div className="text-sm font-bold text-white truncate">{user.username || user.full_name}</div>
                       <button 
                         onClick={logout}
-                        className="text-xs text-slate-400 hover:text-red-400 flex items-center gap-1 transition-colors"
+                        className="text-xs text-fg-muted hover:text-red-400 flex items-center gap-1 transition-colors"
                       >
                         <LogOut className="w-3 h-3" />
                         Sign Out
@@ -571,13 +575,13 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                 </div>
               ) : (
                 <Link href="/auth" className={`hud-card p-3 flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} hover:border-blue-500/30 transition-all`} title={sidebarCollapsed ? 'Sign In' : undefined}>
-                  <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-surface-raised flex items-center justify-center">
                     <LogIn className="w-5 h-5 text-blue-400" />
                   </div>
                   {!sidebarCollapsed && (
                     <div className="flex-1">
                       <div className="text-sm font-bold text-white">Sign In</div>
-                      <div className="text-xs text-slate-400">Access all features</div>
+                      <div className="text-xs text-fg-muted">Access all features</div>
                     </div>
                   )}
                 </Link>

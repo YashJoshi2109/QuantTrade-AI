@@ -105,7 +105,7 @@ export default function TickerLogo({
   if (!urls.length || index >= urls.length) {
     return (
       <div
-        className={`flex items-center justify-center rounded-lg bg-slate-800/80 border border-slate-700/50 text-slate-400 font-bold shrink-0 ${className}`}
+        className={`flex items-center justify-center rounded-lg bg-surface-raised/80 border border-line-subtle text-fg-muted font-bold shrink-0 ${className}`}
         style={{ width: size, height: size, fontSize: size * 0.38 }}
       >
         {ticker.slice(0, 2)}
@@ -150,7 +150,7 @@ export function TickerBadge({
       <div className="flex flex-col min-w-0">
         <span className="text-xs font-bold text-white truncate">{symbol?.toUpperCase()}</span>
         {showName && name && (
-          <span className="text-[10px] text-slate-500 truncate leading-tight">{name}</span>
+          <span className="text-[10px] text-fg-muted truncate leading-tight">{name}</span>
         )}
       </div>
     </div>

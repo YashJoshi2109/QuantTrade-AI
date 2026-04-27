@@ -37,7 +37,7 @@ export default function BrandedNewsLoading({ rows = 12 }: { rows?: number }) {
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-400/90">
             Hydrating feed
           </p>
-          <p className="text-[10px] text-slate-500 mt-0.5">
+          <p className="text-[10px] text-fg-muted mt-0.5">
             Pulling headlines from the wire — cached results appear first when available
           </p>
         </div>
@@ -51,13 +51,13 @@ export default function BrandedNewsLoading({ rows = 12 }: { rows?: number }) {
             variants={rowVariants}
             initial="hidden"
             animate="show"
-            className="flex gap-3 rounded-lg border border-slate-800/50 bg-slate-950/40 p-3 overflow-hidden"
+            className="flex gap-3 rounded-lg border border-line-subtle bg-surface-base/40 p-3 overflow-hidden"
           >
-            <div className="mt-0.5 h-9 w-9 shrink-0 rounded-lg bg-slate-800/80 skeleton-shimmer" />
+            <div className="mt-0.5 h-9 w-9 shrink-0 rounded-lg bg-surface-raised/80 skeleton-shimmer" />
             <div className="flex-1 space-y-2 min-w-0">
-              <div className="h-3.5 rounded-md bg-slate-800/90 skeleton-shimmer w-[92%]" />
-              <div className="h-3 rounded-md bg-slate-800/70 skeleton-shimmer w-[70%]" />
-              <div className="h-2.5 rounded-md bg-slate-800/50 w-[40%]" />
+              <div className="h-3.5 rounded-md bg-surface-raised/90 skeleton-shimmer w-[92%]" />
+              <div className="h-3 rounded-md bg-surface-raised/70 skeleton-shimmer w-[70%]" />
+              <div className="h-2.5 rounded-md bg-surface-raised/50 w-[40%]" />
             </div>
           </motion.div>
         ))}

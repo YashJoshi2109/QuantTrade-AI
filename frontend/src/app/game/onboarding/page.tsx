@@ -91,10 +91,10 @@ export default function OnboardingPage() {
             <h1 className="text-4xl font-bold text-white mb-3">
               Welcome to <span style={{ color: meta.color }}>CoinRealm</span>
             </h1>
-            <p className="text-gray-400 text-lg mb-3">
+            <p className="text-fg-muted text-lg mb-3">
               "The Sims + Duolingo + AI Hedge Fund Mentor" for Finance
             </p>
-            <p className="text-gray-500 text-sm mb-10">
+            <p className="text-fg-muted text-sm mb-10">
               Build wealth, survive market storms, and master your financial destiny — one quest at a time.
             </p>
             <button
@@ -131,15 +131,15 @@ export default function OnboardingPage() {
               </span>
             </div>
             <h2 className="text-3xl font-bold text-white mb-3">{realm || meta.realm}</h2>
-            <p className="text-gray-400 text-lg mb-4 italic">"{meta.tagline}"</p>
-            <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-10 text-left">
-              <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">Your Opening Scroll</div>
-              <p className="text-gray-300 text-sm leading-relaxed">
+            <p className="text-fg-muted text-lg mb-4 italic">"{meta.tagline}"</p>
+            <div className="bg-white/5 border border-line-default rounded-xl p-5 mb-10 text-left">
+              <div className="text-xs text-fg-muted uppercase tracking-widest mb-2">Your Opening Scroll</div>
+              <p className="text-fg-secondary text-sm leading-relaxed">
                 {storyArc?.narrative || 'Your financial adventure begins. Every great fortune starts with a single wise decision.'}
               </p>
             </div>
             <div className="flex gap-3 justify-center">
-              <button onClick={() => setStep(0)} className="px-6 py-3 rounded-xl border border-white/10 text-gray-400 hover:text-white transition">
+              <button onClick={() => setStep(0)} className="px-6 py-3 rounded-xl border border-line-default text-fg-muted hover:text-fg-primary transition">
                 ← Back
               </button>
               <button
@@ -152,7 +152,7 @@ export default function OnboardingPage() {
               >
                 Choose Your Avatar →
               </button>
-              <button onClick={() => playNarration(storyArc?.narrative || meta.tagline)} className="px-6 py-3 rounded-xl border border-white/10 text-gray-300 hover:text-white transition">
+              <button onClick={() => playNarration(storyArc?.narrative || meta.tagline)} className="px-6 py-3 rounded-xl border border-line-default text-fg-secondary hover:text-fg-primary transition">
                 🔊 Hear Story
               </button>
             </div>
@@ -169,7 +169,7 @@ export default function OnboardingPage() {
             className="text-center max-w-2xl w-full"
           >
             <h2 className="text-3xl font-bold text-white mb-2">Choose Your Avatar</h2>
-            <p className="text-gray-500 mb-8">Who will walk the halls of wealth on your behalf?</p>
+            <p className="text-fg-muted mb-8">Who will walk the halls of wealth on your behalf?</p>
             <div className="grid grid-cols-5 gap-4 mb-10">
               {AVATARS.map((av) => (
                 <button
@@ -191,12 +191,12 @@ export default function OnboardingPage() {
                 >
                   <div className="text-4xl mb-2">{av.emoji}</div>
                   <div className="text-xs font-bold text-white mb-1">{av.label}</div>
-                  <div className="text-xs text-gray-500 leading-tight">{av.desc}</div>
+                  <div className="text-xs text-fg-muted leading-tight">{av.desc}</div>
                 </button>
               ))}
             </div>
             <div className="flex gap-3 justify-center">
-              <button onClick={() => setStep(1)} className="px-6 py-3 rounded-xl border border-white/10 text-gray-400 hover:text-white transition">
+              <button onClick={() => setStep(1)} className="px-6 py-3 rounded-xl border border-line-default text-fg-muted hover:text-fg-primary transition">
                 ← Back
               </button>
               <button
@@ -223,17 +223,17 @@ export default function OnboardingPage() {
               {AVATARS.find((a) => a.id === selectedAvatar)?.emoji || '⚔️'}
             </div>
             <h2 className="text-3xl font-bold text-white mb-2">Name Your Legend</h2>
-            <p className="text-gray-500 mb-8">This name will be inscribed in the Hall of Wealth.</p>
+            <p className="text-fg-muted mb-8">This name will be inscribed in the Hall of Wealth.</p>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your hero's name..."
               maxLength={50}
-              className="w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white text-lg text-center placeholder-gray-600 focus:outline-none focus:border-amber-500/50 mb-10"
+              className="w-full px-5 py-4 rounded-xl bg-white/5 border border-line-default text-white text-lg text-center placeholder-fg-muted focus:outline-none focus:border-amber-500/50 mb-10"
             />
             <div className="flex gap-3 justify-center">
-              <button onClick={() => setStep(2)} className="px-6 py-3 rounded-xl border border-white/10 text-gray-400 hover:text-white transition">
+              <button onClick={() => setStep(2)} className="px-6 py-3 rounded-xl border border-line-default text-fg-muted hover:text-fg-primary transition">
                 ← Back
               </button>
               <button
@@ -268,10 +268,10 @@ export default function OnboardingPage() {
             <h2 className="text-3xl font-bold text-white mb-2">
               Arise, <span style={{ color: meta.color }}>{name || 'Adventurer'}</span>!
             </h2>
-            <p className="text-gray-400 mb-3">
+            <p className="text-fg-muted mb-3">
               The realm of <strong style={{ color: meta.color }}>{realm || meta.realm}</strong> awaits.
             </p>
-            <p className="text-gray-500 text-sm mb-10">
+            <p className="text-fg-muted text-sm mb-10">
               Your treasury is stocked. Your first quests are assigned. The markets shall test your mettle.
             </p>
             <button

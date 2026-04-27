@@ -87,22 +87,22 @@ export default function IpoRadarWidget({
   )
 
   const inlineSummary = !isLoading && allScoped.length > 0 && (
-    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-slate-800/70 py-2 text-[10px] text-slate-500">
+    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-line-subtle py-2 text-[10px] text-fg-muted">
       <span>
         <span className="font-mono text-lg font-bold tabular-nums text-fuchsia-300">{allScoped.length}</span>{' '}
-        <span className="text-slate-500">in pipeline</span>
+        <span className="text-fg-muted">in pipeline</span>
       </span>
       {allScoped[0]?.date && (
         <span>
           Next:{' '}
-          <span className="font-mono text-slate-200">{allScoped[0].date}</span>
+          <span className="font-mono text-fg-primary">{allScoped[0].date}</span>
           {allScoped[0].symbol?.trim() && (
             <span className="ml-1.5 font-mono text-fuchsia-200/90">{allScoped[0].symbol.trim()}</span>
           )}
         </span>
       )}
       {exchangeId && (
-        <span className="rounded border border-slate-700/60 bg-slate-900/50 px-1.5 py-0.5 text-[9px] text-slate-400">
+        <span className="rounded border border-line-default bg-surface-raised/50 px-1.5 py-0.5 text-[9px] text-fg-secondary">
           Venue filter
         </span>
       )}
@@ -120,14 +120,14 @@ export default function IpoRadarWidget({
         <div
           key={i}
           className={cn(
-            'animate-pulse rounded-lg bg-slate-800/50',
+            'animate-pulse rounded-lg bg-surface-raised/50',
             variant === 'inline' ? 'h-14 w-full' : 'min-w-[140px] shrink-0 h-16'
           )}
         />
       ))}
     </div>
   ) : rows.length === 0 ? (
-    <p className="text-[11px] leading-relaxed text-slate-500">
+    <p className="text-[11px] leading-relaxed text-fg-muted">
       {variant === 'inline'
         ? 'No IPO rows in scope. Calendar fills when the data feed returns listings.'
         : 'No upcoming IPO rows returned. When the backend has a Finnhub API key, the next listings appear here automatically.'}
@@ -140,14 +140,14 @@ export default function IpoRadarWidget({
           const sym = ipo.symbol?.trim()
           const href = sym ? `/research?symbol=${encodeURIComponent(sym)}` : undefined
           const Inner = (
-            <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-slate-700/55 bg-slate-900/55 px-2.5 py-2 transition-colors hover:border-fuchsia-500/35 sm:grid-cols-[5rem_minmax(0,1fr)_minmax(0,7rem)]">
-              <span className="font-mono text-[9px] tabular-nums text-slate-500">{ipo.date || '—'}</span>
+            <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-line-default bg-surface-raised/55 px-2.5 py-2 transition-colors hover:border-fuchsia-500/35 sm:grid-cols-[5rem_minmax(0,1fr)_minmax(0,7rem)]">
+              <span className="font-mono text-[9px] tabular-nums text-fg-muted">{ipo.date || '—'}</span>
               <div className="min-w-0">
-                <div className="font-mono text-xs font-bold text-white">{sym || '—'}</div>
-                <div className="line-clamp-1 text-[10px] text-slate-500">{ipo.name || '—'}</div>
+                <div className="font-mono text-xs font-bold text-fg-primary">{sym || '—'}</div>
+                <div className="line-clamp-1 text-[10px] text-fg-muted">{ipo.name || '—'}</div>
               </div>
               <div className="min-w-0 text-right">
-                <div className="line-clamp-1 text-[9px] text-slate-500">{ipo.exchange || '—'}</div>
+                <div className="line-clamp-1 text-[9px] text-fg-muted">{ipo.exchange || '—'}</div>
                 <div className="line-clamp-1 text-[9px] font-medium text-fuchsia-400/90">
                   {ipo.status || ipo.price || 'IPO'}
                 </div>
@@ -170,12 +170,12 @@ export default function IpoRadarWidget({
         const sym = ipo.symbol?.trim()
         const href = sym ? `/research?symbol=${encodeURIComponent(sym)}` : undefined
         const Inner = (
-          <div className="min-w-[155px] rounded-lg border border-slate-700/60 bg-slate-900/70 px-3 py-2.5 hover:border-fuchsia-500/40 transition-colors">
-            <div className="text-[10px] text-slate-500 font-mono">{ipo.date || '—'}</div>
-            <div className="text-xs font-bold text-white mt-0.5 line-clamp-2 leading-snug">
+          <div className="min-w-[155px] rounded-lg border border-line-default bg-surface-raised/70 px-3 py-2.5 hover:border-fuchsia-500/40 transition-colors">
+            <div className="text-[10px] text-fg-muted font-mono">{ipo.date || '—'}</div>
+            <div className="text-xs font-bold text-fg-primary mt-0.5 line-clamp-2 leading-snug">
               {sym || ipo.name}
             </div>
-            <div className="text-[10px] text-slate-400 mt-1 line-clamp-1">
+            <div className="text-[10px] text-fg-secondary mt-1 line-clamp-1">
               {sym ? ipo.name : ipo.exchange || ipo.status || 'IPO'}
             </div>
           </div>
@@ -196,7 +196,7 @@ export default function IpoRadarWidget({
   if (variant === 'inline') {
     return (
       <div className={cn('flex min-h-0 min-w-0 flex-col', className)}>
-        <div className="flex h-12 shrink-0 items-center border-b border-slate-700/30">{header}</div>
+        <div className="flex h-12 shrink-0 items-center border-b border-line-subtle">{header}</div>
         <div className="flex min-h-0 flex-1 flex-col">{body}</div>
       </div>
     )

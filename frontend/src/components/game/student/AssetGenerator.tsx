@@ -124,7 +124,7 @@ export function AssetGenerator({ defaultType = 'character', compact = false }: A
                 key={preset.label}
                 onClick={() => generate(preset.name)}
                 disabled={generating}
-                className="text-[11px] px-2.5 py-1 rounded-lg border border-white/10 bg-white/3 text-white/60 hover:border-amber-500/30 hover:text-amber-300 hover:bg-amber-500/8 transition-all disabled:opacity-40"
+                className="text-[11px] px-2.5 py-1 rounded-lg border border-line-default bg-white/3 text-white/60 hover:border-amber-500/30 hover:text-amber-300 hover:bg-amber-500/8 transition-all disabled:opacity-40"
               >
                 {preset.label}
               </button>
@@ -140,7 +140,7 @@ export function AssetGenerator({ defaultType = 'character', compact = false }: A
             onChange={(e) => setCustomName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && generate(customName)}
             placeholder={`Custom ${assetType} description…`}
-            className="flex-1 px-3 py-2 bg-white/3 border border-white/8 rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:border-amber-500/30 transition-all"
+            className="flex-1 px-3 py-2 bg-white/3 border border-line-subtle rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:border-amber-500/30 transition-all"
           />
           <button
             onClick={() => generate(customName)}

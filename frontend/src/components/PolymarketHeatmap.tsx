@@ -30,7 +30,7 @@ async function fetchPolymarketForHeatmap(): Promise<PolymarketTile[]> {
 }
 
 function getTileColor(yesPercent: number | null): string {
-  if (yesPercent === null) return 'bg-slate-700/80 border-slate-600/60'
+  if (yesPercent === null) return 'bg-surface-overlay/80 border-line-default'
   if (yesPercent >= 70) return 'bg-emerald-600/90 border-emerald-500/50'
   if (yesPercent >= 50) return 'bg-emerald-500/70 border-emerald-400/40'
   if (yesPercent >= 30) return 'bg-amber-500/70 border-amber-400/40'
@@ -48,7 +48,7 @@ export default function PolymarketHeatmap() {
 
   return (
     <div className="hud-panel flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between border-b border-slate-800/70 bg-gradient-to-r from-[#050814] via-[#07101f] to-[#050814] px-4 py-3">
+      <div className="flex items-center justify-between border-b border-line-subtle/70 bg-gradient-to-r from-[#050814] via-[#07101f] to-[#050814] px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15 border border-violet-400/40">
             <BarChart3 className="h-4 w-4 text-violet-300" />
@@ -57,12 +57,12 @@ export default function PolymarketHeatmap() {
             <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-100">
               Polymarket Heatmap
             </span>
-            <span className="text-[10px] text-slate-500">
+            <span className="text-[10px] text-fg-muted">
               Yes % by contract · volume order · via QuantTrade API
             </span>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 border border-slate-700/60 px-2 py-0.5 text-[10px] text-slate-400">
+        <span className="inline-flex items-center gap-1 rounded-full bg-surface-base/80 border border-line-subtle px-2 py-0.5 text-[10px] text-fg-muted">
           <Activity className="w-3 h-3 text-emerald-400" />
           Live
         </span>
@@ -70,7 +70,7 @@ export default function PolymarketHeatmap() {
 
       <div className="flex-1 min-h-0 overflow-y-auto p-3">
         {isLoading && !tiles.length && (
-          <div className="flex items-center justify-center py-8 text-xs text-slate-500">
+          <div className="flex items-center justify-center py-8 text-xs text-fg-muted">
             Loading Polymarket heatmap…
           </div>
         )}
@@ -83,7 +83,7 @@ export default function PolymarketHeatmap() {
 
         {tiles.length > 0 && (
           <>
-            <div className="flex items-center justify-center gap-2 mb-2 text-[10px] text-slate-500">
+            <div className="flex items-center justify-center gap-2 mb-2 text-[10px] text-fg-muted">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500/70" /> Low Yes</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-500/70" /> ~50%</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-500/70" /> High Yes</span>
@@ -118,7 +118,7 @@ export default function PolymarketHeatmap() {
         )}
 
         {!isLoading && !tiles.length && !isError && (
-          <div className="flex items-center justify-center py-6 text-[11px] text-slate-500">
+          <div className="flex items-center justify-center py-6 text-[11px] text-fg-muted">
             No active markets for heatmap.
           </div>
         )}

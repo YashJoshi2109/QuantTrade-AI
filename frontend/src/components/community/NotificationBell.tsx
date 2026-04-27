@@ -38,13 +38,13 @@ export default function NotificationBell() {
   return (
     <Link
       href="/notifications"
-      className="relative p-2 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 border border-transparent hover:border-slate-700/50 transition-colors"
+      className="relative p-2 rounded-lg text-fg-muted hover:text-cyan-300 hover:bg-surface-raised border border-transparent hover:border-line-subtle transition-colors"
       aria-label={count > 0 ? `${count} unread notifications` : 'Notifications'}
       title="Notifications"
     >
       <Bell className="w-5 h-5" aria-hidden />
       {count > 0 && (
-        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full text-[10px] font-bold bg-red-500 text-white border-2 border-[#0d1321] leading-none">
+        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full text-[10px] font-bold bg-red-500 text-white border-2 border-surface-base leading-none">
           {count > 99 ? '99+' : count}
         </span>
       )}

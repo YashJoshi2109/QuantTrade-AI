@@ -55,10 +55,10 @@ const SENTIMENT_CONFIG = {
   },
   Neutral: {
     icon: Minus,
-    text: 'text-slate-400',
-    bg: 'bg-slate-500/10',
-    border: 'border-slate-600/25',
-    dot: 'bg-slate-500',
+    text: 'text-fg-muted',
+    bg: 'bg-surface-raised',
+    border: 'border-line-default/25',
+    dot: 'bg-fg-muted',
   },
 } as const
 
@@ -86,18 +86,18 @@ function SentimentPill({ sentiment }: { sentiment: string | null }) {
 function NewsCardItem({ item, index }: { item: NewsArticle; index: number }) {
   const [imgFailed, setImgFailed] = useState(false)
   const hasImage = Boolean(item.thumbnail) && !imgFailed
-  const sourceColor = SOURCE_COLORS[(item.source || '').toLowerCase()] || 'text-slate-500'
+  const sourceColor = SOURCE_COLORS[(item.source || '').toLowerCase()] || 'text-fg-muted'
 
   const inner = (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: index * 0.04 }}
-      className="group flex gap-3 p-3 rounded-lg hover:bg-slate-800/40 transition-all cursor-pointer border border-transparent hover:border-slate-700/40"
+      className="group flex gap-3 p-3 rounded-lg hover:bg-surface-raised/40 transition-all cursor-pointer border border-transparent hover:border-line-subtle/40"
     >
       {/* Thumbnail — only show when image exists */}
       {hasImage ? (
-        <div className="shrink-0 w-[64px] h-[64px] rounded-lg overflow-hidden bg-slate-800/60 border border-slate-700/30 relative">
+        <div className="shrink-0 w-[64px] h-[64px] rounded-lg overflow-hidden bg-surface-raised/60 border border-line-subtle/30 relative">
           <img
             src={item.thumbnail || ''}
             alt=""
@@ -108,7 +108,7 @@ function NewsCardItem({ item, index }: { item: NewsArticle; index: number }) {
           {item.sentiment && (
             <span
               className={`absolute top-1 right-1 w-2 h-2 rounded-full ring-1 ring-black/50 ${
-                SENTIMENT_CONFIG[item.sentiment as keyof typeof SENTIMENT_CONFIG]?.dot || 'bg-slate-500'
+                SENTIMENT_CONFIG[item.sentiment as keyof typeof SENTIMENT_CONFIG]?.dot || 'bg-fg-muted'
               }`}
             />
           )}
@@ -140,10 +140,10 @@ function NewsCardItem({ item, index }: { item: NewsArticle; index: number }) {
           )}
 
           {/* Separator */}
-          <span className="w-px h-3 bg-slate-700/60" />
+          <span className="w-px h-3 bg-surface-overlay/60" />
 
           {/* Time */}
-          <span className="text-[10px] text-slate-500 flex items-center gap-0.5">
+          <span className="text-[10px] text-fg-muted flex items-center gap-0.5">
             <Clock className="w-3 h-3" />
             {formatTimeAgo(item.published_at)}
           </span>
@@ -166,7 +166,7 @@ function NewsCardItem({ item, index }: { item: NewsArticle; index: number }) {
               </Link>
             ))}
             {item.related_tickers.length > 4 && (
-              <span className="text-[10px] px-1.5 py-px text-slate-600">
+              <span className="text-[10px] px-1.5 py-px text-fg-muted">
                 +{item.related_tickers.length - 4}
               </span>
             )}
@@ -177,7 +177,7 @@ function NewsCardItem({ item, index }: { item: NewsArticle; index: number }) {
       {/* External link icon */}
       {item.url && (
         <div className="shrink-0 self-start mt-0.5">
-          <ExternalLink className="w-3.5 h-3.5 text-slate-700 group-hover:text-cyan-400/60 transition-colors" />
+          <ExternalLink className="w-3.5 h-3.5 text-fg-muted group-hover:text-cyan-400/60 transition-colors" />
         </div>
       )}
     </motion.div>
@@ -239,7 +239,7 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
   return (
     <div className="hud-panel p-0 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-800/60 bg-gradient-to-r from-[#050814] via-[#070b16] to-[#050814] px-4 py-3">
+      <div className="flex items-center justify-between border-b border-line-subtle bg-gradient-to-r from-[#050814] via-[#070b16] to-[#050814] px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/20 border border-red-500/50 shadow-[0_0_15px_rgba(248,113,113,0.4)]">
             <Radio className="h-4 w-4 text-red-400" />
@@ -257,7 +257,7 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
                 <RefreshCw className="h-3 w-3 text-cyan-400 animate-spin" />
               )}
             </div>
-            <span className="mt-0.5 text-[10px] text-slate-500">
+            <span className="mt-0.5 text-[10px] text-fg-muted">
               {continent && continent !== 'global'
                 ? `${continent.charAt(0).toUpperCase() + continent.slice(1)} market news`
                 : 'Global breaking market news'}{' '}
@@ -275,7 +275,7 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
               className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[10px] font-medium transition-all ${
                 sentimentFilter !== 'all'
                   ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
-                  : 'border-slate-700/70 bg-slate-900/60 text-slate-400 hover:text-white hover:border-slate-500'
+                  : 'border-line-subtle bg-surface-base/60 text-fg-muted hover:text-fg-primary hover:border-slate-500'
               }`}
             >
               <Filter className="h-3.5 w-3.5" />
@@ -285,7 +285,7 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
             {filterOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setFilterOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 w-40 rounded-lg border border-slate-700/70 bg-slate-900/98 shadow-xl z-50 py-1">
+                <div className="absolute right-0 top-full mt-1 w-40 rounded-lg border border-line-subtle bg-surface-base/98 shadow-xl z-50 py-1">
                   {filters.map((f) => (
                     <button
                       key={f.id}
@@ -297,7 +297,7 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
                       className={`w-full flex items-center justify-between px-3 py-1.5 text-[11px] transition-colors ${
                         sentimentFilter === f.id
                           ? 'text-cyan-300 bg-cyan-500/10'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                          : 'text-fg-muted hover:text-fg-primary hover:bg-surface-raised/50'
                       }`}
                     >
                       <span className="flex items-center gap-1.5">
@@ -311,7 +311,7 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
                         {f.label}
                       </span>
                       {f.count != null && f.count > 0 && (
-                        <span className="text-[9px] text-slate-600">{f.count}</span>
+                        <span className="text-[9px] text-fg-muted">{f.count}</span>
                       )}
                     </button>
                   ))}
@@ -325,7 +325,7 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
             type="button"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700/70 bg-slate-900/60 text-slate-400 hover:text-white hover:border-slate-500 transition-colors disabled:opacity-40"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-line-subtle bg-surface-base/60 text-fg-muted hover:text-fg-primary hover:border-slate-500 transition-colors disabled:opacity-40"
             aria-label="Refresh news"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
@@ -335,9 +335,9 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
 
       {/* Sentiment summary bar */}
       {news.length > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2 border-b border-slate-800/40 bg-[#050816]/60">
-          <span className="text-[10px] text-slate-600 uppercase tracking-wider font-medium">Sentiment</span>
-          <div className="flex-1 flex items-center gap-1.5 h-1.5 rounded-full overflow-hidden bg-slate-800/60">
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-line-subtle/40 bg-surface-raised">
+          <span className="text-[10px] text-fg-muted uppercase tracking-wider font-medium">Sentiment</span>
+          <div className="flex-1 flex items-center gap-1.5 h-1.5 rounded-full overflow-hidden bg-surface-raised/60">
             {sentimentCounts.Bullish > 0 && (
               <div
                 className="h-full bg-emerald-500/70 rounded-l-full transition-all"
@@ -346,7 +346,7 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
             )}
             {sentimentCounts.Neutral > 0 && (
               <div
-                className="h-full bg-slate-500/50 transition-all"
+                className="h-full bg-fg-muted/50 transition-all"
                 style={{ width: `${(sentimentCounts.Neutral / Math.max(news.length, 1)) * 100}%` }}
               />
             )}
@@ -362,7 +362,7 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
               <TrendingUp className="w-3 h-3" />
               {sentimentCounts.Bullish}
             </span>
-            <span className="flex items-center gap-1 text-slate-500">
+            <span className="flex items-center gap-1 text-fg-muted">
               <Minus className="w-3 h-3" />
               {sentimentCounts.Neutral}
             </span>
@@ -380,13 +380,13 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
           <div className="space-y-1 p-2">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex gap-3 p-3 animate-pulse">
-                <div className="w-[72px] h-[72px] rounded-lg bg-slate-800/60" />
+                <div className="w-[72px] h-[72px] rounded-lg bg-surface-raised/60" />
                 <div className="flex-1 space-y-2 py-1">
-                  <div className="h-3.5 bg-slate-800/60 rounded w-4/5" />
-                  <div className="h-3 bg-slate-800/40 rounded w-3/5" />
+                  <div className="h-3.5 bg-surface-raised/60 rounded w-4/5" />
+                  <div className="h-3 bg-surface-raised/40 rounded w-3/5" />
                   <div className="flex gap-2 mt-2">
-                    <div className="h-4 w-14 bg-slate-800/40 rounded" />
-                    <div className="h-4 w-12 bg-slate-800/40 rounded" />
+                    <div className="h-4 w-14 bg-surface-raised/40 rounded" />
+                    <div className="h-4 w-12 bg-surface-raised/40 rounded" />
                   </div>
                 </div>
               </div>
@@ -401,13 +401,13 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
           </AnimatePresence>
         ) : (
           <div className="py-16 text-center">
-            <Radio className="w-10 h-10 text-slate-700 mx-auto mb-3" />
-            <p className="text-sm text-slate-500 font-medium">
+            <Radio className="w-10 h-10 text-fg-muted mx-auto mb-3" />
+            <p className="text-sm text-fg-muted font-medium">
               {sentimentFilter !== 'all'
                 ? `No ${sentimentFilter.toLowerCase()} news right now`
                 : 'No news available'}
             </p>
-            <p className="text-[11px] text-slate-600 mt-1">
+            <p className="text-[11px] text-fg-muted mt-1">
               Auto-refresh in 45s or click refresh
             </p>
           </div>
@@ -415,8 +415,8 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
       </div>
 
       {/* Footer — marquee ticker */}
-      <div className="border-t border-slate-800/60 bg-gradient-to-r from-[#050816] via-[#040715] to-[#050816] px-3 py-2">
-        <div className="flex items-center gap-2 text-[11px] text-slate-300">
+      <div className="border-t border-line-subtle bg-gradient-to-r from-[#050816] via-[#040715] to-[#050816] px-3 py-2">
+        <div className="flex items-center gap-2 text-[11px] text-fg-secondary">
           <span className="shrink-0 rounded bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] text-emerald-400 border border-emerald-500/30">
             Macro Tape
           </span>
@@ -431,9 +431,9 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
               )
                 .concat(news.map((n) => n.title).filter(Boolean))
                 .map((h, idx) => (
-                  <span key={idx} className="text-slate-400 inline">
+                  <span key={idx} className="text-fg-muted inline">
                     {idx > 0 && (
-                      <span className="mx-3 text-slate-600 select-none" aria-hidden>
+                      <span className="mx-3 text-fg-muted select-none" aria-hidden>
                         ·
                       </span>
                     )}

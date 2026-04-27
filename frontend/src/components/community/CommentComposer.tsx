@@ -76,7 +76,7 @@ export default function CommentComposer({
       transition={{ duration: 0.2 }}
       className="w-full"
     >
-      <div className="bg-[#0D1117] border border-white/[0.06] rounded-lg overflow-hidden focus-within:border-blue-500/30 transition-colors">
+      <div className="bg-surface-base border border-line-subtle rounded-lg overflow-hidden focus-within:border-blue-500/30 transition-colors">
         <textarea
           ref={textareaRef}
           value={body}
@@ -85,11 +85,11 @@ export default function CommentComposer({
           placeholder={placeholder}
           rows={isReply ? 2 : 3}
           disabled={submitting}
-          className="w-full bg-transparent text-sm text-slate-200 placeholder:text-slate-600 p-3 resize-none outline-none disabled:opacity-50 min-h-[80px] sm:min-h-0"
+          className="w-full bg-transparent text-sm text-fg-primary placeholder:text-fg-muted p-3 resize-none outline-none disabled:opacity-50 min-h-[80px] sm:min-h-0"
         />
 
         <div className="flex items-center justify-between px-3 pb-2">
-          <span className="text-[10px] text-slate-600">
+          <span className="text-[10px] text-fg-muted">
             {body.length > 0 && `${body.length} chars`}
             {body.length === 0 && (
               <span className="hidden sm:inline">Ctrl+Enter to submit</span>
@@ -101,7 +101,7 @@ export default function CommentComposer({
               <button
                 type="button"
                 onClick={onCancel}
-                className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors px-2 py-1.5 sm:py-1 rounded min-h-[44px] sm:min-h-0"
+                className="flex items-center gap-1 text-xs text-fg-muted hover:text-fg-secondary transition-colors px-2 py-1.5 sm:py-1 rounded min-h-[44px] sm:min-h-0"
               >
                 <X className="w-3 h-3" />
                 Cancel

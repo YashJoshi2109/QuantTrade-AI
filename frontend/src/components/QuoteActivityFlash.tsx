@@ -43,7 +43,7 @@ export function QuoteActivityFlash({
             ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.85)]'
             : flash === 'down'
               ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.85)]'
-              : 'bg-slate-600'
+              : 'bg-surface-raised'
         }`}
       />
     </span>

@@ -161,18 +161,18 @@ export function ShortcutHelpModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2 }}
-            className="w-full max-w-md bg-[#0D1117] border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
+            className="w-full max-w-md bg-surface-overlay border border-line-subtle rounded-2xl shadow-theme-lg overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-line-subtle">
               <div className="flex items-center gap-2.5">
                 <Keyboard className="w-5 h-5 text-blue-400" />
-                <h2 className="text-lg font-semibold text-slate-100">Keyboard Shortcuts</h2>
+                <h2 className="text-lg font-semibold text-fg-primary">Keyboard Shortcuts</h2>
               </div>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.05] transition-colors"
+                className="p-1.5 rounded-lg text-fg-muted hover:text-fg-secondary hover:bg-surface-hover transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -182,7 +182,7 @@ export function ShortcutHelpModal({
             <div className="px-5 py-4 space-y-5">
               {Object.entries(grouped).map(([category, shortcuts]) => (
                 <div key={category}>
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2.5">
+                  <h3 className="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-2.5">
                     {category}
                   </h3>
                   <div className="space-y-1.5">
@@ -191,8 +191,8 @@ export function ShortcutHelpModal({
                         key={s.key}
                         className="flex items-center justify-between py-1.5"
                       >
-                        <span className="text-sm text-slate-300">{s.label}</span>
-                        <kbd className="px-2 py-1 text-xs font-mono text-slate-300 bg-[#161b22] border border-white/[0.1] rounded-md min-w-[28px] text-center">
+                        <span className="text-sm text-fg-secondary">{s.label}</span>
+                        <kbd className="px-2 py-1 text-xs font-mono text-fg-secondary bg-surface-raised border border-line-subtle rounded-md min-w-[28px] text-center">
                           {s.key}
                         </kbd>
                       </div>
@@ -203,9 +203,9 @@ export function ShortcutHelpModal({
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 border-t border-white/[0.06] bg-white/[0.02]">
-              <p className="text-xs text-slate-600 text-center">
-                Press <kbd className="px-1 py-0.5 text-[10px] bg-[#161b22] border border-white/[0.1] rounded">?</kbd> to toggle this menu
+            <div className="px-5 py-3 border-t border-line-subtle bg-surface-hover">
+              <p className="text-xs text-fg-muted text-center">
+                Press <kbd className="px-1 py-0.5 text-[10px] bg-surface-raised border border-line-subtle rounded">?</kbd> to toggle this menu
               </p>
             </div>
           </motion.div>

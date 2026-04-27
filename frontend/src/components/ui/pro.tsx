@@ -7,7 +7,7 @@ export function ProSection({ className, children, ...props }: HTMLAttributes<HTM
   return (
     <section
       className={cn(
-        'rounded-2xl border border-[rgba(0,122,255,0.12)] bg-gradient-to-br from-[#0D1117]/90 via-[#0D1117]/70 to-[#101928]/80',
+        'rounded-2xl border border-[rgba(0,122,255,0.12)] bg-gradient-to-br from-surface-base via-surface-base to-surface-raised',
         className
       )}
       {...props}
@@ -21,7 +21,7 @@ export function ProCard({ className, children, ...props }: HTMLAttributes<HTMLDi
   return (
     <div
       className={cn(
-        'rounded-xl border border-slate-700/50 bg-[#101928] transition-all hover:border-[rgba(0,122,255,0.35)]',
+        'rounded-xl border border-line-subtle bg-surface-raised transition-all hover:border-[rgba(0,122,255,0.35)]',
         className
       )}
       {...props}
@@ -41,12 +41,12 @@ export function ProButton({
     variant === 'primary'
       ? 'bg-[#007AFF] text-white hover:bg-[#0066CC] shadow-lg shadow-[rgba(0,122,255,0.25)]'
       : variant === 'secondary'
-      ? 'bg-[#101928] border border-slate-600/60 text-slate-100 hover:bg-[#1a2640] hover:border-slate-500'
+      ? 'bg-surface-raised border border-line-default text-fg-primary hover:bg-surface-hover hover:border-line-strong'
       : variant === 'inverted'
-      ? 'bg-white text-[#0B0E14] hover:bg-slate-100 font-bold'
+      ? 'bg-white text-fg-primary hover:bg-surface-hover font-bold'
       : variant === 'outlined'
       ? 'bg-transparent border border-[#007AFF]/60 text-[#007AFF] hover:bg-[#007AFF]/10 hover:border-[#007AFF]'
-      : 'bg-transparent border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800/50'
+      : 'bg-transparent border border-line-subtle text-fg-secondary hover:text-fg-primary hover:bg-surface-hover'
 
   return (
     <button
@@ -65,9 +65,9 @@ export function ProButton({
 export function ProDivider({ label }: { label?: ReactNode }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="h-px flex-1 bg-slate-800/60" />
-      {label ? <div className="text-xs text-slate-500 font-medium">{label}</div> : null}
-      <div className="h-px flex-1 bg-slate-800/60" />
+      <div className="h-px flex-1 bg-line-subtle" />
+      {label ? <div className="text-xs text-fg-muted font-medium">{label}</div> : null}
+      <div className="h-px flex-1 bg-line-subtle" />
     </div>
   )
 }

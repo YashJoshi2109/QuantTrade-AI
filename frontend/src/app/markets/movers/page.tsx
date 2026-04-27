@@ -45,10 +45,10 @@ function StockRow({ stock, rank, tab }: { stock: StockPerformance; rank: number;
   return (
     <Link
       href={`/research?symbol=${encodeURIComponent(stock.symbol)}`}
-      className="flex items-center gap-3 px-4 py-3 active:bg-white/[0.02] transition-colors border-b border-white/[0.04] last:border-b-0"
+      className="flex items-center gap-3 px-4 py-3 active:bg-surface-hover transition-colors border-b border-line-subtle last:border-b-0"
     >
       {/* Rank */}
-      <span className="w-6 h-6 rounded-lg bg-white/[0.04] flex items-center justify-center text-[10px] font-bold text-slate-500 shrink-0">
+      <span className="w-6 h-6 rounded-lg bg-white/[0.04] flex items-center justify-center text-[10px] font-bold text-fg-muted shrink-0">
         {rank}
       </span>
 
@@ -60,15 +60,15 @@ function StockRow({ stock, rank, tab }: { stock: StockPerformance; rank: number;
         <div className="flex items-center gap-1.5">
           <p className="text-[13px] font-bold text-white">{stock.symbol}</p>
           {stock.sector && (
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-medium bg-white/[0.04] text-slate-500 truncate max-w-[80px]">
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-medium bg-surface-hover text-fg-muted truncate max-w-[80px]">
               {stock.sector}
             </span>
           )}
         </div>
-        <p className="text-[10px] text-slate-500 truncate">{stock.name || '--'}</p>
+        <p className="text-[10px] text-fg-muted truncate">{stock.name || '--'}</p>
         <div className="flex items-center gap-3 mt-0.5">
-          <span className="text-[9px] text-slate-600">Vol: {formatVolume(stock.volume)}</span>
-          {stock.market_cap && <span className="text-[9px] text-slate-600">Cap: {formatMktCap(stock.market_cap)}</span>}
+          <span className="text-[9px] text-fg-muted">Vol: {formatVolume(stock.volume)}</span>
+          {stock.market_cap && <span className="text-[9px] text-fg-muted">Cap: {formatMktCap(stock.market_cap)}</span>}
         </div>
       </div>
 
@@ -130,7 +130,7 @@ function MobileMoversPage() {
         {/* ── Glass Header ── */}
         <header className="sticky top-0 z-30 pt-safe">
           <div
-            className="mx-3 mt-2 rounded-2xl border border-white/[0.08] px-4 py-3"
+            className="mx-3 mt-2 rounded-2xl border border-line-subtle px-4 py-3"
             style={{
               background: 'linear-gradient(135deg, rgba(10,14,26,0.92) 0%, rgba(26,35,50,0.88) 100%)',
               backdropFilter: 'blur(20px) saturate(1.6)',
@@ -142,7 +142,7 @@ function MobileMoversPage() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => router.back()}
-                  className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-slate-300 active:scale-90 transition-transform"
+                  className="w-8 h-8 rounded-xl bg-surface-hover border border-line-subtle flex items-center justify-center text-fg-secondary active:scale-90 transition-transform"
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </button>
@@ -153,13 +153,13 @@ function MobileMoversPage() {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                     </span>
-                    <p className="text-[10px] text-slate-500">Real-time data</p>
+                    <p className="text-[10px] text-fg-muted">Real-time data</p>
                   </div>
                 </div>
               </div>
               <button
                 onClick={() => refetch()}
-                className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-slate-400 active:scale-90"
+                className="w-8 h-8 rounded-xl bg-surface-hover border border-line-subtle flex items-center justify-center text-fg-muted active:scale-90"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-cyan-400' : ''}`} />
               </button>
@@ -170,7 +170,7 @@ function MobileMoversPage() {
         {/* ── Tab Bar ── */}
         <div className="px-4 mt-3 mb-2">
           <div
-            className="flex gap-1.5 p-1.5 rounded-2xl border border-white/[0.06]"
+            className="flex gap-1.5 p-1.5 rounded-2xl border border-line-subtle"
             style={{
               background: 'linear-gradient(135deg, rgba(10,14,26,0.8) 0%, rgba(15,20,30,0.8) 100%)',
               backdropFilter: 'blur(16px)',
@@ -184,7 +184,7 @@ function MobileMoversPage() {
                 className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold transition-all active:scale-[0.97] ${
                   activeTab === tab.id
                     ? `text-${tab.color}-300`
-                    : 'text-slate-500'
+                    : 'text-fg-muted'
                 }`}
               >
                 {activeTab === tab.id && (
@@ -201,7 +201,7 @@ function MobileMoversPage() {
                 <tab.Icon className="w-3.5 h-3.5 relative z-10" />
                 <span className="relative z-10">{tab.label}</span>
                 <span className={`relative z-10 text-[9px] px-1 py-0.5 rounded-full ${
-                  activeTab === tab.id ? 'bg-white/[0.08]' : 'bg-white/[0.04]'
+                  activeTab === tab.id ? 'bg-surface-overlay' : 'bg-surface-hover'
                 }`}>
                   {tab.count}
                 </span>
@@ -242,7 +242,7 @@ function MobileMoversPage() {
         {/* ── Stock List ── */}
         <div className="mx-4">
           <div
-            className="rounded-2xl border border-white/[0.06] overflow-hidden"
+            className="rounded-2xl border border-line-subtle overflow-hidden"
             style={{
               background: 'linear-gradient(180deg, rgba(26,35,50,0.6) 0%, rgba(10,14,26,0.8) 100%)',
               backdropFilter: 'blur(12px)',
@@ -251,7 +251,7 @@ function MobileMoversPage() {
             }}
           >
             {/* Column headers */}
-            <div className="flex items-center gap-3 px-4 py-2 border-b border-white/[0.06] text-[9px] text-slate-500 uppercase tracking-wider font-semibold">
+            <div className="flex items-center gap-3 px-4 py-2 border-b border-line-subtle text-[9px] text-fg-muted uppercase tracking-wider font-semibold">
               <span className="w-6 text-center">#</span>
               <span className="w-9" />
               <span className="flex-1">Stock</span>
@@ -269,22 +269,22 @@ function MobileMoversPage() {
                 {isLoading ? (
                   <div className="space-y-0">
                     {Array.from({ length: 10 }).map((_, i) => (
-                      <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.04]">
-                        <div className="w-6 h-6 rounded-lg bg-slate-800/40 animate-pulse" />
-                        <div className="w-9 h-9 rounded-full bg-slate-800/40 animate-pulse" />
+                      <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-line-subtle">
+                        <div className="w-6 h-6 rounded-lg bg-surface-overlay animate-pulse" />
+                        <div className="w-9 h-9 rounded-full bg-surface-overlay animate-pulse" />
                         <div className="flex-1 space-y-1.5">
-                          <div className="h-3 w-16 rounded bg-slate-800/40 animate-pulse" />
-                          <div className="h-2 w-24 rounded bg-slate-800/30 animate-pulse" />
+                          <div className="h-3 w-16 rounded bg-surface-overlay animate-pulse" />
+                          <div className="h-2 w-24 rounded bg-surface-overlay animate-pulse" />
                         </div>
-                        <div className="w-16 h-8 rounded bg-slate-800/40 animate-pulse" />
+                        <div className="w-16 h-8 rounded bg-surface-overlay animate-pulse" />
                       </div>
                     ))}
                   </div>
                 ) : stocks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <BarChart3 className="w-10 h-10 text-slate-700 mb-3" />
-                    <p className="text-sm text-slate-400">No data available</p>
-                    <p className="text-[11px] text-slate-600 mt-1">Market data may be loading</p>
+                    <BarChart3 className="w-10 h-10 text-fg-muted mb-3" />
+                    <p className="text-sm text-fg-secondary">No data available</p>
+                    <p className="text-[11px] text-fg-muted mt-1">Market data may be loading</p>
                   </div>
                 ) : (
                   stocks.map((stock, i) => (
@@ -305,11 +305,11 @@ function GlassStat({ label, value, sub, color }: { label: string; value: string;
     emerald: 'text-emerald-400',
     red: 'text-red-400',
     cyan: 'text-cyan-400',
-    slate: 'text-slate-300',
+    slate: 'text-fg-primary',
   }
   return (
     <div
-      className="rounded-xl border border-white/[0.06] p-2.5 text-center"
+      className="rounded-xl border border-line-subtle p-2.5 text-center"
       style={{
         background: 'linear-gradient(135deg, rgba(26,35,50,0.5) 0%, rgba(10,14,26,0.6) 100%)',
         backdropFilter: 'blur(8px)',
@@ -317,9 +317,9 @@ function GlassStat({ label, value, sub, color }: { label: string; value: string;
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
       }}
     >
-      <p className="text-[9px] text-slate-500 uppercase tracking-wider">{label}</p>
+      <p className="text-[9px] text-fg-muted uppercase tracking-wider">{label}</p>
       <p className={`text-sm font-bold font-mono mt-0.5 ${colorMap[color] || 'text-white'}`}>{value}</p>
-      <p className="text-[9px] text-slate-600 mt-0.5">{sub}</p>
+      <p className="text-[9px] text-fg-muted mt-0.5">{sub}</p>
     </div>
   )
 }
@@ -329,9 +329,9 @@ export default function MoversPage() {
   return (
     <>
       <div className="hidden md:block">
-        <div className="flex items-center justify-center min-h-screen bg-[#0a0a0f]">
+        <div className="flex items-center justify-center min-h-screen bg-surface-base">
           <div className="text-center">
-            <p className="text-slate-400">Use the Markets page for desktop view</p>
+            <p className="text-fg-secondary">Use the Markets page for desktop view</p>
             <Link href="/markets" className="text-cyan-400 text-sm mt-2 block hover:underline">← Back to Markets</Link>
           </div>
         </div>

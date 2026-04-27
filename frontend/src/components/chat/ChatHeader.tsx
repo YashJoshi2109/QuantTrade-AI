@@ -23,7 +23,7 @@ export default function ChatHeader({
       <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/[0.06] via-blue-500/[0.04] to-purple-500/[0.06]" />
       <div className="absolute inset-0 backdrop-blur-xl bg-[#0A0E1A]/60" />
 
-      <div className="relative border-b border-white/[0.06] px-4 py-3 flex items-center justify-between">
+      <div className="relative border-b border-line-subtle px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00D9FF] via-[#0066FF] to-[#7C3AED] p-[1.5px] shadow-lg shadow-cyan-500/20">
@@ -57,7 +57,7 @@ export default function ChatHeader({
               title="Chat history"
             >
               <History className={`w-4 h-4 transition-colors ${
-                showingHistory ? 'text-cyan-400' : 'text-slate-500 hover:text-white'
+                showingHistory ? 'text-cyan-400' : 'text-fg-muted hover:text-fg-primary'
               }`} />
             </button>
           )}
@@ -68,9 +68,9 @@ export default function ChatHeader({
               onClick={onToggleFullscreen}
             >
               {isFullscreen ? (
-                <Minimize2 className="w-4 h-4 text-slate-500 hover:text-white transition-colors" />
+                <Minimize2 className="w-4 h-4 text-fg-muted hover:text-fg-primary transition-colors" />
               ) : (
-                <Maximize2 className="w-4 h-4 text-slate-500 hover:text-white transition-colors" />
+                <Maximize2 className="w-4 h-4 text-fg-muted hover:text-fg-primary transition-colors" />
               )}
             </button>
           )}
@@ -79,7 +79,7 @@ export default function ChatHeader({
             className="p-2 hover:bg-white/[0.06] rounded-lg transition-all active:scale-95"
             aria-label="Close"
           >
-            <X className="w-4 h-4 text-slate-500 hover:text-white transition-colors" />
+            <X className="w-4 h-4 text-fg-muted hover:text-fg-primary transition-colors" />
           </button>
         </div>
       </div>

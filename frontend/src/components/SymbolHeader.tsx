@@ -33,17 +33,17 @@ export default function SymbolHeader({
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
             <h1 className="text-3xl font-bold text-white">{symbol}</h1>
-            <span className="px-2 py-1 bg-gray-700 text-gray-300 text-xs rounded">
+            <span className="px-2 py-1 bg-surface-overlay text-gray-300 text-xs rounded">
               {exchange}
             </span>
             {sector && (
-              <span className="px-2 py-1 bg-gray-700 text-gray-300 text-xs rounded">
+              <span className="px-2 py-1 bg-surface-overlay text-gray-300 text-xs rounded">
                 {sector}
               </span>
             )}
           </div>
           {name && (
-            <p className="text-gray-400 text-sm mb-4">{name}</p>
+            <p className="text-fg-muted text-sm mb-4">{name}</p>
           )}
           <div className="flex items-center gap-4">
             {currentPrice !== undefined && (
@@ -75,7 +75,7 @@ export default function SymbolHeader({
         <div className="flex items-center gap-3">
           <button
             onClick={onWatchlistToggle}
-            className="p-2 text-gray-400 hover:text-yellow-400 transition-colors"
+            className="p-2 text-fg-muted hover:text-yellow-400 transition-colors"
           >
             <Star className="w-6 h-6" />
           </button>

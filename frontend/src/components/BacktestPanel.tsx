@@ -47,11 +47,11 @@ export default function BacktestPanel({ symbol }: BacktestPanelProps) {
       
       <div className="space-y-4">
         <div>
-          <label className="text-sm text-gray-400 mb-1 block">Strategy</label>
+          <label className="text-sm text-fg-muted mb-1 block">Strategy</label>
           <select
             value={strategy}
             onChange={(e) => setStrategy(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+            className="w-full px-3 py-2 bg-surface-raised border border-gray-700 rounded-lg text-white"
           >
             <option value="rsi_ma_crossover">RSI + MA Crossover</option>
             <option value="ma_crossover">Moving Average Crossover</option>
@@ -60,32 +60,32 @@ export default function BacktestPanel({ symbol }: BacktestPanelProps) {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-sm text-gray-400 mb-1 block">Start Date</label>
+            <label className="text-sm text-fg-muted mb-1 block">Start Date</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+              className="w-full px-3 py-2 bg-surface-raised border border-gray-700 rounded-lg text-white"
             />
           </div>
           <div>
-            <label className="text-sm text-gray-400 mb-1 block">End Date</label>
+            <label className="text-sm text-fg-muted mb-1 block">End Date</label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+              className="w-full px-3 py-2 bg-surface-raised border border-gray-700 rounded-lg text-white"
             />
           </div>
         </div>
 
         <div>
-          <label className="text-sm text-gray-400 mb-1 block">Initial Capital</label>
+          <label className="text-sm text-fg-muted mb-1 block">Initial Capital</label>
           <input
             type="number"
             value={capital}
             onChange={(e) => setCapital(parseFloat(e.target.value))}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+            className="w-full px-3 py-2 bg-surface-raised border border-gray-700 rounded-lg text-white"
           />
         </div>
 
@@ -101,32 +101,32 @@ export default function BacktestPanel({ symbol }: BacktestPanelProps) {
         {result && (
           <div className="mt-4 space-y-2 border-t border-gray-700 pt-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-800 p-3 rounded">
-                <div className="text-xs text-gray-400 mb-1">Total Return</div>
+              <div className="bg-surface-raised p-3 rounded">
+                <div className="text-xs text-fg-muted mb-1">Total Return</div>
                 <div className={`text-lg font-semibold ${result.total_return >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                   {result.total_return >= 0 ? '+' : ''}{result.total_return.toFixed(2)}%
                 </div>
               </div>
-              <div className="bg-gray-800 p-3 rounded">
-                <div className="text-xs text-gray-400 mb-1">Final Equity</div>
+              <div className="bg-surface-raised p-3 rounded">
+                <div className="text-xs text-fg-muted mb-1">Final Equity</div>
                 <div className="text-lg font-semibold text-white">
                   ${result.final_equity.toLocaleString()}
                 </div>
               </div>
-              <div className="bg-gray-800 p-3 rounded">
-                <div className="text-xs text-gray-400 mb-1">Win Rate</div>
+              <div className="bg-surface-raised p-3 rounded">
+                <div className="text-xs text-fg-muted mb-1">Win Rate</div>
                 <div className="text-lg font-semibold text-white">
                   {result.win_rate.toFixed(1)}%
                 </div>
               </div>
-              <div className="bg-gray-800 p-3 rounded">
-                <div className="text-xs text-gray-400 mb-1">Max Drawdown</div>
+              <div className="bg-surface-raised p-3 rounded">
+                <div className="text-xs text-fg-muted mb-1">Max Drawdown</div>
                 <div className="text-lg font-semibold text-red-400">
                   {result.max_drawdown.toFixed(2)}%
                 </div>
               </div>
             </div>
-            <div className="text-xs text-gray-400">
+            <div className="text-xs text-fg-muted">
               Total Trades: {result.total_trades} | Sharpe Ratio: {result.sharpe_ratio.toFixed(2)}
             </div>
           </div>

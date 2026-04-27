@@ -32,7 +32,7 @@ export function RoofMeter({
   const currentColor = segments.find((s) => pct <= s.threshold)?.color ?? '#00E5A0'
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/3 p-4 space-y-3">
+    <div className="rounded-2xl border border-line-default bg-white/3 p-4 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -57,7 +57,7 @@ export function RoofMeter({
 
       {/* Progress bar */}
       <div className="relative">
-        <div className="h-5 bg-white/5 rounded-full overflow-hidden border border-white/8">
+        <div className="h-5 bg-white/5 rounded-full overflow-hidden border border-line-subtle">
           <motion.div
             className="h-full rounded-full relative overflow-hidden"
             style={{ backgroundColor: currentColor }}

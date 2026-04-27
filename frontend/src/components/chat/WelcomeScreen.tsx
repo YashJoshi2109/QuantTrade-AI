@@ -16,7 +16,7 @@ export default function WelcomeScreen() {
       <h3 className="text-xl font-bold text-white mb-1.5 tracking-tight">
         Quant AI Assistant
       </h3>
-      <p className="text-[13px] text-slate-400 text-center max-w-[260px] leading-relaxed mb-6">
+      <p className="text-[13px] text-fg-muted text-center max-w-[260px] leading-relaxed mb-6">
         Ask about any stock, market trend, or investment strategy. Powered by real-time data.
       </p>
 
@@ -26,14 +26,14 @@ export default function WelcomeScreen() {
           {features.map((f, i) => (
             <div
               key={i}
-              className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-white/[0.04] backdrop-blur-md border border-white/[0.08] hover:bg-white/[0.07] hover:border-white/[0.15] transition-all cursor-default group"
+              className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-white/[0.04] backdrop-blur-md border border-line-subtle hover:bg-white/[0.07] hover:border-line-default transition-all cursor-default group"
             >
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00D9FF]/20 to-[#7C3AED]/20 flex items-center justify-center border border-white/[0.06] group-hover:border-cyan-500/20 transition-colors">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00D9FF]/20 to-[#7C3AED]/20 flex items-center justify-center border border-line-subtle group-hover:border-cyan-500/20 transition-colors">
                 <f.icon className="w-4 h-4 text-cyan-400" />
               </div>
               <div className="text-left">
                 <p className="text-[11px] font-semibold text-white/90 leading-none">{f.label}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5 leading-none">{f.desc}</p>
+                <p className="text-[10px] text-fg-muted mt-0.5 leading-none">{f.desc}</p>
               </div>
             </div>
           ))}
@@ -41,10 +41,10 @@ export default function WelcomeScreen() {
       </div>
 
       {/* Subtle hint */}
-      <div className="mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/[0.06]">
+      <div className="mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-line-subtle">
         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-        <p className="text-[10px] text-slate-500">
-          Try: <span className="text-slate-400">&quot;Analyze NVDA&quot;</span> or <span className="text-slate-400">&quot;Top gainers today&quot;</span>
+        <p className="text-[10px] text-fg-muted">
+          Try: <span className="text-fg-secondary">&quot;Analyze NVDA&quot;</span> or <span className="text-fg-secondary">&quot;Top gainers today&quot;</span>
         </p>
       </div>
     </div>

@@ -252,7 +252,7 @@ const BIAS_STYLES = {
 const IMPACT_STYLES = {
   High: 'bg-red-500/15 text-red-300 border-red-500/30',
   Medium: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  Low: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
+  Low: 'bg-surface-raised text-fg-secondary border-line-subtle',
 }
 
 /* ────────────────── Factor Card ────────────────── */
@@ -289,14 +289,14 @@ function FactorCard({ factor }: { factor: KeyFactor }) {
       {/* Confidence bar */}
       <div className="mb-2">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] text-slate-500 font-medium">
+          <span className="text-[10px] text-fg-muted font-medium">
             Confidence
           </span>
           <span className="text-[10px] text-white font-mono font-bold">
             {factor.confidence}%
           </span>
         </div>
-        <div className="h-1.5 bg-slate-800/80 rounded-full overflow-hidden">
+        <div className="h-1.5 bg-surface-raised rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{
@@ -308,7 +308,7 @@ function FactorCard({ factor }: { factor: KeyFactor }) {
       </div>
 
       {/* Description */}
-      <p className="text-[11px] text-slate-400 leading-relaxed">
+      <p className="text-[11px] text-fg-muted leading-relaxed">
         {factor.description}
       </p>
     </div>
