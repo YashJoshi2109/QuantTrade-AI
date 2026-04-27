@@ -40,6 +40,7 @@ import { fetchLiveVisitors } from '@/lib/monitor-extended-api'
 import { useAuth } from '@/contexts/AuthContext'
 import { useQuery } from '@tanstack/react-query'
 import LiveVisitorCounter from '@/components/ui/live-visitor'
+import { BB8ThemeToggle } from '@/components/ui/star-wars-toggle-switch'
 
 interface AppLayoutProps {
   children: ReactNode
@@ -420,6 +421,9 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                 <Info className="w-5 h-5" aria-hidden />
               </Link>
             </HeaderTooltip>
+            <div className="shrink-0">
+              <BB8ThemeToggle />
+            </div>
             <div className="shrink-0 relative z-[52]">
               <UnifiedNotificationCenter />
             </div>
