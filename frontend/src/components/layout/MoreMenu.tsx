@@ -139,7 +139,7 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
   if (!open) return null
 
   return (
-    <div className="md:hidden fixed inset-0 z-50 flex items-end justify-center bg-surface-overlay/60 backdrop-blur-sm animate-fade-in">
+    <div className="md:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
       <div className="w-full max-w-md rounded-t-3xl bg-surface-base border-t border-line-subtle pb-safe animate-slide-in-bottom">
         <div className="flex flex-col px-4 pt-3 pb-2">
           <div className="mx-auto h-1 w-10 rounded-full bg-surface-active mb-3" />
