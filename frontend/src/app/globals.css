@@ -145,6 +145,20 @@
   --qa-accent: #f0b90b;
   --qa-border: rgba(240, 185, 11, 0.20);
 
+  /* ── Brand (same as light) ── */
+  --accent:       #007AFF;
+  --accent-hover: #0066CC;
+  --accent-muted: rgba(0, 122, 255, 0.10);
+
+  /* ── Financial data (invariant) ── */
+  --up:      #10b981;
+  --down:    #ef4444;
+  --neutral: #64748b;
+
+  /* ── Glass blur (same as light) ── */
+  --blur-glass:  20px;
+  --blur-strong: 36px;
+
   /* legacy overrides */
   --foreground-rgb: 241, 245, 249;
   --background-start-rgb: 10, 15, 23;
