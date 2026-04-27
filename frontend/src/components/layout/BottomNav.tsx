@@ -90,8 +90,8 @@ export default function BottomNav() {
           <div
             className={cn(
               'relative grid grid-cols-5 items-center rounded-[2rem] py-2 overflow-visible',
-              'border border-white/[0.12]',
-              'bg-[#0A0E1A]/70 dark:bg-[#0A0E1A]/70',
+              'border border-line-subtle',
+              'bg-surface-glass',
               'shadow-[0_8px_32px_rgba(0,217,255,0.05),0_10px_40px_rgba(0,0,0,0.5)]'
             )}
             style={{
@@ -141,7 +141,7 @@ export default function BottomNav() {
                           'w-14 h-14 rounded-full flex items-center justify-center border-2 transition-all duration-300',
                           isActive
                             ? 'bg-gradient-to-br from-[#007AFF] to-[#00D9FF] border-transparent shadow-[0_0_24px_rgba(0,217,255,0.5),0_4px_16px_rgba(0,122,255,0.4)]'
-                            : 'bg-slate-50 border-white/[0.3] shadow-[0_4px_20px_rgba(0,0,0,0.6)]'
+                            : 'bg-surface-raised border-line-subtle shadow-[0_4px_20px_rgba(0,0,0,0.6)]'
                         )}
                         style={{
                           backdropFilter: 'blur(20px)',
@@ -159,7 +159,7 @@ export default function BottomNav() {
                       <span
                         className={cn(
                           'text-[9px] mt-1 font-semibold transition-colors',
-                          isActive ? 'text-[#00D9FF]' : 'text-slate-400'
+                          isActive ? 'text-[#00D9FF]' : 'text-fg-secondary'
                         )}
                       >
                         {item.label}
@@ -187,7 +187,7 @@ export default function BottomNav() {
                         transition={{ type: 'spring', bounce: 0.25, duration: 0.5 }}
                       />
                     )}
-                    <span className={cn('relative z-10 transition-colors', isActive ? 'text-[#00D9FF]' : 'text-slate-400')}>
+                    <span className={cn('relative z-10 transition-colors', isActive ? 'text-[#00D9FF]' : 'text-fg-secondary')}>
                       {item.icon}
                     </span>
                   </motion.div>

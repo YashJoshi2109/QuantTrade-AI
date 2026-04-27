@@ -72,7 +72,7 @@ function MenuItem({
       onClick={handleClick}
       className={cn(
         'w-full flex items-center justify-between rounded-2xl px-3 py-3 mb-2',
-        'bg-[#1A2332]/90 border border-white/5 backdrop-blur-xl',
+        'bg-surface-raised border border-line-subtle backdrop-blur-xl',
         'active:scale-[0.97] transition-all duration-150 text-left',
         danger && 'bg-red-500/5 border-red-500/30 text-red-400'
       )}
@@ -81,14 +81,14 @@ function MenuItem({
         <div
           className={cn(
             'w-9 h-9 rounded-full flex items-center justify-center',
-            danger ? 'bg-red-500/20 text-red-400' : 'bg-slate-900/80 text-slate-100'
+            danger ? 'bg-red-500/20 text-red-400' : 'bg-surface-overlay text-fg-primary'
           )}
         >
           {icon}
         </div>
         <div className="flex flex-col">
-          <span className={cn('text-sm font-medium', danger && 'text-red-400')}>{title}</span>
-          <span className={cn('text-[11px] text-slate-400', danger && 'text-red-300/80')}>
+          <span className={cn('text-sm font-medium text-fg-primary', danger && 'text-red-400')}>{title}</span>
+          <span className={cn('text-[11px] text-fg-secondary', danger && 'text-red-300/80')}>
             {description}
           </span>
         </div>
@@ -104,7 +104,7 @@ function MenuItem({
             {badge}
           </span>
         )}
-        {!danger && <ChevronRight className="w-4 h-4 text-slate-500" />}
+        {!danger && <ChevronRight className="w-4 h-4 text-fg-muted" />}
       </div>
     </button>
   )
@@ -140,18 +140,18 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
 
   return (
     <div className="md:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-md rounded-t-3xl bg-[#0A0E1A]/95 border-t border-white/10 pb-safe animate-slide-in-bottom">
+      <div className="w-full max-w-md rounded-t-3xl bg-surface-base border-t border-line-subtle pb-safe animate-slide-in-bottom">
         <div className="flex flex-col px-4 pt-3 pb-2">
-          <div className="mx-auto h-1 w-10 rounded-full bg-slate-600 mb-3" />
+          <div className="mx-auto h-1 w-10 rounded-full bg-surface-active mb-3" />
           <div className="flex items-center justify-between mb-2">
             <div>
-              <h2 className="text-sm font-semibold tracking-wide text-slate-100">More</h2>
-              <p className="text-[11px] text-slate-400">Explore tools, settings and help.</p>
+              <h2 className="text-sm font-semibold tracking-wide text-fg-primary">More</h2>
+              <p className="text-[11px] text-fg-secondary">Explore tools, settings and help.</p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1A2332] border border-white/10 text-slate-300 active:scale-95"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-raised border border-line-subtle text-fg-secondary active:scale-95"
             >
               <X className="w-4 h-4" />
             </button>
@@ -161,7 +161,7 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
         <div className="px-4 pb-3 space-y-4 max-h-[70vh] overflow-y-auto scrollbar-hide">
           {/* Trading & Game */}
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 mb-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-muted mb-1.5">
               Trading &amp; Game
             </p>
             <MenuItem
@@ -210,7 +210,7 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
 
           {/* Account */}
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 mb-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-muted mb-1.5">
               Account
             </p>
             <MenuItem
@@ -245,7 +245,7 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
 
           {/* Settings & Support */}
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 mb-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-muted mb-1.5">
               Settings &amp; Support
             </p>
             <MenuItem
@@ -277,7 +277,7 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
           {/* Account Actions */}
           {isAuthenticated && (
             <div className="pb-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 mb-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-muted mb-1.5">
                 Account Actions
               </p>
               <MenuItem
@@ -295,7 +295,7 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
           )}
         </div>
 
-        <div className="px-4 pt-2 pb-3 border-t border-white/5 text-[10px] text-slate-500 flex items-center justify-between">
+        <div className="px-4 pt-2 pb-3 border-t border-line-subtle text-[10px] text-fg-muted flex items-center justify-between">
           <span>QuantTrade AI v1.0 • Next-gen trading copilot</span>
           <span>© {new Date().getFullYear()} QuantTrade Labs</span>
         </div>
