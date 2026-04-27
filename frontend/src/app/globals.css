@@ -88,12 +88,14 @@ button, a, input, textarea, select,
   --muted-foreground: var(--text-muted);
   --border: var(--border-default);
   --input: var(--border-default);
-  --ring: var(--accent);
-  --primary: var(--accent);
+  /* --ring and --primary reference --accent BEFORE any override; keep --accent as brand blue */
+  --ring: #007AFF;
+  --primary: #007AFF;
   --primary-foreground: var(--text-inverted);
   --secondary: var(--surface-hover);
   --secondary-foreground: var(--text-secondary);
-  --accent: var(--surface-active);
+  /* shadcn --accent = subtle hover surface; does NOT overwrite our brand --accent (#007AFF) */
+  --shadcn-accent: var(--surface-active);
   --accent-foreground: var(--text-primary);
 
   /* legacy aliases — point to new semantic vars */
