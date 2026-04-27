@@ -555,7 +555,6 @@ html {
 body {
   background-color: var(--surface-base);
   color: var(--text-primary);
-  transition: background-color 200ms ease, color 200ms ease;
   font-family: var(--font-inter), Inter, system-ui, sans-serif;
   font-feature-settings: "rlig" 1, "calt" 1;
   -webkit-font-smoothing: antialiased;
