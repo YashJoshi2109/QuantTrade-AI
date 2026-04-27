@@ -137,7 +137,7 @@ export default function MobileSymbolSearch({
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-white font-mono">
+                      <span className="text-xs font-bold text-fg-primary font-mono">
                         {result.symbol}
                       </span>
                       {result.exchange && (

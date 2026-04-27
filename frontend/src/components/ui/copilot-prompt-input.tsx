@@ -70,7 +70,7 @@ const CopilotPromptInput = React.forwardRef<HTMLTextAreaElement, CopilotPromptIn
         <div
           className={cn(
             'relative flex h-full w-full flex-col rounded-[15px]',
-            'border border-white/[0.06] bg-[rgba(10,14,28,0.92)]',
+            'border border-line-subtle bg-surface-raised',
             'shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
           )}
         >
@@ -83,7 +83,7 @@ const CopilotPromptInput = React.forwardRef<HTMLTextAreaElement, CopilotPromptIn
                 transition={{ duration: 0.28, ease: 'easeInOut' }}
                 className="overflow-hidden"
               >
-                <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-3 py-2 text-xs sm:px-4 sm:text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-line-subtle px-3 py-2 text-xs sm:px-4 sm:text-sm">
                   <span className="text-left text-fg-secondary">
                     <span className="font-semibold text-fg-primary">{usageForBanner.free_remaining}</span>
                     <span className="text-fg-muted"> / {usageForBanner.free_limit} </span>
@@ -121,8 +121,8 @@ const CopilotPromptInput = React.forwardRef<HTMLTextAreaElement, CopilotPromptIn
               minRows={1}
               maxRows={10}
               className={cn(
-                'w-full resize-none bg-transparent text-sm text-white sm:text-base',
-                'placeholder:text-slate-600',
+                'w-full resize-none bg-transparent text-sm text-fg-primary sm:text-base',
+                'placeholder:text-fg-muted',
                 'focus:outline-none focus:ring-0',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
@@ -173,7 +173,7 @@ const CopilotPromptInput = React.forwardRef<HTMLTextAreaElement, CopilotPromptIn
                     'bg-gradient-to-br from-fuchsia-500 to-indigo-600 shadow-[0_0_20px_rgba(168,85,247,0.35)]',
                     'hover:brightness-110',
                     'disabled:cursor-not-allowed disabled:bg-surface-raised disabled:text-fg-muted disabled:shadow-none disabled:brightness-100',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(10,14,28,0.92)]'
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised'
                   )}
                 >
                   <ArrowUp className="h-5 w-5" aria-hidden />

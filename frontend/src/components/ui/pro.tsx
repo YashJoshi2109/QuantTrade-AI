@@ -7,7 +7,7 @@ export function ProSection({ className, children, ...props }: HTMLAttributes<HTM
   return (
     <section
       className={cn(
-        'rounded-2xl border border-[rgba(0,122,255,0.12)] bg-gradient-to-br from-[#0D1117]/90 via-[#0D1117]/70 to-[#101928]/80',
+        'rounded-2xl border border-[rgba(0,122,255,0.12)] bg-gradient-to-br from-surface-base via-surface-base to-surface-raised',
         className
       )}
       {...props}
@@ -43,7 +43,7 @@ export function ProButton({
       : variant === 'secondary'
       ? 'bg-surface-raised border border-line-default text-fg-primary hover:bg-surface-hover hover:border-line-strong'
       : variant === 'inverted'
-      ? 'bg-white text-[#0B0E14] hover:bg-slate-100 font-bold'
+      ? 'bg-white text-fg-primary hover:bg-surface-hover font-bold'
       : variant === 'outlined'
       ? 'bg-transparent border border-[#007AFF]/60 text-[#007AFF] hover:bg-[#007AFF]/10 hover:border-[#007AFF]'
       : 'bg-transparent border border-line-subtle text-fg-secondary hover:text-fg-primary hover:bg-surface-hover'

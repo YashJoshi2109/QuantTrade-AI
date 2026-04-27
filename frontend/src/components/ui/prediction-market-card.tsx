@@ -125,7 +125,7 @@ export function PredictionMarketCard({
               href={`https://polymarket.com/event/${slug}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-slate-600 hover:text-sky-400 transition-colors"
+              className="text-fg-muted hover:text-sky-400 transition-colors"
               title="View on Polymarket"
             >
               <ExternalLink className="w-3 h-3" />
