@@ -47,6 +47,9 @@ class User(Base):
     # JSON preferences: analyst_personality, data_sources, notifications, pro_watchlist_email_alerts, etc.
     preferences_json = Column(Text, nullable=True)
 
+    # Theme preference: persisted across devices ("light" | "dark")
+    theme_preference = Column(String(10), default="light", nullable=False, server_default="light")
+
     # Community profile fields
     bio = Column(Text, nullable=True)
     trading_style = Column(String(50), nullable=True)  # day_trader, swing, long_term, options
