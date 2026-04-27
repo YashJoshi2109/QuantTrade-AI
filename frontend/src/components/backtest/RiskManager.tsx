@@ -133,9 +133,9 @@ function GaugeChart({
           {fmt(value, 1)}
         </text>
       </svg>
-      <span className="text-xs font-medium text-slate-400 mt-1">{label}</span>
+      <span className="text-xs font-medium text-fg-muted mt-1">{label}</span>
       {sublabel && (
-        <span className="text-[10px] text-slate-500">{sublabel}</span>
+        <span className="text-[10px] text-fg-muted">{sublabel}</span>
       )}
     </div>
   )
@@ -171,13 +171,13 @@ function RiskBar({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-400">{label}</span>
-        <span className="text-xs font-mono tabular-nums text-slate-200">
+        <span className="text-xs text-fg-muted">{label}</span>
+        <span className="text-xs font-mono tabular-nums text-fg-secondary">
           {fmt(Math.abs(value), 2)}
           {suffix}
         </span>
       </div>
-      <div className="h-2 rounded-full bg-slate-800/60 overflow-hidden">
+      <div className="h-2 rounded-full bg-surface-raised overflow-hidden">
         <motion.div
           className={`h-full rounded-full bg-gradient-to-r ${colorMap[color]} shadow-lg ${glowMap[color]}`}
           initial={{ width: 0 }}
@@ -211,7 +211,7 @@ function SimulatorSlider({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-400">{label}</span>
+        <span className="text-xs text-fg-muted">{label}</span>
         <span className="text-sm font-mono tabular-nums text-cyan-400 font-semibold">
           {prefix}
           {typeof value === 'number' && !isNaN(value) ? fmt(value, 2) : '0.00'}
@@ -226,7 +226,7 @@ function SimulatorSlider({
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         className="w-full h-1.5 rounded-full appearance-none cursor-pointer
-          bg-slate-700 accent-cyan-500
+          bg-surface-raised accent-cyan-500
           [&::-webkit-slider-thumb]:appearance-none
           [&::-webkit-slider-thumb]:w-4
           [&::-webkit-slider-thumb]:h-4
@@ -263,17 +263,17 @@ function SectionCard({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="rounded-2xl border border-slate-800/40 bg-[#0F1629]/80 backdrop-blur-xl overflow-hidden"
+      className="rounded-2xl border border-line-subtle bg-surface-raised/80 backdrop-blur-xl overflow-hidden"
     >
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition-colors"
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-surface-hover transition-colors"
       >
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 flex items-center justify-center">
             <Icon className="w-4 h-4 text-cyan-400" />
           </div>
-          <span className="text-sm font-semibold text-slate-200">{title}</span>
+          <span className="text-sm font-semibold text-fg-secondary">{title}</span>
           {badge && (
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
               {badge}
@@ -281,9 +281,9 @@ function SectionCard({
           )}
         </div>
         {open ? (
-          <ChevronUp className="w-4 h-4 text-slate-500" />
+          <ChevronUp className="w-4 h-4 text-fg-muted" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-slate-500" />
+          <ChevronDown className="w-4 h-4 text-fg-muted" />
         )}
       </button>
       <AnimatePresence initial={false}>
@@ -315,17 +315,17 @@ function MiniMetricCard({
   positive?: boolean
 }) {
   return (
-    <div className="rounded-xl border border-slate-800/40 bg-slate-900/40 p-3 space-y-1">
+    <div className="rounded-xl border border-line-subtle bg-surface-raised/40 p-3 space-y-1">
       <div className="flex items-center gap-1.5">
-        <Icon className="w-3 h-3 text-slate-500" />
-        <span className="text-[10px] uppercase tracking-wider text-slate-500">
+        <Icon className="w-3 h-3 text-fg-muted" />
+        <span className="text-[10px] uppercase tracking-wider text-fg-muted">
           {label}
         </span>
       </div>
       <span
         className={`text-sm font-mono tabular-nums font-bold ${
           positive === undefined
-            ? 'text-slate-200'
+            ? 'text-fg-secondary'
             : positive
               ? 'text-emerald-400'
               : 'text-red-400'
@@ -474,21 +474,21 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
   }) {
     return (
       <div className="space-y-1">
-        <label className="text-[10px] uppercase tracking-wider text-slate-500">
+        <label className="text-[10px] uppercase tracking-wider text-fg-muted">
           {label}
         </label>
-        <div className="flex items-center rounded-lg border border-slate-700/60 bg-slate-900/60 px-3 py-2 focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/20 transition-all">
+        <div className="flex items-center rounded-lg border border-line-default bg-surface-base px-3 py-2 focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/20 transition-all">
           {prefix && (
-            <span className="text-xs text-slate-500 mr-1">{prefix}</span>
+            <span className="text-xs text-fg-muted mr-1">{prefix}</span>
           )}
           <input
             type="number"
             value={value}
             onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-            className="bg-transparent text-sm font-mono tabular-nums text-slate-200 w-full outline-none placeholder:text-slate-600"
+            className="bg-transparent text-sm font-mono tabular-nums text-fg-secondary w-full outline-none placeholder:text-fg-muted"
           />
           {suffix && (
-            <span className="text-xs text-slate-500 ml-1">{suffix}</span>
+            <span className="text-xs text-fg-muted ml-1">{suffix}</span>
           )}
         </div>
       </div>
@@ -509,10 +509,10 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
           <Shield className="w-5 h-5 text-cyan-400" />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-white tracking-tight">
+          <h2 className="text-lg font-bold text-fg-primary tracking-tight">
             Risk Manager
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-fg-muted">
             Position sizing, risk analytics &amp; scenario simulation
           </p>
         </div>
@@ -606,7 +606,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
             prefix="$"
           />
           <div className="space-y-1">
-            <label className="text-[10px] uppercase tracking-wider text-slate-500">
+            <label className="text-[10px] uppercase tracking-wider text-fg-muted">
               Risk Per Trade
             </label>
             <div className="pt-1">
@@ -650,10 +650,10 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
 
         {/* Portfolio allocation bar */}
         <div className="space-y-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-slate-500">
+          <span className="text-[10px] uppercase tracking-wider text-fg-muted">
             Portfolio Allocation
           </span>
-          <div className="h-5 rounded-full bg-slate-800/60 overflow-hidden flex">
+          <div className="h-5 rounded-full bg-surface-raised overflow-hidden flex">
             <motion.div
               className="h-full rounded-l-full bg-gradient-to-r from-cyan-500 to-cyan-400"
               initial={{ width: 0 }}
@@ -661,7 +661,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
               transition={{ duration: 0.6 }}
             />
             <motion.div
-              className="h-full bg-slate-700/40"
+              className="h-full bg-surface-hover"
               initial={{ width: '100%' }}
               animate={{
                 width: `${clamp(100 - posCalc.portfolioPct, 0, 100)}%`,
@@ -669,7 +669,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
               transition={{ duration: 0.6 }}
             />
           </div>
-          <div className="flex justify-between text-[10px] text-slate-500">
+          <div className="flex justify-between text-[10px] text-fg-muted">
             <span>Allocated: {fmt(clamp(posCalc.portfolioPct, 0, 100))}%</span>
             <span>
               Cash: {fmt(clamp(100 - posCalc.portfolioPct, 0, 100))}%
@@ -678,15 +678,15 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
         </div>
 
         {/* Kelly Criterion */}
-        <div className="mt-2 rounded-xl border border-slate-800/40 bg-slate-900/30 p-4 space-y-4">
+        <div className="mt-2 rounded-xl border border-line-subtle bg-surface-base/30 p-4 space-y-4">
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-amber-400" />
-            <span className="text-xs font-semibold text-slate-300">
+            <span className="text-xs font-semibold text-fg-secondary">
               Kelly Criterion
             </span>
             <div className="group relative ml-auto">
-              <Info className="w-3.5 h-3.5 text-slate-600 cursor-help" />
-              <div className="absolute right-0 bottom-full mb-2 w-56 p-2 rounded-lg bg-slate-800 border border-slate-700 text-[10px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+              <Info className="w-3.5 h-3.5 text-fg-muted cursor-help" />
+              <div className="absolute right-0 bottom-full mb-2 w-56 p-2 rounded-lg bg-surface-overlay border border-line-default text-[10px] text-fg-muted opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                 Kelly Criterion calculates the mathematically optimal bet size.
                 Half-Kelly is recommended for most traders to reduce variance.
               </div>
@@ -733,12 +733,12 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
             ].map((k) => (
               <div
                 key={k.label}
-                className="rounded-lg border border-slate-800/40 bg-slate-900/50 p-3 text-center"
+                className="rounded-lg border border-line-subtle bg-surface-base/50 p-3 text-center"
               >
                 <div className={`text-lg font-mono tabular-nums font-bold ${k.color}`}>
                   {fmt(k.value)}%
                 </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">
+                <div className="text-[10px] text-fg-muted mt-0.5">
                   {k.label}
                 </div>
               </div>
@@ -747,7 +747,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
 
           {/* Kelly gauge */}
           <div className="flex justify-center">
-            <div className="relative w-full h-3 rounded-full bg-slate-800 overflow-hidden">
+            <div className="relative w-full h-3 rounded-full bg-surface-raised overflow-hidden">
               {/* Quarter Kelly marker */}
               <motion.div
                 className="absolute h-full bg-gradient-to-r from-emerald-500/80 to-emerald-400/60"
@@ -773,7 +773,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
               />
             </div>
           </div>
-          <div className="flex justify-between text-[9px] text-slate-600">
+          <div className="flex justify-between text-[9px] text-fg-muted">
             <span>0%</span>
             <span className="text-emerald-500">
               QK: {fmt(kelly.quarter)}%
@@ -855,7 +855,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
           4. DRAWDOWN SIMULATOR
          ══════════════════════════════════════════════════════ */}
       <SectionCard title="Drawdown Simulator" icon={TrendingDown} badge="Scenario">
-        <div className="rounded-xl border border-slate-800/40 bg-slate-900/30 p-4 space-y-4">
+        <div className="rounded-xl border border-line-subtle bg-surface-base/30 p-4 space-y-4">
           <SimulatorSlider
             label="What if the market drops..."
             value={marketDrop}
@@ -894,7 +894,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
 
           {/* Animated drawdown bar */}
           <div className="space-y-2">
-            <span className="text-[10px] uppercase tracking-wider text-slate-500">
+            <span className="text-[10px] uppercase tracking-wider text-fg-muted">
               Drawdown Impact
             </span>
             <div className="flex items-end gap-1 h-24">
@@ -906,7 +906,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
                   animate={{ height: '100%' }}
                   transition={{ duration: 0.6 }}
                 />
-                <span className="text-[9px] text-slate-500">Current</span>
+                <span className="text-[9px] text-fg-muted">Current</span>
               </div>
               {/* Projected equity bar */}
               <div className="flex flex-col items-center flex-1 gap-1">
@@ -918,7 +918,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
                   }}
                   transition={{ duration: 0.6 }}
                 />
-                <span className="text-[9px] text-slate-500">Projected</span>
+                <span className="text-[9px] text-fg-muted">Projected</span>
               </div>
               {/* Loss bar */}
               <div className="flex flex-col items-center flex-1 gap-1">
@@ -930,22 +930,22 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
                   }}
                   transition={{ duration: 0.6 }}
                 />
-                <span className="text-[9px] text-slate-500">Recovery %</span>
+                <span className="text-[9px] text-fg-muted">Recovery %</span>
               </div>
             </div>
           </div>
 
           {/* Historical comparison */}
           {result && (
-            <div className="rounded-lg border border-slate-800/30 bg-slate-900/20 px-3 py-2 flex items-center gap-2">
-              <Info className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-              <span className="text-[10px] text-slate-500">
+            <div className="rounded-lg border border-line-subtle bg-surface-base/20 px-3 py-2 flex items-center gap-2">
+              <Info className="w-3.5 h-3.5 text-fg-muted shrink-0" />
+              <span className="text-[10px] text-fg-muted">
                 Historical max drawdown for this strategy was{' '}
                 <span className="text-red-400 font-mono font-semibold">
                   {fmtPct(result.max_drawdown)}
                 </span>
                 {' '}lasting{' '}
-                <span className="text-slate-300 font-mono">
+                <span className="text-fg-secondary font-mono">
                   {result.max_drawdown_duration}
                 </span>{' '}
                 days to recover.
@@ -968,8 +968,8 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
                 <span className="text-xs font-medium text-amber-300">
                   Single Asset Concentration
                 </span>
-                <p className="text-[10px] text-slate-400 leading-relaxed">
-                  This backtest runs on <span className="text-slate-200 font-mono">{result.symbol}</span> only.
+                <p className="text-[10px] text-fg-muted leading-relaxed">
+                  This backtest runs on <span className="text-fg-secondary font-mono">{result.symbol}</span> only.
                   Consider diversifying across uncorrelated assets to reduce
                   idiosyncratic risk. A portfolio of 5-8 uncorrelated positions
                   can reduce volatility by 30-50% without sacrificing returns.
@@ -978,8 +978,8 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
             </div>
 
             {/* Suggested diversification */}
-            <div className="rounded-lg border border-slate-800/40 bg-slate-900/30 p-3 space-y-2">
-              <span className="text-xs font-semibold text-slate-300">
+            <div className="rounded-lg border border-line-subtle bg-surface-base/30 p-3 space-y-2">
+              <span className="text-xs font-semibold text-fg-secondary">
                 Diversification Recommendations
               </span>
               <ul className="space-y-1.5">
@@ -991,7 +991,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
                 ].map((tip, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <div className="w-1 h-1 rounded-full bg-cyan-500 mt-1.5 shrink-0" />
-                    <span className="text-[10px] text-slate-400">{tip}</span>
+                    <span className="text-[10px] text-fg-muted">{tip}</span>
                   </li>
                 ))}
               </ul>
@@ -1034,7 +1034,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
       {tradeHeatMap && tradeHeatMap.length > 0 && (
         <SectionCard title="Position Heat Map" icon={BarChart3} badge={`${tradeHeatMap.length} trades`}>
           <div className="space-y-2">
-            <span className="text-[10px] uppercase tracking-wider text-slate-500">
+            <span className="text-[10px] uppercase tracking-wider text-fg-muted">
               Risk per trade — colored by P&L
             </span>
             <div className="flex flex-wrap gap-1">
@@ -1055,7 +1055,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
                     }}
                   >
                     {/* Tooltip */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-surface-overlay border border-line-default text-[9px] text-fg-secondary font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                       #{i + 1}: {t.pnl >= 0 ? '+' : ''}
                       {fmt(t.pnl * 100)}%
                     </div>
@@ -1063,7 +1063,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
                 )
               })}
             </div>
-            <div className="flex items-center gap-4 text-[9px] text-slate-500 mt-1">
+            <div className="flex items-center gap-4 text-[9px] text-fg-muted mt-1">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded-sm bg-emerald-500/60" />
                 <span>Winning trade</span>
@@ -1072,7 +1072,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
                 <div className="w-3 h-3 rounded-sm bg-red-500/60" />
                 <span>Losing trade</span>
               </div>
-              <span className="ml-auto text-slate-600">
+              <span className="ml-auto text-fg-muted">
                 Intensity = magnitude of P&L
               </span>
             </div>

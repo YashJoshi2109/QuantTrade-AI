@@ -28,15 +28,15 @@ function MetricCard({
   icon?: LucideIcon
 }) {
   return (
-    <div className="rounded-xl bg-[#0F1629]/80 border border-slate-800/60 p-4 flex flex-col gap-1">
+    <div className="rounded-xl bg-surface-raised border border-line-subtle p-4 flex flex-col gap-1">
       <div className="flex items-center gap-2 mb-1">
-        {Icon && <Icon className="h-4 w-4 text-slate-500" />}
-        <span className="text-xs text-slate-500 uppercase tracking-wider">{label}</span>
+        {Icon && <Icon className="h-4 w-4 text-fg-muted" />}
+        <span className="text-xs text-fg-muted uppercase tracking-wider">{label}</span>
       </div>
       <span
         className={`text-2xl font-black font-mono ${
           positive === undefined
-            ? 'text-white'
+            ? 'text-fg-primary'
             : positive
               ? 'text-emerald-400'
               : 'text-red-400'
@@ -44,7 +44,7 @@ function MetricCard({
       >
         {value}
       </span>
-      {sub && <span className="text-[11px] text-slate-500 font-mono">{sub}</span>}
+      {sub && <span className="text-[11px] text-fg-muted font-mono">{sub}</span>}
     </div>
   )
 }
@@ -62,12 +62,12 @@ function Section({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="rounded-xl bg-[#0F1629]/80 border border-slate-800/60 p-5"
+      className="rounded-xl bg-surface-raised border border-line-subtle p-5"
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          {Icon && <Icon className="h-4 w-4 text-slate-400" />}
-          <h3 className="text-sm font-black uppercase tracking-wider text-white">{title}</h3>
+          {Icon && <Icon className="h-4 w-4 text-fg-secondary" />}
+          <h3 className="text-sm font-black uppercase tracking-wider text-fg-primary">{title}</h3>
         </div>
         {right}
       </div>
@@ -83,8 +83,8 @@ function Section({
 function ChartTooltip({ active, payload, label, prefix, suffix }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-[#1a2035] border border-slate-700 rounded-lg px-3 py-2 shadow-xl text-xs">
-      <p className="text-slate-400 mb-1">Index {label}</p>
+    <div className="bg-surface-overlay border border-line-default rounded-lg px-3 py-2 shadow-xl text-xs">
+      <p className="text-fg-secondary mb-1">Index {label}</p>
       {payload.map((p: any, i: number) => (
         <p key={i} className="font-mono" style={{ color: p.color }}>
           {p.name}: {prefix ?? ''}{typeof p.value === 'number' ? p.value.toFixed(2) : p.value}{suffix ?? ''}
@@ -335,7 +335,7 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
             </AreaChart>
           </ResponsiveContainer>
           {hasBenchmark && (
-            <p className="text-[11px] text-slate-600 mt-2">
+            <p className="text-[11px] text-fg-muted mt-2">
               Benchmark: {result.benchmark_ticker ?? 'SPY'} (dashed)
             </p>
           )}
@@ -395,7 +395,7 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
         <Section
           title="Rolling Sharpe"
           icon={LineChartIcon}
-          right={<span className="text-[10px] text-slate-600 font-mono">63-day window</span>}
+          right={<span className="text-[10px] text-fg-muted font-mono">63-day window</span>}
         >
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={rollingSharpeData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -425,9 +425,9 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
             <table className="w-full text-[11px] font-mono">
               <thead>
                 <tr>
-                  <th className="text-left text-slate-600 pb-2 pr-3">Year</th>
+                  <th className="text-left text-fg-muted pb-2 pr-3">Year</th>
                   {Array.from({ length: 12 }, (_, i) => (
-                    <th key={i} className="text-center text-slate-600 pb-2 px-1 min-w-[42px]">
+                    <th key={i} className="text-center text-fg-muted pb-2 px-1 min-w-[42px]">
                       {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i]}
                     </th>
                   ))}
@@ -436,7 +436,7 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
               <tbody>
                 {monthlyGrid.map(({ year, months }) => (
                   <tr key={year}>
-                    <td className="text-slate-500 pr-3 py-0.5">{year}</td>
+                    <td className="text-fg-muted pr-3 py-0.5">{year}</td>
                     {Array.from({ length: 12 }, (_, m) => {
                       const val = months[m + 1]
                       if (val === undefined) {
@@ -513,9 +513,9 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
                   if (!active || !payload?.length) return null
                   const d = payload[0]?.payload
                   return (
-                    <div className="bg-[#1a2035] border border-slate-700 rounded-lg px-3 py-2 shadow-xl text-xs">
-                      <p className="font-mono text-slate-400">MAE: {d?.mae?.toFixed(2)}%</p>
-                      <p className="font-mono text-slate-400">MFE: {d?.mfe?.toFixed(2)}%</p>
+                    <div className="bg-surface-overlay border border-line-default rounded-lg px-3 py-2 shadow-xl text-xs">
+                      <p className="font-mono text-fg-secondary">MAE: {d?.mae?.toFixed(2)}%</p>
+                      <p className="font-mono text-fg-secondary">MFE: {d?.mfe?.toFixed(2)}%</p>
                       <p className={`font-mono ${d?.profit ? 'text-emerald-400' : 'text-red-400'}`}>
                         {d?.profit ? 'Winner' : 'Loser'}
                       </p>
@@ -540,12 +540,12 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 rounded-xl bg-[#0F1629]/80 border border-emerald-800/40 px-5 py-3"
+          className="flex items-center gap-3 rounded-xl bg-surface-raised border border-emerald-800/40 px-5 py-3"
         >
           <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0" />
           <div>
             <p className="text-sm font-black text-emerald-400">Walk-Forward Validated</p>
-            <p className="text-xs text-slate-500 font-mono">
+            <p className="text-xs text-fg-muted font-mono">
               Train: {wf.train_bars ?? wf.train_pct ?? '--'} | Test: {wf.test_bars ?? '--'} bars
             </p>
           </div>
@@ -555,7 +555,7 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
       {/* ====== 10. Monte Carlo ====== */}
       {mc && (
         <Section title="Monte Carlo Simulation" icon={Activity} right={
-          <span className="text-[10px] text-slate-600 font-mono">{mc.n_simulations.toLocaleString()} sims</span>
+          <span className="text-[10px] text-fg-muted font-mono">{mc.n_simulations.toLocaleString()} sims</span>
         }>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
             <MetricCard
@@ -581,9 +581,9 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
           </div>
 
           {/* probability band */}
-          <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 mb-4">
+          <div className="flex items-center gap-2 text-[11px] font-mono text-fg-muted mb-4">
             <span className="text-red-400">{fmtPct(mc.p5_return)}</span>
-            <div className="flex-1 h-2 rounded-full bg-slate-800 relative overflow-hidden">
+            <div className="flex-1 h-2 rounded-full bg-surface-raised relative overflow-hidden">
               <div
                 className="absolute inset-y-0 bg-gradient-to-r from-red-500/40 via-slate-600/30 to-emerald-500/40 rounded-full"
                 style={{ left: '5%', right: '5%' }}
@@ -615,11 +615,11 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="flex items-center gap-2 text-xs text-slate-600"
+          className="flex items-center gap-2 text-xs text-fg-muted"
         >
           <Database className="h-3.5 w-3.5" />
           <span className="font-mono">
-            Data source: <span className="text-slate-400">{result.data_source}</span>
+            Data source: <span className="text-fg-secondary">{result.data_source}</span>
           </span>
         </motion.div>
       )}

@@ -161,11 +161,11 @@ function ParamSlider({ label, value, min, max, step, onChange, color = 'cyan' }:
   return (
     <div className="group">
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold group-hover:text-slate-400 transition-colors">{label}</label>
+        <label className="text-[10px] text-fg-muted uppercase tracking-wider font-semibold group-hover:text-fg-secondary transition-colors">{label}</label>
         <span className="text-xs font-mono text-cyan-400 font-bold bg-cyan-500/10 px-1.5 py-0.5 rounded">{value}</span>
       </div>
       <div className="relative">
-        <div className="absolute inset-0 h-1.5 rounded-full bg-slate-800 top-1/2 -translate-y-1/2" />
+        <div className="absolute inset-0 h-1.5 rounded-full bg-surface-raised top-1/2 -translate-y-1/2" />
         <div
           className="absolute h-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 top-1/2 -translate-y-1/2"
           style={{ width: `${pct}%` }}
@@ -176,7 +176,7 @@ function ParamSlider({ label, value, min, max, step, onChange, color = 'cyan' }:
           className="relative w-full h-6 appearance-none bg-transparent cursor-pointer z-10
             [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
             [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400
-            [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[#0A0E1A]
+            [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-surface-base
             [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-cyan-500/30
             [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-transform"
         />
@@ -191,13 +191,13 @@ function GlassSection({ title, icon: Icon, right, children, className = '' }: {
   title: string; icon?: LucideIcon; right?: React.ReactNode; children: React.ReactNode; className?: string
 }) {
   return (
-    <div className={`bg-[#0F1629]/60 backdrop-blur-xl border border-slate-800/40 rounded-2xl overflow-hidden ${className}`}>
-      <div className="px-5 py-3.5 border-b border-slate-800/30 flex items-center justify-between">
+    <div className={`bg-surface-raised/60 backdrop-blur-xl border border-line-subtle rounded-2xl overflow-hidden ${className}`}>
+      <div className="px-5 py-3.5 border-b border-line-subtle flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          {Icon && <Icon className="w-4 h-4 text-slate-500" />}
-          <span className="text-sm font-bold text-white tracking-tight">{title}</span>
+          {Icon && <Icon className="w-4 h-4 text-fg-muted" />}
+          <span className="text-sm font-bold text-fg-primary tracking-tight">{title}</span>
         </div>
-        {right && <div className="text-[10px] text-slate-500 font-mono">{right}</div>}
+        {right && <div className="text-[10px] text-fg-muted font-mono">{right}</div>}
       </div>
       {children}
     </div>
@@ -431,7 +431,7 @@ function DesktopBacktestPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-[#0A0E1A] -mx-4 md:-mx-6 -my-4 md:-my-6">
+      <div className="min-h-screen bg-surface-base -mx-4 md:-mx-6 -my-4 md:-my-6">
         <div className="max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-5">
 
           {/* ── Premium Header ── */}
@@ -442,10 +442,10 @@ function DesktopBacktestPage() {
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-base sm:text-lg font-black text-white tracking-tight truncate">Strategy Backtester</h1>
+                  <h1 className="text-base sm:text-lg font-black text-fg-primary tracking-tight truncate">Strategy Backtester</h1>
                   <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/25 uppercase tracking-wider shrink-0">Pro</span>
                 </div>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">
+                <p className="text-[10px] text-fg-muted font-mono mt-0.5 truncate">
                   8 strategies · Monte Carlo · Walk-forward · Alpha/Beta · VaR · MAE/MFE
                 </p>
               </div>
@@ -463,14 +463,14 @@ function DesktopBacktestPage() {
                   </span>
                 </motion.div>
               )}
-              <div className="text-[9px] text-slate-600 font-mono hidden lg:block">
-                Press <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-400 font-bold">R</kbd> to run
+              <div className="text-[9px] text-fg-muted font-mono hidden lg:block">
+                Press <kbd className="px-1 py-0.5 rounded bg-surface-raised text-fg-muted font-bold">R</kbd> to run
               </div>
             </div>
           </div>
 
           {/* ── Premium Tab Navigation ── */}
-          <div className="flex items-center gap-1 mb-4 sm:mb-5 bg-[#0F1629]/40 backdrop-blur-xl border border-slate-800/30 rounded-2xl p-1 sm:p-1.5 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div className="flex items-center gap-1 mb-4 sm:mb-5 bg-surface-raised/40 backdrop-blur-xl border border-line-subtle rounded-2xl p-1 sm:p-1.5 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
             {TABS.map(tab => {
               const isActive = activeTab === tab.id
               const isDisabled = (tab.id === 'results' || tab.id === 'journal' || tab.id === 'risk') && !result
@@ -481,15 +481,15 @@ function DesktopBacktestPage() {
                   disabled={isDisabled}
                   className={`relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0
                     ${isActive
-                      ? 'bg-gradient-to-r from-cyan-500/15 to-blue-500/10 text-white shadow-lg shadow-cyan-500/5 border border-cyan-500/20'
+                      ? 'bg-gradient-to-r from-cyan-500/15 to-blue-500/10 text-fg-primary shadow-lg shadow-cyan-500/5 border border-cyan-500/20'
                       : isDisabled
-                        ? 'text-slate-700 cursor-not-allowed'
-                        : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'
+                        ? 'text-fg-muted cursor-not-allowed opacity-40'
+                        : 'text-fg-muted hover:text-fg-secondary hover:bg-surface-hover'
                     }`}
                 >
                   <tab.icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-cyan-400' : ''}`} />
                   <span>{tab.label}</span>
-                  <span className={`text-[8px] font-mono hidden sm:inline ${isActive ? 'text-cyan-400/60' : 'text-slate-600'}`}>{tab.desc}</span>
+                  <span className={`text-[8px] font-mono hidden sm:inline ${isActive ? 'text-cyan-400/60' : 'text-fg-muted'}`}>{tab.desc}</span>
                   {isActive && (
                     <motion.div
                       layoutId="activeTab"
@@ -541,39 +541,39 @@ function DesktopBacktestPage() {
                   <GlassSection title="Configuration" icon={Settings}>
                     <div className="p-4 space-y-3">
                       <div ref={suggestRef} className="relative">
-                        <label className="block text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">Symbol</label>
+                        <label className="block text-[10px] text-fg-muted font-semibold uppercase tracking-wider mb-1.5">Symbol</label>
                         <div className="relative">
                           <input
                             type="text" value={symbol}
                             onChange={e => handleSymbolInput(e.target.value)}
                             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                             placeholder="AAPL, TSLA, BTC-USD..."
-                            className="w-full px-4 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-sm font-mono placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/30 transition-all"
+                            className="w-full px-4 py-2.5 bg-surface-base border border-line-subtle rounded-xl text-fg-primary text-sm font-mono placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/30 transition-all"
                           />
                           {searchLoading ? (
                             <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cyan-400 animate-spin" />
                           ) : (
-                            <Sparkles className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600" />
+                            <Sparkles className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg-muted" />
                           )}
                         </div>
-                        <p className="text-[9px] text-slate-600 mt-1 font-mono">Type 2+ chars · 300+ US stocks, ETFs, Crypto, Forex</p>
+                        <p className="text-[9px] text-fg-muted mt-1 font-mono">Type 2+ chars · 300+ US stocks, ETFs, Crypto, Forex</p>
                         <AnimatePresence>
                           {showSuggestions && suggestions.length > 0 && (
                             <motion.div
                               initial={{ opacity: 0, y: -4 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -4 }}
-                              className="absolute z-50 left-0 right-0 mt-1 bg-[#0F1629] border border-slate-700/50 rounded-xl shadow-2xl shadow-black/40 overflow-hidden max-h-64 overflow-y-auto"
+                              className="absolute z-50 left-0 right-0 mt-1 bg-surface-overlay border border-line-default rounded-xl shadow-2xl shadow-black/40 overflow-hidden max-h-64 overflow-y-auto"
                             >
                               {suggestions.map((s, i) => (
                                 <button
                                   key={s.symbol}
                                   onClick={() => handleSelectSymbol(s.symbol)}
-                                  className={`w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-cyan-500/10 transition-colors ${i > 0 ? 'border-t border-slate-800/30' : ''}`}
+                                  className={`w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-cyan-500/10 transition-colors ${i > 0 ? 'border-t border-line-subtle' : ''}`}
                                 >
                                   <span className="text-xs font-bold text-cyan-400 font-mono w-14 shrink-0">{s.symbol}</span>
-                                  <span className="text-xs text-slate-400 truncate flex-1">{s.name}</span>
-                                  {s.exchange && <span className="text-[9px] text-slate-600 font-mono shrink-0">{s.exchange}</span>}
+                                  <span className="text-xs text-fg-muted truncate flex-1">{s.name}</span>
+                                  {s.exchange && <span className="text-[9px] text-fg-muted font-mono shrink-0">{s.exchange}</span>}
                                 </button>
                               ))}
                             </motion.div>
@@ -582,34 +582,34 @@ function DesktopBacktestPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">Start</label>
+                          <label className="block text-[10px] text-fg-muted font-semibold uppercase tracking-wider mb-1.5">Start</label>
                           <input type="date" value={startDate}
                             onChange={e => setStartDate(e.target.value)}
                             min={dateRange?.available ? dateRange.min_date : undefined}
                             max={endDate || (dateRange?.available ? dateRange.max_date : undefined)}
-                            className="w-full px-3 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all [color-scheme:dark]" />
+                            className="w-full px-3 py-2.5 bg-surface-base border border-line-subtle rounded-xl text-fg-primary text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all [color-scheme:dark]" />
                         </div>
                         <div>
-                          <label className="block text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">End</label>
+                          <label className="block text-[10px] text-fg-muted font-semibold uppercase tracking-wider mb-1.5">End</label>
                           <input type="date" value={endDate}
                             onChange={e => setEndDate(e.target.value)}
                             min={startDate || (dateRange?.available ? dateRange.min_date : undefined)}
                             max={dateRange?.available ? dateRange.max_date : undefined}
-                            className="w-full px-3 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all [color-scheme:dark]" />
+                            className="w-full px-3 py-2.5 bg-surface-base border border-line-subtle rounded-xl text-fg-primary text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all [color-scheme:dark]" />
                         </div>
                       </div>
                       {/* Date range availability indicator */}
                       {dateRangeLoading ? (
-                        <div className="flex items-center gap-1.5 text-[9px] text-slate-600 font-mono">
+                        <div className="flex items-center gap-1.5 text-[9px] text-fg-muted font-mono">
                           <Loader2 className="w-2.5 h-2.5 animate-spin" /> Checking data availability...
                         </div>
                       ) : dateRange?.available ? (
                         <div className="flex items-center gap-1.5 text-[9px] font-mono">
                           <Check className="w-2.5 h-2.5 text-emerald-400" />
                           <span className="text-emerald-400/80">Data available</span>
-                          <span className="text-slate-600">{dateRange.min_date} → {dateRange.max_date}</span>
-                          <span className="text-slate-700">·</span>
-                          <span className="text-slate-600">{dateRange.total_bars} bars</span>
+                          <span className="text-fg-muted">{dateRange.min_date} → {dateRange.max_date}</span>
+                          <span className="text-fg-muted">·</span>
+                          <span className="text-fg-muted">{dateRange.total_bars} bars</span>
                         </div>
                       ) : dateRange && !dateRange.available ? (
                         <div className="flex items-center gap-1.5 text-[9px] font-mono">
@@ -619,19 +619,19 @@ function DesktopBacktestPage() {
                       ) : null}
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">Initial Capital</label>
+                          <label className="block text-[10px] text-fg-muted font-semibold uppercase tracking-wider mb-1.5">Initial Capital</label>
                           <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-mono">$</span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted text-sm font-mono">$</span>
                             <input type="number" value={initialCapital}
                               onChange={e => setInitialCapital(Number(e.target.value))}
-                              className="w-full pl-7 pr-3 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all" />
+                              className="w-full pl-7 pr-3 py-2.5 bg-surface-base border border-line-subtle rounded-xl text-fg-primary text-sm font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all" />
                           </div>
                         </div>
                         <div>
-                          <label className="block text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">Benchmark</label>
+                          <label className="block text-[10px] text-fg-muted font-semibold uppercase tracking-wider mb-1.5">Benchmark</label>
                           <input type="text" value={benchmark}
                             onChange={e => setBenchmark(e.target.value.toUpperCase())}
-                            className="w-full px-3 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all" />
+                            className="w-full px-3 py-2.5 bg-surface-base border border-line-subtle rounded-xl text-fg-primary text-sm font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all" />
                         </div>
                       </div>
                     </div>
@@ -639,7 +639,7 @@ function DesktopBacktestPage() {
 
                   {/* Strategy selector */}
                   <GlassSection title="Strategy" icon={Zap}>
-                    <div className="p-3 space-y-1.5 max-h-[340px] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-800">
+                    <div className="p-3 space-y-1.5 max-h-[340px] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-line-default">
                       {STRATEGIES.map(s => {
                         const isSelected = strategy === s.id
                         return (
@@ -650,13 +650,13 @@ function DesktopBacktestPage() {
                             whileTap={{ scale: 0.99 }}
                             className={`w-full text-left p-3 rounded-xl border transition-all ${
                               isSelected
-                                ? `bg-slate-800/50 border-slate-700/60 shadow-lg ${GLOW_COLORS[s.color]}`
-                                : 'bg-transparent border-transparent hover:border-slate-800/40 hover:bg-slate-800/20'
+                                ? `bg-surface-hover border-line-default shadow-lg ${GLOW_COLORS[s.color]}`
+                                : 'bg-transparent border-transparent hover:border-line-subtle hover:bg-surface-hover'
                             }`}
                           >
                             <div className="flex items-center gap-2">
-                              <div className={`w-2 h-2 rounded-full transition-all ${isSelected ? 'bg-cyan-400 shadow-lg shadow-cyan-500/50' : 'bg-slate-700'}`} />
-                              <span className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-slate-400'}`}>{s.name}</span>
+                              <div className={`w-2 h-2 rounded-full transition-all ${isSelected ? 'bg-cyan-400 shadow-lg shadow-cyan-500/50' : 'bg-line-default'}`} />
+                              <span className={`text-xs font-bold ${isSelected ? 'text-fg-primary' : 'text-fg-muted'}`}>{s.name}</span>
                               <span className={`ml-auto px-2 py-0.5 rounded-md text-[8px] font-bold border ${BADGE_COLORS[s.color]}`}>{s.badge}</span>
                             </div>
                             <AnimatePresence>
@@ -665,7 +665,7 @@ function DesktopBacktestPage() {
                                   initial={{ opacity: 0, height: 0 }}
                                   animate={{ opacity: 1, height: 'auto' }}
                                   exit={{ opacity: 0, height: 0 }}
-                                  className="text-[10px] text-slate-500 mt-1.5 ml-4 leading-relaxed"
+                                  className="text-[10px] text-fg-muted mt-1.5 ml-4 leading-relaxed"
                                 >
                                   {s.desc}
                                 </motion.p>
@@ -689,18 +689,18 @@ function DesktopBacktestPage() {
                   </GlassSection>
 
                   {/* Risk Management (advanced toggle) */}
-                  <div className="bg-[#0F1629]/60 backdrop-blur-xl border border-slate-800/40 rounded-2xl overflow-hidden">
+                  <div className="bg-surface-raised/60 backdrop-blur-xl border border-line-subtle rounded-2xl overflow-hidden">
                     <button onClick={() => setShowAdvanced(!showAdvanced)}
-                      className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-slate-800/15 transition-colors">
+                      className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-surface-hover transition-colors">
                       <div className="flex items-center gap-2.5">
-                        <Shield className="w-4 h-4 text-slate-500" />
-                        <span className="text-sm font-bold text-white">Risk Management</span>
+                        <Shield className="w-4 h-4 text-fg-muted" />
+                        <span className="text-sm font-bold text-fg-primary">Risk Management</span>
                         {(stopLoss || takeProfit || trailingStop) && (
                           <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                         )}
                       </div>
                       <motion.div animate={{ rotate: showAdvanced ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                        <ChevronDown className="w-4 h-4 text-slate-500" />
+                        <ChevronDown className="w-4 h-4 text-fg-muted" />
                       </motion.div>
                     </button>
                     <AnimatePresence>
@@ -712,26 +712,26 @@ function DesktopBacktestPage() {
                           transition={{ duration: 0.2 }}
                           className="overflow-hidden"
                         >
-                          <div className="p-4 pt-0 space-y-3 border-t border-slate-800/30">
+                          <div className="p-4 pt-0 space-y-3 border-t border-line-subtle">
                             <div className="pt-3">
-                              <label className="block text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">Position Sizing</label>
+                              <label className="block text-[10px] text-fg-muted font-semibold uppercase tracking-wider mb-1.5">Position Sizing</label>
                               <div className="space-y-1.5">
                                 {POSITION_SIZING_OPTIONS.map(o => (
                                   <button key={o.value} onClick={() => setPositionSizing(o.value)}
                                     className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${
                                       positionSizing === o.value
                                         ? 'bg-cyan-500/10 border-cyan-500/20 text-white'
-                                        : 'border-transparent text-slate-400 hover:bg-slate-800/30'
+                                        : 'border-transparent text-fg-muted hover:bg-surface-hover'
                                     }`}>
                                     <div className="flex items-center gap-2">
                                       <div className={`w-3 h-3 rounded-full border-2 flex items-center justify-center ${
-                                        positionSizing === o.value ? 'border-cyan-400' : 'border-slate-600'
+                                        positionSizing === o.value ? 'border-cyan-400' : 'border-line-default'
                                       }`}>
                                         {positionSizing === o.value && <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
                                       </div>
                                       <span className="text-xs font-bold">{o.label}</span>
                                     </div>
-                                    <p className="text-[9px] text-slate-600 ml-5 mt-0.5">{o.desc}</p>
+                                    <p className="text-[9px] text-fg-muted ml-5 mt-0.5">{o.desc}</p>
                                   </button>
                                 ))}
                               </div>
@@ -744,7 +744,7 @@ function DesktopBacktestPage() {
                                 { label: 'Commission %', value: commissionRate * 100, setter: (v: number | null) => setCommissionRate((v ?? 0.1) / 100) },
                               ].map(({ label, value, setter }) => (
                                 <div key={label}>
-                                  <label className="block text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">{label}</label>
+                                  <label className="block text-[10px] text-fg-muted font-semibold uppercase tracking-wider mb-1.5">{label}</label>
                                   <input type="number" step="0.5"
                                     placeholder={label.includes('Commission') ? '0.10' : 'None'}
                                     value={value ?? ''}
@@ -752,16 +752,16 @@ function DesktopBacktestPage() {
                                       const v = e.target.value ? Number(e.target.value) : null
                                       setter(v)
                                     }}
-                                    className="w-full px-3 py-2 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all" />
+                                    className="w-full px-3 py-2 bg-surface-base border border-line-subtle rounded-xl text-fg-primary text-xs font-mono placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all" />
                                 </div>
                               ))}
                             </div>
                             <div className="grid grid-cols-2 gap-3 pt-1">
                               <div>
-                                <label className="block text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1.5">Max Pyramiding</label>
+                                <label className="block text-[10px] text-fg-muted font-semibold uppercase tracking-wider mb-1.5">Max Pyramiding</label>
                                 <input type="number" min={1} max={10} value={maxPyramiding}
                                   onChange={e => setMaxPyramiding(Number(e.target.value))}
-                                  className="w-full px-3 py-2 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all" />
+                                  className="w-full px-3 py-2 bg-surface-base border border-line-subtle rounded-xl text-fg-primary text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all" />
                               </div>
                               <div className="flex flex-col justify-end gap-2">
                                 {[
@@ -770,11 +770,11 @@ function DesktopBacktestPage() {
                                 ].map(({ label, checked, setter }) => (
                                   <label key={label} className="flex items-center gap-2 cursor-pointer group">
                                     <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all ${
-                                      checked ? 'bg-cyan-500 border-cyan-500' : 'border-slate-600 group-hover:border-slate-500'
+                                      checked ? 'bg-cyan-500 border-cyan-500' : 'border-line-default group-hover:border-line-strong'
                                     }`}>
                                       {checked && <Check className="w-2.5 h-2.5 text-white" />}
                                     </div>
-                                    <span className="text-[10px] text-slate-400 font-semibold uppercase">{label}</span>
+                                    <span className="text-[10px] text-fg-muted font-semibold uppercase">{label}</span>
                                   </label>
                                 ))}
                               </div>
@@ -790,12 +790,12 @@ function DesktopBacktestPage() {
                     <motion.button
                       whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
                       onClick={handleCancel}
-                      className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-gradient-to-r from-slate-700 to-slate-600 text-white font-black text-sm shadow-xl transition-all"
+                      className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-surface-raised text-fg-primary font-black text-sm shadow-xl transition-all"
                     >
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>Running Simulation...</span>
-                      {elapsedSec > 0 && <span className="font-mono text-slate-300">{elapsedSec}s</span>}
-                      <span className="ml-auto text-[10px] text-slate-400 font-mono">Click to cancel</span>
+                      {elapsedSec > 0 && <span className="font-mono text-fg-secondary">{elapsedSec}s</span>}
+                      <span className="ml-auto text-[10px] text-fg-muted font-mono">Click to cancel</span>
                     </motion.button>
                   ) : (
                     <motion.button
@@ -826,11 +826,11 @@ function DesktopBacktestPage() {
                       onDismissError={() => setError(null)}
                     />
                   ) : result ? (
-                    <div className="bg-[#0F1629]/30 backdrop-blur-xl border border-slate-800/30 rounded-2xl p-5">
+                    <div className="bg-surface-raised/30 backdrop-blur-xl border border-line-subtle rounded-2xl p-5">
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <h3 className="text-sm font-black text-white">Last Result: {result.symbol}</h3>
-                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                          <h3 className="text-sm font-black text-fg-primary">Last Result: {result.symbol}</h3>
+                          <p className="text-[10px] text-fg-muted font-mono mt-0.5">
                             {result.strategy.replace(/_/g, ' ')} · {result.total_trades} trades · {result.data_source || 'database'}
                           </p>
                         </div>
@@ -849,8 +849,8 @@ function DesktopBacktestPage() {
                           { label: 'Win Rate', value: `${result.win_rate.toFixed(0)}%`, positive: result.win_rate >= 50 },
                           { label: 'Max DD', value: `-${result.max_drawdown.toFixed(1)}%`, positive: false },
                         ].map(m => (
-                          <div key={m.label} className="bg-[#0A0E1A]/60 border border-slate-800/40 rounded-xl p-3">
-                            <div className="text-[9px] text-slate-500 uppercase font-semibold tracking-wider">{m.label}</div>
+                          <div key={m.label} className="bg-surface-base border border-line-subtle rounded-xl p-3">
+                            <div className="text-[9px] text-fg-muted uppercase font-semibold tracking-wider">{m.label}</div>
                             <div className={`text-lg font-black font-mono tabular-nums mt-0.5 ${m.positive ? 'text-emerald-400' : 'text-red-400'}`}>{m.value}</div>
                           </div>
                         ))}
@@ -890,17 +890,17 @@ function DesktopBacktestPage() {
                       )}
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center h-[600px] bg-[#0F1629]/20 backdrop-blur-xl border border-dashed border-slate-800/40 rounded-2xl">
+                    <div className="flex items-center justify-center h-[600px] bg-surface-raised/20 backdrop-blur-xl border border-dashed border-line-subtle rounded-2xl">
                       <div className="text-center max-w-sm">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 flex items-center justify-center">
-                          <BarChart3 className="w-7 h-7 text-slate-600" />
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-surface-raised border border-line-default flex items-center justify-center">
+                          <BarChart3 className="w-7 h-7 text-fg-muted" />
                         </div>
-                        <p className="text-sm text-slate-400 font-bold">Configure Your Strategy</p>
-                        <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                        <p className="text-sm text-fg-muted font-bold">Configure Your Strategy</p>
+                        <p className="text-xs text-fg-muted mt-1.5 leading-relaxed">
                           Select a strategy, adjust parameters, and run a backtest.
                           Results will appear here with comprehensive analytics.
                         </p>
-                        <div className="flex items-center justify-center gap-4 mt-4 text-[9px] text-slate-600 font-mono">
+                        <div className="flex items-center justify-center gap-4 mt-4 text-[9px] text-fg-muted font-mono">
                           <span>8 strategies</span>
                           <span>·</span>
                           <span>Monte Carlo</span>
@@ -993,7 +993,7 @@ function DesktopBacktestPage() {
           {result && (
             <div className="mt-6 p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 flex items-start gap-2.5">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-500/50 shrink-0 mt-0.5" />
-              <p className="text-[9px] text-slate-500 leading-relaxed">
+              <p className="text-[9px] text-fg-muted leading-relaxed">
                 Backtest results are illustrative. Past performance does not guarantee future results.
                 Commission ({(result.commission_rate * 100).toFixed(2)}%) and slippage ({(result.slippage_rate * 100).toFixed(2)}%) are modeled.
                 Data source: {result.data_source || 'database'}. Use for research purposes only.
@@ -1084,7 +1084,7 @@ function MobileBacktestPage() {
 
   return (
     <MobileLayout>
-      <div className="min-h-screen bg-[#0A0E1A] px-4 py-4 pb-24 space-y-4">
+      <div className="min-h-screen bg-surface-base px-4 py-4 pb-24 space-y-4">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -1093,12 +1093,12 @@ function MobileBacktestPage() {
           className="flex items-center gap-2 mb-2"
         >
           <Activity className="w-4 h-4 text-cyan-400" />
-          <h1 className="text-base font-black text-white">Backtester</h1>
+          <h1 className="text-base font-black text-fg-primary">Backtester</h1>
           <span className="px-2 py-0.5 rounded-md text-[8px] font-black bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/25">PRO</span>
         </motion.div>
 
         {/* Mobile tabs */}
-        <div className="flex gap-1 bg-[#0F1629]/40 border border-slate-800/30 rounded-xl p-1">
+        <div className="flex gap-1 bg-surface-raised/40 border border-line-subtle rounded-xl p-1">
           {(['config', 'results'] as const).map(tab => (
             <button
               key={tab}
@@ -1106,8 +1106,8 @@ function MobileBacktestPage() {
               disabled={tab === 'results' && !result}
               className={`relative flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeTab === tab
-                  ? 'text-white'
-                  : 'text-slate-500 disabled:text-slate-700'
+                  ? 'text-fg-primary'
+                  : 'text-fg-muted disabled:opacity-40'
               }`}
             >
               {activeTab === tab && (
@@ -1132,7 +1132,7 @@ function MobileBacktestPage() {
             transition={{ duration: 0.2 }}
             className="space-y-4"
           >
-            <div className="bg-[#0F1629]/60 border border-slate-800/40 rounded-2xl p-4 space-y-3">
+            <div className="bg-surface-raised/60 border border-line-subtle rounded-2xl p-4 space-y-3">
               <MobileSymbolSearch
                 value={symbol}
                 onChange={setSymbol}
@@ -1142,23 +1142,23 @@ function MobileBacktestPage() {
                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
                   min={dateRange?.available ? dateRange.min_date : undefined}
                   max={endDate || (dateRange?.available ? dateRange.max_date : undefined)}
-                  className="px-2 py-2 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none [color-scheme:dark]" />
+                  className="px-2 py-2 bg-surface-base border border-line-subtle rounded-xl text-fg-primary text-xs font-mono focus:outline-none [color-scheme:dark]" />
                 <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
                   min={startDate || (dateRange?.available ? dateRange.min_date : undefined)}
                   max={dateRange?.available ? dateRange.max_date : undefined}
-                  className="px-2 py-2 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none [color-scheme:dark]" />
+                  className="px-2 py-2 bg-surface-base border border-line-subtle rounded-xl text-fg-primary text-xs font-mono focus:outline-none [color-scheme:dark]" />
               </div>
               <input type="number" value={initialCapital} onChange={e => setInitialCapital(Number(e.target.value))}
-                className="w-full px-3 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-sm font-mono focus:outline-none" />
+                className="w-full px-3 py-2.5 bg-surface-base border border-line-subtle rounded-xl text-fg-primary text-sm font-mono focus:outline-none" />
               <select value={strategy} onChange={e => setStrategy(e.target.value)}
-                className="w-full px-3 py-2.5 bg-[#0A0E1A]/80 border border-slate-700/40 rounded-xl text-white text-xs font-mono focus:outline-none appearance-none">
+                className="w-full px-3 py-2.5 bg-surface-base border border-line-subtle rounded-xl text-fg-primary text-xs font-mono focus:outline-none appearance-none">
                 {STRATEGIES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
 
             {loading ? (
               <button onClick={handleCancel}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl bg-gradient-to-r from-slate-700 to-slate-600 text-white font-black text-sm">
+                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl bg-surface-raised text-fg-primary font-black text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" /> Cancel
               </button>
             ) : (
@@ -1197,8 +1197,8 @@ function MobileBacktestPage() {
                 { label: 'Win Rate', value: `${result.win_rate.toFixed(0)}%`, positive: result.win_rate >= 50 },
                 { label: 'Max DD', value: `-${result.max_drawdown.toFixed(1)}%`, positive: false },
               ].map(m => (
-                <div key={m.label} className="bg-[#0F1629]/60 border border-slate-800/40 rounded-xl p-3">
-                  <div className="text-[9px] text-slate-500 uppercase font-semibold">{m.label}</div>
+                <div key={m.label} className="bg-surface-raised/60 border border-line-subtle rounded-xl p-3">
+                  <div className="text-[9px] text-fg-muted uppercase font-semibold">{m.label}</div>
                   <div className={`text-lg font-black font-mono ${m.positive ? 'text-emerald-400' : 'text-red-400'}`}>{m.value}</div>
                 </div>
               ))}
@@ -1209,8 +1209,8 @@ function MobileBacktestPage() {
                 { label: 'Sortino', value: result.sortino_ratio.toFixed(2), positive: result.sortino_ratio >= 1 },
                 { label: 'PF', value: result.profit_factor.toFixed(2), positive: result.profit_factor >= 1.5 },
               ].map(m => (
-                <div key={m.label} className="bg-[#0F1629]/60 border border-slate-800/40 rounded-xl p-3">
-                  <div className="text-[9px] text-slate-500 uppercase font-semibold">{m.label}</div>
+                <div key={m.label} className="bg-surface-raised/60 border border-line-subtle rounded-xl p-3">
+                  <div className="text-[9px] text-fg-muted uppercase font-semibold">{m.label}</div>
                   <div className={`text-base font-black font-mono ${'positive' in m ? (m.positive ? 'text-emerald-400' : 'text-red-400') : 'text-white'}`}>{m.value}</div>
                 </div>
               ))}
@@ -1218,7 +1218,7 @@ function MobileBacktestPage() {
 
             {/* Mini equity curve */}
             {result.equity_curve.length > 2 && (
-              <div className="bg-[#0F1629]/60 border border-slate-800/40 rounded-xl p-2 h-36">
+              <div className="bg-surface-raised/60 border border-line-subtle rounded-xl p-2 h-36">
                 <svg className="w-full h-full" viewBox="0 0 100 50" preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="meq-grad" x1="0" y1="0" x2="0" y2="1">
@@ -1248,15 +1248,15 @@ function MobileBacktestPage() {
             )}
 
             {result.monte_carlo && (
-              <div className="bg-[#0F1629]/60 border border-slate-800/40 rounded-xl p-3">
-                <div className="text-[10px] text-slate-500 uppercase font-semibold mb-2">Monte Carlo</div>
+              <div className="bg-surface-raised/60 border border-line-subtle rounded-xl p-3">
+                <div className="text-[10px] text-fg-muted uppercase font-semibold mb-2">Monte Carlo</div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="text-center">
-                    <div className="text-[9px] text-slate-500">P(Profit)</div>
+                    <div className="text-[9px] text-fg-muted">P(Profit)</div>
                     <div className="text-base font-black font-mono text-emerald-400">{result.monte_carlo.probability_of_profit}%</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-[9px] text-slate-500">Median</div>
+                    <div className="text-[9px] text-fg-muted">Median</div>
                     <div className={`text-base font-black font-mono ${result.monte_carlo.median_return >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                       {result.monte_carlo.median_return >= 0 ? '+' : ''}{result.monte_carlo.median_return}%
                     </div>
@@ -1280,13 +1280,13 @@ export default function BacktestPage() {
   if (!isAuthenticated) {
     return (
       <AppLayout>
-        <div className="min-h-screen flex items-center justify-center bg-[#0A0E1A]">
+        <div className="min-h-screen flex items-center justify-center bg-surface-base">
           <div className="text-center max-w-md px-4">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/20 flex items-center justify-center">
               <Activity className="w-7 h-7 text-cyan-400" />
             </div>
-            <h2 className="text-xl font-black text-white mb-2">Sign In Required</h2>
-            <p className="text-slate-400 text-sm mb-6">Access the Pro Strategy Backtester with your account.</p>
+            <h2 className="text-xl font-black text-fg-primary mb-2">Sign In Required</h2>
+            <p className="text-fg-muted text-sm mb-6">Access the Pro Strategy Backtester with your account.</p>
             <Link href="/auth" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-sm shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 transition-all">
               Sign In <ArrowRight className="w-4 h-4" />
             </Link>

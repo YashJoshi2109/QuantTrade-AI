@@ -121,16 +121,16 @@ const RADAR_METRICS: { key: keyof BacktestResult; label: string; higherIsBetter:
 function EquityTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg bg-[#0F1629] border border-slate-800/60 px-3 py-2 shadow-xl">
-      <p className="text-xs text-slate-500 font-mono mb-1">Day {label}</p>
+    <div className="rounded-lg bg-surface-overlay border border-line-default px-3 py-2 shadow-xl">
+      <p className="text-xs text-fg-muted font-mono mb-1">Day {label}</p>
       {payload.map((entry: any) => (
         <div key={entry.dataKey} className="flex items-center gap-2 text-xs">
           <span
             className="w-2 h-2 rounded-full"
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-slate-400">{entry.name}:</span>
-          <span className="text-white font-mono font-bold">
+          <span className="text-fg-secondary">{entry.name}:</span>
+          <span className="text-fg-primary font-mono font-bold">
             ${Number(entry.value).toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </span>
         </div>
@@ -306,12 +306,12 @@ export default function ComparisonView({
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-xl bg-[#0F1629]/80 border border-slate-800/60 p-6"
+        className="rounded-xl bg-surface-raised border border-line-subtle p-6"
       >
         <div className="flex items-center gap-3 mb-4">
           <GitCompareArrows className="h-5 w-5 text-cyan-400" />
-          <h2 className="text-lg font-black text-white">Select Strategies to Compare</h2>
-          <span className="text-xs text-slate-500 ml-auto">
+          <h2 className="text-lg font-black text-fg-primary">Select Strategies to Compare</h2>
+          <span className="text-xs text-fg-muted ml-auto">
             {selected.size}/5 selected (min 2)
           </span>
         </div>
@@ -328,8 +328,8 @@ export default function ComparisonView({
                 className={`
                   relative flex items-start gap-3 p-3 rounded-xl border text-left transition-all
                   ${isSelected
-                    ? 'border-slate-600 bg-slate-800/50'
-                    : 'border-slate-800/60 bg-[#0A0E1A] hover:border-slate-700'
+                    ? 'border-line-default bg-surface-raised'
+                    : 'border-line-subtle bg-surface-base hover:border-line-default'
                   }
                   disabled:opacity-40 disabled:cursor-not-allowed
                 `}
@@ -337,14 +337,14 @@ export default function ComparisonView({
                 {isSelected ? (
                   <CheckSquare className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color }} />
                 ) : (
-                  <Square className="h-4 w-4 mt-0.5 text-slate-600 flex-shrink-0" />
+                  <Square className="h-4 w-4 mt-0.5 text-fg-muted flex-shrink-0" />
                 )}
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-white truncate">{s.label}</p>
+                  <p className="text-sm font-bold text-fg-primary truncate">{s.label}</p>
                   <span
                     className={`
                       inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded border
-                      ${CATEGORY_COLORS[s.category] ?? 'bg-slate-900/40 text-slate-400 border-slate-800/50'}
+                      ${CATEGORY_COLORS[s.category] ?? 'bg-surface-raised text-fg-secondary border-line-subtle'}
                     `}
                   >
                     {s.category}
@@ -368,7 +368,7 @@ export default function ComparisonView({
             flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm transition-all
             ${selected.size >= 2 && !loading
               ? 'bg-cyan-500 hover:bg-cyan-400 text-black'
-              : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+              : 'bg-surface-raised text-fg-muted cursor-not-allowed'
             }
           `}
         >
@@ -411,10 +411,10 @@ export default function ComparisonView({
             className="space-y-6"
           >
             {/* ---- Equity Curves ---- */}
-            <div className="rounded-xl bg-[#0F1629]/80 border border-slate-800/60 p-6">
+            <div className="rounded-xl bg-surface-raised border border-line-subtle p-6">
               <div className="flex items-center gap-3 mb-4">
                 <TrendingUp className="h-5 w-5 text-cyan-400" />
-                <h3 className="text-lg font-black text-white">Equity Curves</h3>
+                <h3 className="text-lg font-black text-fg-primary">Equity Curves</h3>
               </div>
               <div className="h-[380px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -436,7 +436,7 @@ export default function ComparisonView({
                     <Legend
                       wrapperStyle={{ paddingTop: 8 }}
                       formatter={(value: string) => (
-                        <span className="text-xs text-slate-300">
+                        <span className="text-xs text-fg-secondary">
                           {STRATEGIES.find((s) => s.key === value)?.label ?? value}
                         </span>
                       )}
@@ -459,15 +459,15 @@ export default function ComparisonView({
             </div>
 
             {/* ---- Metrics Comparison Table ---- */}
-            <div className="rounded-xl bg-[#0F1629]/80 border border-slate-800/60 p-6 overflow-x-auto">
+            <div className="rounded-xl bg-surface-raised/80 border border-line-subtle p-6 overflow-x-auto">
               <div className="flex items-center gap-3 mb-4">
                 <BarChart3 className="h-5 w-5 text-violet-400" />
-                <h3 className="text-lg font-black text-white">Metrics Comparison</h3>
+                <h3 className="text-lg font-black text-fg-primary">Metrics Comparison</h3>
               </div>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-800/60">
-                    <th className="text-left text-slate-500 text-xs uppercase tracking-wider py-2 pr-4">
+                  <tr className="border-b border-line-subtle">
+                    <th className="text-left text-fg-muted text-xs uppercase tracking-wider py-2 pr-4">
                       Metric
                     </th>
                     {strategies.map((s) => (
@@ -477,7 +477,7 @@ export default function ComparisonView({
                             className="w-2 h-2 rounded-full"
                             style={{ backgroundColor: STRATEGY_COLORS[s.strategy] }}
                           />
-                          <span className="text-xs text-slate-300 font-bold">
+                          <span className="text-xs text-fg-secondary font-bold">
                             {STRATEGIES.find((st) => st.key === s.strategy)?.label ?? s.strategy}
                           </span>
                         </div>
@@ -489,8 +489,8 @@ export default function ComparisonView({
                   {METRIC_DEFS.map((m) => {
                     const bw = bestWorst[m.key]
                     return (
-                      <tr key={m.key} className="border-b border-slate-800/30">
-                        <td className="text-slate-500 text-xs uppercase tracking-wider py-2.5 pr-4">
+                      <tr key={m.key} className="border-b border-line-subtle">
+                        <td className="text-fg-muted text-xs uppercase tracking-wider py-2.5 pr-4">
                           {m.label}
                         </td>
                         {strategies.map((s, idx) => {
@@ -504,8 +504,8 @@ export default function ComparisonView({
                                 isBest
                                   ? 'text-emerald-400 font-bold'
                                   : isWorst
-                                    ? 'text-slate-600'
-                                    : 'text-white'
+                                    ? 'text-fg-muted'
+                                    : 'text-fg-primary'
                               }`}
                             >
                               {m.format(val)}
@@ -520,10 +520,10 @@ export default function ComparisonView({
             </div>
 
             {/* ---- Radar Chart ---- */}
-            <div className="rounded-xl bg-[#0F1629]/80 border border-slate-800/60 p-6">
+            <div className="rounded-xl bg-surface-raised border border-line-subtle p-6">
               <div className="flex items-center gap-3 mb-4">
                 <RadarIcon className="h-5 w-5 text-amber-400" />
-                <h3 className="text-lg font-black text-white">Strategy Profile</h3>
+                <h3 className="text-lg font-black text-fg-primary">Strategy Profile</h3>
               </div>
               <div className="h-[380px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -553,13 +553,13 @@ export default function ComparisonView({
                     <Legend
                       wrapperStyle={{ paddingTop: 8 }}
                       formatter={(value: string) => (
-                        <span className="text-xs text-slate-300">{value}</span>
+                        <span className="text-xs text-fg-secondary">{value}</span>
                       )}
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: '#0F1629',
-                        border: '1px solid rgba(30,41,59,0.6)',
+                        backgroundColor: 'var(--surface-overlay)',
+                        border: '1px solid var(--line-default)',
                         borderRadius: 8,
                         fontSize: 12,
                       }}
@@ -572,11 +572,11 @@ export default function ComparisonView({
 
             {/* ---- Correlation Matrix ---- */}
             {corrStrategies.length > 0 && (
-              <div className="rounded-xl bg-[#0F1629]/80 border border-slate-800/60 p-6">
+              <div className="rounded-xl bg-surface-raised border border-line-subtle p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <Grid3X3 className="h-5 w-5 text-rose-400" />
-                  <h3 className="text-lg font-black text-white">Correlation Matrix</h3>
-                  <span className="text-xs text-slate-500 ml-2">
+                  <h3 className="text-lg font-black text-fg-primary">Correlation Matrix</h3>
+                  <span className="text-xs text-fg-muted ml-2">
                     Low correlation = better diversification
                   </span>
                 </div>
@@ -586,7 +586,7 @@ export default function ComparisonView({
                       <tr>
                         <th className="p-2" />
                         {corrStrategies.map((s) => (
-                          <th key={s} className="p-2 text-xs text-slate-400 font-bold">
+                          <th key={s} className="p-2 text-xs text-fg-secondary font-bold">
                             <div className="flex items-center justify-center gap-1">
                               <span
                                 className="w-2 h-2 rounded-full"
@@ -603,7 +603,7 @@ export default function ComparisonView({
                     <tbody>
                       {corrStrategies.map((row) => (
                         <tr key={row}>
-                          <td className="p-2 text-xs text-slate-400 font-bold text-right">
+                          <td className="p-2 text-xs text-fg-secondary font-bold text-right">
                             <div className="flex items-center justify-end gap-1">
                               <span className="truncate max-w-[80px]">
                                 {STRATEGIES.find((st) => st.key === row)?.label ?? row}
@@ -620,7 +620,7 @@ export default function ComparisonView({
                             // Green for low correlation, red for high
                             const bg =
                               row === col
-                                ? 'bg-slate-800/60'
+                                ? 'bg-surface-raised'
                                 : abs > 0.7
                                   ? 'bg-red-900/40'
                                   : abs > 0.4
@@ -628,7 +628,7 @@ export default function ComparisonView({
                                     : 'bg-emerald-900/30'
                             const textColor =
                               row === col
-                                ? 'text-slate-500'
+                                ? 'text-fg-muted'
                                 : abs > 0.7
                                   ? 'text-red-400'
                                   : abs > 0.4
@@ -652,11 +652,11 @@ export default function ComparisonView({
             )}
 
             {/* ---- Combined Portfolio ---- */}
-            <div className="rounded-xl bg-[#0F1629]/80 border border-slate-800/60 p-6">
+            <div className="rounded-xl bg-surface-raised border border-line-subtle p-6">
               <div className="flex items-center gap-3 mb-4">
                 <Sliders className="h-5 w-5 text-emerald-400" />
-                <h3 className="text-lg font-black text-white">Combined Portfolio</h3>
-                <span className="text-xs text-slate-500 ml-2">
+                <h3 className="text-lg font-black text-fg-primary">Combined Portfolio</h3>
+                <span className="text-xs text-fg-muted ml-2">
                   Adjust allocations (total: {Object.values(allocations).reduce((a, b) => a + b, 0)}%)
                 </span>
               </div>
@@ -675,9 +675,9 @@ export default function ComparisonView({
                             className="w-2 h-2 rounded-full"
                             style={{ backgroundColor: color }}
                           />
-                          <span className="text-sm text-slate-300 font-bold">{label}</span>
+                          <span className="text-sm text-fg-secondary font-bold">{label}</span>
                         </div>
-                        <span className="text-sm font-mono text-white font-bold">{alloc}%</span>
+                        <span className="text-sm font-mono text-fg-primary font-bold">{alloc}%</span>
                       </div>
                       <input
                         type="range"
@@ -687,7 +687,7 @@ export default function ComparisonView({
                         onChange={(e) =>
                           handleAllocation(s.strategy, parseInt(e.target.value, 10))
                         }
-                        className="w-full h-1.5 rounded-full appearance-none bg-slate-800 cursor-pointer
+                        className="w-full h-1.5 rounded-full appearance-none bg-surface-raised cursor-pointer
                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5
                           [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full
                           [&::-webkit-slider-thumb]:cursor-pointer"
@@ -718,9 +718,9 @@ export default function ComparisonView({
                   ].map((m) => (
                     <div
                       key={m.label}
-                      className="rounded-xl bg-[#0A0E1A] border border-slate-800/60 p-4 flex flex-col gap-1"
+                      className="rounded-xl bg-surface-base border border-line-subtle p-4 flex flex-col gap-1"
                     >
-                      <span className="text-xs text-slate-500 uppercase tracking-wider">
+                      <span className="text-xs text-fg-muted uppercase tracking-wider">
                         {m.label}
                       </span>
                       <span

@@ -107,19 +107,19 @@ export function ResearchChartHeader({
   const quoteStatusStrip = (
     <div
       className={cn(
-        'flex w-full flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border border-slate-800/90',
-        'bg-slate-950/70 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm sm:gap-x-3',
+        'flex w-full flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border border-line-subtle',
+        'bg-surface-glass px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm sm:gap-x-3',
       )}
       aria-label="Quote feed status"
     >
-      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Live quote</span>
-      <span className="hidden h-3 w-px bg-slate-700 sm:block" aria-hidden />
+      <span className="text-[9px] font-bold uppercase tracking-wider text-fg-muted">Live quote</span>
+      <span className="hidden h-3 w-px bg-line-default sm:block" aria-hidden />
       {priceInfo.dataSource && !quoteLoading ? (
         <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] text-emerald-400">
           {priceInfo.dataSource}
         </span>
       ) : quoteLoading ? (
-        <span className="rounded-md border border-slate-700/80 bg-slate-900/60 px-2 py-0.5 font-mono text-[10px] text-slate-500">
+        <span className="rounded-md border border-line-subtle bg-surface-raised px-2 py-0.5 font-mono text-[10px] text-fg-muted">
           Connecting…
         </span>
       ) : null}
@@ -129,10 +129,10 @@ export function ResearchChartHeader({
         </span>
       )}
       <div className="flex items-center gap-1.5">
-        <span className="text-[9px] text-slate-600">Activity</span>
+        <span className="text-[9px] text-fg-muted">Activity</span>
         <QuoteActivityFlash fingerprint={quoteActivityFingerprint} />
       </div>
-      <span className="hidden h-3 w-px bg-slate-700 sm:block" aria-hidden />
+      <span className="hidden h-3 w-px bg-line-default sm:block" aria-hidden />
       {/* Inline period selector — always visible */}
       <div className="flex items-center gap-0.5">
         {(['1D', '5D', '1M', '3M', '6M', '1Y'] as const).map((p) => (
@@ -146,7 +146,7 @@ export function ResearchChartHeader({
                 ? p === '1D' || p === '5D'
                   ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                   : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50',
+                : 'text-fg-muted hover:text-fg-secondary hover:bg-surface-hover',
             )}
           >
             {p}
@@ -169,7 +169,7 @@ export function ResearchChartHeader({
             'bg-gradient-to-br from-[rgba(0,122,255,0.22)] via-[rgba(99,102,241,0.12)] to-[rgba(6,182,212,0.18)]',
           )}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0e1a] via-[#0a0e1a]/88 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface-base via-surface-base/88 to-transparent" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(0,122,255,0.25),transparent)]" />
         <div
           className="absolute inset-y-0 -left-1/3 w-1/2 bg-gradient-to-r from-white/[0.04] to-transparent animate-research-sheen opacity-40"
@@ -196,7 +196,7 @@ export function ResearchChartHeader({
               {headline}
             </h2>
             {profileLoading && !companyName && (
-              <p className="mt-1.5 text-[11px] text-slate-500">Loading company profile…</p>
+              <p className="mt-1.5 text-[11px] text-fg-muted">Loading company profile…</p>
             )}
             <div className="mt-2.5 flex min-w-0 flex-wrap items-center gap-2">
               {companyName ? (
@@ -215,7 +215,7 @@ export function ResearchChartHeader({
                 </span>
               )}
               {tickerInfo?.industry && (
-                <span className="hidden max-w-[14rem] truncate text-[10px] text-slate-500 lg:inline">
+                <span className="hidden max-w-[14rem] truncate text-[10px] text-fg-muted lg:inline">
                   {tickerInfo.industry}
                 </span>
               )}
@@ -254,7 +254,7 @@ export function ResearchChartHeader({
                 {formatPercent(priceInfo.percent, 2)}
               </span>
               {isNumber(priceInfo.volume) && priceInfo.volume > 0 && (
-                <span className="font-mono text-[11px] text-slate-500">
+                <span className="font-mono text-[11px] text-fg-muted">
                   Vol {formatNumber(priceInfo.volume / 1_000_000, 2)}M
                 </span>
               )}
@@ -299,7 +299,7 @@ export function ResearchChartHeader({
             type="button"
             onClick={onSyncData}
             disabled={syncing}
-            className="hud-card flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-slate-300 transition-all hover:border-blue-500/30 hover:text-white disabled:opacity-50"
+            className="hud-card flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-fg-secondary transition-all hover:border-blue-500/30 hover:text-white disabled:opacity-50"
           >
             {syncing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -326,7 +326,7 @@ export function ResearchChartHeader({
             </button>
               {advancedOpen ? (
               <div
-                className="absolute right-0 top-full z-[200] mt-2 w-[min(100vw-2rem,22rem)] max-h-[70vh] overflow-y-auto space-y-4 rounded-xl border border-slate-700/80 bg-[#0b0f14]/95 backdrop-blur-xl p-4 text-left shadow-2xl"
+                className="absolute right-0 top-full z-[200] mt-2 w-[min(100vw-2rem,22rem)] max-h-[70vh] overflow-y-auto space-y-4 rounded-xl border border-line-default bg-surface-overlay backdrop-blur-xl p-4 text-left shadow-theme-lg"
                 role="dialog"
                 aria-label="Chart options"
               >
@@ -335,7 +335,7 @@ export function ResearchChartHeader({
                   <button
                     type="button"
                     onClick={() => setAdvancedOpen(false)}
-                    className="rounded p-1 text-slate-500 hover:text-white"
+                    className="rounded p-1 text-fg-muted hover:text-white"
                     aria-label="Close"
                   >
                     <X className="h-4 w-4" />
@@ -344,7 +344,7 @@ export function ResearchChartHeader({
 
                 {/* Period */}
                 <div>
-                  <div className="mb-2 text-[10px] uppercase tracking-wide text-slate-500">Timeframe</div>
+                  <div className="mb-2 text-[10px] uppercase tracking-wide text-fg-muted">Timeframe</div>
                   <div className="flex flex-wrap gap-1.5">
                     {(
                       [
@@ -368,7 +368,7 @@ export function ResearchChartHeader({
                             ? id === '1D' || id === '5D'
                               ? 'border-cyan-500/50 bg-cyan-500/25 text-cyan-200'
                               : 'border-blue-500/50 bg-blue-500/25 text-blue-200'
-                            : 'border-slate-700/60 bg-slate-800/50 text-slate-400 hover:text-white',
+                            : 'border-line-default bg-surface-raised text-fg-muted hover:text-white',
                         )}
                       >
                         {label}
@@ -379,7 +379,7 @@ export function ResearchChartHeader({
 
                 {/* Chart Type */}
                 <div>
-                  <div className="mb-2 text-[10px] uppercase tracking-wide text-slate-500">Chart Type</div>
+                  <div className="mb-2 text-[10px] uppercase tracking-wide text-fg-muted">Chart Type</div>
                   <div className="flex flex-wrap gap-1.5">
                     {(
                       [
@@ -398,7 +398,7 @@ export function ResearchChartHeader({
                           'rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors',
                           chartSeriesType === id
                             ? 'border-cyan-500/45 bg-cyan-500/20 text-cyan-200'
-                            : 'border-slate-700/60 bg-slate-800/50 text-slate-400 hover:text-white',
+                            : 'border-line-default bg-surface-raised text-fg-muted hover:text-white',
                         )}
                       >
                         {label}
@@ -409,9 +409,9 @@ export function ResearchChartHeader({
 
                 {/* Overlays & Display */}
                 <div>
-                  <div className="mb-2 text-[10px] uppercase tracking-wide text-slate-500">Overlays & Display</div>
+                  <div className="mb-2 text-[10px] uppercase tracking-wide text-fg-muted">Overlays & Display</div>
                   <div className="space-y-2">
-                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-slate-300">
+                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-fg-secondary">
                       <input
                         type="checkbox"
                         checked={chartShowMa}
@@ -423,7 +423,7 @@ export function ResearchChartHeader({
                         SMA 20 / EMA 50
                       </span>
                     </label>
-                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-slate-300">
+                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-fg-secondary">
                       <input
                         type="checkbox"
                         checked={chartShowVolume}
@@ -432,7 +432,7 @@ export function ResearchChartHeader({
                       />
                       Volume histogram
                     </label>
-                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-slate-300">
+                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-fg-secondary">
                       <input
                         type="checkbox"
                         checked={chartShowGrid}
@@ -441,7 +441,7 @@ export function ResearchChartHeader({
                       />
                       Grid lines
                     </label>
-                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-slate-300">
+                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-fg-secondary">
                       <input
                         type="checkbox"
                         checked={chartLogScale}

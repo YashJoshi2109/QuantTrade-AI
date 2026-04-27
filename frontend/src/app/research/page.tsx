@@ -518,7 +518,7 @@ function ResearchContent() {
                   <button
                     type="button"
                     onClick={() => setFullscreenChart(true)}
-                    className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700/80 transition-colors"
+                    className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-surface-raised border border-line-default text-fg-muted hover:text-white hover:bg-surface-active transition-colors"
                     title="Fullscreen chart"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -531,7 +531,7 @@ function ResearchContent() {
                 ) : error ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <AlertTriangle className="w-12 h-12 text-yellow-500 mb-4" />
-                    <p className="text-sm text-slate-400 mb-3">{error}</p>
+                    <p className="text-sm text-fg-muted mb-3">{error}</p>
                     <button 
                       onClick={handleSyncData}
                       className="hud-card px-4 py-2 text-sm text-blue-400 hover:text-white transition-colors"
@@ -572,7 +572,7 @@ function ResearchContent() {
                   <div className="p-3 space-y-2">
                     {technicalData.map((item) => (
                       <div key={item.label} className="hud-stat p-3 flex items-center justify-between">
-                        <span className="text-xs text-slate-400">{item.label}</span>
+                        <span className="text-xs text-fg-muted">{item.label}</span>
                         <span className="text-sm font-mono text-white hud-value">
                           {item.format === 'price'
                             ? (isNumber(item.value) ? `$${formatNumber(item.value, 2)}` : 'N/A')
@@ -590,18 +590,18 @@ function ResearchContent() {
                 <div className="hud-label mb-3">SIGNAL SUMMARY</div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400">RSI Signal</span>
+                    <span className="text-xs text-fg-muted">RSI Signal</span>
                     <span className={`text-xs font-bold px-2 py-1 rounded ${
                       aiReport.rsiSignal === 'Overbought' ? 'bg-red-500/10 text-red-400' :
                       aiReport.rsiSignal === 'Oversold' ? 'bg-green-500/10 text-green-400' :
-                      'bg-slate-700/50 text-slate-300'
+                      'bg-surface-raised text-fg-secondary'
                     }`}>
                       {aiReport.rsiSignal}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400">Trend</span>
-                    <span className="text-xs font-bold px-2 py-1 rounded bg-slate-700/50 text-slate-300">
+                    <span className="text-xs text-fg-muted">Trend</span>
+                    <span className="text-xs font-bold px-2 py-1 rounded bg-surface-raised text-fg-secondary">
                       {aiReport.trendSignal}
                     </span>
                   </div>
@@ -649,19 +649,19 @@ function ResearchContent() {
                 </div>
               </div>
 
-              <div className="space-y-3 text-sm text-slate-400 leading-relaxed flex-1">
+              <div className="space-y-3 text-sm text-fg-muted leading-relaxed flex-1">
                 {/* OpenRouter AI text — shown when available */}
                 {aiText ? (
                   <div className="space-y-3">
-                    <p className="text-slate-300 leading-relaxed text-[13px]">
+                    <p className="text-fg-secondary leading-relaxed text-[13px]">
                       {aiText}
                       {aiLoading && <span className="inline-block w-1.5 h-4 bg-blue-400 ml-0.5 animate-pulse align-middle rounded-sm" />}
                     </p>
                     <div className="flex flex-wrap gap-2 text-[10px]">
-                      <span className="px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/50 text-slate-500">
+                      <span className="px-2 py-0.5 rounded bg-surface-raised border border-line-subtle text-fg-muted">
                         RSI: {aiReport.rsiSignal}
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/50 text-slate-500">
+                      <span className="px-2 py-0.5 rounded bg-surface-raised border border-line-subtle text-fg-muted">
                         Trend: {aiReport.trendSignal}
                       </span>
                     </div>
@@ -678,19 +678,19 @@ function ResearchContent() {
                     <p>{aiReport.bbText}</p>
                     <p>{aiReport.maSummary}</p>
                     {aiReport.bullets.length > 0 && (
-                      <ul className="list-disc pl-5 space-y-1.5 text-slate-300 text-[13px]">
+                      <ul className="list-disc pl-5 space-y-1.5 text-fg-secondary text-[13px]">
                         {aiReport.bullets.map((b, i) => (
                           <li key={i}>{b}</li>
                         ))}
                       </ul>
                     )}
-                    <div className="text-[11px] text-slate-600 flex items-center gap-1.5 mt-1">
+                    <div className="text-[11px] text-fg-muted flex items-center gap-1.5 mt-1">
                       <Sparkles className="w-3 h-3" />
                       Click "AI Refresh" above for a real-time Gemini-powered read
                     </div>
                   </>
                 )}
-                <p className="text-[11px] text-slate-500 border-t border-slate-700/40 pt-3 leading-snug">
+                <p className="text-[11px] text-fg-muted border-t border-line-subtle pt-3 leading-snug">
                   Not investment advice. Verify levels on your chart before acting.
                 </p>
               </div>
@@ -709,21 +709,21 @@ function ResearchContent() {
                     >
                       ${formatNumber(priceInfo.price, 2)}
                     </div>
-                    <div className="text-[10px] text-slate-500">CURRENT</div>
+                    <div className="text-[10px] text-fg-muted">CURRENT</div>
                   </div>
                   <div className="hud-stat p-3 text-center">
                     <div className={`text-lg font-bold hud-value ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
                       {isPositive ? '+' : ''}
                       {formatNumber(priceInfo.change, 2)}
                     </div>
-                    <div className="text-[10px] text-slate-500">CHANGE</div>
+                    <div className="text-[10px] text-fg-muted">CHANGE</div>
                   </div>
                   <div className="hud-stat p-3 text-center">
                     <div className={`text-lg font-bold hud-value ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
                       {isPositive ? '+' : ''}
                       {formatPercent(priceInfo.percent, 2)}
                     </div>
-                    <div className="text-[10px] text-slate-500">PERCENT</div>
+                    <div className="text-[10px] text-fg-muted">PERCENT</div>
                   </div>
                 </div>
               )}
@@ -802,16 +802,16 @@ function ResearchContent() {
                   <h3 className="font-display font-bold text-white">
                     {tickerInfo?.name ? (
                       <>
-                        <span className="text-slate-500">News · </span>
+                        <span className="text-fg-muted">News · </span>
                         {tickerInfo.name}
                       </>
                     ) : (
                       <>{selectedSymbol} Live News</>
                     )}
                   </h3>
-                  <p className="text-[10px] text-slate-500">Headlines and filings-driven flow for this symbol</p>
+                  <p className="text-[10px] text-fg-muted">Headlines and filings-driven flow for this symbol</p>
                 </div>
-                <span className="rounded border border-slate-700/60 bg-slate-900/50 px-2 py-1 font-mono text-[10px] uppercase text-slate-400">
+                <span className="rounded border border-line-default bg-surface-raised px-2 py-1 font-mono text-[10px] uppercase text-fg-muted">
                   Real-time
                 </span>
                 <QuoteActivityFlash fingerprint={quoteActivityFingerprint} />
@@ -842,7 +842,7 @@ function DesktopResearchPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
+        <div className="min-h-screen bg-surface-base flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <Skeleton className="w-12 h-12 rounded-full" />
             <SkeletonText className="h-4 w-32" />

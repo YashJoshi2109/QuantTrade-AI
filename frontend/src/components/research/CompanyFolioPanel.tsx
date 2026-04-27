@@ -62,7 +62,7 @@ function qualityTag(
   thresholds: Readonly<{ good: number; great: number }>,
   invert?: boolean,
 ): { text: string; bg: string; fg: string } {
-  if (!value || !isFinite(value)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-slate-500' }
+  if (!value || !isFinite(value)) return { text: '—', bg: 'bg-surface-raised', fg: 'text-fg-muted' }
   const v = Math.abs(value)
   if (invert) {
     if (v <= thresholds.great) return { text: 'Excellent', bg: 'bg-emerald-500/15', fg: 'text-emerald-400' }
@@ -78,8 +78,8 @@ function ReturnsCard({ metrics }: { metrics: ReturnMetric[] }) {
   const uid = useId().replace(/:/g, '')
 
   return (
-    <div className="rounded-lg border border-slate-800/50 bg-slate-950/30 p-4 overflow-hidden">
-      <h5 className="mb-4 flex items-center gap-2 text-xs font-bold text-white">
+    <div className="rounded-lg border border-line-subtle bg-surface-raised p-4 overflow-hidden">
+      <h5 className="mb-4 flex items-center gap-2 text-xs font-bold text-fg-primary">
         <Target className="h-3.5 w-3.5 text-emerald-400" /> Returns &amp; efficiency
       </h5>
       <div className="space-y-3.5">
@@ -92,7 +92,7 @@ function ReturnsCard({ metrics }: { metrics: ReturnMetric[] }) {
           return (
             <div key={m.label}>
               <div className="mb-1.5 flex items-center justify-between gap-2">
-                <span className="text-[11px] text-slate-400">{m.label}</span>
+                <span className="text-[11px] text-fg-muted">{m.label}</span>
                 <div className="flex items-center gap-2">
                   <span className={cn('rounded-full px-2 py-0.5 text-[9px] font-bold', tag.bg, tag.fg)}>
                     {tag.text}
@@ -105,7 +105,7 @@ function ReturnsCard({ metrics }: { metrics: ReturnMetric[] }) {
                   </span>
                 </div>
               </div>
-              <div className="relative h-2.5 overflow-hidden rounded-full bg-slate-800/80">
+              <div className="relative h-2.5 overflow-hidden rounded-full bg-surface-raised">
                 <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
                   <defs>
                     <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
@@ -153,19 +153,19 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
   if (isLoading && !info) {
     return (
       <div className="col-span-12">
-        <div className="relative overflow-hidden rounded-xl border border-blue-500/15 bg-[#0c1018]">
+        <div className="relative overflow-hidden rounded-xl border border-blue-500/15 bg-surface-raised">
           <div className="absolute inset-0 animate-research-flow bg-[length:400%_400%] bg-gradient-to-r from-blue-600/10 via-indigo-500/5 to-cyan-600/10 opacity-50" />
           <div className="relative space-y-4 p-5">
             <div className="flex gap-3">
-              <div className="h-10 w-10 animate-pulse rounded-lg bg-slate-800/80" />
+              <div className="h-10 w-10 animate-pulse rounded-lg bg-surface-active" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 w-48 animate-pulse rounded bg-slate-800/80" />
-                <div className="h-3 w-full max-w-md animate-pulse rounded bg-slate-800/60" />
+                <div className="h-4 w-48 animate-pulse rounded bg-surface-active" />
+                <div className="h-3 w-full max-w-md animate-pulse rounded bg-surface-hover" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="h-14 animate-pulse rounded-lg bg-slate-800/50" />
+                <div key={i} className="h-14 animate-pulse rounded-lg bg-surface-hover" />
               ))}
             </div>
           </div>
@@ -177,13 +177,13 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
   if (!info || !info.name) {
     return (
       <div className="col-span-12">
-        <div className="rounded-xl border border-slate-800/80 bg-slate-950/40 p-6 text-center">
-          <Briefcase className="mx-auto mb-2 h-8 w-8 text-slate-600" />
-          <p className="text-sm text-slate-500">
+        <div className="rounded-xl border border-line-subtle bg-surface-raised p-6 text-center">
+          <Briefcase className="mx-auto mb-2 h-8 w-8 text-fg-muted" />
+          <p className="text-sm text-fg-muted">
             Company Folio will appear when profile data loads for{' '}
-            <span className="font-mono text-slate-400">{symbol}</span>.
+            <span className="font-mono text-fg-secondary">{symbol}</span>.
           </p>
-          <p className="mt-2 text-xs text-slate-600">
+          <p className="mt-2 text-xs text-fg-muted">
             Data is fetched on demand (Yahoo Finance) for symbols in your universe — no separate static file per ticker.
           </p>
         </div>
@@ -214,17 +214,17 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
     return (
       <div>
         <div className="mb-0.5 flex justify-between">
-          <span className="text-[10px] text-slate-500">{label}</span>
+          <span className="text-[10px] text-fg-muted">{label}</span>
           <span
             className={cn(
               'font-mono text-[10px] font-bold',
-              value > 0 ? 'text-emerald-400' : value < 0 ? 'text-red-400' : 'text-slate-400',
+              value > 0 ? 'text-emerald-400' : value < 0 ? 'text-red-400' : 'text-fg-muted',
             )}
           >
             {value.toFixed(1)}%
           </span>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+        <div className="h-1.5 overflow-hidden rounded-full bg-surface-raised">
           <div
             className={cn('h-full rounded-full', color)}
             style={{ width: `${Math.min(Math.abs(value), 100)}%` }}
@@ -365,12 +365,12 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
               'bg-gradient-to-br from-blue-600/15 via-violet-600/10 to-cyan-600/12',
             )}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0a0e1a]/90 to-[#0a0e1a]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-surface-base/90 to-surface-base" />
         </div>
 
         <div className="relative">
           {/* Title rail */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-500/15 bg-slate-950/30 px-4 py-3 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-500/15 bg-surface-raised px-4 py-3 sm:px-5">
             <div className="flex items-center gap-2.5">
               <TickerLogo
                 symbol={symbol}
@@ -379,19 +379,19 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
                 className="rounded-lg border border-blue-500/20"
               />
               <div>
-                <h3 className="font-display text-sm font-bold tracking-tight text-white sm:text-base">
+                <h3 className="font-display text-sm font-bold tracking-tight text-fg-primary sm:text-base">
                   {info?.name || 'Company Folio'}
                 </h3>
-                <p className="text-[10px] text-slate-500">
+                <p className="text-[10px] text-fg-muted">
                   Profile, leadership, cash flow &amp; ownership — wired to live quote summary
                 </p>
               </div>
             </div>
-            <span className="font-mono text-[10px] text-slate-500">{symbol}</span>
+            <span className="font-mono text-[10px] text-fg-muted">{symbol}</span>
           </div>
 
           <motion.div
-            className="border-b border-slate-800/50 px-4 py-4 sm:px-5"
+            className="border-b border-line-subtle px-4 py-4 sm:px-5"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
@@ -400,7 +400,7 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
               <div className="min-w-0 flex-1">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <Building2 className="h-5 w-5 shrink-0 text-[#007AFF]" />
-                  <h4 className="text-lg font-bold text-white">{info.name}</h4>
+                  <h4 className="text-lg font-bold text-fg-primary">{info.name}</h4>
                   {info.recommendation && (
                     <span
                       className={cn(
@@ -421,27 +421,27 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
                     </span>
                   )}
                   {info.industry && (
-                    <span className="rounded-md bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-400">
+                    <span className="rounded-md bg-surface-raised px-2 py-0.5 text-[10px] text-fg-muted">
                       {info.industry}
                     </span>
                   )}
                   {info.country && (
-                    <span className="flex items-center gap-1 text-[10px] text-slate-500">
+                    <span className="flex items-center gap-1 text-[10px] text-fg-muted">
                       <Globe className="h-3 w-3" />
                       {info.country}
                     </span>
                   )}
                   {info.founded && (
-                    <span className="text-[10px] text-slate-500">Est. {info.founded}</span>
+                    <span className="text-[10px] text-fg-muted">Est. {info.founded}</span>
                   )}
                   {info.employees > 0 && (
-                    <span className="flex items-center gap-1 text-[10px] text-slate-500">
+                    <span className="flex items-center gap-1 text-[10px] text-fg-muted">
                       <Users className="h-3 w-3" />
                       {info.employees.toLocaleString()} employees
                     </span>
                   )}
                   {info.exchange_display && (
-                    <span className="rounded-md bg-slate-800/60 px-2 py-0.5 font-mono text-[10px] text-slate-500">
+                    <span className="rounded-md bg-surface-raised px-2 py-0.5 font-mono text-[10px] text-fg-muted">
                       {info.exchange_display} · {info.currency}
                     </span>
                   )}
@@ -451,7 +451,7 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
                   <div>
                     <p
                       className={cn(
-                        'text-[12px] leading-relaxed text-slate-400',
+                        'text-[12px] leading-relaxed text-fg-muted',
                         bioExpanded ? '' : 'line-clamp-4',
                       )}
                     >
@@ -477,7 +477,7 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
                       Leadership
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-700/50 bg-gradient-to-br from-blue-500/25 to-violet-500/20 text-sm font-bold text-slate-200">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-line-default bg-gradient-to-br from-blue-500/25 to-violet-500/20 text-sm font-bold text-fg-secondary">
                         {ceo.name
                           ?.split(' ')
                           .map((w) => w[0])
@@ -485,23 +485,23 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
                           .slice(0, 2) ?? '?'}
                       </div>
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-bold text-white">{ceo.name}</div>
-                        <div className="truncate text-[11px] text-slate-500">{ceo.title}</div>
+                        <div className="truncate text-sm font-bold text-fg-primary">{ceo.name}</div>
+                        <div className="truncate text-[11px] text-fg-muted">{ceo.title}</div>
                       </div>
                     </div>
                   </div>
                 )}
                 {(addressLine || info.phone) && (
-                  <div className="space-y-2 rounded-xl border border-slate-800/60 bg-slate-950/40 p-3 text-[11px] text-slate-400">
+                  <div className="space-y-2 rounded-xl border border-line-subtle bg-surface-raised p-3 text-[11px] text-fg-muted">
                     {addressLine && (
                       <div className="flex gap-2">
-                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600" />
+                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-muted" />
                         <span>{addressLine}</span>
                       </div>
                     )}
                     {info.phone && (
                       <div className="flex items-center gap-2">
-                        <Phone className="h-3.5 w-3.5 shrink-0 text-slate-600" />
+                        <Phone className="h-3.5 w-3.5 shrink-0 text-fg-muted" />
                         <span className="font-mono">{info.phone}</span>
                       </div>
                     )}
@@ -512,7 +512,7 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
                     href={info.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-700/60 px-3 py-2 text-center text-[11px] text-slate-400 transition-colors hover:border-[rgba(0,122,255,0.4)] hover:text-white"
+                    className="flex items-center justify-center gap-2 rounded-lg border border-line-default px-3 py-2 text-center text-[11px] text-fg-muted transition-colors hover:border-[rgba(0,122,255,0.4)] hover:text-white"
                   >
                     <ExternalLink className="h-3 w-3" /> Corporate site
                   </a>
@@ -522,22 +522,22 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
           </motion.div>
 
           {info.officers && info.officers.length > 1 && (
-            <div className="border-b border-slate-800/40 px-4 py-3 sm:px-5">
-              <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <div className="border-b border-line-subtle px-4 py-3 sm:px-5">
+              <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                 Executive team
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {info.officers.slice(0, 4).map((o, i) => (
                   <div
                     key={`${o.name}-${i}`}
-                    className="flex items-center gap-2 rounded-lg bg-slate-800/20 px-2.5 py-2"
+                    className="flex items-center gap-2 rounded-lg bg-surface-hover px-2.5 py-2"
                   >
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-700/50 bg-gradient-to-br from-blue-500/20 to-violet-500/20 text-[10px] font-bold text-slate-300">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full border border-line-subtle bg-gradient-to-br from-blue-500/20 to-violet-500/20 text-[10px] font-bold text-fg-secondary">
                       {o.name?.split(' ').map((w) => w[0]).join('').slice(0, 2)}
                     </div>
                     <div className="min-w-0">
-                      <div className="truncate text-[11px] font-bold text-white">{o.name}</div>
-                      <div className="truncate text-[9px] text-slate-500">{o.title}</div>
+                      <div className="truncate text-[11px] font-bold text-fg-primary">{o.name}</div>
+                      <div className="truncate text-[9px] text-fg-muted">{o.title}</div>
                     </div>
                   </div>
                 ))}
@@ -547,14 +547,14 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
 
           {/* Financials strip — only cells with real values */}
           {financialStripMetrics.length > 0 && (
-            <div className="grid grid-cols-2 divide-x divide-y divide-slate-800/40 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))]">
+            <div className="grid grid-cols-2 divide-x divide-y divide-line-subtle sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))]">
               {financialStripMetrics.map((m) => (
                 <div key={m.label} className="flex flex-col gap-0.5 p-3">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-600">{m.label}</span>
+                  <span className="text-[9px] uppercase tracking-wider text-fg-muted">{m.label}</span>
                   <span
                     className={cn(
                       'font-mono text-xs font-bold',
-                      (m as { highlight?: boolean }).highlight ? 'text-emerald-400' : 'text-white',
+                      (m as { highlight?: boolean }).highlight ? 'text-emerald-400' : 'text-fg-primary',
                     )}
                   >
                     {m.value}
@@ -574,8 +574,8 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
               )}
             >
               {marginEntries.length > 0 && (
-                <div className="rounded-lg border border-slate-800/50 bg-slate-950/30 p-4">
-                  <h5 className="mb-3 flex items-center gap-2 text-xs font-bold text-white">
+                <div className="rounded-lg border border-line-subtle bg-surface-raised p-4">
+                  <h5 className="mb-3 flex items-center gap-2 text-xs font-bold text-fg-primary">
                     <BarChart3 className="h-3.5 w-3.5 text-cyan-400" /> Profitability margins
                   </h5>
                   <div className="space-y-2.5">
@@ -589,18 +589,18 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
                 <ReturnsCard metrics={returnsMetrics} />
               )}
               {showBalanceSheetCard && (
-                <div className="rounded-lg border border-slate-800/50 bg-slate-950/30 p-4">
-                  <h5 className="mb-3 flex items-center gap-2 text-xs font-bold text-white">
+                <div className="rounded-lg border border-line-subtle bg-surface-raised p-4">
+                  <h5 className="mb-3 flex items-center gap-2 text-xs font-bold text-fg-primary">
                     <DollarSign className="h-3.5 w-3.5 text-amber-400" /> Balance sheet &amp; ownership
                   </h5>
                   <div className="space-y-2">
                     {balanceSheetRows.map((m) => (
                       <div
                         key={m.label}
-                        className="flex items-center justify-between border-b border-slate-800/30 py-1.5 last:border-0"
+                        className="flex items-center justify-between border-b border-line-subtle py-1.5 last:border-0"
                       >
-                        <span className="text-[11px] text-slate-500">{m.label}</span>
-                        <span className="font-mono text-[11px] font-bold text-white">{m.value}</span>
+                        <span className="text-[11px] text-fg-muted">{m.label}</span>
+                        <span className="font-mono text-[11px] font-bold text-fg-primary">{m.value}</span>
                       </div>
                     ))}
                   </div>
@@ -612,7 +612,7 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
           {priceTargetStrip.length > 0 && (
             <div
               className={cn(
-                'grid divide-x divide-y divide-slate-800/40 border-t border-slate-800/40',
+                'grid divide-x divide-y divide-line-subtle border-t border-line-subtle',
                 priceTargetStrip.length <= 4
                   ? 'grid-cols-2 sm:grid-cols-4'
                   : priceTargetStrip.length <= 6
@@ -622,11 +622,11 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
             >
               {priceTargetStrip.map((m) => (
               <div key={m.label} className="flex flex-col gap-0.5 p-3">
-                <span className="text-[9px] uppercase tracking-wider text-slate-600">{m.label}</span>
+                <span className="text-[9px] uppercase tracking-wider text-fg-muted">{m.label}</span>
                 <span
                   className={cn(
                     'font-mono text-xs font-bold',
-                    (m as { highlight?: boolean }).highlight ? 'text-[#007AFF]' : 'text-white',
+                    (m as { highlight?: boolean }).highlight ? 'text-[#007AFF]' : 'text-fg-primary',
                   )}
                 >
                   {m.value}

@@ -53,7 +53,7 @@ function FilterPill({
       className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-200 ${
         active
           ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
-          : 'bg-slate-800/40 border-slate-700/40 text-slate-400 hover:bg-slate-800/60 hover:text-slate-300'
+          : 'bg-surface-raised border-line-default text-fg-secondary hover:bg-surface-active hover:text-fg-primary'
       }`}
     >
       {label}
@@ -66,11 +66,11 @@ function ExitReasonBadge({ reason }: { reason: string }) {
     take_profit: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', label: 'Take Profit' },
     stop_loss: { bg: 'bg-red-500/15', text: 'text-red-400', label: 'Stop Loss' },
     trailing_stop: { bg: 'bg-amber-500/15', text: 'text-amber-400', label: 'Trailing Stop' },
-    signal: { bg: 'bg-slate-500/15', text: 'text-slate-400', label: 'Signal' },
+    signal: { bg: 'bg-surface-raised', text: 'text-fg-secondary', label: 'Signal' },
     end_of_period: { bg: 'bg-blue-500/15', text: 'text-blue-400', label: 'End of Period' },
   }
 
-  const c = config[reason] ?? { bg: 'bg-slate-500/15', text: 'text-slate-400', label: reason }
+  const c = config[reason] ?? { bg: 'bg-surface-raised', text: 'text-fg-secondary', label: reason }
 
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold ${c.bg} ${c.text}`}>
@@ -98,20 +98,20 @@ function TradeRow({
     <>
       <tr
         onClick={onToggle}
-        className="border-b border-slate-800/40 cursor-pointer hover:bg-slate-800/20 transition-colors duration-150"
+        className="border-b border-line-subtle cursor-pointer hover:bg-surface-hover transition-colors duration-150"
       >
-        <td className="px-3 py-2.5 text-xs text-slate-500 font-mono">{index}</td>
-        <td className="px-3 py-2.5 text-xs text-slate-300 font-mono">
+        <td className="px-3 py-2.5 text-xs text-fg-muted font-mono">{index}</td>
+        <td className="px-3 py-2.5 text-xs text-fg-secondary font-mono">
           {formatDate(trade.entry_date)}
         </td>
-        <td className="px-3 py-2.5 text-xs text-white font-mono">${trade.entry_price.toFixed(2)}</td>
-        <td className="px-3 py-2.5 text-xs text-slate-300 font-mono">
+        <td className="px-3 py-2.5 text-xs text-fg-primary font-mono">${trade.entry_price.toFixed(2)}</td>
+        <td className="px-3 py-2.5 text-xs text-fg-secondary font-mono">
           {trade.exit_date ? formatDate(trade.exit_date) : '---'}
         </td>
-        <td className="px-3 py-2.5 text-xs text-white font-mono">
+        <td className="px-3 py-2.5 text-xs text-fg-primary font-mono">
           {trade.exit_price != null ? `$${trade.exit_price.toFixed(2)}` : '---'}
         </td>
-        <td className="px-3 py-2.5 text-xs text-slate-300 font-mono">{trade.quantity}</td>
+        <td className="px-3 py-2.5 text-xs text-fg-secondary font-mono">{trade.quantity}</td>
         <td className={`px-3 py-2.5 text-xs font-mono font-semibold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
           {isPositive ? '+' : ''}${pnl.toFixed(2)}
         </td>
@@ -123,8 +123,8 @@ function TradeRow({
         <td className="px-3 py-2.5">
           <ExitReasonBadge reason={trade.exit_reason} />
         </td>
-        <td className="px-3 py-2.5 text-xs text-slate-400 font-mono">{trade.bars_held}d</td>
-        <td className="px-3 py-2.5 text-slate-500">
+        <td className="px-3 py-2.5 text-xs text-fg-secondary font-mono">{trade.bars_held}d</td>
+        <td className="px-3 py-2.5 text-fg-muted">
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </td>
       </tr>
@@ -140,16 +140,16 @@ function TradeRow({
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
-                <div className="px-6 py-4 bg-slate-800/10 border-b border-slate-800/40">
+                <div className="px-6 py-4 bg-surface-hover border-b border-line-subtle">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <DetailCard label="Max Adverse Excursion" value={`${trade.mae.toFixed(2)}%`} color="text-red-400" />
                     <DetailCard label="Max Favorable Excursion" value={`${trade.mfe.toFixed(2)}%`} color="text-emerald-400" />
-                    <DetailCard label="Commission" value={`$${trade.commission.toFixed(2)}`} color="text-slate-300" />
+                    <DetailCard label="Commission" value={`$${trade.commission.toFixed(2)}`} color="text-fg-secondary" />
                     <DetailCard label="Net P&L (after comm.)" value={`$${(pnl - trade.commission).toFixed(2)}`} color={pnl - trade.commission >= 0 ? 'text-emerald-400' : 'text-red-400'} />
-                    <DetailCard label="Entry Price" value={`$${trade.entry_price.toFixed(2)}`} color="text-white" />
-                    <DetailCard label="Exit Price" value={trade.exit_price != null ? `$${trade.exit_price.toFixed(2)}` : '---'} color="text-white" />
-                    <DetailCard label="Quantity" value={`${trade.quantity}`} color="text-slate-300" />
-                    <DetailCard label="Bars Held" value={`${trade.bars_held} days`} color="text-slate-300" />
+                    <DetailCard label="Entry Price" value={`$${trade.entry_price.toFixed(2)}`} color="text-fg-primary" />
+                    <DetailCard label="Exit Price" value={trade.exit_price != null ? `$${trade.exit_price.toFixed(2)}` : '---'} color="text-fg-primary" />
+                    <DetailCard label="Quantity" value={`${trade.quantity}`} color="text-fg-secondary" />
+                    <DetailCard label="Bars Held" value={`${trade.bars_held} days`} color="text-fg-secondary" />
                   </div>
                 </div>
               </motion.div>
@@ -164,7 +164,7 @@ function TradeRow({
 function DetailCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] text-slate-500 uppercase tracking-wider">{label}</span>
+      <span className="text-[10px] text-fg-muted uppercase tracking-wider">{label}</span>
       <span className={`text-sm font-mono font-semibold ${color}`}>{value}</span>
     </div>
   )
@@ -183,20 +183,20 @@ function Pagination({
 
   return (
     <div className="flex items-center justify-between px-4 py-3">
-      <span className="text-xs text-slate-500">
+      <span className="text-xs text-fg-muted">
         Page {currentPage} of {totalPages}
       </span>
       <div className="flex items-center gap-2">
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage <= 1}
-          className="p-1.5 rounded-lg border border-slate-700/40 text-slate-400 hover:bg-slate-800/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 rounded-lg border border-line-default text-fg-secondary hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronLeft size={14} />
         </button>
         {generatePageNumbers(currentPage, totalPages).map((p, i) =>
           p === -1 ? (
-            <span key={`ellipsis-${i}`} className="text-xs text-slate-600 px-1">...</span>
+            <span key={`ellipsis-${i}`} className="text-xs text-fg-muted px-1">...</span>
           ) : (
             <button
               key={p}
@@ -204,7 +204,7 @@ function Pagination({
               className={`min-w-[28px] h-7 rounded-lg text-xs font-semibold transition-colors ${
                 p === currentPage
                   ? 'bg-indigo-500/20 border border-indigo-500/50 text-indigo-300'
-                  : 'border border-slate-700/40 text-slate-400 hover:bg-slate-800/40'
+                  : 'border border-line-default text-fg-secondary hover:bg-surface-hover'
               }`}
             >
               {p}
@@ -214,7 +214,7 @@ function Pagination({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage >= totalPages}
-          className="p-1.5 rounded-lg border border-slate-700/40 text-slate-400 hover:bg-slate-800/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 rounded-lg border border-line-default text-fg-secondary hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronRight size={14} />
         </button>
@@ -401,10 +401,10 @@ export default function TradeJournal({ trades, symbol }: TradeJournalProps) {
 
   if (trades.length === 0) {
     return (
-      <div className="bg-[#0F1629]/80 border border-slate-800/60 rounded-xl p-12 text-center">
-        <Calendar className="mx-auto mb-4 text-slate-600" size={40} />
-        <p className="text-slate-400 text-sm">No trades to display.</p>
-        <p className="text-slate-600 text-xs mt-1">Run a backtest to see your trade journal.</p>
+      <div className="bg-surface-raised border border-line-subtle rounded-xl p-12 text-center">
+        <Calendar className="mx-auto mb-4 text-fg-muted" size={40} />
+        <p className="text-fg-secondary text-sm">No trades to display.</p>
+        <p className="text-fg-muted text-xs mt-1">Run a backtest to see your trade journal.</p>
       </div>
     )
   }
@@ -437,12 +437,12 @@ export default function TradeJournal({ trades, symbol }: TradeJournalProps) {
       <div className="flex flex-wrap items-center gap-3 px-1">
         <div className="flex items-center gap-1.5 text-xs">
           <Flame size={12} className="text-emerald-400" />
-          <span className="text-slate-500">Best Win Streak:</span>
+          <span className="text-fg-muted">Best Win Streak:</span>
           <span className="text-emerald-400 font-mono font-semibold">{streaks.winStreak}</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs">
           <Flame size={12} className="text-red-400" />
-          <span className="text-slate-500">Worst Loss Streak:</span>
+          <span className="text-fg-muted">Worst Loss Streak:</span>
           <span className="text-red-400 font-mono font-semibold">{streaks.lossStreak}</span>
         </div>
         {streaks.currentType !== 'none' && (
@@ -459,9 +459,9 @@ export default function TradeJournal({ trades, symbol }: TradeJournalProps) {
       </div>
 
       {/* ── Filters ── */}
-      <div className="bg-[#0F1629]/80 border border-slate-800/60 rounded-xl p-4 space-y-3">
+      <div className="bg-surface-raised border border-line-subtle rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-slate-400">
+          <div className="flex items-center gap-2 text-fg-secondary">
             <Filter size={14} />
             <span className="text-xs font-semibold uppercase tracking-wider">Filters</span>
           </div>
@@ -477,29 +477,29 @@ export default function TradeJournal({ trades, symbol }: TradeJournalProps) {
         {/* Date range */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <Search size={12} className="text-slate-500" />
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider">From</span>
+            <Search size={12} className="text-fg-muted" />
+            <span className="text-[10px] text-fg-muted uppercase tracking-wider">From</span>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => handleFilterChange(setDateFrom, e.target.value)}
-              className="bg-slate-800/40 border border-slate-700/40 rounded-lg px-2 py-1 text-xs text-slate-300 font-mono focus:outline-none focus:border-indigo-500/50"
+              className="bg-surface-hover border border-line-default rounded-lg px-2 py-1 text-xs text-fg-secondary font-mono focus:outline-none focus:border-indigo-500/50"
             />
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider">To</span>
+            <span className="text-[10px] text-fg-muted uppercase tracking-wider">To</span>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => handleFilterChange(setDateTo, e.target.value)}
-              className="bg-slate-800/40 border border-slate-700/40 rounded-lg px-2 py-1 text-xs text-slate-300 font-mono focus:outline-none focus:border-indigo-500/50"
+              className="bg-surface-hover border border-line-default rounded-lg px-2 py-1 text-xs text-fg-secondary font-mono focus:outline-none focus:border-indigo-500/50"
             />
           </div>
         </div>
 
         {/* Direction */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] text-slate-500 uppercase tracking-wider mr-1">Direction</span>
+          <span className="text-[10px] text-fg-muted uppercase tracking-wider mr-1">Direction</span>
           {(['all', 'long', 'short'] as Direction[]).map((d) => (
             <FilterPill
               key={d}
@@ -512,7 +512,7 @@ export default function TradeJournal({ trades, symbol }: TradeJournalProps) {
 
         {/* Exit reason */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] text-slate-500 uppercase tracking-wider mr-1">Exit Reason</span>
+          <span className="text-[10px] text-fg-muted uppercase tracking-wider mr-1">Exit Reason</span>
           {(['all', 'signal', 'stop_loss', 'take_profit', 'trailing_stop', 'end_of_period'] as ExitReason[]).map((r) => (
             <FilterPill
               key={r}
@@ -525,11 +525,11 @@ export default function TradeJournal({ trades, symbol }: TradeJournalProps) {
 
         {/* Sort controls */}
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-[10px] text-slate-500 uppercase tracking-wider">Sort By</span>
+          <span className="text-[10px] text-fg-muted uppercase tracking-wider">Sort By</span>
           <select
             value={sortField}
             onChange={(e) => handleFilterChange(setSortField, e.target.value as SortField)}
-            className="bg-slate-800/40 border border-slate-700/40 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500/50 cursor-pointer"
+            className="bg-surface-hover border border-line-default rounded-lg px-2 py-1.5 text-xs text-fg-secondary focus:outline-none focus:border-indigo-500/50 cursor-pointer"
           >
             <option value="entry_date">Entry Date</option>
             <option value="pnl">P&L ($)</option>
@@ -538,7 +538,7 @@ export default function TradeJournal({ trades, symbol }: TradeJournalProps) {
           </select>
           <button
             onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
-            className="flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg border border-slate-700/40 text-slate-400 hover:bg-slate-800/40 transition-colors"
+            className="flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg border border-line-default text-fg-secondary hover:bg-surface-hover transition-colors"
           >
             <ArrowUpDown size={12} />
             {sortDir === 'asc' ? 'Ascending' : 'Descending'}
@@ -547,15 +547,15 @@ export default function TradeJournal({ trades, symbol }: TradeJournalProps) {
       </div>
 
       {/* ── Trade Table ── */}
-      <div className="bg-[#0F1629]/80 border border-slate-800/60 rounded-xl overflow-hidden">
+      <div className="bg-surface-raised border border-line-subtle rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1000px]">
             <thead>
-              <tr className="border-b border-slate-800/60">
+              <tr className="border-b border-line-subtle">
                 {['#', 'Entry Date', 'Entry $', 'Exit Date', 'Exit $', 'Qty', 'P&L ($)', 'Return %', 'MAE', 'MFE', 'Exit Reason', 'Duration', ''].map((h) => (
                   <th
                     key={h}
-                    className="px-3 py-2.5 text-[10px] text-slate-500 uppercase tracking-wider font-semibold text-left"
+                    className="px-3 py-2.5 text-[10px] text-fg-muted uppercase tracking-wider font-semibold text-left"
                   >
                     {h}
                   </th>
@@ -565,7 +565,7 @@ export default function TradeJournal({ trades, symbol }: TradeJournalProps) {
             <tbody>
               {paginatedTrades.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="px-4 py-12 text-center text-sm text-slate-500">
+                  <td colSpan={13} className="px-4 py-12 text-center text-sm text-fg-muted">
                     No trades match the current filters.
                   </td>
                 </tr>
@@ -588,13 +588,13 @@ export default function TradeJournal({ trades, symbol }: TradeJournalProps) {
         </div>
 
         {/* Pagination */}
-        <div className="border-t border-slate-800/40">
+        <div className="border-t border-line-subtle">
           <Pagination currentPage={safePage} totalPages={totalPages} onPageChange={setPage} />
         </div>
       </div>
 
       {/* ── Results Count ── */}
-      <p className="text-[10px] text-slate-600 text-right px-1">
+      <p className="text-[10px] text-fg-muted text-right px-1">
         Showing {paginatedTrades.length} of {processedTrades.length} trades
         {processedTrades.length !== trades.length && ` (${trades.length} total)`}
       </p>
@@ -611,7 +611,7 @@ function SummaryCard({
   value,
   icon,
   subtext,
-  valueColor = 'text-white',
+  valueColor = 'text-fg-primary',
 }: {
   label: string
   value: string
@@ -620,13 +620,13 @@ function SummaryCard({
   valueColor?: string
 }) {
   return (
-    <div className="bg-[#0F1629]/80 border border-slate-800/60 rounded-xl px-4 py-3">
+    <div className="bg-surface-raised border border-line-subtle rounded-xl px-4 py-3">
       <div className="flex items-center gap-1.5 mb-1">
-        <span className="text-slate-500">{icon}</span>
-        <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">{label}</span>
+        <span className="text-fg-muted">{icon}</span>
+        <span className="text-[10px] text-fg-muted uppercase tracking-wider font-semibold">{label}</span>
       </div>
       <p className={`text-lg font-black font-mono ${valueColor}`}>{value}</p>
-      {subtext && <p className="text-[10px] text-slate-500 mt-0.5">{subtext}</p>}
+      {subtext && <p className="text-[10px] text-fg-muted mt-0.5">{subtext}</p>}
     </div>
   )
 }

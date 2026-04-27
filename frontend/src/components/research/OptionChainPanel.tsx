@@ -32,22 +32,22 @@ function formatInt(val: number | null): string {
 function ContractRow({ c, type }: { c: OptionContract; type: 'call' | 'put' }) {
   const ivPct = c.implied_volatility !== null ? (c.implied_volatility * 100).toFixed(1) + '%' : '—'
   return (
-    <tr className="border-b border-slate-800/40 hover:bg-slate-800/30 transition-colors text-xs">
-      <td className="py-1.5 px-2 font-mono text-white">{formatPrice(c.strike)}</td>
-      <td className="py-1.5 px-2 text-slate-300">{formatPrice(c.bid)}</td>
-      <td className="py-1.5 px-2 text-slate-300">{formatPrice(c.ask)}</td>
-      <td className="py-1.5 px-2 text-slate-300">{formatPrice(c.mid)}</td>
-      <td className="py-1.5 px-2 text-slate-400">{formatInt(c.volume)}</td>
-      <td className="py-1.5 px-2 text-slate-400">{formatInt(c.open_interest)}</td>
+    <tr className="border-b border-line-subtle hover:bg-surface-hover transition-colors text-xs">
+      <td className="py-1.5 px-2 font-mono text-fg-primary">{formatPrice(c.strike)}</td>
+      <td className="py-1.5 px-2 text-fg-secondary">{formatPrice(c.bid)}</td>
+      <td className="py-1.5 px-2 text-fg-secondary">{formatPrice(c.ask)}</td>
+      <td className="py-1.5 px-2 text-fg-secondary">{formatPrice(c.mid)}</td>
+      <td className="py-1.5 px-2 text-fg-muted">{formatInt(c.volume)}</td>
+      <td className="py-1.5 px-2 text-fg-muted">{formatInt(c.open_interest)}</td>
       <td className="py-1.5 px-2 text-amber-400">{ivPct}</td>
       <td className={`py-1.5 px-2 font-mono ${
         type === 'call'
-          ? (c.delta && c.delta > 0 ? 'text-emerald-400' : 'text-slate-400')
-          : (c.delta && c.delta < 0 ? 'text-red-400' : 'text-slate-400')
+          ? (c.delta && c.delta > 0 ? 'text-emerald-400' : 'text-fg-muted')
+          : (c.delta && c.delta < 0 ? 'text-red-400' : 'text-fg-muted')
       }`}>
         {formatGreek(c.delta)}
       </td>
-      <td className="py-1.5 px-2 font-mono text-slate-400">{formatGreek(c.gamma)}</td>
+      <td className="py-1.5 px-2 font-mono text-fg-muted">{formatGreek(c.gamma)}</td>
       <td className="py-1.5 px-2 font-mono text-red-400/70">{formatGreek(c.theta)}</td>
       <td className="py-1.5 px-2 font-mono text-blue-400/70">{formatGreek(c.vega)}</td>
     </tr>
@@ -57,7 +57,7 @@ function ContractRow({ c, type }: { c: OptionContract; type: 'call' | 'put' }) {
 function ContractTable({ contracts, type }: { contracts: OptionContract[]; type: 'call' | 'put' }) {
   if (!contracts || contracts.length === 0) {
     return (
-      <div className="text-center text-slate-500 text-xs py-6">
+      <div className="text-center text-fg-muted text-xs py-6">
         No {type} contracts available
       </div>
     )
@@ -66,7 +66,7 @@ function ContractTable({ contracts, type }: { contracts: OptionContract[]; type:
     <div className="overflow-x-auto">
       <table className="w-full text-left">
         <thead>
-          <tr className="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-700/60">
+          <tr className="text-[10px] uppercase tracking-wider text-fg-muted border-b border-line-default">
             <th className="py-2 px-2">Strike</th>
             <th className="py-2 px-2">Bid</th>
             <th className="py-2 px-2">Ask</th>
@@ -132,9 +132,9 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
         <div className="hud-panel p-5">
           <div className="flex items-center gap-2 mb-2">
             <Activity className="w-4 h-4 text-cyan-400" />
-            <h3 className="font-bold text-sm text-white">Option Chain</h3>
+            <h3 className="font-bold text-sm text-fg-primary">Option Chain</h3>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-fg-muted">
             Options data unavailable for {symbol}. Requires Public.com API key.
           </p>
         </div>
@@ -149,7 +149,7 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
         <div className="p-4 border-b border-blue-500/10 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-cyan-400" />
-            <h3 className="font-bold text-sm text-white">Option Chain</h3>
+            <h3 className="font-bold text-sm text-fg-primary">Option Chain</h3>
             <span className="text-[9px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded">
               Public.com
             </span>
@@ -159,13 +159,13 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
             {/* P/C Ratio badge */}
             {chainData && (
               <div className="flex items-center gap-2 text-[10px]">
-                <span className="text-slate-500">P/C Ratio:</span>
+                <span className="text-fg-muted">P/C Ratio:</span>
                 <span className={`font-mono font-bold ${
                   parseFloat(pcRatio) > 1 ? 'text-red-400' : parseFloat(pcRatio) < 0.7 ? 'text-emerald-400' : 'text-amber-400'
                 }`}>
                   {pcRatio}
                 </span>
-                <span className="text-slate-600">|</span>
+                <span className="text-fg-muted">|</span>
                 <span className="text-emerald-400">C: {totalCallVol.toLocaleString()}</span>
                 <span className="text-red-400">P: {totalPutVol.toLocaleString()}</span>
               </div>
@@ -175,7 +175,7 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-slate-700/60 bg-slate-800/60 text-slate-300 hover:border-cyan-500/30 transition-colors"
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-line-default bg-surface-raised text-fg-secondary hover:border-cyan-500/30 transition-colors"
                 disabled={expLoading}
               >
                 {expLoading ? (
@@ -188,7 +188,7 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
                 )}
               </button>
               {dropdownOpen && expData?.expirations && (
-                <div className="absolute right-0 top-full mt-1 z-50 bg-slate-900 border border-slate-700/60 rounded-lg shadow-xl max-h-48 overflow-y-auto min-w-[140px]">
+                <div className="absolute right-0 top-full mt-1 z-50 bg-surface-overlay border border-line-default rounded-lg shadow-theme-lg max-h-48 overflow-y-auto min-w-[140px]">
                   {expData.expirations.map((exp) => (
                     <button
                       key={exp}
@@ -196,8 +196,8 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
                         setSelectedExpiration(exp)
                         setDropdownOpen(false)
                       }}
-                      className={`w-full text-left px-3 py-1.5 text-xs font-mono hover:bg-slate-800 transition-colors ${
-                        exp === expiration ? 'text-cyan-400 bg-cyan-500/5' : 'text-slate-400'
+                      className={`w-full text-left px-3 py-1.5 text-xs font-mono hover:bg-surface-hover transition-colors ${
+                        exp === expiration ? 'text-cyan-400 bg-cyan-500/5' : 'text-fg-muted'
                       }`}
                     >
                       {exp}
@@ -208,7 +208,7 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
             </div>
 
             {/* Tab selector */}
-            <div className="flex rounded-lg border border-slate-700/60 overflow-hidden">
+            <div className="flex rounded-lg border border-line-default overflow-hidden">
               {(['all', 'calls', 'puts'] as const).map((tab) => (
                 <button
                   key={tab}
@@ -216,7 +216,7 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
                   className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider transition-colors ${
                     activeTab === tab
                       ? 'bg-cyan-500/15 text-cyan-400'
-                      : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
+                      : 'text-fg-muted hover:text-fg-secondary hover:bg-surface-hover'
                   }`}
                 >
                   {tab}
@@ -231,10 +231,10 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
           {chainLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-5 h-5 animate-spin text-cyan-400 mr-2" />
-              <span className="text-xs text-slate-500">Loading option chain...</span>
+              <span className="text-xs text-fg-muted">Loading option chain...</span>
             </div>
           ) : !chainData ? (
-            <div className="text-center text-slate-500 text-xs py-8">
+            <div className="text-center text-fg-muted text-xs py-8">
               Select an expiration date to view the option chain
             </div>
           ) : (
