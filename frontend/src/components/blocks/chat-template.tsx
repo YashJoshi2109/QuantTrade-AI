@@ -324,7 +324,7 @@ function ChatListPanel() {
   )
 
   return (
-    <div className="flex h-full flex-col bg-[#0a0e14]">
+    <div className="flex h-full flex-col bg-surface-base">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-line-default px-4 py-3">
         <h2 className="text-lg font-semibold text-fg-primary">Chats</h2>
@@ -427,7 +427,7 @@ function ActiveChatPanel() {
   const activeContact = contacts[0] // Sarah Chen
 
   return (
-    <div className="flex h-full flex-col bg-[#0a0e14]">
+    <div className="flex h-full flex-col bg-surface-base">
       {/* Chat Header */}
       <div className="flex items-center justify-between border-b border-line-default px-4 py-2.5">
         <div className="flex items-center gap-3">
@@ -641,17 +641,17 @@ export function Home() {
         } as React.CSSProperties
       }
     >
-      <div className="flex h-screen w-full overflow-hidden bg-[#0a0e14]">
+      <div className="flex h-screen w-full overflow-hidden bg-surface-base">
         {/* Left icon sidebar */}
         <Sidebar
           collapsible="icon"
-          className="border-r border-line-default bg-[#060a10]"
+          className="border-r border-line-default bg-surface-raised"
         >
           <NavSidebarContent />
         </Sidebar>
 
         {/* Main content area */}
-        <SidebarInset className="flex-1 p-0 bg-[#0a0e14]">
+        <SidebarInset className="flex-1 p-0 bg-surface-base">
           <ResizablePanelGroup orientation="horizontal" className="h-full">
             {/* Chat list panel */}
             <ResizablePanel
