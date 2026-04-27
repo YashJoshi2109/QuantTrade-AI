@@ -63,7 +63,7 @@ function MarketStatusPill({ status }: { status?: MarketStatus }) {
     <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-raised border border-line-subtle">
       <span
         className={`w-2 h-2 rounded-full ${
-          isOpen ? 'bg-[#00FF88] animate-pulse' : 'bg-fg-muted'
+          isOpen ? 'bg-[#00FF88] animate-pulse' : 'bg-line-default'
         }`}
       />
       <span className="text-[10px] font-medium text-fg-primary">
@@ -615,7 +615,7 @@ export default function MobileDashboard() {
                   ? 'bg-emerald-400'
                   : sentiment === 'bearish'
                   ? 'bg-red-400'
-                  : 'bg-fg-muted'
+                  : 'bg-line-default'
 
               return (
                 <a
