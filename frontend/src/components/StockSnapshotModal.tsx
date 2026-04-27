@@ -302,7 +302,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-[999] cursor-pointer"
-            style={{ backdropFilter: 'blur(18px) saturate(1.6)', background: 'rgba(2,6,23,0.75)' }}
+            style={{ backdropFilter: 'blur(18px) saturate(1.6)', background: 'var(--surface-overlay)' }}
             onClick={onClose}
           />
 
@@ -320,7 +320,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
               className="relative w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
               style={{
                 pointerEvents: 'auto',
-                background: 'linear-gradient(145deg, rgba(12,18,40,0.98) 0%, rgba(6,10,28,0.98) 100%)',
+                background: 'var(--surface-raised)',
                 border: '1px solid rgba(255,255,255,0.10)',
                 borderTop: '1px solid rgba(255,255,255,0.16)',
                 borderRadius: 24,
@@ -347,7 +347,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                       )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h2 className="text-lg font-black text-white tracking-tight truncate">{stock.name || stock.symbol}</h2>
+                          <h2 className="text-lg font-black text-fg-primary tracking-tight truncate">{stock.name || stock.symbol}</h2>
                           <span className="text-fg-muted font-mono text-sm font-bold">({stock.symbol})</span>
                           {stock.exchange && (
                             <span className="px-1.5 py-0.5 rounded-md bg-surface-raised border border-line-default text-[9px] font-bold text-fg-secondary font-mono uppercase tracking-wide">
@@ -360,7 +360,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
 
                     {/* Price row */}
                     <div className="flex items-center gap-3 flex-wrap">
-                      <span className="text-3xl font-black font-mono tabular-nums text-white">
+                      <span className="text-3xl font-black font-mono tabular-nums text-fg-primary">
                         {s?.currency === 'JPY' ? '¥' : s?.currency === 'EUR' ? '€' : s?.currency === 'GBP' ? '£' : '$'}
                         {(s?.price ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
@@ -433,7 +433,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                         <button key={tab} onClick={() => setChartTab(tab)}
                           className={`relative flex items-center justify-center min-w-[34px] px-2 h-7 rounded-lg text-[10px] font-mono font-black transition-all ${
                             chartTab === tab
-                              ? 'bg-surface-raised text-white shadow-theme-sm border border-line-default'
+                              ? 'bg-surface-raised text-fg-primary shadow-theme-sm border border-line-default'
                               : 'text-fg-muted hover:text-fg-secondary border border-transparent'
                           }`}>
                           {chartTab === tab && (
@@ -479,7 +479,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                   {/* Chart area */}
                   <div className="flex-1 relative p-4 min-h-0">
                     <div className="h-full w-full rounded-2xl overflow-hidden relative"
-                      style={{ background: 'rgba(4,8,20,0.6)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      style={{ background: 'var(--surface-base)', border: '1px solid rgba(255,255,255,0.05)' }}>
                       <StockAreaChart positive={up} prices={sparkPrices} />
 
                       {/* Price labels */}
@@ -540,7 +540,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                       <div className="mt-3">
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-[9px] text-fg-muted font-mono">52W Range</span>
-                          <span className="text-[9px] text-slate-400 font-mono font-bold">
+                          <span className="text-[9px] text-fg-muted font-mono font-bold">
                             {Math.round(((s.price - s.week_52_low!) / (s.week_52_high! - s.week_52_low!)) * 100)}%
                           </span>
                         </div>

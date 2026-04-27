@@ -271,14 +271,14 @@ export default function UnifiedNotificationCenter() {
               <div>
                 {tab === 'all' && (
                   <div className="px-3 pt-2.5 pb-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
                       Community
                     </span>
                   </div>
                 )}
                 {communityNotifs.slice(0, tab === 'all' ? 5 : 15).map((n: Notification) => {
                   const Icon = COMM_ICONS[n.type] || Bell
-                  const colorCls = COMM_COLORS[n.type] || 'text-slate-400 bg-slate-500/15'
+                  const colorCls = COMM_COLORS[n.type] || 'text-fg-muted bg-surface-raised'
                   return (
                     <Link
                       key={n.id}
@@ -316,7 +316,7 @@ export default function UnifiedNotificationCenter() {
               <div>
                 {tab === 'all' && (
                   <div className="px-3 pt-2.5 pb-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
                       ML Signals
                     </span>
                   </div>

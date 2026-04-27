@@ -55,11 +55,11 @@ export default function TickerImpactDrawer({ event, onClose }: Props) {
               <span className={`px-2 py-1 rounded text-xs font-medium ${getThreatBadgeClass(event.threat_level)}`}>
                 {event.threat_level.toUpperCase()}
               </span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-fg-muted">
                 {event.category}
               </span>
             </div>
-            <h2 className="text-lg font-bold text-slate-50 line-clamp-2">
+            <h2 className="text-lg font-bold text-fg-primary line-clamp-2">
               {event.title}
             </h2>
             <p className="text-sm text-fg-secondary mt-1">
@@ -70,13 +70,13 @@ export default function TickerImpactDrawer({ event, onClose }: Props) {
             onClick={onClose}
             className="p-2 hover:bg-surface-hover rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-slate-400" />
+            <X className="w-5 h-5 text-fg-muted" />
           </button>
         </div>
 
         {/* Event Description */}
         {event.description && (
-          <p className="text-sm text-slate-300 mt-3 line-clamp-3">
+          <p className="text-sm text-fg-secondary mt-3 line-clamp-3">
             {event.description}
           </p>
         )}
@@ -104,7 +104,7 @@ export default function TickerImpactDrawer({ event, onClose }: Props) {
                   <div className="flex-1">
                     <Link
                       href={`/research?symbol=${impact.ticker}`}
-                      className="text-base font-bold text-slate-50 hover:text-sky-400 transition-colors"
+                      className="text-base font-bold text-fg-primary hover:text-sky-400 transition-colors"
                     >
                       {impact.ticker}
                     </Link>
@@ -158,7 +158,7 @@ export default function TickerImpactDrawer({ event, onClose }: Props) {
                       ) : impact.expected_direction === 'negative' ? (
                         <TrendingDown className="w-4 h-4 text-red-500" />
                       ) : (
-                        <Minus className="w-4 h-4 text-slate-400" />
+                        <Minus className="w-4 h-4 text-fg-muted" />
                       )}
                       <span className={`text-xs font-medium ${
                         impact.expected_direction === 'positive' ? 'text-green-400' :
@@ -259,7 +259,7 @@ function getThreatBadgeClass(level: string): string {
     high: 'bg-orange-500/20 text-orange-400 border border-orange-500/50',
     medium: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50',
     low: 'bg-blue-500/20 text-blue-400 border border-blue-500/50',
-    unknown: 'bg-gray-500/20 text-gray-400 border border-gray-500/50'
+    unknown: 'bg-surface-raised text-fg-muted border border-line-default'
   }
   return classes[level as keyof typeof classes] || classes.unknown
 }

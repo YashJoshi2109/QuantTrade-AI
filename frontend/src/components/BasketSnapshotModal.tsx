@@ -122,8 +122,8 @@ function FactorBar({ label, score }: { label: string; score: number }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-0.5">
-        <span className="text-[10px] text-slate-400 capitalize">{label.replace(/_/g, ' ')}</span>
-        <span className="text-[10px] font-mono font-bold text-slate-300">{score?.toFixed(0)}</span>
+        <span className="text-[10px] text-fg-muted capitalize">{label.replace(/_/g, ' ')}</span>
+        <span className="text-[10px] font-mono font-bold text-fg-secondary">{score?.toFixed(0)}</span>
       </div>
       <div className="h-1.5 bg-surface-raised rounded-full overflow-hidden">
         <motion.div
@@ -152,7 +152,7 @@ function HoldingRow({ h, rank }: { h: Holding; rank: number }) {
         <Link
           href={`/research?symbol=${h.ticker}`}
           onClick={(e) => e.stopPropagation()}
-          className="text-xs font-black text-white hover:text-cyan-300 transition-colors font-mono min-w-[52px]"
+          className="text-xs font-black text-fg-primary hover:text-cyan-300 transition-colors font-mono min-w-[52px]"
         >
           {h.ticker}
         </Link>
@@ -164,13 +164,13 @@ function HoldingRow({ h, rank }: { h: Holding; rank: number }) {
         <span className={`text-[10px] font-bold font-mono w-8 text-right ${scoreColor(h.overall_ai_score)}`}>
           {h.overall_ai_score?.toFixed(0)}
         </span>
-        <span className="text-[10px] text-slate-400 font-mono w-12 text-right">
+        <span className="text-[10px] text-fg-muted font-mono w-12 text-right">
           {h.weight_pct?.toFixed(1)}%
         </span>
         {expanded ? (
-          <ChevronUp className="w-3 h-3 text-slate-600" />
+          <ChevronUp className="w-3 h-3 text-fg-muted" />
         ) : (
-          <ChevronDown className="w-3 h-3 text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <ChevronDown className="w-3 h-3 text-fg-muted opacity-0 group-hover:opacity-100 transition-opacity" />
         )}
       </div>
 
@@ -198,7 +198,7 @@ function HoldingRow({ h, rank }: { h: Holding; rank: number }) {
                 ].map((s) =>
                   s.value != null ? (
                     <div key={s.label}>
-                      <span className="text-slate-500">{s.label}</span>
+                      <span className="text-fg-muted">{s.label}</span>
                       <div className={`font-mono font-bold ${scoreColor(s.value)}`}>
                         {s.value.toFixed(1)}
                       </div>
@@ -246,8 +246,8 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
-  const catColor = CATEGORY_COLORS[index.category] || 'bg-slate-800 border-slate-700 text-slate-400'
-  const riskColor = RISK_COLORS[snapshot.risk_level || index.risk_profile] || 'text-slate-400'
+  const catColor = CATEGORY_COLORS[index.category] || 'bg-surface-raised border-line-default text-fg-muted'
+  const riskColor = RISK_COLORS[snapshot.risk_level || index.risk_profile] || 'text-fg-muted'
   const mc = snapshot.monte_carlo
 
   return (
@@ -259,7 +259,7 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
         className="fixed inset-0 z-[999] cursor-pointer"
-        style={{ backdropFilter: 'blur(20px) saturate(1.5)', background: 'rgba(2,6,23,0.8)' }}
+        style={{ backdropFilter: 'blur(20px) saturate(1.5)', background: 'var(--surface-overlay)' }}
         onClick={onClose}
       />
 
@@ -293,7 +293,7 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-base font-black text-white">{index.short_name}</h2>
+                  <h2 className="text-base font-black text-fg-primary">{index.short_name}</h2>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${catColor}`}>
                     {index.category}
                   </span>
@@ -301,7 +301,7 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
                     {snapshot.risk_level || index.risk_profile} Risk
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{index.description}</p>
+                <p className="text-[11px] text-fg-muted mt-0.5 line-clamp-1">{index.description}</p>
               </div>
             </div>
             <button
@@ -318,7 +318,7 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
             {/* Summary metrics */}
             <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
               {[
-                { label: 'Holdings', value: snapshot.num_holdings, color: 'text-white' },
+                { label: 'Holdings', value: snapshot.num_holdings, color: 'text-fg-primary' },
                 { label: 'Avg AI Score', value: snapshot.avg_ai_score?.toFixed(0), color: 'text-cyan-400' },
                 { label: 'Beta', value: snapshot.portfolio_beta?.toFixed(2), color: 'text-blue-400' },
                 { label: 'Volatility', value: snapshot.portfolio_volatility_ann ? `${snapshot.portfolio_volatility_ann.toFixed(1)}%` : '—', color: 'text-violet-400' },
@@ -339,14 +339,14 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
                   <Brain className="w-3.5 h-3.5 text-violet-400" />
                   <span className="text-[10px] text-violet-400 font-bold uppercase tracking-wider">AI Thesis</span>
                 </div>
-                <p className="text-[12px] text-slate-300 leading-relaxed">{snapshot.explanation.basket_thesis}</p>
+                <p className="text-[12px] text-fg-secondary leading-relaxed">{snapshot.explanation.basket_thesis}</p>
               </div>
             )}
 
             {/* Monte Carlo */}
             {mc && (
               <div>
-                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Activity className="w-3 h-3" /> Monte Carlo Scenarios
                 </div>
                 <div className="grid grid-cols-3 gap-3">
@@ -380,7 +380,7 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
               {/* Factor Exposure */}
               {snapshot.factor_exposure && Object.keys(snapshot.factor_exposure).length > 0 && (
                 <div>
-                  <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     <BarChart3 className="w-3 h-3" /> Factor Exposure
                   </div>
                   <div className="space-y-2 bg-surface-raised/15 border border-line-subtle rounded-xl p-3">
@@ -394,7 +394,7 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
               {/* Sector Allocation */}
               {snapshot.sector_allocation && Object.keys(snapshot.sector_allocation).length > 0 && (
                 <div>
-                  <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     <Layers className="w-3 h-3" /> Sector Allocation
                   </div>
                   <div className="bg-surface-raised/15 border border-line-subtle rounded-xl p-3">
@@ -426,7 +426,7 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
 
             {/* Holdings Table */}
             <div>
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <Target className="w-3 h-3" /> Holdings ({snapshot.num_holdings})
               </div>
               {/* Table header */}
@@ -457,7 +457,7 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
                 </div>
                 <ul className="space-y-1">
                   {snapshot.explanation.top_risks.map((r, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[11px] text-slate-400">
+                    <li key={i} className="flex items-start gap-2 text-[11px] text-fg-muted">
                       <span className="text-red-400/50 mt-0.5">•</span>
                       {r}
                     </li>
@@ -469,13 +469,13 @@ export default function BasketSnapshotModal({ index, snapshot, onClose }: Props)
             {/* Stress Scenarios */}
             {snapshot.scenarios && snapshot.scenarios.length > 0 && (
               <div>
-                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Shield className="w-3 h-3" /> Stress Scenarios
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   {snapshot.scenarios.map((s) => (
-                    <div key={s.scenario_label} className="bg-slate-800/30 border border-slate-800/50 rounded-xl px-3 py-2">
-                      <div className="text-[9px] text-slate-500 truncate mb-0.5">{s.scenario_label}</div>
+                    <div key={s.scenario_label} className="bg-surface-overlay border border-line-subtle rounded-xl px-3 py-2">
+                      <div className="text-[9px] text-fg-muted truncate mb-0.5">{s.scenario_label}</div>
                       <div className={`text-sm font-black font-mono ${
                         s.projected_basket_return_pct > 0 ? 'text-emerald-400' : 'text-red-400'
                       }`}>

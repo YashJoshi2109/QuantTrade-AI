@@ -165,7 +165,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
             <div className="hud-panel px-4 py-2.5 shadow-xl">
               <div className="flex items-center gap-2">
                 <Bot className="w-4 h-4 text-cyan-400" />
-                <span className="text-sm font-bold text-white">Open AI Copilot</span>
+                <span className="text-sm font-bold text-fg-primary">Open AI Copilot</span>
               </div>
               <div className="text-[10px] text-fg-secondary mt-0.5 font-mono">Ask me anything</div>
             </div>
@@ -193,7 +193,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
                 <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-surface-base animate-pulse" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <h3 className="text-sm font-bold text-fg-primary flex items-center gap-2">
                   Copilot
                   <Zap className="w-3 h-3 text-cyan-400" />
                 </h3>
@@ -207,7 +207,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
               </div>
               <button
                 onClick={onToggle}
-                className="p-2 text-slate-400 hover:text-white hud-card transition-all"
+                className="p-2 text-fg-muted hover:text-fg-primary hud-card transition-all"
                 title="Minimize"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -307,7 +307,7 @@ export default function CopilotPanel({ symbol = 'NVDA', context = 'Market Analys
               <button
                 key={idx}
                 onClick={() => setInput(action)}
-                className="hud-card px-3 py-1.5 text-[11px] text-slate-300 hover:text-cyan-400 hover:border-cyan-500/30 transition-all"
+                className="hud-card px-3 py-1.5 text-[11px] text-fg-secondary hover:text-cyan-400 hover:border-cyan-500/30 transition-all"
               >
                 {action}
               </button>
