@@ -62,7 +62,7 @@ function SentimentBadge({ sentiment }: { sentiment: string | null }) {
 function SourceBadge({ source }: { source: string | null }) {
   if (!source) {
     return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-gray-500/20 text-gray-400">
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-gray-500/20 text-fg-muted">
         <Zap className="w-3 h-3" />
         Unknown
       </span>
@@ -76,9 +76,9 @@ function SourceBadge({ source }: { source: string | null }) {
   }
   
   const config = sourceConfig[source.toLowerCase()] || { 
-    color: 'text-gray-400', 
-    bg: 'bg-gray-500/20', 
-    label: source 
+    color: 'text-fg-muted',
+    bg: 'bg-gray-500/20',
+    label: source
   }
   
   return (
@@ -104,7 +104,7 @@ function NewsCard({ item }: { item: NewsArticle }) {
               onError={() => setImgFailed(true)}
             />
           ) : (
-            <ImageIcon className="w-6 h-6 text-gray-600" />
+            <ImageIcon className="w-6 h-6 text-fg-muted" />
           )}
         </div>
         <div className="flex-1 min-w-0">
@@ -112,13 +112,13 @@ function NewsCard({ item }: { item: NewsArticle }) {
             {item.title}
           </h4>
           {(item as any).summary && (
-            <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+            <p className="text-xs text-fg-muted mt-1 line-clamp-2">
               {(item as any).summary}
             </p>
           )}
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <SourceBadge source={item.source} />
-            <span className="text-xs text-gray-600 flex items-center gap-1">
+            <span className="text-xs text-fg-muted flex items-center gap-1">
               <Clock className="w-3 h-3" />
               {formatTimeAgo(item.published_at)}
             </span>
@@ -135,7 +135,7 @@ function NewsCard({ item }: { item: NewsArticle }) {
           )}
         </div>
         {item.url && (
-          <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-blue-400 transition-colors shrink-0" />
+          <ExternalLink className="w-4 h-4 text-fg-muted group-hover:text-blue-400 transition-colors shrink-0" />
         )}
       </div>
   )
@@ -246,7 +246,7 @@ export default function LiveNews({
                   LIVE
                 </span>
               </h3>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-fg-muted">
                 {news.length} articles • Updates every {symbol ? '30s' : '60s'}
               </p>
             </div>
@@ -257,7 +257,7 @@ export default function LiveNews({
             className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
             title="Refresh news"
           >
-            <RefreshCw className={`w-4 h-4 text-gray-400 ${isFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-fg-muted ${isFetching ? 'animate-spin' : ''}`} />
           </button>
         </div>
       )}
@@ -269,7 +269,7 @@ export default function LiveNews({
             return <NewsCard key={key} item={item} />
           })
         ) : (
-          <div className="p-8 text-center text-gray-400">
+          <div className="p-8 text-center text-fg-muted">
             <Newspaper className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p className="font-medium">No news available</p>
             <p className="text-xs mt-1">Try refreshing or check back later</p>

@@ -173,7 +173,7 @@ export default function ChartSnapshot({ symbol, data }: Props) {
   const ind = data?.indicators
   if (ind?.rsi != null) {
     const rsiVal = ind.rsi
-    const color = rsiVal > 70 ? 'text-red-400' : rsiVal < 30 ? 'text-emerald-400' : 'text-slate-400'
+    const color = rsiVal > 70 ? 'text-red-400' : rsiVal < 30 ? 'text-emerald-400' : 'text-fg-muted'
     indicatorChips.push({ label: 'RSI', value: rsiVal.toFixed(1), color })
   }
   if (ind?.macd?.macd != null) {
@@ -202,7 +202,7 @@ export default function ChartSnapshot({ symbol, data }: Props) {
               className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition-all ${
                 timeframe === tf
                   ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-500 hover:text-slate-300 border border-transparent'
+                  : 'text-fg-muted hover:text-fg-secondary border border-transparent'
               }`}
             >
               {tf}
@@ -226,7 +226,7 @@ export default function ChartSnapshot({ symbol, data }: Props) {
           </div>
         )}
         {!hasData && !loading && (
-          <div className="flex items-center justify-center h-[200px] text-[11px] text-slate-500">
+          <div className="flex items-center justify-center h-[200px] text-[11px] text-fg-muted">
             No price data available
           </div>
         )}

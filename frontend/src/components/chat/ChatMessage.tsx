@@ -61,7 +61,7 @@ export default function ChatMessage({ message, conversationId, onRefresh }: Prop
           <div className="bg-gradient-to-br from-[#00D9FF] to-[#0066FF] rounded-2xl rounded-br-sm px-4 py-2.5 shadow-lg shadow-cyan-500/10">
             <p className="text-white text-[13px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
           </div>
-          <p className="text-[10px] text-slate-600 mt-1 text-right pr-1">{formatTime(message.timestamp)}</p>
+          <p className="text-[10px] text-fg-muted mt-1 text-right pr-1">{formatTime(message.timestamp)}</p>
         </div>
       </div>
     )
@@ -80,7 +80,7 @@ export default function ChatMessage({ message, conversationId, onRefresh }: Prop
         {(asOfLabel || isStale) && (
           <div className="flex items-center gap-2 flex-wrap">
             {asOfLabel && (
-              <span className="inline-flex items-center gap-1 text-[9px] text-slate-500 bg-white/[0.03] border border-white/[0.04] px-2 py-0.5 rounded-md">
+              <span className="inline-flex items-center gap-1 text-[9px] text-fg-muted bg-white/[0.03] border border-white/[0.04] px-2 py-0.5 rounded-md">
                 <Clock className="w-2.5 h-2.5" />
                 As of {asOfLabel}
               </span>
@@ -141,14 +141,14 @@ export default function ChatMessage({ message, conversationId, onRefresh }: Prop
             {copied ? (
               <Check className="w-3 h-3 text-emerald-400" />
             ) : (
-              <Copy className="w-3 h-3 text-slate-600 group-hover:text-slate-400" />
+              <Copy className="w-3 h-3 text-fg-muted group-hover:text-fg-secondary" />
             )}
           </button>
           <button className="p-1.5 rounded-md hover:bg-white/[0.06] transition-colors group" title="Helpful">
-            <ThumbsUp className="w-3 h-3 text-slate-600 group-hover:text-slate-400" />
+            <ThumbsUp className="w-3 h-3 text-fg-muted group-hover:text-fg-secondary" />
           </button>
           <button className="p-1.5 rounded-md hover:bg-white/[0.06] transition-colors group" title="Not helpful">
-            <ThumbsDown className="w-3 h-3 text-slate-600 group-hover:text-slate-400" />
+            <ThumbsDown className="w-3 h-3 text-fg-muted group-hover:text-fg-secondary" />
           </button>
           {/* Manual refresh for any assistant message with a messageId */}
           {message.messageId && onRefresh && (
@@ -158,10 +158,10 @@ export default function ChatMessage({ message, conversationId, onRefresh }: Prop
               className="p-1.5 rounded-md hover:bg-white/[0.06] transition-colors group disabled:opacity-50"
               title="Refresh data"
             >
-              <RotateCcw className={`w-3 h-3 text-slate-600 group-hover:text-slate-400 ${refreshing ? 'animate-spin' : ''}`} />
+              <RotateCcw className={`w-3 h-3 text-fg-muted group-hover:text-fg-secondary ${refreshing ? 'animate-spin' : ''}`} />
             </button>
           )}
-          <span className="text-[10px] text-slate-600 ml-auto">{formatTime(message.timestamp)}</span>
+          <span className="text-[10px] text-fg-muted ml-auto">{formatTime(message.timestamp)}</span>
         </div>
       </div>
     </div>

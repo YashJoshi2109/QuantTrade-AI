@@ -49,7 +49,7 @@ function MiniCard({ stock }: { stock: StockAnalysisData }) {
         </span>
         <RegimeBadge stock={stock} />
       </div>
-      <p className="text-[12px] text-slate-400 truncate mb-1.5">
+      <p className="text-[12px] text-fg-muted truncate mb-1.5">
         {stock.company?.name || stock.symbol}
       </p>
       <div className="text-[18px] font-bold text-white tabular-nums">
@@ -95,7 +95,7 @@ export default function ComparisonView({ data }: Props) {
       <div className="flex gap-2 p-3">
         <MiniCard stock={a} />
         <div className="flex items-center">
-          <span className="text-[10px] font-bold text-slate-500 bg-white/[0.03] border border-white/[0.04] rounded-full w-7 h-7 flex items-center justify-center">
+          <span className="text-[10px] font-bold text-fg-muted bg-white/[0.03] border border-white/[0.04] rounded-full w-7 h-7 flex items-center justify-center">
             VS
           </span>
         </div>
@@ -110,7 +110,7 @@ export default function ComparisonView({ data }: Props) {
               key={row.label}
               className={`grid grid-cols-3 text-[10px] ${i % 2 === 0 ? 'bg-white/[0.01]' : 'bg-transparent'}`}
             >
-              <div className="px-2.5 py-1.5 text-slate-500 font-medium">{row.label}</div>
+              <div className="px-2.5 py-1.5 text-fg-muted font-medium">{row.label}</div>
               <div className="px-2.5 py-1.5 text-white font-semibold tabular-nums text-center">{row.getValue(a)}</div>
               <div className="px-2.5 py-1.5 text-white font-semibold tabular-nums text-center">{row.getValue(b)}</div>
             </div>

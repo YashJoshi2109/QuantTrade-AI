@@ -1001,7 +1001,7 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
             {maxPositionByVol !== null && (
               <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-fg-muted">
                     Max Recommended Position (Volatility-Based)
                   </span>
                   <span className="text-sm font-mono tabular-nums text-cyan-400 font-bold">

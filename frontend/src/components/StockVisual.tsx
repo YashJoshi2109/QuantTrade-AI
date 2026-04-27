@@ -45,7 +45,7 @@ export default function StockVisual({ symbol, companyName, sentiment = 'neutral'
             <>
               <button
                 onClick={() => setExpanded(true)}
-                className="text-xs text-slate-400 hover:text-white transition-colors px-2 py-1 rounded-lg hover:bg-slate-800"
+                className="text-xs text-fg-muted hover:text-fg-primary transition-colors px-2 py-1 rounded-lg hover:bg-slate-800"
               >
                 Expand
               </button>
@@ -54,14 +54,14 @@ export default function StockVisual({ symbol, companyName, sentiment = 'neutral'
                 download={`${symbol}-visual.jpg`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-fg-muted hover:text-fg-primary hover:bg-slate-800 transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />
               </a>
               <button
                 onClick={generate}
                 disabled={loading}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-fg-muted hover:text-cyan-400 hover:bg-slate-800 transition-colors"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               </button>
@@ -86,7 +86,7 @@ export default function StockVisual({ symbol, companyName, sentiment = 'neutral'
               </div>
               <div className="text-center">
                 <p className="text-white font-semibold text-sm mb-1">Generate AI visual for {symbol}</p>
-                <p className="text-slate-500 text-xs">AI-generated financial illustration using fal.ai Flux</p>
+                <p className="text-fg-muted text-xs">AI-generated financial illustration using fal.ai Flux</p>
               </div>
               {error && (
                 <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 text-center">
@@ -121,7 +121,7 @@ export default function StockVisual({ symbol, companyName, sentiment = 'neutral'
               </div>
               <div className="text-center">
                 <p className="text-white text-sm font-semibold mb-1">Generating visual…</p>
-                <p className="text-slate-500 text-xs">fal.ai Flux · usually under 5 seconds</p>
+                <p className="text-fg-muted text-xs">fal.ai Flux · usually under 5 seconds</p>
               </div>
             </motion.div>
           )}

@@ -57,7 +57,7 @@ export default function ChatHeader({
               title="Chat history"
             >
               <History className={`w-4 h-4 transition-colors ${
-                showingHistory ? 'text-cyan-400' : 'text-slate-500 hover:text-white'
+                showingHistory ? 'text-cyan-400' : 'text-fg-muted hover:text-fg-primary'
               }`} />
             </button>
           )}
@@ -68,9 +68,9 @@ export default function ChatHeader({
               onClick={onToggleFullscreen}
             >
               {isFullscreen ? (
-                <Minimize2 className="w-4 h-4 text-slate-500 hover:text-white transition-colors" />
+                <Minimize2 className="w-4 h-4 text-fg-muted hover:text-fg-primary transition-colors" />
               ) : (
-                <Maximize2 className="w-4 h-4 text-slate-500 hover:text-white transition-colors" />
+                <Maximize2 className="w-4 h-4 text-fg-muted hover:text-fg-primary transition-colors" />
               )}
             </button>
           )}
@@ -79,7 +79,7 @@ export default function ChatHeader({
             className="p-2 hover:bg-white/[0.06] rounded-lg transition-all active:scale-95"
             aria-label="Close"
           >
-            <X className="w-4 h-4 text-slate-500 hover:text-white transition-colors" />
+            <X className="w-4 h-4 text-fg-muted hover:text-fg-primary transition-colors" />
           </button>
         </div>
       </div>

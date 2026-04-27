@@ -137,7 +137,7 @@ export default function GameDashboard() {
       {/* Top navigation bar */}
       <header className="border-b border-white/5 bg-black/30 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-4">
-          <Link href="/" className="text-gray-500 hover:text-white transition text-sm">
+          <Link href="/" className="text-fg-muted hover:text-fg-primary transition text-sm">
             ← QuantTrade
           </Link>
           <span className="text-gray-700">|</span>
@@ -147,10 +147,10 @@ export default function GameDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-6">
-          <Link href="/game/character" className="text-gray-400 hover:text-white text-sm transition">
+          <Link href="/game/character" className="text-fg-muted hover:text-fg-primary text-sm transition">
             Character
           </Link>
-          <Link href="/game/community" className="text-gray-400 hover:text-white text-sm transition">
+          <Link href="/game/community" className="text-fg-muted hover:text-fg-primary text-sm transition">
             Guild
           </Link>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
@@ -181,14 +181,14 @@ export default function GameDashboard() {
               <p className="text-xs tracking-widest uppercase mt-1" style={{ color: accent }}>
                 {stageDisplay}
               </p>
-              <p className="text-gray-600 text-xs mt-0.5">{realm}</p>
+              <p className="text-fg-muted text-xs mt-0.5">{realm}</p>
             </div>
 
             {/* Level + XP */}
             <div className="mb-5">
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-500">Level {character?.level}</span>
-                <span className="text-gray-500">{character?.xp} / {character?.xp_to_next_level} XP</span>
+                <span className="text-fg-muted">Level {character?.level}</span>
+                <span className="text-fg-muted">{character?.xp} / {character?.xp_to_next_level} XP</span>
               </div>
               <div className="h-2 bg-white/5 rounded-full overflow-hidden">
                 <motion.div
@@ -211,8 +211,8 @@ export default function GameDashboard() {
             ].map((trait) => (
               <div key={trait.label} className="mb-3">
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-500">{trait.icon} {trait.label}</span>
-                  <span className="text-gray-600">{trait.value.toFixed(0)}</span>
+                  <span className="text-fg-muted">{trait.icon} {trait.label}</span>
+                  <span className="text-fg-muted">{trait.value.toFixed(0)}</span>
                 </div>
                 <div className="h-1 bg-white/5 rounded-full overflow-hidden">
                   <div
@@ -225,7 +225,7 @@ export default function GameDashboard() {
 
             {/* Streak */}
             <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
-              <span className="text-gray-500">🔥 Streak</span>
+              <span className="text-fg-muted">🔥 Streak</span>
               <span className="text-orange-400 font-bold">{character?.streak_days ?? 0} days</span>
             </div>
           </motion.div>
@@ -240,7 +240,7 @@ export default function GameDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl bg-white/3 border border-white/8 p-5"
           >
-            <div className="text-xs tracking-widest uppercase text-gray-500 mb-4">Your Life Journey · 5 Stages</div>
+            <div className="text-xs tracking-widest uppercase text-fg-muted mb-4">Your Life Journey · 5 Stages</div>
             <div className="grid grid-cols-5 gap-2">
               {[
                 { id: 'student', label: 'Apprentice', ages: '13–17', emoji: '📜', color: '#6ea4d8', href: '/game/world', live: true },
@@ -300,7 +300,7 @@ export default function GameDashboard() {
             <h3 className="text-white text-xl font-bold mb-2">
               {storyArc?.id?.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'The Beginning'}
             </h3>
-            <p className="text-gray-400 text-sm leading-relaxed">
+            <p className="text-fg-muted text-sm leading-relaxed">
               {storyArc?.narrative || 'Your financial adventure begins.'}
             </p>
             <button
@@ -311,7 +311,7 @@ export default function GameDashboard() {
                   avatarStyle: character?.avatar_style,
                 }).catch(() => {})
               }
-              className="mt-3 px-3 py-1.5 rounded-lg border border-white/10 text-xs text-gray-300 hover:text-white transition"
+              className="mt-3 px-3 py-1.5 rounded-lg border border-white/10 text-xs text-gray-300 hover:text-fg-primary transition"
             >
               🔊 Play Story Voice
             </button>
@@ -323,13 +323,13 @@ export default function GameDashboard() {
               <h3 className="text-white font-bold text-lg flex items-center gap-2">
                 <span>⚔️</span> Active Quests
               </h3>
-              <span className="text-xs text-gray-600 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+              <span className="text-xs text-fg-muted bg-white/5 px-3 py-1 rounded-full border border-white/5">
                 {activeMissions.length} active
               </span>
             </div>
             <div className="space-y-3">
               {activeMissions.length === 0 && (
-                <div className="text-center py-10 text-gray-600 border border-dashed border-white/5 rounded-xl">
+                <div className="text-center py-10 text-fg-muted border border-dashed border-white/5 rounded-xl">
                   All quests complete! Check back tomorrow for new challenges.
                 </div>
               )}
@@ -356,14 +356,14 @@ export default function GameDashboard() {
                             {mission.mission_type}
                           </span>
                         </div>
-                        <p className="text-gray-500 text-xs leading-relaxed">{mission.description}</p>
+                        <p className="text-fg-muted text-xs leading-relaxed">{mission.description}</p>
                       </div>
                     </div>
                   </div>
                   {/* Progress */}
                   <div className="mb-3">
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-600">Progress</span>
+                      <span className="text-fg-muted">Progress</span>
                       <span style={{ color: accent }}>{mission.progress_pct}%</span>
                     </div>
                     <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -375,7 +375,7 @@ export default function GameDashboard() {
                   </div>
                   {/* Footer */}
                   <div className="flex items-center justify-between">
-                    <div className="flex gap-3 text-xs text-gray-600">
+                    <div className="flex gap-3 text-xs text-fg-muted">
                       <span>✨ {mission.xp_reward} XP</span>
                       <span>🪙 {mission.gold_reward} Gold</span>
                     </div>
@@ -401,13 +401,13 @@ export default function GameDashboard() {
             animate={{ opacity: 1, x: 0 }}
             className="bg-white/3 border border-white/8 rounded-2xl p-5"
           >
-            <div className="text-xs tracking-widest uppercase text-gray-600 mb-4">Royal Treasury</div>
+            <div className="text-xs tracking-widest uppercase text-fg-muted mb-4">Royal Treasury</div>
 
             <div className="text-center mb-5">
               <div className="text-3xl font-bold text-white mb-0.5">
                 {formatCurrency(wallet?.net_worth ?? 0)}
               </div>
-              <div className="text-xs text-gray-600">Net Worth</div>
+              <div className="text-xs text-fg-muted">Net Worth</div>
             </div>
 
             <div className="space-y-3 text-sm">
@@ -419,7 +419,7 @@ export default function GameDashboard() {
                 { label: 'Monthly Expenses', value: wallet?.monthly_expenses ?? 0, icon: '🏠', positive: false },
               ].map((row) => (
                 <div key={row.label} className="flex justify-between items-center py-2 border-b border-white/5 last:border-0">
-                  <span className="text-gray-500 text-xs">{row.icon} {row.label}</span>
+                  <span className="text-fg-muted text-xs">{row.icon} {row.label}</span>
                   <span className={`text-xs font-mono font-medium ${row.positive ? 'text-green-400' : 'text-red-400'}`}>
                     {formatCurrency(row.value)}
                   </span>
@@ -431,7 +431,7 @@ export default function GameDashboard() {
             {wallet && wallet.salary_monthly > 0 && (
               <div className="mt-4 pt-4 border-t border-white/5">
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-600">Savings Rate</span>
+                  <span className="text-fg-muted">Savings Rate</span>
                   <span style={{ color: accent }}>
                     {(((wallet.salary_monthly - wallet.monthly_expenses) / wallet.salary_monthly) * 100).toFixed(0)}%
                   </span>
@@ -464,7 +464,7 @@ export default function GameDashboard() {
                 className="flex flex-col items-center gap-2 p-4 bg-white/3 border border-white/8 rounded-xl hover:border-white/15 hover:bg-white/5 transition-all text-center"
               >
                 <span className="text-2xl">{item.icon}</span>
-                <span className="text-xs text-gray-400 font-medium">{item.label}</span>
+                <span className="text-xs text-fg-muted font-medium">{item.label}</span>
               </Link>
             ))}
           </div>

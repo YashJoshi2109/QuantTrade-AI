@@ -34,7 +34,7 @@ export default function ChatInput({ value, onChange, onSend, isLoading, isAuthen
           <LogIn className="w-4 h-4" />
           Sign up to start chatting
         </Link>
-        <p className="text-[10px] text-slate-600 mt-1.5 text-center">
+        <p className="text-[10px] text-fg-muted mt-1.5 text-center">
           Free account required for AI analysis
         </p>
       </div>
@@ -55,7 +55,7 @@ export default function ChatInput({ value, onChange, onSend, isLoading, isAuthen
             placeholder="Type your question..."
             rows={1}
             maxLength={500}
-            className="flex-1 bg-transparent px-3 py-2 text-[13px] text-white placeholder:text-slate-600 focus:outline-none resize-none max-h-24 leading-relaxed"
+            className="flex-1 bg-transparent px-3 py-2 text-[13px] text-white placeholder:text-fg-muted focus:outline-none resize-none max-h-24 leading-relaxed"
           />
           <button
             onClick={handleSend}
@@ -70,7 +70,7 @@ export default function ChatInput({ value, onChange, onSend, isLoading, isAuthen
           </button>
         </div>
       </div>
-      <p className="text-[10px] text-slate-600 mt-1.5 text-center">
+      <p className="text-[10px] text-fg-muted mt-1.5 text-center">
         Enter to send · Shift+Enter for new line
       </p>
     </div>

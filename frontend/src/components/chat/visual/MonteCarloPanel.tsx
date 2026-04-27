@@ -18,7 +18,7 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
   if (!forecast) {
     return (
       <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3">
-        <p className="text-[10px] text-slate-500">Monte Carlo simulation data not available</p>
+        <p className="text-[10px] text-fg-muted">Monte Carlo simulation data not available</p>
       </div>
     )
   }
@@ -37,7 +37,7 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
             className={`text-[10px] font-semibold px-3 py-1.5 rounded-lg transition-all ${
               selectedForecast === period
                 ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                : 'text-slate-500 border border-transparent hover:text-slate-300'
+                : 'text-fg-muted border border-transparent hover:text-fg-secondary'
             }`}
           >
             {period === '30d' ? '30 Days' : '90 Days'}
@@ -57,7 +57,7 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
             {isBullish ? '+' : ''}{expected_return_pct.toFixed(2)}%
           </span>
         </div>
-        <div className="mt-2 text-[9px] text-slate-500">
+        <div className="mt-2 text-[9px] text-fg-muted">
           Current: ${currentPrice.toFixed(2)}
         </div>
       </div>
@@ -65,8 +65,8 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
       {/* Confidence intervals */}
       <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3">
         <div className="flex items-center gap-1 mb-2">
-          <BarChart3 className="w-3 h-3 text-slate-400" />
-          <span className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">Confidence Intervals</span>
+          <BarChart3 className="w-3 h-3 text-fg-muted" />
+          <span className="text-[9px] uppercase tracking-wider text-fg-muted font-semibold">Confidence Intervals</span>
         </div>
         <div className="space-y-2">
           {(['80', '95'] as const).map((level) => {
@@ -77,7 +77,7 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
             
             return (
               <div key={level} className="space-y-1">
-                <div className="flex items-center justify-between text-[8px] text-slate-500">
+                <div className="flex items-center justify-between text-[8px] text-fg-muted">
                   <span>{level}% Confidence</span>
                   <span className="font-mono">${ci.lower.toFixed(2)} - ${ci.upper.toFixed(2)}</span>
                 </div>
@@ -100,7 +100,7 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
                     }}
                   />
                 </div>
-                <div className="flex justify-between text-[8px] text-slate-600">
+                <div className="flex justify-between text-[8px] text-fg-muted">
                   <span>{lowerPct.toFixed(1)}%</span>
                   <span>{upperPct.toFixed(1)}%</span>
                 </div>
@@ -112,7 +112,7 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
 
       {/* Percentiles */}
       <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3">
-        <span className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold mb-2 block">Price Percentiles</span>
+        <span className="text-[9px] uppercase tracking-wider text-fg-muted font-semibold mb-2 block">Price Percentiles</span>
         <div className="grid grid-cols-2 gap-2">
           {[
             { label: '5th', value: percentiles.p5, color: 'text-red-400' },
@@ -122,7 +122,7 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
             { label: '95th', value: percentiles.p95, color: 'text-emerald-400' },
           ].map(({ label, value, color }) => (
             <div key={label} className="flex items-center justify-between">
-              <span className="text-[8px] text-slate-500">{label}</span>
+              <span className="text-[8px] text-fg-muted">{label}</span>
               <span className={`text-[10px] font-bold font-mono ${color}`}>${value.toFixed(2)}</span>
             </div>
           ))}
@@ -137,41 +137,41 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
           ) : (
             <TrendingDown className="w-3 h-3 text-red-400" />
           )}
-          <span className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">Price Probabilities</span>
+          <span className="text-[9px] uppercase tracking-wider text-fg-muted font-semibold">Price Probabilities</span>
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] text-slate-400">Price increases</span>
+            <span className="text-[9px] text-fg-muted">Price increases</span>
             <span className="text-[11px] font-bold text-emerald-400">{probabilities.price_up.toFixed(1)}%</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[9px] text-slate-400">Price decreases</span>
+            <span className="text-[9px] text-fg-muted">Price decreases</span>
             <span className="text-[11px] font-bold text-red-400">{probabilities.price_down.toFixed(1)}%</span>
           </div>
           <div className="h-px bg-white/[0.04] my-2" />
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <span className="text-[8px] text-slate-500 block">Gain ≥5%</span>
+              <span className="text-[8px] text-fg-muted block">Gain ≥5%</span>
               <span className="text-[10px] font-bold text-emerald-400">{probabilities.gain_5pct.toFixed(1)}%</span>
             </div>
             <div className="space-y-1">
-              <span className="text-[8px] text-slate-500 block">Gain ≥10%</span>
+              <span className="text-[8px] text-fg-muted block">Gain ≥10%</span>
               <span className="text-[10px] font-bold text-emerald-400">{probabilities.gain_10pct.toFixed(1)}%</span>
             </div>
             <div className="space-y-1">
-              <span className="text-[8px] text-slate-500 block">Gain ≥20%</span>
+              <span className="text-[8px] text-fg-muted block">Gain ≥20%</span>
               <span className="text-[10px] font-bold text-emerald-400">{probabilities.gain_20pct.toFixed(1)}%</span>
             </div>
             <div className="space-y-1">
-              <span className="text-[8px] text-slate-500 block">Loss ≥5%</span>
+              <span className="text-[8px] text-fg-muted block">Loss ≥5%</span>
               <span className="text-[10px] font-bold text-red-400">{probabilities.loss_5pct.toFixed(1)}%</span>
             </div>
             <div className="space-y-1">
-              <span className="text-[8px] text-slate-500 block">Loss ≥10%</span>
+              <span className="text-[8px] text-fg-muted block">Loss ≥10%</span>
               <span className="text-[10px] font-bold text-red-400">{probabilities.loss_10pct.toFixed(1)}%</span>
             </div>
             <div className="space-y-1">
-              <span className="text-[8px] text-slate-500 block">Loss ≥20%</span>
+              <span className="text-[8px] text-fg-muted block">Loss ≥20%</span>
               <span className="text-[10px] font-bold text-red-400">{probabilities.loss_20pct.toFixed(1)}%</span>
             </div>
           </div>
@@ -181,15 +181,15 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
       {/* Statistics */}
       {forecast.annualized_volatility && (
         <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3">
-          <span className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold mb-2 block">Simulation Stats</span>
+          <span className="text-[9px] uppercase tracking-wider text-fg-muted font-semibold mb-2 block">Simulation Stats</span>
           <div className="grid grid-cols-2 gap-2 text-[8px]">
             <div>
-              <span className="text-slate-500">Volatility (annual)</span>
+              <span className="text-fg-muted">Volatility (annual)</span>
               <span className="block text-white font-bold">{forecast.annualized_volatility.toFixed(2)}%</span>
             </div>
             {forecast.mean_daily_return !== undefined && (
               <div>
-                <span className="text-slate-500">Mean daily return</span>
+                <span className="text-fg-muted">Mean daily return</span>
                 <span className={`block font-bold ${forecast.mean_daily_return >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {forecast.mean_daily_return.toFixed(4)}%
                 </span>
@@ -197,12 +197,12 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
             )}
             {forecast.historical_days && (
               <div>
-                <span className="text-slate-500">Historical data</span>
+                <span className="text-fg-muted">Historical data</span>
                 <span className="block text-white font-bold">{forecast.historical_days} days</span>
               </div>
             )}
             <div>
-              <span className="text-slate-500">Simulations</span>
+              <span className="text-fg-muted">Simulations</span>
               <span className="block text-white font-bold">{forecast.num_simulations.toLocaleString()}</span>
             </div>
           </div>

@@ -59,7 +59,7 @@ function HeadlineThumb({
         className={`${frame} ${radius} flex items-center justify-center border border-slate-700/50 bg-gradient-to-br from-slate-800/90 to-slate-950/90 shrink-0`}
         aria-hidden
       >
-        <Newspaper className={layout === 'hero' ? 'w-10 h-10 text-slate-600' : 'w-5 h-5 text-slate-600'} />
+        <Newspaper className={layout === 'hero' ? 'w-10 h-10 text-fg-muted' : 'w-5 h-5 text-fg-muted'} />
       </div>
     )
   }
@@ -135,12 +135,12 @@ function NewsCard({
           >
             {news.title}
           </p>
-          <div className={`flex items-center gap-2 flex-wrap text-slate-500 ${isHero ? 'mt-3' : 'mt-2'}`}>
+          <div className={`flex items-center gap-2 flex-wrap text-fg-muted ${isHero ? 'mt-3' : 'mt-2'}`}>
             <span className="text-[10px] flex items-center gap-1 shrink-0">
               <Clock className="w-3 h-3" />
               <span className="truncate max-w-[80px]">{news.source}</span>
             </span>
-            <span className="text-[10px] font-mono text-slate-600">{news.time}</span>
+            <span className="text-[10px] font-mono text-fg-muted">{news.time}</span>
             {!isWire && news.sentiment && (
               <span className="ml-auto flex shrink-0">
                 {sentimentIcon(news.sentiment)}
@@ -153,7 +153,7 @@ function NewsCard({
             {news.tickers.slice(0, isHero ? 5 : 3).map((t) => (
               <span
                 key={t}
-                className="px-1.5 py-0.5 text-[9px] rounded font-mono bg-slate-800/80 text-slate-300 border border-slate-700/50"
+                className="px-1.5 py-0.5 text-[9px] rounded font-mono bg-slate-800/80 text-fg-secondary border border-slate-700/50"
               >
                 {t}
               </span>
@@ -263,7 +263,7 @@ export default function DashboardMagicNewsPanel({
             )}
             <QuoteActivityFlash fingerprint={newsActivityFingerprint} />
             {isFetching && !isPending && (
-              <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">Syncing…</span>
+              <span className="text-[10px] text-fg-muted font-mono hidden sm:inline">Syncing…</span>
             )}
           </div>
           <button
@@ -282,7 +282,7 @@ export default function DashboardMagicNewsPanel({
           ) : isError ? (
             <div className="flex flex-col items-center justify-center h-full py-10 text-center px-4">
               <Activity className="w-8 h-8 text-amber-500/60 mb-3" />
-              <p className="text-slate-300 text-sm font-medium">Could not load headlines</p>
+              <p className="text-fg-secondary text-sm font-medium">Could not load headlines</p>
               <button
                 type="button"
                 onClick={() => onRefresh()}
@@ -319,7 +319,7 @@ export default function DashboardMagicNewsPanel({
                       {continentLabel} · Guardian wire
                     </div>
                     {continentNewsLoading && !hero ? (
-                      <div className="rounded-xl border border-dashed border-amber-500/25 bg-slate-950/40 p-6 text-center text-sm text-slate-500">
+                      <div className="rounded-xl border border-dashed border-amber-500/25 bg-slate-950/40 p-6 text-center text-sm text-fg-muted">
                         Pulling regional headlines…
                       </div>
                     ) : hero ? (
@@ -327,7 +327,7 @@ export default function DashboardMagicNewsPanel({
                         <NewsCard news={hero} layout="hero" />
                       </motion.div>
                     ) : (
-                      <div className="rounded-xl border border-slate-800/60 bg-slate-950/30 p-4 text-sm text-slate-500">
+                      <div className="rounded-xl border border-slate-800/60 bg-slate-950/30 p-4 text-sm text-fg-muted">
                         No regional desk file for this tab yet. Wire feed still updates live.
                       </div>
                     )}
@@ -351,13 +351,13 @@ export default function DashboardMagicNewsPanel({
                     <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-teal-200/75 shrink-0">
                       <Zap className="w-3.5 h-3.5 text-teal-400" />
                       Global wire
-                      <span className="text-slate-600 font-mono font-normal normal-case tracking-normal">
+                      <span className="text-fg-muted font-mono font-normal normal-case tracking-normal">
                         · deduped vs desk
                       </span>
                     </div>
                     <div className="flex flex-col gap-1.5 pr-0.5">
                       {wireItems.length === 0 ? (
-                        <p className="text-xs text-slate-600 py-4">Wire queue is quiet — check back after the next refresh.</p>
+                        <p className="text-xs text-fg-muted py-4">Wire queue is quiet — check back after the next refresh.</p>
                       ) : (
                         <motion.div initial="hidden" animate="visible" variants={listStagger} className="flex flex-col gap-1.5">
                           {wireItems.map((news) => (
@@ -375,7 +375,7 @@ export default function DashboardMagicNewsPanel({
           ) : (
             <div className="flex flex-col items-center justify-center h-full py-10 text-center px-4">
               <Activity className="w-8 h-8 text-slate-700 mb-3" />
-              <p className="text-slate-400 text-sm">No headlines available</p>
+              <p className="text-fg-muted text-sm">No headlines available</p>
               <button
                 type="button"
                 onClick={() => onRefresh()}

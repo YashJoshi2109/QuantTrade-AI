@@ -161,7 +161,7 @@ function ScoreDonut({ score }: { score: HealthScore }) {
               className="w-2 h-2 rounded-full flex-shrink-0"
               style={{ backgroundColor: seg.color }}
             />
-            <span className="text-[9px] text-slate-500">{seg.label}</span>
+            <span className="text-[9px] text-fg-muted">{seg.label}</span>
             <span className="text-[9px] font-mono text-white ml-auto">
               {seg.value}
             </span>
@@ -255,7 +255,7 @@ function MarginRings({
               className="w-2 h-2 rounded-full flex-shrink-0"
               style={{ backgroundColor: ring.color }}
             />
-            <span className="text-[9px] text-slate-500">{ring.label}</span>
+            <span className="text-[9px] text-fg-muted">{ring.label}</span>
             <span className="text-[9px] font-mono text-white ml-auto">
               {isNumber(ring.value)
                 ? `${formatNumber(ring.value, 1)}%`
@@ -299,7 +299,7 @@ function MetricBar({
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[11px] text-slate-400">{label}</span>
+        <span className="text-[11px] text-fg-muted">{label}</span>
         <span className="text-[11px] font-mono font-bold" style={{ color: endColor }}>{display}</span>
       </div>
       <div className="relative h-2 bg-slate-800/80 rounded-full overflow-hidden">
@@ -407,7 +407,7 @@ function MiniArcGauge({
 interface TagInfo { text: string; bg: string; fg: string }
 
 function betaTag(v: number | undefined): TagInfo {
-  if (!isNumber(v)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-slate-500' }
+  if (!isNumber(v)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-fg-muted' }
   const b = Math.abs(v)
   if (b <= 0.8) return { text: 'Low Vol', bg: 'bg-emerald-500/15', fg: 'text-emerald-400' }
   if (b <= 1.3) return { text: 'Normal', bg: 'bg-cyan-500/15', fg: 'text-cyan-400' }
@@ -415,7 +415,7 @@ function betaTag(v: number | undefined): TagInfo {
 }
 
 function deTag(v: number | undefined): TagInfo {
-  if (!isNumber(v)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-slate-500' }
+  if (!isNumber(v)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-fg-muted' }
   if (v <= 0.5) return { text: 'Low', bg: 'bg-emerald-500/15', fg: 'text-emerald-400' }
   if (v <= 1.5) return { text: 'Moderate', bg: 'bg-cyan-500/15', fg: 'text-cyan-400' }
   if (v <= 3) return { text: 'High', bg: 'bg-amber-500/15', fg: 'text-amber-400' }
@@ -423,7 +423,7 @@ function deTag(v: number | undefined): TagInfo {
 }
 
 function ratioTag(v: number | undefined): TagInfo {
-  if (!isNumber(v)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-slate-500' }
+  if (!isNumber(v)) return { text: '—', bg: 'bg-slate-800/50', fg: 'text-fg-muted' }
   if (v >= 2) return { text: 'Strong', bg: 'bg-emerald-500/15', fg: 'text-emerald-400' }
   if (v >= 1) return { text: 'Adequate', bg: 'bg-cyan-500/15', fg: 'text-cyan-400' }
   return { text: 'Weak', bg: 'bg-red-500/15', fg: 'text-red-400' }
@@ -452,7 +452,7 @@ function RiskStatRow({
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[11px] text-slate-400">{label}</span>
+        <span className="text-[11px] text-fg-muted">{label}</span>
         <div className="flex items-center gap-2">
           <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${tag.bg} ${tag.fg}`}>{tag.text}</span>
           <span className="text-xs font-mono font-bold" style={{ color: colorEnd }}>{displayValue}</span>
@@ -575,13 +575,13 @@ export default function FundamentalsPanel({
       </div>
 
       {/* ── Scrollable Metrics ── */}
-      <div className="flex-1 overflow-y-auto space-y-4 text-xs text-slate-300 pr-1">
+      <div className="flex-1 overflow-y-auto space-y-4 text-xs text-fg-secondary pr-1">
         {/* Valuation */}
         <div>
           <p className="hud-label mb-2">VALUATION</p>
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-slate-800/30 rounded-lg p-2.5">
-              <div className="text-[10px] text-slate-500 mb-0.5">
+              <div className="text-[10px] text-fg-muted mb-0.5">
                 Market Cap
               </div>
               <div className="text-sm font-mono text-white font-bold">
@@ -589,17 +589,17 @@ export default function FundamentalsPanel({
               </div>
             </div>
             <div className="bg-slate-800/30 rounded-lg p-2.5">
-              <div className="text-[10px] text-slate-500 mb-0.5">
+              <div className="text-[10px] text-fg-muted mb-0.5">
                 P/E &middot; Forward
               </div>
               <div className="text-sm font-mono text-white font-bold">
                 {isNumber(pe) ? formatNumber(pe, 1) : '\u2014'}
-                <span className="text-slate-600 mx-1">/</span>
+                <span className="text-fg-muted mx-1">/</span>
                 {isNumber(forwardPe) ? formatNumber(forwardPe, 1) : '\u2014'}
               </div>
             </div>
             <div className="bg-slate-800/30 rounded-lg p-2.5">
-              <div className="text-[10px] text-slate-500 mb-0.5">
+              <div className="text-[10px] text-fg-muted mb-0.5">
                 PEG Ratio
               </div>
               <div className="text-sm font-mono text-white font-bold">
@@ -607,12 +607,12 @@ export default function FundamentalsPanel({
               </div>
             </div>
             <div className="bg-slate-800/30 rounded-lg p-2.5">
-              <div className="text-[10px] text-slate-500 mb-0.5">
+              <div className="text-[10px] text-fg-muted mb-0.5">
                 P/S &middot; P/B
               </div>
               <div className="text-sm font-mono text-white font-bold">
                 {isNumber(priceToSales) ? formatNumber(priceToSales, 1) : '\u2014'}
-                <span className="text-slate-600 mx-1">/</span>
+                <span className="text-fg-muted mx-1">/</span>
                 {isNumber(priceToBook) ? formatNumber(priceToBook, 1) : '\u2014'}
               </div>
             </div>
@@ -677,26 +677,26 @@ export default function FundamentalsPanel({
           <p className="hud-label mb-2">EARNINGS &amp; MOMENTUM</p>
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-slate-800/30 rounded-lg p-2.5">
-              <div className="text-[10px] text-slate-500 mb-0.5">
+              <div className="text-[10px] text-fg-muted mb-0.5">
                 EPS &middot; Next Q
               </div>
               <div className="text-sm font-mono text-white font-bold">
                 {isNumber(f?.eps) ? formatNumber(f!.eps, 2) : '\u2014'}
-                <span className="text-slate-600 mx-1">/</span>
+                <span className="text-fg-muted mx-1">/</span>
                 {isNumber(f?.eps_next_quarter)
                   ? formatNumber(f!.eps_next_quarter, 2)
                   : '\u2014'}
               </div>
             </div>
             <div className="bg-slate-800/30 rounded-lg p-2.5">
-              <div className="text-[10px] text-slate-500 mb-0.5">
+              <div className="text-[10px] text-fg-muted mb-0.5">
                 Target &middot; Rec
               </div>
               <div className="text-sm font-mono text-white font-bold">
                 {isNumber(f?.target_price)
                   ? `$${formatNumber(f!.target_price, 0)}`
                   : '\u2014'}
-                <span className="text-slate-600 mx-1">/</span>
+                <span className="text-fg-muted mx-1">/</span>
                 <span className="text-xs">{f?.recommendation ?? '\u2014'}</span>
               </div>
             </div>

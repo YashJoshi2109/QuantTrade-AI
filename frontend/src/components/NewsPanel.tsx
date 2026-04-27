@@ -86,7 +86,7 @@ export default function NewsPanel({ symbol, news: propNews = [] }: NewsPanelProp
             className={`px-4 py-2 text-sm font-medium transition-colors capitalize ${
               activeTab === tab
                 ? 'text-blue-400 border-b-2 border-blue-400'
-                : 'text-gray-400 hover:text-white'
+                : 'text-fg-muted hover:text-fg-primary'
             }`}
           >
             {tab}
@@ -99,7 +99,7 @@ export default function NewsPanel({ symbol, news: propNews = [] }: NewsPanelProp
         {activeTab === 'news' && (
           <>
             {loading ? (
-              <div className="text-center text-gray-400 py-8">
+              <div className="text-center text-fg-muted py-8">
                 <p className="text-sm">Loading news...</p>
               </div>
             ) : displayNews.length > 0 ? (
@@ -110,9 +110,9 @@ export default function NewsPanel({ symbol, news: propNews = [] }: NewsPanelProp
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">{item.source}</span>
-                      <span className="text-xs text-gray-500">•</span>
-                      <span className="text-xs text-gray-400">{item.timeAgo}</span>
+                      <span className="text-xs text-fg-muted">{item.source}</span>
+                      <span className="text-xs text-fg-muted">•</span>
+                      <span className="text-xs text-fg-muted">{item.timeAgo}</span>
                     </div>
                     <span
                       className={`px-2 py-0.5 text-xs rounded border ${getSentimentColor(
@@ -125,13 +125,13 @@ export default function NewsPanel({ symbol, news: propNews = [] }: NewsPanelProp
                   <h4 className="text-sm font-semibold text-white mb-1">
                     {item.title}
                   </h4>
-                  <p className="text-xs text-gray-400 line-clamp-2">
+                  <p className="text-xs text-fg-muted line-clamp-2">
                     {item.description}
                   </p>
                 </div>
               ))
             ) : (
-              <div className="text-center text-gray-400 py-8">
+              <div className="text-center text-fg-muted py-8">
                 <p className="text-sm">No news available</p>
                 <p className="text-xs mt-1">News integration coming in Phase 2</p>
               </div>
@@ -139,12 +139,12 @@ export default function NewsPanel({ symbol, news: propNews = [] }: NewsPanelProp
           </>
         )}
         {activeTab === 'filings' && (
-          <div className="text-center text-gray-400 py-8">
+          <div className="text-center text-fg-muted py-8">
             <p className="text-sm">Filings coming in Phase 2</p>
           </div>
         )}
         {activeTab === 'earnings' && (
-          <div className="text-center text-gray-400 py-8">
+          <div className="text-center text-fg-muted py-8">
             <p className="text-sm">Earnings data coming in Phase 2</p>
           </div>
         )}

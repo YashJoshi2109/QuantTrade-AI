@@ -43,7 +43,7 @@ export default function SymbolHeader({
             )}
           </div>
           {name && (
-            <p className="text-gray-400 text-sm mb-4">{name}</p>
+            <p className="text-fg-muted text-sm mb-4">{name}</p>
           )}
           <div className="flex items-center gap-4">
             {currentPrice !== undefined && (
@@ -75,7 +75,7 @@ export default function SymbolHeader({
         <div className="flex items-center gap-3">
           <button
             onClick={onWatchlistToggle}
-            className="p-2 text-gray-400 hover:text-yellow-400 transition-colors"
+            className="p-2 text-fg-muted hover:text-yellow-400 transition-colors"
           >
             <Star className="w-6 h-6" />
           </button>

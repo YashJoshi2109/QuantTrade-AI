@@ -30,7 +30,7 @@ function ProbabilityBar({ probability, label }: { probability: number; label: st
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[9px] text-slate-500 w-6 shrink-0">{label}</span>
+      <span className="text-[9px] text-fg-muted w-6 shrink-0">{label}</span>
       <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full bg-gradient-to-r ${barColor} transition-all duration-500`}
@@ -79,9 +79,9 @@ export default function PolymarketStockCard({ symbol, companyName }: Props) {
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="w-4 h-4 text-amber-400" />
           <span className="text-xs font-bold text-white">Prediction Markets</span>
-          <span className="text-[9px] text-slate-600 ml-auto">Polymarket</span>
+          <span className="text-[9px] text-fg-muted ml-auto">Polymarket</span>
         </div>
-        <p className="text-[10px] text-slate-500">
+        <p className="text-[10px] text-fg-muted">
           No active prediction markets for {symbol}
         </p>
       </div>
@@ -109,7 +109,7 @@ export default function PolymarketStockCard({ symbol, companyName }: Props) {
         <span className="text-xs font-bold text-white">
           {matched.length > 0 ? `${symbol} Prediction Markets` : 'Stock Prediction Markets'}
         </span>
-        <span className="inline-flex items-center gap-1 ml-auto text-[9px] text-slate-500 bg-slate-800/60 px-1.5 py-0.5 rounded-full border border-slate-700/40">
+        <span className="inline-flex items-center gap-1 ml-auto text-[9px] text-fg-muted bg-slate-800/60 px-1.5 py-0.5 rounded-full border border-slate-700/40">
           <Activity className="w-2.5 h-2.5 text-emerald-400" />
           Polymarket
         </span>
@@ -130,7 +130,7 @@ export default function PolymarketStockCard({ symbol, companyName }: Props) {
           {matched.length > 0 && (
             <div className="flex items-center gap-2 mt-3 mb-2">
               <div className="flex-1 h-px bg-slate-800" />
-              <span className="text-[9px] text-slate-600 flex items-center gap-1">
+              <span className="text-[9px] text-fg-muted flex items-center gap-1">
                 <TrendingUp className="w-2.5 h-2.5" />
                 Other Active Markets
               </span>
@@ -184,7 +184,7 @@ function EventCard({ ev, highlight }: { ev: PolymarketStockEvent; highlight?: bo
             href={polyUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="shrink-0 p-1 rounded hover:bg-slate-800 text-slate-600 hover:text-amber-400 transition-colors opacity-0 group-hover:opacity-100"
+            className="shrink-0 p-1 rounded hover:bg-slate-800 text-fg-muted hover:text-amber-400 transition-colors opacity-0 group-hover:opacity-100"
             onClick={(e) => e.stopPropagation()}
           >
             <ExternalLink className="w-3 h-3" />
@@ -209,8 +209,8 @@ function EventCard({ ev, highlight }: { ev: PolymarketStockEvent; highlight?: bo
       {/* Volume */}
       {volStr && (
         <div className="flex items-center justify-between mt-1.5 text-[9px]">
-          <span className="text-slate-600">24h Volume</span>
-          <span className="font-mono text-slate-400">{volStr}</span>
+          <span className="text-fg-muted">24h Volume</span>
+          <span className="font-mono text-fg-muted">{volStr}</span>
         </div>
       )}
     </div>

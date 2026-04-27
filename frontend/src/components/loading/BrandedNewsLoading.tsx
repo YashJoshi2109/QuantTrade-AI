@@ -37,7 +37,7 @@ export default function BrandedNewsLoading({ rows = 12 }: { rows?: number }) {
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-400/90">
             Hydrating feed
           </p>
-          <p className="text-[10px] text-slate-500 mt-0.5">
+          <p className="text-[10px] text-fg-muted mt-0.5">
             Pulling headlines from the wire — cached results appear first when available
           </p>
         </div>

@@ -135,8 +135,8 @@ function Gauge({ signal, title, subtitle, delay = 0 }: GaugeProps) {
   return (
     <div className="flex flex-col items-center relative rounded-xl bg-slate-950/40 border border-slate-700/35 px-2 pt-3 pb-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors duration-500 hover:border-slate-600/45">
       <div className="text-center mb-0.5">
-        <div className="text-[10px] font-bold text-slate-400 tracking-[0.18em] uppercase">{title}</div>
-        {subtitle && <div className="text-[9px] text-slate-500 mt-0.5 leading-snug px-1">{subtitle}</div>}
+        <div className="text-[10px] font-bold text-fg-muted tracking-[0.18em] uppercase">{title}</div>
+        {subtitle && <div className="text-[9px] text-fg-muted mt-0.5 leading-snug px-1">{subtitle}</div>}
       </div>
 
       <div className="w-full flex justify-center -mb-2">
@@ -270,7 +270,7 @@ export default function TechnicalAnalysisGauge({
               <Activity className="w-[18px] h-[18px] text-[#00D4FF] shrink-0" aria-hidden />
               Technical analysis
             </h3>
-            <p className="text-[11px] text-slate-500 mt-1 max-w-md leading-relaxed">
+            <p className="text-[11px] text-fg-muted mt-1 max-w-md leading-relaxed">
               Gauges blend RSI, MACD, Bollinger position, and SMA alignment into a single readable bias.
             </p>
           </div>
@@ -295,8 +295,8 @@ export default function TechnicalAnalysisGauge({
             className="rounded-xl border border-slate-700/50 bg-slate-950/40 backdrop-blur-sm px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
-                <Radio className="w-3.5 h-3.5 text-slate-400" aria-hidden />
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-fg-muted">
+                <Radio className="w-3.5 h-3.5 text-fg-muted" aria-hidden />
                 Composite signal
               </div>
               <div
@@ -309,7 +309,7 @@ export default function TechnicalAnalysisGauge({
                 {summary.label}
               </div>
             </div>
-            <p className="text-[11px] text-slate-500 mt-2 leading-snug border-t border-slate-700/40 pt-2">
+            <p className="text-[11px] text-fg-muted mt-2 leading-snug border-t border-slate-700/40 pt-2">
               Mid-gauge is the weighted blend; side gauges isolate oscillators vs. moving-average trend.
             </p>
           </motion.div>
@@ -418,25 +418,25 @@ function SignalCounts({ indicators, price, type }: SignalCountsProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[9px] uppercase tracking-wider text-slate-500 font-semibold text-center">
+      <span className="text-[9px] uppercase tracking-wider text-fg-muted font-semibold text-center">
         {typeLabel}
       </span>
       <div className="flex items-center justify-center gap-2 sm:gap-3 bg-slate-800/35 p-2.5 rounded-xl border border-slate-700/45 backdrop-blur-sm shadow-inner">
         <div className="flex flex-col items-center min-w-[36px] gap-0.5">
           <TrendingDown className="w-3.5 h-3.5 text-[#FF3366]/80" aria-hidden />
-          <span className="text-[9px] text-slate-500 font-medium">Sell</span>
+          <span className="text-[9px] text-fg-muted font-medium">Sell</span>
           <span className="text-[#FF3366] font-extrabold text-sm tabular-nums drop-shadow-[0_0_5px_rgba(255,51,102,0.35)]">
             {counts.sell}
           </span>
         </div>
         <div className="flex flex-col items-center min-w-[36px] gap-0.5">
-          <Minus className="w-3.5 h-3.5 text-slate-500" aria-hidden />
-          <span className="text-[9px] text-slate-500 font-medium">Neutral</span>
-          <span className="text-slate-400 font-extrabold text-sm tabular-nums">{counts.neutral}</span>
+          <Minus className="w-3.5 h-3.5 text-fg-muted" aria-hidden />
+          <span className="text-[9px] text-fg-muted font-medium">Neutral</span>
+          <span className="text-fg-muted font-extrabold text-sm tabular-nums">{counts.neutral}</span>
         </div>
         <div className="flex flex-col items-center min-w-[36px] gap-0.5">
           <TrendingUp className="w-3.5 h-3.5 text-[#00FF88]/80" aria-hidden />
-          <span className="text-[9px] text-slate-500 font-medium">Buy</span>
+          <span className="text-[9px] text-fg-muted font-medium">Buy</span>
           <span className="text-[#00FF88] font-extrabold text-sm tabular-nums drop-shadow-[0_0_5px_rgba(0,255,136,0.35)]">
             {counts.buy}
           </span>

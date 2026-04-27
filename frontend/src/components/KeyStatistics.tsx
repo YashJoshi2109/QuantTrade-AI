@@ -52,7 +52,7 @@ export default function KeyStatistics({
       <div className="grid grid-cols-2 gap-4">
         {stats.map((stat, idx) => (
           <div key={idx}>
-            <div className="text-xs text-gray-400 mb-1">{stat.label}</div>
+            <div className="text-xs text-fg-muted mb-1">{stat.label}</div>
             <div className="text-sm font-semibold text-white">{stat.value}</div>
           </div>
         ))}

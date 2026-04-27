@@ -68,7 +68,7 @@ export default function StockOverviewCard({ data }: Props) {
               {data.symbol}
             </span>
             {data.company?.sector && (
-              <span className="flex items-center gap-1 text-[9px] text-slate-500">
+              <span className="flex items-center gap-1 text-[9px] text-fg-muted">
                 <Building2 className="w-3 h-3" />
                 {data.company.sector}
               </span>
@@ -108,7 +108,7 @@ export default function StockOverviewCard({ data }: Props) {
               key={s.label}
               className="rounded-lg bg-white/[0.03] border border-white/[0.04] px-2.5 py-2"
             >
-              <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">{s.label}</p>
+              <p className="text-[9px] text-fg-muted uppercase tracking-wider mb-0.5">{s.label}</p>
               <p className="text-[12px] font-semibold text-white tabular-nums">{s.value}</p>
             </div>
           ))}
@@ -123,7 +123,7 @@ export default function StockOverviewCard({ data }: Props) {
           className={`flex items-center gap-1.5 text-[10px] font-semibold px-3 py-1.5 rounded-lg border transition-all ${
             addedToWatchlist
               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-              : 'bg-white/[0.03] text-slate-400 border-white/[0.06] hover:text-white hover:border-white/[0.12]'
+              : 'bg-white/[0.03] text-fg-muted border-white/[0.06] hover:text-fg-primary hover:border-white/[0.12]'
           }`}
         >
           {addedToWatchlist ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}

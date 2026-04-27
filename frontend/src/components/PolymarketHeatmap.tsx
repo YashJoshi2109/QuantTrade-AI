@@ -57,12 +57,12 @@ export default function PolymarketHeatmap() {
             <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-100">
               Polymarket Heatmap
             </span>
-            <span className="text-[10px] text-slate-500">
+            <span className="text-[10px] text-fg-muted">
               Yes % by contract · volume order · via QuantTrade API
             </span>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 border border-slate-700/60 px-2 py-0.5 text-[10px] text-slate-400">
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 border border-slate-700/60 px-2 py-0.5 text-[10px] text-fg-muted">
           <Activity className="w-3 h-3 text-emerald-400" />
           Live
         </span>
@@ -70,7 +70,7 @@ export default function PolymarketHeatmap() {
 
       <div className="flex-1 min-h-0 overflow-y-auto p-3">
         {isLoading && !tiles.length && (
-          <div className="flex items-center justify-center py-8 text-xs text-slate-500">
+          <div className="flex items-center justify-center py-8 text-xs text-fg-muted">
             Loading Polymarket heatmap…
           </div>
         )}
@@ -83,7 +83,7 @@ export default function PolymarketHeatmap() {
 
         {tiles.length > 0 && (
           <>
-            <div className="flex items-center justify-center gap-2 mb-2 text-[10px] text-slate-500">
+            <div className="flex items-center justify-center gap-2 mb-2 text-[10px] text-fg-muted">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500/70" /> Low Yes</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-500/70" /> ~50%</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-500/70" /> High Yes</span>
@@ -118,7 +118,7 @@ export default function PolymarketHeatmap() {
         )}
 
         {!isLoading && !tiles.length && !isError && (
-          <div className="flex items-center justify-center py-6 text-[11px] text-slate-500">
+          <div className="flex items-center justify-center py-6 text-[11px] text-fg-muted">
             No active markets for heatmap.
           </div>
         )}

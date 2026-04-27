@@ -50,12 +50,12 @@ export default function PredictionMarketsPanel() {
             <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-100">
               Prediction Markets
             </span>
-            <span className="text-[10px] text-slate-500">
+            <span className="text-[10px] text-fg-muted">
               Powered by Polymarket&nbsp;&middot;&nbsp;Top macro contracts
             </span>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 border border-slate-700/60 px-2 py-0.5 text-[10px] text-slate-400">
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 border border-slate-700/60 px-2 py-0.5 text-[10px] text-fg-muted">
           <Activity className="w-3 h-3 text-emerald-400" />
           Live
         </span>
@@ -64,7 +64,7 @@ export default function PredictionMarketsPanel() {
       {/* Body */}
       <div className="flex-1 min-h-0 overflow-y-auto bg-[#050816]/95 px-3 py-3 space-y-2">
         {isLoading && !events.length && (
-          <div className="flex items-center justify-center py-8 text-xs text-slate-500">
+          <div className="flex items-center justify-center py-8 text-xs text-fg-muted">
             Loading prediction markets…
           </div>
         )}
@@ -98,15 +98,15 @@ export default function PredictionMarketsPanel() {
                 </p>
                 <div className="mt-2 flex items-center justify-between text-[10px]">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-slate-500">Yes Prob.</span>
+                    <span className="text-fg-muted">Yes Prob.</span>
                     <span className="font-mono text-emerald-300">
                       {prob !== null ? `${prob}%` : '—'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-slate-500">
+                  <div className="flex items-center gap-1.5 text-fg-muted">
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
                     <span>Vol 24h</span>
-                    <span className="font-mono text-slate-300">{vol ?? '—'}</span>
+                    <span className="font-mono text-fg-secondary">{vol ?? '—'}</span>
                   </div>
                 </div>
               </div>
@@ -114,7 +114,7 @@ export default function PredictionMarketsPanel() {
           })}
 
         {!isLoading && !events.length && !isError && (
-          <div className="flex items-center justify-center py-6 text-[11px] text-slate-500">
+          <div className="flex items-center justify-center py-6 text-[11px] text-fg-muted">
             No active prediction events found.
           </div>
         )}

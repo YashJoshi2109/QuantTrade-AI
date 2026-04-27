@@ -19,7 +19,7 @@ interface Member {
 const roleBadge: Record<string, { label: string; color: string; icon: typeof Crown }> = {
   owner: { label: 'Owner', color: 'text-amber-400 bg-amber-500/10', icon: Crown },
   moderator: { label: 'Mod', color: 'text-blue-400 bg-blue-500/10', icon: Shield },
-  member: { label: 'Member', color: 'text-slate-400 bg-slate-500/10', icon: Users },
+  member: { label: 'Member', color: 'text-fg-muted bg-slate-500/10', icon: Users },
 }
 
 export default function CommunityMembersPage() {

@@ -58,7 +58,7 @@ const impactColor = (impact: string) =>
     ? "bg-rose-500/15 text-rose-400 border-rose-500/30"
     : impact === "medium"
       ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
-      : "bg-slate-700/50 text-slate-400 border-slate-600/30"
+      : "bg-slate-700/50 text-fg-muted border-slate-600/30"
 
 const impactDot = (impact: string) =>
   impact === "high" ? "bg-rose-400" : impact === "medium" ? "bg-amber-400" : "bg-slate-500"
@@ -131,14 +131,14 @@ function EventDetailSnapshot({
                 </span>
                 <span className={cn(
                   "text-[8px] font-bold uppercase px-1.5 py-0.5 rounded",
-                  event.impact === "high" ? "bg-rose-500/10 text-rose-400" : event.impact === "medium" ? "bg-amber-500/10 text-amber-400" : "bg-slate-700/30 text-slate-500"
+                  event.impact === "high" ? "bg-rose-500/10 text-rose-400" : event.impact === "medium" ? "bg-amber-500/10 text-amber-400" : "bg-slate-700/30 text-fg-muted"
                 )}>
                   {event.impact} impact
                 </span>
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-800/60 text-slate-500 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-800/60 text-fg-muted hover:text-fg-primary transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -147,18 +147,18 @@ function EventDetailSnapshot({
         <div className="p-4 border-b border-slate-800/50">
           <div className="grid grid-cols-3 gap-3">
             <div className="text-center p-2 rounded-xl bg-[#0F1629]/60 border border-slate-800/30">
-              <div className="text-[9px] text-slate-500 uppercase font-bold mb-1">Actual</div>
-              <div className={cn("text-sm font-black font-mono", event.actual ? "text-white" : "text-slate-600")}>
+              <div className="text-[9px] text-fg-muted uppercase font-bold mb-1">Actual</div>
+              <div className={cn("text-sm font-black font-mono", event.actual ? "text-white" : "text-fg-muted")}>
                 {event.actual || "—"}
               </div>
             </div>
             <div className="text-center p-2 rounded-xl bg-[#0F1629]/60 border border-slate-800/30">
-              <div className="text-[9px] text-slate-500 uppercase font-bold mb-1">Forecast</div>
+              <div className="text-[9px] text-fg-muted uppercase font-bold mb-1">Forecast</div>
               <div className="text-sm font-black font-mono text-cyan-400">{event.forecast || "—"}</div>
             </div>
             <div className="text-center p-2 rounded-xl bg-[#0F1629]/60 border border-slate-800/30">
-              <div className="text-[9px] text-slate-500 uppercase font-bold mb-1">Prior</div>
-              <div className="text-sm font-black font-mono text-slate-400">{event.prior || "—"}</div>
+              <div className="text-[9px] text-fg-muted uppercase font-bold mb-1">Prior</div>
+              <div className="text-sm font-black font-mono text-fg-muted">{event.prior || "—"}</div>
             </div>
           </div>
 
@@ -195,7 +195,7 @@ function EventDetailSnapshot({
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
             <h4 className="text-xs font-bold text-white">Potentially Affected</h4>
-            <span className="text-[9px] text-slate-500 font-mono">{affected.sector}</span>
+            <span className="text-[9px] text-fg-muted font-mono">{affected.sector}</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {affected.tickers.map((ticker) => (
@@ -207,7 +207,7 @@ function EventDetailSnapshot({
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0F1629]/80 border border-slate-700/40 hover:border-cyan-500/30 transition-colors group"
               >
                 <span className="text-xs font-bold text-white font-mono group-hover:text-cyan-400 transition-colors">{ticker}</span>
-                <ArrowRight className="w-3 h-3 text-slate-600 group-hover:text-cyan-400 transition-colors" />
+                <ArrowRight className="w-3 h-3 text-fg-muted group-hover:text-cyan-400 transition-colors" />
               </motion.a>
             ))}
           </div>
@@ -221,7 +221,7 @@ function EventDetailSnapshot({
           </div>
           <div className="space-y-2">
             <div className="p-2.5 rounded-xl bg-[#0F1629]/60 border border-slate-800/30">
-              <p className="text-[11px] text-slate-300 leading-relaxed">
+              <p className="text-[11px] text-fg-secondary leading-relaxed">
                 {event.impact === "high"
                   ? `This is a high-impact event that typically causes significant volatility in ${affected.sector} stocks. Watch for moves in ${affected.tickers.slice(0, 3).join(", ")} around the release time.`
                   : event.impact === "medium"
@@ -343,7 +343,7 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
             <h2 className="text-base sm:text-lg font-black text-white">
               {format(firstDayCurrentMonth, "MMMM yyyy")}
             </h2>
-            <p className="text-[10px] text-slate-500 font-mono">
+            <p className="text-[10px] text-fg-muted font-mono">
               Economic Calendar &middot; {format(firstDayCurrentMonth, "MMM d")} &ndash; {format(endOfMonth(firstDayCurrentMonth), "MMM d, yyyy")}
             </p>
           </div>
@@ -352,18 +352,18 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
 
         <div className="flex items-center gap-2">
           <div className="inline-flex rounded-lg border border-slate-700/50 overflow-hidden">
-            <button onClick={previousMonth} className="px-2.5 py-1.5 hover:bg-slate-800/60 transition-colors text-slate-400 hover:text-white">
+            <button onClick={previousMonth} className="px-2.5 py-1.5 hover:bg-slate-800/60 transition-colors text-fg-muted hover:text-fg-primary">
               <ChevronLeftIcon className="w-4 h-4" />
             </button>
-            <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold border-x border-slate-700/50 hover:bg-slate-800/60 transition-colors text-slate-300 hover:text-white">
+            <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold border-x border-slate-700/50 hover:bg-slate-800/60 transition-colors text-fg-secondary hover:text-fg-primary">
               Today
             </button>
-            <button onClick={nextMonth} className="px-2.5 py-1.5 hover:bg-slate-800/60 transition-colors text-slate-400 hover:text-white">
+            <button onClick={nextMonth} className="px-2.5 py-1.5 hover:bg-slate-800/60 transition-colors text-fg-muted hover:text-fg-primary">
               <ChevronRightIcon className="w-4 h-4" />
             </button>
           </div>
           {onClose && (
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-800/60 text-slate-400 hover:text-white transition-colors">
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-800/60 text-fg-muted hover:text-fg-primary transition-colors">
               <X className="w-5 h-5" />
             </button>
           )}
@@ -373,7 +373,7 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
       {/* Desktop: Full grid */}
       {isDesktop ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="grid grid-cols-7 border-b border-slate-800/50 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">
+          <div className="grid grid-cols-7 border-b border-slate-800/50 text-center text-[10px] font-bold uppercase tracking-wider text-fg-muted">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
               <div key={d} className="py-2 border-r border-slate-800/30 last:border-r-0">{d}</div>
             ))}
@@ -401,7 +401,7 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
                     className={cn(
                       "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold mb-1",
                       isCurrent && "bg-cyan-500 text-white",
-                      !isCurrent && inMonth ? "text-slate-300" : "text-slate-600",
+                      !isCurrent && inMonth ? "text-fg-secondary" : "text-fg-muted",
                     )}
                   >
                     {format(day, "d")}
@@ -419,7 +419,7 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
                     </button>
                   ))}
                   {dayEvents.length > 3 && (
-                    <span className="text-[8px] text-slate-500 font-bold">+{dayEvents.length - 3} more</span>
+                    <span className="text-[8px] text-fg-muted font-bold">+{dayEvents.length - 3} more</span>
                   )}
                 </div>
               )
@@ -430,7 +430,7 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
         /* Mobile: mini grid + event list */
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="shrink-0 px-3 pt-3">
-            <div className="grid grid-cols-7 text-center text-[9px] font-bold text-slate-500 uppercase mb-1">
+            <div className="grid grid-cols-7 text-center text-[9px] font-bold text-fg-muted uppercase mb-1">
               {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
                 <div key={i} className="py-1">{d}</div>
               ))}
@@ -456,7 +456,7 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
                       className={cn(
                         "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold",
                         isCurrent && "bg-cyan-500 text-white",
-                        !isCurrent && inMonth ? "text-slate-200" : "text-slate-600",
+                        !isCurrent && inMonth ? "text-slate-200" : "text-fg-muted",
                       )}
                     >
                       {format(day, "d")}
@@ -480,7 +480,7 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
               <h3 className="text-sm font-bold text-white">
                 {format(selectedDay, "EEEE, MMM d")}
               </h3>
-              <span className="text-[10px] text-slate-500 font-mono">
+              <span className="text-[10px] text-fg-muted font-mono">
                 {selectedDayEvents.length} event{selectedDayEvents.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -495,7 +495,7 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
                 {selectedDayEvents.length === 0 ? (
                   <div className="text-center py-8">
                     <Globe className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-                    <p className="text-slate-600 text-sm">No economic events</p>
+                    <p className="text-fg-muted text-sm">No economic events</p>
                   </div>
                 ) : (
                   selectedDayEvents.map((ev, i) => (
@@ -517,18 +517,18 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
                           <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border", impactColor(ev.impact))}>
                             {ev.time}
                           </span>
-                          <span className={cn("text-[8px] font-bold uppercase", ev.impact === "high" ? "text-rose-400" : ev.impact === "medium" ? "text-amber-400" : "text-slate-500")}>
+                          <span className={cn("text-[8px] font-bold uppercase", ev.impact === "high" ? "text-rose-400" : ev.impact === "medium" ? "text-amber-400" : "text-fg-muted")}>
                             {ev.impact}
                           </span>
                         </div>
                         <p className="text-xs font-semibold text-slate-200 truncate">{ev.eventName}</p>
                         <div className="flex gap-3 mt-1 text-[10px] font-mono">
                           {ev.actual && <span className="text-white">Act: <strong>{ev.actual}</strong></span>}
-                          {ev.forecast && <span className="text-slate-400">Fcst: {ev.forecast}</span>}
-                          {ev.prior && <span className="text-slate-500">Prior: {ev.prior}</span>}
+                          {ev.forecast && <span className="text-fg-muted">Fcst: {ev.forecast}</span>}
+                          {ev.prior && <span className="text-fg-muted">Prior: {ev.prior}</span>}
                         </div>
                       </div>
-                      <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0 mt-1" />
+                      <ArrowRight className="w-3.5 h-3.5 text-fg-muted shrink-0 mt-1" />
                     </motion.button>
                   ))
                 )}

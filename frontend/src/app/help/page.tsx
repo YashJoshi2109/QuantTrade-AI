@@ -11,7 +11,7 @@ function DesktopHelp() {
         <div className="max-w-3xl mx-auto">
           <div className="hud-panel p-8">
             <h1 className="text-2xl font-bold text-white mb-2">Help Center</h1>
-            <p className="text-slate-400">
+            <p className="text-fg-muted">
               The help center is optimized for mobile right now. Use the mobile view or check the docs folder in this repo.
             </p>
           </div>

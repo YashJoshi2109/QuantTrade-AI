@@ -101,7 +101,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
               aria-label="Open fullscreen calendar"
               className="p-1 rounded-full bg-slate-800/80 border border-slate-700/50 hover:bg-slate-700/80 transition-colors mr-1"
             >
-              <Maximize2 className="h-3.5 w-3.5 text-slate-300" />
+              <Maximize2 className="h-3.5 w-3.5 text-fg-secondary" />
             </motion.button>
             {canLeft && (
               <motion.button
@@ -111,7 +111,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
                 aria-label="Scroll left"
                 className="p-1 rounded-full bg-slate-800/80 border border-slate-700/50 hover:bg-slate-700/80 transition-colors"
               >
-                <ChevronLeft className="h-3.5 w-3.5 text-slate-300" />
+                <ChevronLeft className="h-3.5 w-3.5 text-fg-secondary" />
               </motion.button>
             )}
             {canRight && (
@@ -122,7 +122,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
                 aria-label="Scroll right"
                 className="p-1 rounded-full bg-slate-800/80 border border-slate-700/50 hover:bg-slate-700/80 transition-colors"
               >
-                <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+                <ChevronRight className="h-3.5 w-3.5 text-fg-secondary" />
               </motion.button>
             )}
           </div>
@@ -151,7 +151,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
                 {/* Top row: time + impact */}
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] text-slate-500 font-mono">Today</span>
+                    <span className="text-[9px] text-fg-muted font-mono">Today</span>
                     <span
                       className={cn(
                         "text-[10px] font-bold font-mono px-1.5 py-0.5 rounded",
@@ -159,7 +159,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
                           ? "bg-rose-500/15 text-rose-400"
                           : ev.impact === "medium"
                             ? "bg-amber-500/15 text-amber-400"
-                            : "bg-slate-700/50 text-slate-400",
+                            : "bg-slate-700/50 text-fg-muted",
                       )}
                     >
                       {ev.time}
@@ -188,11 +188,11 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
                     { label: "Prior", value: ev.prior },
                   ].map((d) => (
                     <div key={d.label}>
-                      <p className="text-[8px] text-slate-500 uppercase tracking-wider">{d.label}</p>
+                      <p className="text-[8px] text-fg-muted uppercase tracking-wider">{d.label}</p>
                       <p
                         className={cn(
                           "text-[11px] font-bold font-mono mt-0.5",
-                          d.value ? "text-slate-200" : "text-slate-600",
+                          d.value ? "text-slate-200" : "text-fg-muted",
                         )}
                       >
                         {d.value ?? "—"}

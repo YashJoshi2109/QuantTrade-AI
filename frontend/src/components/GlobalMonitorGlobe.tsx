@@ -158,7 +158,7 @@ export default function GlobalMonitorGlobe({
       <div className="flex items-center justify-center h-full bg-slate-950">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-slate-500 text-xs font-mono">Initializing globe...</p>
+          <p className="text-fg-muted text-xs font-mono">Initializing globe...</p>
         </div>
       </div>
     )

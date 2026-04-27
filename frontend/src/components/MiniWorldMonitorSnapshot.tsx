@@ -117,7 +117,7 @@ export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { con
         </div>
         
         {/* Mobile Instruction */}
-        <div className="md:hidden absolute bottom-2 text-[10px] text-slate-500 flex items-center gap-1 opacity-60">
+        <div className="md:hidden absolute bottom-2 text-[10px] text-fg-muted flex items-center gap-1 opacity-60">
           <Globe2 className="w-3 h-3" />
           Tap full map to interact
         </div>
@@ -137,7 +137,7 @@ export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { con
             <metric.icon
               className={`mb-0.5 h-3.5 w-3.5 ${metric.color} opacity-70 transition-opacity group-hover/metric:opacity-100`}
             />
-            <span className="text-[9px] font-medium uppercase tracking-wider text-slate-400">{metric.label}</span>
+            <span className="text-[9px] font-medium uppercase tracking-wider text-fg-muted">{metric.label}</span>
             <span className="mt-0.5 text-[11px] font-bold text-slate-200">{metric.value}</span>
           </div>
         ))}

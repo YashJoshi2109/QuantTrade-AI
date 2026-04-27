@@ -82,7 +82,7 @@ function MoverRow({
             <span className="text-[13px] font-bold text-white font-mono block">
               {stock.symbol}
             </span>
-            <span className="text-[10px] text-slate-500 truncate block max-w-[130px]">
+            <span className="text-[10px] text-fg-muted truncate block max-w-[130px]">
               {stock.name}
             </span>
           </div>
@@ -164,7 +164,7 @@ export function GlassMoversPanel({
           {isLoading ? (
             <SkeletonRows />
           ) : gainers.length === 0 ? (
-            <div className="flex items-center justify-center h-24 text-slate-600 text-xs">
+            <div className="flex items-center justify-center h-24 text-fg-muted text-xs">
               No gainers data available
             </div>
           ) : (
@@ -195,7 +195,7 @@ export function GlassMoversPanel({
           {isLoading ? (
             <SkeletonRows />
           ) : losers.length === 0 ? (
-            <div className="flex items-center justify-center h-24 text-slate-600 text-xs">
+            <div className="flex items-center justify-center h-24 text-fg-muted text-xs">
               No losers data available
             </div>
           ) : (

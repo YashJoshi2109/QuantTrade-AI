@@ -41,7 +41,7 @@ function ConfidenceGauge({ score, grade, label }: { score: number; grade: string
           </span>
         </div>
       </div>
-      <span className="text-center text-[10px] text-slate-400">{label}</span>
+      <span className="text-center text-[10px] text-fg-muted">{label}</span>
     </div>
   )
 }
@@ -72,9 +72,9 @@ export function SnapshotCard({ data }: { data: StockAnalysisData }) {
               </span>
             )}
           </div>
-          {company?.name && <p className="mt-0.5 text-xs text-slate-400">{company.name}</p>}
+          {company?.name && <p className="mt-0.5 text-xs text-fg-muted">{company.name}</p>}
           {company?.sector && (
-            <p className="text-[10px] text-slate-500">
+            <p className="text-[10px] text-fg-muted">
               {company.sector} · {company.industry}
             </p>
           )}
@@ -104,8 +104,8 @@ export function SnapshotCard({ data }: { data: StockAnalysisData }) {
           { label: 'Vol', value: quote?.volume ? `${(quote.volume / 1e6).toFixed(1)}M` : 'N/A' },
         ].map((s) => (
           <div key={s.label} className="text-center">
-            <div className="text-[10px] text-slate-500">{s.label}</div>
-            <div className="font-mono text-xs text-slate-300">{s.value}</div>
+            <div className="text-[10px] text-fg-muted">{s.label}</div>
+            <div className="font-mono text-xs text-fg-secondary">{s.value}</div>
           </div>
         ))}
       </div>
@@ -124,7 +124,7 @@ export function InlineStructuredSnapshots({ data }: { data: CopilotStructuredDat
           <span className="text-[10px] font-bold uppercase tracking-wide text-cyan-300/90">
             Comparison snapshot
           </span>
-          <span className="text-[9px] leading-snug text-slate-500">
+          <span className="text-[9px] leading-snug text-fg-muted">
             Side-by-side quote and scores for both tickers in this answer.
           </span>
         </div>
@@ -144,11 +144,11 @@ export function InlineStructuredSnapshots({ data }: { data: CopilotStructuredDat
           <span className="text-[10px] font-bold uppercase tracking-wide text-cyan-300/90">
             Ticker snapshot
           </span>
-          <span className="hidden text-[9px] leading-snug text-slate-500 sm:inline">
+          <span className="hidden text-[9px] leading-snug text-fg-muted sm:inline">
             Live quote and quant context attached to this reply. Open the data panel for the full
             dashboard.
           </span>
-          <span className="text-[9px] text-slate-500 sm:hidden">Quote & quant context</span>
+          <span className="text-[9px] text-fg-muted sm:hidden">Quote & quant context</span>
         </div>
         <SnapshotCard data={data as StockAnalysisData} />
       </div>

@@ -340,7 +340,7 @@ export default function EarningsShortInterestPanel({
 
       {/* ---- Key Statistics Grid ---- */}
       <div className="hud-panel rounded-xl border border-line-subtle p-5">
-        <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-3">
+        <h3 className="text-xs uppercase tracking-wider text-fg-muted font-semibold mb-3">
           Key Statistics
         </h3>
         <div className="grid grid-cols-2 gap-1.5">
