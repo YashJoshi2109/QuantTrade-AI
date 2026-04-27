@@ -30,7 +30,7 @@ button, a, input, textarea, select,
   /* ── Typography ── */
   --text-primary:   #0f172a;
   --text-secondary: #475569;
-  --text-muted:     #94a3b8;
+  --text-muted:     #6b7280; /* darkened for WCAG AA ≥4.5:1 on --surface-base */
   --text-inverted:  #ffffff;
 
   /* ── Borders ── */
