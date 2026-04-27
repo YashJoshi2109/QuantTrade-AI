@@ -133,7 +133,7 @@ export default function FlatWorldMap({ events, onEventClick }: Props) {
 
       {/* Badge */}
       <div className="absolute top-3 left-3 z-10">
-        <div className="frosted-chip px-2.5 py-1 text-[9px] font-mono text-slate-400 flex items-center gap-1.5">
+        <div className="frosted-chip px-2.5 py-1 text-[9px] font-mono text-fg-secondary flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
           2D · MERCATOR FLAT MAP
         </div>
@@ -149,7 +149,7 @@ export default function FlatWorldMap({ events, onEventClick }: Props) {
           <div key={l.label} className="frosted-chip px-2 py-1 flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full" style={{ background: l.c }} />
             <span className="text-[9px] font-bold font-mono" style={{ color: l.c }}>{l.n}</span>
-            <span className="text-[8px] text-slate-600">{l.label}</span>
+            <span className="text-[8px] text-fg-muted">{l.label}</span>
           </div>
         ))}
       </div>
@@ -159,7 +159,7 @@ export default function FlatWorldMap({ events, onEventClick }: Props) {
         <div className="absolute z-20 pointer-events-none glass-panel-strong rounded-xl px-3 py-2 text-[10px] max-w-[190px]"
           style={{ left: tip.x + 14, top: tip.y - 36, borderColor: `${NEON[hovered.threat_level ?? 'unknown']}40` }}>
           <p className="font-bold text-white leading-snug mb-0.5 truncate">{hovered.title}</p>
-          <p className="text-slate-500 font-mono">{hovered.location_name}</p>
+          <p className="text-fg-muted font-mono">{hovered.location_name}</p>
         </div>
       )}
     </div>

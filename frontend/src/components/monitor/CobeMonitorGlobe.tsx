@@ -73,7 +73,7 @@ export default function CobeMonitorGlobe({
       />
 
       <div className="absolute top-3 left-3 z-10">
-        <div className="frosted-chip px-2.5 py-1 text-[9px] font-mono text-slate-400 flex items-center gap-1.5">
+        <div className="frosted-chip px-2.5 py-1 text-[9px] font-mono text-fg-secondary flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
           3D GLOBE · {markers.length} events
         </div>

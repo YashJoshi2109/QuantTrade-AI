@@ -58,7 +58,7 @@ function threatBg(level: string) {
 
 function riskBar(score: number, color: string) {
   return (
-    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+    <div className="h-1.5 w-full bg-surface-hover rounded-full overflow-hidden">
       <div
         className={`h-full rounded-full ${color}`}
         style={{ width: `${Math.min(100, score)}%`, transition: 'width 0.6s ease' }}
@@ -86,16 +86,16 @@ const CATEGORY_ICON: Record<string, string> = {
 
 function PanelHeader({ title, sub, onClose }: { title: string; sub?: string; onClose: () => void }) {
   return (
-    <div className="px-4 py-3 border-b border-slate-800/80 flex items-center justify-between bg-gradient-to-r from-slate-950 via-slate-900/60 to-slate-950 shrink-0">
+    <div className="px-4 py-3 border-b border-line-subtle flex items-center justify-between bg-surface-raised/60 shrink-0">
       <div>
         <div className="flex items-center gap-2">
           <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
-          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-100 font-mono">{title}</span>
+          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-fg-primary font-mono">{title}</span>
         </div>
-        {sub && <p className="text-[9px] text-slate-500 mt-0.5 font-mono">{sub}</p>}
+        {sub && <p className="text-[9px] text-fg-muted mt-0.5 font-mono">{sub}</p>}
       </div>
-      <button onClick={onClose} className="p-1.5 hover:bg-slate-800 rounded-lg transition-colors">
-        <X className="w-3.5 h-3.5 text-slate-500 hover:text-slate-300" />
+      <button onClick={onClose} className="p-1.5 hover:bg-surface-hover rounded-lg transition-colors">
+        <X className="w-3.5 h-3.5 text-fg-muted hover:text-fg-secondary" />
       </button>
     </div>
   )
@@ -149,22 +149,22 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
           </div>
           <h3 className="text-sm font-bold text-slate-50 leading-snug">{event.title}</h3>
           {event.description && (
-            <p className="text-[11px] text-slate-400 mt-2 leading-relaxed line-clamp-3">{event.description}</p>
+            <p className="text-[11px] text-fg-secondary mt-2 leading-relaxed line-clamp-3">{event.description}</p>
           )}
           <div className="flex items-center gap-3 mt-2.5">
             {event.location_name && (
               <div className="flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-slate-500" />
-                <span className="text-[10px] text-slate-400">{event.location_name}</span>
+                <MapPin className="w-3 h-3 text-fg-muted" />
+                <span className="text-[10px] text-fg-secondary">{event.location_name}</span>
               </div>
             )}
             <div className="flex items-center gap-1">
-              <Clock className="w-3 h-3 text-slate-500" />
-              <span className="text-[10px] text-slate-400">{timeAgo(event.event_timestamp)}</span>
+              <Clock className="w-3 h-3 text-fg-muted" />
+              <span className="text-[10px] text-fg-secondary">{timeAgo(event.event_timestamp)}</span>
             </div>
           </div>
           {event.market_impact_score != null && event.market_impact_score > 0 && (
-            <div className="mt-2.5 pt-2.5 border-t border-slate-700/40">
+            <div className="mt-2.5 pt-2.5 border-t border-line-subtle">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[9px] text-slate-500 uppercase">Market Impact</span>
                 <span className="text-[10px] font-bold text-orange-400">{event.market_impact_score.toFixed(0)}%</span>
@@ -177,7 +177,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
         {/* Correlated sectors */}
         {event.correlated_sectors && event.correlated_sectors.length > 0 && (
           <div className="px-3 mb-3">
-            <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-1.5 font-bold">Affected Sectors</div>
+            <div className="text-[9px] text-fg-muted uppercase tracking-wider mb-1.5 font-bold">Affected Sectors</div>
             <div className="flex flex-wrap gap-1.5">
               {event.correlated_sectors.map(s => (
                 <span key={s} className="px-2 py-1 bg-sky-500/10 border border-sky-500/25 rounded text-[10px] text-sky-400">{s}</span>
@@ -189,14 +189,14 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
         {/* Ticker impacts */}
         <div className="px-3 pb-4">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">Impacted Securities</div>
+            <div className="text-[9px] text-fg-muted uppercase tracking-wider font-bold">Impacted Securities</div>
             {isLoading && <RefreshCw className="w-3 h-3 text-sky-400 animate-spin" />}
           </div>
 
           {isLoading ? (
             <div className="space-y-2">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-14 bg-slate-800/40 rounded-lg animate-pulse" />
+                <div key={i} className="h-14 bg-surface-hover rounded-lg animate-pulse" />
               ))}
             </div>
           ) : impacts && impacts.length > 0 ? (
@@ -204,7 +204,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
               {impacts.map((impact, idx) => (
                 <div
                   key={`${impact.ticker}-${idx}`}
-                  className="bg-slate-900/70 border border-slate-800/60 rounded-xl p-3 hover:border-slate-700 transition-colors"
+                  className="bg-surface-raised/70 border border-line-subtle rounded-xl p-3 hover:border-line-default transition-colors"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div>
@@ -215,7 +215,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
                         {impact.ticker}
                       </Link>
                       {impact.company_name && (
-                        <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[140px]">{impact.company_name}</p>
+                        <p className="text-[10px] text-fg-muted mt-0.5 truncate max-w-[140px]">{impact.company_name}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -225,7 +225,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
                           ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
                           : impact.expected_direction === 'negative'
                           ? 'bg-red-500/15 border-red-500/30 text-red-400'
-                          : 'bg-slate-700/30 border-slate-600/30 text-slate-400'
+                          : 'bg-surface-raised border-line-default text-fg-secondary'
                       }`}>
                         {impact.expected_direction === 'positive' ? <TrendingUp className="w-2.5 h-2.5" /> :
                          impact.expected_direction === 'negative' ? <TrendingDown className="w-2.5 h-2.5" /> :
@@ -237,7 +237,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
                         <button
                           onClick={() => handleAdd(impact.ticker)}
                           disabled={!!adding || added.has(impact.ticker)}
-                          className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
+                          className="p-1 hover:bg-surface-hover rounded transition-colors disabled:opacity-50"
                           title="Add to watchlist"
                         >
                           {adding === impact.ticker ? (
@@ -255,23 +255,23 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
                   {/* Impact metrics row */}
                   <div className="grid grid-cols-3 gap-2 mb-2">
                     <div>
-                      <div className="text-[8px] text-slate-600 uppercase">Impact</div>
-                      <div className="text-xs font-bold text-slate-200 font-mono">{impact.impact_score.toFixed(0)}<span className="text-[8px] text-slate-500">/100</span></div>
+                      <div className="text-[8px] text-fg-muted uppercase">Impact</div>
+                      <div className="text-xs font-bold text-fg-primary font-mono">{impact.impact_score.toFixed(0)}<span className="text-[8px] text-fg-muted">/100</span></div>
                     </div>
                     <div>
-                      <div className="text-[8px] text-slate-600 uppercase">Confidence</div>
-                      <div className="text-xs font-bold text-slate-200 font-mono">{(impact.confidence * 100).toFixed(0)}%</div>
+                      <div className="text-[8px] text-fg-muted uppercase">Confidence</div>
+                      <div className="text-xs font-bold text-fg-primary font-mono">{(impact.confidence * 100).toFixed(0)}%</div>
                     </div>
                     {impact.volatility_increase ? (
                       <div>
-                        <div className="text-[8px] text-slate-600 uppercase">Vol+</div>
+                        <div className="text-[8px] text-fg-muted uppercase">Vol+</div>
                         <div className="text-xs font-bold text-orange-400 font-mono">+{impact.volatility_increase}%</div>
                       </div>
                     ) : null}
                   </div>
 
                   {impact.impact_reason && (
-                    <p className="text-[10px] text-slate-400 mb-2 line-clamp-2 leading-relaxed">{impact.impact_reason}</p>
+                    <p className="text-[10px] text-fg-secondary mb-2 line-clamp-2 leading-relaxed">{impact.impact_reason}</p>
                   )}
 
                   {/* Impact bar */}
@@ -281,7 +281,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
                   {impact.related_etfs && impact.related_etfs.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {impact.related_etfs.slice(0, 4).map(etf => (
-                        <Link key={etf} href={`/research?symbol=${etf}`} className="px-1.5 py-0.5 bg-slate-800 rounded text-[9px] text-sky-400 hover:text-sky-300 transition-colors">
+                        <Link key={etf} href={`/research?symbol=${etf}`} className="px-1.5 py-0.5 bg-surface-hover rounded text-[9px] text-sky-400 hover:text-sky-300 transition-colors">
                           {etf}
                         </Link>
                       ))}
@@ -293,7 +293,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
           ) : (
             <div className="py-8 text-center">
               <BarChart2 className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-              <p className="text-[11px] text-slate-500">No significant market impact detected</p>
+              <p className="text-[11px] text-fg-muted">No significant market impact detected</p>
             </div>
           )}
         </div>
@@ -337,7 +337,7 @@ function CountryRiskView({
       <div className="flex-1 overflow-y-auto">
         {/* Risk summary */}
         {instability ? (
-          <div className="m-3 p-3 bg-slate-900/70 border border-slate-800/60 rounded-xl">
+          <div className="m-3 p-3 bg-surface-raised/70 border border-line-subtle rounded-xl">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <div className="text-[9px] text-slate-500 uppercase">Instability Index</div>
@@ -364,10 +364,10 @@ function CountryRiskView({
                 { label: 'Disaster', value: instability.disaster_score, color: 'bg-yellow-500' },
                 { label: 'Economic', value: instability.economic_score, color: 'bg-blue-500' },
               ].map(({ label, value, color }) => (
-                <div key={label} className="bg-slate-800/40 rounded-lg p-2">
+                <div key={label} className="bg-surface-hover rounded-lg p-2">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[9px] text-slate-500 uppercase">{label}</span>
-                    <span className="text-[10px] font-bold text-slate-300 font-mono">{value.toFixed(0)}</span>
+                    <span className="text-[9px] text-fg-muted uppercase">{label}</span>
+                    <span className="text-[10px] font-bold text-fg-secondary font-mono">{value.toFixed(0)}</span>
                   </div>
                   {riskBar(value, color)}
                 </div>
@@ -375,26 +375,26 @@ function CountryRiskView({
             </div>
 
             <div className="grid grid-cols-2 gap-2 mt-2">
-              <div className="bg-slate-800/30 rounded-lg p-2 text-center">
-                <div className="text-[9px] text-slate-500">Active Events</div>
-                <div className="text-lg font-black text-slate-100 font-mono">{instability.active_event_count}</div>
+              <div className="bg-surface-hover rounded-lg p-2 text-center">
+                <div className="text-[9px] text-fg-muted">Active Events</div>
+                <div className="text-lg font-black text-fg-primary font-mono">{instability.active_event_count}</div>
               </div>
-              <div className="bg-slate-800/30 rounded-lg p-2 text-center">
+              <div className="bg-surface-hover rounded-lg p-2 text-center">
                 <div className="text-[9px] text-slate-500">Critical</div>
                 <div className="text-lg font-black text-red-400 font-mono">{instability.critical_event_count}</div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="m-3 p-3 bg-slate-900/50 border border-slate-800/50 rounded-xl">
-            <p className="text-[11px] text-slate-500 text-center">No risk data available for this country</p>
+          <div className="m-3 p-3 bg-surface-raised/50 border border-line-subtle rounded-xl">
+            <p className="text-[11px] text-fg-muted text-center">No risk data available for this country</p>
           </div>
         )}
 
         {/* Country events */}
         {countryEvents.length > 0 && (
           <div className="px-3 pb-4">
-            <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-2">
+            <div className="text-[9px] text-fg-muted uppercase tracking-wider font-bold mb-2">
               Active Events ({countryEvents.length})
             </div>
             <div className="space-y-1.5">
@@ -410,11 +410,11 @@ function CountryRiskView({
                       event.threat_level === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'
                     }`} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] text-slate-200 leading-tight line-clamp-2">{event.title}</p>
+                      <p className="text-[11px] text-fg-primary leading-tight line-clamp-2">{event.title}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[9px] text-slate-500">{CATEGORY_ICON[event.category] || '🌐'} {event.category}</span>
-                        <span className="text-[9px] text-slate-600">·</span>
-                        <span className="text-[9px] text-slate-500">{timeAgo(event.event_timestamp)}</span>
+                        <span className="text-[9px] text-fg-muted">{CATEGORY_ICON[event.category] || '🌐'} {event.category}</span>
+                        <span className="text-[9px] text-fg-muted">·</span>
+                        <span className="text-[9px] text-fg-muted">{timeAgo(event.event_timestamp)}</span>
                       </div>
                     </div>
                     <span className={`text-[9px] font-bold uppercase shrink-0 ${threatColor(event.threat_level)}`}>
@@ -472,15 +472,15 @@ function GlobalOverview({ mapData }: { mapData: MapData | null }) {
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-800/80 bg-gradient-to-r from-slate-950 via-slate-900/60 to-slate-950 shrink-0">
+      <div className="px-4 py-3 border-b border-line-subtle bg-surface-raised/60 shrink-0">
         <div className="flex items-center gap-2">
           <Globe className="w-3.5 h-3.5 text-sky-400" />
-          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-100 font-mono">GLOBAL INTELLIGENCE</span>
+          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-fg-primary font-mono">GLOBAL INTELLIGENCE</span>
           <span className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[8px] text-emerald-400 font-bold">
             <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" /> LIVE
           </span>
         </div>
-        <p className="text-[9px] text-slate-500 mt-0.5 font-mono">Click any event or country on the globe</p>
+        <p className="text-[9px] text-fg-muted mt-0.5 font-mono">Click any event or country on the globe</p>
       </div>
 
       {/* Quick stats */}
@@ -492,10 +492,10 @@ function GlobalOverview({ mapData }: { mapData: MapData | null }) {
             { label: 'Hotspots', value: mapData.stats.total_hotspots, color: 'text-purple-400', icon: Zap },
             { label: 'High Risk', value: mapData.stats.high_risk_countries, color: 'text-orange-400', icon: Shield },
           ].map(({ label, value, color, icon: Icon }) => (
-            <div key={label} className="bg-slate-900/60 border border-slate-800/50 rounded-xl p-2.5 flex items-center gap-2">
+            <div key={label} className="bg-surface-raised/60 border border-line-subtle rounded-xl p-2.5 flex items-center gap-2">
               <Icon className={`w-4 h-4 ${color} shrink-0`} />
               <div>
-                <div className="text-[8px] text-slate-500 uppercase">{label}</div>
+                <div className="text-[8px] text-fg-muted uppercase">{label}</div>
                 <div className={`text-lg font-black font-mono ${color}`}>{value}</div>
               </div>
             </div>
@@ -506,18 +506,18 @@ function GlobalOverview({ mapData }: { mapData: MapData | null }) {
       {/* Critical alerts */}
       {topCriticalEvents.length > 0 && (
         <div className="px-3 mt-3">
-          <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-2">Critical Alerts</div>
+          <div className="text-[9px] text-fg-muted uppercase tracking-wider font-bold mb-2">Critical Alerts</div>
           <div className="space-y-1.5">
             {topCriticalEvents.map(event => (
               <div key={event.event_id} className="p-2 bg-red-500/5 border border-red-500/20 rounded-lg">
                 <div className="flex items-start gap-1.5">
                   <AlertTriangle className="w-3 h-3 text-red-400 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-[10px] text-slate-200 leading-tight line-clamp-2">{event.title}</p>
+                    <p className="text-[10px] text-fg-primary leading-tight line-clamp-2">{event.title}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className={`text-[9px] font-bold ${threatColor(event.threat_level)}`}>{event.threat_level.toUpperCase()}</span>
-                      <span className="text-[9px] text-slate-600">·</span>
-                      <span className="text-[9px] text-slate-500">{event.location_name || event.country_code || 'Global'}</span>
+                      <span className="text-[9px] text-fg-muted">·</span>
+                      <span className="text-[9px] text-fg-muted">{event.location_name || event.country_code || 'Global'}</span>
                     </div>
                   </div>
                 </div>
@@ -530,7 +530,7 @@ function GlobalOverview({ mapData }: { mapData: MapData | null }) {
       {/* Top risk countries */}
       {topCountries.length > 0 && (
         <div className="px-3 mt-3">
-          <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-2">
+          <div className="text-[9px] text-fg-muted uppercase tracking-wider font-bold mb-2">
             Highest Risk Countries
           </div>
           <div className="space-y-2">
@@ -539,10 +539,10 @@ function GlobalOverview({ mapData }: { mapData: MapData | null }) {
               const barColor = level === 'critical' ? 'bg-red-500' : level === 'high' ? 'bg-orange-500' : level === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'
               return (
                 <div key={c.country_code} className="flex items-center gap-2">
-                  <span className="text-[9px] text-slate-600 font-mono w-4 shrink-0">{i + 1}</span>
+                  <span className="text-[9px] text-fg-muted font-mono w-4 shrink-0">{i + 1}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[10px] text-slate-300 font-medium truncate">{c.country_name}</span>
+                      <span className="text-[10px] text-fg-secondary font-medium truncate">{c.country_name}</span>
                       <span className={`text-[10px] font-black font-mono ${threatColor(level)}`}>{c.instability_index.toFixed(0)}</span>
                     </div>
                     {riskBar(c.instability_index, barColor)}
@@ -557,12 +557,12 @@ function GlobalOverview({ mapData }: { mapData: MapData | null }) {
       {/* Affected sectors */}
       {sectorCounts.length > 0 && (
         <div className="px-3 mt-3 pb-4">
-          <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-2">Affected Sectors</div>
+          <div className="text-[9px] text-fg-muted uppercase tracking-wider font-bold mb-2">Affected Sectors</div>
           <div className="flex flex-wrap gap-1.5">
             {sectorCounts.map(([sector, count]) => (
-              <div key={sector} className="px-2 py-1 bg-slate-800/60 border border-slate-700/40 rounded-lg flex items-center gap-1.5">
+              <div key={sector} className="px-2 py-1 bg-surface-hover border border-line-subtle rounded-lg flex items-center gap-1.5">
                 <span className="text-[10px]">{CATEGORY_ICON[sector.toLowerCase()] || '📊'}</span>
-                <span className="text-[10px] text-slate-300">{sector}</span>
+                <span className="text-[10px] text-fg-secondary">{sector}</span>
                 <span className="text-[9px] text-sky-400 font-mono">{count}</span>
               </div>
             ))}
@@ -574,7 +574,7 @@ function GlobalOverview({ mapData }: { mapData: MapData | null }) {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <Globe className="w-10 h-10 text-slate-700 mx-auto mb-3 animate-pulse" />
-            <p className="text-sm text-slate-500">Loading intelligence data...</p>
+            <p className="text-sm text-fg-muted">Loading intelligence data...</p>
           </div>
         </div>
       )}
@@ -595,7 +595,7 @@ export default function EventImpactPanel({ selectedEvent, selectedCountry, mapDa
   const mode = selectedEvent ? 'event' : selectedCountry ? 'country' : 'overview'
 
   return (
-    <div className="h-full bg-slate-950/98 border border-slate-800/70 rounded-xl overflow-hidden flex flex-col">
+    <div className="h-full bg-surface-base/98 border border-line-subtle rounded-xl overflow-hidden flex flex-col">
       <AnimatePresence mode="wait">
         {mode === 'event' && selectedEvent ? (
           <motion.div

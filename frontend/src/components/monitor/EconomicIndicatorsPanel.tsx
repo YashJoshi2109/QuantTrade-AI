@@ -23,16 +23,16 @@ export default function EconomicIndicatorsPanel() {
   })
 
   return (
-    <div className="hud-panel flex flex-col overflow-hidden bg-slate-950/95 border border-slate-800/70 rounded-xl">
+    <div className="hud-panel flex flex-col overflow-hidden bg-surface-base/95 border border-line-subtle rounded-xl">
       {/* Header */}
-      <div className="px-4 py-2.5 border-b border-slate-800/70 bg-gradient-to-r from-slate-950 via-slate-900/80 to-slate-950">
-        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-200 font-mono">
+      <div className="px-4 py-2.5 border-b border-line-subtle bg-surface-raised/80">
+        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-fg-primary font-mono">
           ECONOMIC INDICATORS
         </span>
       </div>
 
       {/* Tab Bar */}
-      <div className="flex border-b border-slate-800/50">
+      <div className="flex border-b border-line-subtle">
         {TABS.map(tab => (
           <button
             key={tab.key}
@@ -40,7 +40,7 @@ export default function EconomicIndicatorsPanel() {
             className={`flex-1 px-3 py-2.5 text-[11px] font-medium transition-all flex items-center justify-center gap-1.5 ${
               activeTab === tab.key
                 ? 'bg-emerald-500/10 text-emerald-400 border-b-2 border-emerald-500'
-                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'
+                : 'text-fg-muted hover:text-fg-secondary hover:bg-surface-hover'
             }`}
           >
             <span>{tab.icon}</span>
@@ -50,27 +50,27 @@ export default function EconomicIndicatorsPanel() {
       </div>
 
       {/* Indicator Rows */}
-      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-800/40">
+      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-line-subtle">
         {isLoading ? (
           <div className="p-4 space-y-3">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-16 bg-slate-800/50 rounded animate-pulse" />
+              <div key={i} className="h-16 bg-surface-hover rounded animate-pulse" />
             ))}
           </div>
         ) : data?.indicators.map((ind, i) => (
-          <div key={ind.series_id + i} className="px-4 py-3.5 hover:bg-slate-800/20 transition-colors">
+          <div key={ind.series_id + i} className="px-4 py-3.5 hover:bg-surface-hover transition-colors">
             <div className="flex items-start justify-between">
               <div>
-                <div className="text-[12px] font-medium text-slate-300">{ind.name}</div>
-                <div className="text-xl font-bold text-slate-50 font-mono mt-0.5">{ind.value}</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">{ind.date}</div>
+                <div className="text-[12px] font-medium text-fg-secondary">{ind.name}</div>
+                <div className="text-xl font-bold text-fg-primary font-mono mt-0.5">{ind.value}</div>
+                <div className="text-[10px] text-fg-muted mt-0.5">{ind.date}</div>
               </div>
               <div className="text-right flex flex-col items-end gap-1">
-                <span className="text-[10px] text-slate-600 font-mono">{ind.series_id}</span>
+                <span className="text-[10px] text-fg-muted font-mono">{ind.series_id}</span>
                 {ind.change && (
                   <div className={`flex items-center gap-1 text-sm font-mono font-bold ${
-                    ind.change_direction === 'up' ? 'text-emerald-400' : 
-                    ind.change_direction === 'down' ? 'text-red-400' : 'text-slate-400'
+                    ind.change_direction === 'up' ? 'text-emerald-400' :
+                    ind.change_direction === 'down' ? 'text-red-400' : 'text-fg-secondary'
                   }`}>
                     {ind.change_direction === 'up' ? (
                       <TrendingUp className="w-3 h-3" />

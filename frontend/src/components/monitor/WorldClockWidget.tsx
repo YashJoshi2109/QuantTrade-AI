@@ -74,15 +74,15 @@ export default function WorldClockWidget() {
         return (
           <div
             key={clock.city}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-800/40 border border-slate-700/40 hover:border-slate-600/60 transition-colors shrink-0"
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-surface-hover border border-line-subtle hover:border-line-default transition-colors shrink-0"
           >
             <span className="text-sm">{clock.flag}</span>
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">{clock.city}</span>
+                <span className="text-[10px] font-bold text-fg-secondary uppercase tracking-wider">{clock.city}</span>
                 <span className={`w-1.5 h-1.5 rounded-full ${market.open ? 'bg-emerald-400' : 'bg-red-400/60'}`} />
               </div>
-              <span className="text-[11px] font-mono font-bold text-slate-100 tabular-nums">
+              <span className="text-[11px] font-mono font-bold text-fg-primary tabular-nums">
                 {times[clock.city] || '--:--:--'}
               </span>
             </div>

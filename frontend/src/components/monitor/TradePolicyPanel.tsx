@@ -13,29 +13,29 @@ export default function TradePolicyPanel() {
   })
 
   return (
-    <div className="hud-panel flex flex-col overflow-hidden bg-slate-950/95 border border-slate-800/70 rounded-xl max-h-[34rem]">
+    <div className="hud-panel flex flex-col overflow-hidden bg-surface-base/95 border border-line-subtle rounded-xl max-h-[34rem]">
       {/* Header */}
-      <div className="px-4 py-2.5 border-b border-slate-800/70 bg-gradient-to-r from-slate-950 via-slate-900/80 to-slate-950 flex items-center justify-between">
-        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-200 font-mono">
+      <div className="px-4 py-2.5 border-b border-line-subtle bg-surface-raised/80 flex items-center justify-between">
+        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-fg-primary font-mono">
           TRADE POLICY
         </span>
-        <span className="text-[9px] text-slate-600 font-mono">WTO / GDELT</span>
+        <span className="text-[9px] text-fg-muted font-mono">WTO / GDELT</span>
       </div>
 
       {/* Policy List */}
-      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-800/40">
+      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-line-subtle">
         {isLoading ? (
           <div className="p-4 space-y-3">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-14 bg-slate-800/50 rounded animate-pulse" />
+              <div key={i} className="h-14 bg-surface-hover rounded animate-pulse" />
             ))}
           </div>
         ) : data?.policies.length === 0 ? (
-          <div className="flex items-center justify-center p-8 text-xs text-slate-500">
+          <div className="flex items-center justify-center p-8 text-xs text-fg-muted">
             No recent trade policy updates
           </div>
         ) : data?.policies.map((policy, i) => (
-          <div key={i} className="px-4 py-3 hover:bg-slate-800/20 transition-colors group">
+          <div key={i} className="px-4 py-3 hover:bg-surface-hover transition-colors group">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -49,16 +49,16 @@ export default function TradePolicyPanel() {
                     </span>
                   )}
                   {policy.country && (
-                    <span className="text-[9px] text-slate-500">{policy.country}</span>
+                    <span className="text-[9px] text-fg-muted">{policy.country}</span>
                   )}
                 </div>
-                <p className="text-[11px] font-medium text-slate-300 line-clamp-2 group-hover:text-sky-400 transition-colors">
+                <p className="text-[11px] font-medium text-fg-secondary line-clamp-2 group-hover:text-sky-400 transition-colors">
                   {policy.title}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[9px] text-slate-600">{policy.source}</span>
-                  <span className="text-[9px] text-slate-700">·</span>
-                  <span className="text-[9px] text-slate-600">{policy.date}</span>
+                  <span className="text-[9px] text-fg-muted">{policy.source}</span>
+                  <span className="text-[9px] text-fg-muted">·</span>
+                  <span className="text-[9px] text-fg-muted">{policy.date}</span>
                 </div>
               </div>
               {policy.url && (
@@ -66,7 +66,7 @@ export default function TradePolicyPanel() {
                   href={policy.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-1.5 rounded-md hover:bg-slate-700/50 text-slate-500 hover:text-sky-400 transition-colors"
+                  className="p-1.5 rounded-md hover:bg-surface-hover text-fg-muted hover:text-sky-400 transition-colors"
                 >
                   <ExternalLink className="w-3 h-3" />
                 </a>
@@ -78,7 +78,7 @@ export default function TradePolicyPanel() {
 
       {/* Footer */}
       {data && (
-        <div className="px-4 py-2 border-t border-slate-800/50 text-[9px] text-slate-600 font-mono text-center">
+        <div className="px-4 py-2 border-t border-line-subtle text-[9px] text-fg-muted font-mono text-center">
           {data.total} policies · Updated {new Date(data.updated_at).toLocaleTimeString()}
         </div>
       )}

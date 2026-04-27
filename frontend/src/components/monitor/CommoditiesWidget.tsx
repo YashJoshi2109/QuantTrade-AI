@@ -46,11 +46,11 @@ export default function CommoditiesWidget() {
   })
 
   return (
-    <div className="hud-panel bg-slate-950/95 border border-slate-800/70 rounded-xl overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-slate-800/70 bg-gradient-to-r from-slate-950 via-slate-900/80 to-slate-950 flex items-center justify-between">
+    <div className="hud-panel bg-surface-base/95 border border-line-subtle rounded-xl overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-line-subtle bg-surface-raised/80 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BarChart2 className="w-3.5 h-3.5 text-amber-400" />
-          <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-200 font-mono">
+          <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-fg-primary font-mono">
             COMMODITIES & VOLATILITY
           </span>
         </div>
@@ -62,13 +62,13 @@ export default function CommoditiesWidget() {
       {isLoading ? (
         <div className="p-3 space-y-2">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-8 bg-slate-800/50 rounded animate-pulse" />
+            <div key={i} className="h-8 bg-surface-hover rounded animate-pulse" />
           ))}
         </div>
       ) : (
         <div className="divide-y divide-slate-800/40">
           {(commodities || []).slice(0, 10).map((c) => (
-            <div key={c.symbol} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-900/50 transition-colors">
+            <div key={c.symbol} className="flex items-center justify-between px-4 py-2.5 hover:bg-surface-hover transition-colors">
               <div className="flex items-center gap-2.5">
                 {c.direction === 'up' ? (
                   <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
@@ -78,18 +78,18 @@ export default function CommoditiesWidget() {
                   <Minus className="w-3.5 h-3.5 text-slate-500" />
                 )}
                 <div>
-                  <span className="text-[11px] font-medium text-slate-200">{c.name}</span>
-                  <span className="text-[9px] text-slate-600 ml-1.5 font-mono">{c.symbol}</span>
+                  <span className="text-[11px] font-medium text-fg-primary">{c.name}</span>
+                  <span className="text-[9px] text-fg-muted ml-1.5 font-mono">{c.symbol}</span>
                   {c.group && (
-                    <span className="ml-1.5 text-[8px] uppercase tracking-wider text-slate-500">{c.group}</span>
+                    <span className="ml-1.5 text-[8px] uppercase tracking-wider text-fg-muted">{c.group}</span>
                   )}
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-[12px] font-mono font-bold text-slate-100">{c.price}</div>
+                <div className="text-[12px] font-mono font-bold text-fg-primary">{c.price}</div>
                 {c.change && c.change !== '--' && (
                   <div className={`text-[9px] font-mono ${
-                    c.direction === 'up' ? 'text-emerald-400' : c.direction === 'down' ? 'text-red-400' : 'text-slate-500'
+                    c.direction === 'up' ? 'text-emerald-400' : c.direction === 'down' ? 'text-red-400' : 'text-fg-muted'
                   }`}>
                     {c.change}
                   </div>
