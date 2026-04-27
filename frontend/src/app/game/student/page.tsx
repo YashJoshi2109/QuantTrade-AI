@@ -174,7 +174,7 @@ export default function StudentWorldPage() {
                             ? 'border-amber-500/35 bg-amber-500/8 hover:bg-amber-500/15 cursor-pointer'
                             : isCompleted
                             ? 'border-emerald-500/25 bg-emerald-500/5 cursor-default'
-                            : 'border-white/6 bg-white/2 cursor-not-allowed opacity-50'
+                            : 'border-line-subtle bg-white/2 cursor-not-allowed opacity-50'
                         }`}
                       >
                         <div className="flex items-start gap-2.5">
@@ -182,7 +182,7 @@ export default function StudentWorldPage() {
                           <div className={`mt-0.5 w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold border ${
                             isCompleted ? 'bg-emerald-500/30 border-emerald-500/50 text-emerald-300'
                             : isAvailable ? 'bg-amber-500/30 border-amber-500/50 text-amber-300'
-                            : 'bg-white/5 border-white/15 text-white/30'
+                            : 'bg-white/5 border-line-default text-white/30'
                           }`}>
                             {isCompleted ? '✓' : isLocked ? '🔒' : ch.number}
                           </div>
@@ -240,7 +240,7 @@ export default function StudentWorldPage() {
 
                   {/* Goal meter mini */}
                   {currentGoalTarget > 0 && (
-                    <div className="mt-4 rounded-xl bg-white/3 border border-white/8 p-3">
+                    <div className="mt-4 rounded-xl bg-white/3 border border-line-subtle p-3">
                       <div className="flex items-center justify-between text-xs mb-2">
                         <span className="text-white/50">{currentGoalLabel}</span>
                         <span className="font-mono text-white/70">{currentGoalSaved}/{currentGoalTarget}s</span>
@@ -340,7 +340,7 @@ export default function StudentWorldPage() {
           </div>
 
           {/* XP progress */}
-          <div className="rounded-xl bg-white/3 border border-white/8 p-3">
+          <div className="rounded-xl bg-white/3 border border-line-subtle p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-white/50">Experience</span>
               <span className="font-mono text-xs text-amber-400">{xp} XP</span>
@@ -370,7 +370,7 @@ export default function StudentWorldPage() {
                 { name: 'Headmaster Aldus', role: 'Graduation', emoji: '🎓', color: '#C9A84C' },
               ].map((npc) => (
                 <div key={npc.name}
-                  className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/3 border border-white/6">
+                  className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/3 border border-line-subtle">
                   <span className="text-base">{npc.emoji}</span>
                   <div className="min-w-0">
                     <div className="text-[10px] font-semibold text-white/70 truncate">{npc.name}</div>

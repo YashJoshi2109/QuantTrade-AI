@@ -70,7 +70,7 @@ export default function CommunityPage() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="bg-white/3 border border-white/8 rounded-2xl p-6 hover:border-white/15 transition-all"
+              className="bg-white/3 border border-line-subtle rounded-2xl p-6 hover:border-line-default transition-all"
             >
               <div className="flex items-start gap-5">
                 {/* Icon */}
@@ -145,7 +145,7 @@ export default function CommunityPage() {
               return (
                 <div
                   key={g.name}
-                  className="bg-white/3 border border-white/8 rounded-xl p-4 flex items-center gap-4"
+                  className="bg-white/3 border border-line-subtle rounded-xl p-4 flex items-center gap-4"
                 >
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center text-lg border shrink-0"

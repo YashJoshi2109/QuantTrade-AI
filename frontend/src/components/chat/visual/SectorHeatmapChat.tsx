@@ -14,7 +14,7 @@ export default function SectorHeatmapChat({ data }: Props) {
 
   if (!sorted.length) {
     return (
-      <div className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-white/[0.06] p-4 text-center">
+      <div className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-line-subtle p-4 text-center">
         <p className="text-[10px] text-fg-muted">No sector data available</p>
       </div>
     )
@@ -27,7 +27,7 @@ export default function SectorHeatmapChat({ data }: Props) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-white/[0.06] overflow-hidden"
+      className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-line-subtle overflow-hidden"
     >
       <div className="px-3 pt-3 pb-2 flex items-center gap-2">
         <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />

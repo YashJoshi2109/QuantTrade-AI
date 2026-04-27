@@ -166,7 +166,7 @@ export default function CharacterPage() {
               key={card.label}
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white/3 border border-white/8 rounded-xl p-5 text-center"
+              className="bg-white/3 border border-line-subtle rounded-xl p-5 text-center"
             >
               <div className="text-2xl mb-2">{card.icon}</div>
               <div className="text-xs text-fg-muted mb-1">{card.label}</div>
@@ -176,7 +176,7 @@ export default function CharacterPage() {
         </div>
 
         {/* Trait radar */}
-        <div className="bg-white/3 border border-white/8 rounded-2xl p-6">
+        <div className="bg-white/3 border border-line-subtle rounded-2xl p-6">
           <h2 className="text-white font-bold text-lg mb-6 flex items-center gap-2">
             <span>🔮</span> Behavioral Profile
           </h2>
@@ -209,7 +209,7 @@ export default function CharacterPage() {
 
         {/* Behavioral flags */}
         {character?.behavioral_profile && Object.keys(character.behavioral_profile).length > 0 && (
-          <div className="mt-6 bg-white/3 border border-white/8 rounded-2xl p-6">
+          <div className="mt-6 bg-white/3 border border-line-subtle rounded-2xl p-6">
             <h2 className="text-white font-bold mb-4 flex items-center gap-2">
               <span>🧠</span> AI Behavior Patterns
             </h2>

@@ -57,7 +57,7 @@ export function RoofMeter({
 
       {/* Progress bar */}
       <div className="relative">
-        <div className="h-5 bg-white/5 rounded-full overflow-hidden border border-white/8">
+        <div className="h-5 bg-white/5 rounded-full overflow-hidden border border-line-subtle">
           <motion.div
             className="h-full rounded-full relative overflow-hidden"
             style={{ backgroundColor: currentColor }}

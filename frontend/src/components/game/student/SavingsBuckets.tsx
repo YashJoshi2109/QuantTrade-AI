@@ -75,7 +75,7 @@ export function SavingsBuckets({
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.1 }}
-            className="rounded-xl border border-white/8 bg-white/3 p-3"
+            className="rounded-xl border border-line-subtle bg-white/3 p-3"
           >
             <div className="flex items-center gap-2.5 mb-2">
               <span className="text-xl">{bucket.emoji}</span>

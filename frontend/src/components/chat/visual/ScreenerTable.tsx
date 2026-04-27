@@ -94,7 +94,7 @@ export default function ScreenerTable({ data: initialData }: Props) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-white/[0.06] overflow-hidden"
+      className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-line-subtle overflow-hidden"
     >
       {/* Tab header */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
@@ -138,7 +138,7 @@ export default function ScreenerTable({ data: initialData }: Props) {
 
       {/* Table */}
       <div className="px-3 pb-3">
-        <div className="rounded-lg overflow-hidden border border-white/[0.04]">
+        <div className="rounded-lg overflow-hidden border border-line-subtle">
           {/* Header row */}
           <div className="grid grid-cols-[1fr_60px_70px_70px] text-[9px] text-fg-muted font-medium uppercase tracking-wider bg-white/[0.02] px-2.5 py-1.5">
             <span>Symbol</span>

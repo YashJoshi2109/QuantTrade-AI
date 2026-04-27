@@ -80,7 +80,7 @@ export default function ConversationHistory({
               className={`w-full text-left rounded-xl px-3 py-2.5 transition-all group ${
                 isActive
                   ? 'bg-cyan-500/10 border border-cyan-500/20'
-                  : 'bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] hover:border-white/[0.08]'
+                  : 'bg-white/[0.02] border border-line-subtle hover:bg-white/[0.05] hover:border-line-subtle'
               }`}
             >
               <div className="flex items-start gap-2.5">

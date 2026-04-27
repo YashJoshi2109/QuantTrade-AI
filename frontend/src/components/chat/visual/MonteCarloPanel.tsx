@@ -17,7 +17,7 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
   
   if (!forecast) {
     return (
-      <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3">
+      <div className="rounded-xl bg-white/[0.02] border border-line-subtle p-3">
         <p className="text-[10px] text-fg-muted">Monte Carlo simulation data not available</p>
       </div>
     )
@@ -63,7 +63,7 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
       </div>
 
       {/* Confidence intervals */}
-      <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3">
+      <div className="rounded-xl bg-white/[0.02] border border-line-subtle p-3">
         <div className="flex items-center gap-1 mb-2">
           <BarChart3 className="w-3 h-3 text-fg-muted" />
           <span className="text-[9px] uppercase tracking-wider text-fg-muted font-semibold">Confidence Intervals</span>
@@ -111,7 +111,7 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
       </div>
 
       {/* Percentiles */}
-      <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3">
+      <div className="rounded-xl bg-white/[0.02] border border-line-subtle p-3">
         <span className="text-[9px] uppercase tracking-wider text-fg-muted font-semibold mb-2 block">Price Percentiles</span>
         <div className="grid grid-cols-2 gap-2">
           {[
@@ -130,7 +130,7 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
       </div>
 
       {/* Probabilities */}
-      <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3">
+      <div className="rounded-xl bg-white/[0.02] border border-line-subtle p-3">
         <div className="flex items-center gap-1 mb-2">
           {isBullish ? (
             <TrendingUp className="w-3 h-3 text-emerald-400" />
@@ -180,7 +180,7 @@ export default function MonteCarloPanel({ data, currentPrice }: Props) {
 
       {/* Statistics */}
       {forecast.annualized_volatility && (
-        <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3">
+        <div className="rounded-xl bg-white/[0.02] border border-line-subtle p-3">
           <span className="text-[9px] uppercase tracking-wider text-fg-muted font-semibold mb-2 block">Simulation Stats</span>
           <div className="grid grid-cols-2 gap-2 text-[8px]">
             <div>

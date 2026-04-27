@@ -23,7 +23,7 @@ export default function ChatHeader({
       <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/[0.06] via-blue-500/[0.04] to-purple-500/[0.06]" />
       <div className="absolute inset-0 backdrop-blur-xl bg-[#0A0E1A]/60" />
 
-      <div className="relative border-b border-white/[0.06] px-4 py-3 flex items-center justify-between">
+      <div className="relative border-b border-line-subtle px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00D9FF] via-[#0066FF] to-[#7C3AED] p-[1.5px] shadow-lg shadow-cyan-500/20">

@@ -101,7 +101,7 @@ export default function LiveVisitorCounter({ gaCount }: LiveVisitorCounterProps 
   const visibleAvatars = AVATARS.slice(0, displayLimit)
 
   return (
-    <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-md">
+    <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-line-subtle backdrop-blur-md">
       {/* "Live" label + pulse dot */}
       <div className="flex items-center gap-1.5">
         <span className="text-[11px] font-semibold text-fg-secondary tracking-wide">Live</span>

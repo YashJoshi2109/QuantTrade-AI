@@ -1700,7 +1700,7 @@ function CopilotInner() {
         }`}
       >
         {/* Header — liquid glass */}
-        <div className="relative shrink-0 border-b border-white/[0.07] bg-[rgba(6,10,22,0.72)] px-3 py-2 backdrop-blur-xl sm:px-5 sm:py-2.5">
+        <div className="relative shrink-0 border-b border-line-subtle bg-[rgba(6,10,22,0.72)] px-3 py-2 backdrop-blur-xl sm:px-5 sm:py-2.5">
           <div
             className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent"
             aria-hidden
@@ -1823,7 +1823,7 @@ function CopilotInner() {
         </div>
 
         {/* Input — glass composer */}
-        <div className="relative shrink-0 border-t border-white/[0.07] bg-[rgba(6,10,22,0.78)] px-3 py-3 backdrop-blur-xl sm:px-5 sm:py-4">
+        <div className="relative shrink-0 border-t border-line-subtle bg-[rgba(6,10,22,0.78)] px-3 py-3 backdrop-blur-xl sm:px-5 sm:py-4">
           <div
             className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#007AFF]/35 to-transparent"
             aria-hidden

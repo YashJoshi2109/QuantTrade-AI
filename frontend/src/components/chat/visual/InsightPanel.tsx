@@ -42,7 +42,7 @@ function CollapsibleSection({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] overflow-hidden">
+    <div className="rounded-xl bg-white/[0.02] border border-line-subtle overflow-hidden">
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-white/[0.02] transition-colors"
@@ -75,7 +75,7 @@ function CollapsibleSection({
 
 function Chip({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <span className={`inline-flex items-center gap-1 text-[9px] font-mono font-semibold px-2 py-0.5 rounded-md bg-white/[0.03] border border-white/[0.04] ${color}`}>
+    <span className={`inline-flex items-center gap-1 text-[9px] font-mono font-semibold px-2 py-0.5 rounded-md bg-white/[0.03] border border-line-subtle ${color}`}>
       {label}: {value}
     </span>
   )
@@ -243,7 +243,7 @@ function RegimePrediction({ data }: { data: StockAnalysisData }) {
       </div>
 
       {probs && (
-        <div className="rounded-xl bg-white/[0.015] backdrop-blur-sm border border-white/[0.04] p-3">
+        <div className="rounded-xl bg-white/[0.015] backdrop-blur-sm border border-line-subtle p-3">
           <RegimeDonut probs={probs} />
         </div>
       )}
@@ -263,7 +263,7 @@ function SentimentMeter({ score, overall }: { score: number; overall: string }) 
   const label = overall === 'positive' ? 'Bullish' : overall === 'negative' ? 'Bearish' : 'Neutral'
 
   return (
-    <div className="rounded-xl bg-white/[0.015] backdrop-blur-sm border border-white/[0.04] p-3 relative overflow-hidden">
+    <div className="rounded-xl bg-white/[0.015] backdrop-blur-sm border border-line-subtle p-3 relative overflow-hidden">
       {/* Glow */}
       <div
         className="absolute top-0 left-0 w-full h-full opacity-[0.06] pointer-events-none"
@@ -344,13 +344,13 @@ function SentimentPanel({ data }: { data: StockAnalysisData }) {
       {(sent?.analyst_recommendation || sent?.target_price != null) && (
         <div className="grid grid-cols-2 gap-2">
           {sent?.analyst_recommendation && (
-            <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] px-2.5 py-2">
+            <div className="rounded-lg bg-white/[0.02] border border-line-subtle px-2.5 py-2">
               <p className="text-[8px] text-fg-muted uppercase tracking-wider mb-0.5">Analyst</p>
               <p className="text-[11px] font-semibold text-white">{sent.analyst_recommendation}</p>
             </div>
           )}
           {sent?.target_price != null && (
-            <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] px-2.5 py-2">
+            <div className="rounded-lg bg-white/[0.02] border border-line-subtle px-2.5 py-2">
               <p className="text-[8px] text-fg-muted uppercase tracking-wider mb-0.5">Target</p>
               <div className="flex items-baseline gap-1">
                 <span className="text-[11px] font-semibold text-cyan-400">${sent.target_price.toFixed(2)}</span>

@@ -42,7 +42,7 @@ function MiniCard({ stock }: { stock: StockAnalysisData }) {
   const isUp = (stock.quote?.change_percent ?? 0) >= 0
 
   return (
-    <div className="flex-1 rounded-xl bg-white/[0.02] border border-white/[0.04] p-3 min-w-0">
+    <div className="flex-1 rounded-xl bg-white/[0.02] border border-line-subtle p-3 min-w-0">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20">
           {stock.symbol}
@@ -89,13 +89,13 @@ export default function ComparisonView({ data }: Props) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-white/[0.06] overflow-hidden"
+      className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-line-subtle overflow-hidden"
     >
       {/* Side by side header cards */}
       <div className="flex gap-2 p-3">
         <MiniCard stock={a} />
         <div className="flex items-center">
-          <span className="text-[10px] font-bold text-fg-muted bg-white/[0.03] border border-white/[0.04] rounded-full w-7 h-7 flex items-center justify-center">
+          <span className="text-[10px] font-bold text-fg-muted bg-white/[0.03] border border-line-subtle rounded-full w-7 h-7 flex items-center justify-center">
             VS
           </span>
         </div>
@@ -104,7 +104,7 @@ export default function ComparisonView({ data }: Props) {
 
       {/* Comparison table */}
       <div className="px-3 pb-3">
-        <div className="rounded-lg overflow-hidden border border-white/[0.04]">
+        <div className="rounded-lg overflow-hidden border border-line-subtle">
           {rows.map((row, i) => (
             <div
               key={row.label}

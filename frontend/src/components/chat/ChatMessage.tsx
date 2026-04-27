@@ -71,7 +71,7 @@ export default function ChatMessage({ message, conversationId, onRefresh }: Prop
 
   return (
     <div className="flex gap-2.5 animate-fade-in">
-      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00D9FF]/20 to-[#7C3AED]/20 flex items-center justify-center flex-shrink-0 border border-white/[0.06] mt-0.5">
+      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00D9FF]/20 to-[#7C3AED]/20 flex items-center justify-center flex-shrink-0 border border-line-subtle mt-0.5">
         <Zap className="w-4 h-4 text-cyan-400" />
       </div>
 
@@ -80,7 +80,7 @@ export default function ChatMessage({ message, conversationId, onRefresh }: Prop
         {(asOfLabel || isStale) && (
           <div className="flex items-center gap-2 flex-wrap">
             {asOfLabel && (
-              <span className="inline-flex items-center gap-1 text-[9px] text-fg-muted bg-white/[0.03] border border-white/[0.04] px-2 py-0.5 rounded-md">
+              <span className="inline-flex items-center gap-1 text-[9px] text-fg-muted bg-white/[0.03] border border-line-subtle px-2 py-0.5 rounded-md">
                 <Clock className="w-2.5 h-2.5" />
                 As of {asOfLabel}
               </span>
@@ -126,7 +126,7 @@ export default function ChatMessage({ message, conversationId, onRefresh }: Prop
 
         {/* AI text response — hidden when visual structured data is rendered */}
         {!hasVisual && (
-          <div className="bg-white/[0.04] backdrop-blur-sm rounded-2xl rounded-tl-sm px-4 py-2.5 border border-white/[0.06]">
+          <div className="bg-white/[0.04] backdrop-blur-sm rounded-2xl rounded-tl-sm px-4 py-2.5 border border-line-subtle">
             <p className="text-slate-200 text-[13px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
           </div>
         )}

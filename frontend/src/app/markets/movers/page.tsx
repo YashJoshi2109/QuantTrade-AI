@@ -130,7 +130,7 @@ function MobileMoversPage() {
         {/* ── Glass Header ── */}
         <header className="sticky top-0 z-30 pt-safe">
           <div
-            className="mx-3 mt-2 rounded-2xl border border-white/[0.08] px-4 py-3"
+            className="mx-3 mt-2 rounded-2xl border border-line-subtle px-4 py-3"
             style={{
               background: 'linear-gradient(135deg, rgba(10,14,26,0.92) 0%, rgba(26,35,50,0.88) 100%)',
               backdropFilter: 'blur(20px) saturate(1.6)',

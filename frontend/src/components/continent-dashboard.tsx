@@ -72,8 +72,8 @@ function MoverRow({
         href={`/research?symbol=${encodeURIComponent(stock.symbol)}`}
         className={`flex items-center justify-between px-5 py-3 transition-all duration-150 group ${
           up
-            ? 'hover:bg-emerald-500/[0.03] border-b border-white/[0.03]'
-            : 'hover:bg-red-500/[0.03] border-b border-white/[0.03]'
+            ? 'hover:bg-emerald-500/[0.03] border-b border-line-subtle'
+            : 'hover:bg-red-500/[0.03] border-b border-line-subtle'
         }`}
       >
         <div className="flex items-center gap-3 min-w-0">
@@ -111,7 +111,7 @@ function SkeletonRows({ count = 5 }: { count?: number }) {
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="flex items-center justify-between px-5 py-3 border-b border-white/[0.03]"
+          className="flex items-center justify-between px-5 py-3 border-b border-line-subtle"
         >
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 rounded-full bg-surface-raised/40 animate-pulse" />
@@ -146,7 +146,7 @@ export function GlassMoversPanel({
     >
       {/* ─── Top Gainers ─── */}
       <div className="glass-panel overflow-hidden">
-        <div className="px-5 py-4 border-b border-white/[0.05] flex items-center gap-3">
+        <div className="px-5 py-4 border-b border-line-subtle flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <ArrowUpRight className="w-4 h-4 text-emerald-400" />
             <h3 className="text-[14px] font-bold text-white tracking-[-0.01em]">
@@ -177,7 +177,7 @@ export function GlassMoversPanel({
 
       {/* ─── Top Losers ─── */}
       <div className="glass-panel overflow-hidden">
-        <div className="px-5 py-4 border-b border-white/[0.05] flex items-center gap-3">
+        <div className="px-5 py-4 border-b border-line-subtle flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <ArrowDownRight className="w-4 h-4 text-red-400" />
             <h3 className="text-[14px] font-bold text-white tracking-[-0.01em]">

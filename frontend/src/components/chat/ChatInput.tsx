@@ -44,7 +44,7 @@ export default function ChatInput({ value, onChange, onSend, isLoading, isAuthen
   return (
     <div className="shrink-0 p-3 pb-4">
       {/* Glass input container */}
-      <div className="relative rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] focus-within:border-cyan-500/30 focus-within:bg-white/[0.06] transition-all shadow-lg shadow-black/20">
+      <div className="relative rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-line-subtle focus-within:border-cyan-500/30 focus-within:bg-white/[0.06] transition-all shadow-lg shadow-black/20">
         <div className="absolute -inset-px rounded-2xl bg-gradient-to-r from-cyan-500/0 via-cyan-500/0 to-purple-500/0 opacity-0 focus-within:opacity-100 transition-opacity pointer-events-none" />
 
         <div className="relative flex items-end gap-2 p-2">

@@ -49,7 +49,7 @@ export function DailyReflection({
       </div>
 
       {/* Consequence text */}
-      <div className="rounded-xl bg-white/5 border border-white/8 p-4">
+      <div className="rounded-xl bg-white/5 border border-line-subtle p-4">
         <div className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-2">What happened</div>
         <p className="text-sm text-white/80 leading-relaxed">{choiceMade.consequence}</p>
       </div>
@@ -64,7 +64,7 @@ export function DailyReflection({
                 key={d.label}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-xl bg-white/5 border border-white/8 p-3 flex items-center gap-2"
+                className="rounded-xl bg-white/5 border border-line-subtle p-3 flex items-center gap-2"
               >
                 <span className="text-lg">{d.emoji}</span>
                 <div>

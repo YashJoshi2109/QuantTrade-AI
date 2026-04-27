@@ -224,7 +224,7 @@ export default function DiscoverPage() {
               className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors border ${
                 category === key
                   ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
-                  : 'bg-surface-overlay text-fg-muted border-white/[0.06] hover:text-fg-secondary hover:border-line-default'
+                  : 'bg-surface-overlay text-fg-muted border-line-subtle hover:text-fg-secondary hover:border-line-default'
               }`}
             >
               {label}
@@ -290,7 +290,7 @@ export default function DiscoverPage() {
                 >
                   {/* Community Header */}
                   <div className="flex items-start gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-white/[0.06] flex items-center justify-center text-lg shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-line-subtle flex items-center justify-center text-lg shrink-0">
                       {community.icon || community.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">

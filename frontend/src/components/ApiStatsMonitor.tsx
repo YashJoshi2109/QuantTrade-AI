@@ -86,7 +86,7 @@ function GlassPopoverShell({ children }: { children: React.ReactNode }) {
       />
       <div
         className={cn(
-          'relative overflow-hidden rounded-2xl border border-white/[0.09]',
+          'relative overflow-hidden rounded-2xl border border-line-default',
           'bg-[rgba(6,10,22,0.78)] backdrop-blur-xl backdrop-saturate-150',
           'shadow-[0_24px_48px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.07)]'
         )}
@@ -172,7 +172,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
           className={cn(
             'relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-mono',
             'transition-all duration-300 overflow-hidden',
-            'bg-[rgba(8,12,28,0.55)] backdrop-blur-md border-white/[0.08]',
+            'bg-[rgba(8,12,28,0.55)] backdrop-blur-md border-line-subtle',
             'hover:border-cyan-400/25 hover:shadow-[0_0_20px_rgba(34,211,238,0.12)]',
             isRateLimited && 'border-rose-500/35 bg-rose-950/20',
             fetchError && !stats && 'border-amber-500/40 bg-amber-950/15'
@@ -260,7 +260,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
                 ) : (
                   <>
                     <div className="space-y-3">
-                      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                      <div className="rounded-xl border border-line-subtle bg-white/[0.02] p-3">
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-1.5">
                             <Activity className="w-3.5 h-3.5 text-cyan-400" />
@@ -280,7 +280,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
                       </div>
 
                       {fmpStats && (
-                        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                        <div className="rounded-xl border border-line-subtle bg-white/[0.02] p-3">
                           <div className="flex items-center justify-between gap-2 mb-2">
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-1.5">
                               <Database className="w-3.5 h-3.5 text-violet-400" />
@@ -296,7 +296,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
                       )}
 
                       {cache?.entries != null && (
-                        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                        <div className="rounded-xl border border-line-subtle bg-white/[0.02] p-3">
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted flex items-center gap-1.5">
                               <Zap className="w-3.5 h-3.5 text-emerald-400/90" />
@@ -304,7 +304,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
                             </span>
                             <span className="text-[11px] font-mono text-slate-100">{formatNumber(cache.entries, 0)} keys</span>
                           </div>
-                          <div className="flex items-center justify-between text-[10px] text-fg-muted mt-2 pt-2 border-t border-white/[0.05]">
+                          <div className="flex items-center justify-between text-[10px] text-fg-muted mt-2 pt-2 border-t border-line-subtle">
                             <span>Hits / misses</span>
                             <span className="font-mono text-fg-secondary">
                               {formatNumber(cache.hits ?? 0, 0)} / {formatNumber(cache.misses ?? 0, 0)}
@@ -334,11 +334,11 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
   if (isInSidebar) {
     if (!stats) {
       return (
-        <div className="hud-stat p-3 rounded-xl border border-white/[0.06] bg-white/[0.02] animate-pulse h-24" />
+        <div className="hud-stat p-3 rounded-xl border border-line-subtle bg-white/[0.02] animate-pulse h-24" />
       )
     }
     return (
-      <div className="rounded-xl border border-white/[0.08] bg-[rgba(6,10,22,0.55)] backdrop-blur-md p-3 shadow-lg">
+      <div className="rounded-xl border border-line-subtle bg-[rgba(6,10,22,0.55)] backdrop-blur-md p-3 shadow-lg">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Activity className={`w-4 h-4 ${isRateLimited ? 'text-rose-400 animate-pulse' : 'text-cyan-400'}`} />
@@ -378,7 +378,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
           onClick={() => setIsExpanded(true)}
           className={cn(
             'group relative px-4 py-2.5 rounded-2xl border transition-all duration-300',
-            'bg-[rgba(6,10,22,0.72)] backdrop-blur-xl border-white/[0.1]',
+            'bg-[rgba(6,10,22,0.72)] backdrop-blur-xl border-line-default',
             'hover:border-cyan-400/30 hover:shadow-[0_12px_40px_rgba(0,0,0,0.45)]',
             isRateLimited && 'border-rose-500/40 bg-rose-950/30'
           )}
@@ -435,7 +435,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
                 </div>
                 <GlassMeter value={usedCalls} max={maxCalls} tone={isRateLimited ? 'rose' : usagePercent > 80 ? 'amber' : 'cyan'} />
               </div>
-              <div className="text-xs text-fg-muted border-t border-white/[0.06] pt-2">
+              <div className="text-xs text-fg-muted border-t border-line-subtle pt-2">
                 Cache {formatNumber(cache?.entries ?? 0, 0)} entries · hit {hitLabel}
               </div>
             </div>

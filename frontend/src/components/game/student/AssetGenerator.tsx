@@ -140,7 +140,7 @@ export function AssetGenerator({ defaultType = 'character', compact = false }: A
             onChange={(e) => setCustomName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && generate(customName)}
             placeholder={`Custom ${assetType} description…`}
-            className="flex-1 px-3 py-2 bg-white/3 border border-white/8 rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:border-amber-500/30 transition-all"
+            className="flex-1 px-3 py-2 bg-white/3 border border-line-subtle rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:border-amber-500/30 transition-all"
           />
           <button
             onClick={() => generate(customName)}

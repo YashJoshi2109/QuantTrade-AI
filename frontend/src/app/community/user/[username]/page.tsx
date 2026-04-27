@@ -447,7 +447,7 @@ export default function UserProfilePage() {
                     <div className="space-y-2">
                       {comments.map((comment: any) => (
                         <Link key={comment.id} href={`/community/post/${comment.post_id}`}
-                          className="block bg-surface-base border border-line-subtle rounded-xl p-4 hover:border-white/[0.12] transition-colors group">
+                          className="block bg-surface-base border border-line-subtle rounded-xl p-4 hover:border-line-default transition-colors group">
                           {comment.post_title && (
                             <div className="text-xs text-fg-muted mb-2 flex items-center gap-1">
                               <MessageSquare className="w-3 h-3" />

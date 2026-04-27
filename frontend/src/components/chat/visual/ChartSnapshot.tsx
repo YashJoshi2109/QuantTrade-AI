@@ -190,7 +190,7 @@ export default function ChartSnapshot({ symbol, data }: Props) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.1 }}
-      className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-white/[0.06] overflow-hidden"
+      className="rounded-2xl bg-[#15171E]/80 backdrop-blur-xl border border-line-subtle overflow-hidden"
     >
       {/* Timeframe tabs + indicator chips */}
       <div className="px-3 pt-3 pb-2 flex items-center justify-between gap-2">

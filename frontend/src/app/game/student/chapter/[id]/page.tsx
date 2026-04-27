@@ -46,7 +46,7 @@ function MarketSellMechanic({ config, onComplete }: { config: MarketSellConfig; 
       </div>
 
       {/* Goods to sell */}
-      <div className="rounded-xl bg-white/3 border border-white/8 p-3">
+      <div className="rounded-xl bg-white/3 border border-line-subtle p-3">
         <div className="text-[10px] text-white/40 uppercase tracking-wider mb-2">Today's Goods</div>
         <div className="flex gap-3 flex-wrap">
           {config.items.map((item) => (
@@ -72,7 +72,7 @@ function MarketSellMechanic({ config, onComplete }: { config: MarketSellConfig; 
               onClick={() => sellAtStall(i)}
               disabled={done}
               className={`w-full text-left rounded-xl border p-3.5 transition-all ${
-                isSelected ? 'border-amber-500/50 bg-amber-500/10' : 'border-white/8 bg-white/3 hover:border-white/20'
+                isSelected ? 'border-amber-500/50 bg-amber-500/10' : 'border-line-subtle bg-white/3 hover:border-line-default'
               } ${done ? 'opacity-60' : 'cursor-pointer'}`}
             >
               <div className="flex items-center justify-between mb-1">
@@ -200,7 +200,7 @@ function SavingsGoalMechanic({ config, onComplete }: { config: SavingsGoalConfig
 
       {/* Log */}
       {log.length > 0 && (
-        <div className="rounded-xl bg-white/3 border border-white/8 p-3 max-h-28 overflow-y-auto">
+        <div className="rounded-xl bg-white/3 border border-line-subtle p-3 max-h-28 overflow-y-auto">
           <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Activity Log</div>
           {log.map((entry, i) => (
             <div key={i} className="text-xs text-white/50 py-0.5">{entry}</div>
@@ -390,7 +390,7 @@ function AssetBuyMechanic({ config, onComplete }: { config: AssetBuyConfig; onCo
     <div className="space-y-4">
       {!bought ? (
         <>
-          <div className="rounded-xl bg-white/3 border border-white/8 p-4 text-center">
+          <div className="rounded-xl bg-white/3 border border-line-subtle p-4 text-center">
             <div className="text-3xl mb-2">{config.emoji}</div>
             <div className="font-bold text-white/90 mb-1">{config.asset}</div>
             <div className="text-sm text-white/50">{config.unitCost} silver per unit</div>
@@ -498,7 +498,7 @@ function AllocationMechanic({ config, onComplete }: { config: AllocateConfig; on
 
       {/* Bucket sliders */}
       {config.buckets.map((b) => (
-        <div key={b.id} className="rounded-xl bg-white/3 border border-white/8 p-3">
+        <div key={b.id} className="rounded-xl bg-white/3 border border-line-subtle p-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: b.color }} />
@@ -546,7 +546,7 @@ function GraduationMechanic({ config, completedChapters, onComplete }: { config:
         const done = completedChapters.includes(req.chapterId)
         return (
           <div key={req.chapterId} className={`flex items-center gap-3 p-3 rounded-xl border ${
-            done ? 'border-emerald-500/30 bg-emerald-500/8' : 'border-white/8 bg-white/3 opacity-60'
+            done ? 'border-emerald-500/30 bg-emerald-500/8' : 'border-line-subtle bg-white/3 opacity-60'
           }`}>
             <span className="text-xl">{req.emoji}</span>
             <span className={`text-sm flex-1 ${done ? 'text-emerald-300' : 'text-white/60'}`}>{req.label}</span>
@@ -729,7 +729,7 @@ export default function ChapterPage({ params }: { params: Promise<{ id: string }
             {/* MECHANIC */}
             {stage === 'mechanic' && (
               <motion.div key="mechanic" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
-                <div className="mb-4 rounded-xl bg-white/3 border border-white/8 px-4 py-3">
+                <div className="mb-4 rounded-xl bg-white/3 border border-line-subtle px-4 py-3">
                   <div className="text-[10px] text-white/30 uppercase tracking-wider mb-0.5">Mission</div>
                   <div className="text-sm text-white/75">{chapter.subtitle}</div>
                 </div>
@@ -775,7 +775,7 @@ export default function ChapterPage({ params }: { params: Promise<{ id: string }
                       <div className="text-3xl mb-2">🏦</div>
                       <div className="text-sm text-white/70">Current gold available: <span className="text-amber-300 font-bold font-mono">{gold}s</span></div>
                     </div>
-                    <div className="rounded-xl bg-white/3 border border-white/8 p-3 text-xs text-white/50 text-center mb-4">
+                    <div className="rounded-xl bg-white/3 border border-line-subtle p-3 text-xs text-white/50 text-center mb-4">
                       The Guild Vault earns 4% monthly interest. Withdrawal has a 12-hour delay.
                     </div>
                     <button
@@ -797,11 +797,11 @@ export default function ChapterPage({ params }: { params: Promise<{ id: string }
                       <div className="text-sm text-white/70 text-center">Cart wheel broken! Repair costs <span className="text-red-400 font-bold">15 silver</span></div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs text-white/50 mb-4">
-                      <div className="rounded-lg bg-white/3 border border-white/8 p-2 text-center">
+                      <div className="rounded-lg bg-white/3 border border-line-subtle p-2 text-center">
                         <div className="text-white/30 mb-0.5">Emergency reserve</div>
                         <div className="font-mono font-bold text-emerald-400">{emergency}s</div>
                       </div>
-                      <div className="rounded-lg bg-white/3 border border-white/8 p-2 text-center">
+                      <div className="rounded-lg bg-white/3 border border-line-subtle p-2 text-center">
                         <div className="text-white/30 mb-0.5">Liquid gold</div>
                         <div className="font-mono font-bold text-amber-400">{gold}s</div>
                       </div>
@@ -864,7 +864,7 @@ export default function ChapterPage({ params }: { params: Promise<{ id: string }
             {/* CHOICE */}
             {stage === 'choice' && (
               <motion.div key="choice" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
-                <div className="mb-4 rounded-xl bg-white/3 border border-white/8 p-3">
+                <div className="mb-4 rounded-xl bg-white/3 border border-line-subtle p-3">
                   <div className="text-[10px] text-amber-400/70 uppercase tracking-widest font-semibold mb-1">
                     📜 The Lesson
                   </div>

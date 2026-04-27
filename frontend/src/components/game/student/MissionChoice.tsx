@@ -52,13 +52,13 @@ export function MissionChoice({ choices, onChoose, disabled = false }: MissionCh
               className={`w-full text-left rounded-xl border p-3.5 transition-all duration-200 group ${
                 isSelected
                   ? 'border-amber-500/50 bg-amber-500/10 scale-[1.01]'
-                  : 'border-white/8 bg-white/3 hover:border-white/20 hover:bg-white/6'
+                  : 'border-line-subtle bg-white/3 hover:border-line-default hover:bg-white/6'
               } ${disabled || confirmed ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <div className="flex items-start gap-3">
                 {/* Radio indicator */}
                 <div className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
-                  isSelected ? 'border-amber-500 bg-amber-500' : 'border-white/20'
+                  isSelected ? 'border-amber-500 bg-amber-500' : 'border-line-default'
                 }`}>
                   {isSelected && (
                     <motion.div

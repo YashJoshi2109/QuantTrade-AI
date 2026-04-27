@@ -42,7 +42,7 @@ export default function QuickActions({ onSend }: QuickActionsProps) {
             <button
               key={i}
               onClick={() => onSend(action.prompt)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/[0.12] transition-all text-[11px] text-fg-muted hover:text-fg-primary whitespace-nowrap flex-shrink-0 active:scale-[0.97]"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.04] border border-line-subtle hover:bg-white/[0.08] hover:border-line-default transition-all text-[11px] text-fg-muted hover:text-fg-primary whitespace-nowrap flex-shrink-0 active:scale-[0.97]"
             >
               <action.icon className="w-3 h-3" />
               {action.label}

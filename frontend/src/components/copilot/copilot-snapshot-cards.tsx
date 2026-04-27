@@ -118,7 +118,7 @@ export function InlineStructuredSnapshots({ data }: { data: CopilotStructuredDat
   if (stocks && stocks.length >= 2) {
     const [a, b] = stocks
     return (
-      <div className="mb-3 border-b border-white/[0.06] pb-3">
+      <div className="mb-3 border-b border-line-subtle pb-3">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <BarChart3 className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
           <span className="text-[10px] font-bold uppercase tracking-wide text-cyan-300/90">
@@ -138,7 +138,7 @@ export function InlineStructuredSnapshots({ data }: { data: CopilotStructuredDat
 
   if (data.symbol) {
     return (
-      <div className="mb-3 border-b border-white/[0.06] pb-3">
+      <div className="mb-3 border-b border-line-subtle pb-3">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <Activity className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
           <span className="text-[10px] font-bold uppercase tracking-wide text-cyan-300/90">

@@ -234,7 +234,7 @@ function MediaGallery({ urls }: { urls: string[] }) {
                 key={i}
                 onClick={() => setActive(i)}
                 className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors ${
-                  i === active ? 'border-blue-500' : 'border-transparent hover:border-white/20'
+                  i === active ? 'border-blue-500' : 'border-transparent hover:border-line-default'
                 }`}
               >
                 {url.match(/\.(mp4|webm|ogg)(\?|$)/i) ? (

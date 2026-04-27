@@ -484,7 +484,7 @@ function ActiveChatPanel() {
       <ScrollArea className="flex-1 px-4 py-4">
         <div className="mx-auto flex max-w-3xl flex-col gap-2">
           {/* Encryption notice */}
-          <div className="mx-auto mb-4 flex items-center gap-1.5 rounded-lg bg-white/[0.03] px-3 py-1.5 text-[11px] text-fg-muted border border-white/[0.05]">
+          <div className="mx-auto mb-4 flex items-center gap-1.5 rounded-lg bg-white/[0.03] px-3 py-1.5 text-[11px] text-fg-muted border border-line-subtle">
             <Lock className="h-3 w-3" />
             Messages are end-to-end encrypted
           </div>
@@ -507,7 +507,7 @@ function ActiveChatPanel() {
                 className={`group relative max-w-[75%] rounded-2xl px-3.5 py-2 ${
                   message.sent
                     ? "bg-cyan-600/20 border border-cyan-500/20 rounded-br-md"
-                    : "bg-[#131820] border border-white/[0.06] rounded-bl-md"
+                    : "bg-[#131820] border border-line-subtle rounded-bl-md"
                 }`}
               >
                 <p className="text-[13px] leading-relaxed text-fg-primary">

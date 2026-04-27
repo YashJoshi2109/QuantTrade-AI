@@ -167,7 +167,7 @@ export default function GameDashboard() {
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-white/3 border border-white/8 rounded-2xl p-6 sticky top-24"
+            className="bg-white/3 border border-line-subtle rounded-2xl p-6 sticky top-24"
           >
             {/* Avatar */}
             <div className="text-center mb-5">
@@ -238,7 +238,7 @@ export default function GameDashboard() {
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl bg-white/3 border border-white/8 p-5"
+            className="rounded-2xl bg-white/3 border border-line-subtle p-5"
           >
             <div className="text-xs tracking-widest uppercase text-fg-muted mb-4">Your Life Journey · 5 Stages</div>
             <div className="grid grid-cols-5 gap-2">
@@ -255,7 +255,7 @@ export default function GameDashboard() {
                     key={s.id}
                     className={`relative flex flex-col items-center p-3 rounded-xl border transition-all ${
                       s.live
-                        ? 'border-white/15 bg-white/5 hover:border-white/25 cursor-pointer'
+                        ? 'border-line-default bg-white/5 hover:border-line-strong cursor-pointer'
                         : 'border-line-subtle bg-white/2 opacity-50'
                     } ${isCurrent ? 'ring-1 ring-offset-0' : ''}`}
                     style={isCurrent ? { borderColor: s.color } : {}}
@@ -339,7 +339,7 @@ export default function GameDashboard() {
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.08 }}
-                  className="bg-white/3 border border-white/8 rounded-xl p-5 hover:border-white/15 transition-all"
+                  className="bg-white/3 border border-line-subtle rounded-xl p-5 hover:border-line-default transition-all"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-start gap-3 flex-1">
@@ -399,7 +399,7 @@ export default function GameDashboard() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-white/3 border border-white/8 rounded-2xl p-5"
+            className="bg-white/3 border border-line-subtle rounded-2xl p-5"
           >
             <div className="text-xs tracking-widest uppercase text-fg-muted mb-4">Royal Treasury</div>
 
@@ -461,7 +461,7 @@ export default function GameDashboard() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex flex-col items-center gap-2 p-4 bg-white/3 border border-white/8 rounded-xl hover:border-white/15 hover:bg-white/5 transition-all text-center"
+                className="flex flex-col items-center gap-2 p-4 bg-white/3 border border-line-subtle rounded-xl hover:border-line-default hover:bg-white/5 transition-all text-center"
               >
                 <span className="text-2xl">{item.icon}</span>
                 <span className="text-xs text-fg-muted font-medium">{item.label}</span>
