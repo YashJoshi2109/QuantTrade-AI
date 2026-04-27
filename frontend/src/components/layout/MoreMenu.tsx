@@ -97,7 +97,7 @@ function MenuItem({
         {badge && (
           <span
             className={cn(
-              'text-[10px] px-2 py-0.5 rounded-full border border-white/10',
+              'text-[10px] px-2 py-0.5 rounded-full border border-line-subtle',
               badgeColor ?? 'text-cyan-300 bg-cyan-500/10 border-cyan-400/40'
             )}
           >
@@ -139,7 +139,7 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
   if (!open) return null
 
   return (
-    <div className="md:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div className="md:hidden fixed inset-0 z-50 flex items-end justify-center bg-surface-overlay/60 backdrop-blur-sm animate-fade-in">
       <div className="w-full max-w-md rounded-t-3xl bg-surface-base border-t border-line-subtle pb-safe animate-slide-in-bottom">
         <div className="flex flex-col px-4 pt-3 pb-2">
           <div className="mx-auto h-1 w-10 rounded-full bg-surface-active mb-3" />
@@ -249,13 +249,13 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
               Settings &amp; Support
             </p>
             <MenuItem
-              icon={<Settings className="w-4 h-4 text-slate-300" />}
+              icon={<Settings className="w-4 h-4 text-fg-secondary" />}
               title="Settings"
               description="Tune your workspace and preferences."
               href="/settings"
             />
             <MenuItem
-              icon={<Info className="w-4 h-4 text-slate-200" />}
+              icon={<Info className="w-4 h-4 text-fg-secondary" />}
               title="About"
               description="Product scope, data sources, and contact."
               href="/about"
@@ -267,7 +267,7 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
               href="/help"
             />
             <MenuItem
-              icon={<FileText className="w-4 h-4 text-slate-300" />}
+              icon={<FileText className="w-4 h-4 text-fg-secondary" />}
               title="Terms & Privacy"
               description="Legal, risk disclosures and policies."
               href="/legal"

@@ -191,7 +191,7 @@ export default function BottomNav() {
                       {item.icon}
                     </span>
                   </motion.div>
-                  <span className={cn('mt-0.5 transition-colors', isActive ? 'text-[#00D9FF] font-semibold' : 'text-slate-400')}>
+                  <span className={cn('mt-0.5 transition-colors', isActive ? 'text-[#00D9FF] font-semibold' : 'text-fg-secondary')}>
                     {item.label}
                   </span>
                 </button>
