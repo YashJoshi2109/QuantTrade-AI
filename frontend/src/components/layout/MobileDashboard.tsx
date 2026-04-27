@@ -60,13 +60,13 @@ function useCurrentTime() {
 function MarketStatusPill({ status }: { status?: MarketStatus }) {
   const isOpen = status?.is_open ?? false
   return (
-    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#1A2332]/80 border border-white/10">
+    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-raised border border-line-subtle">
       <span
         className={`w-2 h-2 rounded-full ${
           isOpen ? 'bg-[#00FF88] animate-pulse' : 'bg-slate-500'
         }`}
       />
-      <span className="text-[10px] font-medium text-slate-200">
+      <span className="text-[10px] font-medium text-fg-primary">
         {isOpen ? 'Market Open' : 'Market Closed'}
       </span>
     </div>
@@ -84,9 +84,9 @@ function DashboardIndexCard({ index, label }: DashboardIndexCardProps) {
   const isUp = isNumber(pct) && pct >= 0
 
   return (
-    <div className="shrink-0 w-[140px] h-[100px] rounded-2xl bg-[#1A2332]/90 border border-white/10 backdrop-blur-xl p-3 flex flex-col justify-between mr-2">
+    <div className="shrink-0 w-[140px] h-[100px] rounded-2xl bg-surface-raised border border-line-subtle backdrop-blur-xl p-3 flex flex-col justify-between mr-2">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-slate-400 font-medium">{label}</span>
+        <span className="text-[10px] text-fg-secondary font-medium">{label}</span>
         {isNumber(pct) && (
           <span
             className={`flex items-center gap-0.5 text-[10px] font-mono ${
@@ -100,10 +100,10 @@ function DashboardIndexCard({ index, label }: DashboardIndexCardProps) {
         )}
       </div>
       <div className="mt-1">
-        <div className="text-[14px] font-semibold text-white font-mono">
+        <div className="text-[14px] font-semibold text-fg-primary font-mono">
           {isNumber(value) ? formatNumber(value, 2) : '—'}
         </div>
-        <p className="mt-1 text-[10px] text-slate-500">
+        <p className="mt-1 text-[10px] text-fg-muted">
           {index?.timestamp
             ? new Date(index.timestamp).toLocaleTimeString(undefined, {
                 hour: 'numeric',
@@ -269,17 +269,17 @@ export default function MobileDashboard() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 pt-safe pb-2 px-1">
+      <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe pb-2 px-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-[#00D9FF] via-[#4c6fff] to-[#00D9FF] p-[1px]">
-              <div className="h-full w-full rounded-2xl bg-[#0A0E1A] flex items-center justify-center overflow-hidden">
+              <div className="h-full w-full rounded-2xl bg-surface-base flex items-center justify-center overflow-hidden">
                 <Image src="/logo.png" alt="QuantTrade AI" width={20} height={20} className="object-contain" />
               </div>
             </div>
             <div>
               <div className="flex items-center gap-1">
-                <span className="text-[11px] tracking-[0.22em] text-slate-400 font-semibold">
+                <span className="text-[11px] tracking-[0.22em] text-fg-secondary font-semibold">
                   QUANTTRADE AI
                 </span>
               </div>
@@ -292,15 +292,15 @@ export default function MobileDashboard() {
             <button
               type="button"
               onClick={() => setShowSearch(true)}
-              className="h-8 w-8 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center active:scale-95"
+              className="h-8 w-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center active:scale-95"
             >
-              <Search className="w-4 h-4 text-slate-200" />
+              <Search className="w-4 h-4 text-fg-primary" />
             </button>
             <Link
               href="/settings"
-              className="h-8 w-8 rounded-full bg-[#1A2332] border border-white/10 flex items-center justify-center active:scale-95"
+              className="h-8 w-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center active:scale-95"
             >
-              <User className="w-4 h-4 text-slate-200" />
+              <User className="w-4 h-4 text-fg-primary" />
             </Link>
           </div>
         </div>
@@ -308,23 +308,23 @@ export default function MobileDashboard() {
 
       {/* Search overlay */}
       {showSearch && (
-        <div className="fixed inset-0 z-50 bg-[#0A0E1A]/98 backdrop-blur-xl flex flex-col animate-fade-in">
-          <div className="flex items-center gap-2 px-4 pt-safe pb-3 border-b border-white/10">
+        <div className="fixed inset-0 z-50 bg-surface-base/98 backdrop-blur-xl flex flex-col animate-fade-in">
+          <div className="flex items-center gap-2 px-4 pt-safe pb-3 border-b border-line-subtle">
             <button
               type="button"
               onClick={() => setShowSearch(false)}
-              className="p-2 -ml-2 rounded-full hover:bg-white/5 active:scale-95"
+              className="p-2 -ml-2 rounded-full hover:bg-surface-hover active:scale-95"
             >
-              <ArrowRight className="w-5 h-5 text-slate-400 rotate-180" />
+              <ArrowRight className="w-5 h-5 text-fg-secondary rotate-180" />
             </button>
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
               <input
                 ref={searchInputRef}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search stocks, ETFs, crypto..."
-                className="w-full h-10 rounded-full bg-[#1A2332] border border-white/10 pl-9 pr-4 text-[13px] text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
+                className="w-full h-10 rounded-full bg-surface-raised border border-line-subtle pl-9 pr-4 text-[13px] text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
               />
             </div>
           </div>
@@ -336,12 +336,12 @@ export default function MobileDashboard() {
               </div>
             )}
             {!searching && searchQuery.trim().length > 0 && searchResults.length === 0 && (
-              <div className="text-center py-8 text-slate-500 text-sm">
+              <div className="text-center py-8 text-fg-muted text-sm">
                 No results for &quot;{searchQuery}&quot;
               </div>
             )}
             {!searching && searchQuery.trim().length === 0 && (
-              <div className="text-center py-8 text-slate-500 text-sm">
+              <div className="text-center py-8 text-fg-muted text-sm">
                 Type a symbol or company name to search
               </div>
             )}
@@ -350,15 +350,15 @@ export default function MobileDashboard() {
                 key={result.symbol}
                 type="button"
                 onClick={() => handleSearchSelect(result.symbol)}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors text-left"
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-hover active:bg-white/10 transition-colors text-left"
               >
                 <TickerLogo symbol={result.symbol} companyName={result.name} size={36} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-white">{result.symbol}</p>
-                  <p className="text-[11px] text-slate-500 truncate">{result.name}</p>
+                  <p className="text-[13px] font-semibold text-fg-primary">{result.symbol}</p>
+                  <p className="text-[11px] text-fg-muted truncate">{result.name}</p>
                 </div>
                 {result.asset_type && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400 uppercase">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-hover border border-line-subtle text-fg-secondary uppercase">
                     {result.asset_type}
                   </span>
                 )}
@@ -370,12 +370,12 @@ export default function MobileDashboard() {
 
       {/* Greeting */}
       <section className="px-1">
-        <div className="rounded-2xl bg-gradient-to-br from-[#141B2D] via-[#0A0E1A] to-[#141B2D] border border-white/10 p-4 relative overflow-hidden">
+        <div className="rounded-2xl bg-gradient-to-br from-[#141B2D] via-[#0A0E1A] to-[#141B2D] border border-line-subtle p-4 relative overflow-hidden">
           <div className="absolute -top-8 -right-10 w-28 h-28 bg-[#00D9FF]/15 blur-3xl" />
           <div className="relative space-y-1">
-            <p className="text-[11px] text-slate-400">{dateString}</p>
-            <h2 className="text-lg font-semibold text-white">{greeting}</h2>
-            <p className="text-[11px] text-slate-400 flex items-center gap-1">
+            <p className="text-[11px] text-fg-secondary">{dateString}</p>
+            <h2 className="text-lg font-semibold text-fg-primary">{greeting}</h2>
+            <p className="text-[11px] text-fg-secondary flex items-center gap-1">
               <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
               {timeString} • Live market overview
             </p>
@@ -386,16 +386,16 @@ export default function MobileDashboard() {
       {/* Quick stats carousel */}
       <section className="px-1">
         <div className="flex items-stretch overflow-x-auto scrollbar-hide -mx-1 px-1">
-          <div className="shrink-0 w-[140px] h-[100px] rounded-2xl bg-[#1A2332]/90 border border-white/10 backdrop-blur-xl p-3 flex flex-col justify-between mr-2">
+          <div className="shrink-0 w-[140px] h-[100px] rounded-2xl bg-surface-raised border border-line-subtle backdrop-blur-xl p-3 flex flex-col justify-between mr-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 font-medium">Market</span>
+              <span className="text-[10px] text-fg-secondary font-medium">Market</span>
               <Activity className="w-3.5 h-3.5 text-[#00D9FF]" />
             </div>
             <div className="mt-1">
-              <p className="text-[12px] text-slate-300">
+              <p className="text-[12px] text-fg-secondary">
                 {status?.status === 'OPEN' ? 'U.S. markets are trading.' : 'Markets are closed.'}
               </p>
-              <p className="mt-1 text-[9px] text-slate-500">
+              <p className="mt-1 text-[9px] text-fg-muted">
                 NYSE · NASDAQ{' '}
                 {status?.is_weekday ? (status?.is_open ? 'session live' : 'off-hours') : 'weekend'}
               </p>
@@ -415,7 +415,7 @@ export default function MobileDashboard() {
           <div className="flex items-center justify-between mb-2 px-0.5">
             <div className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-[#00D9FF]" />
-              <h3 className="text-[13px] font-semibold text-white">Top Sectors</h3>
+              <h3 className="text-[13px] font-semibold text-fg-primary">Top Sectors</h3>
             </div>
             <Link href="/markets" className="text-[11px] text-[#00D9FF]">
               View all
@@ -426,7 +426,7 @@ export default function MobileDashboard() {
               Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
-                  className="w-[160px] h-[80px] rounded-2xl bg-[#1A2332]/80 border border-white/10 animate-pulse"
+                  className="w-[160px] h-[80px] rounded-2xl bg-surface-raised border border-line-subtle animate-pulse"
                 />
               ))}
             {topSectors.map((s) => {
@@ -434,16 +434,16 @@ export default function MobileDashboard() {
               return (
                 <div
                   key={s.sector}
-                  className="shrink-0 w-[160px] h-[80px] rounded-2xl bg-[#1A2332]/90 border border-white/10 backdrop-blur-xl p-3 flex flex-col justify-between"
+                  className="shrink-0 w-[160px] h-[80px] rounded-2xl bg-surface-raised border border-line-subtle backdrop-blur-xl p-3 flex flex-col justify-between"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-300 truncate">{s.sector}</span>
+                    <span className="text-[11px] text-fg-secondary truncate">{s.sector}</span>
                     <span className={`text-[11px] font-mono ${up ? 'text-emerald-400' : 'text-red-400'}`}>
                       {up ? '+' : ''}
                       {formatPercent(s.change_percent, 2)}
                     </span>
                   </div>
-                  <div className="text-[10px] text-slate-500">
+                  <div className="text-[10px] text-fg-muted">
                     {s.stocks?.length ?? 0} stocks
                   </div>
                 </div>
@@ -457,7 +457,7 @@ export default function MobileDashboard() {
           <div className="flex items-center justify-between mb-2 px-0.5">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-emerald-400" />
-              <h3 className="text-[13px] font-semibold text-white">Top Gainers</h3>
+              <h3 className="text-[13px] font-semibold text-fg-primary">Top Gainers</h3>
             </div>
             <Link href="/markets" className="text-[11px] text-[#00D9FF]">
               View all
@@ -469,7 +469,7 @@ export default function MobileDashboard() {
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div
                     key={i}
-                    className="w-[130px] h-[130px] rounded-2xl bg-[#1A2332]/80 border border-white/10 animate-pulse"
+                    className="w-[130px] h-[130px] rounded-2xl bg-surface-raised border border-line-subtle animate-pulse"
                   />
                 ))}
               </>
@@ -479,7 +479,7 @@ export default function MobileDashboard() {
                 <Link
                   key={stock.symbol || `gainer-${idx}`}
                   href={`/research?symbol=${stock.symbol}`}
-                  className="w-[130px] h-[130px] rounded-2xl bg-[#1A2332]/90 border border-emerald-500/20 backdrop-blur-xl p-3 flex flex-col justify-between active:scale-[0.97] transition-transform"
+                  className="w-[130px] h-[130px] rounded-2xl bg-surface-raised border border-emerald-500/20 backdrop-blur-xl p-3 flex flex-col justify-between active:scale-[0.97] transition-transform"
                 >
                   <div className="flex items-center justify-between text-[10px]">
                     <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 font-mono">
@@ -491,20 +491,20 @@ export default function MobileDashboard() {
                     </span>
                   </div>
                   <div>
-                    <div className="text-[18px] font-semibold text-white">
+                    <div className="text-[18px] font-semibold text-fg-primary">
                       {stock.symbol}
                     </div>
-                    <div className="text-[10px] text-slate-500 line-clamp-1">
+                    <div className="text-[10px] text-fg-muted line-clamp-1">
                       {stock.name}
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-mono text-slate-300">
+                    <span className="font-mono text-fg-secondary">
                       {isNumber(stock.price)
                         ? `$${formatNumber(stock.price, 2)}`
                         : '—'}
                     </span>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+                    <ArrowRight className="w-3.5 h-3.5 text-fg-muted" />
                   </div>
                 </Link>
               ))}
@@ -516,7 +516,7 @@ export default function MobileDashboard() {
           <div className="flex items-center justify-between mb-2 px-0.5">
             <div className="flex items-center gap-2">
               <TrendingDown className="w-4 h-4 text-red-400" />
-              <h3 className="text-[13px] font-semibold text-white">Top Losers</h3>
+              <h3 className="text-[13px] font-semibold text-fg-primary">Top Losers</h3>
             </div>
             <Link href="/markets" className="text-[11px] text-[#00D9FF]">
               View all
@@ -528,7 +528,7 @@ export default function MobileDashboard() {
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div
                     key={i}
-                    className="w-[130px] h-[130px] rounded-2xl bg-[#1A2332]/80 border border-white/10 animate-pulse"
+                    className="w-[130px] h-[130px] rounded-2xl bg-surface-raised border border-line-subtle animate-pulse"
                   />
                 ))}
               </>
@@ -538,7 +538,7 @@ export default function MobileDashboard() {
                 <Link
                   key={stock.symbol || `loser-${idx}`}
                   href={`/research?symbol=${stock.symbol}`}
-                  className="w-[130px] h-[130px] rounded-2xl bg-[#1A2332]/90 border border-red-500/20 backdrop-blur-xl p-3 flex flex-col justify-between active:scale-[0.97] transition-transform"
+                  className="w-[130px] h-[130px] rounded-2xl bg-surface-raised border border-red-500/20 backdrop-blur-xl p-3 flex flex-col justify-between active:scale-[0.97] transition-transform"
                 >
                   <div className="flex items-center justify-between text-[10px]">
                     <span className="px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-300 font-mono">
@@ -550,20 +550,20 @@ export default function MobileDashboard() {
                     </span>
                   </div>
                   <div>
-                    <div className="text-[18px] font-semibold text-white">
+                    <div className="text-[18px] font-semibold text-fg-primary">
                       {stock.symbol}
                     </div>
-                    <div className="text-[10px] text-slate-500 line-clamp-1">
+                    <div className="text-[10px] text-fg-muted line-clamp-1">
                       {stock.name}
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-mono text-slate-300">
+                    <span className="font-mono text-fg-secondary">
                       {isNumber(stock.price)
                         ? `$${formatNumber(stock.price, 2)}`
                         : '—'}
                     </span>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+                    <ArrowRight className="w-3.5 h-3.5 text-fg-muted" />
                   </div>
                 </Link>
               ))}
@@ -584,12 +584,12 @@ export default function MobileDashboard() {
       <section className="px-1 pb-4">
         <div className="flex items-center justify-between mb-2 px-0.5">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-xl bg-[#1A2332] flex items-center justify-center border border-amber-400/40">
+            <div className="h-6 w-6 rounded-xl bg-surface-raised flex items-center justify-center border border-amber-400/40">
               <Zap className="w-3.5 h-3.5 text-amber-400" />
             </div>
             <div>
-              <h3 className="text-[13px] font-semibold text-white">Breaking News</h3>
-              <p className="text-[10px] text-slate-500">Live stories moving the market</p>
+              <h3 className="text-[13px] font-semibold text-fg-primary">Breaking News</h3>
+              <p className="text-[10px] text-fg-muted">Live stories moving the market</p>
             </div>
           </div>
         </div>
@@ -598,7 +598,7 @@ export default function MobileDashboard() {
             Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="rounded-2xl bg-[#1A2332]/90 border border-white/10 h-[70px] animate-pulse"
+                className="rounded-2xl bg-surface-raised border border-line-subtle h-[70px] animate-pulse"
               />
             ))}
           {!newsLoading &&
@@ -609,7 +609,7 @@ export default function MobileDashboard() {
                   ? 'text-emerald-400'
                   : sentiment === 'bearish'
                   ? 'text-red-400'
-                  : 'text-slate-400'
+                  : 'text-fg-secondary'
               const dotColor =
                 sentiment === 'bullish'
                   ? 'bg-emerald-400'
@@ -623,26 +623,26 @@ export default function MobileDashboard() {
                   href={article.url || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 rounded-2xl bg-[#1A2332]/95 border border-white/10 p-3 active:scale-[0.98] transition-transform"
+                  className="flex items-center gap-3 rounded-2xl bg-surface-raised border border-line-subtle p-3 active:scale-[0.98] transition-transform"
                 >
-                  <div className="h-8 w-8 rounded-xl bg-[#0A0E1A] flex items-center justify-center border border-white/10">
-                    <FileText className="w-4 h-4 text-slate-300" />
+                  <div className="h-8 w-8 rounded-xl bg-surface-base flex items-center justify-center border border-line-subtle">
+                    <FileText className="w-4 h-4 text-fg-secondary" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 text-[9px] mb-0.5">
                       {article.source && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-[#0A0E1A] text-[#00D9FF] border border-[#00D9FF]/30">
+                        <span className="px-1.5 py-0.5 rounded-full bg-surface-base text-[#00D9FF] border border-[#00D9FF]/30">
                           {article.source}
                         </span>
                       )}
-                      <span className="text-slate-500">
+                      <span className="text-fg-muted">
                         {new Date(article.published_at).toLocaleTimeString(undefined, {
                           hour: 'numeric',
                           minute: '2-digit',
                         })}
                       </span>
                     </div>
-                    <p className="text-[12px] text-white line-clamp-2">{article.title}</p>
+                    <p className="text-[12px] text-fg-primary line-clamp-2">{article.title}</p>
                     <div className="mt-1 flex items-center gap-1.5 text-[10px]">
                       <span className={`flex items-center gap-1 ${sentimentColor}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />

@@ -49,12 +49,12 @@ export default function MobileBacktest() {
   return (
     <div className="space-y-4 pb-4">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 pt-safe pb-2 px-1 flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe pb-2 px-1 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity className="w-5 h-5 text-[#00D9FF]" />
           <div>
-            <h1 className="text-[18px] font-semibold text-white">Backtester</h1>
-            <p className="text-[11px] text-slate-400">
+            <h1 className="text-[18px] font-semibold text-fg-primary">Backtester</h1>
+            <p className="text-[11px] text-fg-secondary">
               Quick strategy checks on the go.
             </p>
           </div>
@@ -63,14 +63,14 @@ export default function MobileBacktest() {
 
       {/* Tabs */}
       <section className="px-1">
-        <div className="flex rounded-full bg-[#1A2332] p-1 border border-white/10">
+        <div className="flex rounded-full bg-surface-raised p-1 border border-line-subtle">
           <button
             type="button"
             onClick={() => setActiveTab('config')}
             className={`flex-1 py-1.5 text-[12px] rounded-full ${
               activeTab === 'config'
                 ? 'bg-[#00D9FF]/15 text-[#00D9FF]'
-                : 'text-slate-400'
+                : 'text-fg-muted'
             }`}
           >
             Configuration
@@ -81,7 +81,7 @@ export default function MobileBacktest() {
             className={`flex-1 py-1.5 text-[12px] rounded-full ${
               activeTab === 'results'
                 ? 'bg-[#00D9FF]/15 text-[#00D9FF]'
-                : 'text-slate-400'
+                : 'text-fg-muted'
             }`}
           >
             Results
@@ -92,72 +92,72 @@ export default function MobileBacktest() {
       {/* Config */}
       {activeTab === 'config' && (
         <section className="px-1 space-y-3">
-          <div className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-3 space-y-3">
+          <div className="rounded-2xl bg-surface-raised border border-line-subtle p-3 space-y-3">
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">Symbol</label>
+              <label className="block text-[11px] text-fg-secondary mb-1">Symbol</label>
               <input
                 value={symbol}
                 onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                className="w-full h-9 rounded-xl bg-[#0A0E1A] border border-white/10 px-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
+                className="w-full h-9 rounded-xl bg-surface-base border border-line-subtle px-3 text-[13px] text-fg-primary focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
                 placeholder="AAPL"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[11px] text-slate-400 mb-1">
+                <label className="block text-[11px] text-fg-secondary mb-1">
                   Start Date
                 </label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full h-9 rounded-xl bg-[#0A0E1A] border border-white/10 px-3 text-[12px] text-white focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
+                  className="w-full h-9 rounded-xl bg-surface-base border border-line-subtle px-3 text-[12px] text-fg-primary focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
                 />
               </div>
               <div>
-                <label className="block text-[11px] text-slate-400 mb-1">
+                <label className="block text-[11px] text-fg-secondary mb-1">
                   End Date
                 </label>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full h-9 rounded-xl bg-[#0A0E1A] border border-white/10 px-3 text-[12px] text-white focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
+                  className="w-full h-9 rounded-xl bg-surface-base border border-line-subtle px-3 text-[12px] text-fg-primary focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">
+              <label className="block text-[11px] text-fg-secondary mb-1">
                 Initial Capital
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-500">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-fg-muted">
                   $
                 </span>
                 <input
                   type="number"
                   value={initialCapital}
                   onChange={(e) => setInitialCapital(Number(e.target.value || 0))}
-                  className="w-full h-9 rounded-xl bg-[#0A0E1A] border border-white/10 pl-6 pr-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
+                  className="w-full h-9 rounded-xl bg-surface-base border border-line-subtle pl-6 pr-3 text-[13px] text-fg-primary focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
                 />
               </div>
             </div>
           </div>
 
           {/* Strategy selection */}
-          <div className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-3 space-y-2">
-            <p className="text-[11px] text-slate-400 mb-1">Strategy</p>
+          <div className="rounded-2xl bg-surface-raised border border-line-subtle p-3 space-y-2">
+            <p className="text-[11px] text-fg-secondary mb-1">Strategy</p>
             <button
               type="button"
               onClick={() => setStrategy('rsi_ma_crossover')}
               className={`w-full text-left rounded-xl border p-3 text-[12px] mb-2 ${
                 strategy === 'rsi_ma_crossover'
-                  ? 'bg-[#00D9FF]/10 border-[#00D9FF]/60 text-slate-100'
-                  : 'bg-[#0A0E1A] border-white/10 text-slate-300'
+                  ? 'bg-[#00D9FF]/10 border-[#00D9FF]/60 text-fg-primary'
+                  : 'bg-surface-base border-line-subtle text-fg-secondary'
               }`}
             >
               <p className="font-semibold mb-0.5">RSI + MA Crossover</p>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-fg-secondary">
                 Buys oversold dips when price is above trend; exits on overbought or trend
                 breakdowns.
               </p>
@@ -167,12 +167,12 @@ export default function MobileBacktest() {
               onClick={() => setStrategy('ma_crossover')}
               className={`w-full text-left rounded-xl border p-3 text-[12px] ${
                 strategy === 'ma_crossover'
-                  ? 'bg-[#00D9FF]/10 border-[#00D9FF]/60 text-slate-100'
-                  : 'bg-[#0A0E1A] border-white/10 text-slate-300'
+                  ? 'bg-[#00D9FF]/10 border-[#00D9FF]/60 text-fg-primary'
+                  : 'bg-surface-base border-line-subtle text-fg-secondary'
               }`}
             >
               <p className="font-semibold mb-0.5">MA Crossover</p>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-fg-secondary">
                 Uses fast and slow moving averages to detect trend shifts and manage entries.
               </p>
             </button>
@@ -210,9 +210,9 @@ export default function MobileBacktest() {
       {activeTab === 'results' && (
         <section className="px-1 space-y-3">
           {!result && (
-            <div className="rounded-2xl border border-dashed border-slate-700 h-40 flex flex-col items-center justify-center text-[12px] text-slate-400">
+            <div className="rounded-2xl border border-dashed border-line-default h-40 flex flex-col items-center justify-center text-[12px] text-fg-secondary">
               <p>No results yet.</p>
-              <p className="text-[11px] text-slate-500 mt-1">
+              <p className="text-[11px] text-fg-muted mt-1">
                 Configure a symbol and run a backtest first.
               </p>
             </div>
@@ -221,8 +221,8 @@ export default function MobileBacktest() {
             <>
               {/* Summary grid */}
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-[#1A2332]/90 border border-white/10 p-3">
-                  <p className="text-[10px] text-slate-400 mb-1">Total Return</p>
+                <div className="rounded-xl bg-surface-raised border border-line-subtle p-3">
+                  <p className="text-[10px] text-fg-secondary mb-1">Total Return</p>
                   <p
                     className={`text-[16px] font-semibold ${
                       isReturnUp ? 'text-emerald-400' : 'text-red-400'
@@ -232,29 +232,29 @@ export default function MobileBacktest() {
                     {formatPercent(result.total_return, 2)}
                   </p>
                 </div>
-                <div className="rounded-xl bg-[#1A2332]/90 border border-white/10 p-3">
-                  <p className="text-[10px] text-slate-400 mb-1">Win Rate</p>
-                  <p className="text-[16px] font-semibold text-white">
+                <div className="rounded-xl bg-surface-raised border border-line-subtle p-3">
+                  <p className="text-[10px] text-fg-secondary mb-1">Win Rate</p>
+                  <p className="text-[16px] font-semibold text-fg-primary">
                     {formatPercent(result.win_rate, 1)}
                   </p>
                 </div>
-                <div className="rounded-xl bg-[#1A2332]/90 border border-white/10 p-3">
-                  <p className="text-[10px] text-slate-400 mb-1">Max Drawdown</p>
+                <div className="rounded-xl bg-surface-raised border border-line-subtle p-3">
+                  <p className="text-[10px] text-fg-secondary mb-1">Max Drawdown</p>
                   <p className="text-[16px] font-semibold text-red-400">
                     -{formatPercent(result.max_drawdown, 2)}
                   </p>
                 </div>
-                <div className="rounded-xl bg-[#1A2332]/90 border border-white/10 p-3">
-                  <p className="text-[10px] text-slate-400 mb-1">Trades</p>
-                  <p className="text-[16px] font-semibold text-white">
+                <div className="rounded-xl bg-surface-raised border border-line-subtle p-3">
+                  <p className="text-[10px] text-fg-secondary mb-1">Trades</p>
+                  <p className="text-[16px] font-semibold text-fg-primary">
                     {result.total_trades}
                   </p>
                 </div>
               </div>
 
               {/* Equity curve mini chart */}
-              <div className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-3">
-                <p className="text-[11px] text-slate-400 mb-2">Equity Curve</p>
+              <div className="rounded-2xl bg-surface-raised border border-line-subtle p-3">
+                <p className="text-[11px] text-fg-secondary mb-2">Equity Curve</p>
                 <div className="h-32 flex items-end gap-[2px]">
                   {equityBars.map((value, idx) => {
                     const min = Math.min(...equityBars)
@@ -273,15 +273,15 @@ export default function MobileBacktest() {
                     )
                   })}
                 </div>
-                <div className="mt-2 flex justify-between text-[10px] text-slate-500">
+                <div className="mt-2 flex justify-between text-[10px] text-fg-muted">
                   <span>Start</span>
                   <span>End</span>
                 </div>
               </div>
 
               {/* Recent trades */}
-              <div className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-3">
-                <p className="text-[11px] text-slate-400 mb-2">
+              <div className="rounded-2xl bg-surface-raised border border-line-subtle p-3">
+                <p className="text-[11px] text-fg-secondary mb-2">
                   Recent Trades (last 10)
                 </p>
                 <div className="space-y-1.5 max-h-52 overflow-y-auto scrollbar-hide">
@@ -291,13 +291,13 @@ export default function MobileBacktest() {
                     return (
                       <div
                         key={idx}
-                        className="flex items-center justify-between rounded-xl bg-[#0A0E1A] border border-white/5 px-3 py-2"
+                        className="flex items-center justify-between rounded-xl bg-surface-base border border-line-subtle px-3 py-2"
                       >
                         <div className="flex flex-col">
-                          <span className="text-[11px] text-slate-200">
+                          <span className="text-[11px] text-fg-primary">
                             {new Date(trade.entry_date).toLocaleDateString()}
                           </span>
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-[10px] text-fg-muted">
                             {trade.exit_reason
                               ? trade.exit_reason.replace(/_/g, ' ').toUpperCase()
                               : 'TRADE'}
@@ -313,7 +313,7 @@ export default function MobileBacktest() {
                             {formatNumber(pnl, 2)}
                           </div>
                           {isNumber(trade.return_pct) && (
-                            <div className="text-[10px] text-slate-400 font-mono">
+                            <div className="text-[10px] text-fg-secondary font-mono">
                               {trade.return_pct >= 0 ? '+' : ''}
                               {formatPercent(trade.return_pct, 2)}
                             </div>
@@ -323,7 +323,7 @@ export default function MobileBacktest() {
                     )
                   })}
                   {result.trades.length === 0 && (
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-fg-muted">
                       No trades were generated for this configuration.
                     </p>
                   )}

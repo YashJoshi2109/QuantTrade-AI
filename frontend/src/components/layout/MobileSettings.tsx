@@ -34,7 +34,7 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean
         }
       }}
       className={`relative w-12 h-6 rounded-full transition-colors border ${
-        enabled ? 'bg-[#00D9FF] border-[#00D9FF]' : 'bg-slate-600 border-white/10'
+        enabled ? 'bg-[#00D9FF] border-[#00D9FF]' : 'bg-surface-raised border-line-subtle'
       }`}
       aria-checked={enabled}
     >
@@ -66,28 +66,28 @@ function Row({
 }) {
   const content = (
     <div
-      className={`w-full flex items-center justify-between rounded-2xl bg-[#1A2332]/90 border border-white/10 p-3 active:scale-[0.99] transition-transform ${
+      className={`w-full flex items-center justify-between rounded-2xl bg-surface-raised border border-line-subtle p-3 active:scale-[0.99] transition-transform ${
         danger ? 'border-red-500/30 bg-red-500/5' : ''
       }`}
     >
       <div className="flex items-center gap-3">
         <div
           className={`h-9 w-9 rounded-full flex items-center justify-center ${
-            danger ? 'bg-red-500/20 text-red-300' : 'bg-[#0A0E1A] border border-white/10 text-slate-200'
+            danger ? 'bg-red-500/20 text-red-300' : 'bg-surface-base border border-line-subtle text-fg-primary'
           }`}
         >
           {icon}
         </div>
         <div className="min-w-0">
-          <p className={`text-[13px] font-semibold ${danger ? 'text-red-300' : 'text-white'}`}>
+          <p className={`text-[13px] font-semibold ${danger ? 'text-red-300' : 'text-fg-primary'}`}>
             {title}
           </p>
-          {subtitle && <p className="text-[11px] text-slate-500 truncate">{subtitle}</p>}
+          {subtitle && <p className="text-[11px] text-fg-muted truncate">{subtitle}</p>}
         </div>
       </div>
       <div className="flex items-center gap-2">
         {right}
-        {!right && !danger && <ChevronRight className="w-4 h-4 text-slate-500" />}
+        {!right && !danger && <ChevronRight className="w-4 h-4 text-fg-muted" />}
       </div>
     </div>
   )
@@ -152,14 +152,14 @@ export default function MobileSettings() {
   if (!isLoading && !isAuthenticated) {
     return (
       <div className="space-y-4">
-        <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 pt-safe pb-2 px-1">
-          <h1 className="text-xl font-semibold text-white">Settings</h1>
-          <p className="text-[11px] text-slate-400">Account + preferences</p>
+        <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe pb-2 px-1">
+          <h1 className="text-xl font-semibold text-fg-primary">Settings</h1>
+          <p className="text-[11px] text-fg-secondary">Account + preferences</p>
         </header>
-        <div className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-5 text-center">
+        <div className="rounded-2xl bg-surface-raised border border-line-subtle p-5 text-center">
           <LogIn className="w-10 h-10 text-[#00D9FF] mx-auto mb-3" />
-          <h2 className="text-[15px] font-semibold text-white">Sign in required</h2>
-          <p className="text-[11px] text-slate-400 mt-1">
+          <h2 className="text-[15px] font-semibold text-fg-primary">Sign in required</h2>
+          <p className="text-[11px] text-fg-secondary mt-1">
             Log in to manage your account, billing, and preferences.
           </p>
           <Link
@@ -175,9 +175,9 @@ export default function MobileSettings() {
 
   return (
     <div className="space-y-4 pb-4">
-      <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 pt-safe pb-2 px-1">
-        <h1 className="text-xl font-semibold text-white">Settings</h1>
-        <p className="text-[11px] text-slate-400">Hi, {displayName}</p>
+      <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe pb-2 px-1">
+        <h1 className="text-xl font-semibold text-fg-primary">Settings</h1>
+        <p className="text-[11px] text-fg-secondary">Hi, {displayName}</p>
       </header>
 
       {billingError && (
@@ -189,7 +189,7 @@ export default function MobileSettings() {
       )}
 
       <section className="px-1 space-y-2">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold px-1">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-fg-muted font-semibold px-1">
           Account
         </p>
         <Row
@@ -213,11 +213,11 @@ export default function MobileSettings() {
 
       {/* Passkey / Security */}
       <section className="px-1 space-y-2">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold px-1">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-fg-muted font-semibold px-1">
           Security
         </p>
-        <div className="rounded-2xl bg-[#1A2332]/90 border border-white/10 p-4 space-y-3">
-          <p className="text-[12px] text-slate-300 leading-relaxed">
+        <div className="rounded-2xl bg-surface-raised border border-line-subtle p-4 space-y-3">
+          <p className="text-[12px] text-fg-secondary leading-relaxed">
             Add a passkey to sign in with Face ID, Touch ID, or Windows Hello — no password needed.
           </p>
           <button
@@ -237,26 +237,26 @@ export default function MobileSettings() {
               {passkeyMsg.text}
             </p>
           )}
-          <div className="pt-4 mt-2 border-t border-white/10">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 font-semibold mb-3">Registered passkeys</p>
+          <div className="pt-4 mt-2 border-t border-line-subtle">
+            <p className="text-[10px] uppercase tracking-[0.14em] text-fg-muted font-semibold mb-3">Registered passkeys</p>
             {savedPasskeys.length === 0 ? (
-              <p className="text-[11px] text-slate-500">No passkeys saved yet.</p>
+              <p className="text-[11px] text-fg-muted">No passkeys saved yet.</p>
             ) : (
               <div className="space-y-2">
                 {savedPasskeys.map((pk) => (
-                  <div key={pk.id} className="group relative overflow-hidden bg-gradient-to-r from-slate-900 to-[#0A0E1A] border border-white/10 rounded-xl p-3 flex items-center justify-between transition-all hover:border-cyan-500/30">
+                  <div key={pk.id} className="group relative overflow-hidden bg-gradient-to-r from-slate-900 to-[#0A0E1A] border border-line-subtle rounded-xl p-3 flex items-center justify-between transition-all hover:border-cyan-500/30">
                     <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="flex items-center gap-3 relative z-10">
-                      <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center">
                         <Fingerprint className="w-4 h-4 text-cyan-400" />
                       </div>
                       <div>
-                        <p className="text-[12px] font-medium text-white">{pk.device_name || 'Unknown Device'}</p>
-                        <p className="text-[10px] text-slate-500 font-mono">••••{pk.credential_id_suffix}</p>
+                        <p className="text-[12px] font-medium text-fg-primary">{pk.device_name || 'Unknown Device'}</p>
+                        <p className="text-[10px] text-fg-muted font-mono">••••{pk.credential_id_suffix}</p>
                       </div>
                     </div>
                     <div className="relative z-10 text-right">
-                      <span className="text-[11px] text-slate-400">
+                      <span className="text-[11px] text-fg-secondary">
                         {pk.created_at ? new Date(pk.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                       </span>
                     </div>
@@ -269,7 +269,7 @@ export default function MobileSettings() {
       </section>
 
       <section className="px-1 space-y-2">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold px-1">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-fg-muted font-semibold px-1">
           Preferences
         </p>
         <Row
@@ -295,7 +295,7 @@ export default function MobileSettings() {
       </section>
 
       <section className="px-1 space-y-2">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold px-1">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-fg-muted font-semibold px-1">
           Data &amp; Privacy
         </p>
         <Row
@@ -307,7 +307,7 @@ export default function MobileSettings() {
       </section>
 
       <section className="px-1 space-y-2">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold px-1">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-fg-muted font-semibold px-1">
           Support
         </p>
         <Row
@@ -325,7 +325,7 @@ export default function MobileSettings() {
       </section>
 
       <section className="px-1 space-y-2">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold px-1">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-fg-muted font-semibold px-1">
           Account Actions
         </p>
         <Row

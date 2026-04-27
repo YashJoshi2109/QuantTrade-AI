@@ -17,7 +17,7 @@ export default function MobileLayout({
   showNav = true,
 }: MobileLayoutProps) {
   return (
-    <div className="md:hidden min-h-screen bg-[#0A0E1A] text-white flex flex-col pb-28 pb-safe">
+    <div className="md:hidden min-h-screen bg-surface-base text-fg-primary flex flex-col pb-28 pb-safe">
       <main className={cn('flex-1 px-4 pt-safe pb-4', className)}>
         {children}
         <SiteFooter />

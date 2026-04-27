@@ -14,9 +14,9 @@ const plans = [
     price: '$0',
     badge: null as string | null,
     icon: Zap,
-    accent: 'text-slate-200',
-    border: 'border-white/10',
-    bg: 'bg-[#1A2332]/80',
+    accent: 'text-fg-primary',
+    border: 'border-line-subtle',
+    bg: 'bg-surface-raised',
     cta: 'Current plan',
     disabled: true,
     features: ['Market movers', 'Basic research view', 'Delayed quotes'],
@@ -50,8 +50,8 @@ const plans = [
     badge: 'Coming soon',
     icon: Rocket,
     accent: 'text-purple-300',
-    border: 'border-white/10',
-    bg: 'bg-[#1A2332]/80',
+    border: 'border-line-subtle',
+    bg: 'bg-surface-raised',
     cta: 'Join waitlist',
     disabled: true,
     features: ['Priority realtime', 'Deeper filings RAG', 'Advanced portfolio analytics'],
@@ -84,23 +84,23 @@ export default function MobilePricing() {
 
   return (
     <div className="space-y-4 pb-4">
-      <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 pt-safe pb-2 px-1">
-        <h1 className="text-[18px] font-semibold text-white text-center">Choose Your Plan</h1>
-        <p className="text-[11px] text-slate-400 text-center">
+      <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe pb-2 px-1">
+        <h1 className="text-[18px] font-semibold text-fg-primary text-center">Choose Your Plan</h1>
+        <p className="text-[11px] text-fg-secondary text-center">
           Unlock powerful trading tools on mobile.
         </p>
       </header>
 
       <section className="px-1">
         <div className="flex justify-center">
-          <div className="inline-flex items-center bg-[#1A2332] border border-white/10 rounded-full p-1">
+          <div className="inline-flex items-center bg-surface-raised border border-line-subtle rounded-full p-1">
             <button
               type="button"
               onClick={() => setInterval('monthly')}
               className={`px-4 py-1.5 text-[11px] rounded-full transition-colors ${
                 interval === 'monthly'
                   ? 'bg-[#00D9FF] text-[#0A0E1A] font-semibold'
-                  : 'text-slate-300'
+                  : 'text-fg-secondary'
               }`}
             >
               Monthly
@@ -111,7 +111,7 @@ export default function MobilePricing() {
               className={`px-4 py-1.5 text-[11px] rounded-full transition-colors ${
                 interval === 'yearly'
                   ? 'bg-[#00D9FF] text-[#0A0E1A] font-semibold'
-                  : 'text-slate-300'
+                  : 'text-fg-secondary'
               }`}
             >
               Yearly <span className="text-[10px] ml-1">Save</span>
@@ -146,23 +146,23 @@ export default function MobilePricing() {
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-[#0A0E1A] border border-white/10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-2xl bg-surface-base border border-line-subtle flex items-center justify-center">
                     <Icon className={`w-5 h-5 ${p.accent}`} />
                   </div>
                   <div>
                     {p.badge && (
-                      <div className="text-[9px] uppercase tracking-[0.18em] text-slate-400 mb-1">
+                      <div className="text-[9px] uppercase tracking-[0.18em] text-fg-secondary mb-1">
                         {p.badge}
                       </div>
                     )}
-                    <h2 className="text-[16px] font-semibold text-white">{p.name}</h2>
-                    <p className="text-[11px] text-slate-400">{p.description}</p>
+                    <h2 className="text-[16px] font-semibold text-fg-primary">{p.name}</h2>
+                    <p className="text-[11px] text-fg-secondary">{p.description}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[22px] font-bold text-white">{price}</div>
+                  <div className="text-[22px] font-bold text-fg-primary">{price}</div>
                   {isPro && (
-                    <div className="text-[10px] text-slate-400">
+                    <div className="text-[10px] text-fg-secondary">
                       /{interval === 'monthly' ? 'month' : 'year'}
                     </div>
                   )}
@@ -171,7 +171,7 @@ export default function MobilePricing() {
 
               <div className="mt-3 space-y-2">
                 {p.features.map((f) => (
-                  <div key={f} className="flex items-start gap-2 text-[12px] text-slate-200">
+                  <div key={f} className="flex items-start gap-2 text-[12px] text-fg-primary">
                     <Check className="w-4 h-4 text-emerald-400 mt-0.5" />
                     <span>{f}</span>
                   </div>
@@ -189,7 +189,7 @@ export default function MobilePricing() {
                 className={`mt-4 w-full h-11 rounded-full text-[13px] font-semibold transition-all active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100 ${
                   p.id === 'pro'
                     ? 'bg-[#00D9FF] text-[#0A0E1A]'
-                    : 'bg-[#0A0E1A] text-slate-300 border border-white/10'
+                    : 'bg-surface-base text-fg-secondary border border-line-subtle'
                 }`}
               >
                 {p.id === 'pro' && loadingPlan ? 'Redirecting to Stripe…' : p.cta}
