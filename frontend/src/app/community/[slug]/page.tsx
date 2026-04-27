@@ -110,7 +110,7 @@ export default function CommunityDetailPage() {
     const notFoundContent = (
       <div className="min-h-screen flex items-center justify-center pb-safe">
         <div className="text-center">
-          <h2 className="text-xl font-bold text-slate-200 mb-2">Community not found</h2>
+          <h2 className="text-xl font-bold text-fg-primary mb-2">Community not found</h2>
           <Link href="/community" className="text-cyan-400 hover:text-cyan-300 text-sm">Back to feed</Link>
         </div>
       </div>
@@ -127,11 +127,11 @@ export default function CommunityDetailPage() {
     <div className="min-h-screen pb-safe">
       
       {/* ── Mobile Header ── */}
-      <header className="md:hidden sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-white/10 px-3 py-2.5 flex items-center justify-between">
+      <header className="md:hidden sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle px-3 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button 
             onClick={() => router.back()}
-            className="p-1.5 -ml-1.5 rounded-full text-slate-400 hover:text-white transition-colors"
+            className="p-1.5 -ml-1.5 rounded-full text-fg-muted hover:text-white transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -144,7 +144,7 @@ export default function CommunityDetailPage() {
           disabled={joining}
           className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
             community.is_member
-              ? 'bg-[#1a2130] text-slate-300 border border-white/10'
+              ? 'bg-surface-raised text-fg-secondary border border-line-subtle'
               : 'bg-blue-500 text-white'
           }`}
         >
@@ -167,18 +167,18 @@ export default function CommunityDetailPage() {
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-[#131820] rounded-2xl p-3 sm:p-5 mb-3"
+              className="bg-surface-raised rounded-2xl p-3 sm:p-5 mb-3"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   {/* Desktop breadcrumb */}
-                  <nav className="hidden md:flex items-center gap-1 text-xs text-slate-600 mb-3">
-                    <Link href="/community" className="hover:text-slate-400 transition-colors">Community</Link>
+                  <nav className="hidden md:flex items-center gap-1 text-xs text-fg-muted mb-3">
+                    <Link href="/community" className="hover:text-fg-muted transition-colors">Community</Link>
                     <span>›</span>
-                    <span className="text-slate-400">{community.name}</span>
+                    <span className="text-fg-muted">{community.name}</span>
                   </nav>
                   <div className="flex items-center gap-3 mb-2">
-                    <Link href="/community" className="hidden md:block text-slate-500 hover:text-slate-300 transition-colors">
+                    <Link href="/community" className="hidden md:block text-fg-muted hover:text-fg-secondary transition-colors">
                       <ArrowLeft className="w-4 h-4" />
                     </Link>
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-lg font-bold text-cyan-400 shrink-0">
@@ -186,12 +186,12 @@ export default function CommunityDetailPage() {
                     </div>
                     <div>
                       <h1 className="text-lg sm:text-xl font-bold text-white break-words">c/{community.name}</h1>
-                      <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-500 mt-0.5 flex-wrap">
+                      <div className="flex items-center gap-2 sm:gap-3 text-xs text-fg-muted mt-0.5 flex-wrap">
                         <span className="flex items-center gap-1">
                           <Users className="w-3 h-3" />
                           {community.member_count.toLocaleString()} members
                         </span>
-                        <span className="px-1.5 py-0.5 bg-slate-800/60 rounded text-[10px]">{community.category}</span>
+                        <span className="px-1.5 py-0.5 bg-surface-raised/60 rounded text-[10px]">{community.category}</span>
                         {community.ticker_focus && (
                           <span className="text-cyan-400 font-mono font-semibold">${community.ticker_focus}</span>
                         )}
@@ -199,7 +199,7 @@ export default function CommunityDetailPage() {
                     </div>
                   </div>
                   {community.description && (
-                    <p className="text-sm text-slate-400 mt-2 ml-0 sm:ml-[52px]">{community.description}</p>
+                    <p className="text-sm text-fg-muted mt-2 ml-0 sm:ml-[52px]">{community.description}</p>
                   )}
                 </div>
                 <button
@@ -207,7 +207,7 @@ export default function CommunityDetailPage() {
                   disabled={joining}
                   className={`hidden md:block px-5 py-2 rounded-full text-sm font-medium transition-all shrink-0 ${
                     community.is_member
-                      ? 'bg-[#1a2130] text-slate-300 hover:bg-red-500/15 hover:text-red-400 border border-white/10'
+                      ? 'bg-surface-raised text-fg-secondary hover:bg-red-500/15 hover:text-red-400 border border-line-subtle'
                       : 'bg-blue-500 text-white hover:bg-blue-400'
                   }`}
                 >
@@ -217,7 +217,7 @@ export default function CommunityDetailPage() {
             </motion.div>
 
             {/* Sort Tabs */}
-            <div className="bg-[#131820] rounded-2xl p-1 mb-3 flex gap-0.5 overflow-x-auto scrollbar-none">
+            <div className="bg-surface-raised rounded-2xl p-1 mb-3 flex gap-0.5 overflow-x-auto scrollbar-none">
               {SORT_TABS.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
@@ -226,8 +226,8 @@ export default function CommunityDetailPage() {
                   }}
                   className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors flex-1 justify-center whitespace-nowrap min-w-0 ${
                     sort === key
-                      ? 'bg-white/[0.08] text-white'
-                      : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]'
+                      ? 'bg-surface-active text-fg-primary'
+                      : 'text-fg-muted hover:text-fg-secondary hover:bg-surface-hover'
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
@@ -239,11 +239,11 @@ export default function CommunityDetailPage() {
             {/* Time filter for Top sort */}
             {sort === 'top' && (
               <div className="flex items-center gap-2 mb-3 px-1">
-                <span className="text-[11px] text-slate-500 uppercase tracking-wider">Period</span>
+                <span className="text-[11px] text-fg-muted uppercase tracking-wider">Period</span>
                 <select
                   value={time}
                   onChange={(e) => updateParams('top', e.target.value)}
-                  className="bg-[#131820] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                  className="bg-surface-raised border border-line-subtle rounded-lg px-3 py-1.5 text-xs text-fg-muted focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
                 >
                   {TIME_OPTIONS.map(({ value, label }) => (
                     <option key={value} value={value}>{label}</option>
@@ -254,9 +254,9 @@ export default function CommunityDetailPage() {
 
             {/* Posts */}
             {posts.length === 0 ? (
-              <div className="text-center py-16 text-slate-500 bg-[#131820] rounded-2xl">
+              <div className="text-center py-16 text-fg-muted bg-surface-raised rounded-2xl">
                 <p className="text-sm">No posts yet in this community</p>
-                <p className="text-xs text-slate-600 mt-1">Be the first to share something</p>
+                <p className="text-xs text-fg-muted mt-1">Be the first to share something</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -270,40 +270,40 @@ export default function CommunityDetailPage() {
           {/* Sidebar — below feed on mobile, right column on desktop */}
           <div className="w-full lg:w-[300px] shrink-0 space-y-4">
             {/* About */}
-            <div className="bg-[#131820] rounded-2xl p-4">
-              <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <div className="bg-surface-raised rounded-2xl p-4">
+              <h3 className="text-xs font-semibold text-fg-secondary uppercase tracking-wider mb-3 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-blue-400" /> About
               </h3>
-              <p className="text-sm text-slate-400 mb-3">{community.description || 'No description'}</p>
-              <div className="flex items-center gap-3 text-xs text-slate-500 mb-3">
+              <p className="text-sm text-fg-muted mb-3">{community.description || 'No description'}</p>
+              <div className="flex items-center gap-3 text-xs text-fg-muted mb-3">
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
                   Created {community.created_at ? new Date(community.created_at).toLocaleDateString() : 'recently'}
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-xs text-slate-500 pt-3 border-t border-white/[0.06]">
+              <div className="flex items-center gap-3 text-xs text-fg-muted pt-3 border-t border-line-subtle">
                 <div className="flex-1 text-center">
-                  <div className="text-lg font-bold text-slate-200">{community.member_count.toLocaleString()}</div>
-                  <div className="text-[10px] text-slate-500">Members</div>
+                  <div className="text-lg font-bold text-fg-primary">{community.member_count.toLocaleString()}</div>
+                  <div className="text-[10px] text-fg-muted">Members</div>
                 </div>
                 <div className="flex-1 text-center">
-                  <div className="text-lg font-bold text-slate-200">{posts.length}</div>
-                  <div className="text-[10px] text-slate-500">Posts</div>
+                  <div className="text-lg font-bold text-fg-primary">{posts.length}</div>
+                  <div className="text-[10px] text-fg-muted">Posts</div>
                 </div>
               </div>
             </div>
 
             {/* Links */}
-            <div className="bg-[#131820] rounded-2xl p-4 space-y-1">
-              <Link href={`/community/${slug}/members`} className="block text-sm text-slate-400 hover:text-slate-200 py-1.5 transition-colors">
+            <div className="bg-surface-raised rounded-2xl p-4 space-y-1">
+              <Link href={`/community/${slug}/members`} className="block text-sm text-fg-muted hover:text-fg-primary py-1.5 transition-colors">
                 View Members
               </Link>
               {community.is_member && (community as any).user_role && ['admin', 'owner', 'moderator'].includes((community as any).user_role) && (
                 <>
-                  <Link href="/community/moderation" className="block text-sm text-slate-400 hover:text-slate-200 py-1.5 transition-colors">
+                  <Link href="/community/moderation" className="block text-sm text-fg-muted hover:text-fg-primary py-1.5 transition-colors">
                     Moderation
                   </Link>
-                  <Link href={`/community/${slug}/settings`} className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 py-1.5 transition-colors">
+                  <Link href={`/community/${slug}/settings`} className="flex items-center gap-2 text-sm text-fg-muted hover:text-fg-primary py-1.5 transition-colors">
                     <Settings className="w-3.5 h-3.5" /> Community Settings
                   </Link>
                 </>

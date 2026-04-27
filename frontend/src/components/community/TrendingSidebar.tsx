@@ -159,11 +159,11 @@ export default function TrendingSidebar() {
     <div className="space-y-3 pl-1">
       {/* Market Mood */}
       {mood && mood.total_posts > 0 && (
-        <div className="bg-[#131820] rounded-xl border border-white/[0.06] overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/[0.06] bg-gradient-to-r from-purple-500/5 to-transparent">
+        <div className="bg-surface-raised rounded-xl border border-line-subtle overflow-hidden">
+          <div className="px-4 py-3 border-b border-line-subtle bg-gradient-to-r from-purple-500/5 to-transparent">
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-purple-400" />
-              <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              <h3 className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">
                 Market Mood
               </h3>
             </div>
@@ -176,7 +176,7 @@ export default function TrendingSidebar() {
                     ? 'text-emerald-400'
                     : mood.mood === 'bearish'
                       ? 'text-red-400'
-                      : 'text-slate-400'
+                      : 'text-fg-muted'
                 }`}
               >
                 {mood.mood === 'bullish'
@@ -186,7 +186,7 @@ export default function TrendingSidebar() {
                     : 'Neutral'}
               </span>
             </div>
-            <div className="flex h-2 rounded-full overflow-hidden bg-slate-800 mb-2">
+            <div className="flex h-2 rounded-full overflow-hidden bg-surface-raised mb-2">
               <motion.div
                 className="bg-emerald-500"
                 initial={{ width: 0 }}
@@ -200,7 +200,7 @@ export default function TrendingSidebar() {
                 transition={{ duration: 0.8, delay: 0.1 }}
               />
             </div>
-            <div className="flex justify-between text-[10px] text-slate-500">
+            <div className="flex justify-between text-[10px] text-fg-muted">
               <span className="text-emerald-400/70">Bullish {mood.bullish_pct}%</span>
               <span>{mood.total_posts} posts analyzed</span>
               <span className="text-red-400/70">Bearish {mood.bearish_pct}%</span>
@@ -210,11 +210,11 @@ export default function TrendingSidebar() {
       )}
 
       {/* Trending Tickers */}
-      <div className="bg-[#131820] rounded-xl border border-white/[0.06] overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/[0.06] bg-gradient-to-r from-orange-500/5 to-transparent">
+      <div className="bg-surface-raised rounded-xl border border-line-subtle overflow-hidden">
+        <div className="px-4 py-3 border-b border-line-subtle bg-gradient-to-r from-orange-500/5 to-transparent">
           <div className="flex items-center gap-2">
             <Flame className="w-4 h-4 text-orange-400" />
-            <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+            <h3 className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">
               Trending Tickers
             </h3>
           </div>
@@ -225,10 +225,10 @@ export default function TrendingSidebar() {
               {[...Array(5)].map((_, i) => (
                 <div key={i} className="flex items-center justify-between py-2">
                   <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 bg-slate-800 rounded animate-pulse" />
-                    <div className="h-4 w-12 bg-slate-800 rounded animate-pulse" />
+                    <div className="h-4 w-4 bg-surface-raised rounded animate-pulse" />
+                    <div className="h-4 w-12 bg-surface-raised rounded animate-pulse" />
                   </div>
-                  <div className="h-4 w-16 bg-slate-800/50 rounded animate-pulse" />
+                  <div className="h-4 w-16 bg-surface-raised/50 rounded animate-pulse" />
                 </div>
               ))}
             </div>
@@ -242,10 +242,10 @@ export default function TrendingSidebar() {
                   <Link
                     key={ticker.symbol}
                     href={`/research?symbol=${ticker.symbol}`}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/[0.04] transition-colors group"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-surface-hover transition-colors group"
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="text-[10px] text-slate-600 w-4 text-right tabular-nums font-medium">
+                      <span className="text-[10px] text-fg-muted w-4 text-right tabular-nums font-medium">
                         {i + 1}
                       </span>
                       <div>
@@ -253,7 +253,7 @@ export default function TrendingSidebar() {
                           ${ticker.symbol}
                         </span>
                         {ticker.mention_count > 0 && (
-                          <span className="text-[10px] text-slate-600 ml-1.5">
+                          <span className="text-[10px] text-fg-muted ml-1.5">
                             {ticker.mention_count}{' '}
                             {ticker.mention_count === 1 ? 'mention' : 'mentions'}
                           </span>
@@ -263,7 +263,7 @@ export default function TrendingSidebar() {
                     {quote && quote.price > 0 ? (
                       <div className="text-right flex items-center gap-1.5">
                         <div>
-                          <div className="text-[11px] text-slate-300 tabular-nums font-medium">
+                          <div className="text-[11px] text-fg-secondary tabular-nums font-medium">
                             ${quote.price.toFixed(2)}
                           </div>
                           <div
@@ -272,7 +272,7 @@ export default function TrendingSidebar() {
                                 ? 'text-emerald-400'
                                 : isNegative
                                   ? 'text-red-400'
-                                  : 'text-slate-500'
+                                  : 'text-fg-muted'
                             }`}
                           >
                             {isPositive ? (
@@ -288,7 +288,7 @@ export default function TrendingSidebar() {
                         </div>
                       </div>
                     ) : (
-                      <span className="text-[11px] text-slate-600 tabular-nums">--</span>
+                      <span className="text-[11px] text-fg-muted tabular-nums">--</span>
                     )}
                   </Link>
                 )
@@ -300,11 +300,11 @@ export default function TrendingSidebar() {
 
       {/* Popular Communities */}
       {popularCommunities.length > 0 && (
-        <div className="bg-[#131820] rounded-xl border border-white/[0.06] overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/[0.06] bg-gradient-to-r from-blue-500/5 to-transparent">
+        <div className="bg-surface-raised rounded-xl border border-line-subtle overflow-hidden">
+          <div className="px-4 py-3 border-b border-line-subtle bg-gradient-to-r from-blue-500/5 to-transparent">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-blue-400" />
-              <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              <h3 className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">
                 Popular Communities
               </h3>
             </div>
@@ -313,7 +313,7 @@ export default function TrendingSidebar() {
             {popularCommunities.map((community) => (
               <div
                 key={community.slug}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-white/[0.04] transition-colors group"
+                className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-surface-hover transition-colors group"
               >
                 <Link
                   href={`/community/${community.slug}`}
@@ -323,10 +323,10 @@ export default function TrendingSidebar() {
                     {community.icon || community.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[13px] text-slate-300 truncate group-hover:text-white transition-colors">
+                    <div className="text-[13px] text-fg-secondary truncate group-hover:text-fg-primary transition-colors">
                       c/{community.name}
                     </div>
-                    <div className="flex items-center gap-1 text-[10px] text-slate-600">
+                    <div className="flex items-center gap-1 text-[10px] text-fg-muted">
                       <Users className="w-2.5 h-2.5" />
                       {community.member_count.toLocaleString()} members
                     </div>
@@ -337,7 +337,7 @@ export default function TrendingSidebar() {
                   disabled={joiningSlug === community.slug}
                   className={`shrink-0 px-2.5 py-1 text-[10px] font-semibold rounded-full border transition-all duration-150 disabled:opacity-50 ${
                     community.is_member
-                      ? 'border-slate-600 text-slate-400 hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10'
+                      ? 'border-line-default text-fg-muted hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10'
                       : 'border-blue-500/30 text-blue-400 hover:bg-blue-500/10'
                   }`}
                 >
@@ -356,39 +356,39 @@ export default function TrendingSidebar() {
       )}
 
       {/* Quick Links */}
-      <div className="bg-[#131820] rounded-xl border border-white/[0.06] overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/[0.06]">
-          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+      <div className="bg-surface-raised rounded-xl border border-line-subtle overflow-hidden">
+        <div className="px-4 py-3 border-b border-line-subtle">
+          <h3 className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">
             Quick Links
           </h3>
         </div>
         <div className="p-3 space-y-0.5">
           <Link
             href="/community/discover"
-            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px] text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-colors"
+            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px] text-fg-muted hover:text-fg-secondary hover:bg-surface-hover transition-colors"
           >
-            <BookOpen className="w-4 h-4 text-slate-500" />
+            <BookOpen className="w-4 h-4 text-fg-muted" />
             Discover Communities
           </Link>
           <Link
             href="/research"
-            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px] text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-colors"
+            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px] text-fg-muted hover:text-fg-secondary hover:bg-surface-hover transition-colors"
           >
-            <BarChart3 className="w-4 h-4 text-slate-500" />
+            <BarChart3 className="w-4 h-4 text-fg-muted" />
             Research Hub
           </Link>
           <Link
             href="/help"
-            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px] text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-colors"
+            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px] text-fg-muted hover:text-fg-secondary hover:bg-surface-hover transition-colors"
           >
-            <HelpCircle className="w-4 h-4 text-slate-500" />
+            <HelpCircle className="w-4 h-4 text-fg-muted" />
             Help Center
           </Link>
           <Link
             href="/about"
-            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px] text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-colors"
+            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px] text-fg-muted hover:text-fg-secondary hover:bg-surface-hover transition-colors"
           >
-            <FileText className="w-4 h-4 text-slate-500" />
+            <FileText className="w-4 h-4 text-fg-muted" />
             About QuantTrade
           </Link>
         </div>
@@ -396,7 +396,7 @@ export default function TrendingSidebar() {
 
       {/* Disclaimer */}
       <div className="px-3 py-2">
-        <p className="text-[10px] text-slate-700 leading-relaxed">
+        <p className="text-[10px] text-fg-muted leading-relaxed">
           Community discussion only. Not financial advice. Always do your own research before making investment decisions.
         </p>
       </div>

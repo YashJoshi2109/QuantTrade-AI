@@ -60,11 +60,11 @@ const TABS: { key: TabKey; label: string; icon: typeof ShieldAlert }[] = [
 ]
 
 const FLAG_STYLES: Record<string, { bg: string; text: string }> = {
-  spam: { bg: 'bg-slate-500/15 border-slate-500/25', text: 'text-slate-300' },
+  spam: { bg: 'bg-slate-500/15 border-slate-500/25', text: 'text-fg-secondary' },
   misinformation: { bg: 'bg-red-500/15 border-red-500/25', text: 'text-red-400' },
   manipulation: { bg: 'bg-purple-500/15 border-purple-500/25', text: 'text-purple-400' },
   harassment: { bg: 'bg-orange-500/15 border-orange-500/25', text: 'text-orange-400' },
-  other: { bg: 'bg-slate-500/15 border-slate-500/25', text: 'text-slate-400' },
+  other: { bg: 'bg-slate-500/15 border-slate-500/25', text: 'text-fg-muted' },
 }
 
 const FLAG_TYPES = ['spam', 'misinformation', 'manipulation', 'harassment'] as const
@@ -80,7 +80,7 @@ function RiskBar({ score }: { score: number }) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+      <div className="flex-1 h-1.5 bg-surface-raised rounded-full overflow-hidden">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
@@ -174,13 +174,13 @@ export default function ModerationDashboard() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-[#0D1117] border border-white/[0.06] rounded-2xl p-12 text-center max-w-md"
+          className="bg-surface-base border border-line-subtle rounded-2xl p-12 text-center max-w-md"
         >
           <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <Ban className="w-8 h-8 text-red-400" />
           </div>
-          <h2 className="text-xl font-bold text-slate-100 mb-2">Access Denied</h2>
-          <p className="text-sm text-slate-500">
+          <h2 className="text-xl font-bold text-fg-primary mb-2">Access Denied</h2>
+          <p className="text-sm text-fg-muted">
             You do not have moderator or admin privileges to view this dashboard.
           </p>
         </motion.div>
@@ -199,9 +199,9 @@ export default function ModerationDashboard() {
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-1">
             <Shield className="w-6 h-6 text-blue-400" />
-            <h1 className="text-2xl font-bold text-slate-100">Moderation Dashboard</h1>
+            <h1 className="text-2xl font-bold text-fg-primary">Moderation Dashboard</h1>
           </div>
-          <p className="text-sm text-slate-500">Review flagged content and take action</p>
+          <p className="text-sm text-fg-muted">Review flagged content and take action</p>
         </div>
 
         {/* Stats Bar */}
@@ -222,22 +222,22 @@ export default function ModerationDashboard() {
               <p className={`text-xl sm:text-2xl font-bold tabular-nums ${stat.color}`}>
                 {stat.value}
               </p>
-              <p className="text-xs text-slate-500 mt-0.5">{stat.label}</p>
+              <p className="text-xs text-fg-muted mt-0.5">{stat.label}</p>
             </div>
           ))}
         </motion.div>
 
         {/* Tabs + Filter */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
-          <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-1.5 flex gap-1 flex-1 w-full sm:w-auto">
+          <div className="bg-surface-base border border-line-subtle rounded-xl p-1.5 flex gap-1 flex-1 w-full sm:w-auto">
             {TABS.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
                 onClick={() => setTab(key)}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1 justify-center min-h-[44px] ${
                   tab === key
-                    ? 'bg-white/[0.06] text-slate-100'
-                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]'
+                    ? 'bg-surface-active text-fg-primary'
+                    : 'text-fg-muted hover:text-fg-secondary hover:bg-surface-hover'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -248,11 +248,11 @@ export default function ModerationDashboard() {
 
           {/* Filter */}
           <div className="relative">
-            <Filter className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Filter className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <select
               value={filterFlag}
               onChange={(e) => setFilterFlag(e.target.value)}
-              className="bg-[#0D1117] border border-white/[0.06] rounded-xl pl-9 pr-8 py-2 text-sm text-slate-300 appearance-none cursor-pointer focus:outline-none focus:border-blue-500/40 min-h-[44px]"
+              className="bg-surface-base border border-line-subtle rounded-xl pl-9 pr-8 py-2 text-sm text-fg-secondary appearance-none cursor-pointer focus:outline-none focus:border-blue-500/40 min-h-[44px]"
             >
               <option value="">All flags</option>
               {FLAG_TYPES.map((f) => (
@@ -261,7 +261,7 @@ export default function ModerationDashboard() {
                 </option>
               ))}
             </select>
-            <ChevronDown className="w-4 h-4 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-4 h-4 text-fg-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 
@@ -269,15 +269,15 @@ export default function ModerationDashboard() {
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4 animate-pulse">
+              <div key={i} className="bg-surface-base border border-line-subtle rounded-xl p-4 animate-pulse">
                 <div className="flex gap-3">
                   <div className="flex-1 space-y-2">
-                    <div className="h-3 w-32 bg-slate-800 rounded" />
-                    <div className="h-5 w-3/4 bg-slate-800 rounded" />
-                    <div className="h-2 w-full bg-slate-800 rounded" />
+                    <div className="h-3 w-32 bg-surface-raised rounded" />
+                    <div className="h-5 w-3/4 bg-surface-raised rounded" />
+                    <div className="h-2 w-full bg-surface-raised rounded" />
                     <div className="flex gap-2 mt-2">
-                      <div className="h-6 w-16 bg-slate-800 rounded-md" />
-                      <div className="h-6 w-16 bg-slate-800 rounded-md" />
+                      <div className="h-6 w-16 bg-surface-raised rounded-md" />
+                      <div className="h-6 w-16 bg-surface-raised rounded-md" />
                     </div>
                   </div>
                 </div>
@@ -288,11 +288,11 @@ export default function ModerationDashboard() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-12 text-center"
+            className="bg-surface-base border border-line-subtle rounded-xl p-12 text-center"
           >
             <ShieldCheck className="w-12 h-12 text-emerald-500/50 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-300 mb-2">All clear</h3>
-            <p className="text-sm text-slate-500">No items to review in this queue.</p>
+            <h3 className="text-lg font-semibold text-fg-secondary mb-2">All clear</h3>
+            <p className="text-sm text-fg-muted">No items to review in this queue.</p>
           </motion.div>
         ) : (
           <div className="space-y-3">
@@ -305,38 +305,38 @@ export default function ModerationDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -40 }}
                   transition={{ duration: 0.25, delay: i * 0.03 }}
-                  className="bg-[#0D1117] border border-white/[0.06] rounded-xl overflow-hidden"
+                  className="bg-surface-base border border-line-subtle rounded-xl overflow-hidden"
                 >
                   <div className="p-4">
                     {/* Top row: meta + timestamp */}
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <span className="px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] text-slate-400 font-medium uppercase tracking-wider text-[10px]">
+                      <div className="flex items-center gap-2 text-xs text-fg-muted">
+                        <span className="px-2 py-0.5 rounded bg-surface-raised border border-line-subtle text-fg-muted font-medium uppercase tracking-wider text-[10px]">
                           {item.target_type}
                         </span>
                         <span>
-                          by <span className="text-slate-300">{item.author.username}</span>
+                          by <span className="text-fg-secondary">{item.author.username}</span>
                         </span>
-                        <span className="text-slate-600">|</span>
+                        <span className="text-fg-muted">|</span>
                         <span>
-                          reported by <span className="text-slate-300">{item.reporter.username}</span>
+                          reported by <span className="text-fg-secondary">{item.reporter.username}</span>
                         </span>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-slate-500">
+                      <div className="flex items-center gap-1 text-xs text-fg-muted">
                         <Clock className="w-3 h-3" />
                         {timeAgo(item.created_at)}
                       </div>
                     </div>
 
                     {/* Content preview */}
-                    <p className="text-sm text-slate-200 mb-3 line-clamp-3 leading-relaxed">
+                    <p className="text-sm text-fg-primary mb-3 line-clamp-3 leading-relaxed">
                       {item.content_preview}
                     </p>
 
                     {/* Risk score */}
                     <div className="mb-3">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] text-slate-500 uppercase tracking-wider font-medium">AI Risk Score</span>
+                        <span className="text-[11px] text-fg-muted uppercase tracking-wider font-medium">AI Risk Score</span>
                       </div>
                       <RiskBar score={item.risk_score} />
                     </div>
@@ -389,7 +389,7 @@ export default function ModerationDashboard() {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <div className="flex items-center gap-2 text-xs text-fg-muted">
                         <span className={`px-2 py-0.5 rounded-md font-medium ${
                           item.status === 'approved'
                             ? 'bg-emerald-500/10 text-emerald-400'
@@ -418,7 +418,7 @@ export default function ModerationDashboard() {
                       onClick={() =>
                         setExpandedAudit(expandedAudit === item.id ? null : item.id)
                       }
-                      className="mt-3 flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors min-h-[44px]"
+                      className="mt-3 flex items-center gap-1 text-xs text-fg-muted hover:text-fg-secondary transition-colors min-h-[44px]"
                     >
                       {expandedAudit === item.id ? (
                         <ChevronDown className="w-3.5 h-3.5" />
@@ -440,17 +440,17 @@ export default function ModerationDashboard() {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="border-t border-white/[0.06] bg-[#0a0e13] px-4 py-3">
+                        <div className="border-t border-line-subtle bg-surface-base px-4 py-3">
                           <table className="w-full text-xs">
                             <thead>
-                              <tr className="text-slate-500 uppercase tracking-wider">
+                              <tr className="text-fg-muted uppercase tracking-wider">
                                 <th className="text-left pb-2 font-medium">Action</th>
                                 <th className="text-left pb-2 font-medium">Moderator</th>
                                 <th className="text-left pb-2 font-medium">Reason</th>
                                 <th className="text-right pb-2 font-medium">Time</th>
                               </tr>
                             </thead>
-                            <tbody className="text-slate-400">
+                            <tbody className="text-fg-muted">
                               {item.status !== 'pending' ? (
                                 <tr>
                                   <td className="py-1.5 pr-3">
@@ -464,7 +464,7 @@ export default function ModerationDashboard() {
                                       {item.status}
                                     </span>
                                   </td>
-                                  <td className="py-1.5 pr-3 text-slate-300">
+                                  <td className="py-1.5 pr-3 text-fg-secondary">
                                     {item.reviewed_by || 'System'}
                                   </td>
                                   <td className="py-1.5 pr-3">{item.description || '-'}</td>
@@ -474,7 +474,7 @@ export default function ModerationDashboard() {
                                 </tr>
                               ) : (
                                 <tr>
-                                  <td colSpan={4} className="py-3 text-center text-slate-600">
+                                  <td colSpan={4} className="py-3 text-center text-fg-muted">
                                     No actions recorded yet
                                   </td>
                                 </tr>
@@ -485,7 +485,7 @@ export default function ModerationDashboard() {
                                     reported
                                   </span>
                                 </td>
-                                <td className="py-1.5 pr-3 text-slate-300">
+                                <td className="py-1.5 pr-3 text-fg-secondary">
                                   {item.reporter.username}
                                 </td>
                                 <td className="py-1.5 pr-3">{item.flags.join(', ')}</td>

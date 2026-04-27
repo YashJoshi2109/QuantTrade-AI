@@ -131,8 +131,8 @@ function CommentNode({ comment, postId, isAuthenticated, onReplySubmit }: Commen
       <div className={`ml-2 sm:ml-3 md:ml-6 border-l-2 ${getDepthColor(comment.depth)}`}>
         <button
           onClick={() => setCollapsed(false)}
-          className="flex items-center gap-2 text-slate-500 italic text-sm cursor-pointer
-            hover:text-slate-300 transition-colors py-2 pl-2 sm:pl-3 md:pl-4 min-h-[44px] sm:min-h-0"
+          className="flex items-center gap-2 text-fg-muted italic text-sm cursor-pointer
+            hover:text-fg-secondary transition-colors py-2 pl-2 sm:pl-3 md:pl-4 min-h-[44px] sm:min-h-0"
         >
           <ChevronRight className="w-3.5 h-3.5" />
           <span>Show {totalReplies + 1} more {totalReplies === 0 ? 'reply' : 'replies'}</span>
@@ -153,13 +153,13 @@ function CommentNode({ comment, postId, isAuthenticated, onReplySubmit }: Commen
           {/* Author line */}
           <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
             {/* Avatar */}
-            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-white/10 flex items-center justify-center text-[9px] font-bold text-slate-300 shrink-0">
+            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-line-subtle flex items-center justify-center text-[9px] font-bold text-fg-secondary shrink-0">
               {comment.author_display_name?.[0]?.toUpperCase() || '?'}
             </div>
-            <span className="text-xs font-semibold text-slate-200">
+            <span className="text-xs font-semibold text-fg-primary">
               {comment.author_display_name}
             </span>
-            <span className="text-[10px] text-slate-600">
+            <span className="text-[10px] text-fg-muted">
               {formatRelativeTime(comment.created_at)}
             </span>
 
@@ -167,7 +167,7 @@ function CommentNode({ comment, postId, isAuthenticated, onReplySubmit }: Commen
             {totalReplies > 0 && (
               <button
                 onClick={() => setCollapsed(!collapsed)}
-                className="ml-auto text-slate-600 hover:text-slate-400 transition-colors p-0.5"
+                className="ml-auto text-fg-muted hover:text-fg-secondary transition-colors p-0.5"
                 title={collapsed ? 'Expand' : 'Collapse'}
               >
                 <Minus className="w-3 h-3" />
@@ -177,9 +177,9 @@ function CommentNode({ comment, postId, isAuthenticated, onReplySubmit }: Commen
 
           {/* Body */}
           {comment.is_removed ? (
-            <p className="text-sm text-slate-600 italic">[removed]</p>
+            <p className="text-sm text-fg-muted italic">[removed]</p>
           ) : (
-            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap break-words">
+            <p className="text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap break-words">
               {comment.body}
             </p>
           )}
@@ -195,14 +195,14 @@ function CommentNode({ comment, postId, isAuthenticated, onReplySubmit }: Commen
                   className={`p-1.5 sm:p-1 rounded transition-colors min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center ${
                     userVote === 1
                       ? 'text-blue-400'
-                      : 'text-slate-600 hover:text-slate-300'
+                      : 'text-fg-muted hover:text-fg-secondary'
                   } disabled:opacity-30 disabled:cursor-not-allowed`}
                   title="Upvote"
                 >
                   <ChevronUp className="w-3.5 h-3.5" />
                 </button>
                 <span className={`text-[11px] font-mono min-w-[16px] text-center ${
-                  score > 0 ? 'text-blue-400' : score < 0 ? 'text-red-400' : 'text-slate-600'
+                  score > 0 ? 'text-blue-400' : score < 0 ? 'text-red-400' : 'text-fg-muted'
                 }`}>
                   {score}
                 </span>
@@ -212,7 +212,7 @@ function CommentNode({ comment, postId, isAuthenticated, onReplySubmit }: Commen
                   className={`p-1.5 sm:p-1 rounded transition-colors min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center ${
                     userVote === -1
                       ? 'text-red-400'
-                      : 'text-slate-600 hover:text-slate-300'
+                      : 'text-fg-muted hover:text-fg-secondary'
                   } disabled:opacity-30 disabled:cursor-not-allowed`}
                   title="Downvote"
                 >
@@ -224,7 +224,7 @@ function CommentNode({ comment, postId, isAuthenticated, onReplySubmit }: Commen
               {isAuthenticated && (
                 <button
                   onClick={() => setShowReply(!showReply)}
-                  className="flex items-center gap-1 text-[11px] text-slate-600 hover:text-slate-300 transition-colors px-2 py-1.5 sm:px-1.5 sm:py-0.5 rounded min-h-[44px] sm:min-h-0"
+                  className="flex items-center gap-1 text-[11px] text-fg-muted hover:text-fg-secondary transition-colors px-2 py-1.5 sm:px-1.5 sm:py-0.5 rounded min-h-[44px] sm:min-h-0"
                 >
                   <MessageSquare className="w-3 h-3" />
                   Reply
@@ -288,9 +288,9 @@ export default function CommentTree({
   if (!comments || comments.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <MessageSquare className="w-10 h-10 text-slate-700 mb-3" />
-        <p className="text-sm text-slate-500 font-medium">No comments yet</p>
-        <p className="text-xs text-slate-600 mt-1">
+        <MessageSquare className="w-10 h-10 text-fg-muted mb-3" />
+        <p className="text-sm text-fg-muted font-medium">No comments yet</p>
+        <p className="text-xs text-fg-muted mt-1">
           Be the first to share your analysis!
         </p>
       </div>

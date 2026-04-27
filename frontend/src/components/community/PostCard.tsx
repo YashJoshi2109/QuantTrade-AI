@@ -27,9 +27,9 @@ function renderBodyMarkdown(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-200 font-semibold">$1</strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-fg-secondary font-semibold">$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code class="px-1 py-0.5 bg-slate-800 rounded text-cyan-400 text-xs">$1</code>')
+    .replace(/`(.+?)`/g, '<code class="px-1 py-0.5 bg-surface-raised rounded text-cyan-400 text-xs">$1</code>')
     .replace(
       /\$([A-Z]{1,5})/g,
       '<span class="text-cyan-400 font-mono font-semibold">$$1</span>'
@@ -260,10 +260,10 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2, delay: index * 0.03 }}
-        className={`relative bg-[#131820] rounded-2xl transition-colors duration-150 group ${
+        className={`relative bg-surface-raised rounded-2xl transition-colors duration-150 group ${
           focused
-            ? 'ring-1 ring-blue-500/30 bg-[#161d27]'
-            : 'hover:bg-[#161d27]'
+            ? 'ring-1 ring-blue-500/30 bg-surface-hover'
+            : 'hover:bg-surface-hover'
         }`}
       >
         <div className="px-3 sm:px-4 pt-3 pb-1">
@@ -273,7 +273,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               <>
                 <Link
                   href={`/community/${post.community.slug}`}
-                  className="font-semibold text-slate-300 hover:text-white transition-colors"
+                  className="font-semibold text-fg-secondary hover:text-fg-primary transition-colors"
                 >
                   c/{post.community.name}
                 </Link>
@@ -282,17 +282,17 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             )}
             <Link
               href={`/community/user/${post.author?.username ?? 'unknown'}`}
-              className="text-slate-500 hover:text-slate-300 transition-colors"
+              className="text-fg-muted hover:text-fg-secondary transition-colors"
             >
               {post.author?.username ?? 'unknown'}
             </Link>
-            <span className="text-slate-600">·</span>
-            <span className="text-slate-500">{timeAgo(post.created_at)}</span>
+            <span className="text-fg-muted">·</span>
+            <span className="text-fg-muted">{timeAgo(post.created_at)}</span>
 
             {/* Pinned badge */}
             {(post as any).is_pinned && (
               <>
-                <span className="text-slate-600">·</span>
+                <span className="text-fg-muted">·</span>
                 <span className="inline-flex items-center gap-0.5 text-emerald-400">
                   <Pin className="w-3 h-3" /> Pinned
                 </span>
@@ -302,7 +302,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             {/* Locked badge */}
             {(post as any).is_locked && (
               <>
-                <span className="text-slate-600">·</span>
+                <span className="text-fg-muted">·</span>
                 <span className="inline-flex items-center gap-0.5 text-amber-400">
                   <Lock className="w-3 h-3" /> Locked
                 </span>
@@ -312,7 +312,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
 
           {/* Title */}
           <Link href={`/community/post/${post.id}`} className="block">
-            <h3 className="text-[15px] font-medium text-slate-100 leading-snug mb-1 group-hover:text-white transition-colors cursor-pointer">
+            <h3 className="text-[15px] font-medium text-fg-primary leading-snug mb-1 group-hover:text-fg-primary transition-colors cursor-pointer">
               {post.title}
             </h3>
           </Link>
@@ -320,7 +320,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           {/* Body preview */}
           {post.body && (
             <div
-              className="text-[13px] text-slate-400 line-clamp-3 mb-2 leading-relaxed"
+              className="text-[13px] text-fg-secondary line-clamp-3 mb-2 leading-relaxed"
               dangerouslySetInnerHTML={{ __html: renderBodyMarkdown(post.body) }}
             />
           )}
@@ -342,7 +342,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                   <img
                     src={resolveMediaUrl(post.media_urls[0])}
                     alt="Post media"
-                    className="w-full max-h-72 object-cover rounded-xl bg-slate-900"
+                    className="w-full max-h-72 object-cover rounded-xl bg-surface-base"
                     loading="lazy"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                   />
@@ -363,7 +363,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-blue-400 transition-colors mb-2 truncate max-w-full"
+              className="inline-flex items-center gap-1 text-[11px] text-fg-muted hover:text-blue-400 transition-colors mb-2 truncate max-w-full"
             >
               <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
               <span className="truncate">{(() => { try { return new URL(post.source_url!).hostname.replace('www.', '') } catch { return post.source_url } })()}</span>
@@ -399,7 +399,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             className={`flex items-center gap-1 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-full transition-colors min-h-[44px] sm:min-h-0 ${
               userVote === 1
                 ? 'bg-orange-500/15 text-orange-400'
-                : 'bg-[#1a2130] text-slate-400 hover:text-orange-400 hover:bg-orange-500/10'
+                : 'bg-surface-raised text-fg-muted hover:text-orange-400 hover:bg-orange-500/10'
             }`}
           >
             <ArrowBigUp className={`w-5 h-5 sm:w-4.5 sm:h-4.5 ${userVote === 1 ? 'fill-orange-400' : ''}`} />
@@ -412,7 +412,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             className={`flex items-center gap-1 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-full transition-colors min-h-[44px] sm:min-h-0 ${
               userVote === -1
                 ? 'bg-blue-500/15 text-blue-400'
-                : 'bg-[#1a2130] text-slate-400 hover:text-blue-400 hover:bg-blue-500/10'
+                : 'bg-surface-raised text-fg-muted hover:text-blue-400 hover:bg-blue-500/10'
             }`}
           >
             <ArrowBigDown className={`w-5 h-5 sm:w-4.5 sm:h-4.5 ${userVote === -1 ? 'fill-blue-400' : ''}`} />
@@ -422,7 +422,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           {/* Comments pill */}
           <Link
             href={`/community/post/${post.id}`}
-            className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-[#1a2130] rounded-full text-xs text-slate-400 hover:text-white hover:bg-[#1f2937] transition-colors min-h-[44px] sm:min-h-0"
+            className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-surface-raised rounded-full text-xs text-fg-muted hover:text-fg-primary hover:bg-surface-hover transition-colors min-h-[44px] sm:min-h-0"
           >
             <MessageSquare className="w-4 h-4" />
             <span>{post.comment_count}</span>
@@ -432,7 +432,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           <div className="relative" ref={shareMenuRef}>
             <button
               onClick={() => setShowShareMenu(!showShareMenu)}
-              className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-[#1a2130] rounded-full text-xs text-slate-400 hover:text-white hover:bg-[#1f2937] transition-colors min-h-[44px] sm:min-h-0"
+              className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-surface-raised rounded-full text-xs text-fg-muted hover:text-fg-primary hover:bg-surface-hover transition-colors min-h-[44px] sm:min-h-0"
             >
               {shareConfirm ? (
                 <Check className="w-4 h-4 text-emerald-400" />
@@ -442,12 +442,12 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               <span className="hidden sm:inline">{shareConfirm ? 'Copied!' : 'Share'}</span>
             </button>
             {showShareMenu && (
-              <div className="absolute left-0 bottom-[calc(100%+6px)] z-30 w-64 bg-[#0e1520] border border-white/[0.10] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden">
+              <div className="absolute left-0 bottom-[calc(100%+6px)] z-30 w-64 bg-surface-overlay border border-line-subtle rounded-2xl shadow-theme-lg overflow-hidden">
                 {/* URL bar */}
                 <div className="px-3 pt-3 pb-2">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Share</p>
-                  <div className="flex items-center gap-1.5 bg-[#1a2130] border border-white/[0.06] rounded-xl px-3 py-2">
-                    <span className="text-[11px] text-slate-400 truncate flex-1 font-mono">{postUrl}</span>
+                  <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wider mb-1.5">Share</p>
+                  <div className="flex items-center gap-1.5 bg-surface-raised border border-line-subtle rounded-xl px-3 py-2">
+                    <span className="text-[11px] text-fg-secondary truncate flex-1 font-mono">{postUrl}</span>
                     <button
                       onClick={handleCopyLink}
                       className="shrink-0 p-1 rounded-md hover:bg-white/10 transition-colors text-slate-400 hover:text-white"
@@ -463,21 +463,21 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                 <div className="h-px bg-white/[0.06] mx-3" />
                 {/* Actions */}
                 <div className="py-1.5">
-                  <button onClick={handleShareDM} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors">
+                  <button onClick={handleShareDM} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-fg-secondary hover:text-fg-primary hover:bg-surface-hover transition-colors">
                     <div className="w-7 h-7 rounded-full bg-blue-500/15 flex items-center justify-center shrink-0">
                       <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
                     </div>
                     <span className="font-medium">Send via DM</span>
                   </button>
-                  <button onClick={handleCrosspost} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors">
+                  <button onClick={handleCrosspost} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-fg-secondary hover:text-fg-primary hover:bg-surface-hover transition-colors">
                     <div className="w-7 h-7 rounded-full bg-purple-500/15 flex items-center justify-center shrink-0">
                       <Repeat className="w-3.5 h-3.5 text-purple-400" />
                     </div>
                     <span className="font-medium">Crosspost</span>
                   </button>
-                  <button onClick={handleShareTwitter} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors">
-                    <div className="w-7 h-7 rounded-full bg-slate-700/60 flex items-center justify-center shrink-0">
-                      <svg className="w-3.5 h-3.5 text-slate-300" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                  <button onClick={handleShareTwitter} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-fg-secondary hover:text-fg-primary hover:bg-surface-hover transition-colors">
+                    <div className="w-7 h-7 rounded-full bg-surface-raised flex items-center justify-center shrink-0">
+                      <svg className="w-3.5 h-3.5 text-fg-secondary" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
                     </div>
                     <span className="font-medium">Post to X</span>
                   </button>
@@ -489,8 +489,8 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           {/* Save pill */}
           <button
             onClick={handleBookmark}
-            className={`flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-[#1a2130] rounded-full text-xs transition-colors min-h-[44px] sm:min-h-0 ${
-              bookmarked ? 'text-amber-400' : 'text-slate-400 hover:text-white hover:bg-[#1f2937]'
+            className={`flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-surface-raised rounded-full text-xs transition-colors min-h-[44px] sm:min-h-0 ${
+              bookmarked ? 'text-amber-400' : 'text-fg-muted hover:text-fg-primary hover:bg-surface-hover'
             }`}
           >
             <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-amber-400' : ''}`} />
@@ -501,18 +501,18 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           <div className="relative ml-auto">
             <button
               onClick={() => setShowMore(!showMore)}
-              className="p-2 sm:p-1.5 rounded-full text-slate-500 hover:text-slate-300 hover:bg-[#1a2130] transition-colors min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
+              className="p-2 sm:p-1.5 rounded-full text-fg-muted hover:text-fg-secondary hover:bg-surface-raised transition-colors min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
             >
               <MoreHorizontal className="w-4 h-4" />
             </button>
             {showMore && (
               <div
-                className="absolute right-0 top-8 z-20 w-36 bg-[#1a2130] border border-white/10 rounded-xl shadow-xl py-1 text-xs"
+                className="absolute right-0 top-8 z-20 w-36 bg-surface-overlay border border-line-subtle rounded-xl shadow-theme-md py-1 text-xs"
                 onMouseLeave={() => setShowMore(false)}
               >
                 <button
                   onClick={() => { setShowReport(true); setShowMore(false) }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-slate-400 hover:text-red-400 hover:bg-white/5 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-fg-muted hover:text-red-400 hover:bg-surface-hover transition-colors"
                 >
                   <Flag className="w-3.5 h-3.5" />
                   Report
@@ -535,7 +535,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                 className={`flex items-center gap-1 px-2.5 sm:px-2 py-1.5 sm:py-1 rounded-full text-xs transition-colors min-h-[36px] sm:min-h-0 ${
                   reacted
                     ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
-                    : 'bg-[#1a2130] text-slate-500 hover:text-slate-300 hover:bg-[#1f2937] border border-transparent'
+                    : 'bg-surface-raised text-fg-muted hover:text-fg-secondary hover:bg-surface-hover border border-transparent'
                 }`}
                 title={key.replace('_', ' ')}
               >
@@ -549,7 +549,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
         {/* Financial disclaimer — only on expanded/detail view */}
         {expanded && (
           <div className="px-4 pb-3">
-            <p className="text-[10px] text-slate-600 leading-relaxed">
+            <p className="text-[10px] text-fg-muted leading-relaxed">
               This is community discussion, not financial advice. Always do your own research.
             </p>
           </div>

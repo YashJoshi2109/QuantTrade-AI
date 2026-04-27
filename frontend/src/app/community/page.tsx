@@ -67,12 +67,12 @@ function renderMarkdownPreview(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold text-slate-200 mt-3 mb-1">$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2 class="text-lg font-semibold text-slate-100 mt-3 mb-1">$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold text-slate-100 mt-3 mb-1">$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-100">$1</strong>')
+    .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold text-fg-secondary mt-3 mb-1">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 class="text-lg font-semibold text-fg-primary mt-3 mb-1">$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold text-fg-primary mt-3 mb-1">$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-fg-primary">$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code class="px-1.5 py-0.5 bg-slate-800 rounded text-cyan-400 text-xs">$1</code>')
+    .replace(/`(.+?)`/g, '<code class="px-1.5 py-0.5 bg-surface-raised rounded text-cyan-400 text-xs">$1</code>')
     .replace(/\n/g, '<br/>')
     .replace(
       /\$([A-Z]{1,5})/g,
@@ -465,7 +465,7 @@ function CommunityPageInner() {
 
   return (
     <AppLayout>
-    <div className="min-h-screen bg-[#0a0a0f]">
+    <div className="min-h-screen bg-surface-base">
       {/* Full-width 3-column Reddit layout */}
       <div className="flex justify-center w-full">
         <div className="flex w-full max-w-[1400px] gap-0">
@@ -483,22 +483,22 @@ function CommunityPageInner() {
           </aside>
 
           {/* ═══ Center Feed ═══ */}
-          <main className="flex-1 min-w-0 border-x border-white/[0.04]">
+          <main className="flex-1 min-w-0 border-x border-line-subtle">
             <div className="px-2 sm:px-4 py-3 sm:py-4 pb-36 lg:pb-4">
               {/* Create Post Bar — hidden on mobile where FAB is used */}
-              <div className="hidden sm:flex items-center gap-3 bg-[#131820] border border-white/[0.06] rounded-xl px-4 py-2.5 mb-3">
+              <div className="hidden sm:flex items-center gap-3 bg-surface-raised border border-line-subtle rounded-xl px-4 py-2.5 mb-3">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center text-xs font-bold text-blue-400 shrink-0 ring-1 ring-white/[0.06]">
                   U
                 </div>
                 <button
                   onClick={() => setShowCreate(true)}
-                  className="flex-1 text-left px-4 py-2 bg-[#1a2130] border border-white/[0.06] rounded-full text-sm text-slate-500 hover:bg-[#1f2937] hover:border-white/[0.1] hover:text-slate-400 transition-all"
+                  className="flex-1 text-left px-4 py-2 bg-surface-raised border border-line-subtle rounded-full text-sm text-fg-muted hover:bg-surface-hover hover:border-line-default hover:text-fg-secondary transition-all"
                 >
                   Create a post
                 </button>
                 <button
                   onClick={() => setShowCreate(true)}
-                  className="p-2 rounded-full text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                  className="p-2 rounded-full text-fg-muted hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
                   title="Create post"
                 >
                   <PenSquare className="w-5 h-5" />
@@ -506,7 +506,7 @@ function CommunityPageInner() {
               </div>
 
               {/* ── Full-Width Sort Tabs ── */}
-              <div className="bg-[#131820] border border-white/[0.06] rounded-xl mb-3 overflow-hidden">
+              <div className="bg-surface-raised border border-line-subtle rounded-xl mb-3 overflow-hidden">
                 <div className="flex overflow-x-auto scrollbar-none">
                   {SORT_TABS.map(({ key, label, icon: Icon }) => (
                     <button
@@ -517,8 +517,8 @@ function CommunityPageInner() {
                       }}
                       className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium transition-all flex-1 min-w-0 border-b-2 whitespace-nowrap ${
                         sort === key
-                          ? 'border-blue-500 text-white bg-white/[0.03]'
-                          : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-white/[0.02]'
+                          ? 'border-blue-500 text-fg-primary bg-surface-hover'
+                          : 'border-transparent text-fg-muted hover:text-fg-secondary hover:bg-surface-hover'
                       }`}
                     >
                       <Icon className={`w-4 h-4 shrink-0 ${sort === key ? 'text-blue-400' : ''}`} />
@@ -529,8 +529,8 @@ function CommunityPageInner() {
 
                 {/* Time filter sub-bar for Top sort */}
                 {sort === 'top' && (
-                  <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-t border-white/[0.04] bg-white/[0.01] overflow-x-auto scrollbar-none">
-                    <span className="text-[11px] text-slate-500 uppercase tracking-wider shrink-0">Period</span>
+                  <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-t border-line-subtle bg-surface-hover overflow-x-auto scrollbar-none">
+                    <span className="text-[11px] text-fg-muted uppercase tracking-wider shrink-0">Period</span>
                     {[
                       { value: 'day', label: 'Today' },
                       { value: 'week', label: 'This Week' },
@@ -544,7 +544,7 @@ function CommunityPageInner() {
                         className={`px-2.5 py-1 rounded-md text-xs transition-colors whitespace-nowrap ${
                           timeFilter === opt.value
                             ? 'bg-blue-500/15 text-blue-400 font-medium'
-                            : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
+                            : 'text-fg-muted hover:text-fg-secondary hover:bg-surface-hover'
                         }`}
                       >
                         {opt.label}
@@ -587,7 +587,7 @@ function CommunityPageInner() {
                           className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all duration-150 backdrop-blur-sm ${
                             followedUsers.has(post.author.id)
                               ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400'
-                              : 'bg-[#131820]/90 border-white/10 text-slate-300 hover:bg-blue-500/10 hover:border-blue-500/30 hover:text-blue-400'
+                              : 'bg-surface-raised border-line-subtle text-fg-secondary hover:bg-blue-500/10 hover:border-blue-500/30 hover:text-blue-400'
                           }`}
                           title={followedUsers.has(post.author.id) ? `Unfollow ${post.author.username}` : `Follow ${post.author.username}`}
                         >
@@ -614,12 +614,12 @@ function CommunityPageInner() {
 
               {loadingMore && (
                 <div className="flex items-center justify-center py-6">
-                  <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+                  <Loader2 className="w-5 h-5 text-fg-muted animate-spin" />
                 </div>
               )}
 
               {!hasMore && posts.length > 0 && (
-                <p className="text-center text-xs text-slate-600 py-8">
+                <p className="text-center text-xs text-fg-muted py-8">
                   You&apos;ve reached the end of the feed
                 </p>
               )}
@@ -658,18 +658,18 @@ function CommunityPageInner() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-xl bg-[#131820] border border-white/[0.08] rounded-none sm:rounded-2xl shadow-2xl overflow-hidden fixed inset-0 sm:relative sm:inset-auto flex flex-col max-h-screen sm:max-h-[90vh]"
+              className="w-full max-w-xl bg-surface-raised border border-line-subtle rounded-none sm:rounded-2xl shadow-theme-lg overflow-hidden fixed inset-0 sm:relative sm:inset-auto flex flex-col max-h-screen sm:max-h-[90vh]"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal header */}
-              <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-white/[0.06] shrink-0">
+              <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-line-subtle shrink-0">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-100">Create Post</h2>
+                  <h2 className="text-lg font-semibold text-fg-primary">Create Post</h2>
                   {selectedCommunityName && (
                     <motion.p
                       initial={{ opacity: 0, y: -4 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="text-xs text-slate-500 mt-0.5"
+                      className="text-xs text-fg-muted mt-0.5"
                     >
                       Posting to <span className="text-cyan-400 font-medium">c/{selectedCommunityName}</span>
                     </motion.p>
@@ -677,7 +677,7 @@ function CommunityPageInner() {
                 </div>
                 <button
                   onClick={() => setShowCreate(false)}
-                  className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.05] transition-colors"
+                  className="p-1.5 rounded-lg text-fg-muted hover:text-fg-secondary hover:bg-surface-hover transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -688,13 +688,13 @@ function CommunityPageInner() {
                 {/* Community selector with search */}
                 <div className="relative">
                   <div className="relative">
-                    <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                    <Search className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                     <input
                       type="text"
                       placeholder="Search communities..."
                       value={communitySearch}
                       onChange={(e) => setCommunitySearch(e.target.value)}
-                      className="w-full bg-[#161b22] border border-white/[0.08] rounded-t-xl pl-9 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500/40"
+                      className="w-full bg-surface-raised border border-line-subtle rounded-t-xl pl-9 pr-4 py-2 text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-blue-500/40"
                     />
                   </div>
                   <select
@@ -703,7 +703,7 @@ function CommunityPageInner() {
                       setCreateCommunity(e.target.value)
                       setCommunitySearch('')
                     }}
-                    className="w-full bg-[#161b22] border border-white/[0.08] border-t-0 rounded-b-xl px-4 py-2.5 text-sm text-slate-200 appearance-none cursor-pointer focus:outline-none focus:border-blue-500/40"
+                    className="w-full bg-surface-raised border border-line-subtle border-t-0 rounded-b-xl px-4 py-2.5 text-sm text-slate-200 appearance-none cursor-pointer focus:outline-none focus:border-blue-500/40"
                   >
                     <option value="">Select a community</option>
                     {filteredCommunities.length === 0 && (
@@ -715,7 +715,7 @@ function CommunityPageInner() {
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3 bottom-3 pointer-events-none" />
+                  <ChevronDown className="w-4 h-4 text-fg-muted absolute right-3 bottom-3 pointer-events-none" />
                 </div>
 
                 {/* Title */}
@@ -725,10 +725,10 @@ function CommunityPageInner() {
                     placeholder="Post title"
                     value={createTitle}
                     onChange={(e) => setCreateTitle(e.target.value)}
-                    className="w-full bg-[#161b22] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500/40"
+                    className="w-full bg-surface-raised border border-line-subtle rounded-xl px-4 py-2.5 text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-blue-500/40"
                     maxLength={300}
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-600 tabular-nums">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-fg-muted tabular-nums">
                     {createTitle.length}/300
                   </span>
                 </div>
@@ -740,8 +740,8 @@ function CommunityPageInner() {
                       onClick={() => setBodyTab('write')}
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors ${
                         bodyTab === 'write'
-                          ? 'bg-white/[0.06] text-slate-200'
-                          : 'text-slate-500 hover:text-slate-300'
+                          ? 'bg-surface-hover text-fg-primary'
+                          : 'text-fg-muted hover:text-fg-secondary'
                       }`}
                     >
                       <Pencil className="w-3 h-3" />
@@ -751,8 +751,8 @@ function CommunityPageInner() {
                       onClick={() => setBodyTab('preview')}
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors ${
                         bodyTab === 'preview'
-                          ? 'bg-white/[0.06] text-slate-200'
-                          : 'text-slate-500 hover:text-slate-300'
+                          ? 'bg-surface-hover text-fg-primary'
+                          : 'text-fg-muted hover:text-fg-secondary'
                       }`}
                     >
                       <Eye className="w-3 h-3" />
@@ -779,14 +779,14 @@ function CommunityPageInner() {
                             }
                           }}
                           rows={6}
-                          className="w-full bg-[#161b22] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 resize-none focus:outline-none focus:border-blue-500/40 leading-relaxed min-h-[140px] sm:min-h-0 font-mono"
+                          className="w-full bg-surface-raised border border-line-subtle rounded-xl px-4 py-3 text-sm text-fg-primary placeholder:text-fg-muted resize-none focus:outline-none focus:border-blue-500/40 leading-relaxed min-h-[140px] sm:min-h-0 font-mono"
                         />
                         <div className="absolute right-3 bottom-3 flex items-center gap-2">
                           <span
                             className={`text-[10px] tabular-nums ${
                               createBody.length > MAX_BODY_LENGTH * 0.9
                                 ? 'text-amber-400'
-                                : 'text-slate-600'
+                                : 'text-fg-muted'
                             }`}
                           >
                             {createBody.length.toLocaleString()}/{MAX_BODY_LENGTH.toLocaleString()}
@@ -800,7 +800,7 @@ function CommunityPageInner() {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.15 }}
-                        className="w-full bg-[#161b22] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-slate-300 leading-relaxed min-h-[140px] overflow-y-auto"
+                        className="w-full bg-surface-raised border border-line-subtle rounded-xl px-4 py-3 text-sm text-fg-secondary leading-relaxed min-h-[140px] overflow-y-auto"
                       >
                         {createBody ? (
                           <div
@@ -810,7 +810,7 @@ function CommunityPageInner() {
                             }}
                           />
                         ) : (
-                          <p className="text-slate-600 italic">Nothing to preview yet...</p>
+                          <p className="text-fg-muted italic">Nothing to preview yet...</p>
                         )}
                       </motion.div>
                     )}
@@ -818,7 +818,7 @@ function CommunityPageInner() {
 
                   {/* Image attach */}
                   <div className="flex items-center gap-2 mt-2">
-                    <label className="cursor-pointer flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors">
+                    <label className="cursor-pointer flex items-center gap-1.5 text-xs text-fg-muted hover:text-fg-primary transition-colors">
                       <ImagePlus className="w-4 h-4" />
                       <span>Add Image</span>
                       <input
@@ -861,7 +861,7 @@ function CommunityPageInner() {
                     animate={{ opacity: 1, height: 'auto' }}
                     className="flex flex-wrap items-center gap-1.5"
                   >
-                    <span className="text-[10px] text-slate-600 uppercase tracking-wider mr-1">Tickers:</span>
+                    <span className="text-[10px] text-fg-muted uppercase tracking-wider mr-1">Tickers:</span>
                     {mergedTickersDisplay.map((t) => (
                       <span
                         key={t}
@@ -876,19 +876,19 @@ function CommunityPageInner() {
                 {/* Tickers + Sentiment */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <div className="flex-1 relative">
-                    <Hash className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Hash className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       placeholder="Extra tickers (e.g. AAPL, TSLA)"
                       value={createTickers}
                       onChange={(e) => setCreateTickers(e.target.value)}
-                      className="w-full bg-[#161b22] border border-white/[0.08] rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500/40"
+                      className="w-full bg-surface-raised border border-line-subtle rounded-xl pl-9 pr-4 py-2.5 text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-blue-500/40"
                     />
                   </div>
                   <select
                     value={createSentiment}
                     onChange={(e) => setCreateSentiment(e.target.value)}
-                    className="bg-[#161b22] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-slate-200 appearance-none cursor-pointer focus:outline-none focus:border-blue-500/40 min-w-[120px]"
+                    className="bg-surface-raised border border-line-subtle rounded-xl px-3 py-2.5 text-sm text-fg-primary appearance-none cursor-pointer focus:outline-none focus:border-blue-500/40 min-w-[120px]"
                   >
                     <option value="">Sentiment</option>
                     <option value="bullish">Bullish</option>
@@ -899,14 +899,14 @@ function CommunityPageInner() {
               </div>
 
               {/* Modal footer */}
-              <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 sm:py-4 border-t border-white/[0.06] shrink-0">
-                <p className="text-[10px] text-slate-600 hidden sm:block">
+              <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 sm:py-4 border-t border-line-subtle shrink-0">
+                <p className="text-[10px] text-fg-muted hidden sm:block">
                   Draft auto-saved
                 </p>
                 <div className="flex items-center gap-3 ml-auto">
                   <button
                     onClick={() => setShowCreate(false)}
-                    className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+                    className="px-4 py-2 text-sm text-fg-muted hover:text-fg-primary transition-colors"
                   >
                     Cancel
                   </button>

@@ -51,7 +51,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 }
 
 function getCategoryColor(category: string) {
-  return CATEGORY_COLORS[category.toLowerCase()] || 'bg-slate-500/15 text-slate-400 border-slate-500/30'
+  return CATEGORY_COLORS[category.toLowerCase()] || 'bg-slate-500/15 text-fg-muted border-slate-500/30'
 }
 
 function formatCount(n: number): string {
@@ -173,13 +173,13 @@ export default function DiscoverPage() {
         <div className="flex items-center gap-3 mb-6">
           <Link
             href="/community"
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="p-2 rounded-lg text-fg-muted hover:text-fg-primary hover:bg-surface-hover transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-100">Discover Communities</h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <h1 className="text-2xl font-bold text-fg-primary">Discover Communities</h1>
+            <p className="text-sm text-fg-muted mt-1">
               Find communities that match your trading interests
             </p>
           </div>
@@ -188,24 +188,24 @@ export default function DiscoverPage() {
         {/* Search + Sort Row */}
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search communities..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-[#0D1117] border border-white/[0.06] rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500/40 transition-colors"
+              className="w-full bg-surface-base border border-line-subtle rounded-xl pl-10 pr-4 py-2.5 text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-blue-500/40 transition-colors"
             />
           </div>
-          <div className="flex gap-1 bg-[#0D1117] border border-white/[0.06] rounded-xl p-1">
+          <div className="flex gap-1 bg-surface-base border border-line-subtle rounded-xl p-1">
             {SORT_OPTIONS.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
                 onClick={() => setSortKey(key)}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                   sortKey === key
-                    ? 'bg-white/[0.06] text-slate-100'
-                    : 'text-slate-500 hover:text-slate-300'
+                    ? 'bg-surface-active text-fg-primary'
+                    : 'text-fg-muted hover:text-fg-secondary'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -224,7 +224,7 @@ export default function DiscoverPage() {
               className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors border ${
                 category === key
                   ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
-                  : 'bg-[#0D1117] text-slate-400 border-white/[0.06] hover:text-slate-200 hover:border-white/[0.12]'
+                  : 'bg-[#0D1117] text-fg-muted border-white/[0.06] hover:text-slate-200 hover:border-line-default'
               }`}
             >
               {label}
@@ -238,22 +238,22 @@ export default function DiscoverPage() {
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-3 sm:p-5 animate-pulse"
+                className="bg-surface-base border border-line-subtle rounded-xl p-3 sm:p-5 animate-pulse"
               >
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-slate-800 rounded-xl" />
+                  <div className="w-10 h-10 bg-surface-raised rounded-xl" />
                   <div className="flex-1 space-y-1.5">
-                    <div className="h-4 w-32 bg-slate-800 rounded" />
-                    <div className="h-3 w-16 bg-slate-800 rounded" />
+                    <div className="h-4 w-32 bg-surface-raised rounded" />
+                    <div className="h-3 w-16 bg-surface-raised rounded" />
                   </div>
                 </div>
                 <div className="space-y-1.5 mb-4">
-                  <div className="h-3 w-full bg-slate-800 rounded" />
-                  <div className="h-3 w-2/3 bg-slate-800 rounded" />
+                  <div className="h-3 w-full bg-surface-raised rounded" />
+                  <div className="h-3 w-2/3 bg-surface-raised rounded" />
                 </div>
                 <div className="flex gap-3">
-                  <div className="h-4 w-20 bg-slate-800 rounded" />
-                  <div className="h-4 w-20 bg-slate-800 rounded" />
+                  <div className="h-4 w-20 bg-surface-raised rounded" />
+                  <div className="h-4 w-20 bg-surface-raised rounded" />
                 </div>
               </div>
             ))}
@@ -262,11 +262,11 @@ export default function DiscoverPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-12 text-center"
+            className="bg-surface-base border border-line-subtle rounded-xl p-12 text-center"
           >
-            <Search className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-300 mb-2">No communities found</h3>
-            <p className="text-sm text-slate-500">
+            <Search className="w-12 h-12 text-fg-muted mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-fg-secondary mb-2">No communities found</h3>
+            <p className="text-sm text-fg-muted">
               {search
                 ? `No results for "${search}". Try a different search term.`
                 : 'No communities in this category yet.'}
@@ -286,7 +286,7 @@ export default function DiscoverPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.2, delay: i * 0.03 }}
-                  className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-3 sm:p-5 hover:border-white/[0.12] transition-colors group"
+                  className="bg-surface-base border border-line-subtle rounded-xl p-3 sm:p-5 hover:border-line-default transition-colors group"
                 >
                   {/* Community Header */}
                   <div className="flex items-start gap-3 mb-3">
@@ -296,7 +296,7 @@ export default function DiscoverPage() {
                     <div className="flex-1 min-w-0">
                       <Link
                         href={`/community?c=${community.slug}`}
-                        className="text-sm font-semibold text-slate-100 hover:text-blue-400 transition-colors truncate block"
+                        className="text-sm font-semibold text-fg-primary hover:text-blue-400 transition-colors truncate block"
                       >
                         c/{community.name}
                       </Link>
@@ -309,7 +309,7 @@ export default function DiscoverPage() {
                           {community.category}
                         </span>
                         {community.ticker_focus && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium bg-white/[0.04] text-slate-300 border border-white/[0.06]">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium bg-surface-raised text-fg-secondary border border-line-subtle">
                             <Hash className="w-2.5 h-2.5" />
                             {community.ticker_focus}
                           </span>
@@ -319,12 +319,12 @@ export default function DiscoverPage() {
                   </div>
 
                   {/* Description */}
-                  <p className="text-xs text-slate-400 leading-relaxed mb-4 line-clamp-2">
+                  <p className="text-xs text-fg-muted leading-relaxed mb-4 line-clamp-2">
                     {community.description || 'A community for traders to share ideas and analysis.'}
                   </p>
 
                   {/* Stats Row */}
-                  <div className="flex items-center gap-4 mb-4 text-xs text-slate-500">
+                  <div className="flex items-center gap-4 mb-4 text-xs text-fg-muted">
                     <span className="flex items-center gap-1">
                       <Users className="w-3.5 h-3.5" />
                       {formatCount(community.member_count)} members
@@ -341,7 +341,7 @@ export default function DiscoverPage() {
                     disabled={joiningSlug === community.slug}
                     className={`w-full py-2.5 sm:py-2 rounded-lg text-xs font-medium transition-all border min-h-[44px] sm:min-h-0 ${
                       community.is_member
-                        ? 'bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30'
+                        ? 'bg-surface-raised text-fg-secondary border-line-subtle hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30'
                         : 'bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/25'
                     } disabled:opacity-50`}
                   >

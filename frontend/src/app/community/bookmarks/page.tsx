@@ -41,11 +41,11 @@ export default function BookmarksPage() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <Link href="/community" className="text-slate-400 hover:text-slate-200 transition-colors">
+          <Link href="/community" className="text-fg-muted hover:text-fg-primary transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <Bookmark className="w-5 h-5 text-cyan-400" />
-          <h1 className="text-xl font-bold text-slate-100">Saved Posts</h1>
+          <h1 className="text-xl font-bold text-fg-primary">Saved Posts</h1>
         </div>
 
         {/* Content */}
@@ -67,7 +67,7 @@ export default function BookmarksPage() {
             {hasMore && (
               <button
                 onClick={() => cursor && loadBookmarks(cursor)}
-                className="w-full py-3 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+                className="w-full py-3 text-sm text-fg-muted hover:text-fg-primary transition-colors"
               >
                 Load more
               </button>

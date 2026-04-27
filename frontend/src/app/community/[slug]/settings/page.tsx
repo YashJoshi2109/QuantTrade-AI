@@ -168,11 +168,11 @@ export default function CommunitySettingsPage() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <Link href={`/community/${slug}`} className="text-slate-400 hover:text-slate-200">
+          <Link href={`/community/${slug}`} className="text-fg-muted hover:text-fg-primary">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <Settings className="w-5 h-5 text-cyan-400" />
-          <h1 className="text-xl font-bold text-slate-100">Community Settings</h1>
+          <h1 className="text-xl font-bold text-fg-primary">Community Settings</h1>
         </div>
 
         {/* Status message */}
@@ -183,13 +183,13 @@ export default function CommunitySettingsPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-[#0D1117] border border-white/[0.06] rounded-xl p-1.5">
+        <div className="flex gap-1 mb-6 bg-surface-base border border-line-subtle rounded-xl p-1.5">
           {tabs.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1 justify-center ${
-                tab === key ? 'bg-white/[0.06] text-slate-100' : 'text-slate-500 hover:text-slate-300'
+                tab === key ? 'bg-surface-active text-fg-primary' : 'text-fg-muted hover:text-fg-secondary'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -200,23 +200,23 @@ export default function CommunitySettingsPage() {
 
         {/* General Tab */}
         {tab === 'general' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-6 space-y-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-surface-base border border-line-subtle rounded-xl p-6 space-y-4">
             <div>
-              <label className="block text-sm text-slate-300 mb-1.5">Name</label>
-              <input value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
+              <label className="block text-sm text-fg-secondary mb-1.5">Name</label>
+              <input value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 bg-surface-raised border border-line-subtle rounded-lg text-fg-primary focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
             </div>
             <div>
-              <label className="block text-sm text-slate-300 mb-1.5">Description</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full px-3 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 resize-none" />
+              <label className="block text-sm text-fg-secondary mb-1.5">Description</label>
+              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full px-3 py-2 bg-surface-raised border border-line-subtle rounded-lg text-fg-primary focus:outline-none focus:ring-1 focus:ring-cyan-500/50 resize-none" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-slate-300 mb-1.5">Icon URL</label>
-                <input value={iconUrl} onChange={e => setIconUrl(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
+                <label className="block text-sm text-fg-secondary mb-1.5">Icon URL</label>
+                <input value={iconUrl} onChange={e => setIconUrl(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 bg-surface-raised border border-line-subtle rounded-lg text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
               </div>
               <div>
-                <label className="block text-sm text-slate-300 mb-1.5">Banner URL</label>
-                <input value={bannerUrl} onChange={e => setBannerUrl(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
+                <label className="block text-sm text-fg-secondary mb-1.5">Banner URL</label>
+                <input value={bannerUrl} onChange={e => setBannerUrl(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 bg-surface-raised border border-line-subtle rounded-lg text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
               </div>
             </div>
             <button onClick={saveGeneral} disabled={saving} className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 text-white rounded-lg text-sm font-medium flex items-center gap-2">
@@ -229,25 +229,25 @@ export default function CommunitySettingsPage() {
         {tab === 'automod' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             {/* Existing rules */}
-            <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-6">
-              <h3 className="text-sm font-semibold text-slate-200 mb-4">Active Rules ({rules.length})</h3>
+            <div className="bg-surface-base border border-line-subtle rounded-xl p-6">
+              <h3 className="text-sm font-semibold text-fg-primary mb-4">Active Rules ({rules.length})</h3>
               {rules.length === 0 ? (
-                <p className="text-sm text-slate-500">No automod rules configured</p>
+                <p className="text-sm text-fg-muted">No automod rules configured</p>
               ) : (
                 <div className="space-y-2">
                   {rules.map((rule, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-slate-800/30 rounded-lg">
+                    <div key={i} className="flex items-center gap-3 p-3 bg-surface-raised/50 rounded-lg">
                       <div className="flex-1">
-                        <div className="text-sm text-slate-200">{rule.name}</div>
-                        <div className="text-xs text-slate-500">
-                          <span className="px-1.5 py-0.5 bg-slate-700/50 rounded text-slate-400 mr-2">{rule.type}</span>
+                        <div className="text-sm text-fg-primary">{rule.name}</div>
+                        <div className="text-xs text-fg-muted">
+                          <span className="px-1.5 py-0.5 bg-surface-raised rounded text-fg-muted mr-2">{rule.type}</span>
                           {rule.value}
                           <span className={`ml-2 px-1.5 py-0.5 rounded ${rule.action === 'remove' ? 'bg-red-500/15 text-red-400' : 'bg-amber-500/15 text-amber-400'}`}>
                             {rule.action}
                           </span>
                         </div>
                       </div>
-                      <button onClick={() => removeRule(i)} className="text-slate-500 hover:text-red-400 transition-colors">
+                      <button onClick={() => removeRule(i)} className="text-fg-muted hover:text-red-400 transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -257,16 +257,16 @@ export default function CommunitySettingsPage() {
             </div>
 
             {/* Add rule */}
-            <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-6">
-              <h3 className="text-sm font-semibold text-slate-200 mb-4">Add Rule</h3>
+            <div className="bg-surface-base border border-line-subtle rounded-xl p-6">
+              <h3 className="text-sm font-semibold text-fg-primary mb-4">Add Rule</h3>
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Rule Name</label>
-                  <input value={newRule.name} onChange={e => setNewRule({ ...newRule, name: e.target.value })} placeholder="e.g., Block spam links" className="w-full px-3 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
+                  <label className="block text-xs text-fg-muted mb-1">Rule Name</label>
+                  <input value={newRule.name} onChange={e => setNewRule({ ...newRule, name: e.target.value })} placeholder="e.g., Block spam links" className="w-full px-3 py-2 bg-surface-raised border border-line-subtle rounded-lg text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Type</label>
-                  <select value={newRule.type} onChange={e => setNewRule({ ...newRule, type: e.target.value })} className="w-full px-3 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50">
+                  <label className="block text-xs text-fg-muted mb-1">Type</label>
+                  <select value={newRule.type} onChange={e => setNewRule({ ...newRule, type: e.target.value })} className="w-full px-3 py-2 bg-surface-raised border border-line-subtle rounded-lg text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50">
                     <option value="keyword">Keyword</option>
                     <option value="regex">Regex</option>
                     <option value="account_age">Account Age (days)</option>
@@ -277,18 +277,18 @@ export default function CommunitySettingsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Value</label>
-                  <input value={newRule.value} onChange={e => setNewRule({ ...newRule, value: e.target.value })} placeholder="e.g., guaranteed returns" className="w-full px-3 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
+                  <label className="block text-xs text-fg-muted mb-1">Value</label>
+                  <input value={newRule.value} onChange={e => setNewRule({ ...newRule, value: e.target.value })} placeholder="e.g., guaranteed returns" className="w-full px-3 py-2 bg-surface-raised border border-line-subtle rounded-lg text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Action</label>
-                  <select value={newRule.action} onChange={e => setNewRule({ ...newRule, action: e.target.value })} className="w-full px-3 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50">
+                  <label className="block text-xs text-fg-muted mb-1">Action</label>
+                  <select value={newRule.action} onChange={e => setNewRule({ ...newRule, action: e.target.value })} className="w-full px-3 py-2 bg-surface-raised border border-line-subtle rounded-lg text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50">
                     <option value="review">Queue for Review</option>
                     <option value="remove">Auto-Remove</option>
                   </select>
                 </div>
               </div>
-              <button onClick={addRule} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-sm font-medium flex items-center gap-2">
+              <button onClick={addRule} className="px-4 py-2 bg-surface-raised hover:bg-surface-active text-fg-primary rounded-lg text-sm font-medium flex items-center gap-2">
                 <Plus className="w-4 h-4" /> Add Rule
               </button>
             </div>
@@ -304,20 +304,20 @@ export default function CommunitySettingsPage() {
         {tab === 'bans' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             {/* Ban form */}
-            <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-6">
-              <h3 className="text-sm font-semibold text-slate-200 mb-4">Ban User</h3>
+            <div className="bg-surface-base border border-line-subtle rounded-xl p-6">
+              <h3 className="text-sm font-semibold text-fg-primary mb-4">Ban User</h3>
               <div className="grid grid-cols-3 gap-3 mb-3">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">User ID</label>
-                  <input value={banUserId} onChange={e => setBanUserId(e.target.value)} placeholder="123" className="w-full px-3 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
+                  <label className="block text-xs text-fg-muted mb-1">User ID</label>
+                  <input value={banUserId} onChange={e => setBanUserId(e.target.value)} placeholder="123" className="w-full px-3 py-2 bg-surface-raised border border-line-subtle rounded-lg text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Reason</label>
-                  <input value={banReason} onChange={e => setBanReason(e.target.value)} placeholder="Spam" className="w-full px-3 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
+                  <label className="block text-xs text-fg-muted mb-1">Reason</label>
+                  <input value={banReason} onChange={e => setBanReason(e.target.value)} placeholder="Spam" className="w-full px-3 py-2 bg-surface-raised border border-line-subtle rounded-lg text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Days (empty=permanent)</label>
-                  <input value={banDays} onChange={e => setBanDays(e.target.value)} placeholder="30" type="number" className="w-full px-3 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
+                  <label className="block text-xs text-fg-muted mb-1">Days (empty=permanent)</label>
+                  <input value={banDays} onChange={e => setBanDays(e.target.value)} placeholder="30" type="number" className="w-full px-3 py-2 bg-surface-raised border border-line-subtle rounded-lg text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50" />
                 </div>
               </div>
               <button onClick={banUser} disabled={saving} className="px-4 py-2 bg-red-500/80 hover:bg-red-500 text-white rounded-lg text-sm font-medium flex items-center gap-2">
@@ -326,17 +326,17 @@ export default function CommunitySettingsPage() {
             </div>
 
             {/* Ban list */}
-            <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-6">
-              <h3 className="text-sm font-semibold text-slate-200 mb-4">Banned Users ({bans.length})</h3>
+            <div className="bg-surface-base border border-line-subtle rounded-xl p-6">
+              <h3 className="text-sm font-semibold text-fg-primary mb-4">Banned Users ({bans.length})</h3>
               {bans.length === 0 ? (
-                <p className="text-sm text-slate-500">No banned users</p>
+                <p className="text-sm text-fg-muted">No banned users</p>
               ) : (
                 <div className="space-y-2">
                   {bans.map(ban => (
-                    <div key={ban.id} className="flex items-center gap-3 p-3 bg-slate-800/30 rounded-lg">
+                    <div key={ban.id} className="flex items-center gap-3 p-3 bg-surface-raised/50 rounded-lg">
                       <div className="flex-1">
-                        <div className="text-sm text-slate-200">{ban.username}</div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-sm text-fg-primary">{ban.username}</div>
+                        <div className="text-xs text-fg-muted">
                           {ban.reason || 'No reason'}
                           {ban.is_permanent ? (
                             <span className="ml-2 text-red-400">Permanent</span>
@@ -345,7 +345,7 @@ export default function CommunitySettingsPage() {
                           )}
                         </div>
                       </div>
-                      <button onClick={() => unbanUser(ban.user_id)} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg">
+                      <button onClick={() => unbanUser(ban.user_id)} className="px-3 py-1 text-xs bg-surface-raised hover:bg-surface-active text-fg-secondary rounded-lg">
                         Unban
                       </button>
                     </div>

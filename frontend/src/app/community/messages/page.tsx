@@ -90,24 +90,24 @@ function ConversationList({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-white/[0.06]">
+      <div className="px-4 py-3 border-b border-line-subtle">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-white">Messages</h2>
           <Link
             href="/community/messages/new"
-            className="p-2 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+            className="p-2 rounded-lg text-fg-muted hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
           >
             <Plus className="w-5 h-5" />
           </Link>
         </div>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
           <input
             type="text"
             placeholder="Search conversations"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-[#1a2130] border border-white/[0.06] rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/40"
+            className="w-full pl-9 pr-3 py-2 bg-surface-raised border border-line-subtle rounded-lg text-sm text-white placeholder:text-fg-muted focus:outline-none focus:border-blue-500/40"
           />
         </div>
       </div>
@@ -116,13 +116,13 @@ function ConversationList({
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+            <Loader2 className="w-5 h-5 text-fg-muted animate-spin" />
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <MessageCircle className="w-12 h-12 text-slate-700 mb-3" />
-            <p className="text-sm text-slate-500 mb-1">No messages yet</p>
-            <p className="text-xs text-slate-600">Start a conversation from someone's profile</p>
+            <MessageCircle className="w-12 h-12 text-fg-muted mb-3" />
+            <p className="text-sm text-fg-muted mb-1">No messages yet</p>
+            <p className="text-xs text-fg-muted">Start a conversation from someone's profile</p>
           </div>
         ) : (
           <div>
@@ -133,25 +133,25 @@ function ConversationList({
                 className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-left ${
                   selectedId === conv.id
                     ? 'bg-blue-500/10 border-l-2 border-blue-500'
-                    : 'hover:bg-white/[0.03] border-l-2 border-transparent'
+                    : 'hover:bg-surface-hover border-l-2 border-transparent'
                 }`}
               >
                 <div className="relative">
                   <Avatar username={conv.other_user.username} />
                   {conv.unread && (
-                    <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-[#0a0a0f]" />
+                    <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-surface-base" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className={`text-sm truncate ${conv.unread ? 'font-semibold text-white' : 'text-slate-300'}`}>
+                    <span className={`text-sm truncate ${conv.unread ? 'font-semibold text-white' : 'text-fg-secondary'}`}>
                       {conv.other_user.username}
                     </span>
-                    <span className="text-[10px] text-slate-600 shrink-0 ml-2">
+                    <span className="text-[10px] text-fg-muted shrink-0 ml-2">
                       {relativeTime(conv.last_message_at)}
                     </span>
                   </div>
-                  <p className={`text-xs truncate mt-0.5 ${conv.unread ? 'text-slate-300' : 'text-slate-500'}`}>
+                  <p className={`text-xs truncate mt-0.5 ${conv.unread ? 'text-fg-secondary' : 'text-fg-muted'}`}>
                     {conv.last_message_preview || 'No messages yet'}
                   </p>
                 </div>
@@ -298,16 +298,16 @@ function MessageThread({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Thread Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] bg-[#0d1117]/80 backdrop-blur-sm">
-        <button onClick={onBack} className="lg:hidden p-1 rounded-lg text-slate-400 hover:text-white">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-line-subtle bg-surface-base/80 backdrop-blur-sm">
+        <button onClick={onBack} className="lg:hidden p-1 rounded-lg text-fg-muted hover:text-white">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <Avatar username={otherUser.username} />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-white truncate">{otherUser.username}</p>
-          <p className="text-[10px] text-slate-500">Active now</p>
+          <p className="text-[10px] text-fg-muted">Active now</p>
         </div>
-        <button className="p-2 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.05]">
+        <button className="p-2 rounded-lg text-fg-muted hover:text-fg-secondary hover:bg-white/[0.05]">
           <MoreHorizontal className="w-5 h-5" />
         </button>
       </div>
@@ -316,13 +316,13 @@ function MessageThread({
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <Loader2 className="w-6 h-6 text-slate-600 animate-spin" />
+            <Loader2 className="w-6 h-6 text-fg-muted animate-spin" />
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <Avatar username={otherUser.username} size="lg" />
             <p className="text-sm font-semibold text-white mt-3">{otherUser.username}</p>
-            <p className="text-xs text-slate-500 mt-1">Start of your conversation</p>
+            <p className="text-xs text-fg-muted mt-1">Start of your conversation</p>
           </div>
         ) : (
           messages.map((msg, i) => {
@@ -346,7 +346,7 @@ function MessageThread({
                   className={`max-w-[70%] px-3 py-2 text-sm leading-relaxed ${
                     isMe
                       ? 'bg-blue-600 text-white rounded-2xl rounded-br-md'
-                      : 'bg-[#1a2130] text-slate-200 rounded-2xl rounded-bl-md'
+                      : 'bg-surface-raised text-slate-200 rounded-2xl rounded-bl-md'
                   }`}
                 >
                   {msg.body}
@@ -364,9 +364,9 @@ function MessageThread({
       </div>
 
       {/* Input */}
-      <div className="px-4 py-3 border-t border-white/[0.06] bg-[#0d1117]/80 backdrop-blur-sm">
+      <div className="px-4 py-3 border-t border-line-subtle bg-surface-base/80 backdrop-blur-sm">
         <div className="flex items-center gap-2">
-          <div className="flex-1 flex items-center bg-[#1a2130] rounded-full border border-white/[0.06] focus-within:border-blue-500/40 transition-colors">
+          <div className="flex-1 flex items-center bg-surface-raised rounded-full border border-line-subtle focus-within:border-blue-500/40 transition-colors">
             <input
               ref={inputRef}
               type="text"
@@ -374,9 +374,9 @@ function MessageThread({
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
               placeholder="Message..."
-              className="flex-1 px-4 py-2.5 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
+              className="flex-1 px-4 py-2.5 bg-transparent text-sm text-white placeholder:text-fg-muted focus:outline-none"
             />
-            <button className="p-2 text-slate-500 hover:text-slate-300">
+            <button className="p-2 text-fg-muted hover:text-fg-secondary">
               <Smile className="w-5 h-5" />
             </button>
           </div>
@@ -386,7 +386,7 @@ function MessageThread({
             className={`p-2.5 rounded-full transition-all ${
               input.trim()
                 ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20'
-                : 'bg-[#1a2130] text-slate-600'
+                : 'bg-surface-raised text-fg-muted'
             }`}
           >
             {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
@@ -406,7 +406,7 @@ function EmptyThread() {
         <MessageCircle className="w-8 h-8 text-blue-400" />
       </div>
       <h3 className="text-lg font-semibold text-white mb-1">Your Messages</h3>
-      <p className="text-sm text-slate-500 max-w-xs">
+      <p className="text-sm text-fg-muted max-w-xs">
         Send private messages to other traders. Discuss strategies, share insights, and build your network.
       </p>
     </div>
@@ -454,8 +454,8 @@ function DesktopMessages() {
       <AppLayout hideFooter>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
-            <MessageCircle className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <p className="text-slate-400">Sign in to view messages</p>
+            <MessageCircle className="w-12 h-12 text-fg-muted mx-auto mb-3" />
+            <p className="text-fg-muted">Sign in to view messages</p>
           </div>
         </div>
       </AppLayout>
@@ -465,9 +465,9 @@ function DesktopMessages() {
   return (
     <AppLayout hideFooter>
       <div className="flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
-        <div className="flex flex-1 min-h-0 lg:mx-6 lg:my-6 bg-[#0d1117] lg:rounded-2xl lg:border lg:border-white/[0.06] overflow-hidden">
+        <div className="flex flex-1 min-h-0 lg:mx-6 lg:my-6 bg-surface-base lg:rounded-2xl lg:border lg:border-line-subtle overflow-hidden">
           {/* Left — Conversation List */}
-          <div className={`w-full lg:w-[360px] border-r border-white/[0.06] flex-shrink-0 ${
+          <div className={`w-full lg:w-[360px] border-r border-line-subtle flex-shrink-0 ${
             selectedConvId ? 'hidden lg:flex lg:flex-col' : 'flex flex-col'
           }`}>
             <ConversationList
@@ -503,7 +503,7 @@ export default function MessagesPage() {
   return (
     <>
       <div className="hidden lg:block"><DesktopMessages /></div>
-      <div className="lg:hidden flex flex-col bg-[#0A0E1A]" style={{ height: '100dvh' }}>
+      <div className="lg:hidden flex flex-col bg-surface-base" style={{ height: '100dvh' }}>
         <div className="flex-1 min-h-0">
           <MobileCommunityMessages />
         </div>

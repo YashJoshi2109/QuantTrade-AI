@@ -49,7 +49,7 @@ function ReputationBadge({ rep }: { rep?: number }) {
   if (!rep || rep === 0) return null
   const label = rep >= 1000 ? '🏆' : rep >= 500 ? '⭐' : rep >= 100 ? '✦' : null
   if (!label) return null
-  return <span className="text-[10px] text-slate-500">{label} {rep}</span>
+  return <span className="text-[10px] text-fg-muted">{label} {rep}</span>
 }
 
 function NewMessageContent() {
@@ -175,8 +175,8 @@ function NewMessageContent() {
       <AppLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
-            <MessageCircle className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <p className="text-slate-400">Sign in to send messages</p>
+            <MessageCircle className="w-12 h-12 text-fg-muted mx-auto mb-3" />
+            <p className="text-fg-muted">Sign in to send messages</p>
           </div>
         </div>
       </AppLayout>
@@ -190,7 +190,7 @@ function NewMessageContent() {
         <div className="flex items-center gap-3 mb-6">
           <button
             onClick={() => router.push('/community/messages')}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-colors"
+            className="p-2 rounded-lg text-fg-muted hover:text-white hover:bg-surface-hover transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -200,12 +200,12 @@ function NewMessageContent() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-[#0D1117] border border-white/[0.06] rounded-xl overflow-visible"
+          className="bg-surface-base border border-line-subtle rounded-xl overflow-visible"
         >
           {/* To: field — recipient selection */}
-          <div className="px-4 py-3 border-b border-white/[0.06]">
+          <div className="px-4 py-3 border-b border-line-subtle">
             <div className="flex items-center gap-2 flex-wrap min-h-[2.5rem]">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider shrink-0">To:</span>
+              <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider shrink-0">To:</span>
 
               {/* Selected user chip */}
               {selectedUser && (
@@ -235,7 +235,7 @@ function NewMessageContent() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-                    className="w-full px-3 py-1.5 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
+                    className="w-full px-3 py-1.5 bg-transparent text-sm text-white placeholder:text-fg-muted focus:outline-none"
                   />
 
                   {/* Dropdown */}
@@ -246,11 +246,11 @@ function NewMessageContent() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -6 }}
                         transition={{ duration: 0.12 }}
-                        className="absolute top-full left-0 right-0 z-50 mt-1 bg-[#0D1117] border border-white/[0.10] rounded-xl shadow-2xl shadow-black/50 overflow-hidden min-w-[280px]"
+                        className="absolute top-full left-0 right-0 z-50 mt-1 bg-[#0D1117] border border-line-default rounded-xl shadow-2xl shadow-black/50 overflow-hidden min-w-[280px]"
                       >
                         {searchLoading ? (
                           <div className="flex items-center justify-center py-6">
-                            <Loader2 className="w-4 h-4 text-slate-500 animate-spin" />
+                            <Loader2 className="w-4 h-4 text-fg-muted animate-spin" />
                           </div>
                         ) : searchResults.length > 0 ? (
                           <div className="py-1 max-h-72 overflow-y-auto">
@@ -258,7 +258,7 @@ function NewMessageContent() {
                               <button
                                 key={u.id}
                                 onMouseDown={(e) => { e.preventDefault(); selectUser(u) }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.05] transition-colors text-left group"
+                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-surface-hover transition-colors text-left group"
                               >
                                 <UserAvatar username={u.username} size="sm" />
                                 <div className="flex-1 min-w-0">
@@ -269,7 +269,7 @@ function NewMessageContent() {
                                     <ReputationBadge rep={u.reputation} />
                                   </div>
                                   {u.full_name && (
-                                    <p className="text-xs text-slate-500 truncate">{u.full_name}</p>
+                                    <p className="text-xs text-fg-muted truncate">{u.full_name}</p>
                                   )}
                                 </div>
                               </button>
@@ -277,7 +277,7 @@ function NewMessageContent() {
                           </div>
                         ) : searchQuery.trim().length > 0 ? (
                           <div className="py-6 px-4 text-center">
-                            <p className="text-xs text-slate-500">No users found matching &ldquo;{searchQuery}&rdquo;</p>
+                            <p className="text-xs text-fg-muted">No users found matching &ldquo;{searchQuery}&rdquo;</p>
                           </div>
                         ) : null}
                       </motion.div>
@@ -290,8 +290,8 @@ function NewMessageContent() {
               {!selectedUser && (
                 <div className="shrink-0 ml-auto">
                   {searchLoading
-                    ? <Loader2 className="w-4 h-4 text-slate-500 animate-spin" />
-                    : <Search className="w-4 h-4 text-slate-600" />
+                    ? <Loader2 className="w-4 h-4 text-fg-muted animate-spin" />
+                    : <Search className="w-4 h-4 text-fg-muted" />
                   }
                 </div>
               )}
@@ -307,12 +307,12 @@ function NewMessageContent() {
                 exit={{ opacity: 0, height: 0 }}
               >
                 {/* Recipient info banner */}
-                <div className="flex items-center gap-3 px-4 py-3 bg-blue-500/[0.04] border-b border-white/[0.04]">
+                <div className="flex items-center gap-3 px-4 py-3 bg-blue-500/[0.04] border-b border-line-subtle">
                   <UserAvatar username={selectedUser.username} size="md" />
                   <div>
                     <p className="text-sm font-semibold text-white">{selectedUser.username}</p>
                     {selectedUser.full_name && (
-                      <p className="text-xs text-slate-400">{selectedUser.full_name}</p>
+                      <p className="text-xs text-fg-muted">{selectedUser.full_name}</p>
                     )}
                   </div>
                 </div>
@@ -327,7 +327,7 @@ function NewMessageContent() {
                     }}
                     placeholder="Write your message... (⌘Enter to send)"
                     rows={5}
-                    className="w-full px-3 py-2.5 bg-[#1a2130] border border-white/[0.06] rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/40 resize-none leading-relaxed"
+                    className="w-full px-3 py-2.5 bg-surface-raised border border-line-subtle rounded-xl text-sm text-white placeholder:text-fg-muted focus:outline-none focus:border-blue-500/40 resize-none leading-relaxed"
                   />
 
                   {error && (
@@ -341,7 +341,7 @@ function NewMessageContent() {
                   )}
 
                   <div className="flex items-center justify-between mt-3">
-                    <p className="text-[10px] text-slate-600">{message.length} / 5000</p>
+                    <p className="text-[10px] text-fg-muted">{message.length} / 5000</p>
                     <button
                       onClick={handleSend}
                       disabled={!message.trim() || sending || sent}
@@ -350,7 +350,7 @@ function NewMessageContent() {
                           ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
                           : message.trim() && !sending
                             ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20 active:scale-95'
-                            : 'bg-[#1a2130] text-slate-600 cursor-not-allowed'
+                            : 'bg-surface-raised text-fg-muted cursor-not-allowed'
                       }`}
                     >
                       {sent ? (
@@ -373,8 +373,8 @@ function NewMessageContent() {
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 flex items-center justify-center mb-4">
                 <Search className="w-6 h-6 text-blue-400" />
               </div>
-              <p className="text-sm font-medium text-slate-400 mb-1">Find a trader to message</p>
-              <p className="text-xs text-slate-600">Start typing a username to search</p>
+              <p className="text-sm font-medium text-fg-muted mb-1">Find a trader to message</p>
+              <p className="text-xs text-fg-muted">Start typing a username to search</p>
             </div>
           )}
         </motion.div>

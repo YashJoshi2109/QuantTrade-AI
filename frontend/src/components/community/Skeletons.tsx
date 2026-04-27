@@ -7,7 +7,7 @@
 function Shimmer({ className = '' }: { className?: string }) {
   return (
     <div
-      className={`rounded bg-slate-800/60 animate-pulse ${className}`}
+      className={`rounded bg-surface-raised/60 animate-pulse ${className}`}
     />
   )
 }
@@ -16,7 +16,7 @@ function Shimmer({ className = '' }: { className?: string }) {
 
 export function PostCardSkeleton() {
   return (
-    <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-3 sm:p-4">
+    <div className="bg-surface-base border border-line-subtle rounded-xl p-3 sm:p-4">
       <div className="flex gap-2 sm:gap-3">
         {/* Vote column */}
         <div className="flex flex-col items-center gap-1.5 pt-1 min-w-[36px]">
@@ -59,7 +59,7 @@ export function PostCardSkeleton() {
 
 export function CommentSkeleton({ depth = 0 }: { depth?: number }) {
   return (
-    <div className={depth > 0 ? 'ml-3 md:ml-6 border-l-2 border-slate-700/40 pl-4' : ''}>
+    <div className={depth > 0 ? 'ml-3 md:ml-6 border-l-2 border-line-subtle pl-4' : ''}>
       <div className="py-2.5 space-y-2">
         {/* Author line */}
         <div className="flex items-center gap-2">
@@ -84,7 +84,7 @@ export function CommentSkeleton({ depth = 0 }: { depth?: number }) {
 
 export function CommunitySkeleton() {
   return (
-    <div className="bg-[#0D1117] border border-white/[0.06] rounded-xl p-4 space-y-3">
+    <div className="bg-surface-base border border-line-subtle rounded-xl p-4 space-y-3">
       <div className="flex items-center gap-3">
         <Shimmer className="w-10 h-10 rounded-xl" />
         <div className="flex-1 space-y-1.5">
@@ -106,7 +106,7 @@ export function CommunitySkeleton() {
 
 export function NotificationSkeleton() {
   return (
-    <div className="flex items-start gap-3 px-4 py-3 border-b border-white/[0.04]">
+    <div className="flex items-start gap-3 px-4 py-3 border-b border-line-subtle">
       <Shimmer className="w-8 h-8 rounded-full shrink-0" />
       <div className="flex-1 space-y-1.5">
         <Shimmer className="w-3/4 h-3.5 rounded" />
