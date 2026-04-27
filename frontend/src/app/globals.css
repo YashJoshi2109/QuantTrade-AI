@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+
+/* Restore snappier transitions on interactive elements */
+button, a, input, textarea, select,
+[role="button"], [role="tab"], [role="menuitem"] {
+  transition-property: background-color, border-color, color, opacity, transform, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
 :root {
   /* ── Surfaces (warm off-white + frosted glass) ── */
   --surface-base:         #f7f6f3;
