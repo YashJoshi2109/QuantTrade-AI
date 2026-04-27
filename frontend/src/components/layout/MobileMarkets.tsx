@@ -64,7 +64,7 @@ function MarketPulse({ continent }: { continent: Continent }) {
           <div className="text-sm font-bold text-red-400">{losers}</div>
           <div className="text-[9px] text-red-500/70 uppercase">Declining</div>
         </div>
-        <div className="text-center bg-slate-500/10 border border-line-subtle rounded-lg py-1.5">
+        <div className="text-center bg-surface-raised border border-line-subtle rounded-lg py-1.5">
           <div className="text-sm font-bold text-fg-secondary">{flat}</div>
           <div className="text-[9px] text-fg-muted/70 uppercase">Unchanged</div>
         </div>

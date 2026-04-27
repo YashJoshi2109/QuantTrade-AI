@@ -114,7 +114,7 @@ function ConversationList({
             placeholder="Search conversations..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2.5 bg-surface-raised border border-line-subtle rounded-xl text-sm text-fg-primary placeholder-slate-500 focus:outline-none focus:border-blue-500/40"
+            className="w-full pl-9 pr-3 py-2.5 bg-surface-raised border border-line-subtle rounded-xl text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-blue-500/40"
           />
         </div>
       </div>
@@ -389,7 +389,7 @@ function MessageThread({
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
               placeholder="Message..."
-              className="flex-1 px-4 py-3 bg-transparent text-sm text-fg-primary placeholder-slate-500 focus:outline-none"
+              className="flex-1 px-4 py-3 bg-transparent text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none"
             />
             <button className="pr-3 text-fg-muted active:scale-90">
               <Smile className="w-5 h-5" />

@@ -31,7 +31,7 @@ const plans = [
     icon: Crown,
     accent: 'text-[#00D9FF]',
     border: 'border-[#00D9FF]/50',
-    bg: 'bg-gradient-to-br from-[#00D9FF]/15 via-[#0A0E1A] to-[#141B2D]',
+    bg: 'bg-gradient-to-br from-[#00D9FF]/15 via-surface-base to-surface-overlay',
     cta: 'Go Pro',
     disabled: false,
     features: [

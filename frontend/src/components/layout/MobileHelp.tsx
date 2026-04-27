@@ -123,7 +123,7 @@ export default function MobileHelp() {
       </section>
 
       <section className="px-1">
-        <div className="rounded-2xl bg-gradient-to-br from-[#00D9FF]/15 via-[#0A0E1A] to-[#141B2D] border border-[#00D9FF]/30 p-4">
+        <div className="rounded-2xl bg-gradient-to-br from-[#00D9FF]/15 via-surface-base to-surface-overlay border border-[#00D9FF]/30 p-4">
           <h3 className="text-[14px] font-semibold text-fg-primary">Still need help?</h3>
           <p className="text-[11px] text-fg-secondary mt-1">
             Reach out and we’ll get you unstuck quickly.
