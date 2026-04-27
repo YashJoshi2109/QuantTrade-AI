@@ -61,9 +61,9 @@ const BADGE_CONFIG: Record<string, { label: string; emoji: string; color: string
   verified_trader: { label: 'Verified Trader', emoji: '✓', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
   top_analyst: { label: 'Top Analyst', emoji: '📊', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/30' },
   early_adopter: { label: 'Early Adopter', emoji: '🚀', color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/30' },
-  contributor: { label: 'Contributor', emoji: '⭐', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30' },
+  contributor: { label: 'Contributor', emoji: '⭐', color: 'text-qa-accent', bg: 'bg-qa-accent/10 border-qa-border' },
   moderator: { label: 'Moderator', emoji: '🛡️', color: 'text-cyan-400', bg: 'bg-cyan-500/10 border-cyan-500/30' },
-  pro: { label: 'Pro Trader', emoji: '💎', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/30' },
+  pro: { label: 'Pro Trader', emoji: '💎', color: 'text-qa-accent', bg: 'bg-qa-accent/10 border-qa-border' },
 }
 
 /* ── Helpers ───────────────────────────────────────────────── */
@@ -359,7 +359,7 @@ export default function UserProfilePage() {
               { label: 'Acct Age', value: accountAge(profile.joined_at), sub: formatJoined(profile.joined_at), isStr: true },
             ].map((s) => (
               <div key={s.label} className="flex flex-col items-center py-3 px-2">
-                <span className={`text-base sm:text-lg font-black tabular-nums ${s.accent ? 'text-amber-400' : 'text-white'}`}>
+                <span className={`text-base sm:text-lg font-black tabular-nums ${s.accent ? 'text-qa-accent' : 'text-white'}`}>
                   {s.isStr ? s.value : formatCount(s.value as number)}
                 </span>
                 <span className="text-[10px] text-fg-muted font-medium mt-0.5">{s.label}</span>
@@ -484,7 +484,7 @@ export default function UserProfilePage() {
                 <div className="space-y-2.5 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-fg-muted">Reputation</span>
-                    <span className="font-bold text-amber-400 flex items-center gap-1">
+                    <span className="font-bold text-qa-accent flex items-center gap-1">
                       <Star className="w-3.5 h-3.5" /> {formatCount(profile.reputation)}
                     </span>
                   </div>
@@ -519,7 +519,7 @@ export default function UserProfilePage() {
             {profile.badges.length > 0 && (
               <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
                 <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3 flex items-center gap-2">
-                  <Award className="w-3.5 h-3.5 text-amber-400" /> Achievements
+                  <Award className="w-3.5 h-3.5 text-qa-accent" /> Achievements
                 </p>
                 <div className="space-y-2">
                   {profile.badges.map((badge) => {
@@ -574,7 +574,7 @@ export default function UserProfilePage() {
           {profile.badges.length > 0 && (
             <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
               <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3 flex items-center gap-2">
-                <Award className="w-3.5 h-3.5 text-amber-400" /> Achievements
+                <Award className="w-3.5 h-3.5 text-qa-accent" /> Achievements
               </p>
               <div className="flex flex-wrap gap-2">
                 {profile.badges.map((badge) => {

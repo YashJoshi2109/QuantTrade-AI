@@ -50,6 +50,11 @@ module.exports = {
           primary: 'rgb(var(--sidebar-primary) / <alpha-value>)',
           'primary-foreground': 'rgb(var(--sidebar-primary-foreground) / <alpha-value>)',
         },
+        qa: {
+          bg:     'var(--qa-bg)',
+          accent: 'var(--qa-accent)',
+          border: 'var(--qa-border)',
+        },
         surface: {
           base:    'var(--surface-base)',
           raised:  'var(--surface-raised)',
