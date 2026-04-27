@@ -346,7 +346,7 @@ function MessageThread({
                   className={`max-w-[70%] px-3 py-2 text-sm leading-relaxed ${
                     isMe
                       ? 'bg-blue-600 text-white rounded-2xl rounded-br-md'
-                      : 'bg-surface-raised text-slate-200 rounded-2xl rounded-bl-md'
+                      : 'bg-surface-raised text-fg-primary rounded-2xl rounded-bl-md'
                   }`}
                 >
                   {msg.body}

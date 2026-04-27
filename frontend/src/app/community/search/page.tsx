@@ -72,7 +72,7 @@ function MobileCommunitySearchContent() {
     <div className="min-h-screen bg-surface-base pb-safe flex flex-col">
         
         {/* Header / Search Bar */}
-        <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-white/10 pt-safe">
+        <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe">
           <div className="flex items-center gap-3 px-3 py-2.5">
             <button 
               onClick={() => router.back()}
@@ -157,7 +157,7 @@ function MobileCommunitySearchContent() {
                   ))
                 ) : (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="w-6 h-6 text-slate-600 animate-spin" />
+                    <Loader2 className="w-6 h-6 text-fg-muted animate-spin" />
                   </div>
                 )}
               </div>

@@ -269,7 +269,7 @@ export default function UserProfilePage() {
           <div className="flex items-end gap-4 px-4 sm:px-6 pt-0 pb-4">
             {/* Avatar — overlaps the banner */}
             <div className="-mt-10 sm:-mt-12 shrink-0">
-              <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br ${grad} border-4 border-surface-base flex items-center justify-center overflow-hidden ring-2 ring-white/10 shadow-2xl`}>
+              <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br ${grad} border-4 border-surface-base flex items-center justify-center overflow-hidden ring-2 ring-line-subtle shadow-2xl`}>
                 {profile.avatar_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={profile.avatar_url} alt={profile.username} className="w-full h-full object-cover" />
@@ -476,7 +476,7 @@ export default function UserProfilePage() {
             <div className="bg-surface-base border border-line-subtle rounded-xl overflow-hidden">
               <div className={`h-10 bg-gradient-to-r ${grad}`} />
               <div className="px-4 pb-4 pt-2">
-                <p className="text-xs font-bold text-white uppercase tracking-widest mb-3">About</p>
+                <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3">About</p>
                 <p className="text-sm text-fg-muted leading-relaxed mb-4">
                   {profile.bio || `Trading on QuantTrade since ${formatJoined(profile.joined_at)}.`}
                 </p>
@@ -490,15 +490,15 @@ export default function UserProfilePage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-fg-muted">Followers</span>
-                    <span className="font-semibold text-white">{formatCount(profile.followers_count)}</span>
+                    <span className="font-semibold text-fg-primary">{formatCount(profile.followers_count)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-fg-muted">Following</span>
-                    <span className="font-semibold text-white">{formatCount(profile.following_count)}</span>
+                    <span className="font-semibold text-fg-primary">{formatCount(profile.following_count)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-fg-muted">Acct Age</span>
-                    <span className="font-semibold text-white">{accountAge(profile.joined_at)}</span>
+                    <span className="font-semibold text-fg-primary">{accountAge(profile.joined_at)}</span>
                   </div>
                   {profile.trading_style && (
                     <div className="flex items-center justify-between">
@@ -510,7 +510,7 @@ export default function UserProfilePage() {
 
                 <div className="mt-4 pt-4 border-t border-line-subtle">
                   <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wider mb-2">Joined</p>
-                  <p className="text-sm text-white">{new Date(profile.joined_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                  <p className="text-sm text-fg-primary">{new Date(profile.joined_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
                 </div>
               </div>
             </div>
@@ -518,12 +518,12 @@ export default function UserProfilePage() {
             {/* Achievements / Badges */}
             {profile.badges.length > 0 && (
               <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
-                <p className="text-xs font-bold text-white uppercase tracking-widest mb-3 flex items-center gap-2">
+                <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3 flex items-center gap-2">
                   <Award className="w-3.5 h-3.5 text-amber-400" /> Achievements
                 </p>
                 <div className="space-y-2">
                   {profile.badges.map((badge) => {
-                    const cfg = BADGE_CONFIG[badge] || { label: badge.replace(/_/g, ' '), emoji: '🏅', color: 'text-fg-muted', bg: 'bg-slate-500/10 border-slate-500/20' }
+                    const cfg = BADGE_CONFIG[badge] || { label: badge.replace(/_/g, ' '), emoji: '🏅', color: 'text-fg-muted', bg: 'bg-surface-raised border-line-subtle' }
                     return (
                       <div key={badge} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border ${cfg.bg}`}>
                         <span className="text-base leading-none">{cfg.emoji}</span>
@@ -538,7 +538,7 @@ export default function UserProfilePage() {
             {/* Communities */}
             {profile.communities && profile.communities.length > 0 && (
               <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
-                <p className="text-xs font-bold text-white uppercase tracking-widest mb-3 flex items-center gap-2">
+                <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3 flex items-center gap-2">
                   <Users className="w-3.5 h-3.5 text-cyan-400" /> Communities
                 </p>
                 <div className="space-y-1.5">
@@ -555,7 +555,7 @@ export default function UserProfilePage() {
 
             {/* Settings shortcuts (only shown for own profile) */}
             <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
-              <p className="text-xs font-bold text-white uppercase tracking-widest mb-3 flex items-center gap-2">
+              <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3 flex items-center gap-2">
                 <Settings className="w-3.5 h-3.5 text-fg-muted" /> Profile
               </p>
               <div className="space-y-2 text-sm">
@@ -573,12 +573,12 @@ export default function UserProfilePage() {
         <div className="lg:hidden space-y-3 pb-8">
           {profile.badges.length > 0 && (
             <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
-              <p className="text-xs font-bold text-white uppercase tracking-widest mb-3 flex items-center gap-2">
+              <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3 flex items-center gap-2">
                 <Award className="w-3.5 h-3.5 text-amber-400" /> Achievements
               </p>
               <div className="flex flex-wrap gap-2">
                 {profile.badges.map((badge) => {
-                  const cfg = BADGE_CONFIG[badge] || { label: badge.replace(/_/g, ' '), emoji: '🏅', color: 'text-fg-muted', bg: 'bg-slate-500/10 border-slate-500/20' }
+                  const cfg = BADGE_CONFIG[badge] || { label: badge.replace(/_/g, ' '), emoji: '🏅', color: 'text-fg-muted', bg: 'bg-surface-raised border-line-subtle' }
                   return (
                     <span key={badge} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold ${cfg.bg} ${cfg.color}`}>
                       <span>{cfg.emoji}</span> {cfg.label}

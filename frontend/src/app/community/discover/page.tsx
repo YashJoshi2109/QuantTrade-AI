@@ -224,7 +224,7 @@ export default function DiscoverPage() {
               className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors border ${
                 category === key
                   ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
-                  : 'bg-[#0D1117] text-fg-muted border-white/[0.06] hover:text-slate-200 hover:border-line-default'
+                  : 'bg-surface-overlay text-fg-muted border-white/[0.06] hover:text-fg-secondary hover:border-line-default'
               }`}
             >
               {label}

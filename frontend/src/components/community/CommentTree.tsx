@@ -55,7 +55,7 @@ const DEPTH_COLORS = [
   'border-blue-500/40',    // depth 0
   'border-purple-500/40',  // depth 1
   'border-cyan-500/40',    // depth 2
-  'border-slate-500/30',   // depth 3+
+  'border-line-subtle',    // depth 3+
 ]
 
 function getDepthColor(depth: number): string {

@@ -296,9 +296,9 @@ export default function CommunitySidebar() {
             Resources
           </h3>
           {expandedSections.resources ? (
-            <ChevronUp className="w-3.5 h-3.5 text-slate-600" />
+            <ChevronUp className="w-3.5 h-3.5 text-fg-muted" />
           ) : (
-            <ChevronDown className="w-3.5 h-3.5 text-slate-600" />
+            <ChevronDown className="w-3.5 h-3.5 text-fg-muted" />
           )}
         </button>
 

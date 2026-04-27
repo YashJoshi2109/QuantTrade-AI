@@ -473,7 +473,7 @@ function CommunityPageInner() {
           {/* ═══ Left Sidebar ═══ */}
           <aside className="hidden lg:block w-[260px] shrink-0">
             <div
-              className="sticky top-[4.5rem] h-[calc(100vh-4.5rem)] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent"
+              className="sticky top-[4.5rem] h-[calc(100vh-4.5rem)] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-track-transparent"
               style={{ scrollbarWidth: 'thin' }}
             >
               <div className="py-4 px-2">
@@ -629,7 +629,7 @@ function CommunityPageInner() {
           {/* ═══ Right Sidebar ═══ */}
           <aside className="hidden lg:block w-[312px] shrink-0">
             <div
-              className="sticky top-[4.5rem] h-[calc(100vh-4.5rem)] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent"
+              className="sticky top-[4.5rem] h-[calc(100vh-4.5rem)] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-track-transparent"
               style={{ scrollbarWidth: 'thin' }}
             >
               <div className="py-4 px-2">
@@ -703,7 +703,7 @@ function CommunityPageInner() {
                       setCreateCommunity(e.target.value)
                       setCommunitySearch('')
                     }}
-                    className="w-full bg-surface-raised border border-line-subtle border-t-0 rounded-b-xl px-4 py-2.5 text-sm text-slate-200 appearance-none cursor-pointer focus:outline-none focus:border-blue-500/40"
+                    className="w-full bg-surface-raised border border-line-subtle border-t-0 rounded-b-xl px-4 py-2.5 text-sm text-fg-primary appearance-none cursor-pointer focus:outline-none focus:border-blue-500/40"
                   >
                     <option value="">Select a community</option>
                     {filteredCommunities.length === 0 && (
@@ -841,7 +841,7 @@ function CommunityPageInner() {
                     {imagePreview && (
                       <div className="relative">
                         {/* eslint-disable-next-line @next/next/no-img-element -- blob URL from createObjectURL is safe */}
-                        <img src={imagePreview} alt="Preview" className="h-12 w-12 object-cover rounded border border-white/10" />
+                        <img src={imagePreview} alt="Preview" className="h-12 w-12 object-cover rounded border border-line-subtle" />
                         <button
                           type="button"
                           onClick={() => { setImageFile(null); setImagePreview(null) }}

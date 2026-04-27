@@ -277,7 +277,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                 >
                   c/{post.community.name}
                 </Link>
-                <span className="text-slate-600">·</span>
+                <span className="text-fg-muted">·</span>
               </>
             )}
             <Link
@@ -450,7 +450,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                     <span className="text-[11px] text-fg-secondary truncate flex-1 font-mono">{postUrl}</span>
                     <button
                       onClick={handleCopyLink}
-                      className="shrink-0 p-1 rounded-md hover:bg-white/10 transition-colors text-slate-400 hover:text-white"
+                      className="shrink-0 p-1 rounded-md hover:bg-surface-hover transition-colors text-fg-muted hover:text-white"
                       title="Copy link"
                     >
                       {shareConfirm

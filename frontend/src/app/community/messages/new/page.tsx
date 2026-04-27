@@ -246,7 +246,7 @@ function NewMessageContent() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -6 }}
                         transition={{ duration: 0.12 }}
-                        className="absolute top-full left-0 right-0 z-50 mt-1 bg-[#0D1117] border border-line-default rounded-xl shadow-2xl shadow-black/50 overflow-hidden min-w-[280px]"
+                        className="absolute top-full left-0 right-0 z-50 mt-1 bg-surface-overlay border border-line-default rounded-xl shadow-2xl shadow-black/50 overflow-hidden min-w-[280px]"
                       >
                         {searchLoading ? (
                           <div className="flex items-center justify-center py-6">
