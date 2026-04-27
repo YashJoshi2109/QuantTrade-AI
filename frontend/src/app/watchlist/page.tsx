@@ -41,6 +41,7 @@ import {
 } from '@/lib/api'
 import { ChartConfig, ChartContainer, ChartTooltip } from '@/components/ui/line-charts-4'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
+import { useThemeTokens } from '@/hooks/useThemeTokens'
 import { useAuth } from '@/contexts/AuthContext'
 import { useMarketRefreshInterval } from '@/hooks/useMarketRefresh'
 import { useToast } from '@/components/Toast'
@@ -110,6 +111,7 @@ const CHART_PALETTE = [
 ]
 
 function WatchlistPerformanceChart({ watchlist }: { watchlist: WatchlistItemWithPrice[] }) {
+  const t = useThemeTokens()
   const [chartFilter, setChartFilter] = useState('')
 
   // All stocks with valid chart data
@@ -251,7 +253,7 @@ function WatchlistPerformanceChart({ watchlist }: { watchlist: WatchlistItemWith
               </defs>
               <CartesianGrid
                 strokeDasharray="4 8"
-                stroke="rgba(148,163,184,0.06)"
+                stroke={t.borderSubtle}
                 horizontal={true}
                 vertical={false}
               />
@@ -259,20 +261,20 @@ function WatchlistPerformanceChart({ watchlist }: { watchlist: WatchlistItemWith
                 dataKey="time"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 10, fill: '#475569' }}
+                tick={{ fontSize: 10, fill: t.textMuted }}
                 tickMargin={10}
               />
               <YAxis
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 10, fill: '#475569' }}
+                tick={{ fontSize: 10, fill: t.textMuted }}
                 tickFormatter={(v) => `$${v}`}
                 tickMargin={4}
                 width={52}
               />
               <ChartTooltip
                 content={<CustomTooltip />}
-                cursor={{ strokeDasharray: '3 3', stroke: 'rgba(148,163,184,0.15)' }}
+                cursor={{ strokeDasharray: '3 3', stroke: t.borderSubtle }}
               />
               {visibleStocks.map((item, i) => (
                 <Line
@@ -285,7 +287,7 @@ function WatchlistPerformanceChart({ watchlist }: { watchlist: WatchlistItemWith
                   activeDot={{
                     r: 4,
                     strokeWidth: 2,
-                    stroke: '#0f1629',
+                    stroke: t.surfaceBase,
                     fill: CHART_PALETTE[i % CHART_PALETTE.length],
                   }}
                 />

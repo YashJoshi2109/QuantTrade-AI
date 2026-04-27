@@ -13,6 +13,7 @@ import {
   LineChart, Line, BarChart, Bar, ScatterChart, Scatter, Cell, ReferenceLine
 } from 'recharts'
 import type { BacktestResult } from '@/lib/api'
+import { useThemeTokens } from '@/hooks/useThemeTokens'
 
 /* ------------------------------------------------------------------ */
 /*  Sub-components                                                     */
@@ -95,13 +96,6 @@ function ChartTooltip({ active, payload, label, prefix, suffix }: any) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Axis tick styles                                                    */
-/* ------------------------------------------------------------------ */
-
-const axisTick = { fill: '#475569', fontSize: 10 }
-const axisLine = { stroke: '#1e293b' }
-
-/* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -138,6 +132,10 @@ interface ResultsDashboardProps {
 }
 
 export default function ResultsDashboard({ result }: ResultsDashboardProps) {
+  const t = useThemeTokens()
+  const axisTick = { fill: t.textMuted, fontSize: 10 }
+  const axisLine = { stroke: t.borderDefault }
+
   /* ---- derived data ---- */
 
   const equityData = useMemo(
@@ -300,7 +298,7 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
                   <stop offset="100%" stopColor="#34d399" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <CartesianGrid strokeDasharray="3 3" stroke={t.borderDefault} />
               <XAxis dataKey="idx" tick={axisTick} axisLine={axisLine} tickLine={false} />
               <YAxis
                 tick={axisTick}
@@ -324,7 +322,7 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
                   type="monotone"
                   dataKey="benchmark"
                   name="Benchmark"
-                  stroke="#64748b"
+                  stroke={t.textMuted}
                   strokeWidth={1.5}
                   strokeDasharray="6 3"
                   fill="transparent"
@@ -353,7 +351,7 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
                   <stop offset="100%" stopColor="#f87171" stopOpacity={0.4} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <CartesianGrid strokeDasharray="3 3" stroke={t.borderDefault} />
               <XAxis dataKey="idx" tick={axisTick} axisLine={axisLine} tickLine={false} />
               <YAxis
                 tick={axisTick}
@@ -362,7 +360,7 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
                 tickFormatter={(v: number) => `${v.toFixed(0)}%`}
               />
               <Tooltip content={<ChartTooltip suffix="%" />} />
-              <ReferenceLine y={0} stroke="#334155" strokeWidth={1} />
+              <ReferenceLine y={0} stroke={t.borderSubtle} strokeWidth={1} />
               <Area
                 type="monotone"
                 dataKey="value"
@@ -399,11 +397,11 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
         >
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={rollingSharpeData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <CartesianGrid strokeDasharray="3 3" stroke={t.borderDefault} />
               <XAxis dataKey="idx" tick={axisTick} axisLine={axisLine} tickLine={false} />
               <YAxis tick={axisTick} axisLine={axisLine} tickLine={false} />
               <Tooltip content={<ChartTooltip />} />
-              <ReferenceLine y={0} stroke="#334155" strokeWidth={1} />
+              <ReferenceLine y={0} stroke={t.borderSubtle} strokeWidth={1} />
               <Line
                 type="monotone"
                 dataKey="value"
@@ -469,11 +467,11 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
         <Section title="Trade Distribution" icon={BarChart3}>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={tradeDistData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <CartesianGrid strokeDasharray="3 3" stroke={t.borderDefault} />
               <XAxis dataKey="label" tick={axisTick} axisLine={axisLine} tickLine={false} />
               <YAxis tick={axisTick} axisLine={axisLine} tickLine={false} />
               <Tooltip content={<ChartTooltip />} />
-              <ReferenceLine x="0.0" stroke="#334155" strokeWidth={1} />
+              <ReferenceLine x="0.0" stroke={t.borderSubtle} strokeWidth={1} />
               <Bar dataKey="count" name="Trades" radius={[3, 3, 0, 0]} isAnimationActive={false}>
                 {tradeDistData.map((d, i) => (
                   <Cell key={i} fill={d.positive ? '#34d399' : '#f87171'} fillOpacity={0.8} />
@@ -489,7 +487,7 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
         <Section title="MAE / MFE Scatter" icon={Target}>
           <ResponsiveContainer width="100%" height={250}>
             <ScatterChart margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <CartesianGrid strokeDasharray="3 3" stroke={t.borderDefault} />
               <XAxis
                 dataKey="mae"
                 name="MAE"
@@ -497,7 +495,7 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
                 tick={axisTick}
                 axisLine={axisLine}
                 tickLine={false}
-                label={{ value: 'MAE (adverse)', position: 'insideBottomRight', offset: -4, fill: '#475569', fontSize: 10 }}
+                label={{ value: 'MAE (adverse)', position: 'insideBottomRight', offset: -4, fill: t.textMuted, fontSize: 10 }}
               />
               <YAxis
                 dataKey="mfe"
@@ -506,7 +504,7 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
                 tick={axisTick}
                 axisLine={axisLine}
                 tickLine={false}
-                label={{ value: 'MFE (favorable)', position: 'insideTopLeft', offset: -4, fill: '#475569', fontSize: 10, angle: -90 }}
+                label={{ value: 'MFE (favorable)', position: 'insideTopLeft', offset: -4, fill: t.textMuted, fontSize: 10, angle: -90 }}
               />
               <Tooltip
                 content={({ active, payload }: any) => {
@@ -523,8 +521,8 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
                   )
                 }}
               />
-              <ReferenceLine x={0} stroke="#334155" strokeWidth={1} />
-              <ReferenceLine y={0} stroke="#334155" strokeWidth={1} />
+              <ReferenceLine x={0} stroke={t.borderSubtle} strokeWidth={1} />
+              <ReferenceLine y={0} stroke={t.borderSubtle} strokeWidth={1} />
               <Scatter data={maeMfeData} isAnimationActive={false}>
                 {maeMfeData.map((d, i) => (
                   <Cell key={i} fill={d.profit ? '#34d399' : '#f87171'} fillOpacity={0.7} r={4} />
@@ -595,7 +593,7 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
           {mcDistData.length > 0 && (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={mcDistData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <CartesianGrid strokeDasharray="3 3" stroke={t.borderDefault} />
                 <XAxis dataKey="label" tick={axisTick} axisLine={axisLine} tickLine={false} />
                 <YAxis tick={axisTick} axisLine={axisLine} tickLine={false} />
                 <Tooltip content={<ChartTooltip />} />

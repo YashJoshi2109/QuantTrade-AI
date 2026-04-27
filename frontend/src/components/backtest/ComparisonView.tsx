@@ -12,6 +12,7 @@ import {
   CartesianGrid
 } from 'recharts'
 import { compareStrategies, CompareResult, BacktestResult } from '@/lib/api'
+import { useThemeTokens } from '@/hooks/useThemeTokens'
 
 /* ------------------------------------------------------------------ */
 /*  Types & Constants                                                  */
@@ -149,6 +150,7 @@ export default function ComparisonView({
   endDate,
   initialCapital,
 }: ComparisonViewProps) {
+  const t = useThemeTokens()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<CompareResult | null>(null)
@@ -419,16 +421,16 @@ export default function ComparisonView({
               <div className="h-[380px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={equityData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={t.borderDefault} />
                     <XAxis
                       dataKey="day"
-                      tick={{ fill: '#64748b', fontSize: 11 }}
-                      axisLine={{ stroke: '#1e293b' }}
+                      tick={{ fill: t.textMuted, fontSize: 11 }}
+                      axisLine={{ stroke: t.borderDefault }}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fill: '#64748b', fontSize: 11 }}
-                      axisLine={{ stroke: '#1e293b' }}
+                      tick={{ fill: t.textMuted, fontSize: 11 }}
+                      axisLine={{ stroke: t.borderDefault }}
                       tickLine={false}
                       tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
                     />
@@ -528,15 +530,15 @@ export default function ComparisonView({
               <div className="h-[380px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
-                    <PolarGrid stroke="#1e293b" />
+                    <PolarGrid stroke={t.borderDefault} />
                     <PolarAngleAxis
                       dataKey="metric"
-                      tick={{ fill: '#94a3b8', fontSize: 12 }}
+                      tick={{ fill: t.textSecondary, fontSize: 12 }}
                     />
                     <PolarRadiusAxis
                       angle={90}
                       domain={[0, 100]}
-                      tick={{ fill: '#475569', fontSize: 10 }}
+                      tick={{ fill: t.textMuted, fontSize: 10 }}
                       axisLine={false}
                     />
                     {strategies.map((s) => (
@@ -563,7 +565,7 @@ export default function ComparisonView({
                         borderRadius: 8,
                         fontSize: 12,
                       }}
-                      labelStyle={{ color: '#94a3b8' }}
+                      labelStyle={{ color: t.textSecondary }}
                     />
                   </RadarChart>
                 </ResponsiveContainer>

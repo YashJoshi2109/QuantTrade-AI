@@ -10,6 +10,7 @@ import {
 import Link from 'next/link'
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/line-charts-1'
 import { Area, ComposedChart, XAxis, YAxis } from 'recharts'
+import { useThemeTokens } from '@/hooks/useThemeTokens'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface SnapshotStock {
@@ -54,6 +55,7 @@ function fmtVol(n: number | undefined) {
 
 // ── Recharts-based stock area chart ──────────────────────────────────────────
 function StockAreaChart({ positive, prices }: { positive: boolean; prices: number[] }) {
+  const t = useThemeTokens()
   const color = positive ? '#34d399' : '#f87171'
   const gradId = positive ? 'stockGradGreen' : 'stockGradRed'
 
@@ -116,7 +118,7 @@ function StockAreaChart({ positive, prices }: { positive: boolean; prices: numbe
           strokeWidth={1.5}
           fill={`url(#${gradId})`}
           dot={false}
-          activeDot={{ r: 3, fill: color, stroke: '#0f172a', strokeWidth: 2 }}
+          activeDot={{ r: 3, fill: color, stroke: t.surfaceBase, strokeWidth: 2 }}
         />
       </ComposedChart>
     </ChartContainer>
