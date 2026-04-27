@@ -3,43 +3,162 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 11, 14, 20;
-  --background-end-rgb: 11, 14, 20;
+  /* ── Surfaces (warm off-white + frosted glass) ── */
+  --surface-base:         #f7f6f3;
+  --surface-raised:       #ffffff;
+  --surface-overlay:      #ffffff;
+  --surface-glass:        rgba(255, 255, 255, 0.72);
+  --surface-glass-border: rgba(0, 0, 0, 0.06);
+  --surface-hover:        rgba(0, 0, 0, 0.035);
+  --surface-active:       rgba(0, 122, 255, 0.06);
+
+  /* ── Typography ── */
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-muted:     #94a3b8;
+  --text-inverted:  #ffffff;
+
+  /* ── Borders ── */
+  --border-subtle:  rgba(0, 0, 0, 0.06);
+  --border-default: rgba(0, 0, 0, 0.10);
+  --border-strong:  rgba(0, 0, 0, 0.18);
+
+  /* ── Shadows ── */
+  --shadow-sm:    0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:    0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg:    0 12px 32px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
+  --shadow-glass: 0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+
+  /* ── Brand ── */
+  --accent:       #007AFF;
+  --accent-hover: #0066CC;
+  --accent-muted: rgba(0, 122, 255, 0.10);
+
+  /* ── Financial data (invariant across themes) ── */
+  --up:      #10b981;
+  --down:    #ef4444;
+  --neutral: #64748b;
+
+  /* ── Quant-Agora Bloomberg (light variant) ── */
+  --qa-bg:     #fefdf8;
+  --qa-accent: #c49a00;
+  --qa-border: rgba(196, 154, 0, 0.20);
+
+  /* ── Glass blur ── */
+  --blur-glass:  20px;
+  --blur-strong: 36px;
+
+  /* legacy — keep for backward compat during migration */
+  --foreground-rgb: 15, 23, 42;
+  --background-start-rgb: 247, 246, 243;
+  --background-end-rgb: 247, 246, 243;
   --accent-blue: #007AFF;
-  --accent-cyan: #007AFF;
   --accent-brand: #007AFF;
-  --bg-primary: #0a0f17;
-  --bg-secondary: #111827;
-  --bg-tertiary: #1a2035;
-  --bg-card: #0D1117;
-  --bg-hover: #1e293b;
-
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-
   --accent-green: #10b981;
   --accent-red: #ef4444;
-  --accent-amber-theme: #f59e0b;
 
-  --border-subtle: rgba(255,255,255,0.06);
-  --border-strong: rgba(255,255,255,0.12);
-
-  --glow-green-theme: 0 0 20px rgba(16,185,129,0.15);
-
-  /* ──────────────────────────────────────────
-     macOS Glass Design Tokens
-  ────────────────────────────────────────── */
+  /* ── macOS Glass Design Tokens (legacy) ── */
   --accent-cyan:        #00d4ff;
   --accent-emerald:     #00e5a0;
   --accent-violet:      #8b5cf6;
   --accent-rose:        #f43f5e;
   --accent-amber:       #f59e0b;
-  --bg-primary:         #020617;
-  --bg-secondary:       #0a0f1e;
-  --bg-tertiary:        #0d1117;
-  --bg-card:            #0f172a;
+  --accent-amber-theme: #f59e0b;
+  --bg-primary:         #f7f6f3;
+  --bg-secondary:       #ffffff;
+  --bg-tertiary:        #f1f5f9;
+  --bg-card:            #ffffff;
+  --bg-hover:           rgba(0, 0, 0, 0.035);
+
+  --text-tertiary: #94a3b8;
+
+  --glow-green-theme: 0 0 20px rgba(16,185,129,0.15);
+
+  /* Glass layers */
+  --glass-bg:           rgba(255, 255, 255, 0.72);
+  --glass-bg-light:     rgba(255, 255, 255, 0.58);
+  --glass-bg-strong:    rgba(255, 255, 255, 0.92);
+  --glass-border:       rgba(0, 0, 0, 0.08);
+  --glass-border-cyan:  rgba(0, 122, 255, 0.18);
+  --glass-border-glow:  rgba(0, 122, 255, 0.30);
+  --glass-blur:         20px;
+  --glass-blur-strong:  36px;
+
+  /* Light reflection (top-left highlight) */
+  --glass-shine:        inset 0 1px 0 rgba(255,255,255,0.9), inset 1px 0 0 rgba(255,255,255,0.7);
+
+  /* Neon palette */
+  --neon-cyan:    #00d4ff;
+  --neon-blue:    #3b82f6;
+  --neon-violet:  #a78bfa;
+  --neon-emerald: #34d399;
+  --neon-rose:    #fb7185;
+  --neon-amber:   #fbbf24;
+
+  /* Glows */
+  --glow-cyan:    0 0 12px rgba(0,122,255,0.15), 0 0 40px rgba(0,122,255,0.06);
+  --glow-blue:    0 0 12px rgba(59,130,246,0.15), 0 0 40px rgba(59,130,246,0.06);
+  --glow-red:     0 0 12px rgba(239,68,68,0.2),   0 0 40px rgba(239,68,68,0.08);
+  --glow-emerald: 0 0 12px rgba(16,185,129,0.15), 0 0 40px rgba(16,185,129,0.06);
+  --glow-violet:  0 0 12px rgba(139,92,246,0.15), 0 0 40px rgba(139,92,246,0.06);
+
+  /* ── shadcn Sidebar tokens ── */
+  --sidebar:                 248 250 252;
+  --sidebar-foreground:      15 23 42;
+  --sidebar-border:          0 0 0 / 0.08;
+  --sidebar-accent:          0 0 0 / 0.04;
+  --sidebar-accent-foreground: 15 23 42;
+  --sidebar-ring:            37 99 235 / 0.40;
+  --sidebar-primary:         37 99 235;
+  --sidebar-primary-foreground: 255 255 255;
+}
+
+.dark {
+  /* ── Surfaces ── */
+  --surface-base:         #0a0f17;
+  --surface-raised:       #111827;
+  --surface-overlay:      #1a2035;
+  --surface-glass:        rgba(8, 12, 28, 0.62);
+  --surface-glass-border: rgba(255, 255, 255, 0.07);
+  --surface-hover:        rgba(255, 255, 255, 0.04);
+  --surface-active:       rgba(0, 122, 255, 0.12);
+
+  /* ── Typography ── */
+  --text-primary:   #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted:     #64748b;
+  --text-inverted:  #0f172a;
+
+  /* ── Borders ── */
+  --border-subtle:  rgba(255, 255, 255, 0.05);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-strong:  rgba(255, 255, 255, 0.14);
+
+  /* ── Shadows ── */
+  --shadow-sm:    0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:    0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg:    0 12px 32px rgba(0,0,0,0.6);
+  --shadow-glass: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+
+  /* ── Quant-Agora Bloomberg (original dark) ── */
+  --qa-bg:     #0a0a0f;
+  --qa-accent: #f0b90b;
+  --qa-border: rgba(240, 185, 11, 0.20);
+
+  /* legacy overrides */
+  --foreground-rgb: 241, 245, 249;
+  --background-start-rgb: 10, 15, 23;
+  --background-end-rgb: 10, 15, 23;
+  --bg-primary: #0a0f17;
+  --bg-secondary: #111827;
+  --bg-card: #0D1117;
+  --bg-hover: #1e293b;
+  --bg-tertiary: #1a2035;
+  --text-tertiary: #64748b;
+  --accent-amber-theme: #f59e0b;
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.12);
+  --glow-green-theme: 0 0 20px rgba(16,185,129,0.15);
 
   /* Glass layers */
   --glass-bg:           rgba(8, 12, 28, 0.62);
@@ -50,17 +169,7 @@
   --glass-border-glow:  rgba(0, 212, 255, 0.40);
   --glass-blur:         20px;
   --glass-blur-strong:  36px;
-
-  /* Light reflection (top-left highlight) */
   --glass-shine:        inset 0 1px 0 rgba(255,255,255,0.08), inset 1px 0 0 rgba(255,255,255,0.04);
-
-  /* Neon palette */
-  --neon-cyan:    #00d4ff;
-  --neon-blue:    #3b82f6;
-  --neon-violet:  #a78bfa;
-  --neon-emerald: #34d399;
-  --neon-rose:    #fb7185;
-  --neon-amber:   #fbbf24;
 
   /* Glows */
   --glow-cyan:    0 0 20px rgba(0,212,255,0.35), 0 0 60px rgba(0,212,255,0.12);
@@ -421,8 +530,9 @@ html {
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: #0B0E14;
+  background-color: var(--surface-base);
+  color: var(--text-primary);
+  transition: background-color 200ms ease, color 200ms ease;
   font-family: var(--font-inter), Inter, system-ui, sans-serif;
   font-feature-settings: "rlig" 1, "calt" 1;
   -webkit-font-smoothing: antialiased;
@@ -1381,6 +1491,19 @@ html {
 
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .shadow-theme-sm    { box-shadow: var(--shadow-sm); }
+  .shadow-theme-md    { box-shadow: var(--shadow-md); }
+  .shadow-theme-lg    { box-shadow: var(--shadow-lg); }
+  .shadow-theme-glass { box-shadow: var(--shadow-glass); }
+
+  .glass-card {
+    background: var(--surface-glass);
+    backdrop-filter: blur(var(--blur-glass));
+    -webkit-backdrop-filter: blur(var(--blur-glass));
+    border: 1px solid var(--surface-glass-border);
+    box-shadow: var(--shadow-glass);
   }
 }
 

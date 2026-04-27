@@ -50,6 +50,25 @@ module.exports = {
           primary: 'rgb(var(--sidebar-primary) / <alpha-value>)',
           'primary-foreground': 'rgb(var(--sidebar-primary-foreground) / <alpha-value>)',
         },
+        surface: {
+          base:    'var(--surface-base)',
+          raised:  'var(--surface-raised)',
+          overlay: 'var(--surface-overlay)',
+          glass:   'var(--surface-glass)',
+          hover:   'var(--surface-hover)',
+          active:  'var(--surface-active)',
+        },
+        fg: {
+          primary:   'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          muted:     'var(--text-muted)',
+          inverted:  'var(--text-inverted)',
+        },
+        line: {
+          subtle:  'var(--border-subtle)',
+          default: 'var(--border-default)',
+          strong:  'var(--border-strong)',
+        },
       },
       spacing: {
         safe: 'env(safe-area-inset-bottom)',
