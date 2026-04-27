@@ -838,7 +838,7 @@ function CommunityPageInner() {
                         }}
                       />
                     </label>
-                    {imagePreview && (
+                    {imagePreview && imagePreview.startsWith('blob:') && (
                       <div className="relative">
                         {/* eslint-disable-next-line @next/next/no-img-element -- blob URL from createObjectURL is safe */}
                         <img src={imagePreview} alt="Preview" className="h-12 w-12 object-cover rounded border border-line-subtle" />
