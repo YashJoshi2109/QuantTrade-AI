@@ -7,6 +7,7 @@
   --surface-base:         #f7f6f3;
   --surface-raised:       #ffffff;
   --surface-overlay:      #ffffff;
+  /* Note: --surface-glass and --surface-hover use rgba() — Tailwind /opacity modifiers will not work on bg-surface-glass or bg-surface-hover */
   --surface-glass:        rgba(255, 255, 255, 0.72);
   --surface-glass-border: rgba(0, 0, 0, 0.06);
   --surface-hover:        rgba(0, 0, 0, 0.035);
@@ -64,11 +65,12 @@
   --accent-rose:        #f43f5e;
   --accent-amber:       #f59e0b;
   --accent-amber-theme: #f59e0b;
-  --bg-primary:         #f7f6f3;
-  --bg-secondary:       #ffffff;
-  --bg-tertiary:        #f1f5f9;
-  --bg-card:            #ffffff;
-  --bg-hover:           rgba(0, 0, 0, 0.035);
+  /* legacy aliases — point to new semantic vars */
+  --bg-primary:   var(--surface-base);
+  --bg-secondary: var(--surface-raised);
+  --bg-tertiary:  var(--surface-overlay);
+  --bg-card:      var(--surface-raised);
+  --bg-hover:     var(--surface-hover);
 
   --text-tertiary: #94a3b8;
 
@@ -163,15 +165,8 @@
   --foreground-rgb: 241, 245, 249;
   --background-start-rgb: 10, 15, 23;
   --background-end-rgb: 10, 15, 23;
-  --bg-primary: #0a0f17;
-  --bg-secondary: #111827;
-  --bg-card: #0D1117;
-  --bg-hover: #1e293b;
-  --bg-tertiary: #1a2035;
   --text-tertiary: #64748b;
   --accent-amber-theme: #f59e0b;
-  --border-subtle: rgba(255,255,255,0.06);
-  --border-strong: rgba(255,255,255,0.12);
   --glow-green-theme: 0 0 20px rgba(16,185,129,0.15);
 
   /* Glass layers */
@@ -1513,6 +1508,10 @@ html {
   .shadow-theme-glass { box-shadow: var(--shadow-glass); }
 
   .glass-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    isolation: isolate;
     background: var(--surface-glass);
     backdrop-filter: blur(var(--blur-glass));
     -webkit-backdrop-filter: blur(var(--blur-glass));
