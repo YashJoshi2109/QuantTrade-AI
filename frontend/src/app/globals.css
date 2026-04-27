@@ -1751,9 +1751,6 @@ html.light {
   --accent-red: #dc2626;
   --accent-amber-theme: #d97706;
 
-  --border-subtle: rgba(0,0,0,0.06);
-  --border-strong: rgba(0,0,0,0.12);
-
   --glow-green-theme: 0 0 20px rgba(5,150,105,0.1);
 
   /* Glass - light mode */
@@ -1865,8 +1862,6 @@ html.light .placeholder-slate-600::placeholder {
   --accent-green: #059669;
   --accent-red: #dc2626;
   --accent-amber-theme: #d97706;
-  --border-subtle: rgba(0,0,0,0.06);
-  --border-strong: rgba(0,0,0,0.12);
   --glow-blue: 0 0 20px rgba(37,99,235,0.1);
   --glow-green-theme: 0 0 20px rgba(5,150,105,0.1);
 }
