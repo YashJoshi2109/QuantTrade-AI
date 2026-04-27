@@ -3,6 +3,7 @@
 import { Search, Bell, HelpCircle } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 interface HeaderProps {
   onSymbolSelect?: (symbol: string) => void
@@ -56,6 +57,7 @@ export default function Header({ onSymbolSelect }: HeaderProps) {
             </button>
           ))}
         </div>
+        <ThemeToggle />
         <button className="text-fg-secondary hover:text-blue-400 transition">
           <Bell className="w-5 h-5" />
         </button>
