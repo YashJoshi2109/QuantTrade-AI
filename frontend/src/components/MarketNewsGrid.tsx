@@ -140,9 +140,9 @@ function getSentimentColor(sentiment: string | null) {
       }
     default:
       return {
-        bg: 'bg-slate-500/10',
-        text: 'text-slate-400',
-        border: 'border-slate-500/20',
+        bg: 'bg-surface-raised',
+        text: 'text-fg-secondary',
+        border: 'border-line-subtle',
         icon: <Activity className="w-3 h-3" />,
       }
   }
@@ -155,27 +155,27 @@ function NewsGridSkeleton() {
     <div className="grid grid-cols-12 gap-5 animate-pulse">
       <div className="col-span-3 space-y-4">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="space-y-2 pb-4 border-b border-white/5">
-            <div className="h-4 bg-[#1F2630] rounded w-full" />
-            <div className="h-3 bg-[#1F2630] rounded w-3/4" />
-            <div className="h-2 bg-[#1F2630] rounded w-1/2" />
+          <div key={i} className="space-y-2 pb-4 border-b border-line-subtle">
+            <div className="h-4 bg-surface-raised rounded w-full" />
+            <div className="h-3 bg-surface-raised rounded w-3/4" />
+            <div className="h-2 bg-surface-raised rounded w-1/2" />
           </div>
         ))}
       </div>
       <div className="col-span-6 space-y-4">
-        <div className="h-48 bg-[#1F2630] rounded-xl" />
-        <div className="h-6 bg-[#1F2630] rounded w-3/4" />
-        <div className="h-4 bg-[#1F2630] rounded w-full" />
-        <div className="h-3 bg-[#1F2630] rounded w-1/2" />
+        <div className="h-48 bg-surface-raised rounded-xl" />
+        <div className="h-6 bg-surface-raised rounded w-3/4" />
+        <div className="h-4 bg-surface-raised rounded w-full" />
+        <div className="h-3 bg-surface-raised rounded w-1/2" />
       </div>
       <div className="col-span-3 space-y-4">
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex gap-3">
-            <div className="w-20 h-16 bg-[#1F2630] rounded-lg flex-shrink-0" />
+            <div className="w-20 h-16 bg-surface-raised rounded-lg flex-shrink-0" />
             <div className="flex-1 space-y-2">
-              <div className="h-3 bg-[#1F2630] rounded w-full" />
-              <div className="h-3 bg-[#1F2630] rounded w-2/3" />
-              <div className="h-2 bg-[#1F2630] rounded w-1/3" />
+              <div className="h-3 bg-surface-raised rounded w-full" />
+              <div className="h-3 bg-surface-raised rounded w-2/3" />
+              <div className="h-2 bg-surface-raised rounded w-1/3" />
             </div>
           </div>
         ))}
@@ -188,25 +188,25 @@ function NewsGridSkeleton() {
 
 function LeftColumnItem({ article }: { article: NewsArticle }) {
   const inner = (
-    <div className="py-3.5 border-b border-white/[0.04] group hover:bg-white/[0.02] -mx-2 px-2 rounded-lg transition-all">
-      <h4 className="text-[13px] font-semibold text-slate-200 leading-snug group-hover:text-white transition-colors line-clamp-2">
+    <div className="py-3.5 border-b border-line-subtle group hover:bg-surface-hover -mx-2 px-2 rounded-lg transition-all">
+      <h4 className="text-[13px] font-semibold text-fg-secondary leading-snug group-hover:text-white transition-colors line-clamp-2">
         {article.title}
       </h4>
       {article.content && (
-        <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">
+        <p className="text-[11px] text-fg-muted mt-1 line-clamp-1">
           {article.content}
         </p>
       )}
       <div className="flex items-center gap-2 mt-1.5">
         <SourceFavicon url={article.url} source={article.source} />
-        <span className="text-[10px] text-slate-600">{article.source}</span>
-        <span className="text-[10px] text-slate-700">&middot;</span>
-        <span className="text-[10px] text-slate-600">
+        <span className="text-[10px] text-fg-muted">{article.source}</span>
+        <span className="text-[10px] text-fg-muted">&middot;</span>
+        <span className="text-[10px] text-fg-muted">
           {estimateReadTime(article.content)}
         </span>
         {article.related_tickers && article.related_tickers.length > 0 && (
           <>
-            <span className="text-[10px] text-slate-700">&middot;</span>
+            <span className="text-[10px] text-fg-muted">&middot;</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
               {article.related_tickers[0]}
             </span>
@@ -271,24 +271,24 @@ function HeroStory({ article }: { article: NewsArticle }) {
 
       {/* Summary */}
       {article.content && (
-        <p className="text-[13px] text-slate-400 leading-relaxed line-clamp-2 mb-3">
+        <p className="text-[13px] text-fg-secondary leading-relaxed line-clamp-2 mb-3">
           {article.content}
         </p>
       )}
 
       {/* Meta row */}
       <div className="flex items-center gap-3 text-[10px]">
-        <span className="flex items-center gap-1.5 text-slate-500 font-medium">
+        <span className="flex items-center gap-1.5 text-fg-muted font-medium">
           <SourceFavicon url={article.url} source={article.source} />
           {article.source}
         </span>
-        <span className="text-slate-700">&middot;</span>
-        <span className="flex items-center gap-1 text-slate-500">
+        <span className="text-fg-muted">&middot;</span>
+        <span className="flex items-center gap-1 text-fg-muted">
           <Clock className="w-3 h-3" />
           {timeAgo(article.published_at)}
         </span>
-        <span className="text-slate-700">&middot;</span>
-        <span className="text-slate-500">
+        <span className="text-fg-muted">&middot;</span>
+        <span className="text-fg-muted">
           {estimateReadTime(article.content)}
         </span>
         {article.related_tickers && article.related_tickers.length > 0 && (
@@ -314,9 +314,9 @@ function RightColumnCard({ article }: { article: NewsArticle }) {
   const sc = getSentimentColor(article.sentiment)
 
   const inner = (
-    <div className="flex gap-3 py-3 border-b border-white/[0.04] group hover:bg-white/[0.02] -mx-2 px-2 rounded-lg transition-all">
+    <div className="flex gap-3 py-3 border-b border-line-subtle group hover:bg-surface-hover -mx-2 px-2 rounded-lg transition-all">
       {/* Thumbnail */}
-      <div className="w-20 h-16 rounded-lg overflow-hidden bg-[#1A2332] border border-white/[0.06] flex-shrink-0 flex items-center justify-center">
+      <div className="w-20 h-16 rounded-lg overflow-hidden bg-surface-raised border border-line-subtle flex-shrink-0 flex items-center justify-center">
         <img
           src={article.thumbnail || getFaviconUrl(article.url, article.source)}
           alt=""
@@ -332,14 +332,14 @@ function RightColumnCard({ article }: { article: NewsArticle }) {
       </div>
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <h4 className="text-[12px] font-semibold text-slate-200 leading-snug group-hover:text-white transition-colors line-clamp-2">
+        <h4 className="text-[12px] font-semibold text-fg-secondary leading-snug group-hover:text-white transition-colors line-clamp-2">
           {article.title}
         </h4>
         <div className="flex items-center gap-1.5 mt-1">
           <SourceFavicon url={article.url} source={article.source} />
-          <span className="text-[9px] text-slate-600">{article.source}</span>
-          <span className="text-[9px] text-slate-700">&middot;</span>
-          <span className="text-[9px] text-slate-600">
+          <span className="text-[9px] text-fg-muted">{article.source}</span>
+          <span className="text-[9px] text-fg-muted">&middot;</span>
+          <span className="text-[9px] text-fg-muted">
             {timeAgo(article.published_at)}
           </span>
         </div>
@@ -384,7 +384,7 @@ function AIQuickTake({ articles }: { articles: NewsArticle[] }) {
           BETA
         </span>
       </div>
-      <p className="text-[11px] text-slate-400 leading-relaxed">
+      <p className="text-[11px] text-fg-secondary leading-relaxed">
         Sentiment across {total} stories is{' '}
         <span
           className={
@@ -520,15 +520,15 @@ export default function MarketNewsGrid() {
               Live
             </span>
           </div>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-fg-muted">
             Yahoo Finance, Google News, Finnhub or NewsAPI when configured — macro, earnings, and movers
             {lastUpdatedLabel && (
-              <span className="ml-2 text-slate-600 font-mono">
+              <span className="ml-2 text-fg-muted font-mono">
                 &middot; Updated {lastUpdatedLabel}
               </span>
             )}
             {articles.length > 0 && (
-              <span className="ml-2 text-slate-600 font-mono">
+              <span className="ml-2 text-fg-muted font-mono">
                 &middot; {articles.length} stories
               </span>
             )}
@@ -537,7 +537,7 @@ export default function MarketNewsGrid() {
 
         <div className="flex items-center gap-3">
           {/* Filter Tabs */}
-          <div className="flex gap-1 rounded-lg bg-[#0A0E1A]/60 p-0.5 border border-white/[0.04]">
+          <div className="flex gap-1 rounded-lg bg-surface-raised p-0.5 border border-line-subtle">
             {FILTER_TABS.map((tab) => (
               <button
                 key={tab.key}
@@ -546,7 +546,7 @@ export default function MarketNewsGrid() {
                 className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
                   filter === tab.key
                     ? 'bg-blue-500/15 text-blue-400'
-                    : 'text-slate-500 hover:text-slate-300'
+                    : 'text-fg-muted hover:text-fg-primary'
                 }`}
               >
                 {tab.label}
@@ -558,7 +558,7 @@ export default function MarketNewsGrid() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortMode)}
-            className="text-[10px] bg-[#0A0E1A]/60 border border-white/[0.06] text-slate-400 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+            className="text-[10px] bg-surface-raised border border-line-subtle text-fg-secondary rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt.key} value={opt.key}>
@@ -574,8 +574,8 @@ export default function MarketNewsGrid() {
         <NewsGridSkeleton />
       ) : filtered.length === 0 ? (
         <div className="py-16 text-center">
-          <Activity className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-          <p className="text-sm text-slate-400">No news articles match your filter.</p>
+          <Activity className="w-10 h-10 text-fg-muted mx-auto mb-3" />
+          <p className="text-sm text-fg-secondary">No news articles match your filter.</p>
           <button
             type="button"
             onClick={() => setFilter('all')}
@@ -593,7 +593,7 @@ export default function MarketNewsGrid() {
                 <LeftColumnItem key={article.id ?? i} article={article} />
               ))}
               {leftItems.length === 0 && (
-                <p className="text-[11px] text-slate-600 py-4">
+                <p className="text-[11px] text-fg-muted py-4">
                   No additional stories
                 </p>
               )}
@@ -605,7 +605,7 @@ export default function MarketNewsGrid() {
             {hero ? (
               <HeroStory article={hero} />
             ) : (
-              <div className="h-64 flex items-center justify-center text-slate-600 text-sm">
+              <div className="h-64 flex items-center justify-center text-fg-muted text-sm">
                 No featured story available
               </div>
             )}
@@ -618,7 +618,7 @@ export default function MarketNewsGrid() {
                 <RightColumnCard key={article.id ?? i} article={article} />
               ))}
               {rightItems.length === 0 && (
-                <p className="text-[11px] text-slate-600 py-4">
+                <p className="text-[11px] text-fg-muted py-4">
                   No stories
                 </p>
               )}

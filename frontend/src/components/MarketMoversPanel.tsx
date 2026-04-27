@@ -43,7 +43,7 @@ function VolumeBar({
   const pct = maxValue > 0 ? Math.min((value / maxValue) * 100, 100) : 0
 
   return (
-    <div className="h-1 bg-slate-800/60 rounded-full overflow-hidden w-full mt-1">
+    <div className="h-1 bg-surface-raised rounded-full overflow-hidden w-full mt-1">
       <div
         className="h-full rounded-full transition-all duration-700"
         style={{
@@ -239,10 +239,10 @@ function StockRow({
   return (
     <button
       onClick={() => openSnapshot({ symbol: stock.symbol, name: stock.name, price: stock.price, change_percent: stock.change_percent, change: (stock.price * stock.change_percent) / 100, volume: stock.volume })}
-      className="w-full flex items-center gap-3 px-3 py-3 sm:py-2.5 hover:bg-white/[0.03] active:bg-white/[0.05] border-b border-white/[0.03] transition-all group text-left"
+      className="w-full flex items-center gap-3 px-3 py-3 sm:py-2.5 hover:bg-surface-hover active:bg-surface-active border-b border-line-subtle transition-all group text-left"
     >
       {/* Rank */}
-      <span className="w-6 h-6 sm:w-5 sm:h-5 flex items-center justify-center text-[11px] sm:text-[10px] text-slate-500 bg-slate-800/50 rounded font-mono flex-shrink-0">
+      <span className="w-6 h-6 sm:w-5 sm:h-5 flex items-center justify-center text-[11px] sm:text-[10px] text-fg-muted bg-surface-raised rounded font-mono flex-shrink-0">
         {idx + 1}
       </span>
 
@@ -256,7 +256,7 @@ function StockRow({
             <MiniSparkline value={stock.change_percent} isUp={isUp} />
           </span>
         </div>
-        <div className="text-[11px] sm:text-[10px] text-slate-500 truncate max-w-[120px] sm:max-w-none">{stock.name}</div>
+        <div className="text-[11px] sm:text-[10px] text-fg-muted truncate max-w-[120px] sm:max-w-none">{stock.name}</div>
         {/* Volume bar */}
         <VolumeBar value={stock.volume || 0} maxValue={maxVolume} color={accentColor} />
       </div>
@@ -279,7 +279,7 @@ function StockRow({
             <TrendingDown className="w-3 h-3 sm:w-2.5 sm:h-2.5" />
           )}
         </div>
-        <div className="text-[10px] sm:text-[9px] font-mono text-slate-500">
+        <div className="text-[10px] sm:text-[9px] font-mono text-fg-muted">
           {formatVolume(stock.volume || 0)} vol
         </div>
       </div>
@@ -293,16 +293,16 @@ function MoversSkeletonRows({ count }: { count: number }) {
   return (
     <div className="animate-pulse">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 px-3 py-3 border-b border-white/[0.03]">
-          <div className="w-5 h-5 bg-[#1F2630] rounded" />
+        <div key={i} className="flex items-center gap-3 px-3 py-3 border-b border-line-subtle">
+          <div className="w-5 h-5 bg-surface-raised rounded" />
           <div className="flex-1 space-y-1.5">
-            <div className="h-3 bg-[#1F2630] rounded w-20" />
-            <div className="h-2 bg-[#1F2630] rounded w-32" />
-            <div className="h-1 bg-[#1F2630] rounded w-full" />
+            <div className="h-3 bg-surface-raised rounded w-20" />
+            <div className="h-2 bg-surface-raised rounded w-32" />
+            <div className="h-1 bg-surface-raised rounded w-full" />
           </div>
           <div className="space-y-1 text-right">
-            <div className="h-3 bg-[#1F2630] rounded w-14 ml-auto" />
-            <div className="h-2 bg-[#1F2630] rounded w-10 ml-auto" />
+            <div className="h-3 bg-surface-raised rounded w-14 ml-auto" />
+            <div className="h-2 bg-surface-raised rounded w-10 ml-auto" />
           </div>
         </div>
       ))}
@@ -384,7 +384,7 @@ export default function MarketMoversPanel({
   return (
     <div className="hud-panel lg:h-full flex flex-col lg:overflow-hidden">
       {/* Header */}
-      <div className="p-4 sm:p-3.5 border-b border-white/[0.04]">
+      <div className="p-4 sm:p-3.5 border-b border-line-subtle">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Activity className="w-5 h-5 sm:w-4 sm:h-4 text-cyan-400" />
@@ -395,7 +395,7 @@ export default function MarketMoversPanel({
           </div>
           <button
             onClick={() => onRefresh?.()}
-            className="p-1.5 rounded-lg hover:bg-white/[0.05] text-slate-500 hover:text-white transition-all"
+            className="p-1.5 rounded-lg hover:bg-surface-hover text-fg-muted hover:text-white transition-all"
             title="Refresh"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -403,15 +403,15 @@ export default function MarketMoversPanel({
         </div>
 
         {/* Tab Bar */}
-        <div className="flex gap-1 rounded-lg bg-[#0A0E1A]/60 p-0.5 border border-white/[0.04]">
+        <div className="flex gap-1 rounded-lg bg-surface-raised/60 p-0.5 border border-line-subtle">
           {TAB_CONFIG.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`flex-1 flex items-center justify-center gap-1 px-2 py-2 sm:py-1.5 rounded-md text-[11px] sm:text-[10px] font-semibold transition-all ${
                 tab === t.key
-                  ? `bg-white/[0.06] ${t.color} border border-white/[0.06]`
-                  : 'text-slate-500 hover:text-slate-300'
+                  ? `bg-surface-overlay ${t.color} border border-line-default`
+                  : 'text-fg-muted hover:text-fg-secondary'
               }`}
             >
               {t.icon}
@@ -423,23 +423,23 @@ export default function MarketMoversPanel({
 
       {/* Stat Chips */}
       {!loading && stats && (
-        <div className="flex flex-wrap items-center gap-2 px-4 sm:px-3.5 py-2.5 sm:py-2 border-b border-white/[0.03] bg-white/[0.01]">
-          <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800/40">
+        <div className="flex flex-wrap items-center gap-2 px-4 sm:px-3.5 py-2.5 sm:py-2 border-b border-line-subtle">
+          <div className="flex items-center gap-1 px-2 py-1 rounded bg-surface-raised">
             <Zap className="w-2.5 h-2.5 text-amber-400" />
-            <span className="text-[9px] font-mono text-slate-400">
+            <span className="text-[9px] font-mono text-fg-secondary">
               Avg {stats.avgChange >= 0 ? '+' : ''}
               {formatPercent(stats.avgChange, 2)}
             </span>
           </div>
-          <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800/40">
+          <div className="flex items-center gap-1 px-2 py-1 rounded bg-surface-raised">
             <BarChart3 className="w-2.5 h-2.5 text-blue-400" />
-            <span className="text-[9px] font-mono text-slate-400">
+            <span className="text-[9px] font-mono text-fg-secondary">
               {formatVolume(stats.totalVol)} vol
             </span>
           </div>
-          <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800/40">
+          <div className="flex items-center gap-1 px-2 py-1 rounded bg-surface-raised">
             <Activity className="w-2.5 h-2.5 text-cyan-400" />
-            <span className="text-[9px] font-mono text-slate-400">
+            <span className="text-[9px] font-mono text-fg-secondary">
               Max {formatPercent(stats.maxChange, 1)}
             </span>
           </div>
@@ -448,7 +448,7 @@ export default function MarketMoversPanel({
 
       {/* Volume Distribution Gauge (only on volume/active tabs) */}
       {!loading && (tab === 'volume' || tab === 'active') && currentList.length > 0 && (
-        <div className="px-4 py-3 border-b border-white/[0.03]">
+        <div className="px-4 py-3 border-b border-line-subtle">
           <VolumeGauge stocks={currentList} maxVol={maxVolume} />
         </div>
       )}
@@ -470,8 +470,8 @@ export default function MarketMoversPanel({
         ) : (
           <div className="flex flex-col items-center justify-center h-full py-12 px-4">
             <Activity className="w-8 h-8 text-slate-600 mb-2" />
-            <p className="text-[12px] text-slate-500 text-center mb-2">No data available</p>
-            <p className="text-[10px] text-slate-600 text-center">
+            <p className="text-[12px] text-fg-muted text-center mb-2">No data available</p>
+            <p className="text-[10px] text-fg-muted text-center">
               {onRefresh ? 'Click refresh to fetch latest data' : 'Data will update automatically'}
             </p>
             {onRefresh && (
@@ -488,7 +488,7 @@ export default function MarketMoversPanel({
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t border-white/[0.04]">
+      <div className="p-3 border-t border-line-subtle">
         <Link
           href="/markets"
           className="flex items-center justify-center gap-2 py-2 text-[12px] font-medium text-blue-400 hover:text-white rounded-lg hover:bg-blue-500/10 transition-all"

@@ -48,7 +48,7 @@ function StockRow({ stock, rank, tab }: { stock: StockPerformance; rank: number;
       className="flex items-center gap-3 px-4 py-3 active:bg-white/[0.02] transition-colors border-b border-white/[0.04] last:border-b-0"
     >
       {/* Rank */}
-      <span className="w-6 h-6 rounded-lg bg-white/[0.04] flex items-center justify-center text-[10px] font-bold text-slate-500 shrink-0">
+      <span className="w-6 h-6 rounded-lg bg-white/[0.04] flex items-center justify-center text-[10px] font-bold text-fg-muted shrink-0">
         {rank}
       </span>
 
@@ -65,10 +65,10 @@ function StockRow({ stock, rank, tab }: { stock: StockPerformance; rank: number;
             </span>
           )}
         </div>
-        <p className="text-[10px] text-slate-500 truncate">{stock.name || '--'}</p>
+        <p className="text-[10px] text-fg-muted truncate">{stock.name || '--'}</p>
         <div className="flex items-center gap-3 mt-0.5">
-          <span className="text-[9px] text-slate-600">Vol: {formatVolume(stock.volume)}</span>
-          {stock.market_cap && <span className="text-[9px] text-slate-600">Cap: {formatMktCap(stock.market_cap)}</span>}
+          <span className="text-[9px] text-fg-muted">Vol: {formatVolume(stock.volume)}</span>
+          {stock.market_cap && <span className="text-[9px] text-fg-muted">Cap: {formatMktCap(stock.market_cap)}</span>}
         </div>
       </div>
 
@@ -142,7 +142,7 @@ function MobileMoversPage() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => router.back()}
-                  className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-slate-300 active:scale-90 transition-transform"
+                  className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-fg-secondary active:scale-90 transition-transform"
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </button>
@@ -153,7 +153,7 @@ function MobileMoversPage() {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                     </span>
-                    <p className="text-[10px] text-slate-500">Real-time data</p>
+                    <p className="text-[10px] text-fg-muted">Real-time data</p>
                   </div>
                 </div>
               </div>
@@ -251,7 +251,7 @@ function MobileMoversPage() {
             }}
           >
             {/* Column headers */}
-            <div className="flex items-center gap-3 px-4 py-2 border-b border-white/[0.06] text-[9px] text-slate-500 uppercase tracking-wider font-semibold">
+            <div className="flex items-center gap-3 px-4 py-2 border-b border-white/[0.06] text-[9px] text-fg-muted uppercase tracking-wider font-semibold">
               <span className="w-6 text-center">#</span>
               <span className="w-9" />
               <span className="flex-1">Stock</span>
@@ -283,8 +283,8 @@ function MobileMoversPage() {
                 ) : stocks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <BarChart3 className="w-10 h-10 text-slate-700 mb-3" />
-                    <p className="text-sm text-slate-400">No data available</p>
-                    <p className="text-[11px] text-slate-600 mt-1">Market data may be loading</p>
+                    <p className="text-sm text-fg-secondary">No data available</p>
+                    <p className="text-[11px] text-fg-muted mt-1">Market data may be loading</p>
                   </div>
                 ) : (
                   stocks.map((stock, i) => (
@@ -317,9 +317,9 @@ function GlassStat({ label, value, sub, color }: { label: string; value: string;
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
       }}
     >
-      <p className="text-[9px] text-slate-500 uppercase tracking-wider">{label}</p>
+      <p className="text-[9px] text-fg-muted uppercase tracking-wider">{label}</p>
       <p className={`text-sm font-bold font-mono mt-0.5 ${colorMap[color] || 'text-white'}`}>{value}</p>
-      <p className="text-[9px] text-slate-600 mt-0.5">{sub}</p>
+      <p className="text-[9px] text-fg-muted mt-0.5">{sub}</p>
     </div>
   )
 }
@@ -329,9 +329,9 @@ export default function MoversPage() {
   return (
     <>
       <div className="hidden md:block">
-        <div className="flex items-center justify-center min-h-screen bg-[#0a0a0f]">
+        <div className="flex items-center justify-center min-h-screen bg-surface-base">
           <div className="text-center">
-            <p className="text-slate-400">Use the Markets page for desktop view</p>
+            <p className="text-fg-secondary">Use the Markets page for desktop view</p>
             <Link href="/markets" className="text-cyan-400 text-sm mt-2 block hover:underline">← Back to Markets</Link>
           </div>
         </div>
