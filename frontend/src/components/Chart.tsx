@@ -10,6 +10,7 @@ import {
 } from 'lightweight-charts'
 import { PriceBar } from '@/lib/api'
 import { useChartSync } from '@/hooks/useChartSync'
+import { useTheme } from 'next-themes'
 import {
   sma, ema, vwap, rsi, macd, bollingerBands, stochastic, atr, obv, williamsR, cci,
   type Candle, type OverlayIndicatorId, type PaneIndicatorId,
@@ -69,6 +70,8 @@ export default function Chart({
   const extraSeriesRef = useRef<(ISeriesApi<'Line'> | ISeriesApi<'Histogram'> | ISeriesApi<'Area'>)[]>([])
   const [chartApiForSync, setChartApiForSync] = useState<IChartApi | null>(null)
   useChartSync(chartId ?? '', chartId ? chartApiForSync : null)
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme !== 'light'
 
   // Backwards compat: merge legacy props into activeOverlays/activePanes
   const overlays = useMemo(() => {
@@ -124,19 +127,22 @@ export default function Chart({
   // Create chart instance
   useEffect(() => {
     if (!chartContainerRef.current) return
-    const gridColor = showGrid ? '#2B2B43' : 'transparent'
+    const bg        = isDark ? '#131722' : '#ffffff'
+    const textColor = isDark ? '#d1d4dc' : '#374151'
+    const gridColor = showGrid ? (isDark ? '#2B2B43' : 'rgba(0,0,0,0.06)') : 'transparent'
+    const borderClr = isDark ? '#485065' : 'rgba(0,0,0,0.12)'
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: '#131722' },
-        textColor: '#d1d4dc',
+        background: { type: ColorType.Solid, color: bg },
+        textColor,
       },
       width: chartContainerRef.current.clientWidth,
       height: chartContainerRef.current.clientHeight,
       grid: { vertLines: { color: gridColor }, horzLines: { color: gridColor } },
       crosshair: { mode: 0 },
-      rightPriceScale: { borderColor: '#485065', mode: logScale ? 1 : 0 },
-      timeScale: { borderColor: '#485065', timeVisible: true, secondsVisible: false, rightOffset: 5, minBarSpacing: 1 },
+      rightPriceScale: { borderColor: borderClr, mode: logScale ? 1 : 0 },
+      timeScale: { borderColor: borderClr, timeVisible: true, secondsVisible: false, rightOffset: 5, minBarSpacing: 1 },
     })
 
     chartRef.current = chart
@@ -156,7 +162,7 @@ export default function Chart({
       mainSeriesRef.current = null
       extraSeriesRef.current = []
     }
-  }, [showGrid, logScale, chartId])
+  }, [showGrid, logScale, chartId, isDark])
 
   // Create main series
   useEffect(() => {

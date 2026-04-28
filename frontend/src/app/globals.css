@@ -17,25 +17,25 @@ button, a, input, textarea, select,
 }
 
 :root {
-  /* ── Surfaces (glass over gradient bg) ── */
-  --surface-base:         transparent;
-  --surface-raised:       rgba(255, 255, 255, 0.75);
-  --surface-overlay:      rgba(255, 255, 255, 0.88);
-  --surface-glass:        rgba(255, 255, 255, 0.65);
+  /* ── Surfaces (frosted glass panels over gradient bg) ── */
+  --surface-base:         rgba(255, 255, 255, 0.78);
+  --surface-raised:       rgba(255, 255, 255, 0.92);
+  --surface-overlay:      rgba(255, 255, 255, 0.97);
+  --surface-glass:        rgba(255, 255, 255, 0.72);
   --surface-glass-border: rgba(255, 255, 255, 0.90);
-  --surface-hover:        rgba(99, 102, 241, 0.06);
-  --surface-active:       rgba(99, 102, 241, 0.10);
+  --surface-hover:        rgba(99, 102, 241, 0.07);
+  --surface-active:       rgba(99, 102, 241, 0.12);
 
   /* ── Typography ── */
   --text-primary:   #0f172a;
-  --text-secondary: #475569;
+  --text-secondary: #374151;
   --text-muted:     #6b7280;
   --text-inverted:  #ffffff;
 
-  /* ── Borders ── */
-  --border-subtle:  rgba(255, 255, 255, 0.70);
-  --border-default: rgba(148, 163, 184, 0.25);
-  --border-strong:  rgba(99, 102, 241, 0.20);
+  /* ── Borders — dark enough to see on white panels ── */
+  --border-subtle:  rgba(0, 0, 0, 0.06);
+  --border-default: rgba(0, 0, 0, 0.09);
+  --border-strong:  rgba(99, 102, 241, 0.25);
 
   /* ── Shadows (coloured for vibrancy) ── */
   --shadow-sm:    0 2px 8px rgba(99,102,241,0.08), 0 1px 2px rgba(0,0,0,0.04);
@@ -109,10 +109,10 @@ button, a, input, textarea, select,
   --glow-green-theme: 0 0 20px rgba(16,185,129,0.15);
 
   /* Glass layers */
-  --glass-bg:           rgba(255, 255, 255, 0.68);
-  --glass-bg-light:     rgba(255, 255, 255, 0.55);
-  --glass-bg-strong:    rgba(255, 255, 255, 0.90);
-  --glass-border:       rgba(255, 255, 255, 0.80);
+  --glass-bg:           rgba(255, 255, 255, 0.82);
+  --glass-bg-light:     rgba(255, 255, 255, 0.68);
+  --glass-bg-strong:    rgba(255, 255, 255, 0.96);
+  --glass-border:       rgba(0, 0, 0, 0.07);
   --glass-border-cyan:  rgba(99, 102, 241, 0.22);
   --glass-border-glow:  rgba(99, 102, 241, 0.35);
   --glass-blur:         20px;
@@ -587,13 +587,13 @@ body {
 /* ── Page background: on html so nothing can override it ── */
 html {
   min-height: 100%;
-  /* Light mode: indigo/violet/sky gradient mesh */
+  /* Light mode: soft indigo/violet/sky — subtle, not overwhelming */
   background:
-    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(165, 180, 252, 0.45) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 50% at 80% 0%,   rgba(196, 181, 253, 0.40) 0%, transparent 50%),
-    radial-gradient(ellipse 50% 60% at 50% 110%,  rgba(186, 230, 253, 0.50) 0%, transparent 55%),
-    radial-gradient(ellipse 40% 40% at 0% 60%,   rgba(167, 243, 208, 0.25) 0%, transparent 50%),
-    linear-gradient(145deg, #eef2ff 0%, #f0f4ff 30%, #f5f0ff 60%, #e8f4fd 100%);
+    radial-gradient(ellipse 70% 45% at 15% -5%,  rgba(165, 180, 252, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 55% 45% at 85% 5%,   rgba(196, 181, 253, 0.18) 0%, transparent 50%),
+    radial-gradient(ellipse 45% 55% at 50% 105%, rgba(186, 230, 253, 0.20) 0%, transparent 55%),
+    radial-gradient(ellipse 35% 35% at 0% 55%,   rgba(167, 243, 208, 0.10) 0%, transparent 50%),
+    linear-gradient(145deg, #f4f6fe 0%, #f6f4ff 40%, #f4f8fd 100%);
 }
 html.dark {
   background:
@@ -1030,16 +1030,16 @@ body > div > div,
 
 /* HUD Panel - Main glass panel with tech borders */
 .hud-panel {
-  background: rgba(255, 255, 255, 0.70);
-  backdrop-filter: blur(20px) saturate(1.8);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
-  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border: 1px solid rgba(0, 0, 0, 0.07);
   border-radius: 16px;
   position: relative;
   overflow: hidden;
   box-shadow:
-    0 4px 24px rgba(99, 102, 241, 0.10),
-    0 1px 4px rgba(0, 0, 0, 0.05),
+    0 4px 24px rgba(99, 102, 241, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
@@ -1083,15 +1083,15 @@ body > div > div,
 
 /* HUD Card - Smaller interactive elements */
 .hud-card {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(16px) saturate(1.8);
-  -webkit-backdrop-filter: blur(16px) saturate(1.8);
-  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  border: 1px solid rgba(0, 0, 0, 0.07);
   border-radius: 12px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   box-shadow:
-    0 2px 16px rgba(99, 102, 241, 0.08),
+    0 2px 16px rgba(99, 102, 241, 0.06),
     0 1px 3px rgba(0, 0, 0, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
@@ -1122,15 +1122,15 @@ body > div > div,
 
 /* HUD Stat Box - For displaying metrics */
 .hud-stat {
-  background: rgba(255, 255, 255, 0.68);
-  backdrop-filter: blur(12px) saturate(1.6);
-  -webkit-backdrop-filter: blur(12px) saturate(1.6);
-  border: 1px solid rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px) saturate(1.5);
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  border: 1px solid rgba(0, 0, 0, 0.07);
   border-radius: 8px;
   position: relative;
   overflow: hidden;
   box-shadow:
-    0 2px 12px rgba(99, 102, 241, 0.07),
+    0 2px 12px rgba(99, 102, 241, 0.05),
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 

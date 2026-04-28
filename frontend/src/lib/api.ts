@@ -2320,8 +2320,8 @@ export async function voteComment(commentId: number, direction: 1 | -1) {
   return res.ok
 }
 
-export async function fetchNotifications(limit: number = 20) {
-  const res = await apiFetch(`${API_URL}/api/v1/notifications?limit=${limit}`)
+export async function fetchNotifications(limit: number = 20, offset: number = 0) {
+  const res = await apiFetch(`${API_URL}/api/v1/notifications?limit=${limit}&offset=${offset}`)
   if (!res.ok) return { notifications: [] }
   return res.json()
 }

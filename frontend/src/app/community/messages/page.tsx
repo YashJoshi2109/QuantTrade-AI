@@ -23,6 +23,7 @@ import {
   MessageCircle,
   Send,
   ArrowLeft,
+  ChevronRight,
   Search,
   Plus,
   Loader2,
@@ -465,7 +466,16 @@ function DesktopMessages() {
   return (
     <AppLayout hideFooter>
       <div className="flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
-        <div className="flex flex-1 min-h-0 lg:mx-6 lg:my-6 bg-surface-base lg:rounded-2xl lg:border lg:border-line-subtle overflow-hidden">
+        {/* Breadcrumb */}
+        <div className="hidden lg:flex items-center gap-1.5 px-6 pt-4 pb-1 text-xs text-fg-muted">
+          <Link href="/community" className="flex items-center gap-1 hover:text-fg-primary transition-colors">
+            <ArrowLeft className="w-3 h-3" />
+            Community
+          </Link>
+          <ChevronRight className="w-3 h-3 opacity-40" />
+          <span className="text-fg-primary font-medium">Messages</span>
+        </div>
+        <div className="flex flex-1 min-h-0 lg:mx-6 lg:my-3 bg-surface-base lg:rounded-2xl lg:border lg:border-line-subtle overflow-hidden">
           {/* Left — Conversation List */}
           <div className={`w-full lg:w-[360px] border-r border-line-subtle flex-shrink-0 ${
             selectedConvId ? 'hidden lg:flex lg:flex-col' : 'flex flex-col'
