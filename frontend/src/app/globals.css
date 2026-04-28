@@ -17,37 +17,36 @@ button, a, input, textarea, select,
 }
 
 :root {
-  /* ── Surfaces (warm off-white + frosted glass) ── */
-  --surface-base:         #f7f6f3;
-  --surface-raised:       #ffffff;
-  --surface-overlay:      #ffffff;
-  /* Note: --surface-glass and --surface-hover use rgba() — Tailwind /opacity modifiers will not work on bg-surface-glass or bg-surface-hover */
-  --surface-glass:        rgba(255, 255, 255, 0.72);
-  --surface-glass-border: rgba(0, 0, 0, 0.06);
-  --surface-hover:        rgba(0, 0, 0, 0.035);
-  --surface-active:       rgba(0, 122, 255, 0.06);
+  /* ── Surfaces (glass over gradient bg) ── */
+  --surface-base:         transparent;
+  --surface-raised:       rgba(255, 255, 255, 0.75);
+  --surface-overlay:      rgba(255, 255, 255, 0.88);
+  --surface-glass:        rgba(255, 255, 255, 0.65);
+  --surface-glass-border: rgba(255, 255, 255, 0.90);
+  --surface-hover:        rgba(99, 102, 241, 0.06);
+  --surface-active:       rgba(99, 102, 241, 0.10);
 
   /* ── Typography ── */
   --text-primary:   #0f172a;
   --text-secondary: #475569;
-  --text-muted:     #6b7280; /* darkened for WCAG AA ≥4.5:1 on --surface-base */
+  --text-muted:     #6b7280;
   --text-inverted:  #ffffff;
 
   /* ── Borders ── */
-  --border-subtle:  rgba(0, 0, 0, 0.06);
-  --border-default: rgba(0, 0, 0, 0.10);
-  --border-strong:  rgba(0, 0, 0, 0.18);
+  --border-subtle:  rgba(255, 255, 255, 0.70);
+  --border-default: rgba(148, 163, 184, 0.25);
+  --border-strong:  rgba(99, 102, 241, 0.20);
 
-  /* ── Shadows ── */
-  --shadow-sm:    0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md:    0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-  --shadow-lg:    0 12px 32px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
-  --shadow-glass: 0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+  /* ── Shadows (coloured for vibrancy) ── */
+  --shadow-sm:    0 2px 8px rgba(99,102,241,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:    0 4px 20px rgba(99,102,241,0.12), 0 2px 6px rgba(0,0,0,0.06);
+  --shadow-lg:    0 12px 40px rgba(99,102,241,0.16), 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-glass: 0 8px 32px rgba(99,102,241,0.12), inset 0 1px 0 rgba(255,255,255,0.95);
 
   /* ── Brand ── */
-  --accent:       #007AFF;
-  --accent-hover: #0066CC;
-  --accent-muted: rgba(0, 122, 255, 0.10);
+  --accent:       #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-muted: rgba(99, 102, 241, 0.10);
 
   /* ── Financial data (invariant across themes) ── */
   --up:      #10b981;
@@ -89,8 +88,8 @@ button, a, input, textarea, select,
   --border: var(--border-default);
   --input: var(--border-default);
   /* --ring and --primary reference --accent BEFORE any override; keep --accent as brand blue */
-  --ring: #007AFF;
-  --primary: #007AFF;
+  --ring: #6366f1;
+  --primary: #6366f1;
   --primary-foreground: var(--text-inverted);
   --secondary: var(--surface-hover);
   --secondary-foreground: var(--text-secondary);
@@ -110,17 +109,17 @@ button, a, input, textarea, select,
   --glow-green-theme: 0 0 20px rgba(16,185,129,0.15);
 
   /* Glass layers */
-  --glass-bg:           rgba(255, 255, 255, 0.72);
-  --glass-bg-light:     rgba(255, 255, 255, 0.58);
-  --glass-bg-strong:    rgba(255, 255, 255, 0.92);
-  --glass-border:       rgba(0, 0, 0, 0.08);
-  --glass-border-cyan:  rgba(0, 122, 255, 0.18);
-  --glass-border-glow:  rgba(0, 122, 255, 0.30);
+  --glass-bg:           rgba(255, 255, 255, 0.68);
+  --glass-bg-light:     rgba(255, 255, 255, 0.55);
+  --glass-bg-strong:    rgba(255, 255, 255, 0.90);
+  --glass-border:       rgba(255, 255, 255, 0.80);
+  --glass-border-cyan:  rgba(99, 102, 241, 0.22);
+  --glass-border-glow:  rgba(99, 102, 241, 0.35);
   --glass-blur:         20px;
   --glass-blur-strong:  36px;
 
   /* Light reflection (top-left highlight) */
-  --glass-shine:        inset 0 1px 0 rgba(255,255,255,0.9), inset 1px 0 0 rgba(255,255,255,0.7);
+  --glass-shine:        inset 0 1px 0 rgba(255,255,255,0.95), inset 1px 0 0 rgba(255,255,255,0.80);
 
   /* Neon palette */
   --neon-cyan:    #00d4ff;
@@ -149,14 +148,14 @@ button, a, input, textarea, select,
 }
 
 .dark {
-  /* ── Surfaces ── */
-  --surface-base:         #0a0f17;
-  --surface-raised:       #111827;
-  --surface-overlay:      #1a2035;
-  --surface-glass:        rgba(8, 12, 28, 0.62);
-  --surface-glass-border: rgba(255, 255, 255, 0.07);
-  --surface-hover:        rgba(255, 255, 255, 0.04);
-  --surface-active:       rgba(0, 122, 255, 0.12);
+  /* ── Surfaces (glassmorphic) ── */
+  --surface-base:         transparent;
+  --surface-raised:       rgba(255, 255, 255, 0.06);
+  --surface-overlay:      rgba(255, 255, 255, 0.09);
+  --surface-glass:        rgba(255, 255, 255, 0.07);
+  --surface-glass-border: rgba(255, 255, 255, 0.12);
+  --surface-hover:        rgba(255, 255, 255, 0.08);
+  --surface-active:       rgba(0, 122, 255, 0.16);
 
   /* ── Typography ── */
   --text-primary:   #f1f5f9;
@@ -203,12 +202,12 @@ button, a, input, textarea, select,
   --glow-green-theme: 0 0 20px rgba(16,185,129,0.15);
 
   /* Glass layers */
-  --glass-bg:           rgba(8, 12, 28, 0.62);
-  --glass-bg-light:     rgba(14, 22, 45, 0.48);
-  --glass-bg-strong:    rgba(4, 7, 18, 0.88);
-  --glass-border:       rgba(255, 255, 255, 0.07);
-  --glass-border-cyan:  rgba(0, 212, 255, 0.20);
-  --glass-border-glow:  rgba(0, 212, 255, 0.40);
+  --glass-bg:           rgba(255, 255, 255, 0.07);
+  --glass-bg-light:     rgba(255, 255, 255, 0.05);
+  --glass-bg-strong:    rgba(255, 255, 255, 0.10);
+  --glass-border:       rgba(255, 255, 255, 0.10);
+  --glass-border-cyan:  rgba(0, 212, 255, 0.22);
+  --glass-border-glow:  rgba(0, 212, 255, 0.42);
   --glass-blur:         20px;
   --glass-blur-strong:  36px;
   --glass-shine:        inset 0 1px 0 rgba(255,255,255,0.08), inset 1px 0 0 rgba(255,255,255,0.04);
@@ -238,10 +237,15 @@ button, a, input, textarea, select,
 /* Base frosted glass */
 .glass-panel {
   background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
   border: 1px solid var(--glass-border);
   border-radius: 16px;
+  box-shadow: var(--glass-shine),
+              0 4px 24px rgba(99,102,241,0.10),
+              0 1px 0 rgba(255,255,255,0.80);
+}
+.dark .glass-panel {
   box-shadow: var(--glass-shine),
               0 4px 24px rgba(0,0,0,0.35),
               0 1px 0 rgba(255,255,255,0.03);
@@ -578,6 +582,33 @@ body {
   font-feature-settings: "rlig" 1, "calt" 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Page background: on html so nothing can override it ── */
+html {
+  min-height: 100%;
+  /* Light mode: indigo/violet/sky gradient mesh */
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(165, 180, 252, 0.45) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 80% 0%,   rgba(196, 181, 253, 0.40) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 60% at 50% 110%,  rgba(186, 230, 253, 0.50) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 40% at 0% 60%,   rgba(167, 243, 208, 0.25) 0%, transparent 50%),
+    linear-gradient(145deg, #eef2ff 0%, #f0f4ff 30%, #f5f0ff 60%, #e8f4fd 100%);
+}
+html.dark {
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 0%,   rgba(20, 40, 80, 0.6) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 10%,  rgba(15, 25, 60, 0.5) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 50% 100%, rgba(10, 20, 50, 0.4) 0%, transparent 60%),
+    linear-gradient(160deg, #070e20 0%, #090f1f 35%, #07091c 65%, #060c1a 100%);
+}
+
+/* Make body + layout wrappers transparent so html gradient shows through */
+body,
+body > div,
+body > div > div,
+.min-h-screen {
+  background: transparent !important;
 }
 
 @layer utilities {
@@ -999,20 +1030,28 @@ body {
 
 /* HUD Panel - Main glass panel with tech borders */
 .hud-panel {
-  background: var(--surface-raised);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-default);
+  background: rgba(255, 255, 255, 0.70);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: 16px;
   position: relative;
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow:
+    0 4px 24px rgba(99, 102, 241, 0.10),
+    0 1px 4px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
 .dark .hud-panel {
-  background: linear-gradient(135deg, rgba(13, 17, 23, 0.95) 0%, rgba(16, 25, 40, 0.9) 100%);
-  border-color: rgba(0, 122, 255, 0.15);
-  box-shadow: none;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 8px 32px rgba(0, 0, 0, 0.50),
+    0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .hud-panel::before {
@@ -1022,7 +1061,7 @@ body {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.4), transparent);
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.5), rgba(168, 85, 247, 0.3), transparent);
 }
 
 .hud-panel::after {
@@ -1032,44 +1071,75 @@ body {
   left: 0;
   right: 0;
   height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.15), transparent);
+}
+
+.dark .hud-panel::before {
+  background: linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.4), transparent);
+}
+.dark .hud-panel::after {
   background: linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.2), transparent);
 }
 
 /* HUD Card - Smaller interactive elements */
 .hud-card {
-  background: var(--surface-overlay);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px) saturate(1.8);
+  -webkit-backdrop-filter: blur(16px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: 12px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  box-shadow: var(--shadow-sm);
+  box-shadow:
+    0 2px 16px rgba(99, 102, 241, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
 .dark .hud-card {
-  background: linear-gradient(145deg, rgba(16, 25, 40, 0.8) 0%, rgba(13, 17, 23, 0.95) 100%);
-  border-color: rgba(71, 85, 105, 0.25);
-  box-shadow: none;
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 4px 20px rgba(0, 0, 0, 0.40);
 }
 
 .hud-card:hover {
-  border-color: rgba(0, 122, 255, 0.4);
-  box-shadow: 0 0 20px rgba(0, 122, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow:
+    0 8px 30px rgba(99, 102, 241, 0.14),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+  transform: translateY(-1px);
+}
+.dark .hud-card:hover {
+  border-color: rgba(99, 102, 241, 0.40);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
 }
 
 /* HUD Stat Box - For displaying metrics */
 .hud-stat {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(12px) saturate(1.6);
+  -webkit-backdrop-filter: blur(12px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.82);
   border-radius: 8px;
   position: relative;
   overflow: hidden;
+  box-shadow:
+    0 2px 12px rgba(99, 102, 241, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
 .dark .hud-stat {
-  background: rgba(13, 17, 23, 0.7);
-  border-color: rgba(71, 85, 105, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px) saturate(1.5);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .hud-stat::before {
@@ -1938,3 +2008,118 @@ html.light .placeholder-slate-600::placeholder {
 .theme-border-strong { border-color: var(--border-strong); }
 
 .theme-hover:hover { background: var(--bg-hover); }
+/* ===== BB8 THEME TOGGLE ===== */
+.bb8-toggle__checkbox {
+  display: none;
+}
+
+.bb8-toggle__container {
+  --size: 60px;
+  width: var(--size);
+  height: calc(var(--size) * 0.5);
+  border-radius: 9999px;
+  background: #9fc5e8;
+  cursor: pointer;
+  display: block;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.4s ease;
+  flex-shrink: 0;
+}
+
+/* Night sky when checked */
+.bb8-toggle__checkbox:checked + .bb8-toggle__container {
+  background: #1a2d52;
+}
+
+/* Stars (only visible in dark) */
+.bb8-toggle__scenery {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.bb8-toggle__star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: white;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.bb8-toggle__star:nth-child(1) { top: 4px; left: 8px; }
+.bb8-toggle__star:nth-child(2) { top: 8px; left: 20px; width: 1px; height: 1px; }
+.bb8-toggle__star:nth-child(3) { top: 3px; left: 32px; }
+
+.bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8-toggle__star {
+  opacity: 1;
+}
+
+/* Clouds (only visible in light) */
+.bb8-toggle__cloud {
+  position: absolute;
+  width: 18px;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.8);
+  top: 6px;
+  left: 28px;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+.bb8-toggle__cloud--2 {
+  width: 12px;
+  height: 6px;
+  top: 14px;
+  left: 22px;
+  opacity: 0.6;
+}
+.bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8-toggle__cloud {
+  opacity: 0;
+}
+
+/* Ball (BB8 dome) */
+.bb8-toggle__ball {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  transition: left 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  overflow: hidden;
+}
+.bb8-toggle__ball-inner {
+  position: absolute;
+  top: 15%;
+  right: 10%;
+  width: 40%;
+  height: 40%;
+  border-radius: 50%;
+  background: #e8e8e8;
+}
+
+.bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8-toggle__ball {
+  left: calc(100% - 28px);
+}
+
+/* Sun (right side in day mode) */
+.bb8-toggle__sun {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffda00;
+  box-shadow: 0 0 6px rgba(255,218,0,0.7);
+  transition: opacity 0.3s ease;
+}
+.bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8-toggle__sun {
+  opacity: 0;
+}
