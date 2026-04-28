@@ -282,7 +282,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
   }
 
   return (
-    <div className="min-h-screen bg-surface-base">
+    <div className="min-h-screen">
       {/* Market Ticker Bar */}
       <div className="fixed top-0 left-0 right-0 z-[51] hidden md:block">
         <MarketTicker />

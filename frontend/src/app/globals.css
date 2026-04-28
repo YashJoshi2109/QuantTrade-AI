@@ -18,7 +18,7 @@ button, a, input, textarea, select,
 
 :root {
   /* ── Surfaces (glass over gradient bg) ── */
-  --surface-base:         #eef2ff;
+  --surface-base:         transparent;
   --surface-raised:       rgba(255, 255, 255, 0.75);
   --surface-overlay:      rgba(255, 255, 255, 0.88);
   --surface-glass:        rgba(255, 255, 255, 0.65);
@@ -149,7 +149,7 @@ button, a, input, textarea, select,
 
 .dark {
   /* ── Surfaces (glassmorphic) ── */
-  --surface-base:         #060d1f;
+  --surface-base:         transparent;
   --surface-raised:       rgba(255, 255, 255, 0.06);
   --surface-overlay:      rgba(255, 255, 255, 0.09);
   --surface-glass:        rgba(255, 255, 255, 0.07);
@@ -584,30 +584,31 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Light mode: colourful gradient mesh background */
-body,
-body > div,
-.min-h-screen {
+/* ── Page background: on html so nothing can override it ── */
+html {
+  min-height: 100%;
+  /* Light mode: indigo/violet/sky gradient mesh */
   background:
-    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(165, 180, 252, 0.40) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 50% at 80% 0%,   rgba(196, 181, 253, 0.35) 0%, transparent 50%),
-    radial-gradient(ellipse 50% 60% at 50% 110%,  rgba(186, 230, 253, 0.45) 0%, transparent 55%),
-    radial-gradient(ellipse 40% 40% at 0% 60%,   rgba(167, 243, 208, 0.20) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(165, 180, 252, 0.45) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 80% 0%,   rgba(196, 181, 253, 0.40) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 60% at 50% 110%,  rgba(186, 230, 253, 0.50) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 40% at 0% 60%,   rgba(167, 243, 208, 0.25) 0%, transparent 50%),
     linear-gradient(145deg, #eef2ff 0%, #f0f4ff 30%, #f5f0ff 60%, #e8f4fd 100%);
-  background-attachment: fixed;
-  background-color: transparent !important;
+}
+html.dark {
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 0%,   rgba(20, 40, 80, 0.6) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 10%,  rgba(15, 25, 60, 0.5) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 50% 100%, rgba(10, 20, 50, 0.4) 0%, transparent 60%),
+    linear-gradient(160deg, #070e20 0%, #090f1f 35%, #07091c 65%, #060c1a 100%);
 }
 
-/* Dark mode: rich gradient background so glass panels have depth to blur through */
-.dark body,
-.dark body > div,
-.dark .min-h-screen {
-  background: radial-gradient(ellipse 80% 60% at 10% 0%, rgba(20, 40, 80, 0.6) 0%, transparent 60%),
-              radial-gradient(ellipse 60% 50% at 90% 10%, rgba(15, 25, 60, 0.5) 0%, transparent 55%),
-              radial-gradient(ellipse 70% 60% at 50% 100%, rgba(10, 20, 50, 0.4) 0%, transparent 60%),
-              linear-gradient(160deg, #070e20 0%, #090f1f 35%, #07091c 65%, #060c1a 100%);
-  background-attachment: fixed;
-  background-color: transparent !important;
+/* Make body + layout wrappers transparent so html gradient shows through */
+body,
+body > div,
+body > div > div,
+.min-h-screen {
+  background: transparent !important;
 }
 
 @layer utilities {
