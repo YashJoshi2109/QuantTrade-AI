@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  compiler: {
-    styledComponents: true,
-  },
   // Enable standalone output for Docker deployment
   output: 'standalone',
   env: {
