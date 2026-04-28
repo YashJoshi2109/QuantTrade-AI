@@ -17,37 +17,36 @@ button, a, input, textarea, select,
 }
 
 :root {
-  /* ── Surfaces (warm off-white + frosted glass) ── */
-  --surface-base:         #f7f6f3;
-  --surface-raised:       #ffffff;
-  --surface-overlay:      #ffffff;
-  /* Note: --surface-glass and --surface-hover use rgba() — Tailwind /opacity modifiers will not work on bg-surface-glass or bg-surface-hover */
-  --surface-glass:        rgba(255, 255, 255, 0.72);
-  --surface-glass-border: rgba(0, 0, 0, 0.06);
-  --surface-hover:        rgba(0, 0, 0, 0.035);
-  --surface-active:       rgba(0, 122, 255, 0.06);
+  /* ── Surfaces (glass over gradient bg) ── */
+  --surface-base:         #eef2ff;
+  --surface-raised:       rgba(255, 255, 255, 0.75);
+  --surface-overlay:      rgba(255, 255, 255, 0.88);
+  --surface-glass:        rgba(255, 255, 255, 0.65);
+  --surface-glass-border: rgba(255, 255, 255, 0.90);
+  --surface-hover:        rgba(99, 102, 241, 0.06);
+  --surface-active:       rgba(99, 102, 241, 0.10);
 
   /* ── Typography ── */
   --text-primary:   #0f172a;
   --text-secondary: #475569;
-  --text-muted:     #6b7280; /* darkened for WCAG AA ≥4.5:1 on --surface-base */
+  --text-muted:     #6b7280;
   --text-inverted:  #ffffff;
 
   /* ── Borders ── */
-  --border-subtle:  rgba(0, 0, 0, 0.06);
-  --border-default: rgba(0, 0, 0, 0.10);
-  --border-strong:  rgba(0, 0, 0, 0.18);
+  --border-subtle:  rgba(255, 255, 255, 0.70);
+  --border-default: rgba(148, 163, 184, 0.25);
+  --border-strong:  rgba(99, 102, 241, 0.20);
 
-  /* ── Shadows ── */
-  --shadow-sm:    0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md:    0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-  --shadow-lg:    0 12px 32px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
-  --shadow-glass: 0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+  /* ── Shadows (coloured for vibrancy) ── */
+  --shadow-sm:    0 2px 8px rgba(99,102,241,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:    0 4px 20px rgba(99,102,241,0.12), 0 2px 6px rgba(0,0,0,0.06);
+  --shadow-lg:    0 12px 40px rgba(99,102,241,0.16), 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-glass: 0 8px 32px rgba(99,102,241,0.12), inset 0 1px 0 rgba(255,255,255,0.95);
 
   /* ── Brand ── */
-  --accent:       #007AFF;
-  --accent-hover: #0066CC;
-  --accent-muted: rgba(0, 122, 255, 0.10);
+  --accent:       #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-muted: rgba(99, 102, 241, 0.10);
 
   /* ── Financial data (invariant across themes) ── */
   --up:      #10b981;
@@ -89,8 +88,8 @@ button, a, input, textarea, select,
   --border: var(--border-default);
   --input: var(--border-default);
   /* --ring and --primary reference --accent BEFORE any override; keep --accent as brand blue */
-  --ring: #007AFF;
-  --primary: #007AFF;
+  --ring: #6366f1;
+  --primary: #6366f1;
   --primary-foreground: var(--text-inverted);
   --secondary: var(--surface-hover);
   --secondary-foreground: var(--text-secondary);
@@ -110,17 +109,17 @@ button, a, input, textarea, select,
   --glow-green-theme: 0 0 20px rgba(16,185,129,0.15);
 
   /* Glass layers */
-  --glass-bg:           rgba(255, 255, 255, 0.72);
-  --glass-bg-light:     rgba(255, 255, 255, 0.58);
-  --glass-bg-strong:    rgba(255, 255, 255, 0.92);
-  --glass-border:       rgba(0, 0, 0, 0.08);
-  --glass-border-cyan:  rgba(0, 122, 255, 0.18);
-  --glass-border-glow:  rgba(0, 122, 255, 0.30);
+  --glass-bg:           rgba(255, 255, 255, 0.68);
+  --glass-bg-light:     rgba(255, 255, 255, 0.55);
+  --glass-bg-strong:    rgba(255, 255, 255, 0.90);
+  --glass-border:       rgba(255, 255, 255, 0.80);
+  --glass-border-cyan:  rgba(99, 102, 241, 0.22);
+  --glass-border-glow:  rgba(99, 102, 241, 0.35);
   --glass-blur:         20px;
   --glass-blur-strong:  36px;
 
   /* Light reflection (top-left highlight) */
-  --glass-shine:        inset 0 1px 0 rgba(255,255,255,0.9), inset 1px 0 0 rgba(255,255,255,0.7);
+  --glass-shine:        inset 0 1px 0 rgba(255,255,255,0.95), inset 1px 0 0 rgba(255,255,255,0.80);
 
   /* Neon palette */
   --neon-cyan:    #00d4ff;
@@ -238,10 +237,15 @@ button, a, input, textarea, select,
 /* Base frosted glass */
 .glass-panel {
   background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
   border: 1px solid var(--glass-border);
   border-radius: 16px;
+  box-shadow: var(--glass-shine),
+              0 4px 24px rgba(99,102,241,0.10),
+              0 1px 0 rgba(255,255,255,0.80);
+}
+.dark .glass-panel {
   box-shadow: var(--glass-shine),
               0 4px 24px rgba(0,0,0,0.35),
               0 1px 0 rgba(255,255,255,0.03);
@@ -578,6 +582,20 @@ body {
   font-feature-settings: "rlig" 1, "calt" 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Light mode: colourful gradient mesh background */
+body,
+body > div,
+.min-h-screen {
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(165, 180, 252, 0.40) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 80% 0%,   rgba(196, 181, 253, 0.35) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 60% at 50% 110%,  rgba(186, 230, 253, 0.45) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 40% at 0% 60%,   rgba(167, 243, 208, 0.20) 0%, transparent 50%),
+    linear-gradient(145deg, #eef2ff 0%, #f0f4ff 30%, #f5f0ff 60%, #e8f4fd 100%);
+  background-attachment: fixed;
+  background-color: transparent !important;
 }
 
 /* Dark mode: rich gradient background so glass panels have depth to blur through */
@@ -1011,14 +1029,17 @@ body {
 
 /* HUD Panel - Main glass panel with tech borders */
 .hud-panel {
-  background: var(--surface-raised);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-default);
+  background: rgba(255, 255, 255, 0.70);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: 16px;
   position: relative;
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow:
+    0 4px 24px rgba(99, 102, 241, 0.10),
+    0 1px 4px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
 .dark .hud-panel {
@@ -1039,7 +1060,7 @@ body {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.4), transparent);
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.5), rgba(168, 85, 247, 0.3), transparent);
 }
 
 .hud-panel::after {
@@ -1049,19 +1070,29 @@ body {
   left: 0;
   right: 0;
   height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.15), transparent);
+}
+
+.dark .hud-panel::before {
+  background: linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.4), transparent);
+}
+.dark .hud-panel::after {
   background: linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.2), transparent);
 }
 
 /* HUD Card - Smaller interactive elements */
 .hud-card {
-  background: var(--surface-overlay);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px) saturate(1.8);
+  -webkit-backdrop-filter: blur(16px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: 12px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  box-shadow: var(--shadow-sm);
+  box-shadow:
+    0 2px 16px rgba(99, 102, 241, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
 .dark .hud-card {
@@ -1075,17 +1106,31 @@ body {
 }
 
 .hud-card:hover {
-  border-color: rgba(0, 122, 255, 0.4);
-  box-shadow: 0 0 20px rgba(0, 122, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow:
+    0 8px 30px rgba(99, 102, 241, 0.14),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+  transform: translateY(-1px);
+}
+.dark .hud-card:hover {
+  border-color: rgba(99, 102, 241, 0.40);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
 }
 
 /* HUD Stat Box - For displaying metrics */
 .hud-stat {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(12px) saturate(1.6);
+  -webkit-backdrop-filter: blur(12px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.82);
   border-radius: 8px;
   position: relative;
   overflow: hidden;
+  box-shadow:
+    0 2px 12px rgba(99, 102, 241, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
 .dark .hud-stat {
