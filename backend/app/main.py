@@ -481,6 +481,10 @@ app.include_router(model_index_api.router, prefix="/api/v1/model-index", tags=["
 # AI Copilot — Streaming SSE endpoint (RAG + Quant + LLM pipeline)
 app.include_router(copilot_stream.router, prefix="/api/v1", tags=["copilot"])
 
+# Agentic RAG Copilot — new LangGraph + Bedrock SSE streaming endpoint
+from app.api.agentic_stream import router as agentic_stream_router
+app.include_router(agentic_stream_router, prefix="/api/v1")
+
 # WebSocket — Real-time market data push (ideas, pulse, scanner)
 app.include_router(ws_api.router, prefix="/api/v1", tags=["websocket"])
 
