@@ -103,10 +103,9 @@ def fetch_filings_for_ticker(
             continue
 
         acc_clean = acc.replace("-", "")
-        doc_url = (
-            f"{EDGAR_BASE}/Archives/edgar/full-index/"
-            f"{filed_dt.year}/{_quarter(filed_dt)}/{acc_clean}/{doc}"
-        )
+        # Canonical EDGAR document path: /Archives/edgar/data/{cik_numeric}/{accession}/{doc}
+        cik_numeric = cik.lstrip("0") or "0"
+        doc_url = f"{EDGAR_BASE}/Archives/edgar/data/{cik_numeric}/{acc_clean}/{doc}"
 
         filings.append(Filing(
             ticker=ticker,
