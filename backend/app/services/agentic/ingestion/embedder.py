@@ -25,7 +25,7 @@ async def _embed_batch(
     """Embed one batch synchronously in a thread (boto3 is not async-native)."""
     async with semaphore:
         texts = [c.text for c in batch]
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         vectors = await loop.run_in_executor(None, embed_texts, texts)
         return {c.chunk_id: v for c, v in zip(batch, vectors)}
 
