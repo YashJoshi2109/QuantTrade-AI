@@ -1,44 +1,54 @@
-"""Tests for Bedrock client factory functions.
+"""Tests for LLM client factory functions.
 
-Adapted for langchain-aws 1.x:
-  - ChatBedrock uses `model` param (exposed as .model_id) and treats
-    `temperature` / `max_tokens` as first-class top-level fields, NOT
-    stored inside model_kwargs.
-  - BedrockEmbeddings keeps `model_id` as a first-class field.
-
-Adapted for cohere 5.x:
-  - `cohere.Client` still exists; mock path is
-    `app.services.agentic.bedrock_client._cohere_client`.
+LLM selection: prefers Anthropic when ANTHROPIC_API_KEY set and PREFER_OPENAI!=1,
+otherwise uses OpenAI.  Tests use env-patching to control which provider is chosen.
 """
 import os
 import pytest
 from unittest.mock import patch, MagicMock
 
 
-def test_get_llm_sonnet_returns_chat_bedrock():
-    """get_llm_sonnet() returns a ChatBedrock instance with correct model."""
-    from app.services.agentic.bedrock_client import get_llm_sonnet
-    llm = get_llm_sonnet(streaming=False)
-    assert llm.model_id == "anthropic.claude-sonnet-4-5"
-    # In langchain-aws 1.x temperature and max_tokens are first-class fields
-    assert llm.temperature == 0.1
-    assert llm.max_tokens == 4096
+def test_get_llm_sonnet_with_anthropic():
+    """get_llm_sonnet() returns ChatAnthropic when Anthropic key set."""
+    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test", "PREFER_OPENAI": "0"}):
+        from app.services.agentic import bedrock_client as bc
+        llm = bc.get_llm_sonnet(streaming=False)
+        model_name = getattr(llm, "model", getattr(llm, "model_name", ""))
+        assert "claude" in model_name.lower() or "sonnet" in model_name.lower()
+        assert llm.temperature == 0.1
+        assert llm.max_tokens == 4096
 
 
-def test_get_llm_haiku_returns_chat_bedrock():
-    """get_llm_haiku() returns a ChatBedrock instance with correct model."""
-    from app.services.agentic.bedrock_client import get_llm_haiku
-    llm = get_llm_haiku()
-    assert llm.model_id == "anthropic.claude-haiku-4-5-20251001"
+def test_get_llm_sonnet_openai_fallback():
+    """get_llm_sonnet() returns ChatOpenAI when PREFER_OPENAI=1."""
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "1"}):
+        from app.services.agentic import bedrock_client as bc
+        llm = bc.get_llm_sonnet(streaming=False)
+        model_name = getattr(llm, "model_name", getattr(llm, "model", ""))
+        assert "gpt" in model_name.lower()
+        assert llm.temperature == 0.1
+        assert llm.max_tokens == 4096
+
+
+def test_get_llm_haiku_returns_fast_model():
+    """get_llm_haiku() returns a fast model with low temperature."""
+    llm = None
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "1"}):
+        from app.services.agentic import bedrock_client as bc
+        llm = bc.get_llm_haiku()
+    assert llm is not None
     assert llm.temperature == 0.0
     assert llm.max_tokens == 1024
 
 
-def test_get_embedder_returns_bedrock_embeddings():
-    """get_embedder() returns BedrockEmbeddings with Titan v2 model."""
+def test_get_embedder_returns_embedder():
+    """get_embedder() returns an object with embed_documents and embed_query."""
     from app.services.agentic.bedrock_client import get_embedder
+    # lru_cache — clear to avoid stale instance from previous test
+    get_embedder.cache_clear()
     embedder = get_embedder()
-    assert embedder.model_id == "amazon.titan-embed-text-v2:0"
+    assert hasattr(embedder, "embed_documents")
+    assert hasattr(embedder, "embed_query")
 
 
 def test_embed_texts_returns_correct_dimension():

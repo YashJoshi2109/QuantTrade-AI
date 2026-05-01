@@ -36,7 +36,12 @@ Summary:"""
 
 @lru_cache(maxsize=1)
 def _redis_client() -> aioredis.Redis:
-    return aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+    return aioredis.from_url(
+        settings.REDIS_URL,
+        decode_responses=True,
+        socket_connect_timeout=2.0,
+        socket_timeout=2.0,
+    )
 
 
 @dataclass
