@@ -6,13 +6,12 @@ GET  /api/v1/copilot/health        — Qdrant + Bedrock connectivity
 """
 from __future__ import annotations
 
-import asyncio
 import logging
-import os
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
 from app.api.auth import require_auth
+from app.config import settings
 from app.models.user import User
 from app.services.agentic.ingestion.orchestrator import (
     run_full_ingestion,
@@ -23,8 +22,7 @@ from app.services.agentic.ingestion.orchestrator import (
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/copilot", tags=["agentic-copilot"])
 
-_admin_env = os.getenv("ADMIN_EMAILS", "")
-ADMIN_EMAILS = set(e.strip() for e in _admin_env.split(",") if e.strip())
+ADMIN_EMAILS = set(e.strip() for e in settings.ADMIN_EMAILS.split(",") if e.strip())
 
 
 def _require_admin(user: User = Depends(require_auth)) -> User:
@@ -50,10 +48,7 @@ async def trigger_ingestion(
     # Set is_running=True synchronously before scheduling to close the race window
     status_obj.is_running = True
 
-    def _run_ingestion() -> None:
-        asyncio.run(run_full_ingestion(tickers=tickers, years_back=years_back))
-
-    background_tasks.add_task(_run_ingestion)
+    background_tasks.add_task(run_full_ingestion, tickers=tickers, years_back=years_back)
     return {"status": "started", "message": "Ingestion running in background"}
 
 

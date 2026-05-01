@@ -29,6 +29,7 @@ from qdrant_client.models import (
     VectorParams,
 )
 
+from app.config import settings
 from .chunker import Chunk
 
 logger = logging.getLogger(__name__)
@@ -42,8 +43,8 @@ SPARSE_VECTOR_NAME = "bm25"
 
 @lru_cache(maxsize=1)
 def _qdrant_client() -> QdrantClient:
-    url     = os.environ.get("QDRANT_URL", "http://localhost:6333")
-    api_key = os.environ.get("QDRANT_API_KEY")
+    url     = settings.QDRANT_URL
+    api_key = settings.QDRANT_API_KEY
     kwargs: dict = {"url": url}
     if api_key:
         kwargs["api_key"] = api_key
@@ -134,6 +135,16 @@ def _chunk_to_payload(chunk: Chunk) -> dict:
     }
 
 
+UPSERT_BATCH_SIZE = 50  # points per Qdrant upsert call to stay under 32MB payload limit
+
+
+def _batched_upsert(client, collection_name: str, points: list) -> None:
+    """Upsert points in batches to avoid Qdrant 32MB payload limit."""
+    for i in range(0, len(points), UPSERT_BATCH_SIZE):
+        batch = points[i : i + UPSERT_BATCH_SIZE]
+        client.upsert(collection_name=collection_name, points=batch)
+
+
 def upsert_chunks(
     children: Sequence[Chunk],
     parents: Sequence[Chunk],
@@ -155,10 +166,15 @@ def upsert_chunks(
         for c in children:
             dense = child_vectors.get(c.chunk_id, [0.0] * VECTOR_DIM)
             if child_sparse_vectors and c.chunk_id in child_sparse_vectors:
-                vector: dict = {
-                    DENSE_VECTOR_NAME: dense,
-                    SPARSE_VECTOR_NAME: child_sparse_vectors[c.chunk_id],
-                }
+                sv = child_sparse_vectors[c.chunk_id]
+                # Only include sparse vector if it has actual indices (BM25 enabled)
+                if sv.indices:
+                    vector: dict = {
+                        DENSE_VECTOR_NAME: dense,
+                        SPARSE_VECTOR_NAME: sv,
+                    }
+                else:
+                    vector = {DENSE_VECTOR_NAME: dense}
             else:
                 vector = {DENSE_VECTOR_NAME: dense}
             child_points.append(
@@ -168,7 +184,7 @@ def upsert_chunks(
                     payload=_chunk_to_payload(c),
                 )
             )
-        client.upsert(collection_name=CHUNKS_COLLECTION, points=child_points)
+        _batched_upsert(client, CHUNKS_COLLECTION, child_points)
         logger.debug("Upserted %d child chunks", len(child_points))
 
     if parents:
@@ -180,5 +196,5 @@ def upsert_chunks(
             )
             for p in parents
         ]
-        client.upsert(collection_name=PARENTS_COLLECTION, points=parent_points)
+        _batched_upsert(client, PARENTS_COLLECTION, parent_points)
         logger.debug("Upserted %d parent sections", len(parent_points))
