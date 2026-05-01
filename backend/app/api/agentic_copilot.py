@@ -23,9 +23,8 @@ from app.services.agentic.ingestion.orchestrator import (
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/copilot", tags=["agentic-copilot"])
 
-ADMIN_EMAILS = set(
-    os.getenv("ADMIN_EMAILS", "yashjosh7486@gmail.com").split(",")
-)
+_admin_env = os.getenv("ADMIN_EMAILS", "")
+ADMIN_EMAILS = set(e.strip() for e in _admin_env.split(",") if e.strip())
 
 
 def _require_admin(user: User = Depends(require_auth)) -> User:
@@ -48,9 +47,13 @@ async def trigger_ingestion(
             status_code=status.HTTP_409_CONFLICT,
             detail="Ingestion already running",
         )
-    background_tasks.add_task(
-        asyncio.run, run_full_ingestion(tickers=tickers, years_back=years_back)
-    )
+    # Set is_running=True synchronously before scheduling to close the race window
+    status_obj.is_running = True
+
+    def _run_ingestion() -> None:
+        asyncio.run(run_full_ingestion(tickers=tickers, years_back=years_back))
+
+    background_tasks.add_task(_run_ingestion)
     return {"status": "started", "message": "Ingestion running in background"}
 
 
