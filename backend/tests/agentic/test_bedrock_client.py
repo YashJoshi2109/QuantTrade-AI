@@ -1,15 +1,11 @@
-"""Tests for LLM client factory — provider selection logic.
-
-Priority: Bedrock (AWS_BEARER_TOKEN_BEDROCK) → Anthropic → OpenAI.
-PREFER_OPENAI=1 forces OpenAI regardless.
-"""
+"""Tests for LLM client factory — Bedrock → OpenAI → OpenRouter fallback chain."""
 import os
 import pytest
 from unittest.mock import patch, MagicMock
 
 
 def test_get_llm_sonnet_uses_bedrock_when_token_set():
-    """get_llm_sonnet() returns ChatBedrock when AWS_BEARER_TOKEN_BEDROCK is set."""
+    """Bedrock wins when AWS_BEARER_TOKEN_BEDROCK set and PREFER_OPENAI=0."""
     env = {"AWS_BEARER_TOKEN_BEDROCK": "test-token", "PREFER_OPENAI": "0"}
     with patch.dict(os.environ, env, clear=False):
         from app.services.agentic import bedrock_client as bc
@@ -21,26 +17,41 @@ def test_get_llm_sonnet_uses_bedrock_when_token_set():
         assert llm.max_tokens == 4096
 
 
-def test_get_llm_sonnet_falls_back_to_anthropic():
-    """get_llm_sonnet() uses ChatAnthropic when no Bedrock token but Anthropic key set."""
-    env = {"AWS_BEARER_TOKEN_BEDROCK": "", "ANTHROPIC_API_KEY": "sk-ant-test", "PREFER_OPENAI": "0"}
-    with patch.dict(os.environ, env, clear=False):
-        from app.services.agentic import bedrock_client as bc
-        llm = bc.get_llm_sonnet(streaming=False)
-        from langchain_anthropic import ChatAnthropic
-        assert isinstance(llm, ChatAnthropic)
-
-
-def test_get_llm_sonnet_openai_when_prefer_openai():
-    """get_llm_sonnet() uses ChatOpenAI when PREFER_OPENAI=1."""
-    env = {"OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "1"}
+def test_get_llm_sonnet_falls_back_to_openai():
+    """OpenAI wins when no Bedrock token."""
+    env = {"AWS_BEARER_TOKEN_BEDROCK": "", "OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "0"}
     with patch.dict(os.environ, env, clear=False):
         from app.services.agentic import bedrock_client as bc
         llm = bc.get_llm_sonnet(streaming=False)
         from langchain_openai import ChatOpenAI
         assert isinstance(llm, ChatOpenAI)
-        model_name = getattr(llm, "model_name", llm.model)
-        assert model_name == "gpt-4o"
+        assert llm.openai_api_base is None or "openrouter" not in str(llm.openai_api_base)
+
+
+def test_get_llm_sonnet_falls_back_to_openrouter():
+    """OpenRouter wins when no Bedrock token and no OpenAI key."""
+    env = {
+        "AWS_BEARER_TOKEN_BEDROCK": "",
+        "OPENAI_API_KEY": "",
+        "OPENROUTER_API_KEY": "or-test-key",
+        "PREFER_OPENAI": "0",
+    }
+    with patch.dict(os.environ, env, clear=False):
+        from app.services.agentic import bedrock_client as bc
+        llm = bc.get_llm_sonnet(streaming=False)
+        from langchain_openai import ChatOpenAI
+        assert isinstance(llm, ChatOpenAI)
+        assert "openrouter" in str(llm.openai_api_base)
+
+
+def test_prefer_openai_flag_skips_bedrock():
+    """PREFER_OPENAI=1 forces OpenAI even when Bedrock token present."""
+    env = {"AWS_BEARER_TOKEN_BEDROCK": "test-token", "OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "1"}
+    with patch.dict(os.environ, env, clear=False):
+        from app.services.agentic import bedrock_client as bc
+        llm = bc.get_llm_sonnet(streaming=False)
+        from langchain_openai import ChatOpenAI
+        assert isinstance(llm, ChatOpenAI)
 
 
 def test_get_llm_haiku_bedrock():
@@ -56,8 +67,19 @@ def test_get_llm_haiku_bedrock():
         assert llm.max_tokens == 1024
 
 
+def test_get_llm_haiku_openai_fallback():
+    """get_llm_haiku() falls back to gpt-4o-mini when no Bedrock token."""
+    env = {"AWS_BEARER_TOKEN_BEDROCK": "", "OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "0"}
+    with patch.dict(os.environ, env, clear=False):
+        from app.services.agentic import bedrock_client as bc
+        llm = bc.get_llm_haiku()
+        from langchain_openai import ChatOpenAI
+        assert isinstance(llm, ChatOpenAI)
+        assert llm.model_name == bc.OPENAI_HAIKU_EQUIV
+
+
 def test_get_embedder_returns_embedder():
-    """get_embedder() returns an object with embed_documents and embed_query."""
+    """get_embedder() returns object with embed_documents and embed_query."""
     from app.services.agentic.bedrock_client import get_embedder
     get_embedder.cache_clear()
     embedder = get_embedder()
