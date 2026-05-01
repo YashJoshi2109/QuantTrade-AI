@@ -516,6 +516,10 @@ app.include_router(messages_api.router, prefix="/api/v1", tags=["messages"])
 # MLOps — model registry, experiments, monitoring, pipeline control
 app.include_router(mlops.router, prefix="/api/v1", tags=["mlops"])
 
+# Agentic RAG Copilot — ingest trigger, status, health check (admin)
+from app.api.agentic_copilot import router as agentic_router
+app.include_router(agentic_router, prefix="/api/v1")
+
 # ML Training Pipeline — internal operator API
 from app.api import ml_runs
 app.include_router(ml_runs.router, prefix="/api/v1", tags=["ml-pipeline"])
