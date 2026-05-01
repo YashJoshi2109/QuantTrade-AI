@@ -48,6 +48,7 @@ import {
   type StockAnalysisData,
   type CopilotIntent,
   type CopilotMeta,
+  type CitationData,
   formatLargeNumber,
   formatPercent,
   formatPrice,
@@ -88,6 +89,7 @@ interface Message {
   intent?: CopilotIntent
   structuredData?: CopilotStructuredData
   meta?: CopilotMeta
+  citations?: CitationData[]
 }
 
 // ─── Copy Button ──────────────────────────────────────────────────────────────
@@ -705,14 +707,34 @@ function MessageBubble({ msg }: { msg: Message }) {
           )}
         </div>
 
+        {!isUser && !msg.streaming && msg.citations && msg.citations.length > 0 && (
+          <details className="mt-2 group">
+            <summary className="flex items-center gap-1.5 cursor-pointer text-[10px] text-fg-muted hover:text-fg-secondary select-none list-none px-1">
+              <span className="w-3 h-3 border border-current rounded-sm flex items-center justify-center text-[8px] group-open:rotate-90 transition-transform">▶</span>
+              {msg.citations.length} SEC source{msg.citations.length !== 1 ? 's' : ''}
+            </summary>
+            <div className="mt-1.5 space-y-1 px-1">
+              {msg.citations.slice(0, 6).map((c) => (
+                <div
+                  key={c.source_n}
+                  className="flex items-start gap-2 p-1.5 rounded bg-surface-base border border-line-subtle text-[10px]"
+                >
+                  <span className="shrink-0 w-4 h-4 rounded-sm bg-[#007AFF]/20 text-[#007AFF] flex items-center justify-center font-bold text-[9px]">
+                    {c.source_n}
+                  </span>
+                  <div className="min-w-0">
+                    <span className="font-semibold text-fg-secondary">{c.ticker} {c.filing_type} {c.fiscal_year}</span>
+                    <span className="text-fg-muted"> · {c.section}</span>
+                    <span className="text-fg-muted block">Filed {c.filed_date}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
         {!isUser && !msg.streaming && msg.content && (
           <div className="flex items-center gap-1 mt-1 px-1">
             <CopyButton text={msg.content} />
-            {msg.meta?.sources && msg.meta.sources.length > 0 && (
-              <span className="text-[9px] text-fg-muted font-mono">
-                Sources: {msg.meta.sources.slice(0, 3).join(', ')}
-              </span>
-            )}
             <span className="text-[10px] text-fg-muted font-mono ml-auto">
               {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
@@ -1558,6 +1580,24 @@ function CopilotInner() {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantMsgId ? { ...m, structuredData: data } : m
+              )
+            )
+          },
+
+          onToolCall: () => {
+            setPipelineStage('data')
+          },
+
+          onToolResult: () => {
+            setPipelineStage('streaming')
+          },
+
+          onCitation: (citation) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMsgId
+                  ? { ...m, citations: [...(m.citations || []), citation] }
+                  : m
               )
             )
           },

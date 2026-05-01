@@ -190,6 +190,19 @@ export interface CopilotMeta {
   model?: string
 }
 
+// ─── Citation ───────────────────────────────────────────────────────────────
+
+export interface CitationData {
+  label: string
+  ticker: string
+  filing_type: string
+  fiscal_year: number
+  section: string
+  filed_date: string
+  score: number
+  source_n: number
+}
+
 // ─── SSE Event Handlers ─────────────────────────────────────────────────────
 
 export interface CopilotStreamCallbacks {
@@ -199,6 +212,9 @@ export interface CopilotStreamCallbacks {
   onMeta?: (meta: CopilotMeta) => void
   onError?: (error: string) => void
   onDone?: () => void
+  onCitation?: (citation: CitationData) => void
+  onToolCall?: (message: string) => void
+  onToolResult?: (message: string) => void
 }
 
 export interface CopilotStreamRequest {
@@ -251,6 +267,8 @@ export async function streamCopilotAnalysis(
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let detectedIntent: CopilotIntent = 'text'
+  let doneCalled = false
 
   while (true) {
     const { done, value } = await reader.read()
@@ -272,6 +290,7 @@ export async function streamCopilotAnalysis(
 
           switch (currentEvent) {
             case 'intent':
+              detectedIntent = data.intent as CopilotIntent
               callbacks.onIntent?.(
                 data.intent as CopilotIntent,
                 data.symbol,
@@ -281,6 +300,18 @@ export async function streamCopilotAnalysis(
 
             case 'structured_data':
               callbacks.onStructuredData?.(data as CopilotStructuredData)
+              break
+
+            case 'tool_call':
+              callbacks.onToolCall?.(data.message || '')
+              break
+
+            case 'tool_result':
+              callbacks.onToolResult?.(data.message || '')
+              break
+
+            case 'citation':
+              callbacks.onCitation?.(data as CitationData)
               break
 
             case 'token':
@@ -296,7 +327,16 @@ export async function streamCopilotAnalysis(
               break
 
             case 'done':
+              // Bridge done payload → onMeta for backward compat (conversation_id tracking)
+              callbacks.onMeta?.({
+                request_id: data.request_id || '',
+                conversation_id: data.conversation_id || '',
+                sources: (data.citations || []).map((c: CitationData) => c.label),
+                intent: detectedIntent,
+                model: 'claude-sonnet-4-6',
+              })
               callbacks.onDone?.()
+              doneCalled = true
               break
           }
         } catch {
@@ -308,7 +348,7 @@ export async function streamCopilotAnalysis(
   }
 
   // Ensure done is called if stream ends without explicit done event
-  callbacks.onDone?.()
+  if (!doneCalled) callbacks.onDone?.()
 }
 
 // ─── Quick Prompts ──────────────────────────────────────────────────────────
