@@ -15,7 +15,7 @@ import numpy as np
 ANTHROPIC_AVAILABLE = False
 try:
     from langchain_anthropic import ChatAnthropic
-    from langchain.prompts import ChatPromptTemplate
+    from langchain_core.prompts import ChatPromptTemplate
     ANTHROPIC_AVAILABLE = True
     print("✅ LangChain Anthropic available")
 except ImportError:

@@ -15,7 +15,7 @@ except ImportError:
 # Try to import Qdrant
 try:
     from qdrant_client import QdrantClient
-    from qdrant_client.models import Distance, VectorParams, PointStruct
+    from qdrant_client.models import Distance, VectorParams, PointStruct, Filter
     QDRANT_AVAILABLE = True
 except ImportError:
     QDRANT_AVAILABLE = False
@@ -118,20 +118,21 @@ class VectorStore:
         if not QDRANT_AVAILABLE:
             raise ValueError("Qdrant not available")
         
-        results = self.client.search(
+        response = self.client.query_points(
             collection_name=collection_name,
-            query_vector=query_embedding,
+            query=query_embedding,
             limit=top_k,
-            query_filter=filter
+            query_filter=filter,
+            with_payload=True,
         )
-        
+
         return [
             {
-                "id": result.id,
-                "score": result.score,
-                "metadata": result.payload
+                "id": point.id,
+                "score": point.score,
+                "metadata": point.payload
             }
-            for result in results
+            for point in response.points
         ]
     
     def _store_pgvector(
