@@ -14,6 +14,7 @@ Flow:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -151,8 +152,13 @@ async def _stream_generator(
     }
     yield _sse("intent", {"intent": rd_dict["intent"], "symbol": rd_dict["primary_ticker"]})
 
-    # ── 3. Load memory ─────────────────────────────────────────────────────────
-    memory: ConversationMemory = await load_memory(user.id, conversation_id)
+    # ── 3. Load memory (3s hard timeout — Redis may be unreachable) ─────────────
+    try:
+        memory = await asyncio.wait_for(
+            load_memory(user.id, conversation_id), timeout=3.0
+        )
+    except Exception:
+        memory = ConversationMemory()
     history_str = format_history_for_llm(memory)
 
     # ── 4. Run prep graph ──────────────────────────────────────────────────────
@@ -217,8 +223,14 @@ async def _stream_generator(
 
     # ── 7. Save memory + chat history ─────────────────────────────────────────
     try:
-        await save_turn(memory, "user",      req.message,   user.id, conversation_id)
-        await save_turn(memory, "assistant", full_response, user.id, conversation_id)
+        await asyncio.wait_for(
+            save_turn(memory, "user", req.message, user.id, conversation_id),
+            timeout=3.0,
+        )
+        await asyncio.wait_for(
+            save_turn(memory, "assistant", full_response, user.id, conversation_id),
+            timeout=3.0,
+        )
     except Exception as exc:
         logger.warning("Memory save failed: %s", exc)
 
