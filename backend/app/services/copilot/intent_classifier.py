@@ -21,6 +21,7 @@ from app.services.copilot.constants import (
     ANALYSIS_KEYWORDS,
     GREETING_KEYWORDS,
     EDUCATION_KEYWORDS,
+    EARNINGS_KEYWORDS,
     GENERAL_ADVICE_PATTERNS,
     PORTFOLIO_ADVICE_PATTERNS,
     OFF_TOPIC_PATTERNS,
@@ -36,6 +37,7 @@ class Intent(str, Enum):
     COMPARISON = "comparison"
     SCREENER = "screener"
     SECTOR = "sector"
+    EARNINGS = "earnings"                  # earnings, EPS, quarterly results, guidance
     GENERAL_ADVICE = "general_advice"      # "which stock should I buy with $500"
     PORTFOLIO_ADVICE = "portfolio_advice"  # diversification, rebalancing
     EDUCATION = "education"                # "what is a P/E ratio"
@@ -118,6 +120,15 @@ class IntentClassifier:
                 confidence=HIGH_CONFIDENCE,
                 reasoning="Portfolio-level keywords (diversification, allocation)",
                 matched_rules=["portfolio_advice_pattern"],
+            )
+
+        # ── Priority 4a: Earnings query ───────────────────────────────
+        if self._is_earnings_query(lower):
+            return IntentResult(
+                intent=Intent.EARNINGS,
+                confidence=MEDIUM_CONFIDENCE,
+                reasoning="Earnings keyword matched (EPS, guidance, quarterly results, etc.)",
+                matched_rules=["earnings_keyword"],
             )
 
         # ── Priority 4: General investment advice ─────────────────────
@@ -233,3 +244,7 @@ class IntentClassifier:
             r"\bstock\s+market\s+(?:today|outlook)",
         ]
         return any(re.search(p, text) for p in patterns)
+
+    @staticmethod
+    def _is_earnings_query(text: str) -> bool:
+        return any(kw in text for kw in EARNINGS_KEYWORDS)
