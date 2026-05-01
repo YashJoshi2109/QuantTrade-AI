@@ -1,11 +1,19 @@
-"""Qdrant indexer — collection setup, chunk upsert, and dedup check."""
+"""Qdrant indexer — collection setup, chunk upsert, and dedup check.
+
+Collection schema uses NAMED vectors:
+  "dense"  — Titan Embeddings v2 (1536d), COSINE, HNSW, for ANN search
+  "bm25"   — BM25 sparse vectors via fastembed, for keyword search
+
+NOTE: If the sec_filings_chunks collection was previously created with the old
+unnamed-vector schema, drop it in Qdrant before restarting (no prod data yet).
+"""
 from __future__ import annotations
 
 import logging
 import os
 import uuid
 from functools import lru_cache
-from typing import Dict, List, Sequence
+from typing import Dict, List, Optional, Sequence
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -16,6 +24,8 @@ from qdrant_client.models import (
     MatchValue,
     PayloadSchemaType,
     PointStruct,
+    SparseVector,
+    SparseVectorParams,
     VectorParams,
 )
 
@@ -23,19 +33,16 @@ from .chunker import Chunk
 
 logger = logging.getLogger(__name__)
 
-# ── Collection names ──────────────────────────────────────────────────────────
-CHUNKS_COLLECTION = "sec_filings_chunks"
+CHUNKS_COLLECTION  = "sec_filings_chunks"
 PARENTS_COLLECTION = "sec_filings_parents"
+VECTOR_DIM         = 1536
+DENSE_VECTOR_NAME  = "dense"
+SPARSE_VECTOR_NAME = "bm25"
 
-# ── Vector dimensionality (Amazon Titan Embeddings v2) ────────────────────────
-VECTOR_DIM = 1536
 
-
-# ── Cached Qdrant client ──────────────────────────────────────────────────────
 @lru_cache(maxsize=1)
 def _qdrant_client() -> QdrantClient:
-    """Return a cached QdrantClient, configured from env vars."""
-    url = os.environ.get("QDRANT_URL", "http://localhost:6333")
+    url     = os.environ.get("QDRANT_URL", "http://localhost:6333")
     api_key = os.environ.get("QDRANT_API_KEY")
     kwargs: dict = {"url": url}
     if api_key:
@@ -43,88 +50,63 @@ def _qdrant_client() -> QdrantClient:
     return QdrantClient(**kwargs)
 
 
-# ── Collection bootstrap ──────────────────────────────────────────────────────
 def ensure_collections_exist() -> None:
-    """Create both Qdrant collections if they don't already exist.
-
-    Safe to call on every service startup — no-ops if collections exist.
-    """
+    """Create Qdrant collections if absent. Safe to call on every startup."""
     client = _qdrant_client()
 
-    # ── Child chunks collection (ANN searchable) ──────────────────────────────
     if not client.collection_exists(CHUNKS_COLLECTION):
         client.create_collection(
             CHUNKS_COLLECTION,
-            vectors_config=VectorParams(
-                size=VECTOR_DIM,
-                distance=Distance.COSINE,
-            ),
-            hnsw_config=HnswConfigDiff(
-                m=16,
-                ef_construct=100,
-            ),
+            vectors_config={
+                DENSE_VECTOR_NAME: VectorParams(
+                    size=VECTOR_DIM,
+                    distance=Distance.COSINE,
+                )
+            },
+            sparse_vectors_config={
+                SPARSE_VECTOR_NAME: SparseVectorParams()
+            },
+            hnsw_config=HnswConfigDiff(m=16, ef_construct=100),
         )
-        # Payload indexes for fast filtered search
-        client.create_payload_index(
-            CHUNKS_COLLECTION,
-            field_name="ticker",
-            field_schema=PayloadSchemaType.KEYWORD,
-        )
-        client.create_payload_index(
-            CHUNKS_COLLECTION,
-            field_name="filing_type",
-            field_schema=PayloadSchemaType.KEYWORD,
-        )
-        client.create_payload_index(
-            CHUNKS_COLLECTION,
-            field_name="fiscal_year",
-            field_schema=PayloadSchemaType.INTEGER,
-        )
-        client.create_payload_index(
-            CHUNKS_COLLECTION,
-            field_name="content_hash",
-            field_schema=PayloadSchemaType.KEYWORD,
-        )
+        for field, schema in [
+            ("ticker",       PayloadSchemaType.KEYWORD),
+            ("filing_type",  PayloadSchemaType.KEYWORD),
+            ("fiscal_year",  PayloadSchemaType.INTEGER),
+            ("content_hash", PayloadSchemaType.KEYWORD),
+            ("section",      PayloadSchemaType.KEYWORD),
+        ]:
+            client.create_payload_index(
+                CHUNKS_COLLECTION, field_name=field, field_schema=schema
+            )
         logger.info("Created collection: %s", CHUNKS_COLLECTION)
 
-    # ── Parent sections collection (fetched by ID, not by vector) ─────────────
     if not client.collection_exists(PARENTS_COLLECTION):
         client.create_collection(
             PARENTS_COLLECTION,
-            vectors_config=VectorParams(
-                size=VECTOR_DIM,
-                distance=Distance.COSINE,
-            ),
+            vectors_config={
+                DENSE_VECTOR_NAME: VectorParams(
+                    size=VECTOR_DIM,
+                    distance=Distance.COSINE,
+                )
+            },
         )
-        client.create_payload_index(
-            PARENTS_COLLECTION,
-            field_name="ticker",
-            field_schema=PayloadSchemaType.KEYWORD,
-        )
-        client.create_payload_index(
-            PARENTS_COLLECTION,
-            field_name="filing_type",
-            field_schema=PayloadSchemaType.KEYWORD,
-        )
+        for field, schema in [
+            ("ticker",      PayloadSchemaType.KEYWORD),
+            ("filing_type", PayloadSchemaType.KEYWORD),
+        ]:
+            client.create_payload_index(
+                PARENTS_COLLECTION, field_name=field, field_schema=schema
+            )
         logger.info("Created collection: %s", PARENTS_COLLECTION)
 
 
-# ── Deduplication check ───────────────────────────────────────────────────────
 def chunk_exists(content_hash: str) -> bool:
-    """Return True if a chunk with this content_hash is already indexed.
-
-    Uses scroll (filter-based) rather than vector search — O(1) payload lookup.
-    """
+    """True if a chunk with this content_hash is already indexed."""
     client = _qdrant_client()
     results, _ = client.scroll(
         collection_name=CHUNKS_COLLECTION,
         scroll_filter=Filter(
-            must=[
-                FieldCondition(
-                    key="content_hash",
-                    match=MatchValue(value=content_hash),
-                )
-            ]
+            must=[FieldCondition(key="content_hash", match=MatchValue(value=content_hash))]
         ),
         limit=1,
         with_payload=False,
@@ -133,23 +115,22 @@ def chunk_exists(content_hash: str) -> bool:
     return len(results) > 0
 
 
-# ── Upsert ────────────────────────────────────────────────────────────────────
 def _chunk_to_payload(chunk: Chunk) -> dict:
     return {
-        "chunk_id":       chunk.chunk_id,
+        "chunk_id":        chunk.chunk_id,
         "parent_chunk_id": chunk.parent_chunk_id,
-        "text":           chunk.text,
-        "token_count":    chunk.token_count,
-        "section":        chunk.section,
-        "item_number":    chunk.item_number,
-        "is_parent":      chunk.is_parent,
-        "ticker":         chunk.ticker,
-        "company_name":   chunk.company_name,
-        "filing_type":    chunk.filing_type,
-        "filed_date":     chunk.filed_date,
-        "fiscal_year":    chunk.fiscal_year,
-        "cik":            chunk.cik,
-        "content_hash":   chunk.content_hash,
+        "text":            chunk.text,
+        "token_count":     chunk.token_count,
+        "section":         chunk.section,
+        "item_number":     chunk.item_number,
+        "is_parent":       chunk.is_parent,
+        "ticker":          chunk.ticker,
+        "company_name":    chunk.company_name,
+        "filing_type":     chunk.filing_type,
+        "filed_date":      chunk.filed_date,
+        "fiscal_year":     chunk.fiscal_year,
+        "cik":             chunk.cik,
+        "content_hash":    chunk.content_hash,
     }
 
 
@@ -157,39 +138,47 @@ def upsert_chunks(
     children: Sequence[Chunk],
     parents: Sequence[Chunk],
     child_vectors: Dict[str, List[float]],
+    child_sparse_vectors: Optional[Dict[str, SparseVector]] = None,
 ) -> None:
-    """Upsert child chunks (with embeddings) and parent sections (placeholder vectors).
+    """Upsert child chunks (dense + optional sparse) and parent sections.
 
     Args:
-        children:      Child Chunk objects (400-800 tokens, ANN searchable).
-        parents:       Parent Chunk objects (up to 4096 tokens, fetched by ID).
-        child_vectors: Mapping chunk_id -> embedding vector for each child.
+        children:             Child Chunk objects (400-800 tokens, ANN searchable).
+        parents:              Parent Chunk objects (up to 4096 tokens, ID-fetched).
+        child_vectors:        chunk_id -> 1536-dim dense vector.
+        child_sparse_vectors: chunk_id -> BM25 SparseVector. None = skip sparse.
     """
     client = _qdrant_client()
 
-    # ── Child chunks ──────────────────────────────────────────────────────────
     if children:
-        child_points = [
-            PointStruct(
-                id=str(uuid.uuid5(uuid.NAMESPACE_DNS, c.chunk_id)),
-                vector=child_vectors.get(c.chunk_id, [0.0] * VECTOR_DIM),
-                payload=_chunk_to_payload(c),
+        child_points = []
+        for c in children:
+            dense = child_vectors.get(c.chunk_id, [0.0] * VECTOR_DIM)
+            if child_sparse_vectors and c.chunk_id in child_sparse_vectors:
+                vector: dict = {
+                    DENSE_VECTOR_NAME: dense,
+                    SPARSE_VECTOR_NAME: child_sparse_vectors[c.chunk_id],
+                }
+            else:
+                vector = {DENSE_VECTOR_NAME: dense}
+            child_points.append(
+                PointStruct(
+                    id=str(uuid.uuid5(uuid.NAMESPACE_DNS, c.chunk_id)),
+                    vector=vector,
+                    payload=_chunk_to_payload(c),
+                )
             )
-            for c in children
-        ]
         client.upsert(collection_name=CHUNKS_COLLECTION, points=child_points)
-        logger.debug("Upserted %d child chunks to %s", len(child_points), CHUNKS_COLLECTION)
+        logger.debug("Upserted %d child chunks", len(child_points))
 
-    # ── Parent sections ───────────────────────────────────────────────────────
     if parents:
         parent_points = [
             PointStruct(
                 id=str(uuid.uuid5(uuid.NAMESPACE_DNS, p.chunk_id)),
-                # Parents are never ANN-searched; zero vector is a safe placeholder.
-                vector=[0.0] * VECTOR_DIM,
+                vector={DENSE_VECTOR_NAME: [0.0] * VECTOR_DIM},
                 payload=_chunk_to_payload(p),
             )
             for p in parents
         ]
         client.upsert(collection_name=PARENTS_COLLECTION, points=parent_points)
-        logger.debug("Upserted %d parent sections to %s", len(parent_points), PARENTS_COLLECTION)
+        logger.debug("Upserted %d parent sections", len(parent_points))

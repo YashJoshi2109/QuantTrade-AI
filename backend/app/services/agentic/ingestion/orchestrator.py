@@ -82,7 +82,13 @@ async def ingest_ticker(ticker: str, years_back: int = 5) -> int:
         if not vectors:
             continue
 
-        upsert_chunks(children, parents, vectors)
+        # Compute BM25 sparse vectors for child chunks
+        from app.services.agentic.sparse_encoder import encode_sparse
+        child_texts  = [c.text for c in children]
+        sparse_vecs  = encode_sparse(child_texts)
+        child_sparse = {c.chunk_id: sv for c, sv in zip(children, sparse_vecs)}
+
+        upsert_chunks(children, parents, vectors, child_sparse)
         total_new += len(vectors)
         logger.info("%s %s: indexed %d new chunks", ticker, filing.filing_type, len(vectors))
 
