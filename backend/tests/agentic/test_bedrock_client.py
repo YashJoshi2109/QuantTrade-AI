@@ -1,50 +1,64 @@
-"""Tests for LLM client factory functions.
+"""Tests for LLM client factory — provider selection logic.
 
-LLM selection: prefers Anthropic when ANTHROPIC_API_KEY set and PREFER_OPENAI!=1,
-otherwise uses OpenAI.  Tests use env-patching to control which provider is chosen.
+Priority: Bedrock (AWS_BEARER_TOKEN_BEDROCK) → Anthropic → OpenAI.
+PREFER_OPENAI=1 forces OpenAI regardless.
 """
 import os
 import pytest
 from unittest.mock import patch, MagicMock
 
 
-def test_get_llm_sonnet_with_anthropic():
-    """get_llm_sonnet() returns ChatAnthropic when Anthropic key set."""
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test", "PREFER_OPENAI": "0"}):
+def test_get_llm_sonnet_uses_bedrock_when_token_set():
+    """get_llm_sonnet() returns ChatBedrock when AWS_BEARER_TOKEN_BEDROCK is set."""
+    env = {"AWS_BEARER_TOKEN_BEDROCK": "test-token", "PREFER_OPENAI": "0"}
+    with patch.dict(os.environ, env, clear=False):
         from app.services.agentic import bedrock_client as bc
         llm = bc.get_llm_sonnet(streaming=False)
-        model_name = getattr(llm, "model", getattr(llm, "model_name", ""))
-        assert "claude" in model_name.lower() or "sonnet" in model_name.lower()
+        from langchain_aws import ChatBedrock
+        assert isinstance(llm, ChatBedrock)
+        assert llm.model_id == bc.BEDROCK_SONNET_MODEL
         assert llm.temperature == 0.1
         assert llm.max_tokens == 4096
 
 
-def test_get_llm_sonnet_openai_fallback():
-    """get_llm_sonnet() returns ChatOpenAI when PREFER_OPENAI=1."""
-    with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "1"}):
+def test_get_llm_sonnet_falls_back_to_anthropic():
+    """get_llm_sonnet() uses ChatAnthropic when no Bedrock token but Anthropic key set."""
+    env = {"AWS_BEARER_TOKEN_BEDROCK": "", "ANTHROPIC_API_KEY": "sk-ant-test", "PREFER_OPENAI": "0"}
+    with patch.dict(os.environ, env, clear=False):
         from app.services.agentic import bedrock_client as bc
         llm = bc.get_llm_sonnet(streaming=False)
-        model_name = getattr(llm, "model_name", getattr(llm, "model", ""))
-        assert "gpt" in model_name.lower()
-        assert llm.temperature == 0.1
-        assert llm.max_tokens == 4096
+        from langchain_anthropic import ChatAnthropic
+        assert isinstance(llm, ChatAnthropic)
 
 
-def test_get_llm_haiku_returns_fast_model():
-    """get_llm_haiku() returns a fast model with low temperature."""
-    llm = None
-    with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "1"}):
+def test_get_llm_sonnet_openai_when_prefer_openai():
+    """get_llm_sonnet() uses ChatOpenAI when PREFER_OPENAI=1."""
+    env = {"OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "1"}
+    with patch.dict(os.environ, env, clear=False):
+        from app.services.agentic import bedrock_client as bc
+        llm = bc.get_llm_sonnet(streaming=False)
+        from langchain_openai import ChatOpenAI
+        assert isinstance(llm, ChatOpenAI)
+        model_name = getattr(llm, "model_name", llm.model)
+        assert model_name == "gpt-4o"
+
+
+def test_get_llm_haiku_bedrock():
+    """get_llm_haiku() returns ChatBedrock with correct model and temperature."""
+    env = {"AWS_BEARER_TOKEN_BEDROCK": "test-token", "PREFER_OPENAI": "0"}
+    with patch.dict(os.environ, env, clear=False):
         from app.services.agentic import bedrock_client as bc
         llm = bc.get_llm_haiku()
-    assert llm is not None
-    assert llm.temperature == 0.0
-    assert llm.max_tokens == 1024
+        from langchain_aws import ChatBedrock
+        assert isinstance(llm, ChatBedrock)
+        assert llm.model_id == bc.BEDROCK_HAIKU_MODEL
+        assert llm.temperature == 0.0
+        assert llm.max_tokens == 1024
 
 
 def test_get_embedder_returns_embedder():
     """get_embedder() returns an object with embed_documents and embed_query."""
     from app.services.agentic.bedrock_client import get_embedder
-    # lru_cache — clear to avoid stale instance from previous test
     get_embedder.cache_clear()
     embedder = get_embedder()
     assert hasattr(embedder, "embed_documents")
@@ -72,8 +86,7 @@ def test_rerank_returns_sorted_results():
     ]
     with patch("app.services.agentic.bedrock_client._cohere_client") as mock_co:
         mock_co.return_value.rerank.return_value = mock_result
-        docs = ["doc A", "doc B"]
-        result = rerank("test query", docs, top_n=2)
+        result = rerank("test query", ["doc A", "doc B"], top_n=2)
     assert result[0]["index"] == 1
     assert result[0]["score"] == 0.95
     assert result[1]["index"] == 0
