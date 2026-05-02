@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Brain, Activity, Database, AlertTriangle, Play,
   ChevronRight, ChevronDown, Cpu, Layers, Shield,
   Eye, Rocket, Target, SlidersHorizontal, Sparkles,
   Package, GitBranch, ArrowUpRight, ArrowDownRight,
-  Loader2,
+  Loader2, Lock,
 } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
 const API = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -108,6 +110,8 @@ function StatCard({ icon: Icon, label, value, sub, color = 'text-cyan-400' }: {
 }
 
 export default function MobileMLOps() {
+  const { isAuthenticated, isLoading } = useAuth()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [overview, setOverview] = useState<OverviewData | null>(null)
   const [runs, setRuns] = useState<TrainingRun[]>([])
@@ -128,10 +132,35 @@ export default function MobileMLOps() {
   }, [])
 
   useEffect(() => {
+    if (!isLoading && !isAuthenticated) { router.push('/auth?redirect=/mlops'); return }
     fetchData()
     const int = setInterval(fetchData, 30_000)
     return () => clearInterval(int)
-  }, [fetchData])
+  }, [fetchData, isAuthenticated, isLoading, router])
+
+  if (isLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center flex-col gap-4 bg-surface-base px-6">
+        {isLoading ? (
+          <Loader2 className="w-6 h-6 animate-spin text-fg-muted" />
+        ) : (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600/30 to-cyan-600/30 border border-purple-500/20 flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-7 h-7 text-purple-400" />
+            </div>
+            <h2 className="text-lg font-bold text-fg-primary mb-2">Sign In Required</h2>
+            <p className="text-sm text-fg-muted mb-6">MLOps is restricted to authenticated users.</p>
+            <button
+              onClick={() => router.push('/auth?redirect=/mlops')}
+              className="px-6 py-2.5 bg-gradient-to-r from-purple-600/80 to-cyan-600/80 text-white text-sm font-semibold rounded-xl"
+            >
+              Sign In
+            </button>
+          </motion.div>
+        )}
+      </div>
+    )
+  }
 
   const tabs: { id: TabId; label: string; icon: any; badge?: number }[] = [
     { id: 'overview', label: 'Overview', icon: Activity },

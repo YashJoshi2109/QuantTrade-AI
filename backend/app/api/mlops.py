@@ -12,7 +12,7 @@ from app.api.auth import require_auth
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 # ── Model Registry ──────────────────────────────────────────────────────

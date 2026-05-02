@@ -18,7 +18,7 @@ from app.models.user import User
 from app.services import ml_metadata_service as mds
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 # ── Request/Response Models ────────────────────────────────────────────
@@ -348,6 +348,47 @@ async def get_model_version(version: str, db: Session = Depends(get_db)):
         "promoted_at": mv.promoted_at.isoformat() if mv.promoted_at else None,
         "promoted_by": mv.promoted_by,
         "created_at": mv.created_at.isoformat() if mv.created_at else None,
+    }
+
+
+# ── Model Version Lifecycle ──────────────────────────────────────────
+
+@router.post("/internal/ml/models/versions/{version}/promote")
+async def promote_db_model_version(
+    version: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Promote a model version to production (archives current prod)."""
+    promoted_by = getattr(user, "username", None) or getattr(user, "email", "api")
+    mv = mds.promote_model_version(db, version, promoted_by=promoted_by)
+    if not mv:
+        raise HTTPException(404, f"Model version '{version}' not found")
+    return {
+        "message": f"Version {version} promoted to production",
+        "model_version": mv.model_version,
+        "promotion_status": mv.promotion_status,
+        "promoted_by": mv.promoted_by,
+    }
+
+
+@router.post("/internal/ml/models/versions/{version}/archive")
+async def archive_db_model_version(
+    version: str,
+    db: Session = Depends(get_db),
+):
+    """Archive a model version (remove from staging/production)."""
+    from app.models.ml_training import ModelVersion as MV
+    mv = db.query(MV).filter(MV.model_version == version).first()
+    if not mv:
+        raise HTTPException(404, f"Model version '{version}' not found")
+    mv.promotion_status = "archived"
+    db.commit()
+    db.refresh(mv)
+    return {
+        "message": f"Version {version} archived",
+        "model_version": mv.model_version,
+        "promotion_status": mv.promotion_status,
     }
 
 
