@@ -3,12 +3,16 @@ LLM client factory.
 Fallback chain: Bedrock → OpenAI → OpenRouter.
 
 Priority rules:
-  1. Bedrock   — AWS_BEARER_TOKEN_BEDROCK set and PREFER_OPENAI != 1
+  1. Bedrock   — AWS credentials available via credential chain (IAM role, env, ~/.aws)
+                 and PREFER_OPENAI != 1
   2. OpenAI    — OPENAI_API_KEY set
   3. OpenRouter— OPENROUTER_API_KEY or NEXT_PUBLIC_OPENROUTER_API_KEY set
      (uses OpenAI-compatible API at https://openrouter.ai/api/v1)
 
 Override: PREFER_OPENAI=1 skips Bedrock and goes straight to OpenAI/OpenRouter.
+
+Bedrock credentials: boto3 standard chain — env vars (AWS_ACCESS_KEY_ID/SECRET_ACCESS_KEY),
+  ~/.aws/credentials, or EC2 instance metadata (IAM role). No custom env var needed.
 
 Bedrock model IDs (auto-enabled on first invocation in account):
   - anthropic.claude-sonnet-4-6
@@ -19,11 +23,25 @@ cohere 5.x: cohere.Client still exists and exposes .rerank().
 """
 from __future__ import annotations
 
+import logging
 import os
 from functools import lru_cache
 from typing import Any
 
 import cohere
+
+logger = logging.getLogger(__name__)
+
+
+def _aws_credentials_available() -> bool:
+    """True if boto3 can resolve AWS credentials via the standard credential chain."""
+    try:
+        import boto3
+        session = boto3.Session()
+        creds = session.get_credentials()
+        return creds is not None and creds.get_frozen_credentials() is not None
+    except Exception:
+        return False
 
 # ─── Model constants ─────────────────────────────────────────────────────────
 
@@ -100,10 +118,11 @@ def _pick_llm(
     """
     Bedrock → OpenAI → OpenRouter fallback chain.
     PREFER_OPENAI=1 skips Bedrock.
+    Bedrock uses the boto3 credential chain (IAM role, env vars, ~/.aws).
     """
     prefer_openai = os.getenv("PREFER_OPENAI", "0").lower() in ("1", "true", "yes")
 
-    if not prefer_openai and os.getenv("AWS_BEARER_TOKEN_BEDROCK"):
+    if not prefer_openai and _aws_credentials_available():
         return _bedrock_llm(bedrock_model, temperature, max_tokens, streaming)
 
     if os.getenv("OPENAI_API_KEY"):
@@ -141,38 +160,47 @@ def get_llm_haiku(streaming: bool = False):
 
 # ─── Embeddings ───────────────────────────────────────────────────────────────
 
-@lru_cache(maxsize=1)
 def get_embedder():
     """
     Embedding provider chain: Bedrock Titan v2 → OpenAI text-embedding-3-small → zero stub.
     All return 1536-dim vectors so Qdrant collection schema stays consistent.
+
+    NOT cached with lru_cache — avoids baking in _FallbackEmbedder if credentials
+    are not yet available at first import. Called only at embed time.
     """
     prefer_openai = os.getenv("PREFER_OPENAI", "0").lower() in ("1", "true", "yes")
 
-    # 1. Bedrock Titan v2 (when not prefer-openai and token present)
-    if not prefer_openai and os.getenv("AWS_BEARER_TOKEN_BEDROCK"):
+    # 1. Bedrock Titan v2 — uses boto3 credential chain (IAM role, env, ~/.aws)
+    if not prefer_openai and _aws_credentials_available():
         try:
             from langchain_aws import BedrockEmbeddings
             embedder = BedrockEmbeddings(model_id=BEDROCK_TITAN_MODEL, region_name=REGION)
-            # Warm-test — if Bedrock is blocked this raises immediately
+            # Warm-test — raises immediately if Bedrock model access is blocked
             embedder.embed_query("ping")
+            logger.info("Embedder: Bedrock Titan v2")
             return embedder
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Bedrock embedder unavailable (%s), trying OpenAI", exc)
 
     # 2. OpenAI text-embedding-3-small — 1536d, same dim as Titan v2
     if os.getenv("OPENAI_API_KEY"):
         try:
             from langchain_openai import OpenAIEmbeddings
-            return OpenAIEmbeddings(
+            embedder = OpenAIEmbeddings(
                 model="text-embedding-3-small",
                 api_key=os.getenv("OPENAI_API_KEY", ""),
                 dimensions=1536,
             )
-        except Exception:
-            pass
+            logger.info("Embedder: OpenAI text-embedding-3-small")
+            return embedder
+        except Exception as exc:
+            logger.warning("OpenAI embedder unavailable (%s), using zero stub", exc)
 
-    # 3. OpenRouter doesn't provide embeddings — fall through to stub
+    # 3. Zero stub — OpenRouter doesn't provide embeddings
+    logger.error(
+        "No embedding provider available (no AWS credentials, no OPENAI_API_KEY). "
+        "Falling back to zero vectors — RAG search will be degraded!"
+    )
     return _FallbackEmbedder()
 
 
@@ -197,7 +225,8 @@ def embed_query(text: str) -> list[float]:
 
 @lru_cache(maxsize=1)
 def _cohere_client() -> cohere.Client:
-    api_key = os.getenv("COHERE_API_KEY", "")
+    from app.config import settings
+    api_key = settings.COHERE_API_KEY or os.getenv("COHERE_API_KEY", "")
     return cohere.Client(api_key=api_key)
 
 
