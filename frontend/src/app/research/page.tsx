@@ -561,7 +561,7 @@ function ResearchContent() {
               <div className="p-4 border-b border-blue-500/10 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-cyan-400" />
-                  <h3 className="font-bold text-sm text-white">Technical Indicators</h3>
+                  <h3 className="font-bold text-sm text-fg-primary">Technical Indicators</h3>
                 </div>
               </div>
               
@@ -573,7 +573,7 @@ function ResearchContent() {
                     {technicalData.map((item) => (
                       <div key={item.label} className="hud-stat p-3 flex items-center justify-between">
                         <span className="text-xs text-fg-muted">{item.label}</span>
-                        <span className="text-sm font-mono text-white hud-value">
+                        <span className="text-sm font-mono text-fg-primary hud-value">
                           {item.format === 'price'
                             ? (isNumber(item.value) ? `$${formatNumber(item.value, 2)}` : 'N/A')
                             : formatNumber(item.value, 2)
@@ -616,7 +616,7 @@ function ResearchContent() {
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-blue-400" />
-                  <h3 className="font-bold text-sm text-white">AI Analysis</h3>
+                  <h3 className="font-bold text-sm text-fg-primary">AI Analysis</h3>
                   {aiText && !aiLoading && (
                     <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
                       Gemini Flash
@@ -699,7 +699,7 @@ function ResearchContent() {
                 <div className="grid grid-cols-3 gap-3 mt-auto">
                   <div className="hud-stat p-3 text-center">
                     <div
-                      className={`text-lg font-bold text-white hud-value ${
+                      className={`text-lg font-bold text-fg-primary hud-value ${
                         priceTick === 'up'
                           ? 'quote-price-flash-up'
                           : priceTick === 'down'
@@ -799,7 +799,7 @@ function ResearchContent() {
                   </div>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-display font-bold text-white">
+                  <h3 className="font-display font-bold text-fg-primary">
                     {tickerInfo?.name ? (
                       <>
                         <span className="text-fg-muted">News · </span>
