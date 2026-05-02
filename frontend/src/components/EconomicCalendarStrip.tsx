@@ -7,6 +7,7 @@ import { EconomicCalendar, type EconomicEvent } from '@/components/ui/economic-c
 function mapEvent(ev: EconomicCalendarEvent): EconomicEvent {
   return {
     countryCode: ev.country_code,
+    date: ev.date,
     time: ev.time,
     eventName: ev.event_name,
     actual: ev.actual,

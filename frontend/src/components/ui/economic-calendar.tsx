@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 
 export interface EconomicEvent {
   countryCode: string
+  date?: string | null
   time: string
   eventName: string
   actual: string | null
@@ -90,7 +91,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
             <Calendar className="w-4 h-4 text-sky-400" />
             <h3 className="text-sm font-bold text-white tracking-wide">{title}</h3>
             <span className="text-[8px] font-bold text-sky-400 bg-sky-500/10 border border-sky-500/30 px-1.5 py-0.5 rounded-full">
-              TODAY
+              7-DAY
             </span>
           </div>
           <div className="flex items-center gap-1">
@@ -151,7 +152,11 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
                 {/* Top row: time + impact */}
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] text-fg-muted font-mono">Today</span>
+                    <span className="text-[9px] text-fg-muted font-mono">
+                      {ev.date
+                        ? new Date(ev.date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })
+                        : "Today"}
+                    </span>
                     <span
                       className={cn(
                         "text-[10px] font-bold font-mono px-1.5 py-0.5 rounded",
