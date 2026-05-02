@@ -277,10 +277,9 @@ async def _stream_generator(
 
     try:
         llm = get_llm_sonnet()
-        # Detect actual provider from LLM class name
         llm_cls = type(llm).__name__
         if "Bedrock" in llm_cls:
-            model_used = "claude-sonnet-4-6"
+            model_used = getattr(llm, "model_id", None) or "bedrock"
         elif "ChatOpenAI" in llm_cls:
             model_used = getattr(llm, "model_name", None) or "gpt-4o"
         async for chunk in llm.astream(messages):
@@ -397,8 +396,9 @@ async def llm_status(user: User = Depends(require_auth)):
     import os as _os
     from app.services.agentic.bedrock_client import (
         _aws_credentials_available,
-        BEDROCK_SONNET_MODEL, BEDROCK_NOVA_PRO_MODEL, BEDROCK_NOVA_LITE_MODEL,
-        USE_NOVA_LITE, USE_NOVA_PRO,
+        BEDROCK_SONNET_MODEL, BEDROCK_NOVA_PRO_MODEL,
+        BEDROCK_NOVA_LITE_MODEL, BEDROCK_NOVA_MICRO_MODEL,
+        USE_NOVA_MICRO, USE_NOVA_LITE, USE_NOVA_PRO,
     )
 
     prefer_openai = _os.getenv("PREFER_OPENAI", "0").lower() in ("1", "true", "yes")
@@ -409,17 +409,23 @@ async def llm_status(user: User = Depends(require_auth)):
         or _os.getenv("NEXT_PUBLIC_OPENROUTER_API_KEY")
     )
 
-    # Determine active bedrock model based on Nova flags
+    # Sonnet-class active model
     if USE_NOVA_PRO:
-        bedrock_model_name = f"nova-pro ({BEDROCK_NOVA_PRO_MODEL})"
-    elif USE_NOVA_LITE:
-        bedrock_model_name = f"nova-lite ({BEDROCK_NOVA_LITE_MODEL})"
+        sonnet_model_name = f"nova-pro ({BEDROCK_NOVA_PRO_MODEL})"
     else:
-        bedrock_model_name = f"claude-sonnet ({BEDROCK_SONNET_MODEL})"
+        sonnet_model_name = f"claude-sonnet ({BEDROCK_SONNET_MODEL})"
+
+    # Haiku-class active model (priority: micro > lite > haiku)
+    if USE_NOVA_MICRO:
+        haiku_model_name = f"nova-micro ({BEDROCK_NOVA_MICRO_MODEL})"
+    elif USE_NOVA_LITE:
+        haiku_model_name = f"nova-lite ({BEDROCK_NOVA_LITE_MODEL})"
+    else:
+        haiku_model_name = "claude-haiku-4-5"
 
     if not prefer_openai and has_aws:
         active_provider = "bedrock"
-        active_model    = bedrock_model_name
+        active_model    = sonnet_model_name
     elif has_openai:
         active_provider = "openai"
         active_model    = "gpt-4o"
@@ -431,24 +437,28 @@ async def llm_status(user: User = Depends(require_auth)):
         active_model    = "No LLM provider configured"
 
     return {
-        "active_provider": active_provider,
-        "active_model":    active_model,
+        "active_provider":    active_provider,
+        "active_model":       active_model,
+        "active_haiku_model": haiku_model_name,
         "providers": {
-            "bedrock":    {
-                "available": has_aws and not prefer_openai,
+            "bedrock": {
+                "available":                has_aws and not prefer_openai,
                 "skipped_by_prefer_openai": prefer_openai,
-                "nova_lite_enabled": USE_NOVA_LITE,
-                "nova_pro_enabled":  USE_NOVA_PRO,
-                "active_model":      bedrock_model_name,
+                "nova_micro_enabled":       USE_NOVA_MICRO,
+                "nova_lite_enabled":        USE_NOVA_LITE,
+                "nova_pro_enabled":         USE_NOVA_PRO,
+                "sonnet_class_model":       sonnet_model_name,
+                "haiku_class_model":        haiku_model_name,
             },
             "openai":     {"available": has_openai},
             "openrouter": {"available": has_openrouter},
         },
         "prefer_openai": prefer_openai,
         "note": (
-            "Set USE_NOVA_LITE=1 for cheaper Haiku-tier calls (Amazon Nova Lite). "
-            "Set USE_NOVA_PRO=1 to use Nova Pro instead of Claude Sonnet. "
-            "Set PREFER_OPENAI=0 to re-enable Bedrock (requires AWS credentials)."
+            "USE_NOVA_MICRO=1: Nova Micro for haiku-class calls (text-only, cheapest ~20x vs Sonnet). "
+            "USE_NOVA_LITE=1: Nova Lite for haiku-class calls (multimodal, ~10x vs Sonnet). "
+            "USE_NOVA_PRO=1: Nova Pro instead of Claude Sonnet (mid-tier). "
+            "Priority for haiku-class: MICRO > LITE > Haiku 4.5."
         ),
     }
 
