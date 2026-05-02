@@ -1,0 +1,12 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - heading "404" [level=1] [ref=e4]
+    - heading "This page could not be found." [level=2] [ref=e6]
+  - link "Open AI Copilot" [ref=e7] [cursor=pointer]:
+    - /url: /copilot
+    - img [ref=e10]
+    - generic: AI Copilot
+  - region "Notifications"
+  - button "Open Next.js Dev Tools" [ref=e17] [cursor=pointer]:
+    - img [ref=e18]
+  - alert [ref=e21]

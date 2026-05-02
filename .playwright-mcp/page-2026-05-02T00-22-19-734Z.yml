@@ -1,0 +1,725 @@
+- generic [ref=e11]:
+  - generic [ref=e13]:
+    - generic [ref=e17]:
+      - generic [ref=e18] [cursor=pointer]:
+        - generic [ref=e19]:
+          - generic [ref=e20]: ^GSPC
+          - generic [ref=e21]: S&P 500
+        - generic [ref=e22]: $7230.12
+        - generic [ref=e23]:
+          - img [ref=e24]
+          - text: +0.29%
+      - generic [ref=e27] [cursor=pointer]:
+        - generic [ref=e28]:
+          - generic [ref=e29]: ^IXIC
+          - generic [ref=e30]: NASDAQ Composite
+        - generic [ref=e31]: $25114.44
+        - generic [ref=e32]:
+          - img [ref=e33]
+          - text: +0.89%
+      - generic [ref=e36] [cursor=pointer]:
+        - generic [ref=e37]:
+          - generic [ref=e38]: ^DJI
+          - generic [ref=e39]: Dow Jones Industrial Average
+        - generic [ref=e40]: $49499.27
+        - generic [ref=e41]:
+          - img [ref=e42]
+          - text: "-0.31%"
+      - generic [ref=e45] [cursor=pointer]:
+        - generic [ref=e46]:
+          - generic [ref=e47]: ^RUT
+          - generic [ref=e48]: ^RUT
+        - generic [ref=e49]: $2812.82
+        - generic [ref=e50]:
+          - img [ref=e51]
+          - text: +0.46%
+      - generic [ref=e54] [cursor=pointer]:
+        - generic [ref=e55]:
+          - generic [ref=e56]: ^VIX
+          - generic [ref=e57]: ^VIX
+        - generic [ref=e58]: $16.99
+        - generic [ref=e59]:
+          - img [ref=e60]
+          - text: +0.59%
+      - generic [ref=e63] [cursor=pointer]:
+        - generic [ref=e64]:
+          - generic [ref=e65]: GLD
+          - generic [ref=e66]: GLD
+        - generic [ref=e67]: $423.18
+        - generic [ref=e68]:
+          - img [ref=e69]
+          - text: "-0.11%"
+      - generic [ref=e72] [cursor=pointer]:
+        - generic [ref=e73]:
+          - generic [ref=e74]: USO
+          - generic [ref=e75]: USO
+        - generic [ref=e76]: $142.80
+        - generic [ref=e77]:
+          - img [ref=e78]
+          - text: "-2.92%"
+      - generic [ref=e81] [cursor=pointer]:
+        - generic [ref=e82]:
+          - generic [ref=e83]: TLT
+          - generic [ref=e84]: 20+ Year Treasury ETF
+        - generic [ref=e85]: $85.61
+        - generic [ref=e86]:
+          - img [ref=e87]
+          - text: "-0.01%"
+      - generic [ref=e90] [cursor=pointer]:
+        - generic [ref=e91]:
+          - generic [ref=e92]: XLF
+          - generic [ref=e93]: Financial Sector SPDR
+        - generic [ref=e94]: $51.92
+        - generic [ref=e95]:
+          - img [ref=e96]
+          - text: "-0.40%"
+      - generic [ref=e99] [cursor=pointer]:
+        - generic [ref=e100]:
+          - generic [ref=e101]: XLE
+          - generic [ref=e102]: Energy Sector SPDR
+        - generic [ref=e103]: $58.85
+        - generic [ref=e104]:
+          - img [ref=e105]
+          - text: "-1.34%"
+      - link "WOLF Wolfspeed Inc $36.76 +43.43%" [ref=e108] [cursor=pointer]:
+        - /url: /research?symbol=WOLF
+        - generic [ref=e109]:
+          - generic [ref=e110]:
+            - generic [ref=e111]: WOLF
+            - generic [ref=e112]: Wolfspeed Inc
+          - generic [ref=e113]: $36.76
+          - generic [ref=e114]:
+            - img [ref=e115]
+            - text: +43.43%
+      - link "FATE Fate Therapeutics $1.53 +23.39%" [ref=e118] [cursor=pointer]:
+        - /url: /research?symbol=FATE
+        - generic [ref=e119]:
+          - generic [ref=e120]:
+            - generic [ref=e121]: FATE
+            - generic [ref=e122]: Fate Therapeutics
+          - generic [ref=e123]: $1.53
+          - generic [ref=e124]:
+            - img [ref=e125]
+            - text: +23.39%
+      - link "PWR Quanta Services $742.21 +18.07%" [ref=e128] [cursor=pointer]:
+        - /url: /research?symbol=PWR
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]: PWR
+            - generic [ref=e132]: Quanta Services
+          - generic [ref=e133]: $742.21
+          - generic [ref=e134]:
+            - img [ref=e135]
+            - text: +18.07%
+      - link "WCC WESCO Intl $354.59 +16.16%" [ref=e138] [cursor=pointer]:
+        - /url: /research?symbol=WCC
+        - generic [ref=e139]:
+          - generic [ref=e140]:
+            - generic [ref=e141]: WCC
+            - generic [ref=e142]: WESCO Intl
+          - generic [ref=e143]: $354.59
+          - generic [ref=e144]:
+            - img [ref=e145]
+            - text: +16.16%
+      - link "QCOM Qualcomm Inc $177.01 +13.47%" [ref=e148] [cursor=pointer]:
+        - /url: /research?symbol=QCOM
+        - generic [ref=e149]:
+          - generic [ref=e150]:
+            - generic [ref=e151]: QCOM
+            - generic [ref=e152]: Qualcomm Inc
+          - generic [ref=e153]: $177.01
+          - generic [ref=e154]:
+            - img [ref=e155]
+            - text: +13.47%
+      - link "ILMN Illumina Inc $135.78 +12.80%" [ref=e158] [cursor=pointer]:
+        - /url: /research?symbol=ILMN
+        - generic [ref=e159]:
+          - generic [ref=e160]:
+            - generic [ref=e161]: ILMN
+            - generic [ref=e162]: Illumina Inc
+          - generic [ref=e163]: $135.78
+          - generic [ref=e164]:
+            - img [ref=e165]
+            - text: +12.80%
+      - link "TER Teradyne Inc $345.42 +12.76%" [ref=e168] [cursor=pointer]:
+        - /url: /research?symbol=TER
+        - generic [ref=e169]:
+          - generic [ref=e170]:
+            - generic [ref=e171]: TER
+            - generic [ref=e172]: Teradyne Inc
+          - generic [ref=e173]: $345.42
+          - generic [ref=e174]:
+            - img [ref=e175]
+            - text: +12.76%
+      - link "MTZ MasTec Inc $417.41 +12.65%" [ref=e178] [cursor=pointer]:
+        - /url: /research?symbol=MTZ
+        - generic [ref=e179]:
+          - generic [ref=e180]:
+            - generic [ref=e181]: MTZ
+            - generic [ref=e182]: MasTec Inc
+          - generic [ref=e183]: $417.41
+          - generic [ref=e184]:
+            - img [ref=e185]
+            - text: +12.65%
+      - link "RBLX Roblox Corp $45.13 -19.81%" [ref=e188] [cursor=pointer]:
+        - /url: /research?symbol=RBLX
+        - generic [ref=e189]:
+          - generic [ref=e190]:
+            - generic [ref=e191]: RBLX
+            - generic [ref=e192]: Roblox Corp
+          - generic [ref=e193]: $45.13
+          - generic [ref=e194]:
+            - img [ref=e195]
+            - text: "-19.81%"
+      - link "SAM Boston Beer Co $214.30 -9.38%" [ref=e198] [cursor=pointer]:
+        - /url: /research?symbol=SAM
+        - generic [ref=e199]:
+          - generic [ref=e200]:
+            - generic [ref=e201]: SAM
+            - generic [ref=e202]: Boston Beer Co
+          - generic [ref=e203]: $214.30
+          - generic [ref=e204]:
+            - img [ref=e205]
+            - text: "-9.38%"
+      - link "BLDR Builders FirstSource $75.72 -9.19%" [ref=e208] [cursor=pointer]:
+        - /url: /research?symbol=BLDR
+        - generic [ref=e209]:
+          - generic [ref=e210]:
+            - generic [ref=e211]: BLDR
+            - generic [ref=e212]: Builders FirstSource
+          - generic [ref=e213]: $75.72
+          - generic [ref=e214]:
+            - img [ref=e215]
+            - text: "-9.19%"
+      - link "CLX Clorox Co $87.11 -8.08%" [ref=e218] [cursor=pointer]:
+        - /url: /research?symbol=CLX
+        - generic [ref=e219]:
+          - generic [ref=e220]:
+            - generic [ref=e221]: CLX
+            - generic [ref=e222]: Clorox Co
+          - generic [ref=e223]: $87.11
+          - generic [ref=e224]:
+            - img [ref=e225]
+            - text: "-8.08%"
+      - link "PH Parker-Hannifin $882.23 -6.89%" [ref=e228] [cursor=pointer]:
+        - /url: /research?symbol=PH
+        - generic [ref=e229]:
+          - generic [ref=e230]:
+            - generic [ref=e231]: PH
+            - generic [ref=e232]: Parker-Hannifin
+          - generic [ref=e233]: $882.23
+          - generic [ref=e234]:
+            - img [ref=e235]
+            - text: "-6.89%"
+      - generic [ref=e238] [cursor=pointer]:
+        - generic [ref=e239]:
+          - generic [ref=e240]: Semiconductors
+          - generic [ref=e241]: Sector · Semiconductors
+        - generic [ref=e242]:
+          - img [ref=e243]
+          - text: +5.93%
+      - generic [ref=e246] [cursor=pointer]:
+        - generic [ref=e247]:
+          - generic [ref=e248]: Communication Services
+          - generic [ref=e249]: Sector · Communication Services
+        - generic [ref=e250]:
+          - img [ref=e251]
+          - text: +2.37%
+      - generic [ref=e254] [cursor=pointer]:
+        - generic [ref=e255]:
+          - generic [ref=e256]: Aerospace & Defense
+          - generic [ref=e257]: Sector · Aerospace & Defense
+        - generic [ref=e258]:
+          - img [ref=e259]
+          - text: +2.16%
+      - generic [ref=e262] [cursor=pointer]:
+        - generic [ref=e263]:
+          - generic [ref=e264]: Biotechnology
+          - generic [ref=e265]: Sector · Biotechnology
+        - generic [ref=e266]:
+          - img [ref=e267]
+          - text: +2.07%
+      - generic [ref=e270] [cursor=pointer]:
+        - generic [ref=e271]:
+          - generic [ref=e272]: Materials
+          - generic [ref=e273]: Sector · Materials
+        - generic [ref=e274]:
+          - img [ref=e275]
+          - text: +1.95%
+      - generic [ref=e278] [cursor=pointer]:
+        - generic [ref=e279]:
+          - generic [ref=e280]: Industrials
+          - generic [ref=e281]: Sector · Industrials
+        - generic [ref=e282]:
+          - img [ref=e283]
+          - text: +1.55%
+      - generic [ref=e286] [cursor=pointer]:
+        - generic [ref=e287]:
+          - generic [ref=e288]: ^GSPC
+          - generic [ref=e289]: S&P 500
+        - generic [ref=e290]: $7230.12
+        - generic [ref=e291]:
+          - img [ref=e292]
+          - text: +0.29%
+      - generic [ref=e295] [cursor=pointer]:
+        - generic [ref=e296]:
+          - generic [ref=e297]: ^IXIC
+          - generic [ref=e298]: NASDAQ Composite
+        - generic [ref=e299]: $25114.44
+        - generic [ref=e300]:
+          - img [ref=e301]
+          - text: +0.89%
+      - generic [ref=e304] [cursor=pointer]:
+        - generic [ref=e305]:
+          - generic [ref=e306]: ^DJI
+          - generic [ref=e307]: Dow Jones Industrial Average
+        - generic [ref=e308]: $49499.27
+        - generic [ref=e309]:
+          - img [ref=e310]
+          - text: "-0.31%"
+      - generic [ref=e313] [cursor=pointer]:
+        - generic [ref=e314]:
+          - generic [ref=e315]: ^RUT
+          - generic [ref=e316]: ^RUT
+        - generic [ref=e317]: $2812.82
+        - generic [ref=e318]:
+          - img [ref=e319]
+          - text: +0.46%
+      - generic [ref=e322] [cursor=pointer]:
+        - generic [ref=e323]:
+          - generic [ref=e324]: ^VIX
+          - generic [ref=e325]: ^VIX
+        - generic [ref=e326]: $16.99
+        - generic [ref=e327]:
+          - img [ref=e328]
+          - text: +0.59%
+      - generic [ref=e331] [cursor=pointer]:
+        - generic [ref=e332]:
+          - generic [ref=e333]: GLD
+          - generic [ref=e334]: GLD
+        - generic [ref=e335]: $423.18
+        - generic [ref=e336]:
+          - img [ref=e337]
+          - text: "-0.11%"
+      - generic [ref=e340] [cursor=pointer]:
+        - generic [ref=e341]:
+          - generic [ref=e342]: USO
+          - generic [ref=e343]: USO
+        - generic [ref=e344]: $142.80
+        - generic [ref=e345]:
+          - img [ref=e346]
+          - text: "-2.92%"
+      - generic [ref=e349] [cursor=pointer]:
+        - generic [ref=e350]:
+          - generic [ref=e351]: TLT
+          - generic [ref=e352]: 20+ Year Treasury ETF
+        - generic [ref=e353]: $85.61
+        - generic [ref=e354]:
+          - img [ref=e355]
+          - text: "-0.01%"
+      - generic [ref=e358] [cursor=pointer]:
+        - generic [ref=e359]:
+          - generic [ref=e360]: XLF
+          - generic [ref=e361]: Financial Sector SPDR
+        - generic [ref=e362]: $51.92
+        - generic [ref=e363]:
+          - img [ref=e364]
+          - text: "-0.40%"
+      - generic [ref=e367] [cursor=pointer]:
+        - generic [ref=e368]:
+          - generic [ref=e369]: XLE
+          - generic [ref=e370]: Energy Sector SPDR
+        - generic [ref=e371]: $58.85
+        - generic [ref=e372]:
+          - img [ref=e373]
+          - text: "-1.34%"
+      - link "WOLF Wolfspeed Inc $36.76 +43.43%" [ref=e376] [cursor=pointer]:
+        - /url: /research?symbol=WOLF
+        - generic [ref=e377]:
+          - generic [ref=e378]:
+            - generic [ref=e379]: WOLF
+            - generic [ref=e380]: Wolfspeed Inc
+          - generic [ref=e381]: $36.76
+          - generic [ref=e382]:
+            - img [ref=e383]
+            - text: +43.43%
+      - link "FATE Fate Therapeutics $1.53 +23.39%" [ref=e386] [cursor=pointer]:
+        - /url: /research?symbol=FATE
+        - generic [ref=e387]:
+          - generic [ref=e388]:
+            - generic [ref=e389]: FATE
+            - generic [ref=e390]: Fate Therapeutics
+          - generic [ref=e391]: $1.53
+          - generic [ref=e392]:
+            - img [ref=e393]
+            - text: +23.39%
+      - link "PWR Quanta Services $742.21 +18.07%" [ref=e396] [cursor=pointer]:
+        - /url: /research?symbol=PWR
+        - generic [ref=e397]:
+          - generic [ref=e398]:
+            - generic [ref=e399]: PWR
+            - generic [ref=e400]: Quanta Services
+          - generic [ref=e401]: $742.21
+          - generic [ref=e402]:
+            - img [ref=e403]
+            - text: +18.07%
+      - link "WCC WESCO Intl $354.59 +16.16%" [ref=e406] [cursor=pointer]:
+        - /url: /research?symbol=WCC
+        - generic [ref=e407]:
+          - generic [ref=e408]:
+            - generic [ref=e409]: WCC
+            - generic [ref=e410]: WESCO Intl
+          - generic [ref=e411]: $354.59
+          - generic [ref=e412]:
+            - img [ref=e413]
+            - text: +16.16%
+      - link "QCOM Qualcomm Inc $177.01 +13.47%" [ref=e416] [cursor=pointer]:
+        - /url: /research?symbol=QCOM
+        - generic [ref=e417]:
+          - generic [ref=e418]:
+            - generic [ref=e419]: QCOM
+            - generic [ref=e420]: Qualcomm Inc
+          - generic [ref=e421]: $177.01
+          - generic [ref=e422]:
+            - img [ref=e423]
+            - text: +13.47%
+      - link "ILMN Illumina Inc $135.78 +12.80%" [ref=e426] [cursor=pointer]:
+        - /url: /research?symbol=ILMN
+        - generic [ref=e427]:
+          - generic [ref=e428]:
+            - generic [ref=e429]: ILMN
+            - generic [ref=e430]: Illumina Inc
+          - generic [ref=e431]: $135.78
+          - generic [ref=e432]:
+            - img [ref=e433]
+            - text: +12.80%
+      - link "TER Teradyne Inc $345.42 +12.76%" [ref=e436] [cursor=pointer]:
+        - /url: /research?symbol=TER
+        - generic [ref=e437]:
+          - generic [ref=e438]:
+            - generic [ref=e439]: TER
+            - generic [ref=e440]: Teradyne Inc
+          - generic [ref=e441]: $345.42
+          - generic [ref=e442]:
+            - img [ref=e443]
+            - text: +12.76%
+      - link "MTZ MasTec Inc $417.41 +12.65%" [ref=e446] [cursor=pointer]:
+        - /url: /research?symbol=MTZ
+        - generic [ref=e447]:
+          - generic [ref=e448]:
+            - generic [ref=e449]: MTZ
+            - generic [ref=e450]: MasTec Inc
+          - generic [ref=e451]: $417.41
+          - generic [ref=e452]:
+            - img [ref=e453]
+            - text: +12.65%
+      - link "RBLX Roblox Corp $45.13 -19.81%" [ref=e456] [cursor=pointer]:
+        - /url: /research?symbol=RBLX
+        - generic [ref=e457]:
+          - generic [ref=e458]:
+            - generic [ref=e459]: RBLX
+            - generic [ref=e460]: Roblox Corp
+          - generic [ref=e461]: $45.13
+          - generic [ref=e462]:
+            - img [ref=e463]
+            - text: "-19.81%"
+      - link "SAM Boston Beer Co $214.30 -9.38%" [ref=e466] [cursor=pointer]:
+        - /url: /research?symbol=SAM
+        - generic [ref=e467]:
+          - generic [ref=e468]:
+            - generic [ref=e469]: SAM
+            - generic [ref=e470]: Boston Beer Co
+          - generic [ref=e471]: $214.30
+          - generic [ref=e472]:
+            - img [ref=e473]
+            - text: "-9.38%"
+      - link "BLDR Builders FirstSource $75.72 -9.19%" [ref=e476] [cursor=pointer]:
+        - /url: /research?symbol=BLDR
+        - generic [ref=e477]:
+          - generic [ref=e478]:
+            - generic [ref=e479]: BLDR
+            - generic [ref=e480]: Builders FirstSource
+          - generic [ref=e481]: $75.72
+          - generic [ref=e482]:
+            - img [ref=e483]
+            - text: "-9.19%"
+      - link "CLX Clorox Co $87.11 -8.08%" [ref=e486] [cursor=pointer]:
+        - /url: /research?symbol=CLX
+        - generic [ref=e487]:
+          - generic [ref=e488]:
+            - generic [ref=e489]: CLX
+            - generic [ref=e490]: Clorox Co
+          - generic [ref=e491]: $87.11
+          - generic [ref=e492]:
+            - img [ref=e493]
+            - text: "-8.08%"
+      - link "PH Parker-Hannifin $882.23 -6.89%" [ref=e496] [cursor=pointer]:
+        - /url: /research?symbol=PH
+        - generic [ref=e497]:
+          - generic [ref=e498]:
+            - generic [ref=e499]: PH
+            - generic [ref=e500]: Parker-Hannifin
+          - generic [ref=e501]: $882.23
+          - generic [ref=e502]:
+            - img [ref=e503]
+            - text: "-6.89%"
+      - generic [ref=e506] [cursor=pointer]:
+        - generic [ref=e507]:
+          - generic [ref=e508]: Semiconductors
+          - generic [ref=e509]: Sector · Semiconductors
+        - generic [ref=e510]:
+          - img [ref=e511]
+          - text: +5.93%
+      - generic [ref=e514] [cursor=pointer]:
+        - generic [ref=e515]:
+          - generic [ref=e516]: Communication Services
+          - generic [ref=e517]: Sector · Communication Services
+        - generic [ref=e518]:
+          - img [ref=e519]
+          - text: +2.37%
+      - generic [ref=e522] [cursor=pointer]:
+        - generic [ref=e523]:
+          - generic [ref=e524]: Aerospace & Defense
+          - generic [ref=e525]: Sector · Aerospace & Defense
+        - generic [ref=e526]:
+          - img [ref=e527]
+          - text: +2.16%
+      - generic [ref=e530] [cursor=pointer]:
+        - generic [ref=e531]:
+          - generic [ref=e532]: Biotechnology
+          - generic [ref=e533]: Sector · Biotechnology
+        - generic [ref=e534]:
+          - img [ref=e535]
+          - text: +2.07%
+      - generic [ref=e538] [cursor=pointer]:
+        - generic [ref=e539]:
+          - generic [ref=e540]: Materials
+          - generic [ref=e541]: Sector · Materials
+        - generic [ref=e542]:
+          - img [ref=e543]
+          - text: +1.95%
+      - generic [ref=e546] [cursor=pointer]:
+        - generic [ref=e547]:
+          - generic [ref=e548]: Industrials
+          - generic [ref=e549]: Sector · Industrials
+        - generic [ref=e550]:
+          - img [ref=e551]
+          - text: +1.55%
+    - banner [ref=e554]:
+      - generic [ref=e556]:
+        - link "QuantTrade AI QuantTrade AI" [ref=e557] [cursor=pointer]:
+          - /url: /
+          - img "QuantTrade AI" [ref=e559]
+          - generic [ref=e560]: QuantTrade AI
+        - button "Collapse sidebar" [ref=e561] [cursor=pointer]:
+          - img [ref=e562]
+        - generic [ref=e566]:
+          - img [ref=e567]
+          - textbox "Search symbols, companies… (press /)" [ref=e570]
+        - generic [ref=e571]:
+          - group "API usage — hover for Finnhub, FMP, and cache stats" [ref=e573]:
+            - button "58/60" [ref=e574] [cursor=pointer]:
+              - generic [ref=e575]:
+                - img [ref=e576]
+                - generic [ref=e578]: 58/60
+                - img [ref=e579]
+          - generic [ref=e584]:
+            - generic [ref=e585]:
+              - generic [ref=e587]: MKT
+              - generic [ref=e588]: CLOSED
+            - generic:
+              - generic: Market Status
+              - generic: NYSE + NASDAQ session is CLOSED.
+          - generic [ref=e589]:
+            - link "About this product" [ref=e590] [cursor=pointer]:
+              - /url: /about
+              - img [ref=e591]
+            - generic:
+              - generic: About QuantTrade
+              - generic: Product scope, data sources, and operator details.
+          - button "3 notifications" [ref=e600] [cursor=pointer]:
+            - img [ref=e601]
+            - generic [ref=e604]: "3"
+          - generic [ref=e605]:
+            - button "Help" [ref=e606] [cursor=pointer]:
+              - img [ref=e607]
+            - generic:
+              - generic: Help
+              - generic: Shortcuts, product info, and data disclaimer.
+    - complementary [ref=e610]:
+      - generic [ref=e612]:
+        - navigation [ref=e613]:
+          - generic [ref=e614]: Navigation
+          - list [ref=e615]:
+            - listitem [ref=e616]:
+              - link "Dashboard" [ref=e617] [cursor=pointer]:
+                - /url: /
+                - img [ref=e618]
+                - generic [ref=e623]: Dashboard
+            - listitem [ref=e624]:
+              - link "AI Copilot" [ref=e625] [cursor=pointer]:
+                - /url: /copilot
+                - img [ref=e627]
+                - generic [ref=e629]: AI Copilot
+                - img [ref=e630]
+            - listitem [ref=e632]:
+              - link "Global Monitor" [ref=e633] [cursor=pointer]:
+                - /url: /monitor
+                - img [ref=e634]
+                - generic [ref=e637]: Global Monitor
+            - listitem [ref=e638]:
+              - link "Markets" [ref=e639] [cursor=pointer]:
+                - /url: /markets
+                - img [ref=e640]
+                - generic [ref=e643]: Markets
+            - listitem [ref=e644]:
+              - link "Watchlist" [ref=e645] [cursor=pointer]:
+                - /url: /watchlist
+                - img [ref=e646]
+                - generic [ref=e648]: Watchlist
+            - listitem [ref=e649]:
+              - link "Research" [ref=e650] [cursor=pointer]:
+                - /url: /research
+                - img [ref=e651]
+                - generic [ref=e654]: Research
+            - listitem [ref=e655]:
+              - link "Backtest" [ref=e656] [cursor=pointer]:
+                - /url: /backtest
+                - img [ref=e657]
+                - generic [ref=e659]: Backtest
+            - listitem [ref=e660]:
+              - link "Ideas Lab" [ref=e661] [cursor=pointer]:
+                - /url: /ideas-lab
+                - img [ref=e662]
+                - generic [ref=e664]: Ideas Lab
+            - listitem [ref=e665]:
+              - link "MLOps" [ref=e666] [cursor=pointer]:
+                - /url: /mlops
+                - img [ref=e667]
+                - generic [ref=e670]: MLOps
+            - listitem [ref=e671]:
+              - link "Community" [ref=e672] [cursor=pointer]:
+                - /url: /community
+                - img [ref=e673]
+                - generic [ref=e675]: Community
+            - listitem [ref=e676]:
+              - link "Notifications" [ref=e677] [cursor=pointer]:
+                - /url: /notifications
+                - img [ref=e678]
+                - generic [ref=e681]: Notifications
+            - listitem [ref=e682]:
+              - link "CoinRealm" [ref=e683] [cursor=pointer]:
+                - /url: /game
+                - img [ref=e684]
+                - generic [ref=e693]: CoinRealm
+            - listitem [ref=e694]:
+              - link "Pricing" [ref=e695] [cursor=pointer]:
+                - /url: /pricing
+                - img [ref=e696]
+                - generic [ref=e698]: Pricing
+            - listitem [ref=e699]:
+              - link "Settings" [ref=e700] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e701]
+                - generic [ref=e704]: Settings
+        - generic [ref=e706]:
+          - generic [ref=e709]: SP
+          - generic [ref=e711]:
+            - generic [ref=e712]: spiderman
+            - button "Sign Out" [ref=e713] [cursor=pointer]:
+              - img [ref=e714]
+              - text: Sign Out
+    - main [ref=e717]:
+      - generic [ref=e720]:
+        - generic [ref=e722]:
+          - generic [ref=e723]:
+            - button "Chat History" [ref=e724] [cursor=pointer]:
+              - img [ref=e725]
+            - img [ref=e730]
+            - generic [ref=e734]:
+              - heading "AI Copilot" [level=1] [ref=e735]
+              - paragraph [ref=e736]: RAG + Quant Models + GROQ LLM
+          - generic [ref=e737]:
+            - generic [ref=e738]:
+              - img [ref=e739]
+              - generic [ref=e742]: Llama 3.3 70B
+            - button "5/5" [ref=e744] [cursor=pointer]:
+              - generic [ref=e746]: 5/5
+              - img [ref=e747]
+            - generic [ref=e749]:
+              - img [ref=e750]
+              - generic [ref=e752]: SPY
+              - generic [ref=e753]: $720.65
+              - generic [ref=e754]: +0.28%
+            - button "Evening · location optional · Tap for light mode" [ref=e755] [cursor=pointer]:
+              - img [ref=e757]
+            - button "New conversation" [ref=e771] [cursor=pointer]:
+              - img [ref=e772]
+        - generic [ref=e775]:
+          - generic [ref=e776]:
+            - generic [ref=e777]:
+              - img [ref=e778]
+              - generic [ref=e780]: RAG · Quant models · Live data
+            - img [ref=e782]
+            - heading "QuantTrade AI Copilot" [level=2] [ref=e785]
+            - paragraph [ref=e786]: "Institutional-grade analysis: quant models, RAG retrieval, and live market data."
+            - generic [ref=e787]:
+              - generic [ref=e788]: RAG
+              - generic [ref=e789]: Quant
+              - generic [ref=e790]: Confidence
+              - generic [ref=e791]: Live
+          - generic [ref=e793]:
+            - 'button "Deep Dive: NVDA Analyze NVDA stock — full technical, fundamental, and quantitative analysis with predictions." [ref=e794] [cursor=pointer]':
+              - img [ref=e796]
+              - generic [ref=e799]:
+                - generic [ref=e800]: "Deep Dive: NVDA"
+                - generic [ref=e801]: Analyze NVDA stock — full technical, fundamental, and quantitative analysis with predictions.
+              - img [ref=e802]
+            - 'button "Compare: AAPL vs MSFT Compare AAPL vs MSFT — side by side analysis including valuations, growth, technicals, and recommendation." [ref=e804] [cursor=pointer]':
+              - img [ref=e806]
+              - generic [ref=e808]:
+                - generic [ref=e809]: "Compare: AAPL vs MSFT"
+                - generic [ref=e810]: Compare AAPL vs MSFT — side by side analysis including valuations, growth, technicals, and recommendation.
+              - img [ref=e811]
+            - button "Sector Rotation What are the current sector rotation trends? Which sectors are gaining momentum and why?" [ref=e813] [cursor=pointer]:
+              - img [ref=e815]
+              - generic [ref=e818]:
+                - generic [ref=e819]: Sector Rotation
+                - generic [ref=e820]: What are the current sector rotation trends? Which sectors are gaining momentum and why?
+              - img [ref=e821]
+            - button "Market Movers Show me today's top gainers and losers with analysis of why they are moving." [ref=e823] [cursor=pointer]:
+              - img [ref=e825]
+              - generic [ref=e827]:
+                - generic [ref=e828]: Market Movers
+                - generic [ref=e829]: Show me today's top gainers and losers with analysis of why they are moving.
+              - img [ref=e830]
+            - button "Fed & Macro Impact How do current Fed rate expectations and macro conditions impact equity valuations? What sectors benefit?" [ref=e832] [cursor=pointer]:
+              - img [ref=e834]
+              - generic [ref=e837]:
+                - generic [ref=e838]: Fed & Macro Impact
+                - generic [ref=e839]: How do current Fed rate expectations and macro conditions impact equity valuations? What sectors benefit?
+              - img [ref=e840]
+            - 'button "Risk Assessment: TSLA Give me a comprehensive risk assessment of TSLA including VaR, volatility analysis, and downside scenarios." [ref=e842] [cursor=pointer]':
+              - img [ref=e844]
+              - generic [ref=e846]:
+                - generic [ref=e847]: "Risk Assessment: TSLA"
+                - generic [ref=e848]: Give me a comprehensive risk assessment of TSLA including VaR, volatility analysis, and downside scenarios.
+              - img [ref=e849]
+        - generic [ref=e851]:
+          - generic [ref=e855]:
+            - textbox "Analyze any stock, compare tickers, explore sectors, assess risk..." [active] [ref=e856]
+            - generic [ref=e857]:
+              - generic [ref=e858]:
+                - button "Voice input (coming soon)" [ref=e859] [cursor=pointer]:
+                  - img [ref=e860]
+                - button "Copilot tools" [ref=e863] [cursor=pointer]:
+                  - img [ref=e864]
+                - button "Attach (coming soon)" [ref=e867] [cursor=pointer]:
+                  - img [ref=e868]
+              - button "Send message" [disabled] [ref=e870]:
+                - img [ref=e871]
+          - paragraph [ref=e873]: "Enter to send · Shift+Enter for new line · Full pipeline: RAG → Quant → LLM · Not financial advice"
+  - region "Notifications"
+  - button "Open Next.js Dev Tools" [ref=e6] [cursor=pointer]:
+    - img [ref=e7]
+  - alert [ref=e10]

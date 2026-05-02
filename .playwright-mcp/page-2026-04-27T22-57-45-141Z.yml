@@ -1,0 +1,297 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "QuantTrade AI QuantTrade AI" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img "QuantTrade AI" [ref=e9]
+          - generic [ref=e10]: QuantTrade AI
+        - button "Collapse sidebar" [ref=e11] [cursor=pointer]:
+          - img [ref=e12]
+        - generic [ref=e16]:
+          - img [ref=e17]
+          - textbox "Search symbols, companies… (press /)" [ref=e20]
+        - generic [ref=e21]:
+          - group "API usage — hover for Finnhub, FMP, and cache stats" [ref=e23]:
+            - button "Click to refresh API stats" [ref=e24] [cursor=pointer]
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - generic [ref=e30]: MKT
+              - generic [ref=e31]: LOAD
+            - generic:
+              - generic: Market Status
+              - generic: Checking exchange session.
+          - generic [ref=e32]:
+            - link "About this product" [ref=e33] [cursor=pointer]:
+              - /url: /about
+              - img [ref=e34]
+            - generic:
+              - generic: About QuantTrade
+              - generic: Product scope, data sources, and operator details.
+          - button "Notifications" [ref=e38] [cursor=pointer]:
+            - img [ref=e39]
+          - generic [ref=e42]:
+            - button "Help" [ref=e43] [cursor=pointer]:
+              - img [ref=e44]
+            - generic:
+              - generic: Help
+              - generic: Shortcuts, product info, and data disclaimer.
+    - complementary [ref=e47]:
+      - generic [ref=e49]:
+        - navigation [ref=e50]:
+          - generic [ref=e51]: Navigation
+          - list [ref=e52]:
+            - listitem [ref=e53]:
+              - link "Dashboard" [ref=e54] [cursor=pointer]:
+                - /url: /
+                - img [ref=e55]
+                - generic [ref=e60]: Dashboard
+            - listitem [ref=e61]:
+              - link "AI Copilot" [ref=e62] [cursor=pointer]:
+                - /url: /copilot
+                - img [ref=e63]
+                - generic [ref=e65]: AI Copilot
+            - listitem [ref=e66]:
+              - link "Global Monitor" [ref=e67] [cursor=pointer]:
+                - /url: /monitor
+                - img [ref=e68]
+                - generic [ref=e71]: Global Monitor
+            - listitem [ref=e72]:
+              - link "Markets" [ref=e73] [cursor=pointer]:
+                - /url: /markets
+                - img [ref=e74]
+                - generic [ref=e77]: Markets
+            - listitem [ref=e78]:
+              - link "Watchlist" [ref=e79] [cursor=pointer]:
+                - /url: /watchlist
+                - img [ref=e80]
+                - generic [ref=e82]: Watchlist
+            - listitem [ref=e83]:
+              - link "Research" [ref=e84] [cursor=pointer]:
+                - /url: /research
+                - img [ref=e86]
+                - generic [ref=e89]: Research
+                - img [ref=e90]
+            - listitem [ref=e92]:
+              - link "Backtest" [ref=e93] [cursor=pointer]:
+                - /url: /backtest
+                - img [ref=e94]
+                - generic [ref=e96]: Backtest
+            - listitem [ref=e97]:
+              - link "Ideas Lab" [ref=e98] [cursor=pointer]:
+                - /url: /ideas-lab
+                - img [ref=e99]
+                - generic [ref=e101]: Ideas Lab
+            - listitem [ref=e102]:
+              - link "MLOps" [ref=e103] [cursor=pointer]:
+                - /url: /mlops
+                - img [ref=e104]
+                - generic [ref=e107]: MLOps
+            - listitem [ref=e108]:
+              - link "Community" [ref=e109] [cursor=pointer]:
+                - /url: /community
+                - img [ref=e110]
+                - generic [ref=e112]: Community
+            - listitem [ref=e113]:
+              - link "Notifications" [ref=e114] [cursor=pointer]:
+                - /url: /notifications
+                - img [ref=e115]
+                - generic [ref=e118]: Notifications
+            - listitem [ref=e119]:
+              - link "CoinRealm" [ref=e120] [cursor=pointer]:
+                - /url: /game
+                - img [ref=e121]
+                - generic [ref=e130]: CoinRealm
+            - listitem [ref=e131]:
+              - link "Pricing" [ref=e132] [cursor=pointer]:
+                - /url: /pricing
+                - img [ref=e133]
+                - generic [ref=e135]: Pricing
+            - listitem [ref=e136]:
+              - link "Settings" [ref=e137] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e138]
+                - generic [ref=e141]: Settings
+        - link "Sign In Access all features" [ref=e143] [cursor=pointer]:
+          - /url: /auth
+          - img [ref=e145]
+          - generic [ref=e148]:
+            - generic [ref=e149]: Sign In
+            - generic [ref=e150]: Access all features
+    - main [ref=e151]:
+      - generic [ref=e152]:
+        - generic [ref=e154]:
+          - generic [ref=e156]:
+            - generic [ref=e158]:
+              - generic [ref=e159]:
+                - generic [ref=e160]:
+                  - img "NVDA logo" [ref=e161]
+                  - generic [ref=e162]:
+                    - heading "NVDA" [level=2] [ref=e163]
+                    - paragraph [ref=e164]: Loading company profile…
+                - generic [ref=e165]:
+                  - generic [ref=e166]:
+                    - text: $0.00
+                    - img [ref=e167]
+                  - generic [ref=e169]:
+                    - img [ref=e170]
+                    - text: +0.00%
+              - generic [ref=e173]:
+                - generic [ref=e174]:
+                  - button "Watchlist" [ref=e175] [cursor=pointer]:
+                    - img [ref=e176]
+                    - text: Watchlist
+                  - button "Sync Data" [ref=e178] [cursor=pointer]:
+                    - img [ref=e179]
+                    - text: Sync Data
+                  - button "Advanced" [ref=e185] [cursor=pointer]:
+                    - img [ref=e186]
+                    - text: Advanced
+                - generic "Quote feed status" [ref=e187]:
+                  - generic [ref=e188]: Live quote
+                  - generic [ref=e190]: Connecting…
+                  - generic [ref=e192]: Activity
+                  - generic [ref=e196]:
+                    - button "1D" [ref=e197] [cursor=pointer]
+                    - button "5D" [ref=e198] [cursor=pointer]
+                    - button "1M" [ref=e199] [cursor=pointer]
+                    - button "3M" [ref=e200] [cursor=pointer]
+                    - button "6M" [ref=e201] [cursor=pointer]
+                    - button "1Y" [ref=e202] [cursor=pointer]
+            - generic [ref=e203]:
+              - button "Indicators" [ref=e205] [cursor=pointer]:
+                - img [ref=e206]
+                - text: Indicators
+                - img [ref=e208]
+              - button "Ext. Hours" [ref=e210] [cursor=pointer]:
+                - img [ref=e211]
+                - text: Ext. Hours
+              - generic [ref=e214]:
+                - text: SMA 20
+                - button [ref=e216] [cursor=pointer]:
+                  - img [ref=e217]
+              - generic [ref=e220]:
+                - text: EMA 50
+                - button [ref=e222] [cursor=pointer]:
+                  - img [ref=e223]
+              - generic [ref=e226]:
+                - text: Volume
+                - button [ref=e228] [cursor=pointer]:
+                  - img [ref=e229]
+          - generic [ref=e242]:
+            - generic [ref=e244]:
+              - img [ref=e245]
+              - heading "Technical Indicators" [level=3] [ref=e247]
+            - generic [ref=e274]:
+              - generic [ref=e275]: SIGNAL SUMMARY
+              - generic [ref=e276]:
+                - generic [ref=e277]:
+                  - generic [ref=e278]: RSI Signal
+                  - generic [ref=e279]: N/A
+                - generic [ref=e280]:
+                  - generic [ref=e281]: Trend
+                  - generic [ref=e282]: N/A
+          - generic [ref=e284]:
+            - generic [ref=e285]:
+              - generic [ref=e286]:
+                - img [ref=e287]
+                - heading "AI Analysis" [level=3] [ref=e289]
+              - generic [ref=e290]:
+                - generic [ref=e291]: Neutral
+                - button "AI Refresh" [ref=e292] [cursor=pointer]:
+                  - img [ref=e293]
+                  - text: AI Refresh
+            - generic [ref=e298]:
+              - paragraph [ref=e299]: Snapshot for NVDA combines momentum (RSI, MACD) with structure (moving averages and Bollinger position). It is a rules-based synthesis, not a prediction — use it as a starting point alongside your own process.
+              - paragraph [ref=e300]: MACD is not available for this symbol yet — sync data if you expect it.
+              - paragraph [ref=e301]: Bollinger Band width and position are unavailable.
+              - paragraph [ref=e302]: Moving-average context needs synced indicator data.
+              - list [ref=e303]:
+                - listitem [ref=e304]: "Change vs prior close: +0.00%."
+              - generic [ref=e305]:
+                - img [ref=e306]
+                - text: Click "AI Refresh" above for a real-time Gemini-powered read
+              - paragraph [ref=e308]: Not investment advice. Verify levels on your chart before acting.
+          - generic [ref=e365]: No quote data for NVDA.
+          - generic [ref=e367]:
+            - generic [ref=e368]:
+              - generic [ref=e369]:
+                - img [ref=e370]
+                - heading "Option Chain" [level=3] [ref=e372]
+                - generic [ref=e373]: Public.com
+              - generic [ref=e374]:
+                - button [disabled] [ref=e376]:
+                  - img [ref=e377]
+                - generic [ref=e379]:
+                  - button "all" [ref=e380] [cursor=pointer]
+                  - button "calls" [ref=e381] [cursor=pointer]
+                  - button "puts" [ref=e382] [cursor=pointer]
+            - generic [ref=e384]: Select an expiration date to view the option chain
+          - generic [ref=e387]:
+            - generic [ref=e388]:
+              - img "NVDA logo" [ref=e389]
+              - img [ref=e391]
+            - generic [ref=e394]:
+              - heading "NVDA Live News" [level=3] [ref=e395]
+              - paragraph [ref=e396]: Headlines and filings-driven flow for this symbol
+            - generic [ref=e397]: Real-time
+        - generic [ref=e416]:
+          - generic [ref=e418]:
+            - generic [ref=e419]:
+              - paragraph [ref=e420]: Stay in the order book
+              - heading "Subscribe for macro briefs and product drops." [level=3] [ref=e422]
+              - paragraph [ref=e423]: Only high-signal updates from QuantTrade AI – no spam, just edge.
+            - generic [ref=e425]:
+              - generic [ref=e427]:
+                - textbox "Enter your work email" [ref=e428]
+                - generic: ⏎
+              - button "Join the tape" [ref=e429] [cursor=pointer]
+          - generic [ref=e430]:
+            - generic [ref=e431]:
+              - generic [ref=e432]:
+                - generic [ref=e433]:
+                  - generic [ref=e435]: QT
+                  - generic [ref=e436]: QuantTrade AI
+                - paragraph [ref=e437]: An AI focused stock radar for discretionary traders and systematic desks. Built for fast reads, not dashboards that fight you.
+              - generic [ref=e438]:
+                - generic [ref=e439]:
+                  - paragraph [ref=e440]: Product
+                  - list [ref=e441]:
+                    - listitem [ref=e442]: Dashboard
+                    - listitem [ref=e443]: Markets Monitor
+                    - listitem [ref=e444]: Ideas Lab
+                    - listitem [ref=e445]: Backtest Engine
+                - generic [ref=e446]:
+                  - paragraph [ref=e447]: Resources
+                  - list [ref=e448]:
+                    - listitem [ref=e449]: Changelog
+                    - listitem [ref=e450]: API Docs
+                    - listitem [ref=e451]: Security
+                - generic [ref=e452]:
+                  - paragraph [ref=e453]: Contact
+                  - list [ref=e454]:
+                    - listitem [ref=e455]: support@quanttrade.us
+                    - listitem [ref=e456]: Feedback & feature requests
+                    - listitem [ref=e457]: Partnerships
+            - paragraph [ref=e459]: "Risk Disclosure: QuantTrade AI provides market data, research tools, and AI-generated analysis for informational purposes only. Nothing on this platform constitutes personalized investment, tax, or legal advice. AI outputs may be inaccurate, delayed, or biased. Past backtest performance does not guarantee future results. Securities trading involves substantial risk of loss. You are solely responsible for all trading decisions."
+            - generic [ref=e460]:
+              - paragraph [ref=e461]:
+                - text: © 2026 QuantTrade AI. All rights reserved. Crafted by
+                - link "Yash Joshi" [ref=e462] [cursor=pointer]:
+                  - /url: https://www.github.com/YashJoshi2109
+                - text: .
+              - generic [ref=e463]:
+                - link "Privacy Policy" [ref=e464] [cursor=pointer]:
+                  - /url: /terms
+                - link "Terms of Service" [ref=e465] [cursor=pointer]:
+                  - /url: /terms
+                - link "Risk Disclosure" [ref=e466] [cursor=pointer]:
+                  - /url: /about
+  - link "Open AI Copilot" [ref=e467] [cursor=pointer]:
+    - /url: /copilot
+    - img [ref=e470]
+    - generic: AI Copilot
+  - region "Notifications"
+  - button "Open Next.js Dev Tools" [ref=e477] [cursor=pointer]:
+    - img [ref=e478]
+  - alert [ref=e481]

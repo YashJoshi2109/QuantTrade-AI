@@ -1,0 +1,366 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "QuantTrade AI QuantTrade AI" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img "QuantTrade AI" [ref=e9]
+          - generic [ref=e10]: QuantTrade AI
+        - button "Collapse sidebar" [ref=e11] [cursor=pointer]:
+          - img [ref=e12]
+        - generic [ref=e16]:
+          - img [ref=e17]
+          - textbox "Search symbols, companies… (press /)" [ref=e20]
+        - generic [ref=e21]:
+          - group "API usage — hover for Finnhub, FMP, and cache stats" [ref=e23]:
+            - button "Click to refresh API stats" [ref=e24] [cursor=pointer]
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - generic [ref=e30]: MKT
+              - generic [ref=e31]: LOAD
+            - generic:
+              - generic: Market Status
+              - generic: Checking exchange session.
+          - generic [ref=e32]:
+            - link "About this product" [ref=e33] [cursor=pointer]:
+              - /url: /about
+              - img [ref=e34]
+            - generic:
+              - generic: About QuantTrade
+              - generic: Product scope, data sources, and operator details.
+          - button "Notifications" [ref=e38] [cursor=pointer]:
+            - img [ref=e39]
+          - generic [ref=e42]:
+            - button "Help" [ref=e43] [cursor=pointer]:
+              - img [ref=e44]
+            - generic:
+              - generic: Help
+              - generic: Shortcuts, product info, and data disclaimer.
+    - complementary [ref=e47]:
+      - generic [ref=e49]:
+        - navigation [ref=e50]:
+          - generic [ref=e51]: Navigation
+          - list [ref=e52]:
+            - listitem [ref=e53]:
+              - link "Dashboard" [ref=e54] [cursor=pointer]:
+                - /url: /
+                - img [ref=e55]
+                - generic [ref=e60]: Dashboard
+            - listitem [ref=e61]:
+              - link "AI Copilot" [ref=e62] [cursor=pointer]:
+                - /url: /copilot
+                - img [ref=e63]
+                - generic [ref=e65]: AI Copilot
+            - listitem [ref=e66]:
+              - link "Global Monitor" [ref=e67] [cursor=pointer]:
+                - /url: /monitor
+                - img [ref=e68]
+                - generic [ref=e71]: Global Monitor
+            - listitem [ref=e72]:
+              - link "Markets" [ref=e73] [cursor=pointer]:
+                - /url: /markets
+                - img [ref=e74]
+                - generic [ref=e77]: Markets
+            - listitem [ref=e78]:
+              - link "Watchlist" [ref=e79] [cursor=pointer]:
+                - /url: /watchlist
+                - img [ref=e80]
+                - generic [ref=e82]: Watchlist
+            - listitem [ref=e83]:
+              - link "Research" [ref=e84] [cursor=pointer]:
+                - /url: /research
+                - img [ref=e85]
+                - generic [ref=e88]: Research
+            - listitem [ref=e89]:
+              - link "Backtest" [ref=e90] [cursor=pointer]:
+                - /url: /backtest
+                - img [ref=e91]
+                - generic [ref=e93]: Backtest
+            - listitem [ref=e94]:
+              - link "Ideas Lab" [ref=e95] [cursor=pointer]:
+                - /url: /ideas-lab
+                - img [ref=e96]
+                - generic [ref=e98]: Ideas Lab
+            - listitem [ref=e99]:
+              - link "MLOps" [ref=e100] [cursor=pointer]:
+                - /url: /mlops
+                - img [ref=e101]
+                - generic [ref=e104]: MLOps
+            - listitem [ref=e105]:
+              - link "Community" [ref=e106] [cursor=pointer]:
+                - /url: /community
+                - img [ref=e107]
+                - generic [ref=e109]: Community
+            - listitem [ref=e110]:
+              - link "Notifications" [ref=e111] [cursor=pointer]:
+                - /url: /notifications
+                - img [ref=e112]
+                - generic [ref=e115]: Notifications
+            - listitem [ref=e116]:
+              - link "CoinRealm" [ref=e117] [cursor=pointer]:
+                - /url: /game
+                - img [ref=e118]
+                - generic [ref=e127]: CoinRealm
+            - listitem [ref=e128]:
+              - link "Pricing" [ref=e129] [cursor=pointer]:
+                - /url: /pricing
+                - img [ref=e130]
+                - generic [ref=e132]: Pricing
+            - listitem [ref=e133]:
+              - link "Settings" [ref=e134] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e136]
+                - generic [ref=e139]: Settings
+                - img [ref=e140]
+        - link "Sign In Access all features" [ref=e143] [cursor=pointer]:
+          - /url: /auth
+          - img [ref=e145]
+          - generic [ref=e148]:
+            - generic [ref=e149]: Sign In
+            - generic [ref=e150]: Access all features
+    - main [ref=e151]:
+      - generic [ref=e152]:
+        - generic [ref=e154]:
+          - generic [ref=e155]:
+            - img "QuantTrade AI" [ref=e157]
+            - generic [ref=e158]:
+              - generic [ref=e159]:
+                - img [ref=e160]
+                - heading "Settings" [level=1] [ref=e163]
+              - paragraph [ref=e164]: Account · AI · Notifications · Billing
+          - generic [ref=e165]:
+            - generic [ref=e166]:
+              - generic [ref=e167]:
+                - img [ref=e169]
+                - generic [ref=e172]:
+                  - heading "Profile" [level=3] [ref=e173]
+                  - paragraph [ref=e174]: Your account identity and avatar
+              - generic [ref=e176]:
+                - generic [ref=e177]:
+                  - generic [ref=e178]: T
+                  - button [ref=e179] [cursor=pointer]:
+                    - img [ref=e180]
+                - generic [ref=e183]:
+                  - generic [ref=e184]:
+                    - generic [ref=e185]: Username
+                    - generic [ref=e186]: —
+                  - generic [ref=e187]:
+                    - generic [ref=e188]: Email
+                    - generic [ref=e189]: —
+                  - generic [ref=e190]: Member since —
+            - generic [ref=e191]:
+              - generic [ref=e192]:
+                - img [ref=e194]
+                - generic [ref=e203]:
+                  - heading "Passkeys & Security" [level=3] [ref=e204]
+                  - paragraph [ref=e205]: Sign in with biometrics — no password needed
+              - generic [ref=e207]:
+                - paragraph [ref=e208]: Passkeys use your device's biometrics (Face ID, Touch ID, Windows Hello) to sign you in instantly and securely — no password required.
+                - generic [ref=e209]:
+                  - button "Add a Passkey to This Device" [ref=e210] [cursor=pointer]:
+                    - img [ref=e211]
+                    - text: Add a Passkey to This Device
+                  - generic [ref=e220]: Your browser may not support biometric passkeys. Try Chrome or Safari.
+                - generic [ref=e221]:
+                  - generic [ref=e222]:
+                    - paragraph [ref=e223]: Registered Devices
+                    - paragraph [ref=e224]: No passkeys saved on your account yet.
+                  - paragraph [ref=e225]: Each device you use needs its own passkey. You can add passkeys on multiple devices. Your existing password login continues to work alongside passkeys.
+            - generic [ref=e226]:
+              - generic [ref=e227]:
+                - img [ref=e229]
+                - generic [ref=e232]:
+                  - heading "AI Copilot" [level=3] [ref=e233]
+                  - paragraph [ref=e234]: Tailor the AI to your trading style (Pro)
+              - generic [ref=e236]:
+                - generic [ref=e237]:
+                  - img [ref=e238]
+                  - paragraph [ref=e241]: Pro feature
+                  - paragraph [ref=e242]: Analyst personality and data-source routing apply to Copilot answers. Upgrade to unlock.
+                  - link "Upgrade to Pro" [ref=e243] [cursor=pointer]:
+                    - /url: /pricing
+                    - img [ref=e244]
+                    - text: Upgrade to Pro
+                - generic:
+                  - generic:
+                    - generic: Analyst Personality
+                    - paragraph: Adjusts the tone and risk-aversion of generated insights.
+                    - generic:
+                      - button "conservative" [disabled]
+                      - button "balanced" [disabled]
+                      - button "aggressive" [disabled]
+                  - generic:
+                    - generic: Data Sources Priority
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: SEC Filings Analysis
+                          - generic: Deep 10-K/10-Q analysis via RAG pipeline
+                        - switch "SEC Filings Analysis" [checked] [disabled]
+                      - generic:
+                        - generic:
+                          - generic: News & sentiment context
+                          - generic: Recent headlines and sentiment in Copilot context
+                        - switch "News & sentiment context" [checked] [disabled]
+                      - generic:
+                        - generic:
+                          - generic: Technical indicators
+                          - generic: RSI, MACD, and chart signals in structured data
+                        - switch "Technical indicators" [checked] [disabled]
+            - generic [ref=e246]:
+              - generic [ref=e247]:
+                - img [ref=e249]
+                - generic [ref=e251]:
+                  - heading "Billing & Subscription" [level=3] [ref=e252]
+                  - paragraph [ref=e253]: Manage your plan and payment method
+              - generic [ref=e255]:
+                - generic [ref=e256]:
+                  - generic [ref=e257]:
+                    - generic [ref=e258]: Plan
+                    - generic [ref=e259]: Free
+                  - generic [ref=e260]:
+                    - generic [ref=e261]: Status
+                    - generic [ref=e262]:
+                      - img [ref=e263]
+                      - text: Active
+                  - generic [ref=e266]:
+                    - generic [ref=e267]: Verified
+                    - generic [ref=e268]: "No"
+                  - generic [ref=e269]:
+                    - generic [ref=e270]: Member Since
+                    - generic [ref=e271]: —
+                - generic [ref=e272]:
+                  - paragraph [ref=e273]:
+                    - img [ref=e274]
+                    - text: Payments are processed by
+                    - strong [ref=e276]: Stripe
+                    - text: . We never store your full card number. Invoices and receipts are available in the customer portal.
+                  - paragraph [ref=e277]:
+                    - text: Need an official receipt or tax details? Open
+                    - strong [ref=e278]: Manage billing
+                    - text: → Stripe portal.
+                - paragraph [ref=e279]: Billing is handled securely by Stripe. Update payment methods, change plans, or cancel anytime.
+                - generic [ref=e280]:
+                  - button "Manage Billing" [ref=e281] [cursor=pointer]:
+                    - img [ref=e282]
+                    - text: Manage Billing
+                  - link "Upgrade to Pro" [ref=e284] [cursor=pointer]:
+                    - /url: /pricing
+                    - img [ref=e285]
+                    - text: Upgrade to Pro
+            - generic [ref=e287]:
+              - generic [ref=e288]:
+                - img [ref=e290]
+                - generic [ref=e293]:
+                  - heading "Notifications" [level=3] [ref=e294]
+                  - paragraph [ref=e295]: Configure alert preferences
+              - generic [ref=e297]:
+                - generic [ref=e298]:
+                  - generic [ref=e299]:
+                    - paragraph [ref=e300]: Market Volatility Alerts
+                    - paragraph [ref=e301]: Notify when watched assets move >5% in 1 hour
+                  - switch "Market Volatility Alerts" [checked] [ref=e302] [cursor=pointer]
+                - generic [ref=e304]:
+                  - generic [ref=e305]:
+                    - paragraph [ref=e306]: Earnings Reports
+                    - paragraph [ref=e307]: Daily summary of upcoming earnings for your watchlist
+                  - switch "Earnings Reports" [checked] [ref=e308] [cursor=pointer]
+                - generic [ref=e310]:
+                  - generic [ref=e311]:
+                    - paragraph [ref=e312]: Security Login Alerts
+                    - paragraph [ref=e313]: Email notification whenever a new device signs in
+                  - switch "Security Login Alerts" [checked] [ref=e314] [cursor=pointer]
+                - generic [ref=e316]:
+                  - generic [ref=e317]:
+                    - paragraph [ref=e318]: Product Updates
+                    - paragraph [ref=e319]: News about new AI features and platform improvements
+                  - switch "Product Updates" [ref=e320] [cursor=pointer]
+                - generic [ref=e322]:
+                  - generic [ref=e323]:
+                    - img [ref=e324]
+                    - paragraph [ref=e326]: Pro email alerts
+                  - paragraph [ref=e327]: Pro members can get emails when watchlist prices move meaningfully or fresh news hits their symbols (server checks about every 20 minutes when the app is running).
+                  - generic [ref=e328]:
+                    - generic [ref=e329]:
+                      - paragraph [ref=e330]: Watchlist price change emails
+                      - paragraph [ref=e331]: Email when a watchlist symbol moves beyond a threshold vs last snapshot
+                    - switch "Watchlist price change emails" [checked] [disabled] [ref=e332]
+                  - generic [ref=e334]:
+                    - generic [ref=e335]:
+                      - paragraph [ref=e336]: Watchlist breaking news emails
+                      - paragraph [ref=e337]: Email for recent articles linked to symbols on your watchlist
+                    - switch "Watchlist breaking news emails" [checked] [disabled] [ref=e338]
+                  - link "Upgrade to enable →" [ref=e340] [cursor=pointer]:
+                    - /url: /pricing
+            - generic [ref=e341]:
+              - generic [ref=e342]:
+                - img [ref=e344]
+                - generic [ref=e346]:
+                  - heading "Danger Zone" [level=3] [ref=e347]
+                  - paragraph [ref=e348]: Irreversible account actions
+              - generic [ref=e350]:
+                - generic [ref=e351]:
+                  - heading "Delete Account" [level=4] [ref=e352]
+                  - paragraph [ref=e353]: We'll email a one-time code (Brevo). Any active Pro subscription is cancelled when the account is removed.
+                - button "Delete Account" [ref=e354] [cursor=pointer]:
+                  - img [ref=e355]
+                  - text: Delete Account
+        - generic [ref=e359]:
+          - generic [ref=e361]:
+            - generic [ref=e362]:
+              - paragraph [ref=e363]: Stay in the order book
+              - heading "Subscribe for macro briefs and product drops." [level=3] [ref=e365]
+              - paragraph [ref=e366]: Only high-signal updates from QuantTrade AI – no spam, just edge.
+            - generic [ref=e368]:
+              - generic [ref=e370]:
+                - textbox "Enter your work email" [ref=e371]
+                - generic: ⏎
+              - button "Join the tape" [ref=e372] [cursor=pointer]
+          - generic [ref=e373]:
+            - generic [ref=e374]:
+              - generic [ref=e375]:
+                - generic [ref=e376]:
+                  - generic [ref=e378]: QT
+                  - generic [ref=e379]: QuantTrade AI
+                - paragraph [ref=e380]: An AI focused stock radar for discretionary traders and systematic desks. Built for fast reads, not dashboards that fight you.
+              - generic [ref=e381]:
+                - generic [ref=e382]:
+                  - paragraph [ref=e383]: Product
+                  - list [ref=e384]:
+                    - listitem [ref=e385]: Dashboard
+                    - listitem [ref=e386]: Markets Monitor
+                    - listitem [ref=e387]: Ideas Lab
+                    - listitem [ref=e388]: Backtest Engine
+                - generic [ref=e389]:
+                  - paragraph [ref=e390]: Resources
+                  - list [ref=e391]:
+                    - listitem [ref=e392]: Changelog
+                    - listitem [ref=e393]: API Docs
+                    - listitem [ref=e394]: Security
+                - generic [ref=e395]:
+                  - paragraph [ref=e396]: Contact
+                  - list [ref=e397]:
+                    - listitem [ref=e398]: support@quanttrade.us
+                    - listitem [ref=e399]: Feedback & feature requests
+                    - listitem [ref=e400]: Partnerships
+            - paragraph [ref=e402]: "Risk Disclosure: QuantTrade AI provides market data, research tools, and AI-generated analysis for informational purposes only. Nothing on this platform constitutes personalized investment, tax, or legal advice. AI outputs may be inaccurate, delayed, or biased. Past backtest performance does not guarantee future results. Securities trading involves substantial risk of loss. You are solely responsible for all trading decisions."
+            - generic [ref=e403]:
+              - paragraph [ref=e404]:
+                - text: © 2026 QuantTrade AI. All rights reserved. Crafted by
+                - link "Yash Joshi" [ref=e405] [cursor=pointer]:
+                  - /url: https://www.github.com/YashJoshi2109
+                - text: .
+              - generic [ref=e406]:
+                - link "Privacy Policy" [ref=e407] [cursor=pointer]:
+                  - /url: /terms
+                - link "Terms of Service" [ref=e408] [cursor=pointer]:
+                  - /url: /terms
+                - link "Risk Disclosure" [ref=e409] [cursor=pointer]:
+                  - /url: /about
+  - link "Open AI Copilot" [ref=e410] [cursor=pointer]:
+    - /url: /copilot
+    - img [ref=e413]
+    - generic: AI Copilot
+  - region "Notifications"
+  - button "Open Next.js Dev Tools" [ref=e420] [cursor=pointer]:
+    - img [ref=e421]

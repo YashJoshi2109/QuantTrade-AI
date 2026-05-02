@@ -1,0 +1,290 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "QuantTrade AI QuantTrade AI" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img "QuantTrade AI" [ref=e9]
+          - generic [ref=e10]: QuantTrade AI
+        - button "Collapse sidebar" [ref=e11] [cursor=pointer]:
+          - img [ref=e12]
+        - generic [ref=e16]:
+          - img [ref=e17]
+          - textbox "Search symbols, companies… (press /)" [ref=e20]
+        - generic [ref=e21]:
+          - group "API usage — hover for Finnhub, FMP, and cache stats" [ref=e23]:
+            - button "Click to refresh API stats" [ref=e24] [cursor=pointer]
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - generic [ref=e30]: MKT
+              - generic [ref=e31]: LOAD
+            - generic:
+              - generic: Market Status
+              - generic: Checking exchange session.
+          - generic [ref=e32]:
+            - link "About this product" [ref=e33] [cursor=pointer]:
+              - /url: /about
+              - img [ref=e34]
+            - generic:
+              - generic: About QuantTrade
+              - generic: Product scope, data sources, and operator details.
+          - button "Notifications" [ref=e38] [cursor=pointer]:
+            - img [ref=e39]
+          - generic [ref=e42]:
+            - button "Help" [ref=e43] [cursor=pointer]:
+              - img [ref=e44]
+            - generic:
+              - generic: Help
+              - generic: Shortcuts, product info, and data disclaimer.
+    - complementary [ref=e47]:
+      - generic [ref=e49]:
+        - navigation [ref=e50]:
+          - generic [ref=e51]: Navigation
+          - list [ref=e52]:
+            - listitem [ref=e53]:
+              - link "Dashboard" [ref=e54] [cursor=pointer]:
+                - /url: /
+                - img [ref=e55]
+                - generic [ref=e60]: Dashboard
+            - listitem [ref=e61]:
+              - link "AI Copilot" [ref=e62] [cursor=pointer]:
+                - /url: /copilot
+                - img [ref=e63]
+                - generic [ref=e65]: AI Copilot
+            - listitem [ref=e66]:
+              - link "Global Monitor" [ref=e67] [cursor=pointer]:
+                - /url: /monitor
+                - img [ref=e68]
+                - generic [ref=e71]: Global Monitor
+            - listitem [ref=e72]:
+              - link "Markets" [ref=e73] [cursor=pointer]:
+                - /url: /markets
+                - img [ref=e74]
+                - generic [ref=e77]: Markets
+            - listitem [ref=e78]:
+              - link "Watchlist" [ref=e79] [cursor=pointer]:
+                - /url: /watchlist
+                - img [ref=e80]
+                - generic [ref=e82]: Watchlist
+            - listitem [ref=e83]:
+              - link "Research" [ref=e84] [cursor=pointer]:
+                - /url: /research
+                - img [ref=e85]
+                - generic [ref=e88]: Research
+            - listitem [ref=e89]:
+              - link "Backtest" [ref=e90] [cursor=pointer]:
+                - /url: /backtest
+                - img [ref=e91]
+                - generic [ref=e93]: Backtest
+            - listitem [ref=e94]:
+              - link "Ideas Lab" [ref=e95] [cursor=pointer]:
+                - /url: /ideas-lab
+                - img [ref=e96]
+                - generic [ref=e98]: Ideas Lab
+            - listitem [ref=e99]:
+              - link "MLOps" [ref=e100] [cursor=pointer]:
+                - /url: /mlops
+                - img [ref=e101]
+                - generic [ref=e104]: MLOps
+            - listitem [ref=e105]:
+              - link "Community" [ref=e106] [cursor=pointer]:
+                - /url: /community
+                - img [ref=e108]
+                - generic [ref=e110]: Community
+                - img [ref=e111]
+              - generic [ref=e113]:
+                - link "Feed" [ref=e114] [cursor=pointer]:
+                  - /url: /community
+                  - img [ref=e115]
+                  - text: Feed
+                - link "Discover" [ref=e117] [cursor=pointer]:
+                  - /url: /community/discover
+                  - img [ref=e118]
+                  - text: Discover
+                - link "Search" [ref=e121] [cursor=pointer]:
+                  - /url: /community/search
+                  - img [ref=e122]
+                  - text: Search
+                - link "Bookmarks" [ref=e125] [cursor=pointer]:
+                  - /url: /community/bookmarks
+                  - img [ref=e126]
+                  - text: Bookmarks
+                - link "Create" [ref=e128] [cursor=pointer]:
+                  - /url: /community/create
+                  - img [ref=e129]
+                  - text: Create
+            - listitem [ref=e130]:
+              - link "Notifications" [ref=e131] [cursor=pointer]:
+                - /url: /notifications
+                - img [ref=e132]
+                - generic [ref=e135]: Notifications
+            - listitem [ref=e136]:
+              - link "CoinRealm" [ref=e137] [cursor=pointer]:
+                - /url: /game
+                - img [ref=e138]
+                - generic [ref=e147]: CoinRealm
+            - listitem [ref=e148]:
+              - link "Pricing" [ref=e149] [cursor=pointer]:
+                - /url: /pricing
+                - img [ref=e150]
+                - generic [ref=e152]: Pricing
+            - listitem [ref=e153]:
+              - link "Settings" [ref=e154] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e155]
+                - generic [ref=e158]: Settings
+        - link "Sign In Access all features" [ref=e160] [cursor=pointer]:
+          - /url: /auth
+          - img [ref=e162]
+          - generic [ref=e165]:
+            - generic [ref=e166]: Sign In
+            - generic [ref=e167]: Access all features
+    - main [ref=e168]:
+      - generic [ref=e169]:
+        - generic [ref=e172]:
+          - complementary [ref=e173]:
+            - navigation [ref=e176]:
+              - generic [ref=e177]:
+                - link "Home" [ref=e178] [cursor=pointer]:
+                  - /url: /community
+                  - img [ref=e179]
+                  - generic [ref=e182]: Home
+                - link "Popular" [ref=e183] [cursor=pointer]:
+                  - /url: /community?sort=hot
+                  - img [ref=e184]
+                  - generic [ref=e186]: Popular
+                - link "Explore" [ref=e187] [cursor=pointer]:
+                  - /url: /community/discover
+                  - img [ref=e188]
+                  - generic [ref=e191]: Explore
+                - link "Rising" [ref=e192] [cursor=pointer]:
+                  - /url: /community?sort=rising
+                  - img [ref=e193]
+                  - generic [ref=e196]: Rising
+                - link "Messages" [ref=e197] [cursor=pointer]:
+                  - /url: /community/messages
+                  - img [ref=e198]
+                  - generic [ref=e200]: Messages
+              - generic [ref=e201]:
+                - button "Your Communities" [ref=e202] [cursor=pointer]:
+                  - heading "Your Communities" [level=3] [ref=e203]
+                  - generic [ref=e204]:
+                    - link "Create Community" [ref=e205]:
+                      - /url: /community/create
+                      - img [ref=e206]
+                    - img [ref=e207]
+                - img [ref=e211]
+              - button "Resources" [ref=e214] [cursor=pointer]:
+                - heading "Resources" [level=3] [ref=e215]
+                - img [ref=e216]
+              - paragraph [ref=e219]:
+                - text: QuantTrade Community ·
+                - link "Help" [ref=e220] [cursor=pointer]:
+                  - /url: /help
+                - text: ·
+                - link "About" [ref=e221] [cursor=pointer]:
+                  - /url: /about
+          - main [ref=e222]:
+            - generic [ref=e223]:
+              - generic [ref=e224]:
+                - generic [ref=e225]: U
+                - button "Create a post" [ref=e226] [cursor=pointer]
+                - button "Create post" [ref=e227] [cursor=pointer]:
+                  - img [ref=e228]
+              - generic [ref=e232]:
+                - button "Hot" [ref=e233] [cursor=pointer]:
+                  - img [ref=e234]
+                  - generic [ref=e236]: Hot
+                - button "New" [ref=e237] [cursor=pointer]:
+                  - img [ref=e238]
+                  - generic [ref=e241]: New
+                - button "Top" [ref=e242] [cursor=pointer]:
+                  - img [ref=e243]
+                  - generic [ref=e246]: Top
+                - button "Rising" [ref=e247] [cursor=pointer]:
+                  - img [ref=e248]
+                  - generic [ref=e250]: Rising
+                - button "Following" [ref=e251] [cursor=pointer]:
+                  - img [ref=e252]
+                  - generic [ref=e257]: Following
+          - complementary [ref=e365]:
+            - generic [ref=e368]:
+              - generic [ref=e371]:
+                - img [ref=e372]
+                - heading "Trending Tickers" [level=3] [ref=e374]
+              - generic [ref=e402]:
+                - heading "Quick Links" [level=3] [ref=e404]
+                - generic [ref=e405]:
+                  - link "Discover Communities" [ref=e406] [cursor=pointer]:
+                    - /url: /community/discover
+                    - img [ref=e407]
+                    - text: Discover Communities
+                  - link "Research Hub" [ref=e410] [cursor=pointer]:
+                    - /url: /research
+                    - img [ref=e411]
+                    - text: Research Hub
+                  - link "Help Center" [ref=e413] [cursor=pointer]:
+                    - /url: /help
+                    - img [ref=e414]
+                    - text: Help Center
+                  - link "About QuantTrade" [ref=e417] [cursor=pointer]:
+                    - /url: /about
+                    - img [ref=e418]
+                    - text: About QuantTrade
+              - paragraph [ref=e422]: Community discussion only. Not financial advice. Always do your own research before making investment decisions.
+        - generic [ref=e424]:
+          - generic [ref=e426]:
+            - generic [ref=e427]:
+              - paragraph [ref=e428]: Stay in the order book
+              - heading "Subscribe for macro briefs and product drops." [level=3] [ref=e430]
+              - paragraph [ref=e431]: Only high-signal updates from QuantTrade AI – no spam, just edge.
+            - generic [ref=e433]:
+              - generic [ref=e435]:
+                - textbox "Enter your work email" [ref=e436]
+                - generic: ⏎
+              - button "Join the tape" [ref=e437] [cursor=pointer]
+          - generic [ref=e438]:
+            - generic [ref=e439]:
+              - generic [ref=e440]:
+                - generic [ref=e441]:
+                  - generic [ref=e443]: QT
+                  - generic [ref=e444]: QuantTrade AI
+                - paragraph [ref=e445]: An AI focused stock radar for discretionary traders and systematic desks. Built for fast reads, not dashboards that fight you.
+              - generic [ref=e446]:
+                - generic [ref=e447]:
+                  - paragraph [ref=e448]: Product
+                  - list [ref=e449]:
+                    - listitem [ref=e450]: Dashboard
+                    - listitem [ref=e451]: Markets Monitor
+                    - listitem [ref=e452]: Ideas Lab
+                    - listitem [ref=e453]: Backtest Engine
+                - generic [ref=e454]:
+                  - paragraph [ref=e455]: Resources
+                  - list [ref=e456]:
+                    - listitem [ref=e457]: Changelog
+                    - listitem [ref=e458]: API Docs
+                    - listitem [ref=e459]: Security
+                - generic [ref=e460]:
+                  - paragraph [ref=e461]: Contact
+                  - list [ref=e462]:
+                    - listitem [ref=e463]: support@quanttrade.us
+                    - listitem [ref=e464]: Feedback & feature requests
+                    - listitem [ref=e465]: Partnerships
+            - paragraph [ref=e467]: "Risk Disclosure: QuantTrade AI provides market data, research tools, and AI-generated analysis for informational purposes only. Nothing on this platform constitutes personalized investment, tax, or legal advice. AI outputs may be inaccurate, delayed, or biased. Past backtest performance does not guarantee future results. Securities trading involves substantial risk of loss. You are solely responsible for all trading decisions."
+            - generic [ref=e468]:
+              - paragraph [ref=e469]:
+                - text: © 2026 QuantTrade AI. All rights reserved. Crafted by
+                - link "Yash Joshi" [ref=e470] [cursor=pointer]:
+                  - /url: https://www.github.com/YashJoshi2109
+                - text: .
+              - generic [ref=e471]:
+                - link "Privacy Policy" [ref=e472] [cursor=pointer]:
+                  - /url: /terms
+                - link "Terms of Service" [ref=e473] [cursor=pointer]:
+                  - /url: /terms
+                - link "Risk Disclosure" [ref=e474] [cursor=pointer]:
+                  - /url: /about
+  - region "Notifications"
+  - button "Open Next.js Dev Tools" [ref=e480] [cursor=pointer]:
+    - img [ref=e481]
+  - alert [ref=e484]
