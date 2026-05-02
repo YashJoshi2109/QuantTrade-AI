@@ -60,6 +60,17 @@ BEDROCK_SONNET_MODEL    = "anthropic.claude-sonnet-4-6"
 BEDROCK_HAIKU_MODEL     = "anthropic.claude-haiku-4-5-20251001-v1:0"
 BEDROCK_TITAN_MODEL     = "amazon.titan-embed-text-v2:0"
 
+# Amazon Nova — cost-effective Bedrock-native models
+# Nova Lite: fast + cheap, ~1/10 cost of Sonnet; good for routing/haiku-level tasks
+# Nova Pro:  more capable, mid-tier between Haiku and Sonnet
+BEDROCK_NOVA_LITE_MODEL = "amazon.nova-lite-v1:0"
+BEDROCK_NOVA_PRO_MODEL  = "amazon.nova-pro-v1:0"
+
+# USE_NOVA_LITE=1 → swap Haiku-class calls to Nova Lite (cheaper on Bedrock)
+# USE_NOVA_PRO=1  → swap Sonnet-class calls to Nova Pro when Sonnet unavailable
+USE_NOVA_LITE = os.getenv("USE_NOVA_LITE", "0").lower() in ("1", "true", "yes")
+USE_NOVA_PRO  = os.getenv("USE_NOVA_PRO",  "0").lower() in ("1", "true", "yes")
+
 OPENAI_SONNET_EQUIV     = "gpt-4o"
 OPENAI_HAIKU_EQUIV      = "gpt-4o-mini"
 
@@ -151,9 +162,12 @@ def _pick_llm(
 # ─── Public LLM factories ─────────────────────────────────────────────────────
 
 def get_llm_sonnet(streaming: bool = True):
-    """Primary LLM — Claude Sonnet 4.6 via Bedrock, GPT-4o or OpenRouter as fallback."""
+    """Primary LLM — Claude Sonnet 4.6 via Bedrock (or Nova Pro if USE_NOVA_PRO=1),
+    GPT-4o or OpenRouter as fallback."""
+    # Nova Pro is a solid Bedrock-native alternative when Sonnet is blocked/throttled
+    bedrock_model = BEDROCK_NOVA_PRO_MODEL if USE_NOVA_PRO else BEDROCK_SONNET_MODEL
     return _pick_llm(
-        bedrock_model=BEDROCK_SONNET_MODEL,
+        bedrock_model=bedrock_model,
         openai_model=OPENAI_SONNET_EQUIV,
         openrouter_model=OPENROUTER_SONNET_MODEL,
         temperature=0.1,
@@ -163,9 +177,12 @@ def get_llm_sonnet(streaming: bool = True):
 
 
 def get_llm_haiku(streaming: bool = False):
-    """Fast LLM — Claude Haiku 4.5 via Bedrock, GPT-4o-mini or OpenRouter as fallback."""
+    """Fast LLM — Claude Haiku 4.5 via Bedrock (or Nova Lite if USE_NOVA_LITE=1),
+    GPT-4o-mini or OpenRouter as fallback."""
+    # Nova Lite is ~10x cheaper than Haiku on Bedrock — enable with USE_NOVA_LITE=1
+    bedrock_model = BEDROCK_NOVA_LITE_MODEL if USE_NOVA_LITE else BEDROCK_HAIKU_MODEL
     return _pick_llm(
-        bedrock_model=BEDROCK_HAIKU_MODEL,
+        bedrock_model=bedrock_model,
         openai_model=OPENAI_HAIKU_EQUIV,
         openrouter_model=OPENROUTER_HAIKU_MODEL,
         temperature=0.0,

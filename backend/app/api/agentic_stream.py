@@ -390,6 +390,69 @@ async def _stream_generator(
     })
 
 
+# ── LLM status ─────────────────────────────────────────────────────────────────
+@router.get("/llm-status")
+async def llm_status(user: User = Depends(require_auth)):
+    """Return which LLM provider is active and which are configured."""
+    import os as _os
+    from app.services.agentic.bedrock_client import (
+        _aws_credentials_available,
+        BEDROCK_SONNET_MODEL, BEDROCK_NOVA_PRO_MODEL, BEDROCK_NOVA_LITE_MODEL,
+        USE_NOVA_LITE, USE_NOVA_PRO,
+    )
+
+    prefer_openai = _os.getenv("PREFER_OPENAI", "0").lower() in ("1", "true", "yes")
+    has_aws        = _aws_credentials_available()
+    has_openai     = bool(_os.getenv("OPENAI_API_KEY"))
+    has_openrouter = bool(
+        _os.getenv("OPENROUTER_API_KEY")
+        or _os.getenv("NEXT_PUBLIC_OPENROUTER_API_KEY")
+    )
+
+    # Determine active bedrock model based on Nova flags
+    if USE_NOVA_PRO:
+        bedrock_model_name = f"nova-pro ({BEDROCK_NOVA_PRO_MODEL})"
+    elif USE_NOVA_LITE:
+        bedrock_model_name = f"nova-lite ({BEDROCK_NOVA_LITE_MODEL})"
+    else:
+        bedrock_model_name = f"claude-sonnet ({BEDROCK_SONNET_MODEL})"
+
+    if not prefer_openai and has_aws:
+        active_provider = "bedrock"
+        active_model    = bedrock_model_name
+    elif has_openai:
+        active_provider = "openai"
+        active_model    = "gpt-4o"
+    elif has_openrouter:
+        active_provider = "openrouter"
+        active_model    = "anthropic/claude-3.5-sonnet (OpenRouter)"
+    else:
+        active_provider = "none"
+        active_model    = "No LLM provider configured"
+
+    return {
+        "active_provider": active_provider,
+        "active_model":    active_model,
+        "providers": {
+            "bedrock":    {
+                "available": has_aws and not prefer_openai,
+                "skipped_by_prefer_openai": prefer_openai,
+                "nova_lite_enabled": USE_NOVA_LITE,
+                "nova_pro_enabled":  USE_NOVA_PRO,
+                "active_model":      bedrock_model_name,
+            },
+            "openai":     {"available": has_openai},
+            "openrouter": {"available": has_openrouter},
+        },
+        "prefer_openai": prefer_openai,
+        "note": (
+            "Set USE_NOVA_LITE=1 for cheaper Haiku-tier calls (Amazon Nova Lite). "
+            "Set USE_NOVA_PRO=1 to use Nova Pro instead of Claude Sonnet. "
+            "Set PREFER_OPENAI=0 to re-enable Bedrock (requires AWS credentials)."
+        ),
+    }
+
+
 # ── Endpoint ───────────────────────────────────────────────────────────────────
 @router.post("/stream")
 async def agentic_stream(

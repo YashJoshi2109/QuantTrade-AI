@@ -223,7 +223,7 @@ def record_usage_db(
         db.rollback()
 
 
-FREE_DAILY_LIMIT = 5  # Free users get 5 copilot requests per day
+FREE_DAILY_LIMIT = 50  # Free users get 50 copilot requests per day (matches agentic_stream.py)
 
 
 def is_pro_user(db: Session, user_id: int) -> bool:
@@ -240,49 +240,81 @@ def check_free_limit(db: Session, user_id: int) -> tuple:
     """
     Check if free user has exceeded daily limit.
     Returns (allowed: bool, remaining: int, is_pro: bool)
+    Reads from ChatHistory (new agentic system) for accurate live counts.
     """
     if is_pro_user(db, user_id):
         return True, 999, True
 
-    from app.models.api_usage import APIUsage
-    today = date.today()
-    rows = db.query(APIUsage).filter(
-        APIUsage.user_id == user_id,
-        APIUsage.date == today,
-    ).all()
-    total_requests = sum(r.requests for r in rows)
+    from datetime import datetime, timezone as tz
+    total_requests = 0
+    try:
+        from app.models.chat_history import ChatHistory
+        from sqlalchemy import func as sqlfunc
+        today_start = datetime.now(tz.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        total_requests = (
+            db.query(sqlfunc.count(ChatHistory.id))
+            .filter(
+                ChatHistory.user_id    == user_id,
+                ChatHistory.role       == "user",
+                ChatHistory.created_at >= today_start,
+            )
+            .scalar()
+        ) or 0
+    except Exception:
+        total_requests = 0
+
     remaining = max(0, FREE_DAILY_LIMIT - total_requests)
     return remaining > 0, remaining, False
 
 
 def get_user_usage_summary(db: Session, user_id: int) -> Dict:
-    """Get usage summary for display in copilot."""
-    from app.models.api_usage import APIUsage
+    """Get usage summary for display in copilot.
 
-    today = date.today()
-    rows = db.query(APIUsage).filter(
-        APIUsage.user_id == user_id,
-        APIUsage.date == today,
-    ).all()
+    Primary: reads from ChatHistory (new agentic system writes here).
+    Fallback: APIUsage table (legacy system — no longer written by agentic stream).
+    """
+    from datetime import datetime, timezone as tz
 
-    total_requests = sum(r.requests for r in rows)
-    total_input = sum(r.input_tokens for r in rows)
-    total_output = sum(r.output_tokens for r in rows)
-    total_cost = sum(r.estimated_cost_usd for r in rows)
+    # ── New agentic system: count user turns in ChatHistory ────────────────────
+    today_requests = 0
+    try:
+        from app.models.chat_history import ChatHistory
+        from sqlalchemy import func as sqlfunc
+        today_start = datetime.now(tz.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        today_requests = (
+            db.query(sqlfunc.count(ChatHistory.id))
+            .filter(
+                ChatHistory.user_id   == user_id,
+                ChatHistory.role      == "user",
+                ChatHistory.created_at >= today_start,
+            )
+            .scalar()
+        ) or 0
+    except Exception:
+        # Fallback: legacy APIUsage table
+        try:
+            from app.models.api_usage import APIUsage
+            today = date.today()
+            rows = db.query(APIUsage).filter(
+                APIUsage.user_id == user_id,
+                APIUsage.date    == today,
+            ).all()
+            today_requests = sum(r.requests for r in rows)
+        except Exception:
+            today_requests = 0
 
     can_spend, remaining = budget_guard.can_spend()
-
     pro = is_pro_user(db, user_id)
-    free_remaining = max(0, FREE_DAILY_LIMIT - total_requests) if not pro else 999
+    free_remaining = max(0, FREE_DAILY_LIMIT - today_requests) if not pro else 999
 
     return {
-        "today_requests": total_requests,
-        "today_input_tokens": total_input,
-        "today_output_tokens": total_output,
-        "today_cost_usd": round(total_cost, 4),
+        "today_requests": today_requests,
+        "today_input_tokens": 0,
+        "today_output_tokens": 0,
+        "today_cost_usd": 0.0,
         "daily_budget_usd": budget_guard.daily_cap,
         "budget_remaining_usd": round(remaining, 4),
-        "budget_ok": can_spend,
+        "budget_ok": free_remaining > 0 or pro,
         "is_pro": pro,
         "free_limit": FREE_DAILY_LIMIT,
         "free_remaining": free_remaining,

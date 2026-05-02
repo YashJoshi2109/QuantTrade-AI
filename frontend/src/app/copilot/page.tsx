@@ -1191,7 +1191,7 @@ function WelcomeScreen({ onPrompt }: { onPrompt: (p: string) => void }) {
           <div
             className={cn(
               'mb-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-line-subtle px-3 py-1 text-[10px] font-semibold text-fg-primary sm:mb-2 sm:gap-2 sm:px-4 sm:py-1.5 sm:text-[11px] [@media(max-height:520px)]:mb-1 [@media(max-height:520px)]:py-0.5',
-              'bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md'
+              'bg-white/[0.10] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md'
             )}
           >
             <Sparkles className="h-3 w-3 shrink-0 text-cyan-300 sm:h-3.5 sm:w-3.5" />
@@ -2140,8 +2140,9 @@ function CopilotInner() {
             setPipelineStage('done')
             setTimeout(() => setPipelineStage('idle'), 2000)
             inputRef.current?.focus()
-            // Refresh conversation list
+            // Refresh conversation list + usage counter
             queryClient.invalidateQueries({ queryKey: ['copilot-conversations'] })
+            queryClient.invalidateQueries({ queryKey: ['copilot-usage'] })
           },
         },
         abortRef.current.signal
