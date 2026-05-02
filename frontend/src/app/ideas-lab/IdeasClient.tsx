@@ -969,7 +969,7 @@ function DesktopIdeasLab() {
               </div>
 
               {/* Tab switcher */}
-              <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1 mr-3">
+              <div className="flex items-center gap-1 bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1 mr-3">
                 <button
                   onClick={() => setActiveTab('baskets')}
                   className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -1024,7 +1024,7 @@ function DesktopIdeasLab() {
                 { label: 'Bearish', value: bearishCount, color: 'text-red-400', icon: TrendingDown },
                 { label: 'Avg Confidence', value: `${avgConfidence}%`, color: 'text-cyan-400', icon: Activity },
               ].map(s => (
-                <div key={s.label} className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-4 py-3">
+                <div key={s.label} className="bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-4 py-3">
                   <div className="flex items-center gap-1.5 mb-1">
                     <s.icon className="w-3 h-3 text-fg-muted" />
                     <span className="text-[10px] text-fg-muted uppercase tracking-wider">{s.label}</span>
@@ -1037,7 +1037,7 @@ function DesktopIdeasLab() {
             {/* Filters Bar */}
             <div className="flex items-center gap-3 flex-wrap">
               {/* Sentiment */}
-              <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1">
+              <div className="flex items-center gap-1 bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1">
                 {(['all', 'bullish', 'bearish'] as const).map(s => (
                   <button
                     key={s}
@@ -1056,7 +1056,7 @@ function DesktopIdeasLab() {
               </div>
 
               {/* Timeframe */}
-              <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1">
+              <div className="flex items-center gap-1 bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1">
                 {(['all', 'intraday', 'swing', 'position'] as const).map(t => (
                   <button
                     key={t}
@@ -1076,11 +1076,11 @@ function DesktopIdeasLab() {
               <select
                 value={sector}
                 onChange={e => setSector(e.target.value)}
-                className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-xs font-bold text-fg-primary outline-none focus:border-cyan-500/30 cursor-pointer appearance-none"
+                className="bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-xs font-bold text-fg-primary outline-none focus:border-cyan-500/30 cursor-pointer appearance-none"
                 style={{ backgroundImage: 'none' }}
               >
                 {SECTORS.map(s => (
-                  <option key={s} value={s} className="bg-[#0F1629] text-fg-primary">{s}</option>
+                  <option key={s} value={s} className="bg-surface-raised dark:bg-[#0F1629] text-fg-primary">{s}</option>
                 ))}
               </select>
             </div>
@@ -1190,7 +1190,7 @@ function DesktopIdeasLab() {
 
               {/* Market Pulse sidebar — 1 col */}
               <div className="lg:col-span-1 space-y-4">
-                <div className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-2xl p-4">
+                <div className="bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-2xl p-4">
                   <h2 className="text-sm font-bold text-fg-primary mb-4 flex items-center gap-2">
                     <Activity className="w-4 h-4 text-cyan-400" />
                     Market Pulse
@@ -1351,7 +1351,7 @@ function MobileIdeasLab() {
         </div>
 
         {/* Tab switcher */}
-        <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1 mb-4">
+        <div className="flex items-center gap-1 bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1 mb-4">
           <button
             onClick={() => setMobileTab('baskets')}
             className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
@@ -1424,22 +1424,22 @@ function MobileIdeasLab() {
 
             {/* Quick stats */}
             <div className="grid grid-cols-3 gap-2 mb-4">
-              <div className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-center">
+              <div className="bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-center">
                 <div className="text-[9px] text-fg-muted uppercase">Ideas</div>
                 <div className="text-base font-black text-fg-primary font-mono">{ideas.length}</div>
               </div>
-              <div className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-center">
+              <div className="bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-center">
                 <div className="text-[9px] text-emerald-500 uppercase">Bull</div>
                 <div className="text-base font-black text-emerald-400 font-mono">{ideas.filter(i => i.idea_type === 'long').length}</div>
               </div>
-              <div className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-center">
+              <div className="bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-center">
                 <div className="text-[9px] text-red-500 uppercase">Bear</div>
                 <div className="text-base font-black text-red-400 font-mono">{ideas.filter(i => i.idea_type === 'short').length}</div>
               </div>
             </div>
 
             {/* Sentiment filter */}
-            <div className="flex items-center gap-1 bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1 mb-4">
+            <div className="flex items-center gap-1 bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1 mb-4">
           {(['all', 'bullish', 'bearish'] as const).map(s => (
             <button
               key={s}
@@ -1474,7 +1474,7 @@ function MobileIdeasLab() {
 
         {/* Market pulse */}
         {!loading && pulse.top_bullish && (
-          <div className="mt-6 bg-[#0F1629]/80 border border-line-subtle/50 rounded-2xl p-4">
+          <div className="mt-6 bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-2xl p-4">
             <h2 className="text-sm font-bold text-fg-primary mb-3 flex items-center gap-2">
               <Activity className="w-4 h-4 text-cyan-400" /> Market Pulse
             </h2>
