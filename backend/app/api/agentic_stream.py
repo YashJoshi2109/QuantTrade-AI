@@ -181,8 +181,8 @@ async def _stream_generator(
         graph  = get_compiled_graph()
         state  = await graph.ainvoke(initial_state)
     except Exception as exc:
-        logger.error("Prep graph failed: %s", exc)
-        yield _sse("error", {"message": f"Analysis pipeline error: {exc}"})
+        logger.error("Prep graph failed: %s", exc, exc_info=True)
+        yield _sse("error", {"message": "Analysis pipeline error. Please try again."})
         return
 
     final_context = state.get("final_context", "")
@@ -214,8 +214,8 @@ async def _stream_generator(
                 full_response += token
                 yield _sse("token", {"text": token})
     except Exception as exc:
-        logger.error("LLM stream failed: %s", exc)
-        yield _sse("error", {"message": f"LLM streaming error: {exc}"})
+        logger.error("LLM stream failed: %s", exc, exc_info=True)
+        yield _sse("error", {"message": "LLM streaming error. Please try again."})
         return
 
     # ── 6. Guardrails ─────────────────────────────────────────────────────────
