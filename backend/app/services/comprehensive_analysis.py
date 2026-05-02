@@ -374,7 +374,7 @@ async def build_comprehensive_analysis(
     # --- Quote ---
     quote_change_pct: Optional[float] = None
     try:
-        quote = await quote_service.get_quote(symbol)
+        quote = await quote_service.get_quote(symbol, force_refresh=True)
         if quote and not quote.get("unavailable"):
             data["quote"] = {
                 "price": _sf(quote.get("price")),

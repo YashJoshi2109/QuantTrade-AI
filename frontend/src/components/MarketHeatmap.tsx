@@ -162,7 +162,7 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
               sector.change_percent >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
             }`}>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-white text-xs sm:text-sm">{sector.sector.toUpperCase()}</span>
+                <span className="font-bold text-fg-primary text-xs sm:text-sm">{sector.sector.toUpperCase()}</span>
                 <span className="text-[10px] text-fg-secondary">({sector.stocks.length})</span>
               </div>
               <span className={`text-xs font-bold font-mono ${

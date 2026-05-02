@@ -177,30 +177,38 @@ class QuoteCacheService:
             meta = chart.get("meta", {})
             
             price = meta.get("regularMarketPrice") or meta.get("previousClose")
-            previous_close = meta.get("previousClose") or meta.get("chartPreviousClose")
-            
+            previous_close = meta.get("chartPreviousClose") or meta.get("previousClose") or 0
+
             if not price:
                 return None
-            
-            change = price - previous_close if previous_close else 0
-            change_percent = (change / previous_close * 100) if previous_close else 0
-            
-            # Get open/high/low from indicators (more reliable)
+
+            # Get open/high/low from indicators (more reliable than meta fields)
             indicators = chart.get("indicators", {}).get("quote", [{}])
             if indicators and len(indicators) > 0:
                 quote_data = indicators[0]
                 open_prices = quote_data.get("open", [])
                 high_prices = quote_data.get("high", [])
                 low_prices = quote_data.get("low", [])
-                
-                # Get latest values (today's data)
-                open_price = open_prices[-1] if open_prices else 0
-                high_price = high_prices[-1] if high_prices else meta.get("regularMarketDayHigh", 0)
-                low_price = low_prices[-1] if low_prices else meta.get("regularMarketDayLow", 0)
+                close_prices = quote_data.get("close", [])
+
+                # Use last non-None value for OHLV (weekend/after-hours arrays may have trailing None)
+                open_price = next((v for v in reversed(open_prices) if v is not None), 0) if open_prices else 0
+                high_price = next((v for v in reversed(high_prices) if v is not None), meta.get("regularMarketDayHigh", 0)) if high_prices else meta.get("regularMarketDayHigh", 0) or 0
+                low_price = next((v for v in reversed(low_prices) if v is not None), meta.get("regularMarketDayLow", 0)) if low_prices else meta.get("regularMarketDayLow", 0) or 0
+
+                # Use actual prior bar close for change computation — meta.previousClose equals
+                # regularMarketPrice on weekends (Yahoo returns same-day close as "previous"),
+                # so the chart history gives the real prior session close.
+                valid_closes = [c for c in close_prices if c is not None]
+                if len(valid_closes) >= 2:
+                    previous_close = valid_closes[-2]
             else:
                 open_price = 0
                 high_price = meta.get("regularMarketDayHigh", 0) or 0
                 low_price = meta.get("regularMarketDayLow", 0) or 0
+
+            change = price - previous_close if previous_close else 0
+            change_percent = (change / previous_close * 100) if previous_close else 0
             
             return {
                 "symbol": symbol.upper(),

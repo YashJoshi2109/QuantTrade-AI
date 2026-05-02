@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
+import { useTheme } from 'next-themes'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
@@ -201,6 +202,8 @@ function countryFlag(code: string): string {
 export function WorldIndicesGrid({ continent, currency, rates }: { continent: Continent; currency: string; rates: Record<string, number> }) {
   const { data: indices = [], isLoading } = useWorldIndices(continent)
   const { openSnapshot } = useStockSnapshot()
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme !== 'light'
   const currInfo = DISPLAY_CURRENCIES.find((c) => c.code === currency)
   const currSymbol = currInfo?.symbol ?? '$'
 
@@ -252,15 +255,18 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
         whileTap={{ scale: 0.97 }}
         className={`group relative overflow-hidden text-left cursor-pointer ${isGlobal ? 'shrink-0 w-[180px] sm:w-[200px]' : ''}`}
         style={{
-          background: 'linear-gradient(145deg, rgba(16,25,50,0.92) 0%, rgba(10,16,38,0.96) 100%)',
-          border: `1px solid rgba(255,255,255,0.07)`,
-          borderTop: '1px solid rgba(255,255,255,0.11)',
-          borderLeft: '1px solid rgba(255,255,255,0.09)',
+          background: isDark
+            ? 'linear-gradient(145deg, rgba(16,25,50,0.92) 0%, rgba(10,16,38,0.96) 100%)'
+            : 'var(--color-surface-raised)',
+          border: isDark
+            ? `1px solid rgba(255,255,255,0.09)`
+            : '1px solid var(--color-line-subtle)',
+          borderTop: isDark ? '1px solid rgba(255,255,255,0.11)' : undefined,
+          borderLeft: isDark ? '1px solid rgba(255,255,255,0.09)' : undefined,
           borderRadius: 14,
-          boxShadow: [
-            'inset 0 1px 0 rgba(255,255,255,0.07)',
-            '0 4px 16px rgba(0,0,0,0.35)',
-          ].join(', '),
+          boxShadow: isDark
+            ? ['inset 0 1px 0 rgba(255,255,255,0.07)', '0 4px 16px rgba(0,0,0,0.35)'].join(', ')
+            : '0 2px 8px rgba(0,0,0,0.08)',
           backdropFilter: 'blur(20px)',
           padding: '12px 14px 10px',
           transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
@@ -293,7 +299,7 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
         </div>
 
         {/* Price */}
-        <div className="text-xl font-black font-mono tabular-nums text-white leading-tight group-hover:text-white transition-colors">
+        <div className="text-xl font-black font-mono tabular-nums text-fg-primary leading-tight transition-colors">
           {displayPrice > 0
             ? `${currSymbol}${formatNumber(displayPrice, displayPrice > 1000 ? 0 : 2)}`
             : '—'
@@ -404,7 +410,7 @@ export function UniverseExchangeTable({
     <div className="rounded-xl border border-line-subtle overflow-hidden bg-surface-raised/60">
       <div className="flex items-center justify-between px-4 py-2.5 bg-surface-hover/30 border-b border-line-subtle">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-white">{label}</span>
+          <span className="text-sm font-bold text-fg-primary">{label}</span>
           {!isLoading && (
             <span className="text-[10px] text-fg-muted font-mono">
               {stocks.length} stocks

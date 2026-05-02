@@ -44,7 +44,7 @@ function ChangeScaleLegend() {
     '#166534',
   ]
   return (
-    <div className="mt-4 pt-3 border-t border-slate-800/50 space-y-1.5">
+    <div className="mt-4 pt-3 border-t border-line-subtle space-y-1.5">
       <div className="text-[10px] text-fg-muted text-center">1-day % change (stronger color = larger move)</div>
       <div
         className="flex h-2 rounded-md overflow-hidden border border-line-default max-w-md mx-auto"
