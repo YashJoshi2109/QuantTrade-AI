@@ -78,7 +78,7 @@ qdrant-client>=1.16.0,<2.0.0  # Qdrant client
 # weaviate-client==3.25.3  # Weaviate client (uncomment if using)
 
 # Object storage
-boto3==1.34.0  # AWS S3 compatible storage
+boto3>=1.34.0  # AWS S3 compatible storage
 minio==7.2.0  # Local S3-compatible storage option
 
 # Utilities

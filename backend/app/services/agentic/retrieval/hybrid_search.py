@@ -14,7 +14,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 
-from qdrant_client.models import FieldCondition, Filter, MatchAny, MatchValue, SparseVector
+from qdrant_client.models import DatetimeRange, FieldCondition, Filter, MatchAny, MatchValue, SparseVector
 
 from app.services.agentic.bedrock_client import embed_query
 from app.services.agentic.ingestion.indexer import (
@@ -59,6 +59,8 @@ def _build_metadata_filter(
         conditions.append(FieldCondition(key="filing_type", match=MatchAny(any=filing_types)))
     if section:
         conditions.append(FieldCondition(key="section", match=MatchValue(value=section)))
+    if date_from:
+        conditions.append(FieldCondition(key="filed_date", range=DatetimeRange(gte=date_from)))
     return Filter(must=conditions) if conditions else None
 
 

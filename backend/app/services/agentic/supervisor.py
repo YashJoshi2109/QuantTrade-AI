@@ -38,18 +38,19 @@ AGENT_REGISTRY: dict = {
 
 # ── Intent → agents mapping ────────────────────────────────────────────────────
 INTENT_TO_AGENTS: dict[str, list[str]] = {
-    "STOCK_ANALYSIS":   ["research"],
-    "COMPARISON":       ["comparison"],
-    "SCREENER":         ["screener"],
-    "PORTFOLIO_ADVICE": ["portfolio"],
-    "EARNINGS":         ["earnings"],
-    "GENERAL_ADVICE":   ["general"],
-    "EDUCATION":        ["general"],
-    "MARKET_OVERVIEW":  ["general"],
-    "SECTOR":           ["general"],
-    "TEXT":             ["general"],
-    "GREETING":         ["general"],
-    "OFF_TOPIC":        ["general"],
+    # lowercase (from CopilotRouter Intent.value — what arrives at runtime)
+    "stock_analysis":   ["research"],
+    "comparison":       ["comparison"],
+    "screener":         ["screener"],
+    "portfolio_advice": ["portfolio"],
+    "earnings":         ["earnings"],
+    "general_advice":   ["general"],
+    "education":        ["general"],
+    "market_overview":  ["general"],
+    "sector":           ["general"],
+    "text":             ["general"],
+    "greeting":         ["general"],
+    "off_topic":        ["general"],
 }
 
 # ── State schema ───────────────────────────────────────────────────────────────
@@ -76,7 +77,7 @@ def supervisor_node(state: CopilotState) -> dict:
 
     # STOCK_ANALYSIS also runs earnings agent for comprehensive coverage
     rd = state["routing_decision"]
-    if intent_str == "STOCK_ANALYSIS" and rd.get("use_stock_context"):
+    if intent_str == "stock_analysis" and rd.get("use_stock_context"):
         if "earnings" not in active:
             active = active + ["earnings"]
 

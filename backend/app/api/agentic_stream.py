@@ -218,8 +218,12 @@ async def _stream_generator(
         yield _sse("error", {"message": "LLM streaming error. Please try again."})
         return
 
-    # ── 6. Guardrails ─────────────────────────────────────────────────────────
-    full_response = apply_guardrails(full_response)
+    # ── 6. Guardrails — emit disclaimer as token if appended ─────────────────
+    guarded = apply_guardrails(full_response)
+    if len(guarded) > len(full_response):
+        disclaimer = guarded[len(full_response):]
+        yield _sse("token", {"text": disclaimer})
+    full_response = guarded
 
     # ── 7. Save memory + chat history ─────────────────────────────────────────
     try:
