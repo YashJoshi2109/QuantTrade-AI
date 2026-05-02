@@ -1,0 +1,498 @@
+- generic [active] [ref=e11]:
+  - generic [ref=e13]:
+    - generic [ref=e17]:
+      - generic [ref=e18] [cursor=pointer]:
+        - generic [ref=e19]:
+          - generic [ref=e20]: ^GSPC
+          - generic [ref=e21]: S&P 500
+        - generic [ref=e22]: $7230.12
+        - generic [ref=e23]:
+          - img [ref=e24]
+          - text: +0.29%
+      - generic [ref=e27] [cursor=pointer]:
+        - generic [ref=e28]:
+          - generic [ref=e29]: ^IXIC
+          - generic [ref=e30]: NASDAQ Composite
+        - generic [ref=e31]: $25114.44
+        - generic [ref=e32]:
+          - img [ref=e33]
+          - text: +0.89%
+      - generic [ref=e36] [cursor=pointer]:
+        - generic [ref=e37]:
+          - generic [ref=e38]: ^DJI
+          - generic [ref=e39]: Dow Jones Industrial Average
+        - generic [ref=e40]: $49499.27
+        - generic [ref=e41]:
+          - img [ref=e42]
+          - text: "-0.31%"
+      - generic [ref=e45] [cursor=pointer]:
+        - generic [ref=e46]:
+          - generic [ref=e47]: ^RUT
+          - generic [ref=e48]: ^RUT
+        - generic [ref=e49]: $2812.82
+        - generic [ref=e50]:
+          - img [ref=e51]
+          - text: +0.46%
+      - generic [ref=e54] [cursor=pointer]:
+        - generic [ref=e55]:
+          - generic [ref=e56]: ^VIX
+          - generic [ref=e57]: ^VIX
+        - generic [ref=e58]: $16.99
+        - generic [ref=e59]:
+          - img [ref=e60]
+          - text: +0.59%
+      - generic [ref=e63] [cursor=pointer]:
+        - generic [ref=e64]:
+          - generic [ref=e65]: GLD
+          - generic [ref=e66]: GLD
+        - generic [ref=e67]: $423.18
+        - generic [ref=e68]:
+          - img [ref=e69]
+          - text: "-0.11%"
+      - generic [ref=e72] [cursor=pointer]:
+        - generic [ref=e73]:
+          - generic [ref=e74]: USO
+          - generic [ref=e75]: USO
+        - generic [ref=e76]: $142.80
+        - generic [ref=e77]:
+          - img [ref=e78]
+          - text: "-2.92%"
+      - generic [ref=e81] [cursor=pointer]:
+        - generic [ref=e82]:
+          - generic [ref=e83]: TLT
+          - generic [ref=e84]: 20+ Year Treasury ETF
+        - generic [ref=e85]: $85.61
+        - generic [ref=e86]:
+          - img [ref=e87]
+          - text: "-0.01%"
+      - generic [ref=e90] [cursor=pointer]:
+        - generic [ref=e91]:
+          - generic [ref=e92]: XLF
+          - generic [ref=e93]: Financial Sector SPDR
+        - generic [ref=e94]: $51.92
+        - generic [ref=e95]:
+          - img [ref=e96]
+          - text: "-0.40%"
+      - generic [ref=e99] [cursor=pointer]:
+        - generic [ref=e100]:
+          - generic [ref=e101]: XLE
+          - generic [ref=e102]: Energy Sector SPDR
+        - generic [ref=e103]: $58.85
+        - generic [ref=e104]:
+          - img [ref=e105]
+          - text: "-1.34%"
+      - link "SEE Sealed Air Corp $42.15 +0.02%" [ref=e108] [cursor=pointer]:
+        - /url: /research?symbol=SEE
+        - generic [ref=e109]:
+          - generic [ref=e110]:
+            - generic [ref=e111]: SEE
+            - generic [ref=e112]: Sealed Air Corp
+          - generic [ref=e113]: $42.15
+          - generic [ref=e114]:
+            - img [ref=e115]
+            - text: +0.02%
+      - link "K Kellanova $83.44 -0.01%" [ref=e118] [cursor=pointer]:
+        - /url: /research?symbol=K
+        - generic [ref=e119]:
+          - generic [ref=e120]:
+            - generic [ref=e121]: K
+            - generic [ref=e122]: Kellanova
+          - generic [ref=e123]: $83.44
+          - generic [ref=e124]:
+            - img [ref=e125]
+            - text: "-0.01%"
+      - generic [ref=e128] [cursor=pointer]:
+        - generic [ref=e129]:
+          - generic [ref=e130]: Technology
+          - generic [ref=e131]: Sector · Technology
+        - generic [ref=e132]:
+          - img [ref=e133]
+          - text: +0.00%
+      - generic [ref=e136] [cursor=pointer]:
+        - generic [ref=e137]:
+          - generic [ref=e138]: Healthcare
+          - generic [ref=e139]: Sector · Healthcare
+        - generic [ref=e140]:
+          - img [ref=e141]
+          - text: +0.00%
+      - generic [ref=e144] [cursor=pointer]:
+        - generic [ref=e145]:
+          - generic [ref=e146]: Financials
+          - generic [ref=e147]: Sector · Financials
+        - generic [ref=e148]:
+          - img [ref=e149]
+          - text: +0.00%
+      - generic [ref=e152] [cursor=pointer]:
+        - generic [ref=e153]:
+          - generic [ref=e154]: Consumer Cyclical
+          - generic [ref=e155]: Sector · Consumer Cyclical
+        - generic [ref=e156]:
+          - img [ref=e157]
+          - text: +0.00%
+      - generic [ref=e160] [cursor=pointer]:
+        - generic [ref=e161]:
+          - generic [ref=e162]: Communication Services
+          - generic [ref=e163]: Sector · Communication Services
+        - generic [ref=e164]:
+          - img [ref=e165]
+          - text: +0.00%
+      - generic [ref=e168] [cursor=pointer]:
+        - generic [ref=e169]:
+          - generic [ref=e170]: Industrials
+          - generic [ref=e171]: Sector · Industrials
+        - generic [ref=e172]:
+          - img [ref=e173]
+          - text: +0.00%
+      - generic [ref=e176] [cursor=pointer]:
+        - generic [ref=e177]:
+          - generic [ref=e178]: ^GSPC
+          - generic [ref=e179]: S&P 500
+        - generic [ref=e180]: $7230.12
+        - generic [ref=e181]:
+          - img [ref=e182]
+          - text: +0.29%
+      - generic [ref=e185] [cursor=pointer]:
+        - generic [ref=e186]:
+          - generic [ref=e187]: ^IXIC
+          - generic [ref=e188]: NASDAQ Composite
+        - generic [ref=e189]: $25114.44
+        - generic [ref=e190]:
+          - img [ref=e191]
+          - text: +0.89%
+      - generic [ref=e194] [cursor=pointer]:
+        - generic [ref=e195]:
+          - generic [ref=e196]: ^DJI
+          - generic [ref=e197]: Dow Jones Industrial Average
+        - generic [ref=e198]: $49499.27
+        - generic [ref=e199]:
+          - img [ref=e200]
+          - text: "-0.31%"
+      - generic [ref=e203] [cursor=pointer]:
+        - generic [ref=e204]:
+          - generic [ref=e205]: ^RUT
+          - generic [ref=e206]: ^RUT
+        - generic [ref=e207]: $2812.82
+        - generic [ref=e208]:
+          - img [ref=e209]
+          - text: +0.46%
+      - generic [ref=e212] [cursor=pointer]:
+        - generic [ref=e213]:
+          - generic [ref=e214]: ^VIX
+          - generic [ref=e215]: ^VIX
+        - generic [ref=e216]: $16.99
+        - generic [ref=e217]:
+          - img [ref=e218]
+          - text: +0.59%
+      - generic [ref=e221] [cursor=pointer]:
+        - generic [ref=e222]:
+          - generic [ref=e223]: GLD
+          - generic [ref=e224]: GLD
+        - generic [ref=e225]: $423.18
+        - generic [ref=e226]:
+          - img [ref=e227]
+          - text: "-0.11%"
+      - generic [ref=e230] [cursor=pointer]:
+        - generic [ref=e231]:
+          - generic [ref=e232]: USO
+          - generic [ref=e233]: USO
+        - generic [ref=e234]: $142.80
+        - generic [ref=e235]:
+          - img [ref=e236]
+          - text: "-2.92%"
+      - generic [ref=e239] [cursor=pointer]:
+        - generic [ref=e240]:
+          - generic [ref=e241]: TLT
+          - generic [ref=e242]: 20+ Year Treasury ETF
+        - generic [ref=e243]: $85.61
+        - generic [ref=e244]:
+          - img [ref=e245]
+          - text: "-0.01%"
+      - generic [ref=e248] [cursor=pointer]:
+        - generic [ref=e249]:
+          - generic [ref=e250]: XLF
+          - generic [ref=e251]: Financial Sector SPDR
+        - generic [ref=e252]: $51.92
+        - generic [ref=e253]:
+          - img [ref=e254]
+          - text: "-0.40%"
+      - generic [ref=e257] [cursor=pointer]:
+        - generic [ref=e258]:
+          - generic [ref=e259]: XLE
+          - generic [ref=e260]: Energy Sector SPDR
+        - generic [ref=e261]: $58.85
+        - generic [ref=e262]:
+          - img [ref=e263]
+          - text: "-1.34%"
+      - link "SEE Sealed Air Corp $42.15 +0.02%" [ref=e266] [cursor=pointer]:
+        - /url: /research?symbol=SEE
+        - generic [ref=e267]:
+          - generic [ref=e268]:
+            - generic [ref=e269]: SEE
+            - generic [ref=e270]: Sealed Air Corp
+          - generic [ref=e271]: $42.15
+          - generic [ref=e272]:
+            - img [ref=e273]
+            - text: +0.02%
+      - link "K Kellanova $83.44 -0.01%" [ref=e276] [cursor=pointer]:
+        - /url: /research?symbol=K
+        - generic [ref=e277]:
+          - generic [ref=e278]:
+            - generic [ref=e279]: K
+            - generic [ref=e280]: Kellanova
+          - generic [ref=e281]: $83.44
+          - generic [ref=e282]:
+            - img [ref=e283]
+            - text: "-0.01%"
+      - generic [ref=e286] [cursor=pointer]:
+        - generic [ref=e287]:
+          - generic [ref=e288]: Technology
+          - generic [ref=e289]: Sector · Technology
+        - generic [ref=e290]:
+          - img [ref=e291]
+          - text: +0.00%
+      - generic [ref=e294] [cursor=pointer]:
+        - generic [ref=e295]:
+          - generic [ref=e296]: Healthcare
+          - generic [ref=e297]: Sector · Healthcare
+        - generic [ref=e298]:
+          - img [ref=e299]
+          - text: +0.00%
+      - generic [ref=e302] [cursor=pointer]:
+        - generic [ref=e303]:
+          - generic [ref=e304]: Financials
+          - generic [ref=e305]: Sector · Financials
+        - generic [ref=e306]:
+          - img [ref=e307]
+          - text: +0.00%
+      - generic [ref=e310] [cursor=pointer]:
+        - generic [ref=e311]:
+          - generic [ref=e312]: Consumer Cyclical
+          - generic [ref=e313]: Sector · Consumer Cyclical
+        - generic [ref=e314]:
+          - img [ref=e315]
+          - text: +0.00%
+      - generic [ref=e318] [cursor=pointer]:
+        - generic [ref=e319]:
+          - generic [ref=e320]: Communication Services
+          - generic [ref=e321]: Sector · Communication Services
+        - generic [ref=e322]:
+          - img [ref=e323]
+          - text: +0.00%
+      - generic [ref=e326] [cursor=pointer]:
+        - generic [ref=e327]:
+          - generic [ref=e328]: Industrials
+          - generic [ref=e329]: Sector · Industrials
+        - generic [ref=e330]:
+          - img [ref=e331]
+          - text: +0.00%
+    - banner [ref=e334]:
+      - generic [ref=e336]:
+        - link "QuantTrade AI QuantTrade AI" [ref=e337] [cursor=pointer]:
+          - /url: /
+          - img "QuantTrade AI" [ref=e339]
+          - generic [ref=e340]: QuantTrade AI
+        - button "Collapse sidebar" [ref=e341] [cursor=pointer]:
+          - img [ref=e342]
+        - generic [ref=e346]:
+          - img [ref=e347]
+          - textbox "Search symbols, companies… (press /)" [ref=e350]
+        - generic [ref=e351]:
+          - group "API usage — hover for Finnhub, FMP, and cache stats" [ref=e353]:
+            - button "60/60" [ref=e674] [cursor=pointer]:
+              - generic [ref=e355]:
+                - img [ref=e356]
+                - generic [ref=e358]: 60/60
+                - img [ref=e359]
+          - generic [ref=e364]:
+            - generic [ref=e365]:
+              - generic [ref=e367]: MKT
+              - generic [ref=e368]: CLOSED
+            - generic:
+              - generic: Market Status
+              - generic: NYSE + NASDAQ session is CLOSED.
+          - generic [ref=e369]:
+            - link "About this product" [ref=e370] [cursor=pointer]:
+              - /url: /about
+              - img [ref=e371]
+            - generic:
+              - generic: About QuantTrade
+              - generic: Product scope, data sources, and operator details.
+          - button "3 notifications" [ref=e380] [cursor=pointer]:
+            - img [ref=e381]
+            - generic [ref=e384]: "3"
+          - generic [ref=e385]:
+            - button "Help" [ref=e386] [cursor=pointer]:
+              - img [ref=e387]
+            - generic:
+              - generic: Help
+              - generic: Shortcuts, product info, and data disclaimer.
+    - complementary [ref=e390]:
+      - generic [ref=e392]:
+        - navigation [ref=e393]:
+          - generic [ref=e394]: Navigation
+          - list [ref=e395]:
+            - listitem [ref=e396]:
+              - link "Dashboard" [ref=e397] [cursor=pointer]:
+                - /url: /
+                - img [ref=e398]
+                - generic [ref=e403]: Dashboard
+            - listitem [ref=e404]:
+              - link "AI Copilot" [ref=e405] [cursor=pointer]:
+                - /url: /copilot
+                - img [ref=e407]
+                - generic [ref=e409]: AI Copilot
+                - img [ref=e410]
+            - listitem [ref=e412]:
+              - link "Global Monitor" [ref=e413] [cursor=pointer]:
+                - /url: /monitor
+                - img [ref=e414]
+                - generic [ref=e417]: Global Monitor
+            - listitem [ref=e418]:
+              - link "Markets" [ref=e419] [cursor=pointer]:
+                - /url: /markets
+                - img [ref=e420]
+                - generic [ref=e423]: Markets
+            - listitem [ref=e424]:
+              - link "Watchlist" [ref=e425] [cursor=pointer]:
+                - /url: /watchlist
+                - img [ref=e426]
+                - generic [ref=e428]: Watchlist
+            - listitem [ref=e429]:
+              - link "Research" [ref=e430] [cursor=pointer]:
+                - /url: /research
+                - img [ref=e431]
+                - generic [ref=e434]: Research
+            - listitem [ref=e435]:
+              - link "Backtest" [ref=e436] [cursor=pointer]:
+                - /url: /backtest
+                - img [ref=e437]
+                - generic [ref=e439]: Backtest
+            - listitem [ref=e440]:
+              - link "Ideas Lab" [ref=e441] [cursor=pointer]:
+                - /url: /ideas-lab
+                - img [ref=e442]
+                - generic [ref=e444]: Ideas Lab
+            - listitem [ref=e445]:
+              - link "MLOps" [ref=e446] [cursor=pointer]:
+                - /url: /mlops
+                - img [ref=e447]
+                - generic [ref=e450]: MLOps
+            - listitem [ref=e451]:
+              - link "Community" [ref=e452] [cursor=pointer]:
+                - /url: /community
+                - img [ref=e453]
+                - generic [ref=e455]: Community
+            - listitem [ref=e456]:
+              - link "Notifications" [ref=e457] [cursor=pointer]:
+                - /url: /notifications
+                - img [ref=e458]
+                - generic [ref=e461]: Notifications
+            - listitem [ref=e462]:
+              - link "CoinRealm" [ref=e463] [cursor=pointer]:
+                - /url: /game
+                - img [ref=e464]
+                - generic [ref=e473]: CoinRealm
+            - listitem [ref=e474]:
+              - link "Pricing" [ref=e475] [cursor=pointer]:
+                - /url: /pricing
+                - img [ref=e476]
+                - generic [ref=e478]: Pricing
+            - listitem [ref=e479]:
+              - link "Settings" [ref=e480] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e481]
+                - generic [ref=e484]: Settings
+        - generic [ref=e486]:
+          - generic [ref=e489]: SP
+          - generic [ref=e491]:
+            - generic [ref=e492]: spiderman
+            - button "Sign Out" [ref=e493] [cursor=pointer]:
+              - img [ref=e494]
+              - text: Sign Out
+    - main [ref=e497]:
+      - generic [ref=e500]:
+        - generic [ref=e502]:
+          - generic [ref=e503]:
+            - button "Chat History" [ref=e504] [cursor=pointer]:
+              - img [ref=e505]
+            - img [ref=e510]
+            - generic [ref=e514]:
+              - heading "AI Copilot" [level=1] [ref=e515]
+              - paragraph [ref=e516]: RAG + Quant Models + GROQ LLM
+          - generic [ref=e517]:
+            - generic [ref=e518]:
+              - img [ref=e519]
+              - generic [ref=e522]: Llama 3.3 70B
+            - button "5/5" [ref=e524] [cursor=pointer]:
+              - generic [ref=e526]: 5/5
+              - img [ref=e527]
+            - generic [ref=e529]:
+              - img [ref=e530]
+              - generic [ref=e532]: SPY
+              - generic [ref=e533]: $720.65
+              - generic [ref=e534]: +0.28%
+            - button "Evening · location optional · Tap for light mode" [ref=e535] [cursor=pointer]:
+              - img [ref=e537]
+            - button "New conversation" [ref=e551] [cursor=pointer]:
+              - img [ref=e552]
+        - generic [ref=e677]:
+          - generic [ref=e678]:
+            - generic [ref=e679]:
+              - img [ref=e681]
+              - img [ref=e685]
+            - generic [ref=e687]:
+              - img [ref=e689]
+              - img [ref=e692]
+            - img [ref=e696]
+          - generic [ref=e698]: Intent Detection
+          - img [ref=e699]
+        - generic [ref=e704]:
+          - generic [ref=e705]:
+            - img [ref=e707]
+            - paragraph [ref=e712]: What is NVDA's current financial state?
+          - generic [ref=e713]:
+            - img [ref=e715]
+            - generic [ref=e718]:
+              - img [ref=e722]
+              - img [ref=e726]
+              - generic [ref=e744]: Detecting intent…
+        - generic [ref=e631]:
+          - generic [ref=e634]:
+            - generic [ref=e636]:
+              - generic [ref=e637]:
+                - text: "5"
+                - generic [ref=e638]: / 5
+                - text: free requests today
+              - generic [ref=e639]:
+                - button "Upgrade" [ref=e640] [cursor=pointer]
+                - button "Dismiss usage notice" [ref=e641] [cursor=pointer]:
+                  - img [ref=e642]
+            - generic [ref=e645]:
+              - textbox "Analyze any stock, compare tickers, explore sectors, assess risk..." [disabled] [ref=e646]
+              - generic [ref=e647]:
+                - generic [ref=e648]:
+                  - button "Voice input (coming soon)" [disabled] [ref=e649]:
+                    - img [ref=e650]
+                  - button "Copilot tools" [disabled] [ref=e653]:
+                    - img [ref=e654]
+                  - button "Attach (coming soon)" [disabled] [ref=e657]:
+                    - img [ref=e658]
+                - button "Stop generation" [ref=e758] [cursor=pointer]:
+                  - img [ref=e759]
+                  - generic [ref=e762]: Stop
+          - paragraph [ref=e663]: "Enter to send · Shift+Enter for new line · Full pipeline: RAG → Quant → LLM · Not financial advice"
+  - region "Notifications"
+  - generic [ref=e5] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e6]:
+      - img [ref=e7]
+    - generic [ref=e664]:
+      - button "Open issues overlay" [ref=e665]:
+        - generic [ref=e763]:
+          - generic [ref=e764]: "4"
+          - generic [ref=e765]: "5"
+        - generic [ref=e669]:
+          - text: Issue
+          - generic [ref=e670]: s
+      - button "Collapse issues badge" [ref=e671]:
+        - img [ref=e672]
+  - alert [ref=e10]

@@ -13,8 +13,9 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Optional
 
-import numpy as np
-from sentence_transformers import SentenceTransformer
+# NOTE: numpy and sentence_transformers are imported lazily (inside functions)
+# to avoid loading torch (~300MB) at gunicorn startup time.
+# They are only needed during SEC ingestion, not during normal API serving.
 
 MAX_CHUNK_TOKENS     = 1024
 TARGET_CHUNK_TOKENS  = 600
@@ -40,12 +41,14 @@ _ABBREV_PATTERN = re.compile(
 )
 _SENT_BOUNDARY = re.compile(r'(?<=[.!?])\s+(?=[A-Z])')
 
-_semantic_model: Optional[SentenceTransformer] = None
+_semantic_model = None  # lazy-loaded on first ingestion
 
 
-def _get_model() -> SentenceTransformer:
+def _get_model():
+    """Return cached SentenceTransformer. Loaded lazily to avoid torch import at startup."""
     global _semantic_model
     if _semantic_model is None:
+        from sentence_transformers import SentenceTransformer  # noqa: PLC0415
         _semantic_model = SentenceTransformer(SEMANTIC_MODEL_NAME)
     return _semantic_model
 
@@ -128,6 +131,7 @@ def semantic_chunk(section_text: str, section: str, item: str) -> list[Chunk]:
     if not sentences:
         return []
 
+    import numpy as np  # noqa: PLC0415 — lazy: avoid torch at startup
     model = _get_model()
     embeddings = model.encode(sentences, convert_to_numpy=True)
 

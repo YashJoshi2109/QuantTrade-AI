@@ -4,10 +4,14 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 
-def test_get_llm_sonnet_uses_bedrock_when_token_set():
-    """Bedrock wins when AWS_BEARER_TOKEN_BEDROCK set and PREFER_OPENAI=0."""
-    env = {"AWS_BEARER_TOKEN_BEDROCK": "test-token", "PREFER_OPENAI": "0"}
-    with patch.dict(os.environ, env, clear=False):
+# Helper: patch _aws_credentials_available at the module level so tests control Bedrock availability
+_CREDS_PATH = "app.services.agentic.bedrock_client._aws_credentials_available"
+
+
+def test_get_llm_sonnet_uses_bedrock_when_creds_available():
+    """Bedrock wins when AWS credentials are available and PREFER_OPENAI=0."""
+    with patch(_CREDS_PATH, return_value=True), \
+         patch.dict(os.environ, {"PREFER_OPENAI": "0"}, clear=False):
         from app.services.agentic import bedrock_client as bc
         llm = bc.get_llm_sonnet(streaming=False)
         from langchain_aws import ChatBedrock
@@ -18,9 +22,9 @@ def test_get_llm_sonnet_uses_bedrock_when_token_set():
 
 
 def test_get_llm_sonnet_falls_back_to_openai():
-    """OpenAI wins when no Bedrock token."""
-    env = {"AWS_BEARER_TOKEN_BEDROCK": "", "OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "0"}
-    with patch.dict(os.environ, env, clear=False):
+    """OpenAI wins when AWS credentials unavailable."""
+    with patch(_CREDS_PATH, return_value=False), \
+         patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "0"}, clear=False):
         from app.services.agentic import bedrock_client as bc
         llm = bc.get_llm_sonnet(streaming=False)
         from langchain_openai import ChatOpenAI
@@ -29,14 +33,14 @@ def test_get_llm_sonnet_falls_back_to_openai():
 
 
 def test_get_llm_sonnet_falls_back_to_openrouter():
-    """OpenRouter wins when no Bedrock token and no OpenAI key."""
+    """OpenRouter wins when no AWS credentials and no OpenAI key."""
     env = {
-        "AWS_BEARER_TOKEN_BEDROCK": "",
         "OPENAI_API_KEY": "",
         "OPENROUTER_API_KEY": "or-test-key",
         "PREFER_OPENAI": "0",
     }
-    with patch.dict(os.environ, env, clear=False):
+    with patch(_CREDS_PATH, return_value=False), \
+         patch.dict(os.environ, env, clear=False):
         from app.services.agentic import bedrock_client as bc
         llm = bc.get_llm_sonnet(streaming=False)
         from langchain_openai import ChatOpenAI
@@ -45,9 +49,9 @@ def test_get_llm_sonnet_falls_back_to_openrouter():
 
 
 def test_prefer_openai_flag_skips_bedrock():
-    """PREFER_OPENAI=1 forces OpenAI even when Bedrock token present."""
-    env = {"AWS_BEARER_TOKEN_BEDROCK": "test-token", "OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "1"}
-    with patch.dict(os.environ, env, clear=False):
+    """PREFER_OPENAI=1 forces OpenAI even when AWS credentials present."""
+    with patch(_CREDS_PATH, return_value=True), \
+         patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "1"}, clear=False):
         from app.services.agentic import bedrock_client as bc
         llm = bc.get_llm_sonnet(streaming=False)
         from langchain_openai import ChatOpenAI
@@ -56,8 +60,8 @@ def test_prefer_openai_flag_skips_bedrock():
 
 def test_get_llm_haiku_bedrock():
     """get_llm_haiku() returns ChatBedrock with correct model and temperature."""
-    env = {"AWS_BEARER_TOKEN_BEDROCK": "test-token", "PREFER_OPENAI": "0"}
-    with patch.dict(os.environ, env, clear=False):
+    with patch(_CREDS_PATH, return_value=True), \
+         patch.dict(os.environ, {"PREFER_OPENAI": "0"}, clear=False):
         from app.services.agentic import bedrock_client as bc
         llm = bc.get_llm_haiku()
         from langchain_aws import ChatBedrock
@@ -68,9 +72,9 @@ def test_get_llm_haiku_bedrock():
 
 
 def test_get_llm_haiku_openai_fallback():
-    """get_llm_haiku() falls back to gpt-4o-mini when no Bedrock token."""
-    env = {"AWS_BEARER_TOKEN_BEDROCK": "", "OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "0"}
-    with patch.dict(os.environ, env, clear=False):
+    """get_llm_haiku() falls back to gpt-4o-mini when no AWS credentials."""
+    with patch(_CREDS_PATH, return_value=False), \
+         patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test", "PREFER_OPENAI": "0"}, clear=False):
         from app.services.agentic import bedrock_client as bc
         llm = bc.get_llm_haiku()
         from langchain_openai import ChatOpenAI
@@ -81,7 +85,6 @@ def test_get_llm_haiku_openai_fallback():
 def test_get_embedder_returns_embedder():
     """get_embedder() returns object with embed_documents and embed_query."""
     from app.services.agentic.bedrock_client import get_embedder
-    get_embedder.cache_clear()
     embedder = get_embedder()
     assert hasattr(embedder, "embed_documents")
     assert hasattr(embedder, "embed_query")

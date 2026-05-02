@@ -1,0 +1,378 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "QuantTrade AI QuantTrade AI" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img "QuantTrade AI" [ref=e9]
+          - generic [ref=e10]: QuantTrade AI
+        - button "Collapse sidebar" [ref=e11] [cursor=pointer]:
+          - img [ref=e12]
+        - generic [ref=e16]:
+          - img [ref=e17]
+          - textbox "Search symbols, companies… (press /)" [ref=e20]
+        - generic [ref=e21]:
+          - group "API usage — hover for Finnhub, FMP, and cache stats" [ref=e23]:
+            - button "Click to refresh API stats" [ref=e24] [cursor=pointer]
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - generic [ref=e30]: MKT
+              - generic [ref=e31]: LOAD
+            - generic:
+              - generic: Market Status
+              - generic: Checking exchange session.
+          - generic [ref=e32]:
+            - link "About this product" [ref=e33] [cursor=pointer]:
+              - /url: /about
+              - img [ref=e34]
+            - generic:
+              - generic: About QuantTrade
+              - generic: Product scope, data sources, and operator details.
+          - button "Notifications" [ref=e40] [cursor=pointer]:
+            - img [ref=e41]
+          - generic [ref=e44]:
+            - button "Help" [ref=e45] [cursor=pointer]:
+              - img [ref=e46]
+            - generic:
+              - generic: Help
+              - generic: Shortcuts, product info, and data disclaimer.
+    - complementary [ref=e49]:
+      - generic [ref=e51]:
+        - navigation [ref=e52]:
+          - generic [ref=e53]: Navigation
+          - list [ref=e54]:
+            - listitem [ref=e55]:
+              - link "Dashboard" [ref=e56] [cursor=pointer]:
+                - /url: /
+                - img [ref=e58]
+                - generic [ref=e63]: Dashboard
+                - img [ref=e64]
+            - listitem [ref=e66]:
+              - link "AI Copilot" [ref=e67] [cursor=pointer]:
+                - /url: /copilot
+                - img [ref=e68]
+                - generic [ref=e70]: AI Copilot
+            - listitem [ref=e71]:
+              - link "Global Monitor" [ref=e72] [cursor=pointer]:
+                - /url: /monitor
+                - img [ref=e73]
+                - generic [ref=e76]: Global Monitor
+            - listitem [ref=e77]:
+              - link "Markets" [ref=e78] [cursor=pointer]:
+                - /url: /markets
+                - img [ref=e79]
+                - generic [ref=e82]: Markets
+            - listitem [ref=e83]:
+              - link "Watchlist" [ref=e84] [cursor=pointer]:
+                - /url: /watchlist
+                - img [ref=e85]
+                - generic [ref=e87]: Watchlist
+            - listitem [ref=e88]:
+              - link "Research" [ref=e89] [cursor=pointer]:
+                - /url: /research
+                - img [ref=e90]
+                - generic [ref=e93]: Research
+            - listitem [ref=e94]:
+              - link "Backtest" [ref=e95] [cursor=pointer]:
+                - /url: /backtest
+                - img [ref=e96]
+                - generic [ref=e98]: Backtest
+            - listitem [ref=e99]:
+              - link "Ideas Lab" [ref=e100] [cursor=pointer]:
+                - /url: /ideas-lab
+                - img [ref=e101]
+                - generic [ref=e103]: Ideas Lab
+            - listitem [ref=e104]:
+              - link "MLOps" [ref=e105] [cursor=pointer]:
+                - /url: /mlops
+                - img [ref=e106]
+                - generic [ref=e109]: MLOps
+            - listitem [ref=e110]:
+              - link "Community" [ref=e111] [cursor=pointer]:
+                - /url: /community
+                - img [ref=e112]
+                - generic [ref=e114]: Community
+            - listitem [ref=e115]:
+              - link "Notifications" [ref=e116] [cursor=pointer]:
+                - /url: /notifications
+                - img [ref=e117]
+                - generic [ref=e120]: Notifications
+            - listitem [ref=e121]:
+              - link "CoinRealm" [ref=e122] [cursor=pointer]:
+                - /url: /game
+                - img [ref=e123]
+                - generic [ref=e132]: CoinRealm
+            - listitem [ref=e133]:
+              - link "Pricing" [ref=e134] [cursor=pointer]:
+                - /url: /pricing
+                - img [ref=e135]
+                - generic [ref=e137]: Pricing
+            - listitem [ref=e138]:
+              - link "Settings" [ref=e139] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e140]
+                - generic [ref=e143]: Settings
+        - link "Sign In Access all features" [ref=e145] [cursor=pointer]:
+          - /url: /auth
+          - img [ref=e147]
+          - generic [ref=e150]:
+            - generic [ref=e151]: Sign In
+            - generic [ref=e152]: Access all features
+    - main [ref=e153]:
+      - generic [ref=e154]:
+        - generic [ref=e155]:
+          - generic [ref=e157]:
+            - img [ref=e158]
+            - generic [ref=e159]: INDICES
+          - generic [ref=e209]:
+            - button "🌐 Global" [ref=e210] [cursor=pointer]:
+              - generic [ref=e211]: 🌐
+              - generic [ref=e212]: Global
+            - button "🌎 Americas" [ref=e213] [cursor=pointer]:
+              - generic [ref=e214]: 🌎
+              - generic [ref=e215]: Americas
+            - button "🌍 Europe" [ref=e216] [cursor=pointer]:
+              - generic [ref=e217]: 🌍
+              - generic [ref=e218]: Europe
+            - button "🌏 Asia-Pacific" [ref=e219] [cursor=pointer]:
+              - generic [ref=e220]: 🌏
+              - generic [ref=e221]: Asia-Pacific
+            - button "🌍 Africa & ME" [ref=e222] [cursor=pointer]:
+              - generic [ref=e223]: 🌍
+              - generic [ref=e224]: Africa & ME
+            - button "🌏 Oceania" [ref=e225] [cursor=pointer]:
+              - generic [ref=e226]: 🌏
+              - generic [ref=e227]: Oceania
+          - generic [ref=e228]:
+            - generic [ref=e229]:
+              - heading "Dashboard" [level=1] [ref=e230]:
+                - img [ref=e231]
+                - text: Dashboard
+              - paragraph [ref=e235]: Monday, Apr 27 · Balanced
+            - generic [ref=e236]:
+              - button "Sessions 0/5 OPEN" [ref=e238] [cursor=pointer]:
+                - img [ref=e239]
+                - generic [ref=e242]: Sessions
+                - generic [ref=e243]: 0/5 OPEN
+              - button "🇺🇸 USD" [ref=e245] [cursor=pointer]:
+                - img [ref=e246]
+                - generic [ref=e248]: 🇺🇸 USD
+              - generic "Quote activity on refresh" [ref=e249]:
+                - generic [ref=e252]: Quotes
+          - generic [ref=e274]:
+            - generic [ref=e278]:
+              - generic [ref=e280]:
+                - generic [ref=e282]:
+                  - img [ref=e283]
+                  - text: Live news
+                - button "Refresh news" [ref=e287] [cursor=pointer]:
+                  - img [ref=e288]
+              - generic [ref=e295]:
+                - img [ref=e297]
+                - generic [ref=e303]:
+                  - paragraph [ref=e304]: Hydrating feed
+                  - paragraph [ref=e305]: Pulling headlines from the wire — cached results appear first when available
+            - generic [ref=e369]:
+              - generic [ref=e370]:
+                - generic [ref=e371]:
+                  - img [ref=e372]
+                  - heading "Top Gainers" [level=3] [ref=e375]
+                - button "Refresh movers" [ref=e377] [cursor=pointer]:
+                  - img [ref=e378]
+              - link "All Gainers" [ref=e458] [cursor=pointer]:
+                - /url: /markets
+                - text: All Gainers
+                - img [ref=e459]
+            - generic [ref=e463]:
+              - generic [ref=e465]:
+                - img [ref=e466]
+                - heading "Top Losers" [level=3] [ref=e469]
+              - link "All Losers" [ref=e545] [cursor=pointer]:
+                - /url: /markets
+                - text: All Losers
+                - img [ref=e546]
+            - generic [ref=e550]:
+              - generic [ref=e551]:
+                - generic [ref=e552]:
+                  - img [ref=e554]
+                  - heading "Global Insights" [level=3] [ref=e559]
+                - generic [ref=e561]:
+                  - img [ref=e562]
+                  - generic [ref=e564]: MAP
+              - generic [ref=e566]:
+                - generic:
+                  - generic:
+                    - img
+                    - generic: Macro Events
+                    - generic: "12"
+                - generic:
+                  - generic:
+                    - img
+                    - generic: Risk Zones
+                    - generic: "3"
+              - generic [ref=e570]:
+                - generic [ref=e571]:
+                  - img [ref=e572]
+                  - generic [ref=e574]: Volatility
+                  - generic [ref=e575]: High
+                - generic [ref=e576]:
+                  - img [ref=e577]
+                  - generic [ref=e579]: Sentiment
+                  - generic [ref=e580]: Bullish
+                - generic [ref=e581]:
+                  - img [ref=e582]
+                  - generic [ref=e586]: Weather
+                  - generic [ref=e587]: Clear
+              - link "Launch Global Monitor FULL ACCESS" [ref=e589] [cursor=pointer]:
+                - /url: /monitor
+                - generic [ref=e590]: Launch Global Monitor
+                - generic [ref=e592]:
+                  - text: FULL ACCESS
+                  - img [ref=e593]
+            - generic [ref=e597]:
+              - generic [ref=e598]:
+                - generic [ref=e599]:
+                  - img [ref=e600]
+                  - heading "Watchlist" [level=3] [ref=e603]
+                - link "View All →" [ref=e604] [cursor=pointer]:
+                  - /url: /watchlist
+              - generic [ref=e606]:
+                - img [ref=e607]
+                - paragraph [ref=e610]: Sign in to see your watchlist
+                - link "Sign In" [ref=e611] [cursor=pointer]:
+                  - /url: /auth
+            - generic [ref=e615]:
+              - generic [ref=e616]:
+                - img [ref=e617]
+                - heading "Sector heatmap" [level=3] [ref=e619]
+                - generic [ref=e620]: US
+              - link "Markets →" [ref=e621] [cursor=pointer]:
+                - /url: /markets
+            - generic [ref=e647]:
+              - generic [ref=e648]:
+                - img [ref=e649]
+                - heading "AI Alerts" [level=3] [ref=e653]
+                - generic [ref=e654]: LIVE
+              - link "Research →" [ref=e655] [cursor=pointer]:
+                - /url: /research
+            - generic [ref=e663]:
+              - generic [ref=e664]:
+                - generic [ref=e666]:
+                  - img [ref=e667]
+                  - heading "Market Pulse" [level=3] [ref=e669]
+                  - generic [ref=e670]: LIVE
+                - generic [ref=e671]:
+                  - generic [ref=e672]:
+                    - generic [ref=e673]:
+                      - generic [ref=e674]:
+                        - img [ref=e675]
+                        - generic [ref=e677]: Breadth
+                      - generic [ref=e678]: Balanced
+                    - generic [ref=e682]: 0↑ 0↓
+                  - generic [ref=e684]:
+                    - img [ref=e685]
+                    - generic [ref=e686]: Benchmark pulse
+                  - generic [ref=e692]:
+                    - img [ref=e693]
+                    - generic [ref=e695]: Sector leader
+                  - generic [ref=e697]:
+                    - link "Ideas Lab" [ref=e698] [cursor=pointer]:
+                      - /url: /ideas-lab
+                      - img [ref=e699]
+                      - generic [ref=e701]: Ideas Lab
+                    - link "Global Monitor" [ref=e702] [cursor=pointer]:
+                      - /url: /monitor
+                      - img [ref=e703]
+                      - generic [ref=e706]: Global Monitor
+                    - link "Backtesting" [ref=e707] [cursor=pointer]:
+                      - /url: /backtest
+                      - img [ref=e708]
+                      - generic [ref=e710]: Backtesting
+                    - link "Markets" [ref=e711] [cursor=pointer]:
+                      - /url: /markets
+                      - img [ref=e712]
+                      - generic [ref=e714]: Markets
+              - generic [ref=e718]:
+                - generic [ref=e719]:
+                  - img [ref=e720]
+                  - heading "IPO Radar" [level=3] [ref=e725]
+                  - generic [ref=e726]: PIPELINE
+                - button "Refresh IPO calendar" [ref=e727] [cursor=pointer]:
+                  - img [ref=e728]
+          - generic [ref=e743]:
+            - generic [ref=e744]:
+              - generic [ref=e745]:
+                - img [ref=e746]
+                - heading "Market Intelligence & News" [level=2] [ref=e748]
+                - generic [ref=e749]: Live
+              - paragraph [ref=e751]: Yahoo Finance, Google News, Finnhub or NewsAPI when configured — macro, earnings, and movers
+            - generic [ref=e752]:
+              - generic [ref=e753]:
+                - button "All" [ref=e754] [cursor=pointer]
+                - button "Macro" [ref=e755] [cursor=pointer]
+                - button "Earnings" [ref=e756] [cursor=pointer]
+                - button "AI Curated" [ref=e757] [cursor=pointer]
+              - combobox [ref=e758]:
+                - option "Latest" [selected]
+                - option "Most Impactful"
+                - option "Most Bullish"
+                - option "Most Bearish"
+        - generic [ref=e802]:
+          - generic [ref=e804]:
+            - generic [ref=e805]:
+              - paragraph [ref=e806]: Stay in the order book
+              - heading "Subscribe for macro briefs and product drops." [level=3] [ref=e808]
+              - paragraph [ref=e809]: Only high-signal updates from QuantTrade AI – no spam, just edge.
+            - generic [ref=e811]:
+              - generic [ref=e813]:
+                - textbox "Enter your work email" [ref=e814]
+                - generic: ⏎
+              - button "Join the tape" [ref=e815] [cursor=pointer]
+          - generic [ref=e816]:
+            - generic [ref=e817]:
+              - generic [ref=e818]:
+                - generic [ref=e819]:
+                  - generic [ref=e821]: QT
+                  - generic [ref=e822]: QuantTrade AI
+                - paragraph [ref=e823]: An AI focused stock radar for discretionary traders and systematic desks. Built for fast reads, not dashboards that fight you.
+              - generic [ref=e824]:
+                - generic [ref=e825]:
+                  - paragraph [ref=e826]: Product
+                  - list [ref=e827]:
+                    - listitem [ref=e828]: Dashboard
+                    - listitem [ref=e829]: Markets Monitor
+                    - listitem [ref=e830]: Ideas Lab
+                    - listitem [ref=e831]: Backtest Engine
+                - generic [ref=e832]:
+                  - paragraph [ref=e833]: Resources
+                  - list [ref=e834]:
+                    - listitem [ref=e835]: Changelog
+                    - listitem [ref=e836]: API Docs
+                    - listitem [ref=e837]: Security
+                - generic [ref=e838]:
+                  - paragraph [ref=e839]: Contact
+                  - list [ref=e840]:
+                    - listitem [ref=e841]: support@quanttrade.us
+                    - listitem [ref=e842]: Feedback & feature requests
+                    - listitem [ref=e843]: Partnerships
+            - paragraph [ref=e845]: "Risk Disclosure: QuantTrade AI provides market data, research tools, and AI-generated analysis for informational purposes only. Nothing on this platform constitutes personalized investment, tax, or legal advice. AI outputs may be inaccurate, delayed, or biased. Past backtest performance does not guarantee future results. Securities trading involves substantial risk of loss. You are solely responsible for all trading decisions."
+            - generic [ref=e846]:
+              - paragraph [ref=e847]:
+                - text: © 2026 QuantTrade AI. All rights reserved. Crafted by
+                - link "Yash Joshi" [ref=e848] [cursor=pointer]:
+                  - /url: https://www.github.com/YashJoshi2109
+                - text: .
+              - generic [ref=e849]:
+                - link "Privacy Policy" [ref=e850] [cursor=pointer]:
+                  - /url: /terms
+                - link "Terms of Service" [ref=e851] [cursor=pointer]:
+                  - /url: /terms
+                - link "Risk Disclosure" [ref=e852] [cursor=pointer]:
+                  - /url: /about
+  - link "Open AI Copilot" [ref=e853] [cursor=pointer]:
+    - /url: /copilot
+    - img [ref=e856]
+    - generic: AI Copilot
+  - region "Notifications"
+  - button "Open Next.js Dev Tools" [ref=e863] [cursor=pointer]:
+    - img [ref=e864]
