@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import {
@@ -25,6 +25,8 @@ import {
   fetchNotifications,
   fetchPredictionAlerts,
   markAllNotificationsRead,
+  markNotificationRead,
+  deleteNotification,
   type Notification,
   type PredictionAlert,
 } from '@/lib/api'
@@ -91,6 +93,8 @@ export default function UnifiedNotificationCenter() {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<TabId>('all')
   const [unreadComm, setUnreadComm] = useState(0)
+  const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set())
+  const [readIds, setReadIds] = useState<Set<number>>(new Set())
   const panelRef = useRef<HTMLDivElement>(null)
   const { user } = useAuth()
 
@@ -173,6 +177,28 @@ export default function UnifiedNotificationCenter() {
     try {
       await markAllNotificationsRead()
     } catch { /* silent */ }
+  }
+
+  const handleMarkOneRead = async (e: React.MouseEvent, id: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setReadIds((prev) => new Set(prev).add(id))
+    setUnreadComm((prev) => Math.max(0, prev - 1))
+    try {
+      await markNotificationRead(id)
+    } catch { /* silent */ }
+  }
+
+  const handleDeleteOne = async (e: React.MouseEvent, id: number, wasUnread: boolean) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDeletedIds((prev) => new Set(prev).add(id))
+    if (wasUnread) setUnreadComm((prev) => Math.max(0, prev - 1))
+    try {
+      await deleteNotification(id)
+    } catch {
+      setDeletedIds((prev) => { const s = new Set(prev); s.delete(id); return s })
+    }
   }
 
   const tabs: { id: TabId; label: string; count: number }[] = useMemo(() => [
@@ -276,36 +302,64 @@ export default function UnifiedNotificationCenter() {
                     </span>
                   </div>
                 )}
-                {communityNotifs.slice(0, tab === 'all' ? 5 : 15).map((n: Notification) => {
+                {communityNotifs
+                  .filter((n: Notification) => !deletedIds.has(n.id))
+                  .map((n: Notification) => ({ ...n, is_read: n.is_read || readIds.has(n.id) }))
+                  .slice(0, tab === 'all' ? 5 : 15)
+                  .map((n: Notification) => {
                   const Icon = COMM_ICONS[n.type] || Bell
                   const colorCls = COMM_COLORS[n.type] || 'text-fg-muted bg-surface-raised'
                   return (
-                    <Link
+                    <div
                       key={n.id}
-                      href={n.action_url || '/notifications'}
-                      onClick={() => setOpen(false)}
-                      className={`flex items-start gap-2.5 px-3 py-2.5 hover:bg-surface-hover transition-colors border-b border-line-subtle ${
+                      className={`flex items-stretch group border-b border-line-subtle ${
                         !n.is_read ? 'bg-cyan-500/[0.03]' : ''
                       }`}
                     >
-                      <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${colorCls}`}>
-                        <Icon className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-[12px] leading-snug ${!n.is_read ? 'text-fg-primary font-medium' : 'text-fg-secondary'}`}>
-                          {n.title}
-                        </p>
-                        {n.body && (
-                          <p className="text-[11px] text-fg-muted truncate mt-0.5">{n.body}</p>
+                      <Link
+                        href={n.action_url || '/notifications'}
+                        onClick={() => setOpen(false)}
+                        className="flex flex-1 items-start gap-2.5 px-3 py-2.5 hover:bg-surface-hover transition-colors min-w-0"
+                      >
+                        <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${colorCls}`}>
+                          <Icon className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[12px] leading-snug ${!n.is_read ? 'text-fg-primary font-medium' : 'text-fg-secondary'}`}>
+                            {n.title}
+                          </p>
+                          {n.body && (
+                            <p className="text-[11px] text-fg-muted truncate mt-0.5">{n.body}</p>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-fg-muted shrink-0 mt-0.5">
+                          {relativeTime(n.created_at)}
+                        </span>
+                        {!n.is_read && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 mt-1.5" />
                         )}
+                      </Link>
+                      <div className="flex flex-col gap-0.5 justify-center pr-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        {!n.is_read && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleMarkOneRead(e, n.id)}
+                            title="Mark as read"
+                            className="p-1 rounded text-fg-muted hover:text-cyan-300 hover:bg-surface-hover transition-colors"
+                          >
+                            <CheckCheck className="w-3 h-3" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteOne(e, n.id, !n.is_read)}
+                          title="Delete"
+                          className="p-1 rounded text-fg-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
                       </div>
-                      <span className="text-[10px] text-fg-muted shrink-0 mt-0.5">
-                        {relativeTime(n.created_at)}
-                      </span>
-                      {!n.is_read && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 mt-1.5" />
-                      )}
-                    </Link>
+                    </div>
                   )
                 })}
               </div>

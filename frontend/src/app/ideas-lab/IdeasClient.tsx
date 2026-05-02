@@ -166,7 +166,7 @@ function BasketLoader({ progress: externalProgress }: { progress?: number }) {
 
 function SkeletonCard() {
   return (
-    <div className="bg-[#0F1629]/80 border border-line-subtle/50 rounded-2xl p-5 animate-pulse">
+    <div className="bg-surface-raised border border-line-subtle/50 rounded-2xl p-5 animate-pulse">
       <div className="flex items-center gap-3 mb-4">
         <div className="h-7 w-16 bg-surface-raised rounded-full" />
         <div className="h-4 w-24 bg-surface-raised rounded" />
@@ -243,7 +243,7 @@ function IdeaCard({ idea, index }: { idea: TradeIdea; index: number }) {
       <div
         className={`
           relative overflow-hidden rounded-2xl border backdrop-blur-sm
-          bg-gradient-to-br from-[#0F1629]/90 to-[#0A0E1A]/90
+          bg-surface-raised dark:bg-gradient-to-br dark:from-[#0F1629]/90 dark:to-[#0A0E1A]/90
           ${isLong
             ? 'border-emerald-500/15 hover:border-emerald-500/30'
             : 'border-red-500/15 hover:border-red-500/30'
@@ -639,7 +639,7 @@ function BasketCard({
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-2xl border border-line-subtle/50 bg-gradient-to-br from-[#0F1629]/90 to-[#0A0E1A]/90 hover:border-cyan-500/20 transition-all duration-300"
+      className="relative overflow-hidden rounded-2xl border border-line-subtle/50 bg-surface-raised dark:bg-gradient-to-br dark:from-[#0F1629]/90 dark:to-[#0A0E1A]/90 hover:border-cyan-500/20 transition-all duration-300"
     >
       {/* Top accent */}
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500/60 via-cyan-500/40 to-transparent" />
@@ -942,7 +942,7 @@ function DesktopIdeasLab() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-[#0A0E1A] -mx-4 md:-mx-6 -my-4 md:-my-6">
+      <div className="min-h-screen bg-surface-base -mx-4 md:-mx-6 -my-4 md:-my-6">
         <div className="max-w-7xl mx-auto px-6 py-8">
 
           {/* ── Header ─────────────────────────────────────────── */}

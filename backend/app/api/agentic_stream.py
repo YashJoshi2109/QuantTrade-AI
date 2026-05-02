@@ -42,7 +42,7 @@ from app.services.copilot.router import CopilotRouter
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/copilot", tags=["agentic-copilot"])
 
-FREE_TIER_DAILY_LIMIT = 50
+FREE_TIER_DAILY_LIMIT = 5
 
 DISCLAIMER = (
     "\n\n*This is AI-generated analysis for informational purposes only. "

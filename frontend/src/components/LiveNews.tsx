@@ -108,7 +108,7 @@ function NewsCard({ item }: { item: NewsArticle }) {
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-sm text-white group-hover:text-blue-400 transition-colors line-clamp-2">
+          <h4 className="font-medium text-sm text-fg-primary group-hover:text-blue-400 transition-colors line-clamp-2">
             {item.title}
           </h4>
           {(item as any).summary && (
@@ -239,7 +239,7 @@ export default function LiveNews({
               )}
             </div>
             <div>
-              <h3 className="font-semibold text-white flex items-center gap-2">
+              <h3 className="font-semibold text-fg-primary flex items-center gap-2">
                 {symbol ? `${symbol} News` : 'Breaking Market News'}
                 <span className="text-xs text-green-400 flex items-center gap-1">
                   <Zap className="w-3 h-3" />

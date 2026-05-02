@@ -156,7 +156,7 @@ class QuoteCacheService:
             url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
             params = {
                 "interval": "1d",
-                "range": "2d"
+                "range": "5d"
             }
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",

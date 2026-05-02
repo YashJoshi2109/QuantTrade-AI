@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import AppLayout from '@/components/AppLayout'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -21,6 +21,7 @@ import {
   TrendingUp,
   Settings2,
   RefreshCw,
+  Trash2,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
@@ -29,6 +30,7 @@ import {
   fetchNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  deleteNotification,
   type Notification,
 } from '@/lib/api'
 
@@ -210,6 +212,31 @@ export default function NotificationsPage() {
     if (notification.action_url) router.push(notification.action_url)
   }
 
+  const handleMarkOneRead = async (e: React.MouseEvent, notification: Notification) => {
+    e.stopPropagation()
+    if (notification.is_read) return
+    setAllNotifications((prev) =>
+      prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n))
+    )
+    try {
+      await markNotificationRead(notification.id)
+    } catch {
+      setAllNotifications((prev) =>
+        prev.map((n) => (n.id === notification.id ? { ...n, is_read: false } : n))
+      )
+    }
+  }
+
+  const handleDelete = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation()
+    setAllNotifications((prev) => prev.filter((n) => n.id !== id))
+    try {
+      await deleteNotification(id)
+    } catch {
+      load(limit)
+    }
+  }
+
   const handleMarkAllRead = async () => {
     setMarkingAll(true)
     setAllNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
@@ -339,20 +366,20 @@ export default function NotificationsPage() {
                     const typeLabel = TYPE_LABELS[notification.type] || notification.type
 
                     return (
-                      <motion.button
+                      <motion.div
                         key={notification.id}
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, x: -20 }}
                         transition={{ duration: 0.15, delay: Math.min(i, 10) * 0.025 }}
                         onClick={() => handleClick(notification)}
-                        className={`w-full text-left rounded-xl p-3 sm:p-4 transition-all group border ${
+                        className={`relative rounded-xl transition-all group border cursor-pointer ${
                           notification.is_read
                             ? 'bg-surface-raised/60 border-line-subtle hover:bg-surface-raised hover:border-line-default'
                             : 'bg-indigo-500/[0.04] border-l-2 border-l-indigo-500 border-t border-r border-b border-indigo-500/20'
                         }`}
                       >
-                        <div className="flex gap-3 items-start">
+                        <div className="flex gap-3 items-start p-3 sm:p-4">
                           <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
                             <Icon className="w-4 h-4" />
                           </div>
@@ -381,7 +408,31 @@ export default function NotificationsPage() {
                             <ChevronRight className="w-3.5 h-3.5 text-fg-muted opacity-0 group-hover:opacity-60 transition-opacity" />
                           </div>
                         </div>
-                      </motion.button>
+                        {/* Action buttons — visible on hover */}
+                        <div
+                          className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {!notification.is_read && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleMarkOneRead(e, notification)}
+                              title="Mark as read"
+                              className="p-1.5 rounded-lg text-fg-muted hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+                            >
+                              <CheckCheck className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => handleDelete(e, notification.id)}
+                            title="Delete notification"
+                            className="p-1.5 rounded-lg text-fg-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </motion.div>
                     )
                   })}
                 </AnimatePresence>

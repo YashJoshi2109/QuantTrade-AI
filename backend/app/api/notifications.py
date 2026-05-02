@@ -150,6 +150,27 @@ async def mark_all_read(
     return {"message": f"Marked {updated} notifications as read"}
 
 
+@router.delete("/notifications/{notification_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_notification(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Delete a single notification."""
+    notification = (
+        db.query(Notification)
+        .filter(Notification.id == notification_id, Notification.user_id == user.id)
+        .first()
+    )
+    if not notification:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Notification not found",
+        )
+    db.delete(notification)
+    db.commit()
+
+
 @router.get("/notifications/unread-count", response_model=UnreadCountResponse)
 async def get_unread_count(
     db: Session = Depends(get_db),

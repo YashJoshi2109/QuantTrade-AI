@@ -2342,6 +2342,10 @@ export async function markAllNotificationsRead() {
   await apiFetch(`${API_URL}/api/v1/notifications/read-all`, { method: 'POST' })
 }
 
+export async function deleteNotification(id: number) {
+  await apiFetch(`${API_URL}/api/v1/notifications/${id}`, { method: 'DELETE' })
+}
+
 // ── Bookmarks ──────────────────────────────────────────────────────────
 
 export async function bookmarkPost(postId: number) {

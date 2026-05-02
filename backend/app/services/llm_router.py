@@ -223,7 +223,7 @@ def record_usage_db(
         db.rollback()
 
 
-FREE_DAILY_LIMIT = 50  # Free users get 50 copilot requests per day (matches agentic_stream.py)
+FREE_DAILY_LIMIT = 5  # Free users get 5 copilot requests per day
 
 
 def is_pro_user(db: Session, user_id: int) -> bool:

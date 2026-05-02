@@ -137,7 +137,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
 
   useEffect(() => {
     void refresh(false)
-    const interval = setInterval(() => void refresh(false), 120_000)
+    const interval = setInterval(() => void refresh(false), 10_000)
     return () => clearInterval(interval)
   }, [refresh])
 
