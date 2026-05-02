@@ -72,12 +72,14 @@ class CopilotState(TypedDict):
 def supervisor_node(state: CopilotState) -> dict:
     """Route: pick active agents based on intent from routing_decision."""
     intent = state["routing_decision"].get("intent", "GENERAL_ADVICE")
+    # Support Intent enum (has .value), string enum names, and lowercase strings
     intent_str = intent.value if hasattr(intent, "value") else str(intent)
-    active = list(INTENT_TO_AGENTS.get(intent_str, ["general"]))
+    intent_key = intent_str.lower()  # normalize: "STOCK_ANALYSIS" → "stock_analysis"
+    active = list(INTENT_TO_AGENTS.get(intent_key, ["general"]))
 
     # STOCK_ANALYSIS also runs earnings agent for comprehensive coverage
     rd = state["routing_decision"]
-    if intent_str == "stock_analysis" and rd.get("use_stock_context"):
+    if intent_key == "stock_analysis" and rd.get("use_stock_context"):
         if "earnings" not in active:
             active = active + ["earnings"]
 

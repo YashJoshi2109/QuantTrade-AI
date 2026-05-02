@@ -1,0 +1,362 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "QuantTrade AI QuantTrade AI" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img "QuantTrade AI" [ref=e9]
+          - generic [ref=e10]: QuantTrade AI
+        - button "Collapse sidebar" [ref=e11] [cursor=pointer]:
+          - img [ref=e12]
+        - generic [ref=e16]:
+          - img [ref=e17]
+          - textbox "Search symbols, companies… (press /)" [ref=e20]
+        - generic [ref=e21]:
+          - group "API usage — hover for Finnhub, FMP, and cache stats" [ref=e23]:
+            - button "Click to refresh API stats" [ref=e24] [cursor=pointer]
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - generic [ref=e30]: MKT
+              - generic [ref=e31]: LOAD
+            - generic:
+              - generic: Market Status
+              - generic: Checking exchange session.
+          - generic [ref=e32]:
+            - link "About this product" [ref=e33] [cursor=pointer]:
+              - /url: /about
+              - img [ref=e34]
+            - generic:
+              - generic: About QuantTrade
+              - generic: Product scope, data sources, and operator details.
+          - button "Notifications" [ref=e38] [cursor=pointer]:
+            - img [ref=e39]
+          - generic [ref=e42]:
+            - button "Help" [ref=e43] [cursor=pointer]:
+              - img [ref=e44]
+            - generic:
+              - generic: Help
+              - generic: Shortcuts, product info, and data disclaimer.
+    - complementary [ref=e47]:
+      - generic [ref=e49]:
+        - navigation [ref=e50]:
+          - generic [ref=e51]: Navigation
+          - list [ref=e52]:
+            - listitem [ref=e53]:
+              - link "Dashboard" [ref=e54] [cursor=pointer]:
+                - /url: /
+                - img [ref=e55]
+                - generic [ref=e60]: Dashboard
+            - listitem [ref=e61]:
+              - link "AI Copilot" [ref=e62] [cursor=pointer]:
+                - /url: /copilot
+                - img [ref=e63]
+                - generic [ref=e65]: AI Copilot
+            - listitem [ref=e66]:
+              - link "Global Monitor" [ref=e67] [cursor=pointer]:
+                - /url: /monitor
+                - img [ref=e69]
+                - generic [ref=e72]: Global Monitor
+                - img [ref=e73]
+            - listitem [ref=e75]:
+              - link "Markets" [ref=e76] [cursor=pointer]:
+                - /url: /markets
+                - img [ref=e77]
+                - generic [ref=e80]: Markets
+            - listitem [ref=e81]:
+              - link "Watchlist" [ref=e82] [cursor=pointer]:
+                - /url: /watchlist
+                - img [ref=e83]
+                - generic [ref=e85]: Watchlist
+            - listitem [ref=e86]:
+              - link "Research" [ref=e87] [cursor=pointer]:
+                - /url: /research
+                - img [ref=e88]
+                - generic [ref=e91]: Research
+            - listitem [ref=e92]:
+              - link "Backtest" [ref=e93] [cursor=pointer]:
+                - /url: /backtest
+                - img [ref=e94]
+                - generic [ref=e96]: Backtest
+            - listitem [ref=e97]:
+              - link "Ideas Lab" [ref=e98] [cursor=pointer]:
+                - /url: /ideas-lab
+                - img [ref=e99]
+                - generic [ref=e101]: Ideas Lab
+            - listitem [ref=e102]:
+              - link "MLOps" [ref=e103] [cursor=pointer]:
+                - /url: /mlops
+                - img [ref=e104]
+                - generic [ref=e107]: MLOps
+            - listitem [ref=e108]:
+              - link "Community" [ref=e109] [cursor=pointer]:
+                - /url: /community
+                - img [ref=e110]
+                - generic [ref=e112]: Community
+            - listitem [ref=e113]:
+              - link "Notifications" [ref=e114] [cursor=pointer]:
+                - /url: /notifications
+                - img [ref=e115]
+                - generic [ref=e118]: Notifications
+            - listitem [ref=e119]:
+              - link "CoinRealm" [ref=e120] [cursor=pointer]:
+                - /url: /game
+                - img [ref=e121]
+                - generic [ref=e130]: CoinRealm
+            - listitem [ref=e131]:
+              - link "Pricing" [ref=e132] [cursor=pointer]:
+                - /url: /pricing
+                - img [ref=e133]
+                - generic [ref=e135]: Pricing
+            - listitem [ref=e136]:
+              - link "Settings" [ref=e137] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e138]
+                - generic [ref=e141]: Settings
+        - link "Sign In Access all features" [ref=e143] [cursor=pointer]:
+          - /url: /auth
+          - img [ref=e145]
+          - generic [ref=e148]:
+            - generic [ref=e149]: Sign In
+            - generic [ref=e150]: Access all features
+    - main [ref=e151]:
+      - generic [ref=e152]:
+        - generic [ref=e153]:
+          - generic [ref=e154]:
+            - generic [ref=e156]:
+              - generic [ref=e157]:
+                - generic [ref=e158]: 🇺🇸
+                - generic [ref=e159]:
+                  - generic [ref=e161]: New York
+                  - generic [ref=e163]: "--:--:--"
+              - generic [ref=e164]:
+                - generic [ref=e165]: 🇬🇧
+                - generic [ref=e166]:
+                  - generic [ref=e168]: London
+                  - generic [ref=e170]: "--:--:--"
+              - generic [ref=e171]:
+                - generic [ref=e172]: 🇮🇳
+                - generic [ref=e173]:
+                  - generic [ref=e175]: Mumbai
+                  - generic [ref=e177]: "--:--:--"
+              - generic [ref=e178]:
+                - generic [ref=e179]: 🇦🇪
+                - generic [ref=e180]:
+                  - generic [ref=e182]: Dubai
+                  - generic [ref=e184]: "--:--:--"
+              - generic [ref=e185]:
+                - generic [ref=e186]: 🇯🇵
+                - generic [ref=e187]:
+                  - generic [ref=e189]: Tokyo
+                  - generic [ref=e191]: "--:--:--"
+              - generic [ref=e192]:
+                - generic [ref=e193]: 🇦🇺
+                - generic [ref=e194]:
+                  - generic [ref=e196]: Sydney
+                  - generic [ref=e198]: "--:--:--"
+            - generic [ref=e200]:
+              - generic [ref=e202]:
+                - img "QuantTrade AI" [ref=e204]
+                - generic [ref=e206]:
+                  - img [ref=e207]
+                  - heading "GLOBAL MONITOR" [level=1] [ref=e210]
+                  - img [ref=e211]
+              - generic [ref=e216]:
+                - generic [ref=e217] [cursor=pointer]:
+                  - button "24H" [ref=e218]
+                  - button "3D" [ref=e219]
+                  - button "7D" [ref=e220]
+                  - button "30D" [ref=e221]
+                - generic [ref=e222] [cursor=pointer]:
+                  - button "🌐 Globe" [ref=e223]
+                  - button "🗺 Map" [ref=e224]
+                  - button "🌍 HD" [ref=e225]
+                - button "Layers 12/12" [ref=e226] [cursor=pointer]:
+                  - img [ref=e227]
+                  - text: Layers
+                  - generic [ref=e229]: 12/12
+                - button "Refresh" [ref=e230] [cursor=pointer]:
+                  - img [ref=e231]
+                - button "ROTATING" [ref=e236] [cursor=pointer]:
+                  - img [ref=e237]
+                  - text: ROTATING
+                - button "Expand globe" [ref=e239] [cursor=pointer]:
+                  - img [ref=e240]
+            - generic [ref=e247]:
+              - img [ref=e248]
+              - generic [ref=e249]: IMPACT WATCH
+          - generic [ref=e251]:
+            - generic [ref=e253]:
+              - generic [ref=e254]:
+                - generic [ref=e255]:
+                  - generic [ref=e256]:
+                    - img [ref=e257]
+                    - generic [ref=e263]: Live Events
+                  - generic [ref=e264]: 0 active
+                - generic [ref=e265]: No events in current filter
+              - generic [ref=e266]:
+                - button "Expand" [ref=e268] [cursor=pointer]:
+                  - img [ref=e269]
+                - generic [ref=e274]:
+                  - img [ref=e278]
+                  - paragraph [ref=e281]: LOADING INTELLIGENCE DATA
+              - generic [ref=e285]:
+                - generic [ref=e286]:
+                  - generic [ref=e287]:
+                    - img [ref=e288]
+                    - generic [ref=e291]: GLOBAL INTELLIGENCE
+                    - generic [ref=e292]: LIVE
+                  - paragraph [ref=e294]: Click any event or country on the globe
+                - generic [ref=e296]:
+                  - img [ref=e297]
+                  - paragraph [ref=e300]: Loading intelligence data...
+            - generic [ref=e301]:
+              - generic [ref=e302]:
+                - generic [ref=e303]:
+                  - img [ref=e304]
+                  - generic [ref=e306]: Market Radar
+                - generic [ref=e309]: MARKET RADAR
+              - generic [ref=e314]:
+                - generic [ref=e315]:
+                  - img [ref=e316]
+                  - generic [ref=e319]: Economic Indicators
+                - generic [ref=e321]:
+                  - generic [ref=e322]: ECONOMIC INDICATORS
+                  - generic [ref=e323]:
+                    - button "📊 Indicators" [ref=e324] [cursor=pointer]:
+                      - generic [ref=e325]: 📊
+                      - text: Indicators
+                    - button "🛢️ Oil" [ref=e326] [cursor=pointer]:
+                      - generic [ref=e327]: 🛢️
+                      - text: Oil
+                    - button "🏛️ Gov" [ref=e328] [cursor=pointer]:
+                      - generic [ref=e329]: 🏛️
+                      - text: Gov
+                    - button "🏦 Central Banks" [ref=e330] [cursor=pointer]:
+                      - generic [ref=e331]: 🏦
+                      - text: Central Banks
+              - generic [ref=e338]:
+                - generic [ref=e339]:
+                  - img [ref=e340]
+                  - generic [ref=e342]: Prediction Markets
+                - generic [ref=e344]:
+                  - generic [ref=e345]:
+                    - generic [ref=e346]:
+                      - generic [ref=e347]: PREDICTIONS
+                      - generic [ref=e348]:
+                        - img [ref=e349]
+                        - text: LIVE
+                    - generic [ref=e351]: Polymarket
+                  - generic [ref=e352]:
+                    - button "Stocks & Finance" [ref=e353] [cursor=pointer]:
+                      - img [ref=e354]
+                      - text: Stocks & Finance
+                    - button "Trending Predictions" [ref=e357] [cursor=pointer]:
+                      - img [ref=e358]
+                      - text: Trending Predictions
+              - generic [ref=e366]:
+                - generic [ref=e367]:
+                  - img [ref=e368]
+                  - generic [ref=e372]: Commodities
+                - generic [ref=e375]:
+                  - generic [ref=e376]:
+                    - img [ref=e377]
+                    - generic [ref=e378]: COMMODITIES & VOLATILITY
+                  - generic [ref=e379]: LIVE
+              - generic [ref=e385]:
+                - generic [ref=e386]:
+                  - img [ref=e387]
+                  - generic [ref=e389]: Trade & Policy
+                - generic [ref=e392]:
+                  - generic [ref=e393]: TRADE POLICY
+                  - generic [ref=e394]: WTO / GDELT
+              - generic [ref=e402]:
+                - generic [ref=e403]:
+                  - img [ref=e404]
+                  - generic [ref=e406]: Strategic Risk
+                - generic [ref=e409]:
+                  - generic [ref=e410]:
+                    - generic [ref=e411]: STRATEGIC RISK OVERVIEW
+                    - generic [ref=e412]: LIVE
+                  - generic [ref=e413]: ACLED
+              - generic [ref=e419]:
+                - generic [ref=e420]:
+                  - img [ref=e421]
+                  - generic [ref=e424]: Security Advisories
+                - generic [ref=e427]:
+                  - generic [ref=e428]:
+                    - img [ref=e429]
+                    - generic [ref=e431]: SECURITY & INFRASTRUCTURE
+                  - generic [ref=e432]: MONITORING
+              - generic [ref=e438]:
+                - img [ref=e439]
+                - generic [ref=e442]: World News
+                - generic [ref=e443]: LIVE
+            - generic [ref=e464]:
+              - generic [ref=e465]: "DATA:"
+              - generic [ref=e466]: ACLED (conflict)
+              - generic [ref=e468]: GDELT (news/events)
+              - generic [ref=e470]: USGS (earthquakes)
+              - generic [ref=e472]: OpenSky (ADS-B aviation)
+              - generic [ref=e474]: AIS Stream (maritime)
+              - generic [ref=e476]: EIA (energy/pipelines)
+              - generic [ref=e478]: Polymarket (prediction)
+              - generic [ref=e480]: All geopolitical data is provided for informational purposes only.
+        - generic [ref=e482]:
+          - generic [ref=e484]:
+            - generic [ref=e485]:
+              - paragraph [ref=e486]: Stay in the order book
+              - heading "Subscribe for macro briefs and product drops." [level=3] [ref=e488]
+              - paragraph [ref=e489]: Only high-signal updates from QuantTrade AI – no spam, just edge.
+            - generic [ref=e491]:
+              - generic [ref=e493]:
+                - textbox "Enter your work email" [ref=e494]
+                - generic: ⏎
+              - button "Join the tape" [ref=e495] [cursor=pointer]
+          - generic [ref=e496]:
+            - generic [ref=e497]:
+              - generic [ref=e498]:
+                - generic [ref=e499]:
+                  - generic [ref=e501]: QT
+                  - generic [ref=e502]: QuantTrade AI
+                - paragraph [ref=e503]: An AI focused stock radar for discretionary traders and systematic desks. Built for fast reads, not dashboards that fight you.
+              - generic [ref=e504]:
+                - generic [ref=e505]:
+                  - paragraph [ref=e506]: Product
+                  - list [ref=e507]:
+                    - listitem [ref=e508]: Dashboard
+                    - listitem [ref=e509]: Markets Monitor
+                    - listitem [ref=e510]: Ideas Lab
+                    - listitem [ref=e511]: Backtest Engine
+                - generic [ref=e512]:
+                  - paragraph [ref=e513]: Resources
+                  - list [ref=e514]:
+                    - listitem [ref=e515]: Changelog
+                    - listitem [ref=e516]: API Docs
+                    - listitem [ref=e517]: Security
+                - generic [ref=e518]:
+                  - paragraph [ref=e519]: Contact
+                  - list [ref=e520]:
+                    - listitem [ref=e521]: support@quanttrade.us
+                    - listitem [ref=e522]: Feedback & feature requests
+                    - listitem [ref=e523]: Partnerships
+            - paragraph [ref=e525]: "Risk Disclosure: QuantTrade AI provides market data, research tools, and AI-generated analysis for informational purposes only. Nothing on this platform constitutes personalized investment, tax, or legal advice. AI outputs may be inaccurate, delayed, or biased. Past backtest performance does not guarantee future results. Securities trading involves substantial risk of loss. You are solely responsible for all trading decisions."
+            - generic [ref=e526]:
+              - paragraph [ref=e527]:
+                - text: © 2026 QuantTrade AI. All rights reserved. Crafted by
+                - link "Yash Joshi" [ref=e528] [cursor=pointer]:
+                  - /url: https://www.github.com/YashJoshi2109
+                - text: .
+              - generic [ref=e529]:
+                - link "Privacy Policy" [ref=e530] [cursor=pointer]:
+                  - /url: /terms
+                - link "Terms of Service" [ref=e531] [cursor=pointer]:
+                  - /url: /terms
+                - link "Risk Disclosure" [ref=e532] [cursor=pointer]:
+                  - /url: /about
+  - link "Open AI Copilot" [ref=e533] [cursor=pointer]:
+    - /url: /copilot
+    - img [ref=e536]
+    - generic: AI Copilot
+  - region "Notifications"
+  - button "Open Next.js Dev Tools" [ref=e543] [cursor=pointer]:
+    - img [ref=e544]

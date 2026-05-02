@@ -159,6 +159,7 @@ class Settings(BaseSettings):
     VECTOR_STORE_BACKEND: str = "pgvector"  # or "qdrant"
     QDRANT_URL: str = "http://localhost:6333"
     QDRANT_API_KEY: Optional[str] = None
+    COHERE_API_KEY: Optional[str] = None  # Reranking (Cohere Rerank v3)
     CHROMA_PERSIST_DIR: str = "./chroma_db"
     
     # Celery/Redis

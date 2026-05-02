@@ -1,0 +1,655 @@
+- generic [active] [ref=e11]:
+  - generic [ref=e13]:
+    - generic [ref=e17]:
+      - generic [ref=e18] [cursor=pointer]:
+        - generic [ref=e19]:
+          - generic [ref=e20]: ^GSPC
+          - generic [ref=e21]: S&P 500
+        - generic [ref=e22]: $7230.12
+        - generic [ref=e23]:
+          - img [ref=e24]
+          - text: +0.29%
+      - generic [ref=e27] [cursor=pointer]:
+        - generic [ref=e28]:
+          - generic [ref=e29]: ^IXIC
+          - generic [ref=e30]: NASDAQ Composite
+        - generic [ref=e31]: $25114.44
+        - generic [ref=e32]:
+          - img [ref=e33]
+          - text: +0.89%
+      - generic [ref=e36] [cursor=pointer]:
+        - generic [ref=e37]:
+          - generic [ref=e38]: ^DJI
+          - generic [ref=e39]: Dow Jones Industrial Average
+        - generic [ref=e40]: $49499.27
+        - generic [ref=e41]:
+          - img [ref=e42]
+          - text: "-0.31%"
+      - generic [ref=e45] [cursor=pointer]:
+        - generic [ref=e46]:
+          - generic [ref=e47]: ^RUT
+          - generic [ref=e48]: ^RUT
+        - generic [ref=e49]: $2812.82
+        - generic [ref=e50]:
+          - img [ref=e51]
+          - text: +0.46%
+      - generic [ref=e54] [cursor=pointer]:
+        - generic [ref=e55]:
+          - generic [ref=e56]: ^VIX
+          - generic [ref=e57]: ^VIX
+        - generic [ref=e58]: $16.99
+        - generic [ref=e59]:
+          - img [ref=e60]
+          - text: +0.59%
+      - generic [ref=e63] [cursor=pointer]:
+        - generic [ref=e64]:
+          - generic [ref=e65]: GLD
+          - generic [ref=e66]: GLD
+        - generic [ref=e67]: $423.18
+        - generic [ref=e68]:
+          - img [ref=e69]
+          - text: "-0.11%"
+      - generic [ref=e72] [cursor=pointer]:
+        - generic [ref=e73]:
+          - generic [ref=e74]: USO
+          - generic [ref=e75]: USO
+        - generic [ref=e76]: $142.80
+        - generic [ref=e77]:
+          - img [ref=e78]
+          - text: "-2.92%"
+      - generic [ref=e81] [cursor=pointer]:
+        - generic [ref=e82]:
+          - generic [ref=e83]: TLT
+          - generic [ref=e84]: 20+ Year Treasury ETF
+        - generic [ref=e85]: $85.61
+        - generic [ref=e86]:
+          - img [ref=e87]
+          - text: "-0.01%"
+      - generic [ref=e90] [cursor=pointer]:
+        - generic [ref=e91]:
+          - generic [ref=e92]: XLF
+          - generic [ref=e93]: Financial Sector SPDR
+        - generic [ref=e94]: $51.92
+        - generic [ref=e95]:
+          - img [ref=e96]
+          - text: "-0.40%"
+      - generic [ref=e99] [cursor=pointer]:
+        - generic [ref=e100]:
+          - generic [ref=e101]: XLE
+          - generic [ref=e102]: Energy Sector SPDR
+        - generic [ref=e103]: $58.85
+        - generic [ref=e104]:
+          - img [ref=e105]
+          - text: "-1.34%"
+      - link "SEE Sealed Air Corp $42.15 +0.02%" [ref=e108] [cursor=pointer]:
+        - /url: /research?symbol=SEE
+        - generic [ref=e109]:
+          - generic [ref=e110]:
+            - generic [ref=e111]: SEE
+            - generic [ref=e112]: Sealed Air Corp
+          - generic [ref=e113]: $42.15
+          - generic [ref=e114]:
+            - img [ref=e115]
+            - text: +0.02%
+      - link "K Kellanova $83.44 -0.01%" [ref=e118] [cursor=pointer]:
+        - /url: /research?symbol=K
+        - generic [ref=e119]:
+          - generic [ref=e120]:
+            - generic [ref=e121]: K
+            - generic [ref=e122]: Kellanova
+          - generic [ref=e123]: $83.44
+          - generic [ref=e124]:
+            - img [ref=e125]
+            - text: "-0.01%"
+      - generic [ref=e1053] [cursor=pointer]:
+        - generic [ref=e1054]:
+          - generic [ref=e1055]: Technology
+          - generic [ref=e1056]: Sector · Technology
+        - generic [ref=e1057]:
+          - img [ref=e1058]
+          - text: +0.00%
+      - generic [ref=e1061] [cursor=pointer]:
+        - generic [ref=e1062]:
+          - generic [ref=e1063]: Healthcare
+          - generic [ref=e1064]: Sector · Healthcare
+        - generic [ref=e1065]:
+          - img [ref=e1066]
+          - text: +0.00%
+      - generic [ref=e1069] [cursor=pointer]:
+        - generic [ref=e1070]:
+          - generic [ref=e1071]: Financials
+          - generic [ref=e1072]: Sector · Financials
+        - generic [ref=e1073]:
+          - img [ref=e1074]
+          - text: +0.00%
+      - generic [ref=e1077] [cursor=pointer]:
+        - generic [ref=e1078]:
+          - generic [ref=e1079]: Consumer Cyclical
+          - generic [ref=e1080]: Sector · Consumer Cyclical
+        - generic [ref=e1081]:
+          - img [ref=e1082]
+          - text: +0.00%
+      - generic [ref=e1085] [cursor=pointer]:
+        - generic [ref=e1086]:
+          - generic [ref=e1087]: Communication Services
+          - generic [ref=e1088]: Sector · Communication Services
+        - generic [ref=e1089]:
+          - img [ref=e1090]
+          - text: +0.00%
+      - generic [ref=e1093] [cursor=pointer]:
+        - generic [ref=e1094]:
+          - generic [ref=e1095]: Industrials
+          - generic [ref=e1096]: Sector · Industrials
+        - generic [ref=e1097]:
+          - img [ref=e1098]
+          - text: +0.00%
+      - generic [ref=e176] [cursor=pointer]:
+        - generic [ref=e177]:
+          - generic [ref=e178]: ^GSPC
+          - generic [ref=e179]: S&P 500
+        - generic [ref=e180]: $7230.12
+        - generic [ref=e181]:
+          - img [ref=e182]
+          - text: +0.29%
+      - generic [ref=e185] [cursor=pointer]:
+        - generic [ref=e186]:
+          - generic [ref=e187]: ^IXIC
+          - generic [ref=e188]: NASDAQ Composite
+        - generic [ref=e189]: $25114.44
+        - generic [ref=e190]:
+          - img [ref=e191]
+          - text: +0.89%
+      - generic [ref=e194] [cursor=pointer]:
+        - generic [ref=e195]:
+          - generic [ref=e196]: ^DJI
+          - generic [ref=e197]: Dow Jones Industrial Average
+        - generic [ref=e198]: $49499.27
+        - generic [ref=e199]:
+          - img [ref=e200]
+          - text: "-0.31%"
+      - generic [ref=e203] [cursor=pointer]:
+        - generic [ref=e204]:
+          - generic [ref=e205]: ^RUT
+          - generic [ref=e206]: ^RUT
+        - generic [ref=e207]: $2812.82
+        - generic [ref=e208]:
+          - img [ref=e209]
+          - text: +0.46%
+      - generic [ref=e212] [cursor=pointer]:
+        - generic [ref=e213]:
+          - generic [ref=e214]: ^VIX
+          - generic [ref=e215]: ^VIX
+        - generic [ref=e216]: $16.99
+        - generic [ref=e217]:
+          - img [ref=e218]
+          - text: +0.59%
+      - generic [ref=e221] [cursor=pointer]:
+        - generic [ref=e222]:
+          - generic [ref=e223]: GLD
+          - generic [ref=e224]: GLD
+        - generic [ref=e225]: $423.18
+        - generic [ref=e226]:
+          - img [ref=e227]
+          - text: "-0.11%"
+      - generic [ref=e230] [cursor=pointer]:
+        - generic [ref=e231]:
+          - generic [ref=e232]: USO
+          - generic [ref=e233]: USO
+        - generic [ref=e234]: $142.80
+        - generic [ref=e235]:
+          - img [ref=e236]
+          - text: "-2.92%"
+      - generic [ref=e239] [cursor=pointer]:
+        - generic [ref=e240]:
+          - generic [ref=e241]: TLT
+          - generic [ref=e242]: 20+ Year Treasury ETF
+        - generic [ref=e243]: $85.61
+        - generic [ref=e244]:
+          - img [ref=e245]
+          - text: "-0.01%"
+      - generic [ref=e248] [cursor=pointer]:
+        - generic [ref=e249]:
+          - generic [ref=e250]: XLF
+          - generic [ref=e251]: Financial Sector SPDR
+        - generic [ref=e252]: $51.92
+        - generic [ref=e253]:
+          - img [ref=e254]
+          - text: "-0.40%"
+      - generic [ref=e257] [cursor=pointer]:
+        - generic [ref=e258]:
+          - generic [ref=e259]: XLE
+          - generic [ref=e260]: Energy Sector SPDR
+        - generic [ref=e261]: $58.85
+        - generic [ref=e262]:
+          - img [ref=e263]
+          - text: "-1.34%"
+      - link "SEE Sealed Air Corp $42.15 +0.02%" [ref=e266] [cursor=pointer]:
+        - /url: /research?symbol=SEE
+        - generic [ref=e267]:
+          - generic [ref=e268]:
+            - generic [ref=e269]: SEE
+            - generic [ref=e270]: Sealed Air Corp
+          - generic [ref=e271]: $42.15
+          - generic [ref=e272]:
+            - img [ref=e273]
+            - text: +0.02%
+      - link "K Kellanova $83.44 -0.01%" [ref=e276] [cursor=pointer]:
+        - /url: /research?symbol=K
+        - generic [ref=e277]:
+          - generic [ref=e278]:
+            - generic [ref=e279]: K
+            - generic [ref=e280]: Kellanova
+          - generic [ref=e281]: $83.44
+          - generic [ref=e282]:
+            - img [ref=e283]
+            - text: "-0.01%"
+      - generic [ref=e1101] [cursor=pointer]:
+        - generic [ref=e1102]:
+          - generic [ref=e1103]: Technology
+          - generic [ref=e1104]: Sector · Technology
+        - generic [ref=e1105]:
+          - img [ref=e1106]
+          - text: +0.00%
+      - generic [ref=e1109] [cursor=pointer]:
+        - generic [ref=e1110]:
+          - generic [ref=e1111]: Healthcare
+          - generic [ref=e1112]: Sector · Healthcare
+        - generic [ref=e1113]:
+          - img [ref=e1114]
+          - text: +0.00%
+      - generic [ref=e1117] [cursor=pointer]:
+        - generic [ref=e1118]:
+          - generic [ref=e1119]: Financials
+          - generic [ref=e1120]: Sector · Financials
+        - generic [ref=e1121]:
+          - img [ref=e1122]
+          - text: +0.00%
+      - generic [ref=e1125] [cursor=pointer]:
+        - generic [ref=e1126]:
+          - generic [ref=e1127]: Consumer Cyclical
+          - generic [ref=e1128]: Sector · Consumer Cyclical
+        - generic [ref=e1129]:
+          - img [ref=e1130]
+          - text: +0.00%
+      - generic [ref=e1133] [cursor=pointer]:
+        - generic [ref=e1134]:
+          - generic [ref=e1135]: Communication Services
+          - generic [ref=e1136]: Sector · Communication Services
+        - generic [ref=e1137]:
+          - img [ref=e1138]
+          - text: +0.00%
+      - generic [ref=e1141] [cursor=pointer]:
+        - generic [ref=e1142]:
+          - generic [ref=e1143]: Industrials
+          - generic [ref=e1144]: Sector · Industrials
+        - generic [ref=e1145]:
+          - img [ref=e1146]
+          - text: +0.00%
+    - banner [ref=e334]:
+      - generic [ref=e336]:
+        - link "QuantTrade AI QuantTrade AI" [ref=e337] [cursor=pointer]:
+          - /url: /
+          - img "QuantTrade AI" [ref=e339]
+          - generic [ref=e340]: QuantTrade AI
+        - button "Collapse sidebar" [ref=e341] [cursor=pointer]:
+          - img [ref=e342]
+        - generic [ref=e346]:
+          - img [ref=e347]
+          - textbox "Search symbols, companies… (press /)" [ref=e350]
+        - generic [ref=e351]:
+          - group "API usage — hover for Finnhub, FMP, and cache stats" [ref=e353]:
+            - button "59/60" [ref=e878] [cursor=pointer]:
+              - generic [ref=e355]:
+                - img [ref=e356]
+                - generic [ref=e358]: 59/60
+                - img [ref=e359]
+          - generic [ref=e364]:
+            - generic [ref=e365]:
+              - generic [ref=e367]: MKT
+              - generic [ref=e368]: CLOSED
+            - generic:
+              - generic: Market Status
+              - generic: NYSE + NASDAQ session is CLOSED.
+          - generic [ref=e369]:
+            - link "About this product" [ref=e370] [cursor=pointer]:
+              - /url: /about
+              - img [ref=e371]
+            - generic:
+              - generic: About QuantTrade
+              - generic: Product scope, data sources, and operator details.
+          - button "3 notifications" [ref=e380] [cursor=pointer]:
+            - img [ref=e381]
+            - generic [ref=e384]: "3"
+          - generic [ref=e385]:
+            - button "Help" [ref=e386] [cursor=pointer]:
+              - img [ref=e387]
+            - generic:
+              - generic: Help
+              - generic: Shortcuts, product info, and data disclaimer.
+    - complementary [ref=e390]:
+      - generic [ref=e392]:
+        - navigation [ref=e393]:
+          - generic [ref=e394]: Navigation
+          - list [ref=e395]:
+            - listitem [ref=e396]:
+              - link "Dashboard" [ref=e397] [cursor=pointer]:
+                - /url: /
+                - img [ref=e398]
+                - generic [ref=e403]: Dashboard
+            - listitem [ref=e404]:
+              - link "AI Copilot" [ref=e405] [cursor=pointer]:
+                - /url: /copilot
+                - img [ref=e407]
+                - generic [ref=e409]: AI Copilot
+                - img [ref=e410]
+            - listitem [ref=e412]:
+              - link "Global Monitor" [ref=e413] [cursor=pointer]:
+                - /url: /monitor
+                - img [ref=e414]
+                - generic [ref=e417]: Global Monitor
+            - listitem [ref=e418]:
+              - link "Markets" [ref=e419] [cursor=pointer]:
+                - /url: /markets
+                - img [ref=e420]
+                - generic [ref=e423]: Markets
+            - listitem [ref=e424]:
+              - link "Watchlist" [ref=e425] [cursor=pointer]:
+                - /url: /watchlist
+                - img [ref=e426]
+                - generic [ref=e428]: Watchlist
+            - listitem [ref=e429]:
+              - link "Research" [ref=e430] [cursor=pointer]:
+                - /url: /research
+                - img [ref=e431]
+                - generic [ref=e434]: Research
+            - listitem [ref=e435]:
+              - link "Backtest" [ref=e436] [cursor=pointer]:
+                - /url: /backtest
+                - img [ref=e437]
+                - generic [ref=e439]: Backtest
+            - listitem [ref=e440]:
+              - link "Ideas Lab" [ref=e441] [cursor=pointer]:
+                - /url: /ideas-lab
+                - img [ref=e442]
+                - generic [ref=e444]: Ideas Lab
+            - listitem [ref=e445]:
+              - link "MLOps" [ref=e446] [cursor=pointer]:
+                - /url: /mlops
+                - img [ref=e447]
+                - generic [ref=e450]: MLOps
+            - listitem [ref=e451]:
+              - link "Community" [ref=e452] [cursor=pointer]:
+                - /url: /community
+                - img [ref=e453]
+                - generic [ref=e455]: Community
+            - listitem [ref=e456]:
+              - link "Notifications" [ref=e457] [cursor=pointer]:
+                - /url: /notifications
+                - img [ref=e458]
+                - generic [ref=e461]: Notifications
+            - listitem [ref=e462]:
+              - link "CoinRealm" [ref=e463] [cursor=pointer]:
+                - /url: /game
+                - img [ref=e464]
+                - generic [ref=e473]: CoinRealm
+            - listitem [ref=e474]:
+              - link "Pricing" [ref=e475] [cursor=pointer]:
+                - /url: /pricing
+                - img [ref=e476]
+                - generic [ref=e478]: Pricing
+            - listitem [ref=e479]:
+              - link "Settings" [ref=e480] [cursor=pointer]:
+                - /url: /settings
+                - img [ref=e481]
+                - generic [ref=e484]: Settings
+        - generic [ref=e486]:
+          - generic [ref=e489]: SP
+          - generic [ref=e491]:
+            - generic [ref=e492]: spiderman
+            - button "Sign Out" [ref=e493] [cursor=pointer]:
+              - img [ref=e494]
+              - text: Sign Out
+    - main [ref=e497]:
+      - generic [ref=e499]:
+        - generic [ref=e500]:
+          - generic [ref=e502]:
+            - generic [ref=e503]:
+              - button "Chat History" [ref=e504] [cursor=pointer]:
+                - img [ref=e505]
+              - img [ref=e510]
+              - generic:
+                - generic:
+                  - heading "AI Copilot" [level=1]
+                  - paragraph: RAG + Quant Models + GROQ LLM
+            - generic [ref=e517]:
+              - generic [ref=e518]:
+                - img [ref=e519]
+                - generic [ref=e522]: Llama 3.3 70B
+              - button "5/5" [ref=e524] [cursor=pointer]:
+                - generic [ref=e526]: 5/5
+                - img [ref=e527]
+              - generic [ref=e529]:
+                - img [ref=e530]
+                - generic [ref=e532]: SPY
+                - generic [ref=e533]: $720.65
+                - generic [ref=e534]: +0.28%
+              - button "Evening · location optional · Tap for light mode" [ref=e535] [cursor=pointer]:
+                - img [ref=e537]
+              - button "New conversation" [ref=e551] [cursor=pointer]:
+                - img [ref=e552]
+          - generic [ref=e691]:
+            - generic [ref=e692]:
+              - img [ref=e694]
+              - paragraph [ref=e699]: What are the key risk factors for TSLA from their SEC filings?
+            - generic [ref=e787]:
+              - img [ref=e789]
+              - generic [ref=e792]:
+                - generic [ref=e794]:
+                  - paragraph [ref=e1149]: I'm unable to provide specific risk factors for Tesla (TSLA) from their SEC filings as the data provided does not include any information on Tesla. To obtain the most accurate and up-to-date risk factors for Tesla, I recommend reviewing their latest 10-K or 10-Q filings available on the SEC's EDGAR database. These documents typically contain a section dedicated to risk factors that detail the potential challenges and uncertainties the company faces.
+                  - paragraph [ref=e1150]: "Risk Disclaimer: Investing in stocks involves risks, including the loss of principal. Always conduct thorough research and consider your financial situation before making investment decisions."
+                - generic [ref=e797]:
+                  - paragraph [ref=e798]:
+                    - img [ref=e799]
+                    - text: 6 SEC sources
+                  - generic [ref=e802]:
+                    - button "1 AAPL 10-Q Risk Factors 2024-05-03" [ref=e803] [cursor=pointer]:
+                      - generic [ref=e804]:
+                        - generic [ref=e805]: "1"
+                        - img [ref=e806]
+                      - generic [ref=e810]:
+                        - paragraph [ref=e811]: AAPL 10-Q
+                        - paragraph [ref=e812]: Risk Factors
+                        - paragraph [ref=e813]: 2024-05-03
+                    - button "2 AAPL 10-Q Risk Factors 2025-01-31" [ref=e814] [cursor=pointer]:
+                      - generic [ref=e815]:
+                        - generic [ref=e816]: "2"
+                        - img [ref=e817]
+                      - generic [ref=e821]:
+                        - paragraph [ref=e822]: AAPL 10-Q
+                        - paragraph [ref=e823]: Risk Factors
+                        - paragraph [ref=e824]: 2025-01-31
+                    - button "3 AAPL 10-Q Risk Factors 2026-01-30" [ref=e825] [cursor=pointer]:
+                      - generic [ref=e826]:
+                        - generic [ref=e827]: "3"
+                        - img [ref=e828]
+                      - generic [ref=e832]:
+                        - paragraph [ref=e833]: AAPL 10-Q
+                        - paragraph [ref=e834]: Risk Factors
+                        - paragraph [ref=e835]: 2026-01-30
+                    - button "4 GOOGL 10-Q Risk Factors 2026-04-30" [ref=e836] [cursor=pointer]:
+                      - generic [ref=e837]:
+                        - generic [ref=e838]: "4"
+                        - img [ref=e839]
+                      - generic [ref=e843]:
+                        - paragraph [ref=e844]: GOOGL 10-Q
+                        - paragraph [ref=e845]: Risk Factors
+                        - paragraph [ref=e846]: 2026-04-30
+                    - button "5 AAPL 10-Q Risk Factors 2026-05-01" [ref=e847] [cursor=pointer]:
+                      - generic [ref=e848]:
+                        - generic [ref=e849]: "5"
+                        - img [ref=e850]
+                      - generic [ref=e854]:
+                        - paragraph [ref=e855]: AAPL 10-Q
+                        - paragraph [ref=e856]: Risk Factors
+                        - paragraph [ref=e857]: 2026-05-01
+                    - button "6 AAPL 10-Q Risk Factors 2025-05-02" [ref=e858] [cursor=pointer]:
+                      - generic [ref=e859]:
+                        - generic [ref=e860]: "6"
+                        - img [ref=e861]
+                      - generic [ref=e865]:
+                        - paragraph [ref=e866]: AAPL 10-Q
+                        - paragraph [ref=e867]: Risk Factors
+                        - paragraph [ref=e868]: 2025-05-02
+                - generic [ref=e869]:
+                  - button "Copy" [ref=e870] [cursor=pointer]:
+                    - img [ref=e871]
+                  - generic [ref=e874]: 07:43 PM
+            - generic [ref=e958]:
+              - img [ref=e960]
+              - paragraph [ref=e965]: What does NVDA's 10-K say about competition risks?
+            - generic [ref=e1151]:
+              - img [ref=e1153]
+              - generic [ref=e1156]:
+                - generic [ref=e1158]:
+                  - paragraph [ref=e1159]: "NVIDIA's 10-K filing outlines several risks related to competition that could adversely impact their market share and financial results. Key points include:"
+                  - list [ref=e1160]:
+                    - listitem [ref=e1161]:
+                      - paragraph [ref=e1162]:
+                        - strong [ref=e1163]: Intense Competition
+                        - text: ": NVIDIA operates in highly competitive markets, and competition may intensify due to expanding and changing product and service offerings, industry standards, customer and market needs, new entrants, and consolidations [Source 1]."
+                    - listitem [ref=e1164]:
+                      - paragraph [ref=e1165]:
+                        - strong [ref=e1166]: Competitor Advantages
+                        - text: ": Some competitors have their own fabrication facilities, longer operating histories, larger customer bases, more comprehensive intellectual property portfolios, and greater financial, sales, marketing, and distribution resources. These advantages may allow competitors to acquire market share more effectively and prevent NVIDIA from doing so [Source 1]."
+                    - listitem [ref=e1167]:
+                      - paragraph [ref=e1168]:
+                        - strong [ref=e1169]: Product and Service Offerings
+                        - text: ": Competitors' products, services, and technologies may be cheaper or provide better functionality or features than NVIDIA's, which could result in lower-than-expected selling prices or demand for NVIDIA's products [Source 1]."
+                    - listitem [ref=e1170]:
+                      - paragraph [ref=e1171]:
+                        - strong [ref=e1172]: Internal Development by Customers
+                        - text: ": Some of NVIDIA's customers have in-house expertise and development capabilities similar to NVIDIA's, allowing them to develop their own solutions to replace NVIDIA's offerings [Source 1]."
+                    - listitem [ref=e1173]:
+                      - paragraph [ref=e1174]:
+                        - strong [ref=e1175]: Cloud Services Competition
+                        - text: ": Other companies may offer cloud-based services that compete with NVIDIA's AI cloud service offerings, potentially impacting NVIDIA's ability to establish sufficient market share to achieve its business objectives [Source 1]."
+                  - paragraph [ref=e1176]: Overall, if NVIDIA is unable to successfully compete in this environment, demand for its products, services, and technologies could decrease, negatively impacting its business [Source 1].
+                  - paragraph [ref=e1177]:
+                    - strong [ref=e1178]: Risk Disclaimer
+                    - text: ": This analysis is based on information from NVIDIA's 10-K filing and does not constitute investment advice. Market conditions and company performance can change, impacting the relevance of this information. Always conduct your own research or consult a financial advisor before making investment decisions."
+                - generic [ref=e1179]:
+                  - paragraph [ref=e1180]:
+                    - img [ref=e1181]
+                    - text: 6 SEC sources
+                  - generic [ref=e1184]:
+                    - button "1 NVDA 10-K Risk Factors 2026-02-25" [ref=e1185] [cursor=pointer]:
+                      - generic [ref=e1186]:
+                        - generic [ref=e1187]: "1"
+                        - img [ref=e1188]
+                      - generic [ref=e1192]:
+                        - paragraph [ref=e1193]: NVDA 10-K
+                        - paragraph [ref=e1194]: Risk Factors
+                        - paragraph [ref=e1195]: 2026-02-25
+                    - button "2 NVDA 10-K Risk Factors 2026-02-25" [ref=e1196] [cursor=pointer]:
+                      - generic [ref=e1197]:
+                        - generic [ref=e1198]: "2"
+                        - img [ref=e1199]
+                      - generic [ref=e1203]:
+                        - paragraph [ref=e1204]: NVDA 10-K
+                        - paragraph [ref=e1205]: Risk Factors
+                        - paragraph [ref=e1206]: 2026-02-25
+                    - button "3 NVDA 10-K Risk Factors 2026-02-25" [ref=e1207] [cursor=pointer]:
+                      - generic [ref=e1208]:
+                        - generic [ref=e1209]: "3"
+                        - img [ref=e1210]
+                      - generic [ref=e1214]:
+                        - paragraph [ref=e1215]: NVDA 10-K
+                        - paragraph [ref=e1216]: Risk Factors
+                        - paragraph [ref=e1217]: 2026-02-25
+                    - button "4 NVDA 10-K Risk Factors 2026-02-25" [ref=e1218] [cursor=pointer]:
+                      - generic [ref=e1219]:
+                        - generic [ref=e1220]: "4"
+                        - img [ref=e1221]
+                      - generic [ref=e1225]:
+                        - paragraph [ref=e1226]: NVDA 10-K
+                        - paragraph [ref=e1227]: Risk Factors
+                        - paragraph [ref=e1228]: 2026-02-25
+                    - button "5 NVDA 10-K Risk Factors 2026-02-25" [ref=e1229] [cursor=pointer]:
+                      - generic [ref=e1230]:
+                        - generic [ref=e1231]: "5"
+                        - img [ref=e1232]
+                      - generic [ref=e1236]:
+                        - paragraph [ref=e1237]: NVDA 10-K
+                        - paragraph [ref=e1238]: Risk Factors
+                        - paragraph [ref=e1239]: 2026-02-25
+                    - button "6 NVDA 10-K Risk Factors 2026-02-25" [ref=e1240] [cursor=pointer]:
+                      - generic [ref=e1241]:
+                        - generic [ref=e1242]: "6"
+                        - img [ref=e1243]
+                      - generic [ref=e1247]:
+                        - paragraph [ref=e1248]: NVDA 10-K
+                        - paragraph [ref=e1249]: Risk Factors
+                        - paragraph [ref=e1250]: 2026-02-25
+                - generic [ref=e1251]:
+                  - button "Copy" [ref=e1252] [cursor=pointer]:
+                    - img [ref=e1253]
+                  - generic [ref=e1256]: 07:45 PM
+          - generic [ref=e631]:
+            - generic [ref=e634]:
+              - generic [ref=e636]:
+                - generic [ref=e637]:
+                  - text: "5"
+                  - generic [ref=e638]: / 5
+                  - text: free requests today
+                - generic [ref=e639]:
+                  - button "Upgrade" [ref=e640] [cursor=pointer]
+                  - button "Dismiss usage notice" [ref=e641] [cursor=pointer]:
+                    - img [ref=e642]
+              - generic [ref=e645]:
+                - textbox "Analyze any stock, compare tickers, explore sectors, assess risk..." [ref=e646]
+                - generic [ref=e647]:
+                  - generic [ref=e648]:
+                    - button "Voice input (coming soon)" [ref=e649] [cursor=pointer]:
+                      - img [ref=e650]
+                    - button "Copilot tools" [ref=e653] [cursor=pointer]:
+                      - img [ref=e654]
+                    - button "Attach (coming soon)" [ref=e657] [cursor=pointer]:
+                      - img [ref=e658]
+                  - button "Send message" [disabled] [ref=e1257]:
+                    - img [ref=e1258]
+            - paragraph [ref=e663]: "Enter to send · Shift+Enter for new line · Full pipeline: RAG → Quant → LLM · Not financial advice"
+        - generic [ref=e1018]:
+          - generic [ref=e1019]:
+            - generic [ref=e1020]:
+              - img [ref=e1021]
+              - generic [ref=e1024]: NVDA
+              - generic [ref=e1025]: Live Quote
+            - button [ref=e1026] [cursor=pointer]:
+              - img [ref=e1027]
+          - generic [ref=e1030]:
+            - generic [ref=e1031]:
+              - paragraph [ref=e1032]: $213.17
+              - generic [ref=e1033]:
+                - generic [ref=e1034]: "-3.44 (-1.59%)"
+                - generic [ref=e1035]: database
+            - generic [ref=e1036]:
+              - generic [ref=e1037]:
+                - paragraph [ref=e1038]: Open
+                - paragraph [ref=e1039]: $209.51
+              - generic [ref=e1040]:
+                - paragraph [ref=e1041]: Prev Close
+                - paragraph [ref=e1042]: $0.00
+              - generic [ref=e1043]:
+                - paragraph [ref=e1044]: High
+                - paragraph [ref=e1045]: $214.73
+              - generic [ref=e1046]:
+                - paragraph [ref=e1047]: Low
+                - paragraph [ref=e1048]: $208.20
+            - generic [ref=e1049]:
+              - paragraph [ref=e1050]: Volume
+              - paragraph [ref=e1051]: 179,415,428
+            - paragraph [ref=e1052]: Live quote · Data may be delayed · Not financial advice
+  - region "Notifications"
+  - button "Open Next.js Dev Tools" [ref=e6] [cursor=pointer]:
+    - img [ref=e7]
+  - alert [ref=e10]

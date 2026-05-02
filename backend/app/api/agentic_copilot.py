@@ -13,11 +13,10 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from app.api.auth import require_auth
 from app.config import settings
 from app.models.user import User
-from app.services.agentic.ingestion.orchestrator import (
-    run_full_ingestion,
-    get_ingestion_status,
-    IngestionStatus,
-)
+
+# Orchestrator imports sentence_transformers → torch (heavy). Import lazily so
+# gunicorn workers don't pay the torch startup cost on every boot.
+# The functions are referenced inside endpoint bodies, not at module load time.
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/copilot", tags=["agentic-copilot"])
@@ -39,22 +38,26 @@ async def trigger_ingestion(
     _user: User = Depends(_require_admin),
 ):
     """Trigger SEC filing ingestion in background. Admin only."""
+    from app.services.agentic.ingestion.orchestrator import (  # noqa: PLC0415
+        run_full_ingestion,
+        get_ingestion_status,
+    )
     status_obj = get_ingestion_status()
     if status_obj.is_running:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Ingestion already running",
         )
-    # Set is_running=True synchronously before scheduling to close the race window
     status_obj.is_running = True
 
     background_tasks.add_task(run_full_ingestion, tickers=tickers, years_back=years_back)
     return {"status": "started", "message": "Ingestion running in background"}
 
 
-@router.get("/ingest/status", response_model=IngestionStatus)
+@router.get("/ingest/status")
 async def ingestion_status(_user: User = Depends(_require_admin)):
     """Return current ingestion progress. Admin only."""
+    from app.services.agentic.ingestion.orchestrator import get_ingestion_status  # noqa: PLC0415
     return get_ingestion_status()
 
 
