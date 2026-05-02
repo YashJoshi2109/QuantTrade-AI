@@ -20,18 +20,25 @@ router = APIRouter()
 @router.get("/mlops/models")
 async def list_models():
     """List all registered models."""
-    from ml.model_registry import model_registry
-    models = model_registry.list_models()
-    result = {}
-    for name in models:
-        versions = model_registry.list_versions(name)
-        prod = model_registry.get_production_model(name)
-        result[name] = {
-            "total_versions": len(versions),
-            "production_version": prod.version if prod else None,
-            "latest_version": versions[-1].version if versions else None,
-        }
-    return {"models": result}
+    try:
+        from ml.model_registry import model_registry
+        models = model_registry.list_models()
+        result = {}
+        for name in models:
+            try:
+                versions = model_registry.list_versions(name)
+                prod = model_registry.get_production_model(name)
+                result[name] = {
+                    "total_versions": len(versions),
+                    "production_version": prod.version if prod else None,
+                    "latest_version": versions[-1].version if versions else None,
+                }
+            except Exception as e:
+                logger.warning("model_registry.list_versions(%s) failed: %s", name, e)
+        return {"models": result}
+    except Exception as e:
+        logger.warning("model_registry unavailable: %s", e)
+        return {"models": {}}
 
 
 @router.get("/mlops/models/{model_name}")
@@ -232,36 +239,61 @@ async def run_pipeline(
 
 @router.get("/mlops/overview")
 async def mlops_overview():
-    """Get a high-level MLOps dashboard summary."""
-    from ml.model_registry import model_registry
-    from ml.experiment_tracker import experiment_tracker
-    from ml.prediction_logger import prediction_logger
-    from ml.feature_store import feature_store
-    from ml.performance_monitor import performance_monitor
+    """Get a high-level MLOps dashboard summary. Each service is fault-isolated."""
+    result = {
+        "models": {"registered": 0, "production": {}},
+        "experiments": {"total_runs": 0},
+        "feature_store": {"symbols": 0, "schema_version": "v1"},
+        "predictions": {"total": 0},
+        "alerts": 0,
+        "service_errors": [],
+    }
 
-    models = model_registry.list_models()
-    prod_models = {}
-    for name in models:
-        prod = model_registry.get_production_model(name)
-        if prod:
-            prod_models[name] = {
-                "version": prod.version,
-                "stage": prod.stage,
-                "metrics": prod.metrics,
-            }
+    try:
+        from ml.model_registry import model_registry
+        models = model_registry.list_models()
+        prod_models = {}
+        for name in models:
+            try:
+                prod = model_registry.get_production_model(name)
+                if prod:
+                    prod_models[name] = {"version": prod.version, "stage": prod.stage, "metrics": prod.metrics}
+            except Exception:
+                pass
+        result["models"] = {"registered": len(models), "production": prod_models}
+    except Exception as e:
+        logger.warning("model_registry unavailable: %s", e)
+        result["service_errors"].append("model_registry")
 
-    return {
-        "models": {
-            "registered": len(models),
-            "production": prod_models,
-        },
-        "experiments": {
-            "total_runs": len(experiment_tracker.list_runs(limit=100)),
-        },
-        "feature_store": {
+    try:
+        from ml.experiment_tracker import experiment_tracker
+        result["experiments"] = {"total_runs": len(experiment_tracker.list_runs(limit=100))}
+    except Exception as e:
+        logger.warning("experiment_tracker unavailable: %s", e)
+        result["service_errors"].append("experiment_tracker")
+
+    try:
+        from ml.feature_store import feature_store
+        result["feature_store"] = {
             "symbols": len(feature_store.list_symbols()),
             "schema_version": feature_store.schema_version,
-        },
-        "predictions": prediction_logger.get_stats(),
-        "alerts": len(performance_monitor.get_alerts()),
-    }
+        }
+    except Exception as e:
+        logger.warning("feature_store unavailable: %s", e)
+        result["service_errors"].append("feature_store")
+
+    try:
+        from ml.prediction_logger import prediction_logger
+        result["predictions"] = prediction_logger.get_stats()
+    except Exception as e:
+        logger.warning("prediction_logger unavailable: %s", e)
+        result["service_errors"].append("prediction_logger")
+
+    try:
+        from ml.performance_monitor import performance_monitor
+        result["alerts"] = len(performance_monitor.get_alerts())
+    except Exception as e:
+        logger.warning("performance_monitor unavailable: %s", e)
+        result["service_errors"].append("performance_monitor")
+
+    return result
