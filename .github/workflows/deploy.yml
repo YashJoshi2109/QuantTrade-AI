@@ -416,12 +416,15 @@ jobs:
             fi
             
             # ===== WAIT AND HEALTH CHECK =====
-            # Backend has start_period=120s in compose — give it time on t3.micro
+            # Backend has start_period=120s in compose.
+            # New image loads torch/sentence-transformers lazily, but on t2.small
+            # first boot still takes ~60-90s. Wait 90s before polling.
             echo "⏳ Waiting for backend to become healthy (start_period=120s)..."
-            sleep 45
+            sleep 90
 
-            # Health check with retries — check Docker health status since port 8000 is only exposed inside the Docker network
-            for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+            # Health check with retries — 30 × 15s = 450s poll window (7.5 min)
+            # Docker healthcheck: start_period=120s, interval=20s, retries=8 → unhealthy after 280s
+            for i in $(seq 1 30); do
               CONTAINER_ID=$(docker compose -f docker-compose.prod.yml ps -q backend)
               if [ -z "$CONTAINER_ID" ]; then
                 STATUS="missing"
@@ -432,7 +435,7 @@ jobs:
                 echo "✅ Backend container is healthy!"
                 break
               fi
-              echo "Waiting for backend... (attempt $i/15, status: $STATUS)"
+              echo "Waiting for backend... (attempt $i/30, status: $STATUS)"
               docker compose -f docker-compose.prod.yml logs --tail=5 backend 2>&1 | tail -3 || true
               sleep 15
             done
@@ -441,15 +444,17 @@ jobs:
             CONTAINER_ID=$(docker compose -f docker-compose.prod.yml ps -q backend)
             FINAL_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $CONTAINER_ID 2>/dev/null || echo "unknown")
             if [ "$FINAL_STATUS" != "healthy" ]; then
-              echo "❌ Health check failed! Showing logs..."
+              echo "❌ Health check failed after 30 attempts! Dumping diagnostics..."
               docker compose -f docker-compose.prod.yml ps
-              echo "=== Backend logs ==="
-              docker compose -f docker-compose.prod.yml logs --tail=80 backend
+              echo "=== Backend logs (last 150 lines) ==="
+              docker compose -f docker-compose.prod.yml logs --tail=150 backend
               echo "=== Nginx logs ==="
               docker compose -f docker-compose.prod.yml logs --tail=30 nginx
               echo "=== Memory usage ==="
               free -m || true
               docker stats --no-stream || true
+              echo "=== dmesg OOM ==="
+              sudo dmesg | grep -i "oom\|killed process\|out of memory" | tail -20 || true
               exit 1
             fi
 
