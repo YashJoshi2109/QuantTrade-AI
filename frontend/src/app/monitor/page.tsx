@@ -300,7 +300,7 @@ function MonitorDesktop() {
                   <div>
                     <div className="flex items-center gap-2">
                       <Globe className="w-4 h-4 text-sky-400" />
-                      <h1 className="text-sm font-black text-white tracking-tight">GLOBAL MONITOR</h1>
+                      <h1 className="text-sm font-black text-fg-primary tracking-tight">GLOBAL MONITOR</h1>
                       {isLoading ? (
                         <RefreshCw className="w-3 h-3 text-sky-400 animate-spin" />
                       ) : (
