@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -15,11 +16,13 @@ import {
   Eye, CheckCircle, Loader2, TrendingUp,
   GitBranch, Package, Terminal, ArrowUpRight,
   ArrowDownRight, Hash,
-  Rocket, Target,
-  SlidersHorizontal, Sparkles,
+  Rocket, Target, Lock,
+  SlidersHorizontal, Sparkles, Search, X, ChevronUp,
+  Crown, Archive, RefreshCw,
 } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import MobileMLOps from '@/components/layout/MobileMLOps'
+import { useAuth } from '@/contexts/AuthContext'
 
 const API = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -35,12 +38,17 @@ interface OverviewData {
 
 interface TrainingRun {
   run_id: string
+  run_type?: string
   status: string
   started_at: string
   finished_at?: string
+  ended_at?: string
   total_symbols: number
+  total_shards?: number
   symbols_completed: number
   symbols_failed: number
+  success_shards?: number
+  failed_shards?: number
   shards?: any[]
   config?: any
   error?: string
@@ -649,6 +657,13 @@ function TrainingRunsTab() {
   const [shards, setShards] = useState<Record<string, any[]>>({})
   const [triggering, setTriggering] = useState(false)
   const [triggerMsg, setTriggerMsg] = useState<string | null>(null)
+  // Backfill modal
+  const [showBackfill, setShowBackfill] = useState(false)
+  const [bfSymbols, setBfSymbols] = useState('')
+  const [bfHorizons, setBfHorizons] = useState('1,7,30')
+  const [bfSubmitting, setBfSubmitting] = useState(false)
+  const [bfMsg, setBfMsg] = useState<string | null>(null)
+  const liveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchRuns = useCallback(async () => {
     setError(null)
@@ -663,6 +678,46 @@ function TrainingRunsTab() {
   }, [])
 
   useEffect(() => { fetchRuns() }, [fetchRuns])
+
+  // Live poll every 5s when any run is active
+  useEffect(() => {
+    const hasLive = runs.some(r => r.status === 'running')
+    if (hasLive && !liveIntervalRef.current) {
+      liveIntervalRef.current = setInterval(fetchRuns, 5000)
+    } else if (!hasLive && liveIntervalRef.current) {
+      clearInterval(liveIntervalRef.current)
+      liveIntervalRef.current = null
+    }
+    return () => {
+      if (liveIntervalRef.current) { clearInterval(liveIntervalRef.current); liveIntervalRef.current = null }
+    }
+  }, [runs, fetchRuns])
+
+  const triggerBackfill = async () => {
+    const symbols = bfSymbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+    if (symbols.length === 0) { setBfMsg('Enter at least one symbol'); return }
+    setBfSubmitting(true)
+    setBfMsg(null)
+    try {
+      const horizons = bfHorizons.split(',').map(Number).filter(n => !isNaN(n) && n > 0)
+      const res = await fetch(`${API}/api/v1/internal/ml/runs/backfill`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbols, horizons }),
+      })
+      if (res.ok) {
+        setBfMsg(`Backfill started for ${symbols.length} symbol${symbols.length > 1 ? 's' : ''}`)
+        setTimeout(() => { setShowBackfill(false); setBfMsg(null); setBfSymbols(''); fetchRuns() }, 1800)
+      } else {
+        const body = await res.json().catch(() => ({}))
+        setBfMsg(typeof body?.detail === 'string' ? body.detail : 'Failed to start backfill')
+      }
+    } catch {
+      setBfMsg('Network error')
+    } finally {
+      setBfSubmitting(false)
+    }
+  }
 
   const toggleExpand = async (runId: string) => {
     if (expandedRun === runId) {
@@ -722,15 +777,114 @@ function TrainingRunsTab() {
             </motion.span>
           )}
         </div>
-        <button
-          onClick={triggerRun}
-          disabled={triggering}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/30 transition-all disabled:opacity-40 w-full sm:w-auto justify-center sm:justify-start"
-        >
-          {triggering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-          {triggering ? 'Triggering...' : 'Trigger Nightly Run'}
-        </button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => setShowBackfill(true)}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/30 transition-all w-full sm:w-auto justify-center sm:justify-start"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Backfill Symbols
+          </button>
+          <button
+            onClick={triggerRun}
+            disabled={triggering}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/30 transition-all disabled:opacity-40 w-full sm:w-auto justify-center sm:justify-start"
+          >
+            {triggering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+            {triggering ? 'Triggering...' : 'Trigger Run'}
+          </button>
+        </div>
       </div>
+
+      {/* Backfill modal */}
+      <AnimatePresence>
+        {showBackfill && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowBackfill(false) }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              className="bg-surface-raised border border-line-default rounded-2xl p-6 max-w-md w-full shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-violet-500/20 border border-violet-500/30 flex items-center justify-center">
+                    <RefreshCw className="w-4 h-4 text-violet-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-fg-primary">Trigger Backfill</h3>
+                    <p className="text-[10px] text-fg-muted">Retrain specific symbols</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowBackfill(false)} className="p-1 rounded-md hover:bg-surface-hover text-fg-muted hover:text-fg-secondary transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] text-fg-muted uppercase tracking-wider block mb-1.5">Symbols (comma-separated)</label>
+                  <textarea
+                    value={bfSymbols}
+                    onChange={e => setBfSymbols(e.target.value)}
+                    placeholder="AAPL, TSLA, NVDA, MSFT"
+                    rows={3}
+                    className="w-full bg-surface-base border border-line-subtle rounded-lg px-3 py-2 text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-violet-500/50 resize-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-fg-muted uppercase tracking-wider block mb-1.5">Horizons</label>
+                  <select
+                    value={bfHorizons}
+                    onChange={e => setBfHorizons(e.target.value)}
+                    className="w-full bg-surface-base border border-line-subtle rounded-lg px-3 py-2 text-sm text-fg-primary focus:outline-none focus:border-violet-500/50"
+                  >
+                    <option value="1">1-day only</option>
+                    <option value="1,7">1-day + 7-day</option>
+                    <option value="1,7,30">1-day + 7-day + 30-day</option>
+                    <option value="7,30">7-day + 30-day</option>
+                  </select>
+                </div>
+
+                {bfMsg && (
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className={`text-xs px-3 py-2 rounded-lg ${
+                      bfMsg.includes('started') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                    }`}
+                  >
+                    {bfMsg}
+                  </motion.p>
+                )}
+
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => setShowBackfill(false)}
+                    className="flex-1 py-2 text-xs font-medium rounded-lg bg-surface-hover text-fg-muted hover:text-fg-secondary border border-line-subtle hover:border-line-default transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={triggerBackfill}
+                    disabled={bfSubmitting}
+                    className="flex-1 py-2 text-xs font-semibold rounded-lg bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 border border-violet-500/30 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                  >
+                    {bfSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                    {bfSubmitting ? 'Starting...' : 'Start Backfill'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Runs list */}
       {runs.length === 0 ? (
@@ -758,10 +912,16 @@ function TrainingRunsTab() {
                     }
                   </div>
                   <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-3 items-center">
-                    <div>
-                      <code className="text-xs text-fg-secondary font-mono">{run.run_id?.slice(0, 16)}</code>
+                    <div className="flex items-center gap-2">
+                      <code className="text-xs text-fg-secondary font-mono">{run.run_id?.slice(0, 14)}</code>
+                      {run.status === 'running' && (
+                        <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-bold animate-pulse">
+                          <span className="w-1 h-1 rounded-full bg-emerald-400" />LIVE
+                        </span>
+                      )}
                     </div>
-                    <div>
+                    <div className="flex items-center gap-1.5">
+                      {run.status === 'running' && <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />}
                       <StatusBadge status={run.status} />
                     </div>
                     <div className="hidden md:block">
@@ -769,7 +929,7 @@ function TrainingRunsTab() {
                     </div>
                     <div className="hidden md:block">
                       <span className="text-xs text-fg-muted font-mono">
-                        {run.symbols_completed}/{run.total_symbols} symbols
+                        {run.symbols_completed ?? run.success_shards ?? 0}/{run.total_symbols} sym
                       </span>
                     </div>
                     <div className="hidden md:block text-right">
@@ -863,6 +1023,11 @@ function ModelsTab() {
   const [error, setError] = useState<string | null>(null)
   const [expandedModel, setExpandedModel] = useState<string | null>(null)
   const [performance, setPerformance] = useState<Record<string, PerformanceData>>({})
+  const [acting, setActing] = useState<string | null>(null)
+  const [actionMsg, setActionMsg] = useState<string | null>(null)
+  const [symbolQuery, setSymbolQuery] = useState('')
+  const [symbolHistory, setSymbolHistory] = useState<any[]>([])
+  const [symLoading, setSymLoading] = useState(false)
 
   const fetchModels = useCallback(async () => {
     setError(null)
@@ -883,34 +1048,254 @@ function ModelsTab() {
   useEffect(() => { fetchModels() }, [fetchModels])
 
   const toggleModel = async (name: string) => {
-    if (expandedModel === name) {
-      setExpandedModel(null)
-      return
-    }
+    if (expandedModel === name) { setExpandedModel(null); return }
     setExpandedModel(name)
     if (!performance[name]) {
       const data = await apiFetch<PerformanceData>(
         `/api/v1/mlops/monitoring/performance?model_name=${encodeURIComponent(name)}&window_days=30`
       )
-      if (data) {
-        setPerformance(prev => ({ ...prev, [name]: data }))
-      }
+      if (data) setPerformance(prev => ({ ...prev, [name]: data }))
     }
+  }
+
+  const promoteVersion = async (version: string) => {
+    setActing(version)
+    setActionMsg(null)
+    try {
+      const res = await fetch(`${API}/api/v1/internal/ml/models/versions/${encodeURIComponent(version)}/promote`, {
+        method: 'POST', credentials: 'include',
+      })
+      const body = await res.json().catch(() => ({}))
+      setActionMsg(res.ok ? `✓ ${version} promoted to production` : (body?.detail || 'Promotion failed'))
+      if (res.ok) setTimeout(() => { setActionMsg(null); fetchModels() }, 2000)
+    } catch { setActionMsg('Network error') }
+    finally { setActing(null) }
+  }
+
+  const archiveVersion = async (version: string) => {
+    setActing(version)
+    setActionMsg(null)
+    try {
+      const res = await fetch(`${API}/api/v1/internal/ml/models/versions/${encodeURIComponent(version)}/archive`, {
+        method: 'POST', credentials: 'include',
+      })
+      const body = await res.json().catch(() => ({}))
+      setActionMsg(res.ok ? `✓ ${version} archived` : (body?.detail || 'Archive failed'))
+      if (res.ok) setTimeout(() => { setActionMsg(null); fetchModels() }, 2000)
+    } catch { setActionMsg('Network error') }
+    finally { setActing(null) }
+  }
+
+  const searchSymbol = async () => {
+    const sym = symbolQuery.trim().toUpperCase()
+    if (!sym) return
+    setSymLoading(true)
+    const data = await apiFetch<{ history: any[] }>(`/api/v1/internal/ml/symbols/${sym}/history?limit=20`)
+    setSymbolHistory(data?.history || [])
+    setSymLoading(false)
   }
 
   if (loading) return <SkeletonTable rows={6} />
   if (error) return <InlineError message={error} onRetry={fetchModels} />
 
   const modelEntries = Object.entries(models)
+  const prodVersions = versions.filter(v => v.promotion_status === 'production')
+  const stagingVersions = versions.filter(v => v.promotion_status === 'staging')
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-fg-muted">{modelEntries.length} registered models</span>
+    <div className="space-y-6">
+
+      {/* DB Model Versions — real data */}
+      {versions.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-fg-secondary uppercase tracking-wider flex items-center gap-2">
+              <Database className="w-3.5 h-3.5 text-cyan-400" />
+              Model Version Registry
+              <span className="text-[10px] text-fg-muted font-normal normal-case">({versions.length} versions)</span>
+            </h3>
+            {actionMsg && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className={`text-xs px-2 py-0.5 rounded-md ${actionMsg.startsWith('✓') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}
+              >
+                {actionMsg}
+              </motion.span>
+            )}
+          </div>
+
+          {/* Production Banner */}
+          {prodVersions.length > 0 && (
+            <div className="p-3 sm:p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/15">
+              <div className="flex items-center gap-2 mb-2">
+                <Crown className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Production</span>
+              </div>
+              <div className="space-y-2">
+                {prodVersions.map(v => (
+                  <div key={v.model_version} className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      <code className="text-sm font-bold text-fg-primary font-mono">{v.model_version}</code>
+                      <span className="text-[10px] text-fg-muted">{v.symbol_count} symbols · promoted by {v.promoted_by || 'system'}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {v.avg_da != null && (
+                        <div className="text-center">
+                          <div className="text-[9px] text-fg-muted uppercase">DA</div>
+                          <div className={`text-xs font-bold font-mono ${metricColor(v.avg_da)}`}>{(v.avg_da * 100).toFixed(1)}%</div>
+                        </div>
+                      )}
+                      {v.avg_ic != null && (
+                        <div className="text-center">
+                          <div className="text-[9px] text-fg-muted uppercase">IC</div>
+                          <div className={`text-xs font-bold font-mono ${metricColor(v.avg_ic, [0.02, 0.05])}`}>{v.avg_ic.toFixed(4)}</div>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => archiveVersion(v.model_version)}
+                        disabled={acting === v.model_version}
+                        className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-md bg-surface-hover text-fg-muted hover:text-red-400 border border-line-subtle hover:border-red-500/30 transition-all disabled:opacity-40"
+                      >
+                        {acting === v.model_version ? <Loader2 className="w-3 h-3 animate-spin" /> : <Archive className="w-3 h-3" />}
+                        Archive
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Staging / other versions */}
+          {stagingVersions.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-[10px] text-fg-muted uppercase tracking-wider">Staging ({stagingVersions.length})</span>
+              {stagingVersions.map((v, i) => (
+                <motion.div
+                  key={v.model_version}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                  className="flex items-center justify-between gap-3 p-3 rounded-lg bg-surface-raised border border-line-subtle hover:border-line-default transition-colors flex-wrap"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-7 h-7 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                      <Package className="w-3.5 h-3.5 text-blue-400" />
+                    </div>
+                    <div>
+                      <code className="text-sm font-semibold text-fg-primary font-mono">{v.model_version}</code>
+                      <div className="text-[10px] text-fg-muted">{v.symbol_count ?? '--'} symbols · {formatTimestamp(v.created_at)}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {v.avg_da != null && (
+                      <div className="text-center hidden sm:block">
+                        <div className="text-[9px] text-fg-muted">DA</div>
+                        <div className={`text-xs font-mono font-bold ${metricColor(v.avg_da)}`}>{(v.avg_da * 100).toFixed(1)}%</div>
+                      </div>
+                    )}
+                    {v.avg_ic != null && (
+                      <div className="text-center hidden sm:block">
+                        <div className="text-[9px] text-fg-muted">IC</div>
+                        <div className={`text-xs font-mono font-bold ${metricColor(v.avg_ic, [0.02, 0.05])}`}>{v.avg_ic.toFixed(4)}</div>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => promoteVersion(v.model_version)}
+                        disabled={acting === v.model_version}
+                        className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded-md bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/30 transition-all disabled:opacity-40"
+                      >
+                        {acting === v.model_version ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crown className="w-3 h-3" />}
+                        Promote
+                      </button>
+                      <button
+                        onClick={() => archiveVersion(v.model_version)}
+                        disabled={acting === v.model_version}
+                        className="flex items-center gap-1 px-2 py-1 text-[10px] rounded-md bg-surface-hover text-fg-muted hover:text-red-400 border border-line-subtle hover:border-red-500/30 transition-all disabled:opacity-40"
+                      >
+                        <Archive className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {versions.length === 0 && (
+            <EmptyState icon={Database} message="No model versions in registry — trigger a training run to populate" />
+          )}
+        </div>
+      )}
+
+      {/* Symbol Training History */}
+      <div className="bg-surface-raised border border-line-subtle rounded-xl overflow-hidden">
+        <div className="px-4 sm:px-5 py-3 border-b border-line-subtle flex items-center gap-2">
+          <Search className="w-4 h-4 text-violet-400" />
+          <h3 className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">Symbol Training History</h3>
+        </div>
+        <div className="p-4 sm:p-5 space-y-3">
+          <div className="flex gap-2">
+            <input
+              value={symbolQuery}
+              onChange={e => setSymbolQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && searchSymbol()}
+              placeholder="Enter symbol (e.g. AAPL)"
+              className="flex-1 bg-surface-base border border-line-subtle rounded-lg px-3 py-2 text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-violet-500/50 font-mono uppercase"
+            />
+            <button
+              onClick={searchSymbol}
+              disabled={symLoading}
+              className="px-3 py-2 text-xs font-medium rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-all disabled:opacity-40 flex items-center gap-1.5"
+            >
+              {symLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+              Search
+            </button>
+          </div>
+
+          {symbolHistory.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-line-subtle">
+                    {['Horizon', 'DA', 'IC', 'Sharpe', 'Version', 'Date'].map(h => (
+                      <th key={h} className="text-left py-2 pr-4 text-[10px] text-fg-muted uppercase tracking-wider font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line-subtle">
+                  {symbolHistory.map((a: any, i: number) => (
+                    <tr key={i} className="hover:bg-surface-hover transition-colors">
+                      <td className="py-2 pr-4 font-mono text-fg-secondary">{a.horizon}d</td>
+                      <td className={`py-2 pr-4 font-mono font-bold ${metricColor(a.directional_accuracy ?? 0)}`}>
+                        {a.directional_accuracy != null ? `${(a.directional_accuracy * 100).toFixed(1)}%` : '--'}
+                      </td>
+                      <td className={`py-2 pr-4 font-mono font-bold ${metricColor(a.information_coefficient ?? 0, [0.02, 0.05])}`}>
+                        {a.information_coefficient?.toFixed(4) ?? '--'}
+                      </td>
+                      <td className={`py-2 pr-4 font-mono ${a.hypothetical_sharpe > 1 ? 'text-emerald-400' : a.hypothetical_sharpe > 0.5 ? 'text-amber-400' : 'text-red-400'}`}>
+                        {a.hypothetical_sharpe?.toFixed(2) ?? '--'}
+                      </td>
+                      <td className="py-2 pr-4 text-fg-muted font-mono">{a.model_version || '--'}</td>
+                      <td className="py-2 text-fg-muted">{formatTimestamp(a.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {!symLoading && symbolHistory.length === 0 && symbolQuery && (
+            <p className="text-xs text-fg-muted text-center py-4">No training history for {symbolQuery.toUpperCase()}</p>
+          )}
+        </div>
       </div>
 
-      {modelEntries.length === 0 ? (
-        <EmptyState icon={Package} message="No models registered in the registry" />
+      {/* File-based registry — shown only when populated */}
+      {modelEntries.length === 0 && versions.length === 0 ? (
+        <EmptyState icon={Package} message="No models registered — trigger a training run to populate" />
       ) : (
         <div className="space-y-3">
           {modelEntries.map(([name, info], i) => (
@@ -1570,6 +1955,53 @@ function DesktopMLOps() {
 }
 
 export default function MLOpsDashboard() {
+  const { isAuthenticated, isLoading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/auth?redirect=/mlops')
+    }
+  }, [isAuthenticated, isLoading, router])
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-fg-muted" />
+        </div>
+      </AppLayout>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <AppLayout>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-surface-raised border border-line-subtle rounded-2xl p-8 max-w-sm w-full text-center"
+          >
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600/30 to-cyan-600/30 border border-purple-500/20 flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-7 h-7 text-purple-400" />
+            </div>
+            <h2 className="text-lg font-bold text-fg-primary mb-2">Sign In Required</h2>
+            <p className="text-sm text-fg-muted mb-6">
+              MLOps Command Center is restricted to authenticated users.
+            </p>
+            <button
+              onClick={() => router.push('/auth?redirect=/mlops')}
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-purple-600/80 to-cyan-600/80 hover:from-purple-600 hover:to-cyan-600 text-white text-sm font-semibold rounded-xl transition-all"
+            >
+              Sign In
+            </button>
+          </motion.div>
+        </div>
+      </AppLayout>
+    )
+  }
+
   return (
     <>
       <div className="hidden md:block"><DesktopMLOps /></div>

@@ -110,6 +110,12 @@ from app.models.model_index import (
     BasketHolding,
     FactorScoreHistory,
 )
+from app.models.ml_training import (
+    TrainingRun as _TrainingRun,
+    TrainingShard as _TrainingShard,
+    TrainingArtifact as _TrainingArtifact,
+    ModelVersion as _MLModelVersion,
+)
 
 
 def _create_db_tables():

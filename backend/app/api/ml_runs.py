@@ -18,7 +18,7 @@ from app.models.user import User
 from app.services import ml_metadata_service as mds
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 # ── Request/Response Models ────────────────────────────────────────────
@@ -160,6 +160,12 @@ async def list_runs(
 ):
     """List training runs with optional filters."""
     runs = mds.list_runs(db, status=status, run_type=run_type, limit=limit, offset=offset)
+
+    def _runtime(r) -> Optional[int]:
+        if r.ended_at and r.started_at:
+            return max(0, int((r.ended_at - r.started_at).total_seconds()))
+        return None
+
     return {
         "runs": [
             {
@@ -171,9 +177,15 @@ async def list_runs(
                 "total_shards": r.total_shards,
                 "success_shards": r.success_shards,
                 "failed_shards": r.failed_shards,
+                # Frontend-expected aliases
+                "symbols_completed": r.success_shards,
+                "symbols_failed": r.failed_shards,
                 "started_at": r.started_at.isoformat() if r.started_at else None,
                 "ended_at": r.ended_at.isoformat() if r.ended_at else None,
+                "finished_at": r.ended_at.isoformat() if r.ended_at else None,
+                "runtime_seconds": _runtime(r),
                 "created_at": r.created_at.isoformat() if r.created_at else None,
+                "error": r.error_summary,
             }
             for r in runs
         ],
@@ -213,6 +225,7 @@ async def get_run_shards(run_id: str, db: Session = Depends(get_db)):
                 "shard_index": s.shard_index,
                 "status": s.status,
                 "symbol_count": s.symbol_count,
+                "symbols_count": s.symbol_count,  # alias: frontend uses symbols_count
                 "runtime_seconds": s.runtime_seconds,
                 "retry_count": s.retry_count,
                 "error_summary": s.error_summary,
@@ -338,6 +351,47 @@ async def get_model_version(version: str, db: Session = Depends(get_db)):
     }
 
 
+# ── Model Version Lifecycle ──────────────────────────────────────────
+
+@router.post("/internal/ml/models/versions/{version}/promote")
+async def promote_db_model_version(
+    version: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Promote a model version to production (archives current prod)."""
+    promoted_by = getattr(user, "username", None) or getattr(user, "email", "api")
+    mv = mds.promote_model_version(db, version, promoted_by=promoted_by)
+    if not mv:
+        raise HTTPException(404, f"Model version '{version}' not found")
+    return {
+        "message": f"Version {version} promoted to production",
+        "model_version": mv.model_version,
+        "promotion_status": mv.promotion_status,
+        "promoted_by": mv.promoted_by,
+    }
+
+
+@router.post("/internal/ml/models/versions/{version}/archive")
+async def archive_db_model_version(
+    version: str,
+    db: Session = Depends(get_db),
+):
+    """Archive a model version (remove from staging/production)."""
+    from app.models.ml_training import ModelVersion as MV
+    mv = db.query(MV).filter(MV.model_version == version).first()
+    if not mv:
+        raise HTTPException(404, f"Model version '{version}' not found")
+    mv.promotion_status = "archived"
+    db.commit()
+    db.refresh(mv)
+    return {
+        "message": f"Version {version} archived",
+        "model_version": mv.model_version,
+        "promotion_status": mv.promotion_status,
+    }
+
+
 # ── Symbol History ───────────────────────────────────────────────────
 
 @router.get("/internal/ml/symbols/{symbol}/history")
@@ -404,14 +458,24 @@ async def ml_health(db: Session = Depends(get_db)):
     """Pipeline health summary."""
     from ml.constants import ALL_SYMBOLS, SYMBOL_TIERS
 
-    # Get latest run
-    runs = mds.list_runs(db, limit=1)
+    runs = mds.list_runs(db, limit=5)
     latest = runs[0] if runs else None
 
+    recent_failures = sum(1 for r in runs if r.status == "failed")
+
+    if recent_failures >= 3 or (latest and latest.status == "failed"):
+        pipeline_status = "degraded"
+    else:
+        pipeline_status = "healthy"
+
     return {
-        "status": "healthy",
+        "status": pipeline_status,
         "symbol_universe": len(ALL_SYMBOLS),
         "tiers": {k: len(v) for k, v in SYMBOL_TIERS.items()},
+        "recent_runs": len(runs),
+        "recent_failures": recent_failures,
+        "last_run": latest.created_at.isoformat() if latest and latest.created_at else None,
+        "active_runs": sum(1 for r in runs if r.status == "running"),
         "latest_run": {
             "run_id": str(latest.run_id) if latest else None,
             "status": latest.status if latest else None,
@@ -427,7 +491,17 @@ async def ml_metrics_summary(
     db: Session = Depends(get_db),
 ):
     """Aggregate metrics for recent training runs."""
-    return mds.get_metrics_summary(db, days=days)
+    raw = mds.get_metrics_summary(db, days=days)
+    return {
+        **raw,
+        # Frontend-expected aliases
+        "successful_runs": raw.get("completed_runs", 0),
+        "avg_da": raw.get("avg_directional_accuracy", 0.0),
+        "avg_ic": raw.get("avg_information_coefficient", 0.0),
+        "avg_sharpe": None,
+        "avg_runtime_seconds": None,
+        "total_symbols_trained": raw.get("total_artifacts", 0),
+    }
 
 
 @router.get("/internal/ml/config/effective")

@@ -61,15 +61,20 @@ BEDROCK_HAIKU_MODEL     = "anthropic.claude-haiku-4-5-20251001-v1:0"
 BEDROCK_TITAN_MODEL     = "amazon.titan-embed-text-v2:0"
 
 # Amazon Nova — cost-effective Bedrock-native models
-# Nova Lite: fast + cheap, ~1/10 cost of Sonnet; good for routing/haiku-level tasks
-# Nova Pro:  more capable, mid-tier between Haiku and Sonnet
-BEDROCK_NOVA_LITE_MODEL = "amazon.nova-lite-v1:0"
-BEDROCK_NOVA_PRO_MODEL  = "amazon.nova-pro-v1:0"
+# Nova Micro: text-only, ~20x cheaper than Sonnet; ideal for routing/intent/HyDE
+# Nova Lite:  text+image+video, ~10x cheaper than Sonnet; multimodal haiku-class
+# Nova Pro:   most capable Nova, mid-tier between Haiku and Sonnet
+BEDROCK_NOVA_MICRO_MODEL = "amazon.nova-micro-v1:0"
+BEDROCK_NOVA_LITE_MODEL  = "amazon.nova-lite-v1:0"
+BEDROCK_NOVA_PRO_MODEL   = "amazon.nova-pro-v1:0"
 
-# USE_NOVA_LITE=1 → swap Haiku-class calls to Nova Lite (cheaper on Bedrock)
-# USE_NOVA_PRO=1  → swap Sonnet-class calls to Nova Pro when Sonnet unavailable
-USE_NOVA_LITE = os.getenv("USE_NOVA_LITE", "0").lower() in ("1", "true", "yes")
-USE_NOVA_PRO  = os.getenv("USE_NOVA_PRO",  "0").lower() in ("1", "true", "yes")
+# USE_NOVA_MICRO=1 → Nova Micro for haiku-class calls (text-only, cheapest)
+# USE_NOVA_LITE=1  → Nova Lite for haiku-class calls (multimodal, cheap)
+# USE_NOVA_PRO=1   → Nova Pro for sonnet-class calls (mid-tier)
+# Priority for haiku-class: MICRO > LITE > Haiku 4.5
+USE_NOVA_MICRO = os.getenv("USE_NOVA_MICRO", "0").lower() in ("1", "true", "yes")
+USE_NOVA_LITE  = os.getenv("USE_NOVA_LITE",  "0").lower() in ("1", "true", "yes")
+USE_NOVA_PRO   = os.getenv("USE_NOVA_PRO",   "0").lower() in ("1", "true", "yes")
 
 OPENAI_SONNET_EQUIV     = "gpt-4o"
 OPENAI_HAIKU_EQUIV      = "gpt-4o-mini"
@@ -177,10 +182,15 @@ def get_llm_sonnet(streaming: bool = True):
 
 
 def get_llm_haiku(streaming: bool = False):
-    """Fast LLM — Claude Haiku 4.5 via Bedrock (or Nova Lite if USE_NOVA_LITE=1),
-    GPT-4o-mini or OpenRouter as fallback."""
-    # Nova Lite is ~10x cheaper than Haiku on Bedrock — enable with USE_NOVA_LITE=1
-    bedrock_model = BEDROCK_NOVA_LITE_MODEL if USE_NOVA_LITE else BEDROCK_HAIKU_MODEL
+    """Fast LLM — Claude Haiku 4.5 via Bedrock (or Nova Micro/Lite if USE_NOVA_MICRO/LITE=1),
+    GPT-4o-mini or OpenRouter as fallback.
+    Priority: USE_NOVA_MICRO > USE_NOVA_LITE > Haiku 4.5"""
+    if USE_NOVA_MICRO:
+        bedrock_model = BEDROCK_NOVA_MICRO_MODEL
+    elif USE_NOVA_LITE:
+        bedrock_model = BEDROCK_NOVA_LITE_MODEL
+    else:
+        bedrock_model = BEDROCK_HAIKU_MODEL
     return _pick_llm(
         bedrock_model=bedrock_model,
         openai_model=OPENAI_HAIKU_EQUIV,
