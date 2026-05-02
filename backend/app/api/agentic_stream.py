@@ -204,19 +204,54 @@ async def _stream_generator(
         ("human",  req.message),
     ]
 
-    llm = get_llm_sonnet()
     full_response = ""
 
     try:
+        llm = get_llm_sonnet()
         async for chunk in llm.astream(messages):
             token = chunk.content if hasattr(chunk, "content") else str(chunk)
             if token:
                 full_response += token
                 yield _sse("token", {"text": token})
     except Exception as exc:
-        logger.error("LLM stream failed: %s", exc, exc_info=True)
-        yield _sse("error", {"message": "LLM streaming error. Please try again."})
-        return
+        # If Bedrock failed (model not enabled, auth error, throttle), retry with
+        # OpenAI/OpenRouter by temporarily forcing PREFER_OPENAI=1 for this call.
+        exc_name = type(exc).__name__
+        bedrock_errors = (
+            "AccessDeniedException", "ValidationException",
+            "ModelNotReadyException", "ThrottlingException",
+            "ClientError", "EndpointResolutionError",
+            "NoCredentialsError", "BotoCoreError",
+        )
+        is_bedrock_error = (
+            exc_name in bedrock_errors
+            or "bedrock" in str(exc).lower()
+            or "model access" in str(exc).lower()
+            or "not authorized" in str(exc).lower()
+        )
+        if is_bedrock_error:
+            logger.warning("Bedrock unavailable (%s: %s), retrying with OpenAI/OpenRouter fallback", exc_name, exc)
+            try:
+                import os as _os
+                _orig = _os.environ.get("PREFER_OPENAI", "0")
+                _os.environ["PREFER_OPENAI"] = "1"
+                try:
+                    llm_fallback = get_llm_sonnet()
+                finally:
+                    _os.environ["PREFER_OPENAI"] = _orig
+                async for chunk in llm_fallback.astream(messages):
+                    token = chunk.content if hasattr(chunk, "content") else str(chunk)
+                    if token:
+                        full_response += token
+                        yield _sse("token", {"text": token})
+            except Exception as fallback_exc:
+                logger.error("LLM fallback also failed (%s): %s", type(fallback_exc).__name__, fallback_exc, exc_info=True)
+                yield _sse("error", {"message": f"LLM unavailable ({type(fallback_exc).__name__}). Check API keys or model access."})
+                return
+        else:
+            logger.error("LLM stream failed (%s): %s", exc_name, exc, exc_info=True)
+            yield _sse("error", {"message": f"LLM streaming error ({exc_name}). Please try again."})
+            return
 
     # ── 6. Guardrails — emit disclaimer as token if appended ─────────────────
     guarded = apply_guardrails(full_response)

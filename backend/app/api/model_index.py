@@ -14,7 +14,8 @@ from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.auth.dependencies import get_current_user
+from app.api.auth import require_auth
+from app.models.user import User
 from app.services.model_index.orchestrator import Orchestrator
 from app.services.model_index.model_index import ModelIndex, INDEX_DEFINITIONS
 from app.services.model_index.regime_engine import RegimeEngine
@@ -227,7 +228,7 @@ async def refresh_index(
     index_id: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(require_auth),
     sync: bool = Query(False, description="Run synchronously (slower but returns result)"),
     fast: bool = Query(
         True,
@@ -266,7 +267,7 @@ async def refresh_index(
 @router.post("/indices/refresh-all")
 async def refresh_all_indices(
     background_tasks: BackgroundTasks,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(require_auth),
 ):
     """Trigger pipeline for all indices (background)."""
     for index_id in INDEX_DEFINITIONS:

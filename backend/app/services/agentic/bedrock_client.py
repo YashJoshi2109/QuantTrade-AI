@@ -33,15 +33,26 @@ import cohere
 logger = logging.getLogger(__name__)
 
 
+_aws_creds_cache: bool | None = None
+
+
 def _aws_credentials_available() -> bool:
-    """True if boto3 can resolve AWS credentials via the standard credential chain."""
+    """True if boto3 can resolve AWS credentials via the standard credential chain.
+
+    Result is cached for the process lifetime — avoids repeated boto3 I/O on
+    every LLM call (instance metadata lookups can be slow / unreachable on EC2).
+    """
+    global _aws_creds_cache
+    if _aws_creds_cache is not None:
+        return _aws_creds_cache
     try:
         import boto3
         session = boto3.Session()
         creds = session.get_credentials()
-        return creds is not None and creds.get_frozen_credentials() is not None
+        _aws_creds_cache = creds is not None and creds.get_frozen_credentials() is not None
     except Exception:
-        return False
+        _aws_creds_cache = False
+    return _aws_creds_cache
 
 # ─── Model constants ─────────────────────────────────────────────────────────
 
@@ -90,8 +101,13 @@ def _openrouter_llm(model: str, temperature: float, max_tokens: int, streaming: 
     from langchain_openai import ChatOpenAI
     api_key = (
         os.getenv("OPENROUTER_API_KEY")
-        or os.getenv("NEXT_PUBLIC_OPENROUTER_API_KEY", "")
+        or os.getenv("NEXT_PUBLIC_OPENROUTER_API_KEY")
+        or ""
     )
+    if not api_key:
+        raise RuntimeError(
+            "No OpenRouter API key found. Set OPENROUTER_API_KEY or NEXT_PUBLIC_OPENROUTER_API_KEY."
+        )
     return ChatOpenAI(
         model=model,
         api_key=api_key,

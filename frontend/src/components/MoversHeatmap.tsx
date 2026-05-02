@@ -14,7 +14,8 @@ function bgForChange(change: number): string {
   if (change >= 2) return 'bg-green-500'
   if (change >= 1) return 'bg-green-500/80'
   if (change >= 0.5) return 'bg-green-500/60'
-  if (change >= 0) return 'bg-green-500/40'
+  if (change > 0.1) return 'bg-green-500/40'
+  if (change >= -0.1) return 'bg-slate-600/50'   // flat / stale data → neutral gray
   if (change >= -0.5) return 'bg-red-500/40'
   if (change >= -1) return 'bg-red-500/60'
   if (change >= -2) return 'bg-red-500/80'

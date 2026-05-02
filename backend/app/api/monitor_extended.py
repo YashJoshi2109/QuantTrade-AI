@@ -767,25 +767,38 @@ async def _fetch_fred_series(client: httpx.AsyncClient, name: str, series_id: st
 
 _FINNHUB_BASE = "https://finnhub.io/api/v1"
 
+# Market holidays and non-economic closures to exclude from the calendar strip.
+# These are NOT data releases — showing them as "economic events" is misleading.
+_HOLIDAY_KEYWORDS = frozenset({
+    "labor day", "independence day", "memorial day", "thanksgiving",
+    "christmas", "new year", "martin luther king", "presidents day",
+    "veterans day", "columbus day", "indigenous peoples day", "juneteenth",
+    "good friday", "easter", "bank holiday", "public holiday",
+    "market holiday", "market closed", "trading holiday",
+})
+
 @router.get("/economic-calendar", response_model=EconomicCalendarResponse)
 async def get_economic_calendar():
     """
-    Today's macro-economic events from Finnhub — CPI, NFP, Fed speeches, etc.
+    Upcoming macro-economic events from Finnhub — CPI, NFP, Fed speeches, etc.
+    Queries the next 7 days so the strip always has upcoming events to show.
     Maps Finnhub importance (1–3) to high/medium/low impact.
+    Market holidays are filtered out — they are not economic data releases.
     """
     finnhub_key = getattr(settings, "FINNHUB_API_KEY", None)
     if not finnhub_key:
         return EconomicCalendarResponse(events=[], updated_at=datetime.now(timezone.utc).isoformat())
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    tomorrow = (datetime.now(timezone.utc) + __import__("datetime").timedelta(days=1)).strftime("%Y-%m-%d")
+    # Extend window to 7 days so there are always upcoming events to show even on quiet days
+    week_ahead = (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%Y-%m-%d")
 
     events: List[EconomicCalendarEvent] = []
     try:
         async with httpx.AsyncClient(timeout=12) as client:
             resp = await client.get(
                 f"{_FINNHUB_BASE}/calendar/economic",
-                params={"from": today, "to": tomorrow, "token": finnhub_key},
+                params={"from": today, "to": week_ahead, "token": finnhub_key},
             )
             if resp.status_code == 200:
                 raw = resp.json()
@@ -837,6 +850,11 @@ async def get_economic_calendar():
     except Exception as exc:
         logger.warning("economic-calendar fetch error: %s", exc)
 
+    # Filter out market holidays — they are not economic data releases
+    events = [
+        e for e in events
+        if not any(kw in e.event_name.lower() for kw in _HOLIDAY_KEYWORDS)
+    ]
     events.sort(key=lambda e: ({"high": 0, "medium": 1, "low": 2}[e.impact], e.time))
 
     return EconomicCalendarResponse(events=events, updated_at=datetime.now(timezone.utc).isoformat())
@@ -909,6 +927,11 @@ async def get_economic_calendar_range(
     except Exception as exc:
         logger.warning("economic-calendar range fetch error: %s", exc)
 
+    # Filter out market holidays — they are not economic data releases
+    events = [
+        e for e in events
+        if not any(kw in e.event_name.lower() for kw in _HOLIDAY_KEYWORDS)
+    ]
     events.sort(key=lambda e: (e.date or "", {"high": 0, "medium": 1, "low": 2}[e.impact], e.time))
     return EconomicCalendarResponse(events=events, updated_at=datetime.now(timezone.utc).isoformat())
 
