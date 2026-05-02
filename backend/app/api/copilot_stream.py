@@ -431,12 +431,12 @@ def _sse_event(event: str, data: Any) -> str:
     return f"event: {event}\ndata: {payload}\n\n"
 
 
-async def _copilot_stream_generator(
+async def _copilot_stream_generator_REMOVED(
     req: CopilotStreamRequest,
     db: Session,
     user: User,
 ) -> AsyncGenerator[str, None]:
-    """Main SSE generator for the copilot pipeline."""
+    """REMOVED — replaced by agentic_stream._stream_generator."""
     request_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
 
@@ -803,27 +803,6 @@ Provide your analysis following the mandatory output format. Use the real data a
 # ---------------------------------------------------------------------------
 # Endpoint
 # ---------------------------------------------------------------------------
-@router.post("/copilot/stream")
-async def copilot_stream(
-    req: CopilotStreamRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_auth),
-):
-    """
-    Streaming AI copilot endpoint.
-    Returns Server-Sent Events with structured data + LLM tokens.
-    """
-    return StreamingResponse(
-        _copilot_stream_generator(req, db, current_user),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
-
-
 @router.get("/copilot/usage")
 async def copilot_usage(
     db: Session = Depends(get_db),

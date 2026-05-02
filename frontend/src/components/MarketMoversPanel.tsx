@@ -242,9 +242,27 @@ function StockRow({
       className="w-full flex items-center gap-3 px-3 py-3 sm:py-2.5 hover:bg-surface-hover active:bg-surface-active border-b border-line-subtle transition-all group text-left"
     >
       {/* Rank */}
-      <span className="w-6 h-6 sm:w-5 sm:h-5 flex items-center justify-center text-[11px] sm:text-[10px] text-fg-muted bg-surface-raised rounded font-mono flex-shrink-0">
+      <span className="w-5 h-5 sm:w-4 sm:h-4 flex items-center justify-center text-[10px] sm:text-[9px] text-fg-muted bg-surface-raised rounded font-mono flex-shrink-0">
         {idx + 1}
       </span>
+
+      {/* Logo */}
+      <div className="w-7 h-7 sm:w-6 sm:h-6 rounded-md overflow-hidden bg-surface-raised flex-shrink-0 flex items-center justify-center">
+        <img
+          src={`https://assets.parqet.com/logos/symbol/${stock.symbol}?format=png`}
+          alt={stock.symbol}
+          className="w-full h-full object-contain"
+          onError={(e) => {
+            const el = e.currentTarget
+            el.style.display = 'none'
+            const parent = el.parentElement
+            if (parent) {
+              parent.style.background = accentColor + '22'
+              parent.innerHTML = `<span style="font-size:10px;font-weight:700;color:${accentColor}">${stock.symbol.charAt(0)}</span>`
+            }
+          }}
+        />
+      </div>
 
       {/* Symbol + Name */}
       <div className="flex-1 min-w-0">

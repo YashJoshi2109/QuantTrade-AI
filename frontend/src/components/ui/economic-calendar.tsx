@@ -175,7 +175,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
                     alt={ev.countryCode}
                     className="h-6 w-6 rounded-full object-cover bg-surface-raised shrink-0"
                   />
-                  <span className="text-[11px] font-semibold text-slate-200 truncate leading-tight">
+                  <span className="text-[11px] font-semibold text-fg-primary truncate leading-tight">
                     {ev.eventName}
                   </span>
                 </div>
@@ -192,7 +192,7 @@ export const EconomicCalendar = React.forwardRef<HTMLDivElement, EconomicCalenda
                       <p
                         className={cn(
                           "text-[11px] font-bold font-mono mt-0.5",
-                          d.value ? "text-slate-200" : "text-fg-muted",
+                          d.value ? "text-fg-primary" : "text-fg-muted",
                         )}
                       >
                         {d.value ?? "—"}

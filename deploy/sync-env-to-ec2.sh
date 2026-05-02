@@ -7,7 +7,7 @@
 # and pushes a combined .env to EC2 — never hardcodes secrets.
 # ============================================================================
 
-EC2_HOST="ubuntu@ec2-18-117-248-103.us-east-2.compute.amazonaws.com"
+EC2_HOST="ubuntu@3.19.207.79"
 KEY_FILE="$HOME/Downloads/texas-yash-admin-mbp.pem"
 REMOTE_DIR="/var/www/quanttrade"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

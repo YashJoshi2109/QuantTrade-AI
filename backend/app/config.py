@@ -119,9 +119,9 @@ class Settings(BaseSettings):
     # WebAuthn / Passkey (production: set WEBAUTHN_RP_ID + WEBAUTHN_ORIGINS to your real hostname(s))
     WEBAUTHN_RP_ID: str = os.getenv("WEBAUTHN_RP_ID", "localhost")
     # Single origin (dev); production should set WEBAUTHN_ORIGINS instead or in addition
-    WEBAUTHN_ORIGIN: str = os.getenv("WEBAUTHN_ORIGIN", "http://localhost:3000")
+    WEBAUTHN_ORIGIN: str = os.getenv("WEBAUTHN_ORIGIN", "http://localhost:3001")
     # Comma-separated allowed origins for verify_registration_response / verify_authentication_response
-    WEBAUTHN_ORIGINS: str = os.getenv("WEBAUTHN_ORIGINS", "")
+    WEBAUTHN_ORIGINS: str = os.getenv("WEBAUTHN_ORIGINS", "http://localhost:3000,http://localhost:3001")
 
     # Email — Brevo (https://www.brevo.com) + optional Resend fallback (https://resend.com)
     BREVO_API_KEY: Optional[str] = None
@@ -158,6 +158,7 @@ class Settings(BaseSettings):
     # Vector DB
     VECTOR_STORE_BACKEND: str = "pgvector"  # or "qdrant"
     QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_API_KEY: Optional[str] = None
     CHROMA_PERSIST_DIR: str = "./chroma_db"
     
     # Celery/Redis
@@ -174,6 +175,9 @@ class Settings(BaseSettings):
     USE_LOCAL_STORAGE: bool = True           # Auto-disabled when S3_ENDPOINT is set
     LOCAL_STORAGE_PATH: str = "./storage"
     
+    # Admin
+    ADMIN_EMAILS: str = ""  # comma-separated list
+
     # App settings
     DEBUG: bool = True
     LOG_LEVEL: str = "INFO"

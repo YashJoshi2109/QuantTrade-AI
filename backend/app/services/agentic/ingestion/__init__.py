@@ -1,0 +1,1 @@
+"""SEC filing ingestion pipeline."""

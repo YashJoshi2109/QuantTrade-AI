@@ -141,6 +141,19 @@ class CopilotRouter:
                 decision.notes.append(f"Comparison needs 2+ tickers, got {len(trustworthy)}")
             return decision
 
+        if intent_result.intent == Intent.EARNINGS:
+            # Earnings queries can be ticker-specific or calendar-wide
+            if trustworthy:
+                decision.primary_entity = trustworthy[0]
+                decision.all_entities = trustworthy
+                decision.use_stock_context = True
+                decision.notes.append(f"Earnings: ticker-specific for {trustworthy[0].ticker}")
+            else:
+                decision.use_stock_context = False
+                decision.inject_general_knowledge = True
+                decision.notes.append("Earnings: general calendar / consensus query")
+            return decision
+
         if intent_result.intent == Intent.SCREENER:
             decision.use_stock_context = False
             decision.notes.append("Screener: routed to screener handler")

@@ -2323,7 +2323,9 @@ export async function voteComment(commentId: number, direction: 1 | -1) {
 export async function fetchNotifications(limit: number = 20, offset: number = 0) {
   const res = await apiFetch(`${API_URL}/api/v1/notifications?limit=${limit}&offset=${offset}`)
   if (!res.ok) return { notifications: [] }
-  return res.json()
+  const data = await res.json()
+  // API returns { items, next_cursor, unread_count } — normalise to { notifications }
+  return { notifications: data.items ?? data.notifications ?? [], ...data }
 }
 
 export async function fetchUnreadCount() {

@@ -13,9 +13,9 @@ const promptShellVariants = cva('relative w-full overflow-hidden rounded-2xl p-p
   variants: {
     variant: {
       default:
-        'bg-gradient-to-r from-green-300/80 via-cyan-300/80 to-indigo-400/80',
+        'bg-gradient-to-r from-cyan-500/30 via-line-default to-line-default',
       magic:
-        'bg-gradient-to-r from-rose-400/80 via-fuchsia-500/80 to-indigo-500/80',
+        'bg-gradient-to-r from-cyan-500/25 via-line-default to-indigo-500/20',
     },
   },
   defaultVariants: {
@@ -94,7 +94,7 @@ const CopilotPromptInput = React.forwardRef<HTMLTextAreaElement, CopilotPromptIn
                       <button
                         type="button"
                         onClick={onUpgrade}
-                        className="font-medium text-fuchsia-300 transition-colors hover:text-fuchsia-200"
+                        className="font-medium text-cyan-400 transition-colors hover:text-cyan-300"
                       >
                         Upgrade
                       </button>
@@ -170,10 +170,10 @@ const CopilotPromptInput = React.forwardRef<HTMLTextAreaElement, CopilotPromptIn
                   disabled={!canSend}
                   className={cn(
                     'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition-all',
-                    'bg-gradient-to-br from-fuchsia-500 to-indigo-600 shadow-[0_0_20px_rgba(168,85,247,0.35)]',
+                    'bg-gradient-to-br from-cyan-500 to-blue-600 shadow-[0_0_12px_rgba(6,182,212,0.2)]',
                     'hover:brightness-110',
                     'disabled:cursor-not-allowed disabled:bg-surface-raised disabled:text-fg-muted disabled:shadow-none disabled:brightness-100',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised'
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised'
                   )}
                 >
                   <ArrowUp className="h-5 w-5" aria-hidden />

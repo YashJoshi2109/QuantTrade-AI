@@ -87,6 +87,13 @@ SCREENER_KEYWORDS = [
     "most active", "volume leaders",
 ]
 
+EARNINGS_KEYWORDS = [
+    "earnings", "eps", "quarterly results", "guidance", "beat", "miss",
+    "consensus", "estimate", "earnings call", "q1", "q2", "q3", "q4",
+    "quarterly", "annual results", "revenue forecast", "forward guidance",
+    "whisper number", "earnings surprise", "beat expectations",
+]
+
 SECTOR_KEYWORDS = [
     "sector performance", "sectors", "sector breakdown", "which sectors",
     "sector rotation", "industry group", "sector allocation",
