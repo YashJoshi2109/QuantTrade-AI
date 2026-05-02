@@ -133,6 +133,7 @@ async def merge_node(state: CopilotState) -> dict:
             "section":     c.section,
             "filed_date":  c.filed_date,
             "score":       c.score,
+            "snippet":     c.text[:320] if c.text else "",
         }
         for c in all_chunks
     ]

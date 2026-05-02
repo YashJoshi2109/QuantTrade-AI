@@ -40,6 +40,9 @@ import {
   Cpu,
   ChevronLeft,
   ChevronDown,
+  FileText,
+  ExternalLink,
+  ArrowUpRight,
 } from 'lucide-react'
 import {
   streamCopilotAnalysis,
@@ -58,10 +61,16 @@ import {
 } from '@/lib/copilot-engine'
 import {
   fetchFinnhubQuote,
+  fetchQuote,
+  fetchFundamentals,
+  fetchIndicators,
   listConversations,
   getConversationMessages,
   deleteConversation,
   getCopilotUsage,
+  type QuoteData,
+  type FundamentalsData,
+  type Indicators,
   type ConversationSummary,
   type StoredMessage,
   type CopilotUsage,
@@ -598,7 +607,13 @@ function AnalysisDashboard({
 
 // ─── Message Bubble ───────────────────────────────────────────────────────────
 
-function MessageBubble({ msg }: { msg: Message }) {
+function MessageBubble({
+  msg,
+  onCitationClick,
+}: {
+  msg: Message
+  onCitationClick?: (c: CitationData) => void
+}) {
   const isUser = msg.role === 'user'
 
   return (
@@ -708,29 +723,37 @@ function MessageBubble({ msg }: { msg: Message }) {
         </div>
 
         {!isUser && !msg.streaming && msg.citations && msg.citations.length > 0 && (
-          <details className="mt-2 group">
-            <summary className="flex items-center gap-1.5 cursor-pointer text-[10px] text-fg-muted hover:text-fg-secondary select-none list-none px-1">
-              <span className="w-3 h-3 border border-current rounded-sm flex items-center justify-center text-[8px] group-open:rotate-90 transition-transform">▶</span>
+          <div className="mt-2.5 px-1">
+            <p className="text-[10px] text-fg-muted mb-1.5 flex items-center gap-1">
+              <FileText className="w-3 h-3" />
               {msg.citations.length} SEC source{msg.citations.length !== 1 ? 's' : ''}
-            </summary>
-            <div className="mt-1.5 space-y-1 px-1">
-              {msg.citations.slice(0, 6).map((c) => (
-                <div
+            </p>
+            {/* Horizontal scrollable citation cards */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-line-subtle scrollbar-track-transparent">
+              {msg.citations.slice(0, 8).map((c) => (
+                <button
                   key={c.source_n}
-                  className="flex items-start gap-2 p-1.5 rounded bg-surface-base border border-line-subtle text-[10px]"
+                  onClick={() => onCitationClick?.(c)}
+                  className="shrink-0 flex flex-col gap-1 p-2 rounded-xl border border-[rgba(0,122,255,0.18)] bg-[rgba(0,122,255,0.04)] hover:bg-[rgba(0,122,255,0.1)] hover:border-[rgba(0,122,255,0.4)] transition-all text-left group cursor-pointer"
+                  style={{ minWidth: 140, maxWidth: 160 }}
                 >
-                  <span className="shrink-0 w-4 h-4 rounded-sm bg-[#007AFF]/20 text-[#007AFF] flex items-center justify-center font-bold text-[9px]">
-                    {c.source_n}
-                  </span>
-                  <div className="min-w-0">
-                    <span className="font-semibold text-fg-secondary">{c.ticker} {c.filing_type} {c.fiscal_year}</span>
-                    <span className="text-fg-muted"> · {c.section}</span>
-                    <span className="text-fg-muted block">Filed {c.filed_date}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="w-4 h-4 rounded bg-[#007AFF]/25 text-[#007AFF] flex items-center justify-center font-bold text-[9px] shrink-0">
+                      {c.source_n}
+                    </span>
+                    <ExternalLink className="w-2.5 h-2.5 text-fg-muted opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                </div>
+                  <div className="space-y-0.5">
+                    <p className="text-[10px] font-semibold text-fg-primary leading-tight">
+                      {c.ticker} {c.filing_type}
+                    </p>
+                    <p className="text-[9px] text-[#007AFF] font-medium truncate">{c.section}</p>
+                    <p className="text-[9px] text-fg-muted">{c.filed_date}</p>
+                  </div>
+                </button>
               ))}
             </div>
-          </details>
+          </div>
         )}
         {!isUser && !msg.streaming && msg.content && (
           <div className="flex items-center gap-1 mt-1 px-1">
@@ -742,6 +765,381 @@ function MessageBubble({ msg }: { msg: Message }) {
         )}
       </div>
     </motion.div>
+  )
+}
+
+// ─── SEC Document Side Panel ─────────────────────────────────────────────────
+
+function SECDocPanel({
+  citation,
+  onClose,
+}: {
+  citation: CitationData
+  onClose: () => void
+}) {
+  const scoreColor =
+    citation.score >= 0.85 ? '#22c55e' : citation.score >= 0.7 ? '#eab308' : '#94a3b8'
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line-subtle shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <FileText className="w-4 h-4 text-[#007AFF] shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-fg-primary truncate">
+              {citation.ticker} · {citation.filing_type} {citation.fiscal_year}
+            </p>
+            <p className="text-[10px] text-fg-muted truncate">{citation.section}</p>
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg hover:bg-surface-raised/60 text-fg-muted hover:text-white transition-colors shrink-0 ml-2"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Meta row */}
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-line-subtle shrink-0 bg-[rgba(0,122,255,0.03)]">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[9px] font-mono text-fg-muted uppercase tracking-wider">Relevance</span>
+          <span className="text-[10px] font-bold" style={{ color: scoreColor }}>
+            {Math.round(citation.score * 100)}%
+          </span>
+        </div>
+        <div className="w-px h-3 bg-line-subtle" />
+        <span className="text-[10px] text-fg-muted">Filed {citation.filed_date}</span>
+        <div className="w-px h-3 bg-line-subtle" />
+        <span className="text-[9px] text-[#007AFF] font-medium">Source {citation.source_n}</span>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {citation.snippet ? (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[9px] font-mono text-fg-muted uppercase tracking-wider">Extracted passage</span>
+              <div className="flex-1 h-px bg-line-subtle" />
+            </div>
+            <div className="relative">
+              {/* Left accent line */}
+              <div className="absolute left-0 top-0 bottom-0 w-0.5 rounded-full bg-gradient-to-b from-[#007AFF] to-cyan-500" />
+              <p className="pl-4 text-sm text-fg-secondary leading-relaxed font-serif">
+                {citation.snippet}
+                {citation.snippet.length >= 320 && (
+                  <span className="text-fg-muted italic"> …[excerpt]</span>
+                )}
+              </p>
+            </div>
+
+            {/* Section tag */}
+            <div className="mt-4 flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[rgba(0,122,255,0.1)] text-[10px] text-[#007AFF] font-medium border border-[rgba(0,122,255,0.2)]">
+                <FileText className="w-2.5 h-2.5" />
+                {citation.section}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-32 gap-2 text-fg-muted">
+            <FileText className="w-8 h-8 opacity-30" />
+            <p className="text-xs">No excerpt available for this source</p>
+          </div>
+        )}
+
+        {/* Filing info card */}
+        <div className="mt-5 rounded-xl border border-line-subtle bg-surface-base p-3 space-y-2">
+          <p className="text-[10px] font-mono text-fg-muted uppercase tracking-wider mb-1">Filing details</p>
+          {[
+            ['Ticker', citation.ticker],
+            ['Form', citation.filing_type],
+            ['Fiscal year', String(citation.fiscal_year)],
+            ['Filed', citation.filed_date],
+          ].map(([label, val]) => (
+            <div key={label} className="flex justify-between items-center">
+              <span className="text-[11px] text-fg-muted">{label}</span>
+              <span className="text-[11px] font-semibold text-fg-primary">{val}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Stock Quick Info Panel ───────────────────────────────────────────────────
+
+function RsiGauge({ value }: { value: number }) {
+  const pct  = Math.min(Math.max(value, 0), 100) / 100
+  const color = value >= 70 ? '#ef4444' : value <= 30 ? '#22c55e' : '#007AFF'
+  const label = value >= 70 ? 'Overbought' : value <= 30 ? 'Oversold' : 'Neutral'
+  const angle = pct * 180 - 90  // -90 (left) to +90 (right)
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="relative w-20 h-10 overflow-hidden">
+        <svg viewBox="0 0 80 40" className="w-full h-full">
+          {/* Track */}
+          <path d="M8,36 A32,32 0 0,1 72,36" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="6" strokeLinecap="round"/>
+          {/* Colored arc */}
+          <path d="M8,36 A32,32 0 0,1 72,36" fill="none" stroke={color} strokeWidth="6"
+            strokeDasharray={`${pct * 100.5} 100.5`} strokeLinecap="round" opacity="0.8"/>
+          {/* Needle */}
+          <line x1="40" y1="36" x2={40 + 28 * Math.cos((angle - 90) * Math.PI / 180)}
+            y2={36 + 28 * Math.sin((angle - 90) * Math.PI / 180)}
+            stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.9"/>
+          <circle cx="40" cy="36" r="2.5" fill="white" opacity="0.9"/>
+        </svg>
+      </div>
+      <div className="text-center">
+        <span className="text-sm font-bold tabular-nums" style={{ color }}>{value.toFixed(1)}</span>
+        <span className="text-[9px] text-fg-muted ml-1">{label}</span>
+      </div>
+    </div>
+  )
+}
+
+function MiniBar({ label, val, max, color }: { label: string; val: number; max: number; color: string }) {
+  const pct = Math.min(Math.abs(val) / max * 100, 100)
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] text-fg-muted w-16 shrink-0">{label}</span>
+      <div className="flex-1 h-1.5 rounded-full bg-[rgba(255,255,255,0.06)] overflow-hidden">
+        <motion.div className="h-full rounded-full" style={{ backgroundColor: color, width: `${pct}%` }}
+          initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, ease: 'easeOut' }} />
+      </div>
+      <span className="text-[10px] tabular-nums text-fg-secondary w-14 text-right shrink-0">{typeof val === 'number' ? val.toFixed(2) : '—'}</span>
+    </div>
+  )
+}
+
+function StockQuickPanel({
+  quote,
+  fundamentals,
+  indicators,
+  relatedCitations,
+  onClose,
+  onCitationClick,
+}: {
+  quote: QuoteData
+  fundamentals?: FundamentalsData | null
+  indicators?: Indicators | null
+  relatedCitations?: CitationData[]
+  onClose: () => void
+  onCitationClick?: (c: CitationData) => void
+}) {
+  const isUp = (quote.change_percent ?? 0) >= 0
+  const changeColor = isUp ? '#22c55e' : '#ef4444'
+  const ind = indicators?.indicators
+  const rsi = ind?.rsi ?? fundamentals?.rsi
+
+  const fmt = (n?: number | null, prefix = '$') =>
+    n != null ? `${prefix}${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : '—'
+  const fmtLg = (n?: number | null) => {
+    if (!n) return '—'
+    if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`
+    if (n >= 1e9)  return `$${(n / 1e9).toFixed(2)}B`
+    if (n >= 1e6)  return `$${(n / 1e6).toFixed(2)}M`
+    return `$${n.toLocaleString()}`
+  }
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line-subtle shrink-0">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${isUp ? 'bg-emerald-400' : 'bg-red-400'} animate-pulse`} />
+          <span className="text-sm font-bold text-fg-primary">{quote.symbol}</span>
+          {fundamentals?.company_name && (
+            <span className="text-[10px] text-fg-muted truncate max-w-[100px]">{fundamentals.company_name}</span>
+          )}
+        </div>
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-raised/60 text-fg-muted hover:text-white transition-colors">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+        {/* ── Price Hero ── */}
+        <div className="rounded-2xl border border-[rgba(0,122,255,0.2)] bg-gradient-to-br from-[rgba(0,122,255,0.06)] to-transparent p-4">
+          <p className="text-3xl font-bold text-fg-primary tabular-nums">
+            ${quote.price?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          <div className="flex items-center justify-between mt-1.5">
+            <span className="text-sm font-semibold tabular-nums" style={{ color: changeColor }}>
+              {isUp ? '+' : ''}{quote.change?.toFixed(2)} ({isUp ? '+' : ''}{quote.change_percent?.toFixed(2)}%)
+            </span>
+            {quote.data_source && <span className="text-[9px] text-fg-muted font-mono">{quote.data_source}</span>}
+          </div>
+
+          {/* OHLV row */}
+          <div className="grid grid-cols-4 gap-1 mt-3 pt-3 border-t border-[rgba(255,255,255,0.06)]">
+            {[
+              { l: 'O', v: quote.open },
+              { l: 'H', v: quote.high },
+              { l: 'L', v: quote.low },
+              { l: 'C', v: quote.previous_close },
+            ].map(({ l, v }) => (
+              <div key={l} className="text-center">
+                <p className="text-[9px] text-fg-muted">{l}</p>
+                <p className="text-[11px] font-semibold text-fg-secondary tabular-nums">
+                  {v ? `$${v.toFixed(2)}` : '—'}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* 52W range bar */}
+          {fundamentals?.week_52_high && fundamentals?.week_52_low && quote.price && (
+            <div className="mt-3 pt-3 border-t border-[rgba(255,255,255,0.06)]">
+              <div className="flex justify-between text-[9px] text-fg-muted mb-1">
+                <span>52W Low ${fundamentals.week_52_low.toFixed(0)}</span>
+                <span>52W High ${fundamentals.week_52_high.toFixed(0)}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-[rgba(255,255,255,0.06)] relative overflow-hidden">
+                <div className="h-full rounded-full bg-gradient-to-r from-red-500 via-[#007AFF] to-emerald-500 opacity-30" style={{ width: '100%' }} />
+                <div className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white border border-[#007AFF]"
+                  style={{ left: `${((quote.price - fundamentals.week_52_low) / (fundamentals.week_52_high - fundamentals.week_52_low) * 100).toFixed(1)}%`, transform: 'translate(-50%,-50%)' }} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Technical Indicators ── */}
+        {(rsi || ind?.macd || ind?.sma_50) && (
+          <div className="rounded-xl border border-line-subtle bg-surface-base p-3 space-y-3">
+            <p className="text-[10px] font-mono text-fg-muted uppercase tracking-wider">Technical Indicators</p>
+            {rsi != null && <RsiGauge value={rsi} />}
+
+            {(ind?.sma_50 || ind?.sma_200) && (
+              <div className="space-y-2">
+                {ind.sma_50 != null && (
+                  <MiniBar label="SMA 50" val={ind.sma_50} max={(ind.sma_200 ?? ind.sma_50) * 1.2} color="#007AFF" />
+                )}
+                {ind.sma_200 != null && (
+                  <MiniBar label="SMA 200" val={ind.sma_200} max={ind.sma_200 * 1.2} color="#7C3AED" />
+                )}
+              </div>
+            )}
+
+            {ind?.macd && (
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-[10px] text-fg-muted">MACD</span>
+                <div className="flex gap-1.5 items-center">
+                  <span className="text-[10px] font-mono text-fg-secondary">{ind.macd.macd?.toFixed(3) ?? '—'}</span>
+                  <span className="text-[9px] text-fg-muted">Sig:</span>
+                  <span className="text-[10px] font-mono text-fg-secondary">{ind.macd.signal?.toFixed(3) ?? '—'}</span>
+                  {ind.macd.histogram != null && (
+                    <span className={`text-[9px] font-bold ${ind.macd.histogram > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {ind.macd.histogram > 0 ? '▲' : '▼'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {ind?.bollinger_bands && (
+              <div className="pt-1">
+                <p className="text-[10px] text-fg-muted mb-1.5">Bollinger Bands</p>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-red-400 font-mono">{fmt(ind.bollinger_bands.upper)}</span>
+                  <span className="text-fg-muted font-mono">{fmt(ind.bollinger_bands.middle)}</span>
+                  <span className="text-emerald-400 font-mono">{fmt(ind.bollinger_bands.lower)}</span>
+                </div>
+                <div className="flex justify-between text-[9px] text-fg-muted mt-0.5">
+                  <span>Upper</span><span>Mid</span><span>Lower</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Fundamentals ── */}
+        {fundamentals && (
+          <div className="rounded-xl border border-line-subtle bg-surface-base p-3">
+            <p className="text-[10px] font-mono text-fg-muted uppercase tracking-wider mb-2">Fundamentals</p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+              {[
+                { label: 'Market Cap',    val: fmtLg(fundamentals.market_cap) },
+                { label: 'P/E Ratio',     val: fundamentals.pe_ratio?.toFixed(1) ?? '—' },
+                { label: 'Forward P/E',   val: fundamentals.forward_pe?.toFixed(1) ?? '—' },
+                { label: 'P/B',           val: fundamentals.price_to_book?.toFixed(2) ?? '—' },
+                { label: 'EPS',           val: fundamentals.eps != null ? `$${fundamentals.eps.toFixed(2)}` : '—' },
+                { label: 'Beta',          val: fundamentals.beta?.toFixed(2) ?? '—' },
+                { label: 'ROE',           val: fundamentals.roe != null ? `${(fundamentals.roe * 100).toFixed(1)}%` : '—' },
+                { label: 'Debt/Equity',   val: fundamentals.debt_to_equity?.toFixed(2) ?? '—' },
+                { label: 'Profit Margin', val: fundamentals.profit_margin != null ? `${(fundamentals.profit_margin * 100).toFixed(1)}%` : '—' },
+                { label: 'Target Price',  val: fmt(fundamentals.target_price) },
+              ].filter(r => r.val !== '—').map(({ label, val }) => (
+                <div key={label}>
+                  <p className="text-[9px] text-fg-muted">{label}</p>
+                  <p className="text-[11px] font-semibold text-fg-primary tabular-nums">{val}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Analyst recommendation */}
+            {fundamentals.recommendation && (
+              <div className="mt-2 pt-2 border-t border-line-subtle flex items-center justify-between">
+                <span className="text-[10px] text-fg-muted">Analyst Rating</span>
+                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                  fundamentals.recommendation?.toLowerCase().includes('buy') ? 'bg-emerald-500/20 text-emerald-400' :
+                  fundamentals.recommendation?.toLowerCase().includes('sell') ? 'bg-red-500/20 text-red-400' :
+                  'bg-[rgba(255,255,255,0.08)] text-fg-secondary'
+                }`}>
+                  {fundamentals.recommendation}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Volume ── */}
+        {quote.volume != null && quote.volume > 0 && (
+          <div className="rounded-xl border border-line-subtle bg-surface-base p-3 flex justify-between items-center">
+            <div>
+              <p className="text-[10px] text-fg-muted">Volume</p>
+              <p className="text-sm font-semibold text-fg-primary">{quote.volume.toLocaleString('en-US')}</p>
+            </div>
+            {/* Mini volume bar visual */}
+            <div className="flex items-end gap-0.5 h-6">
+              {[40, 65, 45, 80, 55, 90, 70].map((h, i) => (
+                <motion.div key={i} className="w-1 rounded-sm bg-[#007AFF]/50"
+                  style={{ height: `${h * 0.24}px` }}
+                  initial={{ scaleY: 0 }} animate={{ scaleY: 1 }}
+                  transition={{ delay: i * 0.04, duration: 0.3 }} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Related SEC Sources ── */}
+        {relatedCitations && relatedCitations.length > 0 && (
+          <div>
+            <p className="text-[10px] font-mono text-fg-muted uppercase tracking-wider mb-2 flex items-center gap-1">
+              <FileText className="w-3 h-3" /> Recent SEC Sources
+            </p>
+            <div className="space-y-1.5">
+              {relatedCitations.slice(0, 4).map((c) => (
+                <button key={c.source_n} onClick={() => onCitationClick?.(c)}
+                  className="w-full flex items-center gap-2 p-2 rounded-lg border border-[rgba(0,122,255,0.15)] bg-[rgba(0,122,255,0.04)] hover:bg-[rgba(0,122,255,0.1)] hover:border-[rgba(0,122,255,0.35)] transition-all text-left group"
+                >
+                  <span className="shrink-0 w-4 h-4 rounded bg-[#007AFF]/25 text-[#007AFF] flex items-center justify-center font-bold text-[9px]">{c.source_n}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold text-fg-secondary truncate">{c.filing_type} {c.fiscal_year} · {c.section}</p>
+                    <p className="text-[9px] text-fg-muted">Filed {c.filed_date}</p>
+                  </div>
+                  <ExternalLink className="w-2.5 h-2.5 text-fg-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p className="text-[9px] text-fg-muted text-center pb-1">Live data · May be delayed · Not financial advice</p>
+      </div>
+    </div>
   )
 }
 
@@ -1451,6 +1849,10 @@ function CopilotInner() {
   const [currentSymbol, setCurrentSymbol] = useState<string | null>(null)
   const [analysisData, setAnalysisData] = useState<StockAnalysisData | null>(null)
   const [showDashboard, setShowDashboard] = useState(false)
+  const [activeCitation, setActiveCitation] = useState<CitationData | null>(null)
+  const [quickQuote, setQuickQuote] = useState<QuoteData | null>(null)
+  const [stockFundamentals, setStockFundamentals] = useState<FundamentalsData | null>(null)
+  const [stockIndicators, setStockIndicators] = useState<Indicators | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [activeModel, setActiveModel] = useState<string>('groq')
@@ -1544,6 +1946,11 @@ function CopilotInner() {
       setTimeout(() => scrollToBottom(true), 80)
       setPipelineStage('intent')
       setAnalysisData(null)
+      setShowDashboard(false)
+      setActiveCitation(null)
+      setQuickQuote(null)
+      setStockFundamentals(null)
+      setStockIndicators(null)
       setCurrentIntent(undefined)
       setCurrentSymbol(null)
       setActiveModel('groq')
@@ -1565,6 +1972,18 @@ function CopilotInner() {
                 m.id === assistantMsgId ? { ...m, intent } : m
               )
             )
+            // Fetch quote + fundamentals + technicals in parallel when ticker detected
+            if (symbol) {
+              Promise.allSettled([
+                fetchQuote(symbol, 'high'),
+                fetchFundamentals(symbol),
+                fetchIndicators(symbol),
+              ]).then(([qRes, fRes, iRes]) => {
+                if (qRes.status === 'fulfilled') setQuickQuote(qRes.value)
+                if (fRes.status === 'fulfilled') setStockFundamentals(fRes.value)
+                if (iRes.status === 'fulfilled') setStockIndicators(iRes.value)
+              })
+            }
           },
 
           onStructuredData: (data) => {
@@ -1855,7 +2274,7 @@ function CopilotInner() {
                     </motion.div>
                   )
                 }
-                return <MessageBubble key={msg.id} msg={msg} />
+                return <MessageBubble key={msg.id} msg={msg} onCitationClick={setActiveCitation} />
               })}
               <div ref={bottomRef} />
             </div>
@@ -1892,10 +2311,22 @@ function CopilotInner() {
         </div>
       </div>
 
-      {/* ─── Analysis Dashboard Panel ─── */}
-      <AnimatePresence>
-        {showDashboard && analysisData && (
+      {/* ─── Right Info Panel (SEC doc > Analysis dashboard > Quick quote) ─── */}
+      <AnimatePresence mode="wait">
+        {activeCitation ? (
           <motion.div
+            key="sec-panel"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: '42%', opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: 'easeInOut' }}
+            className="hidden lg:flex flex-col border-l border-line-subtle bg-[#08091A] overflow-hidden"
+          >
+            <SECDocPanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
+          </motion.div>
+        ) : showDashboard && analysisData ? (
+          <motion.div
+            key="analysis-panel"
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: '45%', opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
@@ -1904,7 +2335,28 @@ function CopilotInner() {
           >
             <AnalysisDashboard data={analysisData} onClose={() => setShowDashboard(false)} />
           </motion.div>
-        )}
+        ) : quickQuote ? (
+          <motion.div
+            key="quote-panel"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: '38%', opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: 'easeInOut' }}
+            className="hidden lg:flex flex-col border-l border-line-subtle bg-[#08091A] overflow-hidden"
+          >
+            <StockQuickPanel
+              quote={quickQuote}
+              fundamentals={stockFundamentals}
+              indicators={stockIndicators}
+              relatedCitations={messages
+                .flatMap((m) => m.citations ?? [])
+                .filter((c) => (currentSymbol ? c.ticker === currentSymbol : true))
+                .slice(0, 4)}
+              onClose={() => setQuickQuote(null)}
+              onCitationClick={setActiveCitation}
+            />
+          </motion.div>
+        ) : null}
       </AnimatePresence>
     </div>
   )

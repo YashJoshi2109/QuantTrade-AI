@@ -194,7 +194,7 @@ async def _search_one_variant(
     section_filter = None
     if qr.sections:
         section_filter = _build_metadata_filter(
-            tickers=[],
+            tickers=qr.tickers,          # keep ticker scope — don't bleed to other companies
             filing_types=qr.filing_types,
             date_from=qr.date_from,
             section=qr.sections[0],

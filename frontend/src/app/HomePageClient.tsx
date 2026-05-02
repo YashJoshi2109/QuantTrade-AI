@@ -1304,25 +1304,6 @@ function DesktopHome() {
   const pulseBreadthTotal = pulseBreadthUp + pulseBreadthDown
 
   /** All heatmap-quoted names for Market Pulse (same universe as sector tiles) */
-  const heatmapUniverseStocks = useMemo(() => {
-    const rows: { symbol: string; name: string; change_percent: number; price: number; sector: string }[] = []
-    const seen = new Set<string>()
-    for (const sec of sectors) {
-      for (const st of sec.stocks) {
-        if (!st.symbol || seen.has(st.symbol)) continue
-        seen.add(st.symbol)
-        rows.push({
-          symbol: st.symbol,
-          name: st.name,
-          change_percent: st.change_percent,
-          price: st.price,
-          sector: sec.sector,
-        })
-      }
-    }
-    rows.sort((a, b) => b.change_percent - a.change_percent)
-    return rows
-  }, [sectors])
   const breadthTone = breadth > 0 ? 'Risk-On' : breadth < 0 ? 'Risk-Off' : 'Balanced'
   const breadthColor = breadth > 0 ? 'text-emerald-400' : breadth < 0 ? 'text-red-400' : 'text-yellow-400'
 
@@ -1588,14 +1569,26 @@ function DesktopHome() {
                           className="flex items-center justify-between px-4 py-2.5 hover:bg-emerald-500/5 border-b border-line-subtle/30 transition-all group"
                         >
                           <div className="flex items-center gap-2.5">
-                            <span className="w-4 text-[10px] text-fg-muted font-mono text-right">
+                            <span className="w-4 text-[10px] text-fg-muted font-mono text-right shrink-0">
                               {idx + 1}
                             </span>
+                            <div className="w-7 h-7 rounded-md overflow-hidden bg-surface-raised shrink-0 flex items-center justify-center text-[10px] font-bold text-emerald-400">
+                              <img
+                                src={`https://assets.parqet.com/logos/symbol/${stock.symbol}?format=png`}
+                                alt={stock.symbol}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  const el = e.currentTarget
+                                  el.style.display = 'none'
+                                  if (el.parentElement) el.parentElement.textContent = stock.symbol.charAt(0)
+                                }}
+                              />
+                            </div>
                             <div>
                               <span className="font-bold text-fg-primary group-hover:text-emerald-400 transition-colors text-xs font-mono">
                                 {stock.symbol}
                               </span>
-                              <div className="text-[10px] text-fg-muted truncate max-w-[110px]">
+                              <div className="text-[10px] text-fg-muted truncate max-w-[90px]">
                                 {stock.name}
                               </div>
                             </div>
@@ -1664,14 +1657,26 @@ function DesktopHome() {
                           className="flex items-center justify-between px-4 py-2.5 hover:bg-red-500/5 border-b border-line-subtle/30 transition-all group"
                         >
                           <div className="flex items-center gap-2.5">
-                            <span className="w-4 text-[10px] text-fg-muted font-mono text-right">
+                            <span className="w-4 text-[10px] text-fg-muted font-mono text-right shrink-0">
                               {idx + 1}
                             </span>
+                            <div className="w-7 h-7 rounded-md overflow-hidden bg-surface-raised shrink-0 flex items-center justify-center text-[10px] font-bold text-red-400">
+                              <img
+                                src={`https://assets.parqet.com/logos/symbol/${stock.symbol}?format=png`}
+                                alt={stock.symbol}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  const el = e.currentTarget
+                                  el.style.display = 'none'
+                                  if (el.parentElement) el.parentElement.textContent = stock.symbol.charAt(0)
+                                }}
+                              />
+                            </div>
                             <div>
                               <span className="font-bold text-fg-primary group-hover:text-red-400 transition-colors text-xs font-mono">
                                 {stock.symbol}
                               </span>
-                              <div className="text-[10px] text-fg-muted truncate max-w-[90px] sm:max-w-[110px]">
+                              <div className="text-[10px] text-fg-muted truncate max-w-[80px] sm:max-w-[90px]">
                                 {stock.name}
                               </div>
                             </div>
@@ -1924,59 +1929,6 @@ function DesktopHome() {
                         )}
                       </ProCard>
 
-                      {(activeContinent === 'global' && heatmapUniverseStocks.length > 0) ||
-                      (activeContinent !== 'global' && regionalHeatRows.length > 0) ? (
-                        <ProCard className="flex min-h-0 max-h-[min(240px,32vh)] flex-1 flex-col p-2.5 sm:p-3">
-                          <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2">
-                            <div className="flex min-w-0 items-center gap-1.5">
-                              <Layers className="h-3.5 w-3.5 shrink-0 text-fg-muted" />
-                              <span className="truncate text-[11px] font-bold text-fg-primary">
-                                {activeContinent === 'global' ? 'Full heatmap universe' : 'Regional movers'}
-                              </span>
-                            </div>
-                            <span className="shrink-0 font-mono text-[9px] text-fg-muted">
-                              {activeContinent === 'global'
-                                ? heatmapUniverseStocks.length
-                                : regionalHeatRows.length}{' '}
-                              names
-                            </span>
-                          </div>
-                          <div className="min-h-0 flex-1 space-y-0 overflow-y-auto overscroll-contain rounded-md border border-line-subtle bg-surface-base/30">
-                            {(activeContinent === 'global' ? heatmapUniverseStocks : regionalHeatRows).map(
-                              (st) => {
-                                const pct = st.change_percent ?? 0
-                                const up = pct >= 0
-                                return (
-                                  <Link
-                                    key={st.symbol}
-                                    href={`/research?symbol=${encodeURIComponent(st.symbol)}`}
-                                    className="flex items-center justify-between gap-2 border-b border-line-subtle/25 px-2 py-1.5 last:border-b-0 hover:bg-surface-hover"
-                                  >
-                                    <div className="min-w-0 flex-1">
-                                      <div className="truncate font-mono text-[10px] font-bold text-fg-primary">
-                                        {st.symbol}
-                                      </div>
-                                      {activeContinent === 'global' &&
-                                      'sector' in st &&
-                                      typeof st.sector === 'string' ? (
-                                        <div className="truncate text-[9px] text-fg-muted">{st.sector}</div>
-                                      ) : null}
-                                    </div>
-                                    <span
-                                      className={`shrink-0 font-mono text-[10px] font-bold ${
-                                        up ? 'text-emerald-400' : 'text-red-400'
-                                      }`}
-                                    >
-                                      {up ? '+' : ''}
-                                      {formatPercent(pct, 2)}
-                                    </span>
-                                  </Link>
-                                )
-                              }
-                            )}
-                          </div>
-                        </ProCard>
-                      ) : null}
 
                       <ProCard className="p-2.5 sm:p-3">
                         <div className="flex items-center gap-1.5 mb-1">

@@ -173,8 +173,8 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
             
             {/* Stocks Grid */}
             <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-14 2xl:grid-cols-[repeat(15,minmax(0,1fr))] gap-px bg-surface-base p-px">
-              {sector.stocks.map(stock => (
-                <StockTile key={stock.symbol} stock={stock} />
+              {Array.from(new Map(sector.stocks.map(s => [s.symbol, s])).values()).map((stock, idx) => (
+                <StockTile key={`${sector.sector}-${stock.symbol}-${idx}`} stock={stock} />
               ))}
             </div>
           </div>

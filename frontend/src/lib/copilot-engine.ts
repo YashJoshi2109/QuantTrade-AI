@@ -201,6 +201,7 @@ export interface CitationData {
   filed_date: string
   score: number
   source_n: number
+  snippet?: string
 }
 
 // ─── SSE Event Handlers ─────────────────────────────────────────────────────

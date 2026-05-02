@@ -143,16 +143,41 @@ def get_llm_haiku(streaming: bool = False):
 
 @lru_cache(maxsize=1)
 def get_embedder():
-    """Titan Embeddings v2 — 1536d via Bedrock, zero-vector stub as fallback."""
-    try:
-        from langchain_aws import BedrockEmbeddings
-        return BedrockEmbeddings(model_id=BEDROCK_TITAN_MODEL, region_name=REGION)
-    except Exception:
-        return _FallbackEmbedder()
+    """
+    Embedding provider chain: Bedrock Titan v2 → OpenAI text-embedding-3-small → zero stub.
+    All return 1536-dim vectors so Qdrant collection schema stays consistent.
+    """
+    prefer_openai = os.getenv("PREFER_OPENAI", "0").lower() in ("1", "true", "yes")
+
+    # 1. Bedrock Titan v2 (when not prefer-openai and token present)
+    if not prefer_openai and os.getenv("AWS_BEARER_TOKEN_BEDROCK"):
+        try:
+            from langchain_aws import BedrockEmbeddings
+            embedder = BedrockEmbeddings(model_id=BEDROCK_TITAN_MODEL, region_name=REGION)
+            # Warm-test — if Bedrock is blocked this raises immediately
+            embedder.embed_query("ping")
+            return embedder
+        except Exception:
+            pass
+
+    # 2. OpenAI text-embedding-3-small — 1536d, same dim as Titan v2
+    if os.getenv("OPENAI_API_KEY"):
+        try:
+            from langchain_openai import OpenAIEmbeddings
+            return OpenAIEmbeddings(
+                model="text-embedding-3-small",
+                api_key=os.getenv("OPENAI_API_KEY", ""),
+                dimensions=1536,
+            )
+        except Exception:
+            pass
+
+    # 3. OpenRouter doesn't provide embeddings — fall through to stub
+    return _FallbackEmbedder()
 
 
 class _FallbackEmbedder:
-    """Zero-vector stub — used when Bedrock embeddings unavailable."""
+    """Zero-vector stub — last resort when no embedding provider available."""
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return [[0.0] * 1536 for _ in texts]
 

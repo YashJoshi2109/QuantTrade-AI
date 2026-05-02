@@ -7,7 +7,7 @@
 set -e
 
 # Configuration
-EC2_HOST="ubuntu@ec2-18-117-248-103.us-east-2.compute.amazonaws.com"
+EC2_HOST="ubuntu@3.19.207.79"
 KEY_FILE="$HOME/Downloads/texas-yash-admin-mbp.pem"
 LOCAL_PROJECT="/Users/yash/Downloads/Finance"
 REMOTE_DIR="/var/www/quanttrade"
