@@ -207,7 +207,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: DATABASE_URL,SECRET_KEY,OPENAI_API_KEY,ANTHROPIC_API_KEY,NEWSAPI_KEY,ALPHA_VANTAGE_API_KEY,SEC_API_KEY,FINNHUB_API_KEY,FMP_API_KEY,EODHD_API_KEY,APILAYER_CURRENCY_KEY,MARKETSTACK_API_KEY,OPENFIGI_API_KEY,TWELVEDATA_API_KEY,STRIPE_SECRET_KEY,STRIPE_PUBLISHABLE_KEY,STRIPE_WEBHOOK_SECRET,STRIPE_CONNECT_THIN_WEBHOOK_SECRET,STRIPE_CONNECT_SUBSCRIPTION_PRICE_ID,STRIPE_PRICE_PLUS_MONTHLY,STRIPE_PRICE_PLUS_YEARLY,GUARDIAN_API_KEY,ACLED_API_KEY,ACLED_EMAIL,ACLED_PASSWORD,FRED_API_KEY,EIA_API_KEY,CLOUDFLARE_RADAR_TOKEN,GROQ_API_KEY,OPENROUTER_API_KEY,NEXT_PUBLIC_OPENROUTER_API_KEY,NASA_API_KEY,NASA_FIRMS_API_KEY,USGS_API_KEY,ELEVENLABS_API_KEY,ELEVENLABS_MODEL_ID,ELEVENLABS_VOICE_NARRATOR,ELEVENLABS_VOICE_KNIGHT,ELEVENLABS_VOICE_SCHOLAR,ELEVENLABS_VOICE_MERCHANT,ELEVENLABS_VOICE_NOBLE,ELEVENLABS_VOICE_SAGE,BREVO_API_KEY,BREVO_FROM_EMAIL,RESEND_API_KEY,RESEND_FROM_EMAIL,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,NEON_AUTH_URL,NEON_AUTH_JWKS_URL,NEON_AUTH_AUDIENCE,NEXT_PUBLIC_GOOGLE_CLIENT_ID,S3_ENDPOINT,S3_ACCESS_KEY,S3_SECRET_KEY,S3_BUCKET,S3_PUBLIC_URL,USE_LOCAL_STORAGE
+          envs: DATABASE_URL,SECRET_KEY,OPENAI_API_KEY,ANTHROPIC_API_KEY,NEWSAPI_KEY,ALPHA_VANTAGE_API_KEY,SEC_API_KEY,FINNHUB_API_KEY,FMP_API_KEY,EODHD_API_KEY,APILAYER_CURRENCY_KEY,MARKETSTACK_API_KEY,OPENFIGI_API_KEY,TWELVEDATA_API_KEY,PUBLIC_API_SECRET_KEY,STRIPE_SECRET_KEY,STRIPE_PUBLISHABLE_KEY,STRIPE_WEBHOOK_SECRET,STRIPE_CONNECT_THIN_WEBHOOK_SECRET,STRIPE_CONNECT_SUBSCRIPTION_PRICE_ID,STRIPE_PRICE_PLUS_MONTHLY,STRIPE_PRICE_PLUS_YEARLY,GUARDIAN_API_KEY,ACLED_API_KEY,ACLED_EMAIL,ACLED_PASSWORD,FRED_API_KEY,EIA_API_KEY,CLOUDFLARE_RADAR_TOKEN,GROQ_API_KEY,OPENROUTER_API_KEY,NEXT_PUBLIC_OPENROUTER_API_KEY,NASA_API_KEY,NASA_FIRMS_API_KEY,USGS_API_KEY,ELEVENLABS_API_KEY,ELEVENLABS_MODEL_ID,ELEVENLABS_VOICE_NARRATOR,ELEVENLABS_VOICE_KNIGHT,ELEVENLABS_VOICE_SCHOLAR,ELEVENLABS_VOICE_MERCHANT,ELEVENLABS_VOICE_NOBLE,ELEVENLABS_VOICE_SAGE,BREVO_API_KEY,BREVO_FROM_EMAIL,RESEND_API_KEY,RESEND_FROM_EMAIL,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,NEON_AUTH_URL,NEON_AUTH_JWKS_URL,NEON_AUTH_AUDIENCE,NEXT_PUBLIC_GOOGLE_CLIENT_ID,S3_ENDPOINT,S3_ACCESS_KEY,S3_SECRET_KEY,S3_BUCKET,S3_PUBLIC_URL,USE_LOCAL_STORAGE
           script_stop: true
           script: |
             set -e
@@ -388,9 +388,9 @@ jobs:
               echo "❌ docker compose up failed! Showing diagnostics..."
               docker compose -f docker-compose.prod.yml ps || true
               echo "=== Backend logs ==="
-              docker logs --tail=150 quanttrade-backend || true
+              docker compose -f docker-compose.prod.yml logs --tail=150 backend || true
               echo "=== Nginx logs ==="
-              docker logs --tail=50 quanttrade-nginx || true
+              docker compose -f docker-compose.prod.yml logs --tail=50 nginx || true
               echo "=== Memory ==="
               free -m || true
               docker stats --no-stream || true
@@ -406,25 +406,31 @@ jobs:
 
             # Health check with retries — check Docker health status since port 8000 is only exposed inside the Docker network
             for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-              STATUS=$(docker inspect --format='{{.State.Health.Status}}' quanttrade-backend 2>/dev/null || echo "unknown")
+              CONTAINER_ID=$(docker compose -f docker-compose.prod.yml ps -q backend)
+              if [ -z "$CONTAINER_ID" ]; then
+                STATUS="missing"
+              else
+                STATUS=$(docker inspect --format='{{.State.Health.Status}}' $CONTAINER_ID 2>/dev/null || echo "unknown")
+              fi
               if [ "$STATUS" = "healthy" ]; then
                 echo "✅ Backend container is healthy!"
                 break
               fi
               echo "Waiting for backend... (attempt $i/15, status: $STATUS)"
-              docker logs --tail=5 quanttrade-backend 2>&1 | tail -3 || true
+              docker compose -f docker-compose.prod.yml logs --tail=5 backend 2>&1 | tail -3 || true
               sleep 15
             done
 
             # Final verification — backend healthy + nginx responding
-            FINAL_STATUS=$(docker inspect --format='{{.State.Health.Status}}' quanttrade-backend 2>/dev/null || echo "unknown")
+            CONTAINER_ID=$(docker compose -f docker-compose.prod.yml ps -q backend)
+            FINAL_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $CONTAINER_ID 2>/dev/null || echo "unknown")
             if [ "$FINAL_STATUS" != "healthy" ]; then
               echo "❌ Health check failed! Showing logs..."
               docker compose -f docker-compose.prod.yml ps
               echo "=== Backend logs ==="
-              docker logs --tail=80 quanttrade-backend
+              docker compose -f docker-compose.prod.yml logs --tail=80 backend
               echo "=== Nginx logs ==="
-              docker logs --tail=30 quanttrade-nginx
+              docker compose -f docker-compose.prod.yml logs --tail=30 nginx
               echo "=== Memory usage ==="
               free -m || true
               docker stats --no-stream || true
@@ -433,12 +439,12 @@ jobs:
 
             # ===== DB: welcome promo dedupe column (idempotent; required for welcome email) =====
             echo "🧱 Applying DB migration welcome_promo_email_sent_at (if missing)..."
-            docker compose -f docker-compose.prod.yml exec -T quanttrade-backend \
+            docker compose -f docker-compose.prod.yml exec -T backend \
               python scripts/add_welcome_promo_email_column.py \
               || echo "⚠️ Migration script failed — run on Neon: ALTER TABLE users ADD COLUMN IF NOT EXISTS welcome_promo_email_sent_at TIMESTAMP;"
 
             echo "🧱 Applying DB migration preferences_json (if missing)..."
-            docker compose -f docker-compose.prod.yml exec -T quanttrade-backend \
+            docker compose -f docker-compose.prod.yml exec -T backend \
               python scripts/add_user_preferences_column.py \
               || echo "⚠️ preferences_json migration failed — run on Neon: ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences_json TEXT;"
             
