@@ -1338,22 +1338,20 @@ function LiveQuoteStrip() {
 // ─── Model Indicator Badge ───────────────────────────────────────────────────
 
 function ModelIndicator({ model, isStreaming }: { model: string; isStreaming: boolean }) {
-  const modelLabels: Record<string, { name: string; color: string }> = {
-    'gpt-4o': { name: 'GPT-4o', color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
-    'gpt-4.1': { name: 'GPT-4.1', color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
-    'gpt-4o-mini': { name: 'GPT-4o Mini', color: 'text-teal-400 border-teal-500/30 bg-teal-500/10' },
-    'gpt-4o_cached': { name: 'GPT-4o (cached)', color: 'text-emerald-300 border-emerald-500/20 bg-emerald-500/5' },
-    'groq': { name: 'Llama 3.3 70B', color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
-    'groq_cached': { name: 'Llama 3.3 (cached)', color: 'text-orange-300 border-orange-500/20 bg-orange-500/5' },
-    'openrouter': { name: 'Gemini Flash', color: 'text-blue-400 border-blue-500/30 bg-blue-500/10' },
-    'deepseek-v3': { name: 'DeepSeek V3', color: 'text-violet-400 border-violet-500/30 bg-violet-500/10' },
-    'deepseek-v3_cached': { name: 'DeepSeek V3 (cached)', color: 'text-violet-300 border-violet-500/20 bg-violet-500/5' },
-    'fallback': { name: 'Llama 3.1 8B', color: 'text-fg-muted border-line-subtle bg-surface-raised' },
-    'rate_limited': { name: 'Rate Limited', color: 'text-red-400 border-red-500/30 bg-red-500/10' },
-    'none': { name: 'No Model', color: 'text-fg-muted border-line-subtle bg-surface-raised' },
+  // Map internal model IDs to professional tier labels (no vendor names)
+  const getModelInfo = (m: string): { name: string; color: string } => {
+    if (m.includes('sonnet') || m.includes('4o') && !m.includes('mini') || m.includes('4.1'))
+      return { name: 'Advanced AI', color: 'text-[#5eb0ff] border-[#007AFF]/30 bg-[#007AFF]/10' }
+    if (m.includes('haiku') || m.includes('mini') || m.includes('8b') || m.includes('7b'))
+      return { name: 'Fast AI', color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10' }
+    if (m.includes('groq') || m.includes('llama') || m.includes('70b'))
+      return { name: 'High-Speed AI', color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' }
+    if (m === 'rate_limited')
+      return { name: 'Rate Limited', color: 'text-red-400 border-red-500/30 bg-red-500/10' }
+    return { name: 'Advanced AI', color: 'text-[#5eb0ff] border-[#007AFF]/30 bg-[#007AFF]/10' }
   }
 
-  const info = modelLabels[model] || modelLabels['groq']
+  const info = getModelInfo(model)
 
   return (
     <div
@@ -1855,11 +1853,78 @@ function CopilotInner() {
   const [stockIndicators, setStockIndicators] = useState<Indicators | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
-  const [activeModel, setActiveModel] = useState<string>('groq')
+  const [activeModel, setActiveModel] = useState<string>('claude-sonnet-4-6')
   const abortRef = useRef<AbortController | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const queryClient = useQueryClient()
+
+  // Build analysisData from separately-fetched market data so the "AAPL Data"
+  // header button appears and the AnalysisDashboard can be opened on demand.
+  useEffect(() => {
+    if (!quickQuote || !currentSymbol) return
+    const sd: StockAnalysisData = {
+      symbol: quickQuote.symbol,
+      quote: {
+        price: quickQuote.price,
+        change: quickQuote.change,
+        change_percent: quickQuote.change_percent,
+        volume: quickQuote.volume,
+        high: quickQuote.high,
+        low: quickQuote.low,
+        open: quickQuote.open,
+        previous_close: quickQuote.previous_close,
+        data_source: quickQuote.data_source,
+      },
+      company: stockFundamentals
+        ? {
+            name: stockFundamentals.company_name,
+            sector: stockFundamentals.sector || undefined,
+            industry: stockFundamentals.industry,
+          }
+        : undefined,
+      fundamentals: stockFundamentals
+        ? {
+            pe_ratio: stockFundamentals.pe_ratio,
+            forward_pe: stockFundamentals.forward_pe,
+            peg_ratio: stockFundamentals.peg_ratio,
+            price_to_book: stockFundamentals.price_to_book,
+            eps: stockFundamentals.eps,
+            market_cap: stockFundamentals.market_cap,
+            beta: stockFundamentals.beta,
+            rsi: stockFundamentals.rsi,
+            week_52_high: stockFundamentals.week_52_high,
+            week_52_low: stockFundamentals.week_52_low,
+            profit_margin: stockFundamentals.profit_margin,
+            operating_margin: stockFundamentals.operating_margin,
+            roe: stockFundamentals.roe,
+            roa: stockFundamentals.roa,
+            debt_to_equity: stockFundamentals.debt_to_equity,
+            current_ratio: stockFundamentals.current_ratio,
+            target_price: stockFundamentals.target_price,
+            recommendation: stockFundamentals.recommendation,
+            earnings_date: stockFundamentals.earnings_date,
+          }
+        : undefined,
+      indicators: stockIndicators?.indicators
+        ? {
+            rsi: stockIndicators.indicators.rsi,
+            sma_50: stockIndicators.indicators.sma_50,
+            sma_200: stockIndicators.indicators.sma_200,
+            current_price: quickQuote.price,
+            macd: stockIndicators.indicators.macd
+              ? {
+                  macd:      stockIndicators.indicators.macd.macd      ?? undefined,
+                  signal:    stockIndicators.indicators.macd.signal    ?? undefined,
+                  histogram: stockIndicators.indicators.macd.histogram ?? undefined,
+                }
+              : undefined,
+          }
+        : undefined,
+    }
+    setAnalysisData(sd)
+    // Don't auto-show dashboard — user clicks the header "AAPL Data" button
+  }, [quickQuote, stockFundamentals, stockIndicators, currentSymbol])
 
   const { data: copilotUsage } = useQuery({
     queryKey: ['copilot-usage'],
@@ -1953,7 +2018,7 @@ function CopilotInner() {
       setStockIndicators(null)
       setCurrentIntent(undefined)
       setCurrentSymbol(null)
-      setActiveModel('groq')
+      setActiveModel('claude-sonnet-4-6')
 
       abortRef.current = new AbortController()
 
@@ -1992,9 +2057,13 @@ function CopilotInner() {
               data.stocks && data.stocks.length > 0
                 ? data.stocks[0]
                 : (data as StockAnalysisData)
+            // Only auto-show the full dashboard when rich ML data is present
+            // (technical_signal, confidence, monte_carlo). For simple quote data
+            // the StockQuickPanel already provides a better experience.
             if (displayData.symbol) {
+              const hasRichData = !!(displayData.technical_signal || displayData.confidence || displayData.monte_carlo)
               setAnalysisData(displayData)
-              setShowDashboard(true)
+              if (hasRichData) setShowDashboard(true)
             }
             setMessages((prev) =>
               prev.map((m) =>
@@ -2194,7 +2263,7 @@ function CopilotInner() {
                     AI Copilot
                   </h1>
                   <p className="hidden truncate font-mono text-[10px] leading-none text-fg-muted sm:block">
-                    RAG + Quant Models + GROQ LLM
+                    Institutional Research · Real-Time Intelligence
                   </p>
                 </div>
               </div>
