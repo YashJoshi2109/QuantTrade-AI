@@ -33,21 +33,43 @@ import cohere
 logger = logging.getLogger(__name__)
 
 
+_aws_creds_cache: bool | None = None
+
+
 def _aws_credentials_available() -> bool:
-    """True if boto3 can resolve AWS credentials via the standard credential chain."""
+    """True if boto3 can resolve AWS credentials via the standard credential chain.
+
+    Result is cached for the process lifetime — avoids repeated boto3 I/O on
+    every LLM call (instance metadata lookups can be slow / unreachable on EC2).
+    """
+    global _aws_creds_cache
+    if _aws_creds_cache is not None:
+        return _aws_creds_cache
     try:
         import boto3
         session = boto3.Session()
         creds = session.get_credentials()
-        return creds is not None and creds.get_frozen_credentials() is not None
+        _aws_creds_cache = creds is not None and creds.get_frozen_credentials() is not None
     except Exception:
-        return False
+        _aws_creds_cache = False
+    return _aws_creds_cache
 
 # ─── Model constants ─────────────────────────────────────────────────────────
 
 BEDROCK_SONNET_MODEL    = "anthropic.claude-sonnet-4-6"
 BEDROCK_HAIKU_MODEL     = "anthropic.claude-haiku-4-5-20251001-v1:0"
 BEDROCK_TITAN_MODEL     = "amazon.titan-embed-text-v2:0"
+
+# Amazon Nova — cost-effective Bedrock-native models
+# Nova Lite: fast + cheap, ~1/10 cost of Sonnet; good for routing/haiku-level tasks
+# Nova Pro:  more capable, mid-tier between Haiku and Sonnet
+BEDROCK_NOVA_LITE_MODEL = "amazon.nova-lite-v1:0"
+BEDROCK_NOVA_PRO_MODEL  = "amazon.nova-pro-v1:0"
+
+# USE_NOVA_LITE=1 → swap Haiku-class calls to Nova Lite (cheaper on Bedrock)
+# USE_NOVA_PRO=1  → swap Sonnet-class calls to Nova Pro when Sonnet unavailable
+USE_NOVA_LITE = os.getenv("USE_NOVA_LITE", "0").lower() in ("1", "true", "yes")
+USE_NOVA_PRO  = os.getenv("USE_NOVA_PRO",  "0").lower() in ("1", "true", "yes")
 
 OPENAI_SONNET_EQUIV     = "gpt-4o"
 OPENAI_HAIKU_EQUIV      = "gpt-4o-mini"
@@ -90,8 +112,13 @@ def _openrouter_llm(model: str, temperature: float, max_tokens: int, streaming: 
     from langchain_openai import ChatOpenAI
     api_key = (
         os.getenv("OPENROUTER_API_KEY")
-        or os.getenv("NEXT_PUBLIC_OPENROUTER_API_KEY", "")
+        or os.getenv("NEXT_PUBLIC_OPENROUTER_API_KEY")
+        or ""
     )
+    if not api_key:
+        raise RuntimeError(
+            "No OpenRouter API key found. Set OPENROUTER_API_KEY or NEXT_PUBLIC_OPENROUTER_API_KEY."
+        )
     return ChatOpenAI(
         model=model,
         api_key=api_key,
@@ -135,9 +162,12 @@ def _pick_llm(
 # ─── Public LLM factories ─────────────────────────────────────────────────────
 
 def get_llm_sonnet(streaming: bool = True):
-    """Primary LLM — Claude Sonnet 4.6 via Bedrock, GPT-4o or OpenRouter as fallback."""
+    """Primary LLM — Claude Sonnet 4.6 via Bedrock (or Nova Pro if USE_NOVA_PRO=1),
+    GPT-4o or OpenRouter as fallback."""
+    # Nova Pro is a solid Bedrock-native alternative when Sonnet is blocked/throttled
+    bedrock_model = BEDROCK_NOVA_PRO_MODEL if USE_NOVA_PRO else BEDROCK_SONNET_MODEL
     return _pick_llm(
-        bedrock_model=BEDROCK_SONNET_MODEL,
+        bedrock_model=bedrock_model,
         openai_model=OPENAI_SONNET_EQUIV,
         openrouter_model=OPENROUTER_SONNET_MODEL,
         temperature=0.1,
@@ -147,9 +177,12 @@ def get_llm_sonnet(streaming: bool = True):
 
 
 def get_llm_haiku(streaming: bool = False):
-    """Fast LLM — Claude Haiku 4.5 via Bedrock, GPT-4o-mini or OpenRouter as fallback."""
+    """Fast LLM — Claude Haiku 4.5 via Bedrock (or Nova Lite if USE_NOVA_LITE=1),
+    GPT-4o-mini or OpenRouter as fallback."""
+    # Nova Lite is ~10x cheaper than Haiku on Bedrock — enable with USE_NOVA_LITE=1
+    bedrock_model = BEDROCK_NOVA_LITE_MODEL if USE_NOVA_LITE else BEDROCK_HAIKU_MODEL
     return _pick_llm(
-        bedrock_model=BEDROCK_HAIKU_MODEL,
+        bedrock_model=bedrock_model,
         openai_model=OPENAI_HAIKU_EQUIV,
         openrouter_model=OPENROUTER_HAIKU_MODEL,
         temperature=0.0,

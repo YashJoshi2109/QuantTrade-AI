@@ -1814,7 +1814,7 @@ export async function getCopilotUsage(): Promise<CopilotUsage> {
   if (!response.ok) return {
     today_requests: 0, today_input_tokens: 0, today_output_tokens: 0,
     today_cost_usd: 0, daily_budget_usd: 2.0, budget_remaining_usd: 2.0, budget_ok: true,
-    is_pro: false, free_limit: 5, free_remaining: 5,
+    is_pro: false, free_limit: 50, free_remaining: 50,
   }
   return response.json()
 }

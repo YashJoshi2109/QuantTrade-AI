@@ -334,7 +334,7 @@ export async function streamCopilotAnalysis(
                 conversation_id: data.conversation_id || '',
                 sources: (data.citations || []).map((c: CitationData) => c.label),
                 intent: detectedIntent,
-                model: 'claude-sonnet-4-6',
+                model: data.model || 'claude-sonnet-4-6',
               })
               callbacks.onDone?.()
               doneCalled = true

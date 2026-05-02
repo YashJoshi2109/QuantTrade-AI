@@ -273,6 +273,7 @@ export function FullScreenCalendar({ data: initialData, onClose }: FullScreenCal
       if (!byDate.has(dateKey)) byDate.set(dateKey, [])
       byDate.get(dateKey)!.push({
         countryCode: ev.country_code,
+        date: ev.date,
         time: ev.time,
         eventName: ev.event_name,
         actual: ev.actual,

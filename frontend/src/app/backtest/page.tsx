@@ -393,7 +393,7 @@ function DesktopBacktestPage() {
         setError(
           hasNoEquity
             ? `No trades generated for ${symbol.toUpperCase()} with ${STRATEGIES.find(s => s.id === strategy)?.name ?? strategy}. Try a different date range, strategy, or check that market data is available.`
-            : `Strategy produced 0 trades — parameters may be too restrictive or insufficient data for ${symbol.toUpperCase()} in the selected period.`
+            : `Strategy produced 0 trades — parameters may be too restrictive or insufficient data for ${symbol.toUpperCase()} in the selected period. If your initial capital ($${initialCapital.toLocaleString()}) is less than the stock price, increase it so at least 1 share can be purchased.`
         )
       } else {
         setResult(res)

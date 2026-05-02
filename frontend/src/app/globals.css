@@ -150,10 +150,10 @@ button, a, input, textarea, select,
 .dark {
   /* ── Surfaces (glassmorphic) ── */
   --surface-base:         transparent;
-  --surface-raised:       rgba(255, 255, 255, 0.06);
-  --surface-overlay:      rgba(255, 255, 255, 0.09);
-  --surface-glass:        rgba(255, 255, 255, 0.07);
-  --surface-glass-border: rgba(255, 255, 255, 0.12);
+  --surface-raised:       rgba(255, 255, 255, 0.13);
+  --surface-overlay:      rgba(255, 255, 255, 0.18);
+  --surface-glass:        rgba(255, 255, 255, 0.16);
+  --surface-glass-border: rgba(255, 255, 255, 0.22);
   --surface-hover:        rgba(255, 255, 255, 0.08);
   --surface-active:       rgba(0, 122, 255, 0.16);
 
@@ -202,10 +202,10 @@ button, a, input, textarea, select,
   --glow-green-theme: 0 0 20px rgba(16,185,129,0.15);
 
   /* Glass layers */
-  --glass-bg:           rgba(255, 255, 255, 0.07);
-  --glass-bg-light:     rgba(255, 255, 255, 0.05);
-  --glass-bg-strong:    rgba(255, 255, 255, 0.10);
-  --glass-border:       rgba(255, 255, 255, 0.10);
+  --glass-bg:           rgba(255, 255, 255, 0.14);
+  --glass-bg-light:     rgba(255, 255, 255, 0.10);
+  --glass-bg-strong:    rgba(255, 255, 255, 0.22);
+  --glass-border:       rgba(255, 255, 255, 0.18);
   --glass-border-cyan:  rgba(0, 212, 255, 0.22);
   --glass-border-glow:  rgba(0, 212, 255, 0.42);
   --glass-blur:         20px;

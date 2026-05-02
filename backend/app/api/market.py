@@ -939,11 +939,8 @@ async def get_top_gainers(
     # Sort by gain (highest positive change first)
     all_stocks.sort(key=lambda x: x.change_percent, reverse=True)
 
-    # Return only positive gainers (or top movers if no positive gainers)
+    # Return only positive gainers — no abs() fallback to avoid misrepresenting losers as gainers
     gainers = [s for s in all_stocks if s.change_percent > 0]
-    if not gainers and all_stocks:
-        # Fallback: return top movers by absolute change if no gainers
-        gainers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:limit]
 
     return gainers[:limit]
 
@@ -963,11 +960,8 @@ async def get_top_losers(
     # Sort by loss (most negative first)
     all_stocks.sort(key=lambda x: x.change_percent)
 
-    # Return only negative losers (or top movers if no negative losers)
+    # Return only negative losers — no abs() fallback to avoid misrepresenting gainers as losers
     losers = [s for s in all_stocks if s.change_percent < 0]
-    if not losers and all_stocks:
-        # Fallback: return top movers by absolute change if no losers
-        losers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:limit]
 
     return losers[:limit]
 
@@ -1076,13 +1070,11 @@ async def get_market_movers(
 
     sorted_up = sorted(all_stocks, key=lambda x: x.change_percent, reverse=True)
     gainers = [s for s in sorted_up if s.change_percent > 0][:limit]
-    if not gainers and all_stocks:
-        gainers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:limit]
+    # Do NOT fall back to abs() for gainers — returning negatives as "gainers" breaks the heatmap color logic
 
     sorted_down = sorted(all_stocks, key=lambda x: x.change_percent)
     losers = [s for s in sorted_down if s.change_percent < 0][:limit]
-    if not losers and all_stocks:
-        losers = sorted(all_stocks, key=lambda x: abs(x.change_percent), reverse=True)[:limit]
+    # Do NOT fall back to abs() for losers — returning positive-change stocks as "losers" causes all-green heatmap
 
     return {
         "gainers": gainers,

@@ -113,6 +113,67 @@ def apply_guardrails(response: str) -> str:
     return response
 
 
+# ── Structured data builder ───────────────────────────────────────────────────
+def _build_structured_data(ticker: str, state: dict) -> dict | None:
+    """Assemble structured data payload from agent live_data for frontend UI panels.
+
+    Returns a dict matching CopilotStructuredData / StockAnalysisData on the
+    frontend, or None if no usable ticker data is present.
+    """
+    from app.services.agentic.agents.shared import AgentResult
+
+    # Merge live_data from all agent results
+    live_data: dict = {}
+    for ar in state.get("agent_results", {}).values():
+        if isinstance(ar, AgentResult):
+            live_data.update(ar.live_data or {})
+
+    ticker_data: dict = live_data.get(ticker, {})
+    if not ticker_data:
+        return None
+
+    result: dict = {"symbol": ticker}
+
+    # ── Quote ────────────────────────────────────────────────────────────────
+    quote = {
+        "price":          ticker_data.get("price"),
+        "change":         ticker_data.get("change"),
+        "change_percent": ticker_data.get("change_percent"),
+        "volume":         ticker_data.get("volume"),
+        "high":           ticker_data.get("high"),
+        "low":            ticker_data.get("low"),
+        "open":           ticker_data.get("open"),
+        "previous_close": ticker_data.get("previous_close"),
+        "data_source":    ticker_data.get("data_source"),
+    }
+    if any(v is not None for k, v in quote.items() if k != "data_source"):
+        result["quote"] = quote
+
+    # ── Fundamentals ────────────────────────────────────────────────────────
+    FUND_KEYS = (
+        "pe_ratio", "forward_pe", "peg_ratio", "price_to_book", "eps",
+        "market_cap", "beta", "dividend_yield", "week_52_high", "week_52_low",
+        "profit_margin", "operating_margin", "roe", "roa", "debt_to_equity",
+        "current_ratio", "target_price", "recommendation", "revenue", "avg_volume",
+    )
+    fundamentals = {k: ticker_data[k] for k in FUND_KEYS if ticker_data.get(k) is not None}
+    if fundamentals:
+        result["fundamentals"] = fundamentals
+
+    # ── Company info ────────────────────────────────────────────────────────
+    company = {
+        k: ticker_data[k]
+        for k in ("name", "company_name", "sector", "industry", "market_cap")
+        if ticker_data.get(k)
+    }
+    if "company_name" in company:
+        company["name"] = company.pop("company_name")
+    if company:
+        result["company"] = company
+
+    return result
+
+
 # ── SSE helper ─────────────────────────────────────────────────────────────────
 def _sse(event: str, data) -> str:
     payload = json.dumps(data, default=str) if not isinstance(data, str) else data
@@ -190,6 +251,13 @@ async def _stream_generator(
 
     yield _sse("tool_result", {"message": f"Found {len(state.get('all_chunks', []))} relevant sections"})
 
+    # Emit structured data for UI stock panels (quote + fundamentals)
+    ticker = rd_dict.get("primary_ticker")
+    if ticker:
+        structured = _build_structured_data(ticker, state)
+        if structured:
+            yield _sse("structured_data", structured)
+
     # Emit citations early (frontend can start rendering)
     for i, cit in enumerate(citations[:10]):
         yield _sse("citation", {**cit, "source_n": i + 1})
@@ -204,19 +272,65 @@ async def _stream_generator(
         ("human",  req.message),
     ]
 
-    llm = get_llm_sonnet()
     full_response = ""
+    model_used    = "claude-sonnet-4-6"  # default; updated on fallback
 
     try:
+        llm = get_llm_sonnet()
+        # Detect actual provider from LLM class name
+        llm_cls = type(llm).__name__
+        if "Bedrock" in llm_cls:
+            model_used = "claude-sonnet-4-6"
+        elif "ChatOpenAI" in llm_cls:
+            model_used = getattr(llm, "model_name", None) or "gpt-4o"
         async for chunk in llm.astream(messages):
             token = chunk.content if hasattr(chunk, "content") else str(chunk)
             if token:
                 full_response += token
                 yield _sse("token", {"text": token})
     except Exception as exc:
-        logger.error("LLM stream failed: %s", exc, exc_info=True)
-        yield _sse("error", {"message": "LLM streaming error. Please try again."})
-        return
+        # If Bedrock failed (model not enabled, auth error, throttle), retry with
+        # OpenAI/OpenRouter by temporarily forcing PREFER_OPENAI=1 for this call.
+        exc_name = type(exc).__name__
+        bedrock_errors = (
+            "AccessDeniedException", "ValidationException",
+            "ModelNotReadyException", "ThrottlingException",
+            "ClientError", "EndpointResolutionError",
+            "NoCredentialsError", "BotoCoreError",
+        )
+        is_bedrock_error = (
+            exc_name in bedrock_errors
+            or "bedrock" in str(exc).lower()
+            or "model access" in str(exc).lower()
+            or "not authorized" in str(exc).lower()
+        )
+        if is_bedrock_error:
+            logger.warning("Bedrock unavailable (%s: %s), retrying with OpenAI/OpenRouter fallback", exc_name, exc)
+            try:
+                import os as _os
+                _orig = _os.environ.get("PREFER_OPENAI", "0")
+                _os.environ["PREFER_OPENAI"] = "1"
+                try:
+                    llm_fallback = get_llm_sonnet()
+                finally:
+                    _os.environ["PREFER_OPENAI"] = _orig
+                fb_cls = type(llm_fallback).__name__
+                model_used = getattr(llm_fallback, "model_name", None) or (
+                    "gpt-4o" if "OpenAI" in fb_cls else "openrouter"
+                )
+                async for chunk in llm_fallback.astream(messages):
+                    token = chunk.content if hasattr(chunk, "content") else str(chunk)
+                    if token:
+                        full_response += token
+                        yield _sse("token", {"text": token})
+            except Exception as fallback_exc:
+                logger.error("LLM fallback also failed (%s): %s", type(fallback_exc).__name__, fallback_exc, exc_info=True)
+                yield _sse("error", {"message": f"LLM unavailable ({type(fallback_exc).__name__}). Check API keys or model access."})
+                return
+        else:
+            logger.error("LLM stream failed (%s): %s", exc_name, exc, exc_info=True)
+            yield _sse("error", {"message": f"LLM streaming error ({exc_name}). Please try again."})
+            return
 
     # ── 6. Guardrails — emit disclaimer as token if appended ─────────────────
     guarded = apply_guardrails(full_response)
@@ -272,7 +386,71 @@ async def _stream_generator(
         "request_id":      request_id,
         "conversation_id": conversation_id,
         "citations":       citations,
+        "model":           model_used,
     })
+
+
+# ── LLM status ─────────────────────────────────────────────────────────────────
+@router.get("/llm-status")
+async def llm_status(user: User = Depends(require_auth)):
+    """Return which LLM provider is active and which are configured."""
+    import os as _os
+    from app.services.agentic.bedrock_client import (
+        _aws_credentials_available,
+        BEDROCK_SONNET_MODEL, BEDROCK_NOVA_PRO_MODEL, BEDROCK_NOVA_LITE_MODEL,
+        USE_NOVA_LITE, USE_NOVA_PRO,
+    )
+
+    prefer_openai = _os.getenv("PREFER_OPENAI", "0").lower() in ("1", "true", "yes")
+    has_aws        = _aws_credentials_available()
+    has_openai     = bool(_os.getenv("OPENAI_API_KEY"))
+    has_openrouter = bool(
+        _os.getenv("OPENROUTER_API_KEY")
+        or _os.getenv("NEXT_PUBLIC_OPENROUTER_API_KEY")
+    )
+
+    # Determine active bedrock model based on Nova flags
+    if USE_NOVA_PRO:
+        bedrock_model_name = f"nova-pro ({BEDROCK_NOVA_PRO_MODEL})"
+    elif USE_NOVA_LITE:
+        bedrock_model_name = f"nova-lite ({BEDROCK_NOVA_LITE_MODEL})"
+    else:
+        bedrock_model_name = f"claude-sonnet ({BEDROCK_SONNET_MODEL})"
+
+    if not prefer_openai and has_aws:
+        active_provider = "bedrock"
+        active_model    = bedrock_model_name
+    elif has_openai:
+        active_provider = "openai"
+        active_model    = "gpt-4o"
+    elif has_openrouter:
+        active_provider = "openrouter"
+        active_model    = "anthropic/claude-3.5-sonnet (OpenRouter)"
+    else:
+        active_provider = "none"
+        active_model    = "No LLM provider configured"
+
+    return {
+        "active_provider": active_provider,
+        "active_model":    active_model,
+        "providers": {
+            "bedrock":    {
+                "available": has_aws and not prefer_openai,
+                "skipped_by_prefer_openai": prefer_openai,
+                "nova_lite_enabled": USE_NOVA_LITE,
+                "nova_pro_enabled":  USE_NOVA_PRO,
+                "active_model":      bedrock_model_name,
+            },
+            "openai":     {"available": has_openai},
+            "openrouter": {"available": has_openrouter},
+        },
+        "prefer_openai": prefer_openai,
+        "note": (
+            "Set USE_NOVA_LITE=1 for cheaper Haiku-tier calls (Amazon Nova Lite). "
+            "Set USE_NOVA_PRO=1 to use Nova Pro instead of Claude Sonnet. "
+            "Set PREFER_OPENAI=0 to re-enable Bedrock (requires AWS credentials)."
+        ),
+    }
 
 
 # ── Endpoint ───────────────────────────────────────────────────────────────────

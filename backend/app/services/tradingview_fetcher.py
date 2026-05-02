@@ -157,12 +157,21 @@ class TradingViewFetcher:
                 quote_data = quote_response.json()
                 if not quote_data or "data" not in quote_data or len(quote_data["data"]) == 0:
                     return None
-                
-                # Extract quote data
-                data_row = quote_data["data"][0]
-                if len(data_row) < 8:
+
+                # TradingView scanner returns {"data": [{"s": "EXCHANGE:SYM", "d": [values...]}, ...]}
+                # Each item in "data" is a dict with "s" (symbol) and "d" (values array)
+                first_item = quote_data["data"][0]
+                if isinstance(first_item, dict):
+                    data_row = first_item.get("d", [])
+                elif isinstance(first_item, list):
+                    # Some TV endpoints return arrays directly
+                    data_row = first_item
+                else:
                     return None
-                
+
+                if len(data_row) < 5:
+                    return None
+
                 # Parse the data array: [name, close, change, change_abs, volume, high, low, open]
                 name = data_row[0] if len(data_row) > 0 else symbol
                 close = data_row[1] if len(data_row) > 1 else None

@@ -715,6 +715,18 @@ class BacktestEngine:
         if "volume" not in df.columns:
             df["volume"] = 1
 
+        # Capital adequacy check: warn if initial capital is too small to buy even 1 share
+        median_price = float(df["close"].median())
+        min_required = median_price * 1.01  # price + ~1% for commission/slippage
+        if initial_capital < min_required:
+            return {
+                "error": (
+                    f"Initial capital ${initial_capital:,.2f} is too low to purchase shares "
+                    f"(median price ~${median_price:,.2f}). "
+                    f"Increase initial capital to at least ${min_required:,.0f}."
+                )
+            }
+
         sizing_method = PositionSizing(position_sizing) if position_sizing in [e.value for e in PositionSizing] else PositionSizing.FIXED
 
         if walk_forward and len(df) > 60:
