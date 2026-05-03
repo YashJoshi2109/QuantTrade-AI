@@ -400,17 +400,24 @@ jobs:
             free -m || true
 
             # ===== START CONTAINERS + WAIT FOR HEALTH =====
-            # Use --wait: blocks until all services healthy (or timeout), outputs plain-text
-            # progress every ~1s → SSH connection stays alive, no idle disconnect.
-            # No polling loop needed — exit code reflects health outcome.
-            echo "🚀 Starting containers (waiting for healthy)..."
-            if ! docker compose -f docker-compose.prod.yml up -d --wait --remove-orphans; then
+            # --wait blocks until all services with healthchecks are healthy.
+            # --wait-timeout 600 = 10 min ceiling; prevents infinite hang if a
+            # service never becomes healthy (e.g. Redis unreachable for Celery).
+            # All 5 services now have healthchecks so --wait tracks them all.
+            echo "🚀 Starting containers (waiting for healthy, timeout 600s)..."
+            if ! docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 600 --remove-orphans; then
               echo "❌ docker compose up --wait failed! Dumping diagnostics..."
               docker compose -f docker-compose.prod.yml ps || true
-              echo "=== Backend logs ==="
+              echo "=== Backend logs (last 150) ==="
               docker compose -f docker-compose.prod.yml logs --tail=150 backend || true
-              echo "=== Nginx logs ==="
-              docker compose -f docker-compose.prod.yml logs --tail=50 nginx || true
+              echo "=== Frontend logs (last 50) ==="
+              docker compose -f docker-compose.prod.yml logs --tail=50 frontend || true
+              echo "=== Celery worker logs (last 50) ==="
+              docker compose -f docker-compose.prod.yml logs --tail=50 celery-worker || true
+              echo "=== Celery beat logs (last 30) ==="
+              docker compose -f docker-compose.prod.yml logs --tail=30 celery-beat || true
+              echo "=== Nginx logs (last 30) ==="
+              docker compose -f docker-compose.prod.yml logs --tail=30 nginx || true
               echo "=== Memory ==="
               free -m || true
               docker stats --no-stream || true
