@@ -26,6 +26,7 @@ QuantTrade AI is a full-stack financial intelligence platform that combines real
 - **AI Chat** — Claude/OpenAI-powered assistant with tool calling: live quotes, news, indicators, SEC filings, watchlist
 - **Symbol Deep Dive** — TradingView-style chart, technical indicators, fundamental panel, news feed
 - **SEC Filings RAG** — Retrieval-augmented analysis of 10-K, 10-Q, 8-K filings via LangChain + vector store
+- **Agentic RAG Copilot** — LangGraph-powered supervisor with 6 specialized agents (research, comparison, screener, portfolio, earnings, general). 5-stage retrieval: HyDE → hybrid dense/sparse search → Cohere rerank → parent-child expansion → citation assembly. 500K+ SEC filings corpus (10-K, 10-Q, 8-K) in Qdrant vector store with BM25 sparse + Titan v2 dense encoding. Redis sliding-window conversation memory with Haiku compression.
 - **Finnhub Panels** — Insider transactions, analyst recommendations, IPO calendar, company news, basic financials
 - **Ideas Lab** — AI-generated trade ideas with catalyst, risk/reward, entry/exit levels
 
@@ -69,6 +70,9 @@ QuantTrade AI is a full-stack financial intelligence platform that combines real
 - **Structured Logging** — JSON logs with run_id, shard_id, symbol, horizon, phase, duration for CloudWatch
 - **ML Container** — Dedicated training Dockerfile with batch entrypoint, deterministic I/O contract
 - **MLOps Dashboard** — Production models, experiments, feature store, pipeline control (/mlops)
+- **Agentic RAG Integration** — Financial copilot uses MLOps models for regime detection and confidence scoring in all 6 agent responses
+- **Auth Fast-Path** — `_guard_token` dependency validates JWT without DB connection; unauthenticated requests return 401 without consuming DB pool slots
+- **E2E Test Coverage** — Playwright suite: 32 tests across desktop, mobile, API projects; serial DB-safe API tests with warmup
 
 ### Auth & Security
 - **WebAuthn/Passkey** — Biometric authentication (Face ID / Touch ID / hardware keys) via `webauthn` (PyPI)
@@ -933,12 +937,14 @@ We supply the source code for producing ultra-high fidelity network mapping in `
 | **Database** | PostgreSQL (Neon serverless), pgvector |
 | **Cache** | Redis (ElastiCache) with in-memory fallback |
 | **Auth** | httpOnly cookies, WebAuthn/FIDO2 passkeys, Google OAuth, JWT |
-| **AI/LLM** | Anthropic Claude, OpenAI, FinBERT (sentiment), LangChain |
+| **AI/LLM** | Anthropic Claude (Sonnet/Haiku), OpenAI, LangGraph, Cohere (rerank), FinBERT (sentiment), LangChain |
 | **ML/MLOps** | PyTorch LSTM, Feature Store, Experiment Tracker, Model Registry, Drift Detection |
+| **Vector Store** | Qdrant (dense+sparse, hybrid search, BM25 sparse encoder) |
 | **Community** | AI moderation (Claude), AutoMod rules, reputation system, WebSocket real-time |
 | **Market Data** | Finnhub, FMP, Yahoo Finance, NewsAPI, SEC EDGAR |
 | **Billing** | Stripe (subscriptions, webhooks) |
 | **DevOps** | Docker, Nginx, EC2, Cloudflare (CDN/WAF), GitHub Actions CI/CD |
+| **Testing** | Playwright (E2E: 32 tests, 3 projects — chromium/mobile/api), pytest (213 backend tests) |
 | **Background** | Celery + Redis (Beat scheduler), APScheduler |
 
 ---
@@ -1028,6 +1034,8 @@ QuantTrade-AI/
     ├── community-database-schema.drawio
     ├── mlops-system-architecture.drawio
     ├── mlops-pipeline-flow.drawio
+    ├── mlops-hld.drawio           ← NEW: AWS infrastructure HLD (2-page)
+    ├── quanttrade-overall-hld.drawio ← NEW: Overall system HLD
     └── ARCHITECTURE_V2.md
 ```
 
@@ -1044,7 +1052,7 @@ QuantTrade-AI/
 ### 1. Clone & setup backend
 
 ```bash
-git clone https://github.com/yourusername/QuantTrade-AI.git
+git clone https://github.com/YashJoshi2109/QuantTrade-AI.git
 cd QuantTrade-AI/backend
 
 python -m venv venv
@@ -1125,6 +1133,25 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ---
 
+## Testing
+
+### E2E Tests (Playwright)
+```bash
+cd frontend
+npx playwright install chromium
+npx playwright test
+```
+32 tests across 3 projects (chromium, mobile-chrome, api). Set `BACKEND_URL=http://localhost:8000` for API tests.
+
+### Backend Tests (pytest)
+```bash
+cd backend
+pytest tests/ -v
+```
+213 tests: ML pipeline, RAG retrieval, agentic supervisor, API endpoints.
+
+---
+
 ## Stock Universe
 
 The platform maintains a ranked universe of stocks across 12 global exchanges, populated by `seed_global_universe.py` and refreshed nightly by APScheduler:
@@ -1179,7 +1206,7 @@ score = 0.35 × norm_market_cap
 | `GET /api/v1/search?q=...&type=posts` | Full-text search |
 | `GET /api/v1/notifications` | User notifications |
 
-### MLOps (17 endpoints)
+### MLOps (31 endpoints)
 | Endpoint | Description |
 |----------|-------------|
 | `GET /api/v1/mlops/overview` | Dashboard summary (models, experiments, alerts) |
@@ -1256,6 +1283,8 @@ DATABASE_URL=postgresql://...
 ### MLOps
 - [MLOps System Architecture](docs/mlops-system-architecture.drawio) — Full ML lifecycle diagram (HLD)
 - [MLOps Pipeline Flow](docs/mlops-pipeline-flow.drawio) — 10-stage pipeline flow diagram
+- [MLOps HLD](docs/mlops-hld.drawio) — AWS infrastructure view (EventBridge → Step Functions → Batch → S3/Neon → Serving) + component architecture (all Python modules)
+- [QuantTrade System HLD](docs/quanttrade-overall-hld.drawio) — Complete system overview (all 7 service domains, storage, CI/CD, background jobs)
 
 ### Operations & Setup
 - [Quick Start](docs/QUICK_START.md) — Fast setup and key endpoints
