@@ -183,7 +183,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 640M
     env_file:
       - .env
     environment:
@@ -211,7 +211,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 192M
+          memory: 384M
     env_file:
       - .env
     environment:
