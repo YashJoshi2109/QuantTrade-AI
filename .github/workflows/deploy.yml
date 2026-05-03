@@ -360,7 +360,7 @@ jobs:
             echo "🔻 Stopping existing containers..."
             docker compose -f docker-compose.prod.yml down --remove-orphans --timeout 30 || true
             # Force-remove any leftover containers from partial deploys
-            docker rm -f quanttrade-backend quanttrade-frontend quanttrade-nginx quanttrade-celery-worker quanttrade-celery-beat 2>/dev/null || true
+            docker rm -f quanttrade-backend quanttrade-frontend quanttrade-nginx quanttrade-celery-worker 2>/dev/null || true
             
             # ===== KILL ANY CONTAINER USING PORT 80/443 =====
             echo "🔍 Checking for containers using port 80/443..."
@@ -412,10 +412,8 @@ jobs:
               docker compose -f docker-compose.prod.yml logs --tail=150 backend || true
               echo "=== Frontend logs (last 50) ==="
               docker compose -f docker-compose.prod.yml logs --tail=50 frontend || true
-              echo "=== Celery worker logs (last 50) ==="
+              echo "=== Celery worker+beat logs (last 50) ==="
               docker compose -f docker-compose.prod.yml logs --tail=50 celery-worker || true
-              echo "=== Celery beat logs (last 30) ==="
-              docker compose -f docker-compose.prod.yml logs --tail=30 celery-beat || true
               echo "=== Nginx logs (last 30) ==="
               docker compose -f docker-compose.prod.yml logs --tail=30 nginx || true
               echo "=== Memory ==="

@@ -175,7 +175,9 @@ services:
     networks:
       - quanttrade-network
 
-  # ── Celery Worker — executes async tasks (ML drift, performance, data sync) ──
+  # ── Celery Worker + Beat — task executor and periodic scheduler combined ──
+  # Beat runs as embedded thread (-B flag); safe for single-node deployments.
+  # Saves ~350MB vs separate beat container (eliminates duplicate app import).
   celery-worker:
     image: ghcr.io/yashjoshi2109/quanttrade-backend:latest
     container_name: quanttrade-celery-worker
@@ -193,38 +195,12 @@ services:
       - CELERY_RESULT_BACKEND=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
       - AWS_REGION=us-east-2
       - AWS_SECRET_NAME=quanttrade/backend
-    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=1
+    command: celery -A app.tasks.celery_app worker --beat --loglevel=info --concurrency=1
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f 'celery.*worker' > /dev/null 2>&1"]
       interval: 30s
       timeout: 10s
       start_period: 60s
-      retries: 3
-    networks:
-      - quanttrade-network
-
-  # ── Celery Beat — periodic task scheduler (drift 6h, performance daily) ──
-  celery-beat:
-    image: ghcr.io/yashjoshi2109/quanttrade-backend:latest
-    container_name: quanttrade-celery-beat
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 384M
-    env_file:
-      - .env
-    environment:
-      - LOCAL_STORAGE_PATH=/tmp/storage
-      - REDIS_URL=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
-      - CELERY_BROKER_URL=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
-      - CELERY_RESULT_BACKEND=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
-    command: celery -A app.tasks.celery_app beat --loglevel=info
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'celery.*beat' > /dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      start_period: 30s
       retries: 3
     networks:
       - quanttrade-network
