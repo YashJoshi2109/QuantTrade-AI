@@ -195,7 +195,7 @@ services:
       - CELERY_RESULT_BACKEND=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
       - AWS_REGION=us-east-2
       - AWS_SECRET_NAME=quanttrade/backend
-    command: celery -A app.tasks.celery_app worker --beat --loglevel=info --concurrency=1
+    command: celery -A app.tasks.celery_app worker --beat --loglevel=info --concurrency=1 --schedule=/tmp/celerybeat-schedule
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f 'celery.*worker' > /dev/null 2>&1"]
       interval: 30s
