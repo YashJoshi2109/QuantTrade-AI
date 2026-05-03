@@ -14,6 +14,7 @@ Storage: ml/experiments/{experiment_id}/
   - model_card.json (summary)
 """
 import os
+import re
 import json
 import uuid
 import logging
@@ -163,8 +164,9 @@ class ExperimentTracker:
 
     def get_run(self, run_id: str) -> Optional[Dict]:
         """Get a specific run by ID."""
-        safe_id = run_id.replace("/", "").replace("\\", "").replace("..", "")
-        run_file = EXPERIMENTS_DIR / safe_id / "run.json"
+        if not re.fullmatch(r"[A-Za-z0-9_\-]{1,128}", run_id):
+            return None
+        run_file = EXPERIMENTS_DIR / run_id / "run.json"
         if not run_file.resolve().is_relative_to(EXPERIMENTS_DIR.resolve()):
             return None
         if run_file.exists():
