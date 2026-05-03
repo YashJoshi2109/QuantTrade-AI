@@ -279,18 +279,40 @@ export async function GET(request: NextRequest) {
 
   const batch = symbols.slice(0, 40)
 
-  // 1. Fetch all via Yahoo Finance in parallel
-  const yfResults = await Promise.allSettled(batch.map((s) => fetchYahooQuote(s)))
+  // Global: Finnhub is primary (real-time US indices via ETF proxies).
+  // Non-global: Yahoo is primary; Finnhub stays as last resort.
+  // Both sources run in parallel to avoid adding latency.
+  const [yfResults, fhParallelResults] = await Promise.all([
+    Promise.allSettled(batch.map((s) => fetchYahooQuote(s))),
+    continent === 'global' && FINNHUB_KEY
+      ? Promise.allSettled(batch.map((s) => fetchFinnhubIndexQuote(s)))
+      : Promise.resolve([] as PromiseSettledResult<RawQuote | null>[]),
+  ])
 
-  // Identify which symbols failed
-  const failedSymbols: string[] = []
+  // Build Yahoo map
   const yfMap = new Map<string, RawQuote | null>()
   for (let i = 0; i < batch.length; i++) {
     const r = yfResults[i]
-    const sym = batch[i]
     const val = r.status === 'fulfilled' ? r.value : null
-    yfMap.set(sym, val)
-    if (!val || val.price <= 0) failedSymbols.push(sym)
+    yfMap.set(batch[i], val)
+  }
+
+  // Build Finnhub primary map (global only)
+  const finnhubPrimaryMap = new Map<string, RawQuote>()
+  if (continent === 'global' && fhParallelResults.length > 0) {
+    for (let i = 0; i < batch.length; i++) {
+      const r = fhParallelResults[i]
+      if (r.status === 'fulfilled' && r.value) finnhubPrimaryMap.set(batch[i], r.value)
+    }
+  }
+
+  // Symbols that neither primary source covered
+  const failedSymbols: string[] = []
+  for (const sym of batch) {
+    const primary = continent === 'global'
+      ? (finnhubPrimaryMap.get(sym) ?? yfMap.get(sym))
+      : yfMap.get(sym)
+    if (!primary || primary.price <= 0) failedSymbols.push(sym)
   }
 
   // 2. FMP batch fallback for failed symbols (max 20 at a time to save quota)
@@ -314,32 +336,31 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 4. Finnhub for anything still empty (critical for serverless when Yahoo blocks)
-  const finnhubMap = new Map<string, RawQuote>()
-  const needFh = batch.filter((s) => {
-    const q = yfMap.get(s) ?? fmpMap.get(s) ?? twelveMap.get(s)
-    return !q || q.price <= 0
-  })
-  if (needFh.length > 0 && FINNHUB_KEY) {
-    const fhResults = await Promise.allSettled(needFh.map((s) => fetchFinnhubIndexQuote(s)))
-    for (let i = 0; i < needFh.length; i++) {
-      const r = fhResults[i]
-      if (r.status === 'fulfilled' && r.value) {
-        finnhubMap.set(needFh[i], r.value)
+  // 4. Finnhub last-resort for non-global (anything still empty)
+  const finnhubFallbackMap = new Map<string, RawQuote>()
+  if (continent !== 'global') {
+    const needFh = batch.filter((s) => {
+      const q = yfMap.get(s) ?? fmpMap.get(s) ?? twelveMap.get(s)
+      return !q || q.price <= 0
+    })
+    if (needFh.length > 0 && FINNHUB_KEY) {
+      const fhResults = await Promise.allSettled(needFh.map((s) => fetchFinnhubIndexQuote(s)))
+      for (let i = 0; i < needFh.length; i++) {
+        const r = fhResults[i]
+        if (r.status === 'fulfilled' && r.value) finnhubFallbackMap.set(needFh[i], r.value)
       }
     }
   }
 
   // Build final quotes array
+  // Global priority:     Finnhub → Yahoo → FMP → Twelve
+  // Non-global priority: Yahoo → FMP → Twelve → Finnhub
   const quotes: IndexQuote[] = []
   for (const symbol of batch) {
     const info = indexInfoMap[symbol] ?? macroMeta(symbol)
-    const quote =
-      yfMap.get(symbol) ??
-      fmpMap.get(symbol) ??
-      twelveMap.get(symbol) ??
-      finnhubMap.get(symbol) ??
-      null
+    const quote = continent === 'global'
+      ? (finnhubPrimaryMap.get(symbol) ?? yfMap.get(symbol) ?? fmpMap.get(symbol) ?? twelveMap.get(symbol))
+      : (yfMap.get(symbol) ?? fmpMap.get(symbol) ?? twelveMap.get(symbol) ?? finnhubFallbackMap.get(symbol))
 
     if (quote && quote.price > 0) {
       quotes.push({ symbol, ...info, ...quote })

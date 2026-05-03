@@ -478,11 +478,11 @@ function ExchangeSessionsPopover({ continent }: { continent: Continent }) {
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-cyan-500/25 bg-gradient-to-r from-slate-900/90 to-slate-900/60 text-[10px] font-mono text-cyan-100 shadow-lg shadow-cyan-500/10 hover:border-cyan-400/50 transition-all"
       >
-        <Clock className="w-3.5 h-3.5 text-cyan-400" />
+        <Clock className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
         <span className="hidden sm:inline font-bold tracking-wide">Sessions</span>
         <span
           className={`px-1.5 py-0.5 rounded-md text-[9px] font-black ${
-            openCount > 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-line-default text-fg-muted'
+            openCount > 0 ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' : 'bg-line-default text-fg-muted'
           }`}
         >
           {openCount}/{list.length} OPEN
@@ -490,7 +490,7 @@ function ExchangeSessionsPopover({ continent }: { continent: Continent }) {
       </button>
       {open && (
       <div className="absolute right-0 top-full mt-2 w-[min(100vw-2rem,22rem)] max-h-[min(70vh,420px)] overflow-y-auto rounded-2xl border border-line-default bg-surface-overlay backdrop-blur-xl px-3 py-3 text-[10px] shadow-theme-lg z-[60]">
-        <div className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-400/90 mb-2 px-1">
+        <div className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400 mb-2 px-1">
           Exchange local time
         </div>
         <div className="space-y-1.5">
@@ -509,7 +509,7 @@ function ExchangeSessionsPopover({ continent }: { continent: Continent }) {
                 <div
                   className={`shrink-0 px-2 py-1 rounded-md text-[9px] font-black uppercase ${
                     s.open
-                      ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25'
+                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/25'
                       : 'bg-surface-raised text-fg-muted border border-line-subtle'
                   }`}
                 >
@@ -563,7 +563,7 @@ function PredictionAlertsWidget({ contextSymbols }: { contextSymbols?: Set<strin
         </Link>
       </div>
 
-      <div className="flex-1 overflow-y-auto divide-y divide-slate-800/40">
+      <div className="flex-1 overflow-y-auto divide-y divide-line-subtle">
         {isLoading ? (
           <div className="p-4 space-y-3">
             {[1, 2, 3].map((i) => (
@@ -691,7 +691,7 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
         }
       >
         <div className="flex min-w-0 items-center gap-2">
-          <Eye className="h-4 w-4 shrink-0 text-cyan-400" />
+          <Eye className="h-4 w-4 shrink-0 text-cyan-500 dark:text-cyan-400" />
           <h3 className="truncate text-sm font-bold text-fg-primary">
             Watchlist
             {watchlist.length > 0 && (
@@ -703,7 +703,7 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
         </div>
         <Link
           href="/watchlist"
-          className="shrink-0 text-[10px] font-medium text-cyan-400 transition-colors hover:text-fg-primary"
+          className="shrink-0 text-[10px] font-medium text-cyan-600 dark:text-cyan-400 transition-colors hover:text-fg-primary"
         >
           View All →
         </Link>
@@ -716,7 +716,7 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
             <p className="text-fg-muted text-xs">Sign in to see your watchlist</p>
             <Link
               href="/auth"
-              className="mt-3 px-3 py-1.5 text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded hover:bg-cyan-500/30 transition-colors"
+              className="mt-3 px-3 py-1.5 text-xs bg-cyan-50 text-cyan-700 border border-cyan-300 rounded hover:bg-cyan-100 dark:bg-cyan-500/20 dark:text-cyan-400 dark:border-cyan-500/30 dark:hover:bg-cyan-500/30 transition-colors"
             >
               Sign In
             </Link>
@@ -733,13 +733,13 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
             <p className="text-fg-muted text-xs">No symbols in watchlist</p>
             <Link
               href="/research"
-              className="mt-3 px-3 py-1.5 text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded hover:bg-cyan-500/30 transition-colors"
+              className="mt-3 px-3 py-1.5 text-xs bg-cyan-50 text-cyan-700 border border-cyan-300 rounded hover:bg-cyan-100 dark:bg-cyan-500/20 dark:text-cyan-400 dark:border-cyan-500/30 dark:hover:bg-cyan-500/30 transition-colors"
             >
               Add symbols
             </Link>
           </div>
         ) : (
-          <div className="divide-y divide-slate-800/40">
+          <div className="divide-y divide-line-subtle">
             {watchlist.map((item) => {
               const q = quoteMap[item.symbol]
               const up = q ? q.change_percent >= 0 : null
@@ -1098,7 +1098,7 @@ function ContinentMoversPanel({
             {scopeLabel}
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-800/30 max-h-[320px]">
+        <div className="flex-1 overflow-y-auto divide-y divide-line-subtle">
           {isLoading ? (
             <SkeletonMoversSection count={6} />
           ) : gainers.length === 0 ? (
@@ -1137,7 +1137,7 @@ function ContinentMoversPanel({
             {scopeLabel}
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-800/30 max-h-[320px]">
+        <div className="flex-1 overflow-y-auto divide-y divide-line-subtle">
           {isLoading ? (
             <SkeletonMoversSection count={6} />
           ) : losers.length === 0 ? (
@@ -1539,7 +1539,7 @@ function DesktopHome() {
                       <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
                       <h3 className="font-bold text-fg-primary text-sm truncate">Top Gainers</h3>
                       {selectedExchangeId && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-mono shrink-0 truncate max-w-[72px]">
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-mono shrink-0 truncate max-w-[72px]">
                           {getExchangeById(selectedExchangeId)?.shortName ?? selectedExchangeId}
                         </span>
                       )}
@@ -1835,9 +1835,9 @@ function DesktopHome() {
                     <div className="absolute top-0 right-0 w-28 h-28 bg-cyan-500/6 rounded-full blur-3xl pointer-events-none" />
                     <div className={`${dashToolbar} relative`}>
                       <div className="flex items-center gap-2 min-w-0">
-                        <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+                        <Sparkles className="w-4 h-4 text-cyan-500 dark:text-cyan-400 shrink-0" />
                         <h3 className="font-bold text-fg-primary text-sm truncate">Market Pulse</h3>
-                        <span className="px-1.5 py-0.5 text-[9px] bg-cyan-500/20 text-cyan-400 rounded font-bold shrink-0">
+                        <span className="px-1.5 py-0.5 text-[9px] bg-cyan-50 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-400 rounded font-bold shrink-0">
                           LIVE
                         </span>
                       </div>
@@ -1854,7 +1854,7 @@ function DesktopHome() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-raised/90 ring-1 ring-slate-700/40">
+                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-raised/90 ring-1 ring-line-default">
                             <div
                               className="h-full bg-gradient-to-r from-emerald-500 via-cyan-500/90 to-emerald-400 transition-all duration-700"
                               style={{

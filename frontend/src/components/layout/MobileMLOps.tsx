@@ -82,7 +82,7 @@ function StatusBadge({ status, size = 'sm' }: { status: string; size?: 'xs' | 's
   const c = isOk ? 'text-emerald-400 bg-emerald-500/10 dot-emerald-400'
     : isWarn ? 'text-amber-400 bg-amber-500/10 dot-amber-400'
     : isErr ? 'text-red-400 bg-red-500/10 dot-red-400'
-    : 'text-fg-secondary bg-surface-raised dot-slate-400'
+    : 'text-fg-secondary bg-surface-raised dot-line-default'
 
   const [textC, bgC, dotC] = c.split(' ')
 
@@ -117,6 +117,32 @@ export default function MobileMLOps() {
   const [runs, setRuns] = useState<TrainingRun[]>([])
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState(true)
+  const [triggering, setTriggering] = useState(false)
+  const [triggerMsg, setTriggerMsg] = useState<string | null>(null)
+
+  const triggerRun = async () => {
+    setTriggering(true)
+    setTriggerMsg(null)
+    try {
+      const res = await fetch(`${API}/api/v1/internal/ml/runs/nightly/trigger`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ run_type: 'manual', symbol_tier: 'tier_2' }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setTriggerMsg('Run triggered')
+        setTimeout(() => { setTriggerMsg(null); fetchData() }, 2000)
+      } else {
+        setTriggerMsg(typeof body?.detail === 'string' ? body.detail : 'Failed to trigger run')
+      }
+    } catch {
+      setTriggerMsg('Network error')
+    } finally {
+      setTriggering(false)
+    }
+  }
 
   const fetchData = useCallback(async () => {
     try {
@@ -199,14 +225,14 @@ export default function MobileMLOps() {
               onClick={() => setActiveTab(tab.id)}
               className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all active:scale-95 ${
                 activeTab === tab.id
-                  ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20'
+                  ? 'bg-surface-active text-fg-primary shadow-lg shadow-accent/20'
                   : 'bg-surface-raised text-fg-secondary border border-line-subtle'
               }`}
             >
               <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-fg-primary' : ''}`} />
               {tab.label}
               {tab.badge && (
-                <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold">
+                <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-500 dark:text-red-400 text-[9px] font-bold">
                   {tab.badge}
                 </span>
               )}
@@ -304,8 +330,18 @@ export default function MobileMLOps() {
               {/* RUNS TAB */}
               {activeTab === 'runs' && (
                 <div className="space-y-2">
-                  <button className="w-full py-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold flex items-center justify-center gap-2 mb-4 active:scale-95 transition-all">
-                    <Play className="w-3.5 h-3.5" /> Trigger Nightly Run
+                  {triggerMsg && (
+                    <div className={`text-[11px] text-center mb-2 font-medium ${triggerMsg === 'Run triggered' ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                      {triggerMsg}
+                    </div>
+                  )}
+                  <button
+                    onClick={triggerRun}
+                    disabled={triggering}
+                    className="w-full py-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-xs font-semibold flex items-center justify-center gap-2 mb-4 active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    {triggering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                    {triggering ? 'Triggering…' : 'Trigger Nightly Run'}
                   </button>
                   {runs.map((run) => (
                     <div key={run.run_id} className="p-3 bg-surface-raised border border-line-subtle rounded-xl">
@@ -336,7 +372,7 @@ export default function MobileMLOps() {
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         {Object.entries(info.metrics || {}).slice(0, 4).map(([k, v]: [string, any]) => (
-                          <div key={k} className="bg-black/20 rounded p-1.5 text-center">
+                          <div key={k} className="bg-surface-hover rounded p-1.5 text-center">
                             <div className="text-[9px] text-fg-muted uppercase">{k.replace(/_/g, ' ')}</div>
                             <div className="text-xs font-mono text-fg-secondary">{typeof v === 'number' ? v.toFixed(3) : v}</div>
                           </div>

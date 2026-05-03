@@ -160,41 +160,40 @@ def get_current_user(
     return user
 
 
-def require_auth(
+def _guard_token(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-) -> User:
-    """Require authentication - raises 401 if not authenticated.
-    Checks Bearer header first, then falls back to httpOnly cookie."""
-    token = None
-    # Try Bearer header first
-    if credentials:
-        token = credentials.credentials
-    # Fallback to httpOnly cookie
-    if not token:
-        token = request.cookies.get(COOKIE_NAME)
-
+) -> int:
+    """Fast-path auth guard: validates JWT without touching the DB.
+    Raises 401 immediately so the DB dependency is never resolved for
+    unauthenticated requests, preventing DB connection pool exhaustion."""
+    token = credentials.credentials if credentials else request.cookies.get(COOKIE_NAME)
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated"
         )
-
     user_id = decode_token(token)
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token"
         )
+    return user_id
 
+
+def require_auth(
+    user_id: int = Depends(_guard_token),
+    db: Session = Depends(get_db),
+) -> User:
+    """Require authentication - raises 401 if not authenticated.
+    _guard_token validates JWT first; DB is only acquired for valid tokens."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
-
     return user
 
 

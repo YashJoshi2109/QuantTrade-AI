@@ -351,7 +351,11 @@ class MarketDataService:
         cache_key = f"qt:quote:{symbol}"
 
         async def _fetch():
-            # Waterfall: Public.com -> yfinance -> FMP -> Finnhub -> Alpaca -> Robinhood
+            # Waterfall: Finnhub -> Public.com -> yfinance -> FMP -> Alpaca -> Robinhood
+            # Finnhub is primary for research/markets: real-time US data, 60 req/min free tier
+            quote = await self._finnhub_quote(symbol)
+            if quote and quote.price > 0:
+                return quote.to_dict()
             quote = await self._public_quote(symbol)
             if quote and quote.price > 0:
                 return quote.to_dict()
@@ -359,9 +363,6 @@ class MarketDataService:
             if quote and quote.price > 0:
                 return quote.to_dict()
             quote = await self._fmp_quote(symbol)
-            if quote and quote.price > 0:
-                return quote.to_dict()
-            quote = await self._finnhub_quote(symbol)
             if quote and quote.price > 0:
                 return quote.to_dict()
             quote = await self._alpaca_quote(symbol)
@@ -391,13 +392,13 @@ class MarketDataService:
                 yf_results = await self._yf_batch(missing)
                 results.update(yf_results)
 
-            # Fill remaining gaps with FMP/Finnhub/Alpaca/Robinhood
+            # Fill remaining gaps with Finnhub/FMP/Alpaca/Robinhood
             missing = [s for s in symbols if s not in results]
             if missing:
                 for sym in missing[:10]:  # Cap individual fallbacks
-                    q = await self._fmp_quote(sym)
+                    q = await self._finnhub_quote(sym)
                     if not q:
-                        q = await self._finnhub_quote(sym)
+                        q = await self._fmp_quote(sym)
                     if not q:
                         q = await self._alpaca_quote(sym)
                     if not q:

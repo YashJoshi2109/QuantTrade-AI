@@ -106,16 +106,6 @@ async def list_experiments(limit: int = Query(20, ge=1, le=100)):
     return {"experiments": runs, "total": len(runs)}
 
 
-@router.get("/mlops/experiments/{run_id}")
-async def get_experiment(run_id: str):
-    """Get details of a specific experiment run."""
-    from ml.experiment_tracker import experiment_tracker
-    run = experiment_tracker.get_run(run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="Experiment not found")
-    return run
-
-
 @router.get("/mlops/experiments/compare")
 async def compare_experiments(
     run_ids: str = Query(..., description="Comma-separated run IDs"),
@@ -126,6 +116,16 @@ async def compare_experiments(
     ids = [r.strip() for r in run_ids.split(",")]
     metric_keys = [m.strip() for m in metrics.split(",")] if metrics else None
     return {"comparison": experiment_tracker.compare_runs(ids, metric_keys)}
+
+
+@router.get("/mlops/experiments/{run_id}")
+async def get_experiment(run_id: str):
+    """Get details of a specific experiment run."""
+    from ml.experiment_tracker import experiment_tracker
+    run = experiment_tracker.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    return run
 
 
 # ── Monitoring ──────────────────────────────────────────────────────────
