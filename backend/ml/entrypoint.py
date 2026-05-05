@@ -160,14 +160,18 @@ def run_shard(config: BatchConfig) -> int:
                 )
         print("=" * 60)
 
+        # Store for callback access from main()
+        config._training_results = results
+
         if len(failures) == len(results):
-            return 2  # All horizons failed
+            return 2
         return 0
 
     except Exception as e:
         duration_s = int(time.monotonic() - start_time)
         slog.error("entrypoint", "infra", str(e)[:500], duration_ms=duration_s * 1000)
         logger.exception(f"Shard execution failed: {e}")
+        config._training_results = []
         return 3
 
 
@@ -231,6 +235,61 @@ def _upload_artifacts(config: BatchConfig, results: list[dict], slog) -> None:
         logger.warning(f"Failed to upload shard summary: {e}")
 
 
+def _post_callback(config: BatchConfig, results: list[dict], exit_code: int) -> None:
+    """POST training results to FastAPI callback endpoint. Non-fatal."""
+    import os as _os
+    import urllib.request
+    import json as _json
+
+    api_base = _os.environ.get("FASTAPI_INTERNAL_URL", "https://api.quanttrade.us")
+    secret = _os.environ.get("ML_CALLBACK_SECRET", "")
+    if not secret:
+        logger.warning("ML_CALLBACK_SECRET not set — skipping callback")
+        return
+
+    status = "completed" if exit_code == 0 else "failed"
+    artifacts = []
+    for r in results:
+        if "error" not in r and "test_metrics" in r:
+            m = r["test_metrics"]
+            artifacts.append({
+                "symbol": r.get("symbol", "universal"),
+                "horizon": r["horizon"],
+                "directional_accuracy": m.get("directional_accuracy"),
+                "information_coefficient": m.get("information_coefficient"),
+                "hypothetical_sharpe": m.get("hypothetical_sharpe"),
+                "checkpoint_s3_uri": f"s3://{config.s3_bucket}/checkpoints/{config.run_id}/{config.shard_id or 'local'}/universal/h{r['horizon']}/model.pt",
+                "metrics_s3_uri": f"s3://{config.s3_bucket}/metrics/{config.run_id}/{config.shard_id or 'local'}/universal/h{r['horizon']}/metrics.json",
+            })
+
+    payload = {
+        "run_id": config.run_id,
+        "shard_id": config.shard_id or str(uuid.uuid4()),
+        "shard_name": config.shard_name,
+        "status": status,
+        "runtime_seconds": None,
+        "error_type": None if exit_code == 0 else "training",
+        "error_summary": None,
+        "artifacts": artifacts,
+    }
+
+    try:
+        data = _json.dumps(payload).encode()
+        req = urllib.request.Request(
+            f"{api_base}/api/v1/internal/ml/batch-callback",
+            data=data,
+            headers={
+                "Content-Type": "application/json",
+                "X-ML-Callback-Secret": secret,
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            logger.info("Callback accepted: HTTP %d", resp.status)
+    except Exception as e:
+        logger.warning("Callback POST failed (non-fatal): %s", e)
+
+
 def main():
     """Main entrypoint for batch execution."""
     config = BatchConfig.from_env()
@@ -256,6 +315,8 @@ def main():
 
     logger.info(f"Batch config: {config.summary()}")
     exit_code = run_shard(config)
+    results = getattr(config, "_training_results", [])
+    _post_callback(config, results, exit_code)
     sys.exit(exit_code)
 
 
