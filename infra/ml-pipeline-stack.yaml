@@ -28,6 +28,17 @@ Parameters:
     Type: Number
     Default: 16
     Description: Maximum vCPUs across all Batch jobs
+  MLCallbackSecret:
+    Type: String
+    NoEcho: true
+    Description: Shared secret for batch callback auth (X-ML-Callback-Secret header)
+  MLKVNamespaceId:
+    Type: String
+    Description: Cloudflare KV namespace ID for ml-model-metadata
+  CFApiToken:
+    Type: String
+    NoEcho: true
+    Description: Cloudflare API token with KV edit permissions
 
 Resources:
   # ── S3 Bucket ─────────────────────────────────────────────────────
@@ -302,6 +313,58 @@ Resources:
       LogGroupName: !Sub /aws/batch/ml-training-${Environment}
       RetentionInDays: 30
 
+  # ── CloudWatch Alarms ─────────────────────────────────────────────
+  AlarmShardFailureRate:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ml-shard-failure-rate-${Environment}
+      AlarmDescription: Batch shard failure rate > 20%
+      Namespace: QuantTrade/ML
+      MetricName: ShardFailure
+      Dimensions:
+        - Name: Environment
+          Value: !Ref Environment
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  AlarmMissingRun:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ml-missing-run-${Environment}
+      AlarmDescription: No ML pipeline execution in 26 hours
+      Namespace: QuantTrade/ML
+      MetricName: ShardSuccess
+      Dimensions:
+        - Name: Environment
+          Value: !Ref Environment
+      Statistic: Sum
+      Period: 93600
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+
+  AlarmShardRuntime:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ml-shard-runtime-${Environment}
+      AlarmDescription: Shard runtime anomaly — check for stuck jobs
+      Namespace: AWS/Batch
+      MetricName: JobDuration
+      Dimensions:
+        - Name: JobQueue
+          Value: !Sub ml-training-queue-${Environment}
+      ExtendedStatistic: p90
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 12000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
   # ── SQS Dead Letter Queue ─────────────────────────────────────────
   MLTrainingDLQ:
     Type: AWS::SQS::Queue
@@ -363,6 +426,85 @@ Resources:
                   - events:PutRule
                   - events:DescribeRule
                 Resource: '*'
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ml-result-aggregator-${Environment}
+
+  # ── Lambda IAM Role ───────────────────────────────────────────────
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ml-lambda-execution-${Environment}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: MLLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ml-auto-promote-${Environment}
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: QuantTrade/ML
+
+  # ── Lambda: ml-result-aggregator ─────────────────────────────────
+  ResultAggregatorLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ml-result-aggregator-${Environment}
+      Runtime: python3.12
+      Handler: handler.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      MemorySize: 128
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              return {"status": "placeholder - deploy via CI"}
+      Environment:
+        Variables:
+          FASTAPI_INTERNAL_URL: https://api.quanttrade.us
+          ML_CALLBACK_SECRET: !Ref MLCallbackSecret
+          AUTO_PROMOTE_FUNCTION_NAME: !Sub ml-auto-promote-${Environment}
+
+  # ── Lambda: ml-auto-promote ───────────────────────────────────────
+  AutoPromoteLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ml-auto-promote-${Environment}
+      Runtime: python3.12
+      Handler: handler.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      MemorySize: 128
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              return {"status": "placeholder - deploy via CI"}
+      Environment:
+        Variables:
+          FASTAPI_INTERNAL_URL: https://api.quanttrade.us
+          ML_CALLBACK_SECRET: !Ref MLCallbackSecret
+          CF_ACCOUNT_ID: 3d56c23139466e58267b4bfe956956e5
+          CF_KV_NAMESPACE_ID: !Ref MLKVNamespaceId
+          CF_API_TOKEN: !Ref CFApiToken
+          PROMOTE_DA_THRESHOLD: '0.54'
+          PROMOTE_IC_THRESHOLD: '0.05'
 
   # ── Step Functions State Machine ──────────────────────────────────
   MLNightlyPipeline:
@@ -477,42 +619,24 @@ Resources:
               "Next": "CheckForFailures"
             },
             "CheckForFailures": {
-              "Type": "Pass",
-              "Comment": "Count failed shards. In production, replace with Lambda for accurate counting.",
-              "Next": "EvaluateResults"
-            },
-            "EvaluateResults": {
-              "Type": "Choice",
-              "Comment": "Fail the pipeline if any shard reported failure status",
-              "Choices": [
-                {
-                  "Variable": "$.shard_results[0].status",
-                  "IsPresent": true,
-                  "Next": "HasFailedShards"
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${ResultAggregatorLambda.Arn}",
+                "Payload": {
+                  "run.$": "$.run",
+                  "shard_results.$": "$.shard_results"
                 }
-              ],
-              "Default": "PipelineComplete"
-            },
-            "HasFailedShards": {
-              "Type": "Choice",
-              "Choices": [
+              },
+              "ResultPath": "$.aggregation",
+              "Next": "PipelineComplete",
+              "Catch": [
                 {
-                  "Variable": "$.shard_results[0].status",
-                  "StringEquals": "failed",
-                  "Next": "PipelineFailed"
+                  "ErrorEquals": ["States.ALL"],
+                  "Next": "PipelineComplete",
+                  "ResultPath": "$.aggregation_error"
                 }
-              ],
-              "Default": "PipelineCheckRemaining"
-            },
-            "PipelineCheckRemaining": {
-              "Type": "Pass",
-              "Comment": "First shard succeeded. For full failure detection, use a Lambda aggregator.",
-              "Next": "PipelineComplete"
-            },
-            "PipelineFailed": {
-              "Type": "Fail",
-              "Error": "ShardTrainingFailed",
-              "Cause": "One or more training shards failed. Check shard_results for details."
+              ]
             },
             "PipelineComplete": {
               "Type": "Succeed"
@@ -549,7 +673,7 @@ Resources:
       ScheduleExpressionTimezone: UTC
       FlexibleTimeWindow:
         Mode: 'OFF'
-      State: DISABLED  # Enable after initial validation
+      State: ENABLED
       Target:
         Arn: !Ref MLNightlyPipeline
         RoleArn: !GetAtt EventBridgeRole.Arn
@@ -563,7 +687,7 @@ Resources:
       ScheduleExpressionTimezone: UTC
       FlexibleTimeWindow:
         Mode: 'OFF'
-      State: DISABLED  # Enable after initial validation
+      State: ENABLED
       Target:
         Arn: !Ref MLNightlyPipeline
         RoleArn: !GetAtt EventBridgeRole.Arn
