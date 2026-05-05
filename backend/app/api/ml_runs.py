@@ -556,9 +556,10 @@ async def batch_job_callback(
 
 
 class FinalizeRunRequest(BaseModel):
-    status: str  # completed | partial | failed
+    status: str  # completed | partial_failure | failed
     success_shards: int = 0
     failed_shards: int = 0
+    total_shards: int = 0
 
 
 @internal_router.post("/internal/ml/runs/{run_id}/finalize")
@@ -589,7 +590,7 @@ async def finalize_run(
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    return {"status": "ok", "run_id": run_id, "new_status": req.status}
+    return {"status": "accepted", "run_id": run_id, "new_status": req.status}
 
 
 class PromoteRunRequest(BaseModel):
@@ -638,7 +639,7 @@ async def promote_run_model(
     db.commit()
 
     logger.info("Auto-promoted %s (DA=%.3f IC=%.3f)", req.model_version, req.avg_da, req.avg_ic)
-    return {"status": "ok", "model_version": req.model_version}
+    return {"status": "accepted", "model_version": req.model_version}
 
 
 # ── Health & Metrics ─────────────────────────────────────────────────

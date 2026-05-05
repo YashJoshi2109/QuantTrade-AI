@@ -38,8 +38,8 @@ logging.basicConfig(
 logger = logging.getLogger("ml.entrypoint")
 
 
-def run_shard(config: BatchConfig) -> int:
-    """Execute a single training shard. Returns exit code."""
+def run_shard(config: BatchConfig) -> tuple[int, int]:
+    """Execute a single training shard. Returns (exit_code, duration_seconds)."""
     from ml.config import TrainConfig
     from ml.constants import DEFAULT_CONFIG_PATH, SYMBOL_TIERS
     from ml.train import train
@@ -164,15 +164,15 @@ def run_shard(config: BatchConfig) -> int:
         config._training_results = results
 
         if len(failures) == len(results):
-            return 2
-        return 0
+            return 2, duration_s
+        return 0, duration_s
 
     except Exception as e:
         duration_s = int(time.monotonic() - start_time)
         slog.error("entrypoint", "infra", str(e)[:500], duration_ms=duration_s * 1000)
         logger.exception(f"Shard execution failed: {e}")
         config._training_results = []
-        return 3
+        return 3, duration_s
 
 
 def _upload_artifacts(config: BatchConfig, results: list[dict], slog) -> None:
@@ -235,7 +235,7 @@ def _upload_artifacts(config: BatchConfig, results: list[dict], slog) -> None:
         logger.warning(f"Failed to upload shard summary: {e}")
 
 
-def _post_callback(config: BatchConfig, results: list[dict], exit_code: int) -> None:
+def _post_callback(config: BatchConfig, results: list[dict], exit_code: int, runtime_seconds: int = 0) -> None:
     """POST training results to FastAPI callback endpoint. Non-fatal."""
     import os as _os
     import urllib.request
@@ -267,7 +267,7 @@ def _post_callback(config: BatchConfig, results: list[dict], exit_code: int) -> 
         "shard_id": config.shard_id or str(uuid.uuid4()),
         "shard_name": config.shard_name,
         "status": status,
-        "runtime_seconds": None,
+        "runtime_seconds": runtime_seconds,
         "error_type": None if exit_code == 0 else "training",
         "error_summary": None,
         "artifacts": artifacts,
@@ -314,9 +314,9 @@ def main():
             sys.exit(1)
 
     logger.info(f"Batch config: {config.summary()}")
-    exit_code = run_shard(config)
+    exit_code, duration_s = run_shard(config)
     results = getattr(config, "_training_results", [])
-    _post_callback(config, results, exit_code)
+    _post_callback(config, results, exit_code, runtime_seconds=duration_s)
     sys.exit(exit_code)
 
 

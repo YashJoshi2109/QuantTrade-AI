@@ -95,8 +95,10 @@ def handler(event, context):
     for h in HORIZONS:
         try:
             _kv_put(f"model:lstm_h{h}:production", {
-                "version": version, "run_id": run_id, "horizon": h,
-                "avg_da": round(avg_da, 4), "avg_ic": round(avg_ic, 4), "promoted_at": now_iso,
+                "version": version,
+                "avg_da": round(avg_da, 4),
+                "avg_ic": round(avg_ic, 4),
+                "promoted_at": now_iso,
             })
         except Exception as e:
             logger.error("KV write failed h=%d: %s", h, e)

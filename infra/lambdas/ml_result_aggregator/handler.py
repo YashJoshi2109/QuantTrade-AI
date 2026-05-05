@@ -42,7 +42,7 @@ def handler(event, context):
     if failed_shards == 0:
         overall_status = "completed"
     elif success_shards > 0:
-        overall_status = "partial"
+        overall_status = "partial_failure"
     else:
         overall_status = "failed"
 
