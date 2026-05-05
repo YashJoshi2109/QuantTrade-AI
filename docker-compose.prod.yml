@@ -197,7 +197,7 @@ services:
       - AWS_SECRET_NAME=quanttrade/backend
     command: celery -A app.tasks.celery_app worker --beat --loglevel=info --concurrency=1 --schedule=/tmp/celerybeat-schedule
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'celery.*worker' > /dev/null 2>&1"]
+      test: ["CMD-SHELL", "grep -q celery /proc/1/cmdline"]
       interval: 30s
       timeout: 10s
       start_period: 60s
