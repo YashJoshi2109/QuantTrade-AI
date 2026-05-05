@@ -533,6 +533,8 @@ app.include_router(agentic_router, prefix="/api/v1")
 # ML Training Pipeline — internal operator API
 from app.api import ml_runs
 app.include_router(ml_runs.router, prefix="/api/v1", tags=["ml-pipeline"])
+# Internal machine-to-machine endpoints (batch callbacks, Lambda callbacks — no user JWT)
+app.include_router(ml_runs.internal_router, prefix="/api/v1", tags=["ml-internal"])
 
 # Static files — serve locally-uploaded community media (fallback when R2 is not configured)
 import pathlib as _pathlib

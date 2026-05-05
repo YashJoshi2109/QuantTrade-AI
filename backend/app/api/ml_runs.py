@@ -5,10 +5,12 @@ Endpoints prefixed with /internal/ml/ for operator use.
 """
 
 import logging
+import os
 import uuid
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import boto3
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -19,6 +21,8 @@ from app.services import ml_metadata_service as mds
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(require_auth)])
+# Separate router for internal machine-to-machine endpoints (no user JWT required)
+internal_router = APIRouter()
 
 
 # ── Request/Response Models ────────────────────────────────────────────
@@ -40,6 +44,27 @@ class ShardPlanRequest(BaseModel):
     symbol_tier: str = Field("all", description="Symbol tier for shard planning")
     max_symbols_per_shard: int = Field(200, ge=10, le=500)
     max_runtime_seconds: int = Field(7200, ge=600, le=14400)
+
+
+class ArtifactCallbackItem(BaseModel):
+    symbol: str
+    horizon: int
+    directional_accuracy: Optional[float] = None
+    information_coefficient: Optional[float] = None
+    hypothetical_sharpe: Optional[float] = None
+    checkpoint_s3_uri: Optional[str] = None
+    metrics_s3_uri: Optional[str] = None
+
+
+class BatchCallbackRequest(BaseModel):
+    run_id: str
+    shard_id: str
+    shard_name: str = ""
+    status: str  # completed | failed
+    runtime_seconds: Optional[int] = None
+    error_type: Optional[str] = None
+    error_summary: Optional[str] = None
+    artifacts: List[ArtifactCallbackItem] = []
 
 
 # ── Training Run Management ───────────────────────────────────────────
@@ -449,6 +474,171 @@ async def plan_shards_dryrun(req: ShardPlanRequest):
             for s in plan.shards
         ],
     }
+
+
+# ── Internal Machine-to-Machine Endpoints (no user JWT) ─────────────
+
+def _emit_cloudwatch_metric(metric_name: str, value: float = 1.0, unit: str = "Count") -> None:
+    """Fire-and-forget CloudWatch metric. Non-fatal if AWS unavailable."""
+    try:
+        cw = boto3.client("cloudwatch", region_name=os.environ.get("AWS_REGION", "us-east-2"))
+        cw.put_metric_data(
+            Namespace="QuantTrade/ML",
+            MetricData=[{
+                "MetricName": metric_name,
+                "Value": value,
+                "Unit": unit,
+                "Dimensions": [{"Name": "Environment", "Value": "production"}],
+            }],
+        )
+    except Exception as e:
+        logger.warning("CloudWatch metric failed (non-fatal): %s", e)
+
+
+@internal_router.post("/internal/ml/batch-callback")
+async def batch_job_callback(
+    req: BatchCallbackRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Called by Batch container after training. Updates Neon + emits CloudWatch metric."""
+    expected_secret = os.environ.get("ML_CALLBACK_SECRET", "")
+    provided_secret = request.headers.get("X-ML-Callback-Secret", "")
+    if not expected_secret or provided_secret != expected_secret:
+        raise HTTPException(status_code=401, detail="Invalid callback secret")
+
+    try:
+        run_uid = uuid.UUID(req.run_id)
+        shard_uid = uuid.UUID(req.shard_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+    mds.update_shard_from_callback(
+        db,
+        shard_id=shard_uid,
+        status=req.status,
+        runtime_seconds=req.runtime_seconds,
+        error_type=req.error_type,
+        error_summary=req.error_summary,
+    )
+
+    artifacts_written = 0
+    for art in req.artifacts:
+        try:
+            mds.create_artifact(
+                db,
+                run_id=run_uid,
+                shard_id=shard_uid,
+                symbol=art.symbol,
+                horizon=art.horizon,
+                directional_accuracy=art.directional_accuracy,
+                information_coefficient=art.information_coefficient,
+                hypothetical_sharpe=art.hypothetical_sharpe,
+                checkpoint_s3_uri=art.checkpoint_s3_uri,
+                metrics_s3_uri=art.metrics_s3_uri,
+            )
+            artifacts_written += 1
+        except Exception as e:
+            logger.warning("Failed to write artifact %s h=%s: %s", art.symbol, art.horizon, e)
+
+    metric_name = "ShardSuccess" if req.status == "completed" else "ShardFailure"
+    _emit_cloudwatch_metric(metric_name)
+
+    logger.info("Batch callback: run=%s shard=%s status=%s artifacts=%d",
+                req.run_id[:8], req.shard_id[:8], req.status, artifacts_written)
+
+    return {
+        "status": "accepted",
+        "run_id": req.run_id,
+        "shard_id": req.shard_id,
+        "artifacts_written": artifacts_written,
+    }
+
+
+class FinalizeRunRequest(BaseModel):
+    status: str  # completed | partial | failed
+    success_shards: int = 0
+    failed_shards: int = 0
+
+
+@internal_router.post("/internal/ml/runs/{run_id}/finalize")
+async def finalize_run(
+    run_id: str,
+    req: FinalizeRunRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Called by ml-result-aggregator Lambda after all shards complete."""
+    expected_secret = os.environ.get("ML_CALLBACK_SECRET", "")
+    provided_secret = request.headers.get("X-ML-Callback-Secret", "")
+    if not expected_secret or provided_secret != expected_secret:
+        raise HTTPException(status_code=401, detail="Invalid callback secret")
+
+    try:
+        uid = uuid.UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run_id")
+
+    run = mds.update_run_status(
+        db,
+        run_id=uid,
+        status=req.status,
+        success_shards=req.success_shards,
+        failed_shards=req.failed_shards,
+    )
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    return {"status": "ok", "run_id": run_id, "new_status": req.status}
+
+
+class PromoteRunRequest(BaseModel):
+    model_version: str
+    avg_da: float
+    avg_ic: float
+
+
+@internal_router.post("/internal/ml/runs/{run_id}/promote")
+async def promote_run_model(
+    run_id: str,
+    req: PromoteRunRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Called by ml-auto-promote Lambda to register new production model version."""
+    expected_secret = os.environ.get("ML_CALLBACK_SECRET", "")
+    provided_secret = request.headers.get("X-ML-Callback-Secret", "")
+    if not expected_secret or provided_secret != expected_secret:
+        raise HTTPException(status_code=401, detail="Invalid callback secret")
+
+    try:
+        uid = uuid.UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run_id")
+
+    from app.models.ml_training import ModelVersion as MV
+    from datetime import datetime, timezone
+
+    current_prod = db.query(MV).filter(MV.promotion_status == "production").first()
+    if current_prod:
+        current_prod.promotion_status = "archived"
+        db.commit()
+
+    new_mv = MV(
+        model_version=req.model_version,
+        run_id=uid,
+        promotion_status="production",
+        avg_directional_accuracy=req.avg_da,
+        avg_information_coefficient=req.avg_ic,
+        horizons=[1, 7, 30],
+        promoted_at=datetime.now(timezone.utc),
+        promoted_by="auto-promote-lambda",
+    )
+    db.add(new_mv)
+    db.commit()
+
+    logger.info("Auto-promoted %s (DA=%.3f IC=%.3f)", req.model_version, req.avg_da, req.avg_ic)
+    return {"status": "ok", "model_version": req.model_version}
 
 
 # ── Health & Metrics ─────────────────────────────────────────────────

@@ -183,9 +183,9 @@ def create_artifact(
     checkpoint_s3_uri: str = "",
     metrics_s3_uri: str = "",
     model_version: str = "",
-    directional_accuracy: float = 0.0,
-    information_coefficient: float = 0.0,
-    hypothetical_sharpe: float = 0.0,
+    directional_accuracy: Optional[float] = None,
+    information_coefficient: Optional[float] = None,
+    hypothetical_sharpe: Optional[float] = None,
     epochs_trained: int = 0,
     early_stopped: bool = False,
 ) -> TrainingArtifact:
@@ -346,6 +346,30 @@ def get_run_summary(db: Session, run_id: UUID) -> dict:
             for s in shards
         ],
     }
+
+
+def update_shard_from_callback(
+    db: Session,
+    shard_id: UUID,
+    status: str,
+    runtime_seconds: Optional[int] = None,
+    error_type: Optional[str] = None,
+    error_summary: Optional[str] = None,
+) -> Optional[TrainingShard]:
+    shard = db.query(TrainingShard).filter(TrainingShard.shard_id == shard_id).first()
+    if not shard:
+        return None
+    shard.status = status
+    if runtime_seconds is not None:
+        shard.runtime_seconds = runtime_seconds
+    if error_type:
+        shard.error_type = error_type
+    if error_summary:
+        shard.error_summary = error_summary
+    shard.ended_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(shard)
+    return shard
 
 
 def get_metrics_summary(db: Session, days: int = 7) -> dict:
