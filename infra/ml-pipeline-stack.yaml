@@ -478,7 +478,7 @@ Resources:
               return {"status": "placeholder - deploy via CI"}
       Environment:
         Variables:
-          FASTAPI_INTERNAL_URL: https://api.quanttrade.us
+          FASTAPI_INTERNAL_URL: https://www.quanttrade.us
           ML_CALLBACK_SECRET: !Ref MLCallbackSecret
           AUTO_PROMOTE_FUNCTION_NAME: !Sub ml-auto-promote-${Environment}
 
@@ -498,7 +498,7 @@ Resources:
               return {"status": "placeholder - deploy via CI"}
       Environment:
         Variables:
-          FASTAPI_INTERNAL_URL: https://api.quanttrade.us
+          FASTAPI_INTERNAL_URL: https://www.quanttrade.us
           ML_CALLBACK_SECRET: !Ref MLCallbackSecret
           CF_ACCOUNT_ID: 3d56c23139466e58267b4bfe956956e5
           CF_KV_NAMESPACE_ID: !Ref MLKVNamespaceId
