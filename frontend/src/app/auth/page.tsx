@@ -884,6 +884,7 @@ export default function AuthPage() {
                       onVerify={(token) => setTurnstileToken(token)}
                       onExpire={() => setTurnstileToken('')}
                       onError={() => setTurnstileToken('')}
+                      theme="auto"
                     />
                   </motion.div>
 

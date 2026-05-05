@@ -57,7 +57,7 @@ export default function TurnstileWidget({
       'error-callback': () => onError?.(),
       theme,
       size,
-      appearance: 'interaction-only',
+      appearance: 'always',
     })
   }, [onVerify, onExpire, onError, theme, size])
 
