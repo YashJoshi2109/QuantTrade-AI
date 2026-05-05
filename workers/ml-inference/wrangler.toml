@@ -1,0 +1,11 @@
+name = "quanttrade-ml-inference"
+main = "src/index.ts"
+compatibility_date = "2025-05-01"
+account_id = "3d56c23139466e58267b4bfe956956e5"
+
+[[kv_namespaces]]
+binding = "ML_META"
+id = "97762986b31746d484311c3e51b3a3c0"
+
+[vars]
+ORIGIN_URL = "https://api.quanttrade.us"
