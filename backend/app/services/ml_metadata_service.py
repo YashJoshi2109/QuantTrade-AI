@@ -67,7 +67,7 @@ def update_run_status(
     run.status = status
     run.success_shards = success_shards
     run.failed_shards = failed_shards
-    if status in ("completed", "partial", "failed"):
+    if status in ("completed", "partial_failure", "failed"):
         run.ended_at = datetime.now(timezone.utc)
     if summary_s3_uri:
         run.summary_s3_uri = summary_s3_uri

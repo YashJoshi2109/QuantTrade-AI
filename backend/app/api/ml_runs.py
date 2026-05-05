@@ -4,6 +4,7 @@ Internal ML Training Pipeline API — run management, shard control, artifact li
 Endpoints prefixed with /internal/ml/ for operator use.
 """
 
+import hmac
 import logging
 import os
 import uuid
@@ -263,9 +264,16 @@ async def get_run_shards(run_id: str, db: Session = Depends(get_db)):
     }
 
 
-@router.get("/internal/ml/runs/{run_id}/artifacts")
-async def get_run_artifacts(run_id: str, db: Session = Depends(get_db)):
+@internal_router.get("/internal/ml/runs/{run_id}/artifacts")
+async def get_run_artifacts(run_id: str, request: Request, db: Session = Depends(get_db)):
     """List artifacts produced by a run."""
+    expected_secret = os.environ.get("ML_CALLBACK_SECRET", "")
+    provided_secret = request.headers.get("X-ML-Callback-Secret")
+    if not expected_secret or provided_secret is None:
+        raise HTTPException(status_code=401, detail="Invalid callback secret")
+    if not hmac.compare_digest(provided_secret, expected_secret):
+        raise HTTPException(status_code=401, detail="Invalid callback secret")
+
     try:
         uid = uuid.UUID(run_id)
     except ValueError:
@@ -503,8 +511,10 @@ async def batch_job_callback(
 ):
     """Called by Batch container after training. Updates Neon + emits CloudWatch metric."""
     expected_secret = os.environ.get("ML_CALLBACK_SECRET", "")
-    provided_secret = request.headers.get("X-ML-Callback-Secret", "")
-    if not expected_secret or provided_secret != expected_secret:
+    provided_secret = request.headers.get("X-ML-Callback-Secret")
+    if not expected_secret or provided_secret is None:
+        raise HTTPException(status_code=401, detail="Invalid callback secret")
+    if not hmac.compare_digest(provided_secret, expected_secret):
         raise HTTPException(status_code=401, detail="Invalid callback secret")
 
     try:
@@ -571,8 +581,10 @@ async def finalize_run(
 ):
     """Called by ml-result-aggregator Lambda after all shards complete."""
     expected_secret = os.environ.get("ML_CALLBACK_SECRET", "")
-    provided_secret = request.headers.get("X-ML-Callback-Secret", "")
-    if not expected_secret or provided_secret != expected_secret:
+    provided_secret = request.headers.get("X-ML-Callback-Secret")
+    if not expected_secret or provided_secret is None:
+        raise HTTPException(status_code=401, detail="Invalid callback secret")
+    if not hmac.compare_digest(provided_secret, expected_secret):
         raise HTTPException(status_code=401, detail="Invalid callback secret")
 
     try:
@@ -608,8 +620,10 @@ async def promote_run_model(
 ):
     """Called by ml-auto-promote Lambda to register new production model version."""
     expected_secret = os.environ.get("ML_CALLBACK_SECRET", "")
-    provided_secret = request.headers.get("X-ML-Callback-Secret", "")
-    if not expected_secret or provided_secret != expected_secret:
+    provided_secret = request.headers.get("X-ML-Callback-Secret")
+    if not expected_secret or provided_secret is None:
+        raise HTTPException(status_code=401, detail="Invalid callback secret")
+    if not hmac.compare_digest(provided_secret, expected_secret):
         raise HTTPException(status_code=401, detail="Invalid callback secret")
 
     try:
