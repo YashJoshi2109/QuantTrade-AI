@@ -1,7 +1,8 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  QuantTrade ML Nightly Pipeline — AWS Batch + Step Functions + EventBridge.
-  Orchestrates shard-based LSTM training on Spot EC2 instances.
+  QuantTrade ML Nightly Pipeline — AWS Batch (Fargate Spot) + Step Functions + EventBridge.
+  Orchestrates shard-based LSTM training on Fargate Spot containers.
+  Note: EC2 on-demand/spot quota is 1 vCPU (used by app server); Fargate Spot is the only viable compute.
 
 Parameters:
   Environment:
@@ -177,76 +178,30 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-
-  BatchInstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub ml-batch-instance-${Environment}
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
-
-  BatchInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      InstanceProfileName: !Sub ml-batch-instance-profile-${Environment}
-      Roles:
-        - !Ref BatchInstanceRole
+      Policies:
+        - PolicyName: SecretsManagerReadML
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:quanttrade/ml-pipeline-*
 
   # ── Batch Compute Environments ────────────────────────────────────
-  SpotComputeEnvironment:
+  # Using Fargate Spot — EC2 on-demand/spot quota is 1 vCPU (all used by app server)
+  FargateSpotComputeEnvironment:
     Type: AWS::Batch::ComputeEnvironment
     Properties:
-      ComputeEnvironmentName: !Sub ml-training-spot-${Environment}
+      ComputeEnvironmentName: !Sub ml-training-fargate-spot-${Environment}
       Type: MANAGED
       State: ENABLED
-      ServiceRole: !GetAtt BatchServiceRole.Arn
       ComputeResources:
-        Type: SPOT
-        BidPercentage: 60
-        SpotIamFleetRole: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-ec2-spot-fleet-tagging-role
-        InstanceRole: !GetAtt BatchInstanceProfile.Arn
-        MinvCpus: 0
+        Type: FARGATE_SPOT
         MaxvCpus: !Ref MaxVCPUs
-        DesiredvCpus: 0
-        InstanceTypes:
-          - c5.xlarge    # 4 vCPU, 8 GB — ideal for CPU training
-          - c5.2xlarge   # 8 vCPU, 16 GB — for larger shards
-          - m5.xlarge    # 4 vCPU, 16 GB — more memory
         Subnets: !Ref SubnetIds
         SecurityGroupIds:
           - !Ref BatchSecurityGroup
-        Tags:
-          Project: QuantTrade
-          Component: MLTraining
-
-  OnDemandComputeEnvironment:
-    Type: AWS::Batch::ComputeEnvironment
-    Properties:
-      ComputeEnvironmentName: !Sub ml-training-od-${Environment}
-      Type: MANAGED
-      State: ENABLED
-      ServiceRole: !GetAtt BatchServiceRole.Arn
-      ComputeResources:
-        Type: EC2
-        InstanceRole: !GetAtt BatchInstanceProfile.Arn
-        MinvCpus: 0
-        MaxvCpus: 8
-        DesiredvCpus: 0
-        InstanceTypes:
-          - c5.xlarge
-        Subnets: !Ref SubnetIds
-        SecurityGroupIds:
-          - !Ref BatchSecurityGroup
-        Tags:
-          Project: QuantTrade
-          Component: MLTraining
 
   # ── Batch Job Queue ───────────────────────────────────────────────
   MLTrainingQueue:
@@ -257,9 +212,7 @@ Resources:
       State: ENABLED
       ComputeEnvironmentOrder:
         - Order: 1
-          ComputeEnvironment: !Ref SpotComputeEnvironment
-        - Order: 2
-          ComputeEnvironment: !Ref OnDemandComputeEnvironment
+          ComputeEnvironment: !Ref FargateSpotComputeEnvironment
 
   # ── Batch Job Definition ──────────────────────────────────────────
   MLTrainingJobDef:
@@ -267,6 +220,8 @@ Resources:
     Properties:
       JobDefinitionName: !Sub ml-training-shard-${Environment}
       Type: container
+      PlatformCapabilities:
+        - FARGATE
       RetryStrategy:
         Attempts: 2
         EvaluateOnExit:
@@ -280,10 +235,15 @@ Resources:
         AttemptDurationSeconds: 10800  # 3 hours max per attempt
       ContainerProperties:
         Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepositoryName}:latest
-        Vcpus: 4
-        Memory: 8192
         JobRoleArn: !GetAtt BatchJobRole.Arn
         ExecutionRoleArn: !GetAtt BatchExecutionRole.Arn
+        ResourceRequirements:
+          - Type: VCPU
+            Value: '1'
+          - Type: MEMORY
+            Value: '2048'
+        NetworkConfiguration:
+          AssignPublicIp: ENABLED
         Environment:
           - Name: ML_S3_BUCKET
             Value: !Ref MLBucketName
@@ -296,9 +256,14 @@ Resources:
           - Name: ML_TRIGGER_SOURCE
             Value: batch
           - Name: OMP_NUM_THREADS
-            Value: '4'
+            Value: '1'
           - Name: MKL_NUM_THREADS
-            Value: '4'
+            Value: '1'
+          - Name: FASTAPI_INTERNAL_URL
+            Value: https://www.quanttrade.us
+        Secrets:
+          - Name: ML_CALLBACK_SECRET
+            ValueFrom: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:quanttrade/ml-pipeline-hzDIpH:ML_CALLBACK_SECRET::
         LogConfiguration:
           LogDriver: awslogs
           Options:
