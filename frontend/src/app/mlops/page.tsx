@@ -422,6 +422,167 @@ function useMLStream() {
 
 // ── Live Event Feed component ────────────────────────────────────────────────
 
+// Parse the most recent epoch/metrics from live CloudWatch log lines
+function parseLogProgress(logs?: Array<{ ts: number; msg: string }>) {
+  if (!logs?.length) return null
+  for (let i = logs.length - 1; i >= 0; i--) {
+    const msg = logs[i].msg
+    // "[h=1] Epoch   7/40 | train=0.000498 val=0.000401 | DA=48.3% IC=-0.009 | lr=4.63e-04"
+    const m = msg.match(/\[h=(\d+)\].*Epoch\s+(\d+)\/(\d+).*train=([\d.]+).*val=([\d.]+).*DA=([\d.]+)%.*IC=([-\d.]+)/)
+    if (m) {
+      return {
+        horizon: parseInt(m[1]),
+        epoch: parseInt(m[2]),
+        totalEpochs: parseInt(m[3]),
+        trainLoss: parseFloat(m[4]),
+        valLoss: parseFloat(m[5]),
+        da: parseFloat(m[6]) / 100,
+        ic: parseFloat(m[7]),
+      }
+    }
+  }
+  return null
+}
+
+function PipelineFlowStrip({ sfn, batch, run }: {
+  sfn?: { name: string; status: string; start_date: string } | null
+  batch?: { runnable: number; starting: number; running: number; succeeded: number; failed: number } | null
+  run?: { status: string } | null
+}) {
+  const isRunning = (sfn?.status === 'RUNNING') || (batch?.running ?? 0) > 0
+  const stages = [
+    { label: 'ECR', icon: Package, status: 'ok' as const, detail: 'Image ready' },
+    {
+      label: 'SFN', icon: GitBranch,
+      status: sfn ? (sfn.status === 'RUNNING' ? 'running' : sfn.status === 'SUCCEEDED' ? 'ok' : 'error') as 'running' | 'ok' | 'error' : 'idle' as const,
+      detail: sfn ? sfn.status : 'Idle',
+    },
+    {
+      label: 'Batch', icon: Cpu,
+      status: (batch?.running ?? 0) > 0 ? 'running' as const : (batch?.succeeded ?? 0) > 0 ? 'ok' as const : 'idle' as const,
+      detail: batch ? `${batch.running}R ${batch.succeeded}✓ ${batch.failed}✗` : '—',
+    },
+    {
+      label: 'Neon DB', icon: Database,
+      status: run ? (run.status === 'running' ? 'running' : run.status === 'completed' ? 'ok' : run.status === 'failed' ? 'error' : 'idle') as 'running' | 'ok' | 'error' | 'idle' : 'idle' as const,
+      detail: run ? run.status : 'No run',
+    },
+    { label: 'Lambda', icon: Zap, status: 'idle' as const, detail: 'Aggregator' },
+    { label: 'CF KV', icon: Radio, status: 'idle' as const, detail: 'Model cache' },
+  ]
+
+  const statusColors = {
+    running: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+    ok: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+    error: 'text-red-400 bg-red-500/10 border-red-500/30',
+    idle: 'text-fg-muted bg-surface-hover border-line-subtle',
+  }
+
+  return (
+    <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none pb-1">
+      {stages.map((stage, i) => (
+        <div key={stage.label} className="flex items-center gap-1 shrink-0">
+          <div className={`flex flex-col items-center gap-1 px-2 sm:px-3 py-2 rounded-lg border ${statusColors[stage.status]} min-w-[52px] sm:min-w-[64px]`}>
+            <stage.icon className={`w-3.5 h-3.5 ${stage.status === 'running' ? 'animate-pulse' : ''}`} />
+            <span className="text-[9px] font-bold uppercase tracking-wider">{stage.label}</span>
+            <span className="text-[8px] opacity-70 truncate max-w-[60px] text-center">{stage.detail}</span>
+          </div>
+          {i < stages.length - 1 && (
+            <ChevronRight className={`w-3 h-3 shrink-0 ${isRunning && i < 3 ? 'text-amber-400/60' : 'text-fg-muted/30'}`} />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function LiveTrainingCard({ logs, sfn, batch }: {
+  logs?: Array<{ ts: number; msg: string }>
+  sfn?: { name: string; status: string; start_date: string } | null
+  batch?: { runnable: number; starting: number; running: number; succeeded: number; failed: number } | null
+}) {
+  const progress = parseLogProgress(logs)
+  const isActive = (sfn?.status === 'RUNNING') || (batch?.running ?? 0) > 0
+  if (!isActive && !progress) return null
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5"
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+        <span className="text-sm font-medium text-amber-400">Training in Progress</span>
+        {sfn?.name && (
+          <code className="text-[10px] text-fg-muted font-mono ml-auto truncate max-w-[200px]">{sfn.name}</code>
+        )}
+      </div>
+
+      {progress ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div>
+              <div className="text-[10px] text-fg-muted uppercase tracking-wider">Horizon</div>
+              <div className="text-xl font-bold font-mono text-amber-400">h={progress.horizon}</div>
+            </div>
+            <div>
+              <div className="text-[10px] text-fg-muted uppercase tracking-wider">Epoch</div>
+              <div className="text-xl font-bold font-mono text-fg-secondary">
+                {progress.epoch}<span className="text-fg-muted text-sm">/{progress.totalEpochs}</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] text-fg-muted uppercase tracking-wider">DA (live)</div>
+              <div className={`text-xl font-bold font-mono ${metricColor(progress.da)}`}>
+                {(progress.da * 100).toFixed(1)}%
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] text-fg-muted uppercase tracking-wider">IC (live)</div>
+              <div className={`text-xl font-bold font-mono ${metricColor(progress.ic, [-0.05, 0.05])}`}>
+                {progress.ic.toFixed(3)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] text-fg-muted uppercase tracking-wider">Val Loss</div>
+              <div className="text-sm font-mono text-fg-secondary">{progress.valLoss.toFixed(6)}</div>
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="text-[10px] text-fg-muted">Epoch progress</span>
+              <span className="text-[10px] text-fg-muted font-mono">
+                {((progress.epoch / progress.totalEpochs) * 100).toFixed(0)}%
+              </span>
+            </div>
+            <div className="h-1.5 bg-surface-raised rounded-full overflow-hidden">
+              <motion.div
+                className="h-full rounded-full bg-amber-500"
+                initial={{ width: 0 }}
+                animate={{ width: `${(progress.epoch / progress.totalEpochs) * 100}%` }}
+                transition={{ duration: 0.6 }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <div className="flex gap-4">
+            {batch && (
+              <>
+                {batch.running > 0 && <div><div className="text-[10px] text-fg-muted">Running</div><div className="text-xl font-bold text-amber-400 font-mono">{batch.running}</div></div>}
+                {batch.runnable > 0 && <div><div className="text-[10px] text-fg-muted">Queued</div><div className="text-xl font-bold text-fg-secondary font-mono">{batch.runnable}</div></div>}
+              </>
+            )}
+          </div>
+          <p className="text-xs text-fg-muted ml-auto">Waiting for first epoch log...</p>
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
 function LiveEventFeed({ logs, connected }: { logs?: Array<{ ts: number; msg: string }>; connected: boolean }) {
   const [allLogs, setAllLogs] = useState<Array<{ ts: number; msg: string; id: number }>>([])
   const counterRef = useRef(0)
@@ -592,6 +753,14 @@ function OverviewTab() {
           {health?.last_run ? ` | Last run: ${relativeTime(health.last_run)}` : ''}
         </span>
       </motion.div>
+
+      {/* Pipeline Flow */}
+      <Panel title="Pipeline Flow" icon={GitBranch} color="text-cyan-400">
+        <PipelineFlowStrip sfn={liveSfn} batch={liveBatch} run={liveRun} />
+      </Panel>
+
+      {/* Live Training Card — only shown when a run is active */}
+      <LiveTrainingCard logs={streamEvent?.logs} sfn={liveSfn} batch={liveBatch} />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
