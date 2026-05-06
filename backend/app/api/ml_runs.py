@@ -709,6 +709,269 @@ async def ml_metrics_summary(
     }
 
 
+@router.get("/internal/ml/dashboard")
+async def ml_dashboard(db: Session = Depends(get_db)):
+    """Unified dashboard snapshot: model counts, run stats, latest run — all from Neon DB."""
+    import asyncio
+    from datetime import datetime, timezone
+
+    # Metrics summary (7-day window)
+    raw = mds.get_metrics_summary(db, days=7)
+    total_runs = raw.get("total_runs", 0)
+    completed_runs = raw.get("completed_runs", 0)
+    success_rate = (completed_runs / total_runs * 100) if total_runs > 0 else 0.0
+
+    # Production model versions
+    prod_versions = mds.list_model_versions(db, status="production", limit=10)
+    symbols_covered = sum(getattr(v, "symbol_count", 0) or 0 for v in prod_versions)
+    avg_da_vals = [v.avg_directional_accuracy for v in prod_versions if v.avg_directional_accuracy]
+    avg_ic_vals = [v.avg_information_coefficient for v in prod_versions if v.avg_information_coefficient]
+    avg_da = (sum(avg_da_vals) / len(avg_da_vals)) if avg_da_vals else None
+    avg_ic = (sum(avg_ic_vals) / len(avg_ic_vals)) if avg_ic_vals else None
+
+    # Latest run
+    runs = mds.list_runs(db, limit=1)
+    latest = runs[0] if runs else None
+
+    return {
+        "models_production": len(prod_versions),
+        "runs_7d": total_runs,
+        "success_rate": round(success_rate, 1),
+        "symbols_covered": symbols_covered,
+        "avg_da": round(avg_da, 4) if avg_da is not None else None,
+        "avg_ic": round(avg_ic, 4) if avg_ic is not None else None,
+        "latest_run": {
+            "run_id": str(latest.run_id),
+            "status": latest.status,
+            "run_type": latest.run_type,
+            "total_symbols": latest.total_symbols or 0,
+            "total_shards": latest.total_shards or 0,
+            "success_shards": latest.success_shards or 0,
+            "failed_shards": latest.failed_shards or 0,
+            "started_at": latest.started_at.isoformat() if latest.started_at else None,
+            "ended_at": latest.ended_at.isoformat() if latest.ended_at else None,
+        } if latest else None,
+        "prod_models": [
+            {
+                "model_version": v.model_version,
+                "avg_da": v.avg_directional_accuracy,
+                "avg_ic": v.avg_information_coefficient,
+                "promoted_at": v.promoted_at.isoformat() if v.promoted_at else None,
+            }
+            for v in prod_versions
+        ],
+    }
+
+
+@router.get("/internal/ml/stream")
+async def ml_stream(request: Request):
+    """Server-Sent Events stream: Neon DB + AWS Batch + Step Functions + CloudWatch logs."""
+    import asyncio
+    import json
+    from datetime import datetime, timezone
+    from fastapi.responses import StreamingResponse
+    from app.db.database import SessionLocal
+
+    AWS_REGION = os.environ.get("AWS_REGION", "us-east-2")
+    BATCH_QUEUE = "ml-training-queue-production"
+    SFN_ARN = "arn:aws:states:us-east-2:688282503628:stateMachine:ml-nightly-pipeline-production"
+    CW_LOG_GROUP = "/aws/batch/ml-training-production"
+    KEY_PATTERNS = [
+        "horizon", "phase", "epoch", "Epoch", "callback",
+        "ERROR", "RuntimeError", "FAILED", "completed", "status",
+        "DA=", "IC=", "Training h=", "Device:", "Model:",
+    ]
+
+    async def _fetch_batch():
+        """Fetch Batch job counts per status."""
+        counts = {"runnable": 0, "starting": 0, "running": 0, "succeeded": 0, "failed": 0}
+        try:
+            def _call():
+                client = boto3.client("batch", region_name=AWS_REGION)
+                result = {}
+                for status in ("RUNNABLE", "STARTING", "RUNNING", "SUCCEEDED", "FAILED"):
+                    resp = client.list_jobs(jobQueue=BATCH_QUEUE, jobStatus=status, maxResults=100)
+                    result[status.lower()] = len(resp.get("jobSummaryList", []))
+                return result
+            data = await asyncio.to_thread(_call)
+            counts.update(data)
+        except Exception as e:
+            logger.warning("Batch list_jobs failed (non-fatal): %s", e)
+        return counts
+
+    async def _fetch_sfn():
+        """Fetch latest Step Functions execution."""
+        try:
+            def _call():
+                client = boto3.client("stepfunctions", region_name=AWS_REGION)
+                resp = client.list_executions(stateMachineArn=SFN_ARN, maxResults=1)
+                execs = resp.get("executions", [])
+                if not execs:
+                    return None
+                ex = execs[0]
+                return {
+                    "name": ex.get("name", ""),
+                    "status": ex.get("status", ""),
+                    "start_date": ex.get("startDate").isoformat() if ex.get("startDate") else None,
+                }
+            return await asyncio.to_thread(_call)
+        except Exception as e:
+            logger.warning("SFN list_executions failed (non-fatal): %s", e)
+            return None
+
+    async def _fetch_logs(batch_job_id: str):
+        """Fetch last 30 CloudWatch log events filtered by key patterns."""
+        try:
+            def _call():
+                client = boto3.client("logs", region_name=AWS_REGION)
+                log_stream = f"ml-training/{batch_job_id}"
+                try:
+                    resp = client.get_log_events(
+                        logGroupName=CW_LOG_GROUP,
+                        logStreamName=log_stream,
+                        limit=30,
+                        startFromHead=False,
+                    )
+                except Exception:
+                    # Try without prefix — log stream may be named differently
+                    streams = client.describe_log_streams(
+                        logGroupName=CW_LOG_GROUP,
+                        logStreamNamePrefix=batch_job_id[:8],
+                        limit=1,
+                    )
+                    stream_list = streams.get("logStreams", [])
+                    if not stream_list:
+                        return []
+                    resp = client.get_log_events(
+                        logGroupName=CW_LOG_GROUP,
+                        logStreamName=stream_list[0]["logStreamName"],
+                        limit=30,
+                        startFromHead=False,
+                    )
+                events = resp.get("events", [])
+                filtered = [
+                    {"ts": e["timestamp"], "msg": e["message"]}
+                    for e in events
+                    if any(p in e.get("message", "") for p in KEY_PATTERNS)
+                ]
+                return filtered
+            return await asyncio.to_thread(_call)
+        except Exception as e:
+            logger.warning("CloudWatch get_log_events failed (non-fatal): %s", e)
+            return []
+
+    async def event_generator():
+        while True:
+            if await request.is_disconnected():
+                break
+
+            # Open a fresh DB session per tick
+            db = SessionLocal()
+            try:
+                # Neon DB queries
+                runs = mds.list_runs(db, status="running", limit=1)
+                latest_run = runs[0] if runs else None
+
+                if not latest_run:
+                    # Fall back to most recent run of any status
+                    all_runs = mds.list_runs(db, limit=1)
+                    latest_run = all_runs[0] if all_runs else None
+
+                run_payload = None
+                shards_payload = []
+                running_shard_job_id = None
+
+                if latest_run:
+                    run_payload = {
+                        "run_id": str(latest_run.run_id),
+                        "status": latest_run.status,
+                        "total_symbols": latest_run.total_symbols or 0,
+                        "total_shards": latest_run.total_shards or 0,
+                        "success_shards": latest_run.success_shards or 0,
+                        "failed_shards": latest_run.failed_shards or 0,
+                        "started_at": latest_run.started_at.isoformat() if latest_run.started_at else None,
+                    }
+                    shards = mds.get_shards_for_run(db, latest_run.run_id)
+                    shards_payload = [
+                        {
+                            "shard_id": str(s.shard_id),
+                            "shard_name": s.shard_name,
+                            "status": s.status,
+                            "batch_job_id": s.batch_job_id if hasattr(s, "batch_job_id") else None,
+                            "runtime_seconds": s.runtime_seconds,
+                        }
+                        for s in shards
+                    ]
+                    # Find a running shard with a batch_job_id for log tailing
+                    for s in shards:
+                        job_id = s.batch_job_id if hasattr(s, "batch_job_id") else None
+                        if s.status == "running" and job_id:
+                            running_shard_job_id = job_id
+                            break
+
+                # Production models
+                prod_versions = mds.list_model_versions(db, status="production", limit=5)
+                models_payload = [
+                    {
+                        "model_version": v.model_version,
+                        "avg_da": v.avg_directional_accuracy,
+                        "avg_ic": v.avg_information_coefficient,
+                        "promoted_at": v.promoted_at.isoformat() if v.promoted_at else None,
+                    }
+                    for v in prod_versions
+                ]
+            except Exception as e:
+                logger.warning("DB query in SSE tick failed (non-fatal): %s", e)
+                run_payload = None
+                shards_payload = []
+                running_shard_job_id = None
+                models_payload = []
+            finally:
+                db.close()
+
+            # AWS calls (parallel)
+            batch_task = asyncio.create_task(_fetch_batch())
+            sfn_task = asyncio.create_task(_fetch_sfn())
+            async def _empty_logs():
+                return []
+
+            logs_task = asyncio.create_task(
+                _fetch_logs(running_shard_job_id) if running_shard_job_id else _empty_logs()
+            )
+
+            batch_data, sfn_data, logs_data = await asyncio.gather(
+                batch_task, sfn_task, logs_task, return_exceptions=True
+            )
+
+            payload = {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "run": run_payload,
+                "shards": shards_payload,
+                "batch": batch_data if isinstance(batch_data, dict) else {"runnable": 0, "starting": 0, "running": 0, "succeeded": 0, "failed": 0},
+                "sfn": sfn_data if isinstance(sfn_data, dict) else None,
+                "logs": logs_data if isinstance(logs_data, list) else [],
+                "models": models_payload,
+            }
+
+            yield f"data: {json.dumps(payload)}\n\n"
+
+            # Sleep 8 seconds, checking for disconnect
+            for _ in range(8):
+                if await request.is_disconnected():
+                    return
+                await asyncio.sleep(1)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
 @router.get("/internal/ml/config/effective")
 async def get_effective_config():
     """Return current effective training config."""

@@ -18,7 +18,7 @@ import {
   ArrowDownRight, Hash,
   Rocket, Target, Lock,
   SlidersHorizontal, Sparkles, Search, X, ChevronUp,
-  Crown, Archive, RefreshCw,
+  Crown, Archive, RefreshCw, Zap, Radio,
 } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import MobileMLOps from '@/components/layout/MobileMLOps'
@@ -105,6 +105,41 @@ interface DriftReport {
   drift_score?: number
   features_drifted?: string[]
   timestamp?: string
+}
+
+interface MLStreamEvent {
+  ts: string
+  run?: {
+    run_id: string
+    status: string
+    total_symbols: number
+    total_shards: number
+    success_shards: number
+    failed_shards: number
+    started_at?: string
+  }
+  shards?: Array<{
+    shard_id: string
+    shard_name: string
+    status: string
+    batch_job_id?: string
+    runtime_seconds?: number
+  }>
+  batch?: { runnable: number; starting: number; running: number; succeeded: number; failed: number }
+  sfn?: { name: string; status: string; start_date: string }
+  logs?: Array<{ ts: number; msg: string }>
+  models?: Array<{ model_version: string; avg_da?: number; avg_ic?: number; promoted_at?: string }>
+}
+
+interface DashboardData {
+  models_production: number
+  runs_7d: number
+  success_rate: number
+  symbols_covered: number
+  avg_da?: number
+  avg_ic?: number
+  latest_run?: { run_id: string; status: string; started_at?: string; total_symbols?: number; total_shards?: number; success_shards?: number; failed_shards?: number; ended_at?: string }
+  prod_models?: Array<{ model_version: string; avg_da?: number; avg_ic?: number; promoted_at?: string }>
 }
 
 // ── Tab definition ───────────────────────────────────────────────────────────
@@ -357,35 +392,136 @@ function InlineError({ message, onRetry }: { message: string; onRetry?: () => vo
   )
 }
 
+// ── SSE stream hook ──────────────────────────────────────────────────────────
+
+function useMLStream() {
+  const [event, setEvent] = useState<MLStreamEvent | null>(null)
+  const [connected, setConnected] = useState(false)
+  const esRef = useRef<EventSource | null>(null)
+
+  useEffect(() => {
+    const connect = () => {
+      const es = new EventSource(`${API}/api/v1/internal/ml/stream`, { withCredentials: true })
+      esRef.current = es
+      es.onopen = () => setConnected(true)
+      es.onmessage = (e) => {
+        try { setEvent(JSON.parse(e.data)) } catch {}
+      }
+      es.onerror = () => {
+        setConnected(false)
+        es.close()
+        setTimeout(connect, 5000)
+      }
+    }
+    connect()
+    return () => { esRef.current?.close() }
+  }, [])
+
+  return { event, connected }
+}
+
+// ── Live Event Feed component ────────────────────────────────────────────────
+
+function LiveEventFeed({ logs, connected }: { logs?: Array<{ ts: number; msg: string }>; connected: boolean }) {
+  const [allLogs, setAllLogs] = useState<Array<{ ts: number; msg: string; id: number }>>([])
+  const counterRef = useRef(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!logs?.length) return
+    setAllLogs(prev => {
+      const existing = new Set(prev.map(l => l.ts + l.msg))
+      const newItems = logs
+        .filter(l => !existing.has(l.ts + l.msg))
+        .map(l => ({ ...l, id: ++counterRef.current }))
+      if (!newItems.length) return prev
+      const merged = [...prev, ...newItems].slice(-60)
+      return merged
+    })
+  }, [logs])
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [allLogs])
+
+  const getLogClass = (msg: string) => {
+    if (msg.includes('ERROR') || msg.includes('FAILED') || msg.includes('RuntimeError')) return 'text-red-400'
+    if (msg.includes('completed') || msg.includes('DA=') || msg.includes('IC=')) return 'text-emerald-400'
+    if (msg.includes('horizon') || msg.includes('Training h=') || msg.includes('phase')) return 'text-cyan-400'
+    if (msg.includes('Epoch') || msg.includes('epoch')) return 'text-amber-400'
+    return 'text-fg-muted'
+  }
+
+  const formatMsg = (msg: string) => {
+    const stripped = msg.replace(/\[\d{2}:\d{2}:\d{2}\]\s+\w+\s+[\w.]+:\s*/, '')
+    if (stripped.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(stripped)
+        const phase = parsed.phase || parsed.status || ''
+        const h = parsed.horizon ? ` h=${parsed.horizon}` : ''
+        const dur = parsed.duration_ms ? ` (${(parsed.duration_ms / 1000).toFixed(1)}s)` : ''
+        return `${phase}${h}${dur}`.trim() || stripped.slice(0, 80)
+      } catch {}
+    }
+    return stripped.slice(0, 120)
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-2 mb-2">
+        <div className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+        <span className="text-[10px] text-fg-muted uppercase tracking-wider">
+          {connected ? 'Live' : 'Reconnecting...'}
+        </span>
+        <span className="text-[10px] text-fg-muted ml-auto">{allLogs.length} events</span>
+      </div>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-0.5 min-h-0 max-h-48 font-mono text-[10px] leading-relaxed">
+        {allLogs.length === 0 ? (
+          <p className="text-fg-muted text-center py-4 text-xs">Waiting for training events...</p>
+        ) : (
+          allLogs.map(log => (
+            <div key={log.id} className="flex gap-2 hover:bg-surface-hover px-1 rounded">
+              <span className="text-fg-muted shrink-0 tabular-nums">
+                {new Date(log.ts).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+              <span className={getLogClass(log.msg)}>{formatMsg(log.msg)}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // TAB: OVERVIEW
 // ══════════════════════════════════════════════════════════════════════════════
 
 function OverviewTab() {
-  const [overview, setOverview] = useState<OverviewData | null>(null)
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null)
   const [health, setHealth] = useState<PipelineHealth | null>(null)
   const [metrics, setMetrics] = useState<MetricsSummary | null>(null)
   const [alerts, setAlerts] = useState<Alert[]>([])
-  const [latestRun, setLatestRun] = useState<TrainingRun | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { event: streamEvent, connected: streamConnected } = useMLStream()
 
   const fetchAll = useCallback(async () => {
     setError(null)
     try {
-      const [ov, hl, mt, al, runs] = await Promise.all([
-        apiFetch<OverviewData>('/api/v1/mlops/overview'),
+      const [dash, hl, mt, al] = await Promise.all([
+        apiFetch<DashboardData>('/api/v1/internal/ml/dashboard'),
         apiFetch<PipelineHealth>('/api/v1/internal/ml/health'),
         apiFetch<MetricsSummary>('/api/v1/internal/ml/metrics/summary?days=7'),
         apiFetch<{ alerts: Alert[] }>('/api/v1/mlops/monitoring/alerts'),
-        apiFetch<{ runs: TrainingRun[] }>('/api/v1/internal/ml/runs?limit=1'),
       ])
-      setOverview(ov)
+      setDashboard(dash)
       setHealth(hl)
       setMetrics(mt)
       setAlerts(al?.alerts || [])
-      setLatestRun(runs?.runs?.[0] || null)
     } catch {
       setError('Failed to load overview data')
     } finally {
@@ -415,13 +551,19 @@ function OverviewTab() {
 
   if (error) return <InlineError message={error} onRetry={fetchAll} />
 
-  const prodModels = overview?.models?.production || {}
-  const prodCount = Object.keys(prodModels).length
-  const successRate = metrics && metrics.total_runs > 0
-    ? ((metrics.successful_runs / metrics.total_runs) * 100).toFixed(1)
-    : '--'
+  const successRate = dashboard
+    ? `${dashboard.success_rate.toFixed(1)}%`
+    : metrics && metrics.total_runs > 0
+      ? `${((metrics.successful_runs / metrics.total_runs) * 100).toFixed(1)}%`
+      : '--'
 
   const activeAlerts = alerts.filter(a => !a.resolved)
+
+  // Use stream data for the latest run if available and more recent
+  const liveRun = streamEvent?.run ?? dashboard?.latest_run ?? null
+  const liveShards = streamEvent?.shards ?? []
+  const liveBatch = streamEvent?.batch
+  const liveSfn = streamEvent?.sfn
 
   return (
     <div className="space-y-6">
@@ -453,79 +595,130 @@ function OverviewTab() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-        <StatCard icon={Layers} label="Models" value={overview?.models?.registered || 0}
-          sub={`${prodCount} in production`} color="text-purple-400" delay={0} />
-        <StatCard icon={Play} label="Runs (7d)" value={metrics?.total_runs || 0}
-          sub={`${successRate}% success rate`} color="text-blue-400" delay={0.05} />
-        <StatCard icon={Database} label="Symbols" value={overview?.feature_store?.symbols || 0}
-          sub={`Schema v${overview?.feature_store?.schema_version || '?'}`} color="text-cyan-400" delay={0.1} />
-        <StatCard icon={Target} label="Avg DA" value={metrics?.avg_da ? metrics.avg_da.toFixed(4) : '--'}
+        <StatCard icon={Layers} label="Models" value={dashboard?.models_production ?? 0}
+          sub="in production" color="text-purple-400" delay={0} />
+        <StatCard icon={Play} label="Runs (7d)" value={dashboard?.runs_7d ?? metrics?.total_runs ?? 0}
+          sub={`${successRate} success rate`} color="text-blue-400" delay={0.05} />
+        <StatCard icon={Database} label="Symbols"
+          value={dashboard?.symbols_covered ?? metrics?.total_symbols_trained ?? 0}
+          sub="symbols covered" color="text-cyan-400" delay={0.1} />
+        <StatCard icon={Target} label="Avg DA"
+          value={(dashboard?.avg_da ?? metrics?.avg_da) ? ((dashboard?.avg_da ?? metrics?.avg_da) as number).toFixed(4) : '--'}
           sub="Directional accuracy" color="text-emerald-400" delay={0.15} />
-        <StatCard icon={TrendingUp} label="Avg Sharpe" value={metrics?.avg_sharpe ? metrics.avg_sharpe.toFixed(3) : '--'}
-          sub="Risk-adj. return" color="text-amber-400" delay={0.2} />
+        <StatCard icon={TrendingUp} label="Avg IC"
+          value={(dashboard?.avg_ic ?? metrics?.avg_ic) ? ((dashboard?.avg_ic ?? metrics?.avg_ic) as number).toFixed(4) : '--'}
+          sub="Information coeff." color="text-amber-400" delay={0.2} />
         <StatCard icon={AlertTriangle} label="Alerts" value={activeAlerts.length}
           sub={activeAlerts.length > 0 ? 'Requires attention' : 'All clear'}
           color={activeAlerts.length > 0 ? 'text-red-400' : 'text-fg-muted'} delay={0.25} />
       </div>
 
+      {/* Live AWS Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Panel title="Batch Queue" icon={Zap} color="text-cyan-400">
+          {liveBatch ? (
+            <div className="flex flex-wrap gap-3">
+              {[
+                { label: 'Runnable', val: liveBatch.runnable, color: 'text-fg-muted' },
+                { label: 'Starting', val: liveBatch.starting, color: 'text-amber-400' },
+                { label: 'Running', val: liveBatch.running, color: 'text-amber-400' },
+                { label: 'Succeeded', val: liveBatch.succeeded, color: 'text-emerald-400' },
+                { label: 'Failed', val: liveBatch.failed, color: 'text-red-400' },
+              ].map(item => (
+                <div key={item.label} className="flex flex-col items-center min-w-[56px]">
+                  <span className={`text-xl font-bold font-mono ${item.color}`}>{item.val}</span>
+                  <span className="text-[10px] text-fg-muted uppercase tracking-wider">{item.label}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-fg-muted py-2">Waiting for stream data...</p>
+          )}
+        </Panel>
+
+        <Panel title="Step Functions" icon={Radio} color="text-purple-400">
+          {liveSfn ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <StatusBadge status={liveSfn.status.toLowerCase()} />
+                <code className="text-[10px] text-fg-muted font-mono truncate">{liveSfn.name}</code>
+              </div>
+              {liveSfn.start_date && (
+                <p className="text-[10px] text-fg-muted">Started {relativeTime(liveSfn.start_date)}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-fg-muted py-2">Waiting for stream data...</p>
+          )}
+        </Panel>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Latest Run Summary */}
         <Panel title="Latest Training Run" icon={Rocket} color="text-blue-400">
-          {latestRun ? (
+          {liveRun ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   <code className="text-xs text-fg-muted font-mono bg-surface-hover px-2 py-1 rounded truncate">
-                    {latestRun.run_id?.slice(0, 12)}...
+                    {liveRun.run_id?.slice(0, 12)}...
                   </code>
-                  <StatusBadge status={latestRun.status} />
+                  <StatusBadge status={liveRun.status} />
                 </div>
-                <span className="text-xs text-fg-muted">{relativeTime(latestRun.started_at)}</span>
+                <span className="text-xs text-fg-muted">{relativeTime(liveRun.started_at)}</span>
               </div>
               <div className="grid grid-cols-3 gap-3 sm:gap-4">
                 <div>
-                  <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">Symbols</div>
+                  <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">Shards OK</div>
                   <div className="text-lg font-bold text-fg-secondary font-mono">
-                    {latestRun.symbols_completed}<span className="text-fg-muted">/{latestRun.total_symbols}</span>
+                    {liveRun.success_shards}<span className="text-fg-muted">/{liveRun.total_shards}</span>
                   </div>
                 </div>
                 <div>
                   <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">Failed</div>
-                  <div className={`text-lg font-bold font-mono ${latestRun.symbols_failed > 0 ? 'text-red-400' : 'text-fg-secondary'}`}>
-                    {latestRun.symbols_failed}
+                  <div className={`text-lg font-bold font-mono ${(liveRun.failed_shards ?? 0) > 0 ? 'text-red-400' : 'text-fg-secondary'}`}>
+                    {liveRun.failed_shards ?? 0}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">Runtime</div>
-                  <div className="text-lg font-bold text-fg-secondary font-mono">
-                    {formatDuration(latestRun.runtime_seconds)}
-                  </div>
+                  <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">Symbols</div>
+                  <div className="text-lg font-bold text-fg-secondary font-mono">{liveRun.total_symbols}</div>
                 </div>
               </div>
-              {latestRun.total_symbols > 0 && (
+              {(liveRun.total_shards ?? 0) > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-fg-muted uppercase tracking-wider">Progress</span>
+                    <span className="text-[10px] text-fg-muted uppercase tracking-wider">Shard Progress</span>
                     <span className="text-[11px] text-fg-muted font-mono">
-                      {((latestRun.symbols_completed / latestRun.total_symbols) * 100).toFixed(0)}%
+                      {(((liveRun.success_shards ?? 0) / (liveRun.total_shards ?? 1)) * 100).toFixed(0)}%
                     </span>
                   </div>
                   <div className="h-2 bg-surface-raised rounded-full overflow-hidden">
                     <motion.div
                       className={`h-full rounded-full ${
-                        latestRun.status === 'completed' ? 'bg-emerald-500' :
-                        latestRun.status === 'failed' ? 'bg-red-500' : 'bg-amber-500'
+                        liveRun.status === 'completed' ? 'bg-emerald-500' :
+                        liveRun.status === 'failed' ? 'bg-red-500' : 'bg-amber-500'
                       }`}
                       initial={{ width: 0 }}
-                      animate={{ width: `${(latestRun.symbols_completed / latestRun.total_symbols) * 100}%` }}
+                      animate={{ width: `${((liveRun.success_shards ?? 0) / (liveRun.total_shards ?? 1)) * 100}%` }}
                       transition={{ duration: 0.8 }}
                     />
                   </div>
                 </div>
               )}
-              {latestRun.error && (
-                <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/10">
-                  <p className="text-xs text-red-300 font-mono">{latestRun.error}</p>
+              {/* Live shard breakdown */}
+              {liveShards.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">Shards</div>
+                  {liveShards.map(s => (
+                    <div key={s.shard_id} className="flex items-center gap-2">
+                      <StatusBadge status={s.status} size="xs" />
+                      <span className="text-[10px] text-fg-muted font-mono">{s.shard_name}</span>
+                      {s.runtime_seconds !== undefined && s.runtime_seconds !== null && (
+                        <span className="text-[10px] text-fg-muted ml-auto">{formatDuration(s.runtime_seconds)}</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -534,37 +727,43 @@ function OverviewTab() {
           )}
         </Panel>
 
-        {/* Production Models */}
+        {/* Production Models (from dashboard/stream) */}
         <Panel title="Production Models" icon={Cpu} color="text-emerald-400">
-          {prodCount === 0 ? (
-            <EmptyState icon={Cpu} message="No models in production" />
-          ) : (
-            <div className="space-y-3">
-              {Object.entries(prodModels).map(([name, info]: [string, any]) => (
-                <div key={name} className="p-3 bg-surface-hover rounded-lg border border-line-subtle hover:border-line-default transition-colors">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Package className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-sm font-medium text-fg-secondary">{name}</span>
+          {(() => {
+            const prodList = streamEvent?.models ?? dashboard?.prod_models ?? []
+            if (prodList.length === 0) return <EmptyState icon={Cpu} message="No models in production" />
+            return (
+              <div className="space-y-3">
+                {prodList.map((mv) => (
+                  <div key={mv.model_version} className="p-3 bg-surface-hover rounded-lg border border-line-subtle hover:border-line-default transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Package className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-sm font-medium text-fg-secondary">{mv.model_version}</span>
+                      </div>
+                      {mv.promoted_at && (
+                        <span className="text-[10px] text-fg-muted">{relativeTime(mv.promoted_at)}</span>
+                      )}
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full font-mono">
-                      v{info.version}
-                    </span>
-                  </div>
-                  {info.metrics && (
-                    <div className="flex items-center gap-3 sm:gap-4 mt-2 flex-wrap">
-                      {Object.entries(info.metrics).slice(0, 4).map(([k, v]: [string, any]) => (
-                        <div key={k} className="text-center min-w-0">
-                          <div className="text-[10px] text-fg-muted uppercase">{k.replace(/_/g, ' ')}</div>
-                          <div className="text-xs font-mono text-fg-secondary">{typeof v === 'number' ? v.toFixed(4) : typeof v === 'string' ? v : '--'}</div>
+                    <div className="flex items-center gap-4 mt-2 flex-wrap">
+                      {mv.avg_da !== undefined && mv.avg_da !== null && (
+                        <div className="text-center">
+                          <div className="text-[10px] text-fg-muted uppercase">DA</div>
+                          <div className={`text-xs font-mono font-bold ${metricColor(mv.avg_da)}`}>{mv.avg_da.toFixed(4)}</div>
                         </div>
-                      ))}
+                      )}
+                      {mv.avg_ic !== undefined && mv.avg_ic !== null && (
+                        <div className="text-center">
+                          <div className="text-[10px] text-fg-muted uppercase">IC</div>
+                          <div className={`text-xs font-mono font-bold ${metricColor(mv.avg_ic, [0.05, 0.15])}`}>{mv.avg_ic.toFixed(4)}</div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </Panel>
 
         {/* Active Alerts */}
@@ -610,35 +809,9 @@ function OverviewTab() {
           )}
         </Panel>
 
-        {/* Pipeline Stages */}
-        <Panel title="Pipeline Health" icon={GitBranch} color="text-amber-400">
-          <div className="space-y-3">
-            {[
-              { stage: 'Data Ingestion', icon: Database, desc: 'Market data fetch & validation' },
-              { stage: 'Feature Engineering', icon: Sparkles, desc: 'Technical indicators & NLP features' },
-              { stage: 'Drift Detection', icon: Eye, desc: 'Statistical distribution monitoring' },
-              { stage: 'Model Training', icon: Brain, desc: 'LSTM & ensemble training pipeline' },
-              { stage: 'Evaluation', icon: Target, desc: 'Out-of-sample performance metrics' },
-              { stage: 'Model Registry', icon: Package, desc: 'Version control & promotion' },
-            ].map((item, i) => (
-              <motion.div
-                key={item.stage}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.06 }}
-                className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-hover transition-colors group"
-              >
-                <div className="w-7 h-7 rounded-lg bg-surface-hover flex items-center justify-center border border-line-subtle group-hover:border-line-default transition-colors">
-                  <item.icon className="w-3.5 h-3.5 text-fg-muted group-hover:text-fg-secondary transition-colors" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-fg-secondary">{item.stage}</div>
-                  <div className="text-[10px] text-fg-muted">{item.desc}</div>
-                </div>
-                <div className="w-2 h-2 rounded-full bg-emerald-500/40" />
-              </motion.div>
-            ))}
-          </div>
+        {/* Live Training Log Feed */}
+        <Panel title="Live Training Feed" icon={Terminal} color="text-cyan-400">
+          <LiveEventFeed logs={streamEvent?.logs} connected={streamConnected} />
         </Panel>
       </div>
     </div>
