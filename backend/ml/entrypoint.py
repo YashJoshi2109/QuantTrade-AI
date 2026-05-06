@@ -112,6 +112,9 @@ def run_shard(config: BatchConfig) -> tuple[int, int]:
         if config.parsed_horizons:
             train_config.horizons = config.parsed_horizons
 
+        # ── Notify FastAPI so Neon records exist for live dashboard ──
+        _post_start_callback(config, symbol_count=len(symbols), horizons=train_config.horizons)
+
         # ── Execute training ──────────────────────────────────────────
         logger.info(f"Starting training: {len(symbols)} symbols, horizons={train_config.horizons}, epochs={train_config.epochs}")
         results = train(train_config)
@@ -233,6 +236,47 @@ def _upload_artifacts(config: BatchConfig, results: list[dict], slog) -> None:
         s3_artifacts.upload_shard_summary(summary, config.run_id, config.shard_id or "local")
     except Exception as e:
         logger.warning(f"Failed to upload shard summary: {e}")
+
+
+def _post_start_callback(config: BatchConfig, symbol_count: int, horizons: list[int]) -> None:
+    """POST training start to FastAPI so Neon records exist for live dashboard. Non-fatal."""
+    import os as _os
+    import urllib.request
+    import json as _json
+
+    api_base = _os.environ.get("FASTAPI_INTERNAL_URL", "https://api.quanttrade.us")
+    secret = _os.environ.get("ML_CALLBACK_SECRET", "")
+    if not secret:
+        logger.warning("ML_CALLBACK_SECRET not set — skipping start callback")
+        return
+
+    batch_job_id = _os.environ.get("AWS_BATCH_JOB_ID", "")
+    payload = {
+        "run_id": config.run_id,
+        "shard_id": config.shard_id,
+        "shard_name": config.shard_name,
+        "batch_job_id": batch_job_id,
+        "symbol_count": symbol_count,
+        "run_type": config.trigger_source,
+        "horizons": horizons,
+        "shard_index": 0,
+    }
+
+    try:
+        data = _json.dumps(payload).encode()
+        req = urllib.request.Request(
+            f"{api_base}/api/v1/internal/ml/batch-start",
+            data=data,
+            headers={
+                "Content-Type": "application/json",
+                "X-ML-Callback-Secret": secret,
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            logger.info("Start callback accepted: HTTP %d", resp.status)
+    except Exception as e:
+        logger.warning("Start callback POST failed (non-fatal): %s", e)
 
 
 def _post_callback(config: BatchConfig, results: list[dict], exit_code: int, runtime_seconds: int = 0) -> None:

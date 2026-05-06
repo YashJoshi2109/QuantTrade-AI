@@ -57,6 +57,17 @@ class ArtifactCallbackItem(BaseModel):
     metrics_s3_uri: Optional[str] = None
 
 
+class BatchStartRequest(BaseModel):
+    run_id: str
+    shard_id: str
+    shard_name: str = ""
+    batch_job_id: str = ""
+    symbol_count: int = 0
+    run_type: str = "manual"
+    horizons: List[int] = Field(default_factory=lambda: [1, 7, 30])
+    shard_index: int = 0
+
+
 class BatchCallbackRequest(BaseModel):
     run_id: str
     shard_id: str
@@ -503,6 +514,62 @@ def _emit_cloudwatch_metric(metric_name: str, value: float = 1.0, unit: str = "C
         logger.warning("CloudWatch metric failed (non-fatal): %s", e)
 
 
+@internal_router.post("/internal/ml/batch-start")
+async def batch_job_start(
+    req: BatchStartRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Called by Batch container at startup. Upserts run/shard records in Neon for live dashboard."""
+    from app.models.ml_training import TrainingShard
+    expected_secret = os.environ.get("ML_CALLBACK_SECRET", "")
+    provided_secret = request.headers.get("X-ML-Callback-Secret")
+    if not expected_secret or provided_secret is None:
+        raise HTTPException(status_code=401, detail="Invalid callback secret")
+    if not hmac.compare_digest(provided_secret, expected_secret):
+        raise HTTPException(status_code=401, detail="Invalid callback secret")
+
+    try:
+        run_uid = uuid.UUID(req.run_id)
+        shard_uid = uuid.UUID(req.shard_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+    # Upsert run — create if SFN bypassed the trigger endpoint
+    run = mds.get_run(db, run_uid)
+    if not run:
+        run = mds.create_run(
+            db,
+            run_id=run_uid,
+            run_type=req.run_type,
+            trigger_source="sfn",
+            total_symbols=req.symbol_count,
+            total_shards=1,
+        )
+    elif req.symbol_count > 0 and not run.total_symbols:
+        run.total_symbols = req.symbol_count
+        db.commit()
+
+    # Upsert shard
+    shard = db.query(TrainingShard).filter(TrainingShard.shard_id == shard_uid).first()
+    if not shard:
+        shard = mds.create_shard(
+            db,
+            shard_id=shard_uid,
+            run_id=run_uid,
+            shard_index=req.shard_index,
+            shard_name=req.shard_name,
+            symbol_count=req.symbol_count,
+            horizons=req.horizons,
+        )
+
+    mds.update_shard_status(db, shard_id=shard_uid, status="running", batch_job_id=req.batch_job_id)
+
+    logger.info("Batch start: run=%s shard=%s job=%s symbols=%d",
+                req.run_id[:8], req.shard_id[:8], req.batch_job_id[:8] if req.batch_job_id else "?", req.symbol_count)
+    return {"status": "accepted", "run_id": req.run_id, "shard_id": req.shard_id}
+
+
 @internal_router.post("/internal/ml/batch-callback")
 async def batch_job_callback(
     req: BatchCallbackRequest,
@@ -820,41 +887,32 @@ async def ml_stream(request: Request):
             return None
 
     async def _fetch_logs(batch_job_id: str):
-        """Fetch last 30 CloudWatch log events filtered by key patterns."""
+        """Fetch last 30 CloudWatch log events for a Batch job, filtered by key patterns."""
         try:
             def _call():
-                client = boto3.client("logs", region_name=AWS_REGION)
-                log_stream = f"ml-training/{batch_job_id}"
-                try:
-                    resp = client.get_log_events(
-                        logGroupName=CW_LOG_GROUP,
-                        logStreamName=log_stream,
-                        limit=30,
-                        startFromHead=False,
-                    )
-                except Exception:
-                    # Try without prefix — log stream may be named differently
-                    streams = client.describe_log_streams(
-                        logGroupName=CW_LOG_GROUP,
-                        logStreamNamePrefix=batch_job_id[:8],
-                        limit=1,
-                    )
-                    stream_list = streams.get("logStreams", [])
-                    if not stream_list:
-                        return []
-                    resp = client.get_log_events(
-                        logGroupName=CW_LOG_GROUP,
-                        logStreamName=stream_list[0]["logStreamName"],
-                        limit=30,
-                        startFromHead=False,
-                    )
-                events = resp.get("events", [])
-                filtered = [
+                batch_client = boto3.client("batch", region_name=AWS_REGION)
+                logs_client = boto3.client("logs", region_name=AWS_REGION)
+
+                # Resolve actual log stream name from job descriptor
+                jobs_resp = batch_client.describe_jobs(jobs=[batch_job_id])
+                jobs_list = jobs_resp.get("jobs", [])
+                if not jobs_list:
+                    return []
+                log_stream = jobs_list[0].get("container", {}).get("logStreamName", "")
+                if not log_stream:
+                    return []
+
+                resp = logs_client.get_log_events(
+                    logGroupName=CW_LOG_GROUP,
+                    logStreamName=log_stream,
+                    limit=30,
+                    startFromHead=False,
+                )
+                return [
                     {"ts": e["timestamp"], "msg": e["message"]}
-                    for e in events
+                    for e in resp.get("events", [])
                     if any(p in e.get("message", "") for p in KEY_PATTERNS)
                 ]
-                return filtered
             return await asyncio.to_thread(_call)
         except Exception as e:
             logger.warning("CloudWatch get_log_events failed (non-fatal): %s", e)
