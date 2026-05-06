@@ -41,11 +41,13 @@ logger = logging.getLogger("ml.train")
 
 def get_device() -> str:
     """Auto-detect best available device: CUDA > MPS > CPU."""
-    # Explicitly set thread counts for CI runners (GH Actions = 2 vCPU)
     num_threads = int(os.environ.get("OMP_NUM_THREADS", "2"))
     torch.set_num_threads(num_threads)
     if hasattr(torch, "set_num_interop_threads"):
-        torch.set_num_interop_threads(max(1, num_threads // 2))
+        try:
+            torch.set_num_interop_threads(max(1, num_threads // 2))
+        except RuntimeError:
+            pass  # Can't set after parallel work started (multi-horizon training)
 
     if torch.cuda.is_available():
         return "cuda"
