@@ -2066,6 +2066,8 @@ function CopilotInner() {
               prev.map((m) => {
                 if (m.id !== assistantMsgId) return m
                 const existing = m.structuredData
+                // Already have a 2-ticker comparison — ignore extra events
+                if (existing?.stocks && existing.stocks.length >= 2) return m
                 // Accumulate second structured_data event into stocks[] for comparison layout
                 if (
                   existing?.symbol &&
@@ -2145,7 +2147,9 @@ function CopilotInner() {
             }
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === assistantMsgId ? { ...m, meta } : m
+                m.id === assistantMsgId
+                  ? { ...m, meta: { ...meta, noFilings: m.meta?.noFilings } }
+                  : m
               )
             )
           },
