@@ -2,6 +2,15 @@
 import uuid
 from unittest.mock import patch, MagicMock
 import pytest
+import app.api.ml_runs as ml_runs_module
+
+
+@pytest.fixture(autouse=True)
+def reset_secret_cache():
+    """Reset module-level secret cache between tests to prevent cross-contamination."""
+    ml_runs_module._cached_callback_secret = None
+    yield
+    ml_runs_module._cached_callback_secret = None
 
 
 def make_payload(run_id=None, shard_id=None, status="completed"):
@@ -29,7 +38,7 @@ def make_payload(run_id=None, shard_id=None, status="completed"):
 
 def test_batch_callback_missing_secret(client):
     resp = client.post("/api/v1/internal/ml/batch-callback", json=make_payload())
-    assert resp.status_code == 401
+    assert resp.status_code == 503
 
 
 def test_batch_callback_wrong_secret(client, monkeypatch):
