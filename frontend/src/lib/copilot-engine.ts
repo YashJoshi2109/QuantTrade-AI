@@ -188,6 +188,7 @@ export interface CopilotMeta {
   intent: CopilotIntent
   symbol?: string
   model?: string
+  noFilings?: string[]
 }
 
 // ─── Citation ───────────────────────────────────────────────────────────────
@@ -216,6 +217,7 @@ export interface CopilotStreamCallbacks {
   onCitation?: (citation: CitationData) => void
   onToolCall?: (message: string) => void
   onToolResult?: (message: string) => void
+  onNoFilings?: (symbol: string) => void
 }
 
 export interface CopilotStreamRequest {
@@ -309,6 +311,10 @@ export async function streamCopilotAnalysis(
 
             case 'tool_result':
               callbacks.onToolResult?.(data.message || '')
+              break
+
+            case 'no_filings':
+              callbacks.onNoFilings?.(data.symbol as string)
               break
 
             case 'citation':

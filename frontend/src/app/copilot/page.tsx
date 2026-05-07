@@ -755,6 +755,15 @@ function MessageBubble({
             </div>
           </div>
         )}
+        {!isUser && !msg.streaming && msg.meta?.noFilings && msg.meta.noFilings.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {msg.meta.noFilings.map((sym) => (
+              <span key={sym} className="inline-flex items-center gap-1 rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-0.5 text-[10px] text-amber-400">
+                No SEC filings indexed for {sym} — analysis uses public data only
+              </span>
+            ))}
+          </div>
+        )}
         {!isUser && !msg.streaming && msg.content && (
           <div className="flex items-center gap-1 mt-1 px-1">
             <CopyButton text={msg.content} />
@@ -2053,23 +2062,32 @@ function CopilotInner() {
 
           onStructuredData: (data) => {
             setPipelineStage('streaming')
-            const displayData =
-              data.stocks && data.stocks.length > 0
-                ? data.stocks[0]
-                : (data as StockAnalysisData)
-            // Only auto-show the full dashboard when rich ML data is present
-            // (technical_signal, confidence, monte_carlo). For simple quote data
-            // the StockQuickPanel already provides a better experience.
+            setMessages((prev) =>
+              prev.map((m) => {
+                if (m.id !== assistantMsgId) return m
+                const existing = m.structuredData
+                // Accumulate second structured_data event into stocks[] for comparison layout
+                if (
+                  existing?.symbol &&
+                  data.symbol &&
+                  existing.symbol !== data.symbol &&
+                  !existing.stocks?.length
+                ) {
+                  const merged: CopilotStructuredData = {
+                    ...existing,
+                    stocks: [existing as StockAnalysisData, data as StockAnalysisData],
+                  }
+                  return { ...m, structuredData: merged }
+                }
+                return { ...m, structuredData: data }
+              })
+            )
+            const displayData = data.stocks?.[0] ?? (data as StockAnalysisData)
             if (displayData.symbol) {
               const hasRichData = !!(displayData.technical_signal || displayData.confidence || displayData.monte_carlo)
               setAnalysisData(displayData)
               if (hasRichData) setShowDashboard(true)
             }
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsgId ? { ...m, structuredData: data } : m
-              )
-            )
           },
 
           onToolCall: () => {
@@ -2087,6 +2105,22 @@ function CopilotInner() {
                   ? { ...m, citations: [...(m.citations || []), citation] }
                   : m
               )
+            )
+          },
+
+          onNoFilings: (symbol) => {
+            setMessages((prev) =>
+              prev.map((m) => {
+                if (m.id !== assistantMsgId) return m
+                const existing = m.meta?.noFilings ?? []
+                return {
+                  ...m,
+                  meta: {
+                    ...(m.meta ?? ({} as CopilotMeta)),
+                    noFilings: existing.includes(symbol) ? existing : [...existing, symbol],
+                  },
+                }
+              })
             )
           },
 
