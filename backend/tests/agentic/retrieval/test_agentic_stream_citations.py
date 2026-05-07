@@ -1,6 +1,4 @@
 """Unit tests for citation filtering in agentic_stream."""
-import json
-from unittest.mock import MagicMock, patch
 
 
 def test_citations_filtered_to_requested_ticker():

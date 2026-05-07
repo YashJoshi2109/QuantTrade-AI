@@ -275,7 +275,7 @@ async def _stream_generator(
         all_snap_tickers = [rd_dict["primary_ticker"]]
 
     if len(all_snap_tickers) >= 2:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         snap_results = await asyncio.gather(
             *[loop.run_in_executor(None, _build_structured_data, t, state)
               for t in all_snap_tickers[:2]],
@@ -290,7 +290,8 @@ async def _stream_generator(
             yield _sse("structured_data", structured)
 
     # ── Citations — filtered to requested tickers ─────────────────────────────
-    requested_tickers = [t for t in (rd_dict.get("all_tickers") or []) if t]
+    # Use same fallback as all_snap_tickers so single-ticker queries are filtered too
+    requested_tickers = all_snap_tickers
     filtered_citations = _filter_citations_by_tickers(citations, requested_tickers)
 
     if requested_tickers and not filtered_citations:
