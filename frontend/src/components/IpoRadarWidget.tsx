@@ -62,7 +62,7 @@ export default function IpoRadarWidget({
   )
 
   const rows = useMemo(
-    () => allScoped.slice(0, variant === 'inline' ? 18 : 10),
+    () => allScoped.slice(0, variant === 'inline' ? 40 : 10),
     [allScoped, variant]
   )
 
@@ -135,7 +135,7 @@ export default function IpoRadarWidget({
   ) : variant === 'inline' ? (
     <div className="flex min-h-0 flex-1 flex-col">
       {inlineSummary}
-      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto py-2 pr-0.5 scrollbar-thin">
+      <div className="min-h-0 max-h-[420px] space-y-1.5 overflow-y-auto py-2 pr-0.5 scrollbar-thin">
         {rows.map((ipo, idx) => {
           const sym = ipo.symbol?.trim()
           const href = sym ? `/research?symbol=${encodeURIComponent(sym)}` : undefined

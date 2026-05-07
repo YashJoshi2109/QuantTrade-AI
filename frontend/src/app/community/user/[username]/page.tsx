@@ -25,6 +25,7 @@ import {
 import PostCard from '@/components/community/PostCard'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   fetchUserProfile,
   fetchUserPosts,
@@ -112,6 +113,8 @@ type ProfileTab = 'overview' | 'posts' | 'comments'
 export default function UserProfilePage() {
   const params = useParams()
   const username = params.username as string
+  const { user } = useAuth()
+  const isOwner = user?.username === username || user?.username?.toLowerCase() === username?.toLowerCase()
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -554,18 +557,20 @@ export default function UserProfilePage() {
             )}
 
             {/* Settings shortcuts (only shown for own profile) */}
-            <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
-              <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3 flex items-center gap-2">
-                <Settings className="w-3.5 h-3.5 text-fg-muted" /> Profile
-              </p>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between text-fg-muted">
-                  <span>Curate your profile</span>
-                  <Link href="/settings/profile" className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-semibold">Update</Link>
+            {isOwner && (
+              <div className="bg-surface-base border border-line-subtle rounded-xl p-4">
+                <p className="text-xs font-bold text-fg-primary uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <Settings className="w-3.5 h-3.5 text-fg-muted" /> Profile
+                </p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between text-fg-muted">
+                    <span>Curate your profile</span>
+                    <Link href="/settings/profile" className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-semibold">Update</Link>
+                  </div>
+                  <p className="text-xs text-fg-muted leading-relaxed">Manage what others see when they visit your profile.</p>
                 </div>
-                <p className="text-xs text-fg-muted leading-relaxed">Manage what others see when they visit your profile.</p>
               </div>
-            </div>
+            )}
           </div>
         </div>
 

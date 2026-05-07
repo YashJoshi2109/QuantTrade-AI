@@ -240,12 +240,12 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
                       <Radio className="w-3.5 h-3.5 text-cyan-400" />
                       API pulse
                     </div>
-                    <p className="text-[9px] text-slate-500 mt-0.5 leading-snug">
+                    <p className="text-[9px] text-fg-muted mt-0.5 leading-snug">
                       Live Finnhub limits from your API server. FMP counts this Next.js instance (UTC day).
                     </p>
                   </div>
                   {lastUpdated && (
-                    <span className="text-[9px] font-mono text-slate-600 shrink-0 tabular-nums">
+                    <span className="text-[9px] font-mono text-slate-400 shrink-0 tabular-nums">
                       {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   )}
@@ -291,7 +291,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
                             </span>
                           </div>
                           <GlassMeter value={fmpStats.used} max={fmpStats.limit} tone={fmpTone} />
-                          <p className="text-[9px] text-slate-600 mt-1.5">Resets UTC midnight · {fmpStats.date}</p>
+                          <p className="text-[9px] text-slate-400 mt-1.5">Resets UTC midnight · {fmpStats.date}</p>
                         </div>
                       )}
 
@@ -304,17 +304,17 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
                             </span>
                             <span className="text-[11px] font-mono text-slate-100">{formatNumber(cache.entries, 0)} keys</span>
                           </div>
-                          <div className="flex items-center justify-between text-[10px] text-slate-500 mt-2 pt-2 border-t border-white/[0.05]">
+                          <div className="flex items-center justify-between text-[10px] text-fg-muted mt-2 pt-2 border-t border-white/[0.05]">
                             <span>Hits / misses</span>
                             <span className="font-mono text-slate-300">
                               {formatNumber(cache.hits ?? 0, 0)} / {formatNumber(cache.misses ?? 0, 0)}
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-[10px] mt-1">
-                            <span className="text-slate-500">Hit ratio</span>
+                            <span className="text-fg-muted">Hit ratio</span>
                             <span className="font-mono font-bold text-emerald-400/95">{hitLabel}</span>
                           </div>
-                          <p className="text-[8px] text-slate-600 mt-2 leading-relaxed">
+                          <p className="text-[8px] text-slate-400 mt-2 leading-relaxed">
                             Ratio is measured on the API process (resets on deploy). Entries = warmed in-memory cache.
                           </p>
                         </div>
@@ -347,7 +347,7 @@ export default function ApiStatsMonitor({ isInSidebar = false, compact = false }
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">Finnhub / min</span>
+            <span className="text-fg-muted">Finnhub / min</span>
             <span
               className={cn(
                 'font-mono font-bold',
