@@ -424,6 +424,42 @@ def _upload_artifacts_to_s3(results: list[dict], config: TrainConfig, slog: Stru
     slog.info("s3_upload", "completed" if uploaded > 0 else "skipped", metrics={"artifacts_uploaded": uploaded})
 
 
+def _write_train_summary(
+    results: list,
+    config,
+    run_id: str,
+    shard_name: str,
+    output_dir=None,
+) -> None:
+    """Write training results to train_summary.json for the CI callback step. Non-fatal."""
+    import json
+    from pathlib import Path
+
+    if output_dir is None:
+        output_dir = Path(__file__).parent  # backend/ml/
+
+    summary = {
+        "run_id": run_id,
+        "shard_name": shard_name,
+        "symbol_tier": getattr(config, "symbol_tier", None),
+        "results": [
+            {
+                "horizon": r["horizon"],
+                "test_metrics": r.get("test_metrics", {}),
+                "status": "failed" if "error" in r else "completed",
+                "error": r.get("error"),
+            }
+            for r in results
+        ],
+    }
+    try:
+        out_path = Path(output_dir) / "train_summary.json"
+        out_path.write_text(json.dumps(summary, default=str))
+        logger.info("Wrote train summary to %s (%d horizons)", out_path, len(results))
+    except Exception as e:
+        logger.warning("Failed to write train_summary.json: %s", e)
+
+
 # ── CLI ────────────────────────────────────────────────────────────────
 
 def main():
@@ -487,6 +523,11 @@ def main():
                 f"-> {Path(r['checkpoint_path']).name}"
             )
     print("=" * 50)
+
+    # Write summary JSON for CI callback step (non-fatal)
+    _run_id = os.environ.get("ML_RUN_ID", "")
+    _shard_name = os.environ.get("ML_SHARD_NAME", "local")
+    _write_train_summary(results, config, _run_id, _shard_name)
 
     # Exit non-zero if all horizons failed
     if all("error" in r for r in results):
