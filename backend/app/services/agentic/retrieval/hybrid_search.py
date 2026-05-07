@@ -111,6 +111,7 @@ def ticker_has_filings(tickers: list[str]) -> bool:
 
     Synchronous — uses run_in_executor in async callers.
     Returns False only when ALL tickers have zero chunks, preventing wrong-ticker fallback.
+    Note: if Qdrant is unreachable for all tickers, returns False (fail-closed) — the RAG pipeline will emit no_filings rather than wrong-ticker results.
     """
     if not tickers:
         return False
