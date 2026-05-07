@@ -62,6 +62,8 @@ jobs:
       ML_RUN_ID: ${{ needs.plan.outputs.run_id }}
       ML_SHARD_NAME: ${{ matrix.label }}
       ML_TRIGGER_SOURCE: github_actions
+      QUANTTRADE_API_BASE: ${{ secrets.QUANTTRADE_API_BASE_URL }}
+      ML_CALLBACK_SECRET: ${{ secrets.ML_CALLBACK_SECRET }}
 
     steps:
       - name: Checkout repository
@@ -116,6 +118,84 @@ jobs:
           python -m ml.train --config configs/train_default.yaml \
             --symbol-tier ${{ matrix.tier }} \
             ${{ github.event.inputs.epochs && format('--epochs {0}', github.event.inputs.epochs) || '' }}
+
+      - name: Report results to Neon
+        if: always()
+        working-directory: ./backend
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, uuid, sys
+          try:
+              import requests
+          except ImportError:
+              print("requests not installed — skipping callback")
+              sys.exit(0)
+
+          api = os.environ.get("QUANTTRADE_API_BASE", "")
+          secret = os.environ.get("ML_CALLBACK_SECRET", "")
+          run_id = os.environ.get("ML_RUN_ID", "")
+          shard_name = os.environ.get("ML_SHARD_NAME", "gha")
+          shard_id = str(uuid.uuid4())
+
+          if not api or not secret or not run_id:
+              print("Missing QUANTTRADE_API_BASE, ML_CALLBACK_SECRET, or ML_RUN_ID — skipping callback")
+              sys.exit(0)
+
+          headers = {"X-ML-Callback-Secret": secret, "Content-Type": "application/json"}
+
+          # Read train_summary.json written by train.py
+          artifacts = []
+          status = "failed"
+          summary_path = "ml/train_summary.json"
+          if os.path.exists(summary_path):
+              try:
+                  with open(summary_path) as f:
+                      summary = json.load(f)
+                  completed = [r for r in summary.get("results", []) if r.get("status") == "completed"]
+                  status = "completed" if completed else "failed"
+                  for r in completed:
+                      m = r.get("test_metrics", {})
+                      artifacts.append({
+                          "symbol": shard_name.upper(),
+                          "horizon": r["horizon"],
+                          "directional_accuracy": m.get("directional_accuracy"),
+                          "information_coefficient": m.get("information_coefficient"),
+                          "hypothetical_sharpe": m.get("hypothetical_sharpe"),
+                      })
+              except Exception as e:
+                  print(f"Warning: could not read train_summary.json: {e}")
+          else:
+              print("Warning: train_summary.json not found — reporting failure")
+
+          print(f"Reporting to Neon: run={run_id[:8]} status={status} artifacts={len(artifacts)}")
+
+          # POST batch-callback (auto-creates run record in Neon)
+          try:
+              resp = requests.post(
+                  f"{api}/api/v1/internal/ml/batch-callback",
+                  json={"run_id": run_id, "shard_id": shard_id, "shard_name": shard_name,
+                        "status": status, "artifacts": artifacts},
+                  headers=headers, timeout=30,
+              )
+              print(f"batch-callback: HTTP {resp.status_code}")
+          except Exception as e:
+              print(f"batch-callback error (non-fatal): {e}")
+
+          # POST finalize
+          try:
+              resp = requests.post(
+                  f"{api}/api/v1/internal/ml/runs/{run_id}/finalize",
+                  json={"status": status,
+                        "success_shards": 1 if status == "completed" else 0,
+                        "failed_shards": 0 if status == "completed" else 1,
+                        "total_shards": 1},
+                  headers=headers, timeout=30,
+              )
+              print(f"finalize: HTTP {resp.status_code}")
+          except Exception as e:
+              print(f"finalize error (non-fatal): {e}")
+
+          PYEOF
 
       - name: Training summary
         if: always()
