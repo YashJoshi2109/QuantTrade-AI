@@ -157,8 +157,8 @@ export function SnapshotCard({ data }: { data: StockAnalysisData }) {
                 <span className={`font-mono font-semibold ${trendColor(ts.trend)}`}>{ts.bullish_pct.toFixed(0)}%</span>
               </div>
             )}
-            {ts?.signals?.slice(0, 3).map((sig, i) => (
-              <div key={i} className="flex justify-between">
+            {ts?.signals?.slice(0, 3).map((sig) => (
+              <div key={sig.name} className="flex justify-between">
                 <span className="text-fg-muted truncate">{sig.name}</span>
                 <span className={sig.signal === 'bullish' ? 'text-emerald-400' : sig.signal === 'bearish' ? 'text-red-400' : 'text-fg-muted'}>
                   {sig.signal.toUpperCase()}
@@ -182,7 +182,7 @@ export function SnapshotCard({ data }: { data: StockAnalysisData }) {
                   { label: '1–7d', h: timeH.short_term },
                   { label: '1–3m', h: timeH.medium_term },
                   { label: '6–12m', h: timeH.long_term },
-                ].map(({ label, h }) => h && (
+                ].filter(({ h }) => !!h).map(({ label, h }) => (
                   <div key={label} className="flex justify-between">
                     <span className="text-fg-muted">{label}</span>
                     <span className={h.direction === 'up' ? 'text-emerald-400' : h.direction === 'down' ? 'text-red-400' : 'text-fg-muted'}>
