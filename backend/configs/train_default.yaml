@@ -24,7 +24,7 @@ dropout: 0.2               # regularization
 scaler_type: "robust"      # RobustScaler handles outliers better than StandardScaler
 
 # ── Training ──────────────────────────────────────────────────────────
-epochs: 40                 # reduced from 80 — early stopping triggers by epoch 20-30 anyway
+epochs: 25                 # fits 4h Batch timeout with 2vCPU (early stopping at ~15-20 anyway)
 batch_size: 256            # larger batch = fewer steps per epoch on CPU
 learning_rate: 0.0005      # slightly lower LR for stability with more data
 weight_decay: 0.0001       # L2 regularization
