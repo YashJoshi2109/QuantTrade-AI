@@ -1432,6 +1432,7 @@ function ModelsTab() {
   const [actionMsg, setActionMsg] = useState<string | null>(null)
   const [symbolQuery, setSymbolQuery] = useState('')
   const [symbolHistory, setSymbolHistory] = useState<any[]>([])
+  const [symNote, setSymNote] = useState<string | null>(null)
   const [symLoading, setSymLoading] = useState(false)
 
   const fetchModels = useCallback(async () => {
@@ -1495,8 +1496,12 @@ function ModelsTab() {
     const sym = symbolQuery.trim().toUpperCase()
     if (!sym) return
     setSymLoading(true)
-    const data = await apiFetch<{ history: any[] }>(`/api/v1/internal/ml/symbols/${sym}/history?limit=20`)
+    setSymNote(null)
+    const data = await apiFetch<{ history: any[]; note?: string; universal_model?: boolean }>(
+      `/api/v1/internal/ml/symbols/${sym}/history?limit=20`
+    )
     setSymbolHistory(data?.history || [])
+    setSymNote(data?.note || null)
     setSymLoading(false)
   }
 
@@ -1692,7 +1697,10 @@ function ModelsTab() {
             </div>
           )}
 
-          {!symLoading && symbolHistory.length === 0 && symbolQuery && (
+          {symNote && (
+            <p className="text-xs text-amber-400/80 bg-amber-500/5 border border-amber-500/15 rounded-lg px-3 py-2">{symNote}</p>
+          )}
+          {!symLoading && symbolHistory.length === 0 && symbolQuery && !symNote && (
             <p className="text-xs text-fg-muted text-center py-4">No training history for {symbolQuery.toUpperCase()}</p>
           )}
         </div>

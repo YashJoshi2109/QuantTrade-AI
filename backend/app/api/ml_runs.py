@@ -468,10 +468,20 @@ async def get_symbol_training_history(
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    """Get training history for a specific symbol."""
-    artifacts = mds.get_symbol_history(db, symbol.upper(), limit=limit)
+    """Get training history for a specific symbol. Falls back to universal model when no per-symbol artifacts."""
+    sym = symbol.upper()
+    artifacts = mds.get_symbol_history(db, sym, limit=limit)
+
+    # Universal model covers all symbols — fall back so any ticker search returns data
+    universal = False
+    if not artifacts:
+        artifacts = mds.get_symbol_history(db, "universal", limit=limit)
+        universal = True
+
     return {
-        "symbol": symbol.upper(),
+        "symbol": sym,
+        "universal_model": universal,
+        "note": f"No per-symbol artifacts for {sym}. Showing universal model metrics (covers all trained symbols)." if universal else None,
         "history": [
             {
                 "run_id": str(a.run_id),
