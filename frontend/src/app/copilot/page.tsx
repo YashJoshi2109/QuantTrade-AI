@@ -1867,6 +1867,62 @@ function CopilotInner() {
   const abortRef = useRef<AbortController | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  const SESSION_KEY = 'qt_copilot_session'
+
+  // Keep a ref to current state values for the unmount cleanup
+  const sessionSaveRef = useRef({ messages, activeConversationId, input })
+  useEffect(() => {
+    sessionSaveRef.current = { messages, activeConversationId, input }
+  }, [messages, activeConversationId, input])
+
+  // Restore conversation from sessionStorage on mount (after navigating back)
+  useEffect(() => {
+    const raw = sessionStorage.getItem(SESSION_KEY)
+    if (!raw) return
+    sessionStorage.removeItem(SESSION_KEY) // consume so refresh starts fresh
+    try {
+      const saved = JSON.parse(raw) as {
+        messages?: Message[]
+        conversationId?: string | null
+        input?: string
+      }
+      if (saved.messages?.length) {
+        setMessages(
+          saved.messages.map((m) => ({
+            ...m,
+            timestamp: new Date(m.timestamp),
+            streaming: false, // never restore mid-stream
+          }))
+        )
+      }
+      if (saved.conversationId) setActiveConversationId(saved.conversationId)
+      if (saved.input) setInput(saved.input)
+    } catch {
+      // corrupted session — ignore
+    }
+  }, []) // empty deps: mount only
+
+  // Save conversation to sessionStorage on unmount (navigation away)
+  useEffect(() => {
+    return () => {
+      const { messages: m, activeConversationId: cid, input: inp } = sessionSaveRef.current
+      if (!m.length && !cid) return // nothing to save
+      try {
+        sessionStorage.setItem(
+          SESSION_KEY,
+          JSON.stringify({
+            messages: m.filter((msg) => !msg.streaming), // never persist mid-stream messages
+            conversationId: cid,
+            input: inp,
+          })
+        )
+      } catch {
+        // sessionStorage full or unavailable — ignore
+      }
+    }
+  }, []) // empty deps: cleanup runs only on unmount
+
   const queryClient = useQueryClient()
 
   // Build analysisData from separately-fetched market data so the "AAPL Data"
