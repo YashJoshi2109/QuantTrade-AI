@@ -128,7 +128,7 @@ interface MLStreamEvent {
   batch?: { runnable: number; starting: number; running: number; succeeded: number; failed: number }
   sfn?: { name: string; status: string; start_date: string }
   logs?: Array<{ ts: number; msg: string }>
-  models?: Array<{ model_version: string; avg_da?: number; avg_ic?: number; promoted_at?: string }>
+  models?: Array<{ model_version: string; avg_da?: number; avg_ic?: number; promoted_at?: string; symbol_count?: number }>
   staging?: Array<{ model_version: string; avg_da?: number; avg_ic?: number; promoted_at?: string; symbol_count?: number }>
 }
 
@@ -140,7 +140,7 @@ interface DashboardData {
   avg_da?: number
   avg_ic?: number
   latest_run?: { run_id: string; status: string; started_at?: string; total_symbols?: number; total_shards?: number; success_shards?: number; failed_shards?: number; ended_at?: string }
-  prod_models?: Array<{ model_version: string; avg_da?: number; avg_ic?: number; promoted_at?: string }>
+  prod_models?: Array<{ model_version: string; avg_da?: number; avg_ic?: number; promoted_at?: string; symbol_count?: number }>
 }
 
 // ── Tab definition ───────────────────────────────────────────────────────────
