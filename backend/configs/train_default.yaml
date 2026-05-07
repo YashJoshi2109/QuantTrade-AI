@@ -24,12 +24,12 @@ dropout: 0.2               # regularization
 scaler_type: "robust"      # RobustScaler handles outliers better than StandardScaler
 
 # ── Training ──────────────────────────────────────────────────────────
-epochs: 25                 # fits 4h Batch timeout with 2vCPU (early stopping at ~15-20 anyway)
-batch_size: 256            # larger batch = fewer steps per epoch on CPU
-learning_rate: 0.0005      # slightly lower LR for stability with more data
+epochs: 15                 # 3 horizons × ~10min/epoch × 15 = ~7.5h equiv but early stops at 8-12
+batch_size: 512            # 512 = half the steps per epoch vs 256, critical for 4h Batch limit
+learning_rate: 0.001       # higher LR compensates for larger batch (linear scaling rule)
 weight_decay: 0.0001       # L2 regularization
 grad_clip_norm: 1.0        # gradient clipping
-early_stopping_patience: 10 # reduced from 15 — converges faster with larger batch
+early_stopping_patience: 7  # tight patience — exit early rather than hit Batch timeout
 lr_scheduler: "cosine"     # cosine annealing works well for large datasets
 
 # ── Validation ────────────────────────────────────────────────────────

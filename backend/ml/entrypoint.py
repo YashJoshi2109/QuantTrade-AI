@@ -336,6 +336,9 @@ def _post_callback(config: BatchConfig, results: list[dict], exit_code: int, run
 
 def main():
     """Main entrypoint for batch execution."""
+    import signal
+    import time as _time
+
     config = BatchConfig.from_env()
 
     # Fill in defaults if not provided
@@ -344,6 +347,18 @@ def main():
         logger.info(f"Generated run_id: {config.run_id}")
     if not config.shard_id:
         config.shard_id = str(uuid.uuid4())
+
+    # SIGTERM handler — AWS Batch sends SIGTERM before killing the container at timeout.
+    # Fire the callback so Neon records get updated even on forced termination.
+    _start_time = _time.monotonic()
+    def _sigterm_handler(signum, frame):
+        duration_s = int(_time.monotonic() - _start_time)
+        logger.warning("SIGTERM received — firing failure callback before exit")
+        results = getattr(config, "_training_results", [])
+        _post_callback(config, results, exit_code=2, runtime_seconds=duration_s)
+        sys.exit(2)
+
+    signal.signal(signal.SIGTERM, _sigterm_handler)
 
     # Validate
     errors = config.validate()
