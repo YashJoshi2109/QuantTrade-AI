@@ -21,12 +21,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: workers/ml-inference/package-lock.json
+          node-version: '22'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
         working-directory: workers/ml-inference
 
       - name: Deploy Worker

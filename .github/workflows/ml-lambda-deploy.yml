@@ -31,8 +31,8 @@ jobs:
       - name: Deploy ml-result-aggregator
         working-directory: infra/lambdas/ml_result_aggregator
         run: |
-          # Rebuild zip from handler + pre-installed packages
-          rm -f function.zip
+          rm -rf package function.zip
+          pip install -r requirements.txt -t package/ -q
           cd package && zip -r ../function.zip . -q && cd ..
           zip function.zip handler.py
           aws lambda update-function-code \
@@ -49,7 +49,8 @@ jobs:
       - name: Deploy ml-auto-promote
         working-directory: infra/lambdas/ml_auto_promote
         run: |
-          rm -f function.zip
+          rm -rf package function.zip
+          pip install -r requirements.txt -t package/ -q
           cd package && zip -r ../function.zip . -q && cd ..
           zip function.zip handler.py
           aws lambda update-function-code \
