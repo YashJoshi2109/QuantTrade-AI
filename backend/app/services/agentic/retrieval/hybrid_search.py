@@ -106,6 +106,31 @@ def rrf_fusion(
     ]
 
 
+def ticker_has_filings(tickers: list[str]) -> bool:
+    """Return True if ANY of the requested tickers have indexed chunks in Qdrant.
+
+    Synchronous — uses run_in_executor in async callers.
+    Returns False only when ALL tickers have zero chunks, preventing wrong-ticker fallback.
+    """
+    if not tickers:
+        return False
+    client = _qdrant_client()
+    for ticker in tickers:
+        try:
+            result = client.count(
+                collection_name=CHUNKS_COLLECTION,
+                count_filter=Filter(
+                    must=[FieldCondition(key="ticker", match=MatchValue(value=ticker.upper()))]
+                ),
+                exact=False,
+            )
+            if result.count > 0:
+                return True
+        except Exception as exc:
+            logger.warning("ticker_has_filings check failed for %s: %s", ticker, exc)
+    return False
+
+
 def _dense_search(
     query_vec: list[float],
     metadata_filter: Filter | None,
