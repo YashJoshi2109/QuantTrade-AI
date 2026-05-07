@@ -716,6 +716,7 @@ class PromoteRunRequest(BaseModel):
     model_version: str
     avg_da: float
     avg_ic: float
+    promotion_status: str = "production"  # "production" | "staging"
 
 
 @internal_router.post("/internal/ml/runs/{run_id}/promote")
@@ -725,7 +726,7 @@ async def promote_run_model(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Called by ml-auto-promote Lambda to register new production model version."""
+    """Called by ml-auto-promote Lambda to register new model version (staging or production)."""
     expected_secret = _get_callback_secret()
     provided_secret = request.headers.get("X-ML-Callback-Secret", "")
     if not expected_secret:
@@ -740,29 +741,101 @@ async def promote_run_model(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid run_id")
 
-    from app.models.ml_training import ModelVersion as MV
+    from app.models.ml_training import ModelVersion as MV, TrainingRun
     from datetime import datetime, timezone
 
-    current_prod = db.query(MV).filter(MV.promotion_status == "production").first()
-    if current_prod:
-        current_prod.promotion_status = "archived"
-        db.commit()
+    # Fetch symbol count from the training run
+    run = db.query(TrainingRun).filter(TrainingRun.run_id == uid).first()
+    symbol_count = (run.total_symbols or 0) if run else 0
+
+    # Only demote current production when promoting a new production version
+    if req.promotion_status == "production":
+        current_prod = db.query(MV).filter(MV.promotion_status == "production").first()
+        if current_prod:
+            current_prod.promotion_status = "archived"
+            db.commit()
 
     new_mv = MV(
         model_version=req.model_version,
         run_id=uid,
-        promotion_status="production",
+        promotion_status=req.promotion_status,
         avg_directional_accuracy=req.avg_da,
         avg_information_coefficient=req.avg_ic,
         horizons=[1, 7, 30],
+        symbol_count=symbol_count,
         promoted_at=datetime.now(timezone.utc),
         promoted_by="auto-promote-lambda",
     )
     db.add(new_mv)
     db.commit()
 
-    logger.info("Auto-promoted %s (DA=%.3f IC=%.3f)", req.model_version, req.avg_da, req.avg_ic)
-    return {"status": "accepted", "model_version": req.model_version}
+    logger.info(
+        "Registered model %s as %s (DA=%.3f IC=%.3f symbols=%d)",
+        req.model_version, req.promotion_status, req.avg_da, req.avg_ic, symbol_count,
+    )
+    return {"status": "accepted", "model_version": req.model_version, "promotion_status": req.promotion_status}
+
+
+@router.post("/internal/ml/runs/{run_id}/register-staging")
+async def register_staging_for_run(
+    run_id: str,
+    db: Session = Depends(get_db),
+    user=Depends(require_auth),
+):
+    """
+    Manually register a completed training run as a staging model version.
+    Used when the auto-promote Lambda ran but thresholds were not met — allows
+    admins to make the trained model visible in the Models tab without promotion.
+    """
+    from app.models.ml_training import ModelVersion as MV, TrainingRun, TrainingArtifact
+    from datetime import datetime, timezone
+
+    try:
+        uid = uuid.UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run_id")
+
+    run = db.query(TrainingRun).filter(TrainingRun.run_id == uid).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if run.status not in ("completed", "partial_failure"):
+        raise HTTPException(status_code=400, detail=f"Run status is '{run.status}' — only completed runs can be staged")
+
+    # Check if a version already exists for this run
+    existing = db.query(MV).filter(MV.run_id == uid).first()
+    if existing:
+        return {
+            "status": "already_registered",
+            "model_version": existing.model_version,
+            "promotion_status": existing.promotion_status,
+        }
+
+    artifacts = db.query(TrainingArtifact).filter(TrainingArtifact.run_id == uid).all()
+    das = [a.directional_accuracy for a in artifacts if a.directional_accuracy is not None]
+    ics = [a.information_coefficient for a in artifacts if a.information_coefficient is not None]
+    avg_da = sum(das) / len(das) if das else 0.0
+    avg_ic = sum(ics) / len(ics) if ics else 0.0
+
+    now = datetime.now(timezone.utc)
+    version = f"v{now.strftime('%Y%m%d_%H%M')}"
+    promoted_by = getattr(user, "username", None) or getattr(user, "email", "admin")
+
+    new_mv = MV(
+        model_version=version,
+        run_id=uid,
+        promotion_status="staging",
+        avg_directional_accuracy=avg_da,
+        avg_information_coefficient=avg_ic,
+        horizons=sorted({a.horizon for a in artifacts}) or [1, 7, 30],
+        symbol_count=run.total_symbols or 0,
+        promoted_at=now,
+        promoted_by=promoted_by,
+    )
+    db.add(new_mv)
+    db.commit()
+
+    logger.info("Manually staged run %s as %s by %s (DA=%.3f IC=%.3f)", run_id[:8], version, promoted_by, avg_da, avg_ic)
+    return {"status": "staged", "model_version": version, "avg_da": avg_da, "avg_ic": avg_ic}
 
 
 # ── Health & Metrics ─────────────────────────────────────────────────
@@ -841,6 +914,10 @@ async def ml_dashboard(db: Session = Depends(get_db)):
     # Latest run
     runs = mds.list_runs(db, limit=1)
     latest = runs[0] if runs else None
+
+    # Fall back to latest completed run's symbol count when no production models
+    if not symbols_covered and latest:
+        symbols_covered = latest.total_symbols or 0
 
     return {
         "models_production": len(prod_versions),

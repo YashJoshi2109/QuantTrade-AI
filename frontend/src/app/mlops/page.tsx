@@ -774,7 +774,7 @@ function OverviewTab() {
         <StatCard icon={Play} label="Runs (7d)" value={dashboard?.runs_7d ?? metrics?.total_runs ?? 0}
           sub={`${successRate} success rate`} color="text-blue-400" delay={0.05} />
         <StatCard icon={Database} label="Symbols"
-          value={dashboard?.symbols_covered ?? metrics?.total_symbols_trained ?? 0}
+          value={dashboard?.symbols_covered || metrics?.total_symbols_trained || 0}
           sub="symbols covered" color="text-cyan-400" delay={0.1} />
         <StatCard icon={Target} label="Avg DA"
           value={(dashboard?.avg_da ?? metrics?.avg_da) ? ((dashboard?.avg_da ?? metrics?.avg_da) as number).toFixed(4) : '--'}
@@ -1017,6 +1017,8 @@ function TrainingRunsTab() {
   const [shards, setShards] = useState<Record<string, any[]>>({})
   const [triggering, setTriggering] = useState(false)
   const [triggerMsg, setTriggerMsg] = useState<string | null>(null)
+  const [stagingRun, setStagingRun] = useState<string | null>(null)
+  const [stageMsg, setStageMsg] = useState<Record<string, string>>({})
   // Backfill modal
   const [showBackfill, setShowBackfill] = useState(false)
   const [bfSymbols, setBfSymbols] = useState('')
@@ -1113,6 +1115,28 @@ function TrainingRunsTab() {
       setTriggerMsg('Network error triggering run')
     } finally {
       setTriggering(false)
+    }
+  }
+
+  const stageRun = async (runId: string) => {
+    setStagingRun(runId)
+    try {
+      const res = await fetch(`${API}/api/v1/internal/ml/runs/${runId}/register-staging`, {
+        method: 'POST', credentials: 'include',
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok) {
+        const msg = body.status === 'already_registered'
+          ? `Already staged as ${body.model_version}`
+          : `Staged as ${body.model_version} (DA=${body.avg_da?.toFixed?.(3)})`
+        setStageMsg(prev => ({ ...prev, [runId]: `✓ ${msg}` }))
+      } else {
+        setStageMsg(prev => ({ ...prev, [runId]: body.detail || 'Staging failed' }))
+      }
+    } catch {
+      setStageMsg(prev => ({ ...prev, [runId]: 'Network error' }))
+    } finally {
+      setStagingRun(null)
     }
   }
 
@@ -1289,7 +1313,7 @@ function TrainingRunsTab() {
                     </div>
                     <div className="hidden md:block">
                       <span className="text-xs text-fg-muted font-mono">
-                        {run.symbols_completed ?? run.success_shards ?? 0}/{run.total_symbols} sym
+                        {run.success_shards ?? 0}/{run.total_shards ?? 1} shards · {run.total_symbols ?? 0} sym
                       </span>
                     </div>
                     <div className="hidden md:block text-right">
@@ -1335,6 +1359,27 @@ function TrainingRunsTab() {
                       {run.error && (
                         <div className="p-2 rounded bg-red-500/5 border border-red-500/10">
                           <p className="text-[11px] text-red-300 font-mono">{run.error}</p>
+                        </div>
+                      )}
+
+                      {/* Stage model action for completed runs */}
+                      {(run.status === 'completed' || run.status === 'partial_failure') && (
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => stageRun(run.run_id)}
+                            disabled={stagingRun === run.run_id}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-md bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/40 transition-all disabled:opacity-40"
+                          >
+                            {stagingRun === run.run_id
+                              ? <><Loader2 className="w-3 h-3 animate-spin" /> Staging…</>
+                              : <><Database className="w-3 h-3" /> Register as Staging Model</>
+                            }
+                          </button>
+                          {stageMsg[run.run_id] && (
+                            <span className={`text-xs ${stageMsg[run.run_id].startsWith('✓') ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {stageMsg[run.run_id]}
+                            </span>
+                          )}
                         </div>
                       )}
 
