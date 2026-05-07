@@ -43,6 +43,7 @@ import {
   FileText,
   ExternalLink,
   ArrowUpRight,
+  Lock,
 } from 'lucide-react'
 import {
   streamCopilotAnalysis,
@@ -1941,6 +1942,10 @@ function CopilotInner() {
     staleTime: 30_000,
   })
 
+  const isAtLimit = Boolean(
+    copilotUsage && !copilotUsage.is_pro && copilotUsage.free_remaining <= 0
+  )
+
   // Fetch conversation history
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
     queryKey: ['copilot-conversations'],
@@ -2395,27 +2400,46 @@ function CopilotInner() {
             className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#007AFF]/35 to-transparent"
             aria-hidden
           />
-          <div className="shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
-            <CopilotPromptInput
-              ref={inputRef}
-              variant="magic"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Analyze any stock, compare tickers, explore sectors, assess risk..."
-              disabled={streaming}
-              streaming={streaming}
-              onSend={() => sendMessage(input)}
-              onStop={stopStreaming}
-              usage={copilotUsage ?? null}
-              onUpgrade={() => router.push('/pricing')}
-            />
-          </div>
+          {isAtLimit ? (
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-5 text-center">
+              <Lock className="h-5 w-5 text-amber-400" />
+              <div>
+                <p className="text-sm font-medium text-fg-primary">Daily limit reached</p>
+                <p className="mt-0.5 text-xs text-fg-muted">5/5 free requests used today. Resets at midnight UTC.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push('/pricing')}
+                className="rounded-xl bg-gradient-to-br from-[#0a84ff] to-[#0060c9] px-5 py-2 text-sm font-semibold text-white shadow-[0_0_24px_rgba(0,122,255,0.25)] transition-all hover:brightness-110"
+              >
+                Upgrade to Pro — Unlimited Access
+              </button>
+            </div>
+          ) : (
+            <div className="shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
+              <CopilotPromptInput
+                ref={inputRef}
+                variant="magic"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Analyze any stock, compare tickers, explore sectors, assess risk..."
+                disabled={streaming}
+                streaming={streaming}
+                onSend={() => sendMessage(input)}
+                onStop={stopStreaming}
+                usage={copilotUsage ?? null}
+                onUpgrade={() => router.push('/pricing')}
+              />
+            </div>
+          )}
 
-          <p className="mt-2.5 text-center text-[10px] leading-relaxed text-fg-muted">
-            Enter to send · Shift+Enter for new line · Full pipeline: RAG → Quant → LLM · Not
-            financial advice
-          </p>
+          {!isAtLimit && (
+            <p className="mt-2.5 text-center text-[10px] leading-relaxed text-fg-muted">
+              Enter to send · Shift+Enter for new line · Full pipeline: RAG → Quant → LLM · Not
+              financial advice
+            </p>
+          )}
         </div>
       </div>
 
