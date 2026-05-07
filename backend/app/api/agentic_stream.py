@@ -180,6 +180,23 @@ def _sse(event: str, data) -> str:
     return f"event: {event}\ndata: {payload}\n\n"
 
 
+def _filter_citations_by_tickers(
+    citations: list[dict],
+    requested_tickers: list[str],
+) -> list[dict]:
+    """Remove citations whose ticker doesn't match the requested tickers.
+
+    Prevents AMZN filings from appearing for WMT/COST queries when AMZN
+    has indexed chunks but WMT/COST don't.
+    If requested_tickers is empty, returns citations unchanged (no filtering).
+    Matching is case-insensitive.
+    """
+    if not requested_tickers:
+        return citations
+    upper = {t.upper() for t in requested_tickers}
+    return [c for c in citations if c.get("ticker", "").upper() in upper]
+
+
 # ── Main SSE generator ──────────────────────────────────────────────────────────
 async def _stream_generator(
     req: AgenticStreamRequest,
@@ -251,16 +268,38 @@ async def _stream_generator(
 
     yield _sse("tool_result", {"message": f"Found {len(state.get('all_chunks', []))} relevant sections"})
 
-    # Emit structured data for UI stock panels (quote + fundamentals)
-    ticker = rd_dict.get("primary_ticker")
-    if ticker:
-        structured = _build_structured_data(ticker, state)
+    # ── Structured data ───────────────────────────────────────────────────────
+    # For comparison queries emit one structured_data per ticker (parallel build)
+    all_snap_tickers: list[str] = [t for t in (rd_dict.get("all_tickers") or []) if t]
+    if not all_snap_tickers and rd_dict.get("primary_ticker"):
+        all_snap_tickers = [rd_dict["primary_ticker"]]
+
+    if len(all_snap_tickers) >= 2:
+        loop = asyncio.get_event_loop()
+        snap_results = await asyncio.gather(
+            *[loop.run_in_executor(None, _build_structured_data, t, state)
+              for t in all_snap_tickers[:2]],
+            return_exceptions=True,
+        )
+        for snap in snap_results:
+            if snap and not isinstance(snap, Exception):
+                yield _sse("structured_data", snap)
+    elif all_snap_tickers:
+        structured = _build_structured_data(all_snap_tickers[0], state)
         if structured:
             yield _sse("structured_data", structured)
 
-    # Emit citations early (frontend can start rendering)
-    for i, cit in enumerate(citations[:10]):
-        yield _sse("citation", {**cit, "source_n": i + 1})
+    # ── Citations — filtered to requested tickers ─────────────────────────────
+    requested_tickers = [t for t in (rd_dict.get("all_tickers") or []) if t]
+    filtered_citations = _filter_citations_by_tickers(citations, requested_tickers)
+
+    if requested_tickers and not filtered_citations:
+        # No matching filings indexed — tell frontend to show notice, not wrong docs
+        for t in requested_tickers[:2]:
+            yield _sse("no_filings", {"symbol": t.upper()})
+    else:
+        for i, cit in enumerate(filtered_citations[:10]):
+            yield _sse("citation", {**cit, "source_n": i + 1})
 
     # ── 5. Stream LLM response ────────────────────────────────────────────────
     system_prompt = SYSTEM_PROMPT_BASE.format(
