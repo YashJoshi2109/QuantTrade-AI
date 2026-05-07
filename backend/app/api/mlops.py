@@ -157,40 +157,118 @@ async def get_predictions(
 async def get_performance(
     model_name: str = Query("lstm_h1"),
     window_days: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
 ):
-    """Get model performance snapshot."""
-    from ml.prediction_logger import prediction_logger
-    from ml.performance_monitor import performance_monitor
-    from dataclasses import asdict
+    """Get model performance from Neon DB training artifacts."""
+    from datetime import datetime, timezone, timedelta
+    from app.models.ml_training import TrainingArtifact
 
-    predictions = prediction_logger.get_recent_predictions(limit=500)
-    snapshot = performance_monitor.evaluate(predictions, model_name, window_days)
-    should_retrain, reason = performance_monitor.should_retrain(snapshot)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
+    artifacts = (
+        db.query(TrainingArtifact)
+        .filter(TrainingArtifact.created_at >= cutoff)
+        .all()
+    )
+
+    if not artifacts:
+        return {
+            "performance": {
+                "model_name": model_name,
+                "sample_size": 0,
+                "directional_accuracy": 0.0,
+                "avg_loss": 0.0,
+                "information_coefficient": 0.0,
+                "hypothetical_sharpe": 0.0,
+                "evaluated_at": datetime.now(timezone.utc).isoformat(),
+                "window_days": window_days,
+                "status": "no_data",
+                "message": "No training artifacts yet. A training run must complete before metrics appear.",
+            },
+            "should_retrain": True,
+            "retrain_reason": "No training artifacts available",
+        }
+
+    da_vals = [a.directional_accuracy for a in artifacts if a.directional_accuracy is not None]
+    ic_vals = [a.information_coefficient for a in artifacts if a.information_coefficient is not None]
+    sharpe_vals = [a.hypothetical_sharpe for a in artifacts if a.hypothetical_sharpe is not None]
+
+    avg_da = sum(da_vals) / len(da_vals) if da_vals else 0.0
+    avg_ic = sum(ic_vals) / len(ic_vals) if ic_vals else 0.0
+    avg_sharpe = sum(sharpe_vals) / len(sharpe_vals) if sharpe_vals else 0.0
 
     return {
-        "performance": asdict(snapshot),
-        "should_retrain": should_retrain,
-        "retrain_reason": reason,
+        "performance": {
+            "model_name": model_name,
+            "sample_size": len(artifacts),
+            "directional_accuracy": round(avg_da, 4),
+            "avg_loss": 0.0,
+            "information_coefficient": round(avg_ic, 4),
+            "hypothetical_sharpe": round(avg_sharpe, 4),
+            "evaluated_at": datetime.now(timezone.utc).isoformat(),
+            "window_days": window_days,
+            "status": "ok",
+            "horizons_covered": sorted({a.horizon for a in artifacts}),
+        },
+        "should_retrain": avg_da < 0.52 if da_vals else True,
+        "retrain_reason": "DA below 52% threshold" if (da_vals and avg_da < 0.52) else None,
     }
 
 
 @router.get("/mlops/monitoring/alerts")
-async def get_alerts(level: Optional[str] = Query(None)):
-    """Get performance alerts."""
-    from ml.performance_monitor import performance_monitor
-    from dataclasses import asdict
-    alerts = performance_monitor.get_alerts(level)
-    return {"alerts": [asdict(a) for a in alerts]}
+async def get_alerts(level: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    """Get alerts from live run status in Neon DB."""
+    from datetime import datetime, timezone
+    import uuid as _uuid
+    from app.services import ml_metadata_service as mds
+
+    alerts = []
+    now = datetime.now(timezone.utc)
+
+    # Stale running runs (>5 hours with no completion)
+    running_runs = mds.list_runs(db, status="running", limit=10)
+    for run in running_runs:
+        if run.started_at:
+            started = run.started_at if run.started_at.tzinfo else run.started_at.replace(tzinfo=timezone.utc)
+            age_h = (now - started).total_seconds() / 3600
+            if age_h > 5:
+                alerts.append({
+                    "id": str(_uuid.uuid5(_uuid.NAMESPACE_DNS, str(run.run_id) + "stale")),
+                    "type": "stale_run",
+                    "severity": "warning",
+                    "message": f"Run {str(run.run_id)[:8]} has been running {age_h:.1f}h — likely timed out, check AWS Batch",
+                    "model_name": None,
+                    "timestamp": now.isoformat(),
+                    "resolved": False,
+                })
+
+    # No completed run ever
+    completed = mds.list_runs(db, status="completed", limit=1)
+    if not completed:
+        alerts.append({
+            "id": "no-completed-run",
+            "type": "no_completed_run",
+            "severity": "info",
+            "message": "No training runs have completed yet — trigger a run to generate production models.",
+            "model_name": None,
+            "timestamp": now.isoformat(),
+            "resolved": False,
+        })
+
+    if level:
+        alerts = [a for a in alerts if a.get("severity") == level]
+
+    return {"alerts": alerts}
 
 
 # ── Feature Store ───────────────────────────────────────────────────────
 
 @router.get("/mlops/features/symbols")
-async def list_feature_symbols():
-    """List all symbols in the feature store."""
-    from ml.feature_store import feature_store
-    symbols = feature_store.list_symbols()
-    return {"symbols": symbols, "total": len(symbols), "schema_version": feature_store.schema_version}
+async def list_feature_symbols(db: Session = Depends(get_db)):
+    """List symbols with training artifacts in Neon DB."""
+    from app.models.ml_training import TrainingArtifact
+    rows = db.query(TrainingArtifact.symbol).distinct().all()
+    symbols = [r[0] for r in rows if r[0]]
+    return {"symbols": symbols, "total": len(symbols), "schema_version": "v2"}
 
 
 @router.get("/mlops/features/{symbol}")

@@ -785,23 +785,29 @@ function OverviewTab() {
       {/* Live AWS Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Panel title="Batch Queue" icon={Zap} color="text-cyan-400">
-          {liveBatch ? (
-            <div className="flex flex-wrap gap-3">
-              {[
-                { label: 'Runnable', val: liveBatch.runnable, color: 'text-fg-muted' },
-                { label: 'Starting', val: liveBatch.starting, color: 'text-amber-400' },
-                { label: 'Running', val: liveBatch.running, color: 'text-amber-400' },
-                { label: 'Succeeded', val: liveBatch.succeeded, color: 'text-emerald-400' },
-                { label: 'Failed', val: liveBatch.failed, color: 'text-red-400' },
-              ].map(item => (
-                <div key={item.label} className="flex flex-col items-center min-w-[56px]">
-                  <span className={`text-xl font-bold font-mono ${item.color}`}>{item.val}</span>
-                  <span className="text-[10px] text-fg-muted uppercase tracking-wider">{item.label}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-fg-muted py-2">Waiting for stream data...</p>
+          {liveBatch ? (() => {
+            const total = liveBatch.runnable + liveBatch.starting + liveBatch.running + liveBatch.succeeded + liveBatch.failed
+            if (total === 0) {
+              return <p className="text-xs text-fg-muted py-2">Queue idle — no active or recent jobs</p>
+            }
+            return (
+              <div className="flex flex-wrap gap-3">
+                {[
+                  { label: 'Runnable', val: liveBatch.runnable, color: 'text-fg-muted' },
+                  { label: 'Starting', val: liveBatch.starting, color: 'text-amber-400' },
+                  { label: 'Running', val: liveBatch.running, color: 'text-amber-400' },
+                  { label: 'Succeeded', val: liveBatch.succeeded, color: 'text-emerald-400' },
+                  { label: 'Failed', val: liveBatch.failed, color: 'text-red-400' },
+                ].map(item => (
+                  <div key={item.label} className="flex flex-col items-center min-w-[56px]">
+                    <span className={`text-xl font-bold font-mono ${item.color}`}>{item.val}</span>
+                    <span className="text-[10px] text-fg-muted uppercase tracking-wider">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            )
+          })() : (
+            <p className="text-xs text-fg-muted py-2">Connecting to stream...</p>
           )}
         </Panel>
 
@@ -809,15 +815,22 @@ function OverviewTab() {
           {liveSfn ? (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <StatusBadge status={liveSfn.status.toLowerCase()} />
-                <code className="text-[10px] text-fg-muted font-mono truncate">{liveSfn.name}</code>
+                <StatusBadge status={liveSfn.status === 'IDLE' ? 'idle' : liveSfn.status === 'ERROR' ? 'error' : liveSfn.status.toLowerCase()} />
+                {liveSfn.name ? (
+                  <code className="text-[10px] text-fg-muted font-mono truncate">{liveSfn.name}</code>
+                ) : (
+                  <span className="text-[10px] text-fg-muted">{liveSfn.status === 'IDLE' ? 'No recent executions' : liveSfn.status === 'ERROR' ? 'AWS API error' : 'Unknown'}</span>
+                )}
               </div>
               {liveSfn.start_date && (
                 <p className="text-[10px] text-fg-muted">Started {relativeTime(liveSfn.start_date)}</p>
               )}
+              {(liveSfn as any).error && (
+                <p className="text-[10px] text-red-400 font-mono truncate">{(liveSfn as any).error}</p>
+              )}
             </div>
           ) : (
-            <p className="text-xs text-fg-muted py-2">Waiting for stream data...</p>
+            <p className="text-xs text-fg-muted py-2">Connecting to stream...</p>
           )}
         </Panel>
       </div>
@@ -1845,21 +1858,28 @@ function MonitoringTab() {
           )
         }
       >
-        {perfData ? (
+        {perfData?.performance?.status === 'no_data' || (perfData?.performance?.sample_size === 0) ? (
+          <EmptyState icon={BarChart3} message={perfData?.performance?.message || 'No training artifacts yet — trigger a training run to populate metrics.'} />
+        ) : perfData ? (
           <div className="space-y-4">
             {perfData.retrain_reason && (
               <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
                 <p className="text-xs text-amber-300">{perfData.retrain_reason}</p>
               </div>
             )}
+            <div className="text-xs text-fg-muted mb-2">
+              {perfData.performance?.sample_size} artifact{perfData.performance?.sample_size !== 1 ? 's' : ''} from horizons: {((perfData.performance as any)?.horizons_covered || []).join(', ')}d
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
-              {perfData.performance && Object.entries(perfData.performance).map(([k, v]: [string, any]) => (
-                typeof v === 'number' && (
-                  <div key={k} className="text-center p-3 rounded-lg bg-surface-hover border border-line-subtle">
-                    <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">{k.replace(/_/g, ' ')}</div>
-                    <div className={`text-lg font-bold font-mono ${metricColor(v)}`}>{v.toFixed(4)}</div>
-                  </div>
-                )
+              {[
+                { k: 'directional_accuracy', v: perfData.performance?.directional_accuracy },
+                { k: 'information_coefficient', v: perfData.performance?.information_coefficient },
+                { k: 'hypothetical_sharpe', v: (perfData.performance as any)?.hypothetical_sharpe },
+              ].map(({ k, v }) => v != null && (
+                <div key={k} className="text-center p-3 rounded-lg bg-surface-hover border border-line-subtle">
+                  <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">{k.replace(/_/g, ' ')}</div>
+                  <div className={`text-lg font-bold font-mono ${metricColor(v)}`}>{v.toFixed(4)}</div>
+                </div>
               ))}
             </div>
           </div>

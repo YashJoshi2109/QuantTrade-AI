@@ -874,7 +874,7 @@ async def ml_stream(request: Request):
                 resp = client.list_executions(stateMachineArn=SFN_ARN, maxResults=1)
                 execs = resp.get("executions", [])
                 if not execs:
-                    return None
+                    return {"name": "", "status": "IDLE", "start_date": None}
                 ex = execs[0]
                 return {
                     "name": ex.get("name", ""),
@@ -884,7 +884,7 @@ async def ml_stream(request: Request):
             return await asyncio.to_thread(_call)
         except Exception as e:
             logger.warning("SFN list_executions failed (non-fatal): %s", e)
-            return None
+            return {"name": "", "status": "ERROR", "start_date": None, "error": str(e)[:120]}
 
     async def _fetch_logs(batch_job_id: str):
         """Fetch last 30 CloudWatch log events for a Batch job, filtered by key patterns."""
