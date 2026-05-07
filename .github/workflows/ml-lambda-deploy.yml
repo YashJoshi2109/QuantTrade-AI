@@ -1,0 +1,78 @@
+name: Deploy ML Lambda Functions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/lambdas/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+
+jobs:
+  deploy-lambdas:
+    name: Deploy Lambda functions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy ml-result-aggregator
+        working-directory: infra/lambdas/ml_result_aggregator
+        run: |
+          # Rebuild zip from handler + pre-installed packages
+          rm -f function.zip
+          cd package && zip -r ../function.zip . -q && cd ..
+          zip function.zip handler.py
+          aws lambda update-function-code \
+            --function-name ml-result-aggregator-production \
+            --zip-file fileb://function.zip \
+            --region ${{ env.AWS_REGION }} \
+            --output text --query 'FunctionArn'
+          echo "Waiting for update to complete..."
+          aws lambda wait function-updated \
+            --function-name ml-result-aggregator-production \
+            --region ${{ env.AWS_REGION }}
+          echo "ml-result-aggregator deployed"
+
+      - name: Deploy ml-auto-promote
+        working-directory: infra/lambdas/ml_auto_promote
+        run: |
+          rm -f function.zip
+          cd package && zip -r ../function.zip . -q && cd ..
+          zip function.zip handler.py
+          aws lambda update-function-code \
+            --function-name ml-auto-promote-production \
+            --zip-file fileb://function.zip \
+            --region ${{ env.AWS_REGION }} \
+            --output text --query 'FunctionArn'
+          echo "Waiting for update to complete..."
+          aws lambda wait function-updated \
+            --function-name ml-auto-promote-production \
+            --region ${{ env.AWS_REGION }}
+          echo "ml-auto-promote deployed"
+
+      - name: Smoke test aggregator
+        run: |
+          RESULT=$(aws lambda invoke \
+            --function-name ml-result-aggregator-production \
+            --payload '{"run_id":"smoke-test","shard_results":[]}' \
+            --cli-binary-format raw-in-base64-out \
+            /tmp/lambda_out.json \
+            --region ${{ env.AWS_REGION }} \
+            --query 'StatusCode' \
+            --output text)
+          cat /tmp/lambda_out.json
+          echo "StatusCode: $RESULT"
+          [ "$RESULT" = "200" ] && echo "Smoke test passed" || (echo "Smoke test failed" && exit 1)
