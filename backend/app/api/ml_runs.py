@@ -617,6 +617,17 @@ async def batch_job_callback(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
+    # Upsert run and shard in case batch-start callback was missed
+    from app.models.ml_training import TrainingShard as _TrainingShard
+    if not mds.get_run(db, run_uid):
+        mds.create_run(db, run_id=run_uid, run_type=req.shard_name or "batch",
+                       trigger_source="sfn", total_symbols=0, total_shards=1)
+        logger.info("Batch callback: auto-created missing run %s", req.run_id[:8])
+    if not db.query(_TrainingShard).filter(_TrainingShard.shard_id == shard_uid).first():
+        mds.create_shard(db, shard_id=shard_uid, run_id=run_uid, shard_index=0,
+                         shard_name=req.shard_name, symbol_count=0, horizons=[1, 7, 30])
+        logger.info("Batch callback: auto-created missing shard %s", req.shard_id[:8])
+
     mds.update_shard_from_callback(
         db,
         shard_id=shard_uid,
