@@ -11,6 +11,7 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.billing import Subscription
+from app.models.community import Notification
 from app.models.news import NewsArticle
 from app.models.user import User
 from app.models.watchlist import Watchlist
@@ -101,15 +102,32 @@ async def _process_user_price_alerts(db: Session, user: User) -> None:
 
         pct = abs(price - old_f) / old_f * 100.0
         if pct >= PRICE_MOVE_THRESHOLD_PCT:
+            change_pct = (price - old_f) / old_f * 100.0
+            direction = "▲" if change_pct > 0 else "▼"
             ok, err = send_watchlist_price_alert_email(
                 user.email,
                 symbol=sym,
                 old_price=old_f,
                 new_price=price,
-                change_pct=(price - old_f) / old_f * 100.0,
+                change_pct=change_pct,
             )
             if not ok:
                 logger.warning("Price alert email failed user=%s sym=%s: %s", user.id, sym, err)
+            # Also create an in-app notification so Trading tab shows alerts
+            try:
+                notif = Notification(
+                    user_id=user.id,
+                    type="price_alert",
+                    title=f"{sym} moved {direction}{abs(change_pct):.1f}%",
+                    body=f"{sym} price moved from ${old_f:.2f} to ${price:.2f} ({direction}{abs(change_pct):.1f}%)",
+                    action_url=f"/research?symbol={sym}",
+                    is_read=False,
+                )
+                db.add(notif)
+                db.commit()
+            except Exception as ne:
+                logger.warning("In-app notification create failed user=%s sym=%s: %s", user.id, sym, ne)
+                db.rollback()
             snapshot[sym] = {"p": price}
             changed = True
 

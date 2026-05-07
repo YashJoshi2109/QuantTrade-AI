@@ -490,7 +490,7 @@ export async function GET(request: NextRequest) {
         )
         if (beRes.ok) {
            const data = await beRes.json()
-           if ((data?.gainers && data.gainers.length > 0) || (data?.losers && data.losers.length > 0)) {
+           if ((data?.gainers?.length ?? 0) >= 5 || (data?.losers?.length ?? 0) >= 5) {
              return NextResponse.json({
                gainers: (data.gainers || []).slice(0, count),
                losers: (data.losers || []).slice(0, count),

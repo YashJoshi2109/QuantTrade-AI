@@ -1081,9 +1081,11 @@ async def get_market_movers(
     # First try cached snapshots only (fast, no provider calls).
     all_stocks = _load_cached_mover_rows(db)
 
-    # If cache is thin/empty, trigger slower refresh path.
-    if len(all_stocks) < 12:
-        all_stocks = await _load_movers_universe(db, force_refresh=force_refresh)
+    # Force refresh if: cache thin, forced by caller, or >60% stocks have 0% change (stale cache).
+    nonzero = sum(1 for s in all_stocks if abs(s.change_percent) > 0.01)
+    stale = len(all_stocks) > 0 and nonzero / len(all_stocks) < 0.4
+    if len(all_stocks) < 12 or force_refresh or stale:
+        all_stocks = await _load_movers_universe(db, force_refresh=True)
 
     sorted_up = sorted(all_stocks, key=lambda x: x.change_percent, reverse=True)
     gainers = [s for s in sorted_up if s.change_percent > 0][:limit]
