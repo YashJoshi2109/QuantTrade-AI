@@ -464,8 +464,13 @@ function PipelineFlowStrip({ sfn, batch, run }: {
     },
     {
       label: 'Neon DB', icon: Database,
-      status: run ? (run.status === 'running' ? 'running' : run.status === 'completed' ? 'ok' : run.status === 'failed' ? 'error' : 'idle') as 'running' | 'ok' | 'error' | 'idle' : 'idle' as const,
-      detail: run ? run.status : 'No run',
+      // If batch has running jobs, assume callback is in-flight — show running even if latest DB run is stale
+      status: ((batch?.running ?? 0) > 0
+        ? (run?.status === 'running' ? 'running' : 'running')
+        : run
+          ? (run.status === 'running' ? 'running' : run.status === 'completed' ? 'ok' : run.status === 'failed' ? 'idle' : 'idle')
+          : 'idle') as 'running' | 'ok' | 'error' | 'idle',
+      detail: (batch?.running ?? 0) > 0 ? (run?.status === 'running' ? 'active' : 'callback pending') : run ? run.status : 'No run',
     },
     { label: 'Lambda', icon: Zap, status: 'idle' as const, detail: 'Aggregator' },
     { label: 'CF KV', icon: Radio, status: 'idle' as const, detail: 'Model cache' },
