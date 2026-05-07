@@ -885,7 +885,10 @@ async def get_sector_performance(db: Session = Depends(get_db)) -> List[SectorPe
 
 
 @router.get("/market/heatmap")
-async def get_heatmap_data(db: Session = Depends(get_db)) -> HeatmapData:
+async def get_heatmap_data(
+    force_refresh: bool = Query(False, description="Force fresh data from yfinance"),
+    db: Session = Depends(get_db),
+) -> HeatmapData:
     """
     Get market heatmap data with real quotes.
     NO FAKE DATA - only includes stocks with available quotes.
@@ -894,11 +897,25 @@ async def get_heatmap_data(db: Session = Depends(get_db)) -> HeatmapData:
     total_gainers = 0
     total_losers = 0
     total_unchanged = 0
-    
+
+    # First pass (use cache unless force_refresh requested)
+    sector_data: list = []
     for sector_name, stock_list in SP500_STOCKS.items():
         symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
-        stocks = await fetch_bulk_quotes(symbols_info, db)
-        
+        stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=force_refresh)
+        sector_data.append((sector_name, stocks))
+
+    # Detect stale cache: if >60% of stocks have exactly 0% change, auto force-refresh
+    all_stocks_flat = [s for _, stocks in sector_data for s in stocks]
+    nonzero_count = sum(1 for s in all_stocks_flat if abs(s.change_percent) > 0.01)
+    if not force_refresh and all_stocks_flat and nonzero_count / len(all_stocks_flat) < 0.4:
+        sector_data = []
+        for sector_name, stock_list in SP500_STOCKS.items():
+            symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
+            stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=True)
+            sector_data.append((sector_name, stocks))
+
+    for sector_name, stocks in sector_data:
         for perf in stocks:
             if perf.change_percent > 0.1:
                 total_gainers += 1
@@ -906,7 +923,7 @@ async def get_heatmap_data(db: Session = Depends(get_db)) -> HeatmapData:
                 total_losers += 1
             else:
                 total_unchanged += 1
-        
+
         if stocks:
             avg_change = sum(s.change_percent for s in stocks) / len(stocks)
             sectors.append(SectorPerformance(
@@ -914,7 +931,7 @@ async def get_heatmap_data(db: Session = Depends(get_db)) -> HeatmapData:
                 change_percent=round(avg_change, 2),
                 stocks=stocks
             ))
-    
+
     return HeatmapData(
         sectors=sectors,
         total_stocks=total_gainers + total_losers + total_unchanged,
