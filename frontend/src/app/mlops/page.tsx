@@ -129,6 +129,7 @@ interface MLStreamEvent {
   sfn?: { name: string; status: string; start_date: string }
   logs?: Array<{ ts: number; msg: string }>
   models?: Array<{ model_version: string; avg_da?: number; avg_ic?: number; promoted_at?: string }>
+  staging?: Array<{ model_version: string; avg_da?: number; avg_ic?: number; promoted_at?: string; symbol_count?: number }>
 }
 
 interface DashboardData {
@@ -444,36 +445,51 @@ function parseLogProgress(logs?: Array<{ ts: number; msg: string }>) {
   return null
 }
 
-function PipelineFlowStrip({ sfn, batch, run }: {
+function PipelineFlowStrip({ sfn, batch, run, models, staging }: {
   sfn?: { name: string; status: string; start_date: string } | null
   batch?: { runnable: number; starting: number; running: number; succeeded: number; failed: number } | null
   run?: { status: string } | null
+  models?: Array<any> | null   // production model versions
+  staging?: Array<any> | null  // staging model versions
 }) {
   const isRunning = (sfn?.status === 'RUNNING') || (batch?.running ?? 0) > 0
+  const hasProd = (models?.length ?? 0) > 0
+  const hasStaged = (staging?.length ?? 0) > 0
+  const hasAnyModel = hasProd || hasStaged
+
   const stages = [
     { label: 'ECR', icon: Package, status: 'ok' as const, detail: 'Image ready' },
     {
       label: 'SFN', icon: GitBranch,
-      status: sfn ? (sfn.status === 'RUNNING' ? 'running' : sfn.status === 'SUCCEEDED' ? 'ok' : 'error') as 'running' | 'ok' | 'error' : 'idle' as const,
+      status: (sfn
+        ? (sfn.status === 'RUNNING' ? 'running' : sfn.status === 'SUCCEEDED' ? 'ok' : sfn.status === 'IDLE' ? 'idle' : 'error')
+        : 'idle') as 'running' | 'ok' | 'error' | 'idle',
       detail: sfn ? sfn.status : 'Idle',
     },
     {
       label: 'Batch', icon: Cpu,
-      status: (batch?.running ?? 0) > 0 ? 'running' as const : (batch?.succeeded ?? 0) > 0 ? 'ok' as const : 'idle' as const,
+      status: ((batch?.running ?? 0) > 0 ? 'running' : (batch?.succeeded ?? 0) > 0 ? 'ok' : 'idle') as 'running' | 'ok' | 'idle',
       detail: batch ? `${batch.running}R ${batch.succeeded}✓ ${batch.failed}✗` : '—',
     },
     {
       label: 'Neon DB', icon: Database,
-      // If batch has running jobs, assume callback is in-flight — show running even if latest DB run is stale
       status: ((batch?.running ?? 0) > 0
-        ? (run?.status === 'running' ? 'running' : 'running')
+        ? 'running'
         : run
-          ? (run.status === 'running' ? 'running' : run.status === 'completed' ? 'ok' : run.status === 'failed' ? 'idle' : 'idle')
+          ? (run.status === 'running' ? 'running' : run.status === 'completed' ? 'ok' : run.status === 'failed' ? 'error' : 'idle')
           : 'idle') as 'running' | 'ok' | 'error' | 'idle',
-      detail: (batch?.running ?? 0) > 0 ? (run?.status === 'running' ? 'active' : 'callback pending') : run ? run.status : 'No run',
+      detail: (batch?.running ?? 0) > 0 ? 'callback pending' : run ? run.status : 'No run',
     },
-    { label: 'Lambda', icon: Zap, status: 'idle' as const, detail: 'Aggregator' },
-    { label: 'CF KV', icon: Radio, status: 'idle' as const, detail: 'Model cache' },
+    {
+      label: 'Lambda', icon: Zap,
+      status: (isRunning ? 'idle' : hasAnyModel ? 'ok' : 'idle') as 'ok' | 'idle',
+      detail: hasProd ? 'Promoted' : hasStaged ? 'Staged' : 'Aggregator',
+    },
+    {
+      label: 'CF KV', icon: Radio,
+      status: (hasProd ? 'ok' : hasStaged ? 'idle' : 'idle') as 'ok' | 'idle',
+      detail: hasProd ? 'Model cached' : hasStaged ? 'Staging only' : 'No model',
+    },
   ]
 
   const statusColors = {
@@ -761,7 +777,7 @@ function OverviewTab() {
 
       {/* Pipeline Flow */}
       <Panel title="Pipeline Flow" icon={GitBranch} color="text-cyan-400">
-        <PipelineFlowStrip sfn={liveSfn} batch={liveBatch} run={liveRun} />
+        <PipelineFlowStrip sfn={liveSfn} batch={liveBatch} run={liveRun} models={streamEvent?.models} staging={streamEvent?.staging} />
       </Panel>
 
       {/* Live Training Card — only shown when a run is active */}
@@ -914,35 +930,49 @@ function OverviewTab() {
           )}
         </Panel>
 
-        {/* Production Models (from dashboard/stream) */}
-        <Panel title="Production Models" icon={Cpu} color="text-emerald-400">
+        {/* Production / Staging Models (from dashboard/stream) */}
+        <Panel title="Models" icon={Cpu} color="text-emerald-400">
           {(() => {
             const prodList = streamEvent?.models ?? dashboard?.prod_models ?? []
-            if (prodList.length === 0) return <EmptyState icon={Cpu} message="No models in production" />
+            const stagingList = streamEvent?.staging ?? []
+            const allModels = [
+              ...prodList.map(m => ({ ...m, tier: 'production' })),
+              ...stagingList.map(m => ({ ...m, tier: 'staging' })),
+            ]
+            if (allModels.length === 0) return <EmptyState icon={Cpu} message="No models registered — trigger a training run" />
             return (
-              <div className="space-y-3">
-                {prodList.map((mv) => (
-                  <div key={mv.model_version} className="p-3 bg-surface-hover rounded-lg border border-line-subtle hover:border-line-default transition-colors">
+              <div className="space-y-2">
+                {allModels.map((mv) => (
+                  <div key={mv.model_version} className={`p-3 rounded-lg border transition-colors ${mv.tier === 'production' ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-surface-hover border-line-subtle hover:border-line-default'}`}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <Package className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-sm font-medium text-fg-secondary">{mv.model_version}</span>
+                        <Package className={`w-3.5 h-3.5 ${mv.tier === 'production' ? 'text-emerald-400' : 'text-amber-400'}`} />
+                        <span className="text-sm font-medium text-fg-secondary font-mono">{mv.model_version}</span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider ${mv.tier === 'production' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                          {mv.tier}
+                        </span>
                       </div>
                       {mv.promoted_at && (
                         <span className="text-[10px] text-fg-muted">{relativeTime(mv.promoted_at)}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 mt-2 flex-wrap">
-                      {mv.avg_da !== undefined && mv.avg_da !== null && (
+                    <div className="flex items-center gap-4 flex-wrap">
+                      {mv.avg_da != null && (
                         <div className="text-center">
                           <div className="text-[10px] text-fg-muted uppercase">DA</div>
-                          <div className={`text-xs font-mono font-bold ${metricColor(mv.avg_da)}`}>{mv.avg_da.toFixed(4)}</div>
+                          <div className={`text-xs font-mono font-bold ${metricColor(mv.avg_da)}`}>{(mv.avg_da * 100).toFixed(1)}%</div>
                         </div>
                       )}
-                      {mv.avg_ic !== undefined && mv.avg_ic !== null && (
+                      {mv.avg_ic != null && (
                         <div className="text-center">
                           <div className="text-[10px] text-fg-muted uppercase">IC</div>
                           <div className={`text-xs font-mono font-bold ${metricColor(mv.avg_ic, [0.05, 0.15])}`}>{mv.avg_ic.toFixed(4)}</div>
+                        </div>
+                      )}
+                      {mv.symbol_count != null && (
+                        <div className="text-center">
+                          <div className="text-[10px] text-fg-muted uppercase">Symbols</div>
+                          <div className="text-xs font-mono text-fg-secondary">{mv.symbol_count}</div>
                         </div>
                       )}
                     </div>

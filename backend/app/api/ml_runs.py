@@ -1107,12 +1107,25 @@ async def ml_stream(request: Request):
                     }
                     for v in prod_versions
                 ]
+                # Staging models (for pipeline flow Lambda status)
+                staging_versions = mds.list_model_versions(db, status="staging", limit=5)
+                staging_payload = [
+                    {
+                        "model_version": v.model_version,
+                        "avg_da": v.avg_directional_accuracy,
+                        "avg_ic": v.avg_information_coefficient,
+                        "promoted_at": v.promoted_at.isoformat() if v.promoted_at else None,
+                        "symbol_count": v.symbol_count,
+                    }
+                    for v in staging_versions
+                ]
             except Exception as e:
                 logger.warning("DB query in SSE tick failed (non-fatal): %s", e)
                 run_payload = None
                 shards_payload = []
                 running_shard_job_id = None
                 models_payload = []
+                staging_payload = []
             finally:
                 db.close()
 
@@ -1138,6 +1151,7 @@ async def ml_stream(request: Request):
                 "sfn": sfn_data if isinstance(sfn_data, dict) else None,
                 "logs": logs_data if isinstance(logs_data, list) else [],
                 "models": models_payload,
+                "staging": staging_payload,
             }
 
             yield f"data: {json.dumps(payload)}\n\n"
