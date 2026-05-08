@@ -353,10 +353,10 @@ def main():
     _start_time = _time.monotonic()
     def _sigterm_handler(signum, frame):
         duration_s = int(_time.monotonic() - _start_time)
-        logger.warning("SIGTERM received — firing failure callback before exit")
+        logger.warning("SIGTERM received (Fargate Spot eviction) — firing failure callback before exit")
         results = getattr(config, "_training_results", [])
-        _post_callback(config, results, exit_code=2, runtime_seconds=duration_s)
-        sys.exit(2)
+        _post_callback(config, results, exit_code=3, runtime_seconds=duration_s)
+        sys.exit(3)  # exit 3 = infra/spot interruption → retried by Batch retry strategy
 
     signal.signal(signal.SIGTERM, _sigterm_handler)
 

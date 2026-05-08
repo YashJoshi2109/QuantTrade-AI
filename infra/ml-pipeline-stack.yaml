@@ -223,14 +223,14 @@ Resources:
       PlatformCapabilities:
         - FARGATE
       RetryStrategy:
-        Attempts: 2
+        Attempts: 3
         EvaluateOnExit:
           - Action: RETRY
-            OnExitCode: '3'    # Infrastructure errors are retryable
+            OnExitCode: '3'    # Infrastructure/Spot eviction errors are retryable
           - Action: EXIT
             OnExitCode: '1'    # Data errors are not retryable
-          - Action: EXIT
-            OnExitCode: '2'    # Training errors are not retryable
+          - Action: RETRY
+            OnExitCode: '2'    # Training errors may be Spot pre-emption (belt+suspenders)
       Timeout:
         AttemptDurationSeconds: 10800  # 3 hours max per attempt
       ContainerProperties:

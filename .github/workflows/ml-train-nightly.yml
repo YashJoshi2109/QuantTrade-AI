@@ -62,7 +62,7 @@ jobs:
       ML_RUN_ID: ${{ needs.plan.outputs.run_id }}
       ML_SHARD_NAME: ${{ matrix.label }}
       ML_TRIGGER_SOURCE: github_actions
-      QUANTTRADE_API_BASE: ${{ secrets.QUANTTRADE_API_BASE_URL }}
+      QUANTTRADE_API_BASE: ${{ secrets.QUANTTRADE_API_BASE_URL || 'https://www.quanttrade.us' }}
       ML_CALLBACK_SECRET: ${{ secrets.ML_CALLBACK_SECRET }}
 
     steps:
