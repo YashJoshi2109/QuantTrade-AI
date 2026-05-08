@@ -89,3 +89,13 @@ secrets/
 deploy/*.json
 client_secret_*.json
 .worktrees/
+
+# Lambda build artifacts
+infra/lambdas/*/function.zip
+infra/lambdas/*/package/
+
+# Test results / Playwright
+frontend/playwright-report/
+frontend/test-results/
+test-results/
+playwright-report/

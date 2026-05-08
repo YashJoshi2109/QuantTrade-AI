@@ -1,250 +1,216 @@
-<mxfile host="Electron" version="29.6.1">
-  <diagram name="Page-1" id="quanttrade-arch">
-    <mxGraphModel dx="1950" dy="1100" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
-      <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-
-        <mxCell id="title-group" connectable="0" style="group;fontFamily=Helvetica;" value="" vertex="1" parent="1">
-          <mxGeometry height="83" width="1700" x="50" y="30" as="geometry" />
-        </mxCell>
-        <mxCell id="title-text" style="text;html=1;resizable=1;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=30;fontStyle=1;fontFamily=Helvetica;" value="QuantTrade Community Platform" vertex="1" parent="title-group">
-          <mxGeometry height="42" width="800" as="geometry" />
-        </mxCell>
-        <mxCell id="subtitle-text" style="text;html=1;resizable=0;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=16;fontFamily=Helvetica;" value="Event-driven financial community with AI moderation on AWS + Cloudflare" vertex="1" parent="title-group">
-          <mxGeometry height="25" width="800" x="5" y="40" as="geometry" />
-        </mxCell>
-        <mxCell id="title-sep" style="line;strokeWidth=2;html=1;fontSize=14;strokeColor=#FF9900;fontFamily=Helvetica;" value="" vertex="1" parent="title-group">
-          <mxGeometry height="10" width="1690" x="5" y="70" as="geometry" />
-        </mxCell>
-
-        <mxCell id="users-grp" style="fillColor=#f5f5f5;strokeColor=light-dark(#666666,#D4D4D4);rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#333333;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1;perimeterSpacing=0;" value="Users" vertex="1" parent="1">
-          <mxGeometry x="50" y="280" height="98" width="107" as="geometry" />
-        </mxCell>
-        <mxCell id="users-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#232F3D;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.users;fontFamily=Helvetica;" value="" vertex="1" parent="users-grp">
-          <mxGeometry x="30" y="30" width="48" height="48" as="geometry" />
-        </mxCell>
-
-        <mxCell id="cf-grp" style="fillColor=#EDE7F6;strokeColor=#8C4FFF;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#8C4FFF;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Edge Security" vertex="1" parent="1">
-          <mxGeometry x="220" y="269" width="120" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="cf-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.networking_and_content_delivery;fontFamily=Helvetica;shadow=1;" value="Cloudflare&lt;div&gt;&lt;i&gt;CDN + WAF&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="cf-grp">
-          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
-        </mxCell>
-
-        <mxCell id="aws-cloud" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=14;fontStyle=1;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud;strokeColor=#232F3E;fillColor=light-dark(#232F3E0D,#232F3E0D);verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;container=0;pointerEvents=0;fillStyle=auto;fontFamily=Helvetica;" value="AWS Cloud" vertex="1" parent="1">
-          <mxGeometry x="400" y="160" width="680" height="860" as="geometry" />
-        </mxCell>
-
-        <mxCell id="alb-grp" style="fillColor=#EDE7F6;strokeColor=#8C4FFF;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#8C4FFF;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Load Balancing" vertex="1" parent="1">
-          <mxGeometry x="660" y="240" width="120" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="alb-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elastic_load_balancing;fontFamily=Helvetica;shadow=1;" value="Elastic Load&lt;br&gt;Balancing&lt;div&gt;&lt;i&gt;HTTPS routing&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="alb-grp">
-          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
-        </mxCell>
-
-        <mxCell id="frontend-grp" style="fillColor=#FFF2E8;strokeColor=#ED7100;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#ED7100;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Compute" vertex="1" parent="1">
-          <mxGeometry x="440" y="440" width="120" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="frontend-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.fargate;fontFamily=Helvetica;shadow=1;" value="AWS Fargate&lt;div&gt;&lt;i&gt;Next.js Frontend&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="frontend-grp">
-          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
-        </mxCell>
-
-        <mxCell id="coreapi-grp" style="fillColor=#FFF2E8;strokeColor=#ED7100;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#ED7100;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Compute" vertex="1" parent="1">
-          <mxGeometry x="660" y="440" width="120" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="coreapi-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.fargate;fontFamily=Helvetica;shadow=1;" value="AWS Fargate&lt;div&gt;&lt;i&gt;Core API&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="coreapi-grp">
-          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
-        </mxCell>
-
-        <mxCell id="community-grp" style="fillColor=#FFF2E8;strokeColor=#ED7100;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#ED7100;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Compute" vertex="1" parent="1">
-          <mxGeometry x="880" y="440" width="120" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="community-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.fargate;fontFamily=Helvetica;shadow=1;" value="AWS Fargate&lt;div&gt;&lt;i&gt;Community Svc&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="community-grp">
-          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
-        </mxCell>
-
-        <mxCell id="sqs-grp" style="fillColor=#FCE4EC;strokeColor=#E7157B;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#E7157B;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Messaging" vertex="1" parent="1">
-          <mxGeometry x="440" y="640" width="120" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="sqs-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.sqs;fontFamily=Helvetica;shadow=1;" value="Amazon SQS&lt;div&gt;&lt;i&gt;Domain Events&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="sqs-grp">
-          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
-        </mxCell>
-
-        <mxCell id="lambda-grp" style="fillColor=#FFF2E8;strokeColor=#ED7100;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#ED7100;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Compute" vertex="1" parent="1">
-          <mxGeometry x="660" y="640" width="120" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="lambda-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;fontFamily=Helvetica;shadow=1;" value="AWS Lambda&lt;div&gt;&lt;i&gt;Moderation&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="lambda-grp">
-          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
-        </mxCell>
-
-        <mxCell id="bedrock-grp" style="fillColor=#E0F2F1;strokeColor=#01A88D;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#01A88D;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="AI / ML" vertex="1" parent="1">
-          <mxGeometry x="880" y="640" width="120" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="bedrock-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#01A88D;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock;fontFamily=Helvetica;shadow=1;" value="Amazon Bedrock&lt;div&gt;&lt;i&gt;AI Analysis&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="bedrock-grp">
-          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
-        </mxCell>
-
-        <mxCell id="redis-grp" style="fillColor=#F5E6F7;strokeColor=#C925D1;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#C925D1;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Database" vertex="1" parent="1">
-          <mxGeometry x="440" y="840" width="120" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="redis-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#C925D1;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elasticache;fontFamily=Helvetica;shadow=1;" value="ElastiCache&lt;div&gt;&lt;i&gt;Redis&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="redis-grp">
-          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
-        </mxCell>
-
-        <mxCell id="aurora-grp" style="fillColor=#F5E6F7;strokeColor=#C925D1;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#C925D1;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Database" vertex="1" parent="1">
-          <mxGeometry x="660" y="840" width="120" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="aurora-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#C925D1;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.rds;fontFamily=Helvetica;shadow=1;" value="Neon PostgreSQL&lt;div&gt;&lt;i&gt;Serverless DB&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="aurora-grp">
-          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
-        </mxCell>
-
-        <mxCell id="s3-grp" style="fillColor=#E8F5E9;strokeColor=#3F8624;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#3F8624;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Storage" vertex="1" parent="1">
-          <mxGeometry x="880" y="840" width="120" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="s3-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#3F8624;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Helvetica;shadow=1;" value="Amazon S3&lt;div&gt;&lt;i&gt;Media + Artifacts&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="s3-grp">
-          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
-        </mxCell>
-
-        <mxCell id="edge-1" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="users-icon" target="cf-icon" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="edge-2" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="cf-icon" target="alb-icon" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="edge-3" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="alb-icon" target="frontend-icon" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="edge-4" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="alb-icon" target="coreapi-icon" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="edge-5" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="alb-icon" target="community-icon" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="edge-6" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="coreapi-icon" target="sqs-icon" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="edge-7" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="sqs-icon" target="lambda-icon" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="edge-8" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="lambda-icon" target="bedrock-icon" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="edge-9" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;" edge="1" source="coreapi-icon" target="aurora-icon" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="badge-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="1" vertex="1" parent="1">
-          <mxGeometry x="148.0" y="218.0" width="28" height="28" as="geometry" />
-        </mxCell>
-
-        <mxCell id="badge-2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="2" vertex="1" parent="1">
-          <mxGeometry x="355" y="258" width="28" height="28" as="geometry" />
-        </mxCell>
-
-        <mxCell id="badge-3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="3" vertex="1" parent="1">
-          <mxGeometry x="640" y="375" width="28" height="28" as="geometry" />
-        </mxCell>
-
-        <mxCell id="badge-4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="4" vertex="1" parent="1">
-          <mxGeometry x="530.0" y="585.0" width="28" height="28" as="geometry" />
-        </mxCell>
-
-        <mxCell id="badge-5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="5" vertex="1" parent="1">
-          <mxGeometry x="590" y="632" width="28" height="28" as="geometry" />
-        </mxCell>
-
-        <mxCell id="badge-6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="6" vertex="1" parent="1">
-          <mxGeometry x="810.0" y="755.0" width="28" height="28" as="geometry" />
-        </mxCell>
-
-        <mxCell id="legend-bg" style="verticalLabelPosition=bottom;verticalAlign=top;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;fillColor=light-dark(#EDF3FF,#305363);strokeColor=#6c8ebf;fontFamily=Helvetica;" value="" vertex="1" parent="1">
-          <mxGeometry height="930" width="650" x="1150" y="30" as="geometry" />
-        </mxCell>
-        <mxCell id="legend-container" connectable="0" style="group;fontFamily=Helvetica;" value="" vertex="1" parent="1">
-          <mxGeometry height="900" width="602" x="1170" y="55" as="geometry" />
-        </mxCell>
-
-        <mxCell id="legend-title" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=18;fontStyle=1;fontFamily=Helvetica;labelBackgroundColor=none;" value="Architecture Steps" vertex="1" parent="legend-container">
-          <mxGeometry height="30" width="300" as="geometry" />
-        </mxCell>
-
-        <mxCell id="step-1-lg" connectable="0" style="group;fontFamily=Helvetica;" value="" vertex="1" parent="legend-container">
-          <mxGeometry height="90" width="600" x="0" y="45" as="geometry" />
-        </mxCell>
-        <mxCell id="step-1-badge-lg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="1" vertex="1" parent="step-1-lg">
-          <mxGeometry height="38" width="40" y="2.0" as="geometry" x="-50.0" />
-        </mxCell>
-        <mxCell id="step-1-desc-lg" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;Edge Security&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;Users access QuantTrade through Cloudflare for CDN acceleration, WAF protection, DDoS mitigation, and bot management&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="step-1-lg">
-          <mxGeometry height="90" width="548" x="52" as="geometry" />
-        </mxCell>
-
-        <mxCell id="step-2-lg" connectable="0" style="group;fontFamily=Helvetica;" value="" vertex="1" parent="legend-container">
-          <mxGeometry height="90" width="600" x="0" y="145" as="geometry" />
-        </mxCell>
-        <mxCell id="step-2-badge-lg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="2" vertex="1" parent="step-2-lg">
-          <mxGeometry height="38" width="40" y="2.0" as="geometry" x="-50.0" />
-        </mxCell>
-        <mxCell id="step-2-desc-lg" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;Load Balancing&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;ALB terminates HTTPS and distributes traffic to ECS Fargate services using path-based routing rules&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="step-2-lg">
-          <mxGeometry height="90" width="548" x="52" as="geometry" />
-        </mxCell>
-
-        <mxCell id="step-3-lg" connectable="0" style="group;fontFamily=Helvetica;" value="" vertex="1" parent="legend-container">
-          <mxGeometry height="110" width="600" x="0" y="245" as="geometry" />
-        </mxCell>
-        <mxCell id="step-3-badge-lg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="3" vertex="1" parent="step-3-lg">
-          <mxGeometry height="38" width="40" y="2.0" as="geometry" x="-50.0" />
-        </mxCell>
-        <mxCell id="step-3-desc-lg" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;Compute Services&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;Next.js Frontend serves SSR pages; FastAPI Core API handles auth, market data, and copilot; Community Service manages posts, comments, and feeds&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="step-3-lg">
-          <mxGeometry height="110" width="548" x="52" as="geometry" />
-        </mxCell>
-
-        <mxCell id="step-4-lg" connectable="0" style="group;fontFamily=Helvetica;" value="" vertex="1" parent="legend-container">
-          <mxGeometry height="90" width="600" x="0" y="365" as="geometry" />
-        </mxCell>
-        <mxCell id="step-4-badge-lg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="4" vertex="1" parent="step-4-lg">
-          <mxGeometry height="38" width="40" y="2.0" as="geometry" x="-50.0" />
-        </mxCell>
-        <mxCell id="step-4-desc-lg" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;Event-Driven Processing&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;Core API publishes domain events to SQS for async moderation, notification fanout, and feed ranking updates&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="step-4-lg">
-          <mxGeometry height="90" width="548" x="52" as="geometry" />
-        </mxCell>
-
-        <mxCell id="step-5-lg" connectable="0" style="group;fontFamily=Helvetica;" value="" vertex="1" parent="legend-container">
-          <mxGeometry height="110" width="600" x="0" y="465" as="geometry" />
-        </mxCell>
-        <mxCell id="step-5-badge-lg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="5" vertex="1" parent="step-5-lg">
-          <mxGeometry height="38" width="40" y="2.0" as="geometry" x="-50.0" />
-        </mxCell>
-        <mxCell id="step-5-desc-lg" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;AI Moderation Pipeline&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;Lambda consumes SQS events and validates financial content via Amazon Bedrock for claim detection, manipulation patterns, and SEC compliance&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="step-5-lg">
-          <mxGeometry height="110" width="548" x="52" as="geometry" />
-        </mxCell>
-
-        <mxCell id="step-6-lg" connectable="0" style="group;fontFamily=Helvetica;" value="" vertex="1" parent="legend-container">
-          <mxGeometry height="110" width="600" x="0" y="585" as="geometry" />
-        </mxCell>
-        <mxCell id="step-6-badge-lg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="6" vertex="1" parent="step-6-lg">
-          <mxGeometry height="38" width="40" y="2.0" as="geometry" x="-50.0" />
-        </mxCell>
-        <mxCell id="step-6-desc-lg" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;Data Layer&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;Neon PostgreSQL stores users, posts, and market data with autoscaling and read replicas; ElastiCache Redis caches sessions and feeds; S3 stores media uploads and ML artifacts&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="step-6-lg">
-          <mxGeometry height="110" width="548" x="52" as="geometry" />
-        </mxCell>
-
-        <mxCell id="legend-line-styles-grp" style="fillColor=light-dark(#F5F5F5,#29393B);strokeColor=#666666;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#666666;fontFamily=Helvetica;container=1;collapsible=0;" value="Line Styles" vertex="1" parent="legend-container">
-          <mxGeometry height="80" width="300" x="0" y="720" as="geometry" />
-        </mxCell>
-        <mxCell id="legend-line-solid" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontFamily=Helvetica;labelBackgroundColor=none;" value="───▶  Data flow" vertex="1" parent="legend-line-styles-grp">
-          <mxGeometry height="30" width="260" x="20" y="30" as="geometry" />
-        </mxCell>
-
-      </root>
-    </mxGraphModel>
-  </diagram>
+<mxfile host="65bd71144e">
+    <diagram name="Page-1" id="quanttrade-arch">
+        <mxGraphModel dx="1112" dy="357" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title-group" value="" style="group;fontFamily=Helvetica;" parent="1" connectable="0" vertex="1">
+                    <mxGeometry x="50" y="30" width="1700" height="83" as="geometry"/>
+                </mxCell>
+                <mxCell id="title-text" value="QuantTrade Community Platform" style="text;html=1;resizable=1;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=30;fontStyle=1;fontFamily=Helvetica;" parent="title-group" vertex="1">
+                    <mxGeometry width="800" height="42" as="geometry"/>
+                </mxCell>
+                <mxCell id="subtitle-text" value="Event-driven financial community with AI moderation on AWS + Cloudflare" style="text;html=1;resizable=0;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=16;fontFamily=Helvetica;" parent="title-group" vertex="1">
+                    <mxGeometry x="5" y="40" width="800" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="title-sep" value="" style="line;strokeWidth=2;html=1;fontSize=14;strokeColor=#FF9900;fontFamily=Helvetica;" parent="title-group" vertex="1">
+                    <mxGeometry x="5" y="70" width="1690" height="10" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-grp" value="Users" style="fillColor=#f5f5f5;strokeColor=light-dark(#666666,#D4D4D4);rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#333333;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1;perimeterSpacing=0;" parent="1" vertex="1">
+                    <mxGeometry x="50" y="269" width="107" height="98" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-icon" value="" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#232F3D;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.users;fontFamily=Helvetica;" parent="users-grp" vertex="1">
+                    <mxGeometry x="30" y="30" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="cf-grp" value="Edge Security" style="fillColor=#EDE7F6;strokeColor=#8C4FFF;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#8C4FFF;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" parent="1" vertex="1">
+                    <mxGeometry x="220" y="269" width="120" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="cf-icon" value="Cloudflare&lt;div&gt;&lt;i&gt;CDN + WAF&lt;/i&gt;&lt;/div&gt;" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.networking_and_content_delivery;fontFamily=Helvetica;shadow=1;" parent="cf-grp" vertex="1">
+                    <mxGeometry x="36" y="30" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="aws-cloud" value="AWS Cloud" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=14;fontStyle=1;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud;strokeColor=#232F3E;fillColor=light-dark(#232F3E0D,#232F3E0D);verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;container=0;pointerEvents=0;fillStyle=auto;fontFamily=Helvetica;" parent="1" vertex="1">
+                    <mxGeometry x="400" y="160" width="680" height="860" as="geometry"/>
+                </mxCell>
+                <mxCell id="bedrock-grp" value="AI / ML" style="fillColor=#E0F2F1;strokeColor=#01A88D;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#01A88D;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" parent="1" vertex="1">
+                    <mxGeometry x="880" y="640" width="120" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="bedrock-icon" value="Amazon Bedrock&lt;div&gt;&lt;i&gt;AI Analysis&lt;/i&gt;&lt;/div&gt;" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#01A88D;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock;fontFamily=Helvetica;shadow=1;" parent="bedrock-grp" vertex="1">
+                    <mxGeometry x="36" y="30" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="redis-grp" value="Database" style="fillColor=#F5E6F7;strokeColor=#C925D1;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#C925D1;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="840" width="120" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="redis-icon" value="ElastiCache&lt;div&gt;&lt;i&gt;Redis&lt;/i&gt;&lt;/div&gt;" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#C925D1;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elasticache;fontFamily=Helvetica;shadow=1;" parent="redis-grp" vertex="1">
+                    <mxGeometry x="36" y="30" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="s3-grp" value="Storage" style="fillColor=#E8F5E9;strokeColor=#3F8624;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#3F8624;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" parent="1" vertex="1">
+                    <mxGeometry x="880" y="840" width="120" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="s3-icon" value="Amazon S3&lt;div&gt;&lt;i&gt;Media + Artifacts&lt;/i&gt;&lt;/div&gt;" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#3F8624;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Helvetica;shadow=1;" parent="s3-grp" vertex="1">
+                    <mxGeometry x="36" y="30" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-1" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="users-icon" target="cf-icon" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="177" y="323"/>
+                            <mxPoint x="256" y="324"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="edge-2" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="cf-icon" target="alb-icon" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-3" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="alb-icon" target="frontend-icon" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-4" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="alb-icon" target="coreapi-icon" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-5" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="alb-icon" target="community-icon" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-6" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="coreapi-icon" target="sqs-icon" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-7" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="sqs-icon" target="lambda-icon" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-8" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="lambda-icon" target="bedrock-icon" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-9" style="html=1;fontFamily=Helvetica;fontSize=11;fontColor=#16191f;endArrow=block;endFill=1;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#16191f;labelBackgroundColor=none;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;" parent="1" source="coreapi-icon" target="aurora-icon" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="badge-1" value="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" parent="1" vertex="1">
+                    <mxGeometry x="148" y="218" width="28" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="badge-2" value="2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" parent="1" vertex="1">
+                    <mxGeometry x="355" y="258" width="28" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="badge-3" value="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="375" width="28" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="badge-4" value="4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" parent="1" vertex="1">
+                    <mxGeometry x="530" y="585" width="28" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="badge-5" value="5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" parent="1" vertex="1">
+                    <mxGeometry x="590" y="632" width="28" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="badge-6" value="6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" parent="1" vertex="1">
+                    <mxGeometry x="810" y="755" width="28" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-bg" value="" style="verticalLabelPosition=bottom;verticalAlign=top;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;fillColor=light-dark(#EDF3FF,#305363);strokeColor=#6c8ebf;fontFamily=Helvetica;" parent="1" vertex="1">
+                    <mxGeometry x="1150" y="30" width="650" height="930" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-container" value="" style="group;fontFamily=Helvetica;" parent="1" connectable="0" vertex="1">
+                    <mxGeometry x="1170" y="55" width="602" height="900" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-title" value="Architecture Steps" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=18;fontStyle=1;fontFamily=Helvetica;labelBackgroundColor=none;" parent="legend-container" vertex="1">
+                    <mxGeometry width="300" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-1-lg" value="" style="group;fontFamily=Helvetica;" parent="legend-container" connectable="0" vertex="1">
+                    <mxGeometry y="45" width="600" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-1-badge-lg" value="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" parent="step-1-lg" vertex="1">
+                    <mxGeometry x="-50" y="2" width="40" height="38" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-1-desc-lg" value="&lt;div&gt;&lt;b&gt;Edge Security&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;Users access QuantTrade through Cloudflare for CDN acceleration, WAF protection, DDoS mitigation, and bot management&lt;/span&gt;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" parent="step-1-lg" vertex="1">
+                    <mxGeometry x="52" width="548" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-2-lg" value="" style="group;fontFamily=Helvetica;" parent="legend-container" connectable="0" vertex="1">
+                    <mxGeometry y="145" width="600" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-2-badge-lg" value="2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" parent="step-2-lg" vertex="1">
+                    <mxGeometry x="-50" y="2" width="40" height="38" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-2-desc-lg" value="&lt;div&gt;&lt;b&gt;Load Balancing&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;ALB terminates HTTPS and distributes traffic to ECS Fargate services using path-based routing rules&lt;/span&gt;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" parent="step-2-lg" vertex="1">
+                    <mxGeometry x="52" width="548" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-3-lg" value="" style="group;fontFamily=Helvetica;" parent="legend-container" connectable="0" vertex="1">
+                    <mxGeometry y="245" width="600" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-3-badge-lg" value="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" parent="step-3-lg" vertex="1">
+                    <mxGeometry x="-50" y="2" width="40" height="38" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-3-desc-lg" value="&lt;div&gt;&lt;b&gt;Compute Services&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;Next.js Frontend serves SSR pages; FastAPI Core API handles auth, market data, and copilot; Community Service manages posts, comments, and feeds&lt;/span&gt;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" parent="step-3-lg" vertex="1">
+                    <mxGeometry x="52" width="548" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-4-lg" value="" style="group;fontFamily=Helvetica;" parent="legend-container" connectable="0" vertex="1">
+                    <mxGeometry y="365" width="600" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-4-badge-lg" value="4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" parent="step-4-lg" vertex="1">
+                    <mxGeometry x="-50" y="2" width="40" height="38" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-4-desc-lg" value="&lt;div&gt;&lt;b&gt;Event-Driven Processing&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;Core API publishes domain events to SQS for async moderation, notification fanout, and feed ranking updates&lt;/span&gt;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" parent="step-4-lg" vertex="1">
+                    <mxGeometry x="52" width="548" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-5-lg" value="" style="group;fontFamily=Helvetica;" parent="legend-container" connectable="0" vertex="1">
+                    <mxGeometry y="465" width="600" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-5-badge-lg" value="5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" parent="step-5-lg" vertex="1">
+                    <mxGeometry x="-50" y="2" width="40" height="38" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-5-desc-lg" value="&lt;div&gt;&lt;b&gt;AI Moderation Pipeline&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;Lambda consumes SQS events and validates financial content via Amazon Bedrock for claim detection, manipulation patterns, and SEC compliance&lt;/span&gt;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" parent="step-5-lg" vertex="1">
+                    <mxGeometry x="52" width="548" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-6-lg" value="" style="group;fontFamily=Helvetica;" parent="legend-container" connectable="0" vertex="1">
+                    <mxGeometry y="585" width="600" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-6-badge-lg" value="6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" parent="step-6-lg" vertex="1">
+                    <mxGeometry x="-50" y="2" width="40" height="38" as="geometry"/>
+                </mxCell>
+                <mxCell id="step-6-desc-lg" value="&lt;div&gt;&lt;b&gt;Data Layer&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;Neon PostgreSQL stores users, posts, and market data with autoscaling and read replicas; ElastiCache Redis caches sessions and feeds; S3 stores media uploads and ML artifacts&lt;/span&gt;&lt;/div&gt;" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" parent="step-6-lg" vertex="1">
+                    <mxGeometry x="52" width="548" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-line-styles-grp" value="Line Styles" style="fillColor=light-dark(#F5F5F5,#29393B);strokeColor=#666666;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#666666;fontFamily=Helvetica;container=1;collapsible=0;" parent="legend-container" vertex="1">
+                    <mxGeometry y="720" width="300" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-line-solid" value="───▶  Data flow" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontFamily=Helvetica;labelBackgroundColor=none;" parent="legend-line-styles-grp" vertex="1">
+                    <mxGeometry x="20" y="30" width="260" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="alb-grp" value="Load Balancing" style="fillColor=#EDE7F6;strokeColor=#8C4FFF;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#8C4FFF;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" parent="1" vertex="1">
+                    <mxGeometry x="660" y="240" width="120" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="alb-icon" value="Elastic Load&lt;br&gt;Balancing&lt;div&gt;&lt;i&gt;HTTPS routing&lt;/i&gt;&lt;/div&gt;" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elastic_load_balancing;fontFamily=Helvetica;shadow=1;" parent="alb-grp" vertex="1">
+                    <mxGeometry x="36" y="30" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="coreapi-grp" value="Compute" style="fillColor=#FFF2E8;strokeColor=#ED7100;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#ED7100;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" parent="1" vertex="1">
+                    <mxGeometry x="660" y="440" width="120" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="coreapi-icon" value="AWS Fargate&lt;div&gt;&lt;i&gt;Core API&lt;/i&gt;&lt;/div&gt;" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.fargate;fontFamily=Helvetica;shadow=1;" parent="coreapi-grp" vertex="1">
+                    <mxGeometry x="36" y="30" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="community-grp" value="Compute" style="fillColor=#FFF2E8;strokeColor=#ED7100;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#ED7100;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" parent="1" vertex="1">
+                    <mxGeometry x="880" y="440" width="120" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="community-icon" value="AWS Fargate&lt;div&gt;&lt;i&gt;Community Svc&lt;/i&gt;&lt;/div&gt;" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.fargate;fontFamily=Helvetica;shadow=1;" parent="community-grp" vertex="1">
+                    <mxGeometry x="36" y="30" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="frontend-grp" value="Compute" style="fillColor=#FFF2E8;strokeColor=#ED7100;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#ED7100;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="440" width="120" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="frontend-icon" value="AWS Fargate&lt;div&gt;&lt;i&gt;Next.js Frontend&lt;/i&gt;&lt;/div&gt;" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.fargate;fontFamily=Helvetica;shadow=1;" parent="frontend-grp" vertex="1">
+                    <mxGeometry x="36" y="30" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="sqs-grp" value="Messaging" style="fillColor=#FCE4EC;strokeColor=#E7157B;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#E7157B;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="640" width="120" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="sqs-icon" value="Amazon SQS&lt;div&gt;&lt;i&gt;Domain Events&lt;/i&gt;&lt;/div&gt;" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.sqs;fontFamily=Helvetica;shadow=1;" parent="sqs-grp" vertex="1">
+                    <mxGeometry x="36" y="30" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="lambda-grp" value="Compute" style="fillColor=#FFF2E8;strokeColor=#ED7100;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#ED7100;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" parent="1" vertex="1">
+                    <mxGeometry x="660" y="640" width="120" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="lambda-icon" value="AWS Lambda&lt;div&gt;&lt;i&gt;Moderation&lt;/i&gt;&lt;/div&gt;" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;fontFamily=Helvetica;shadow=1;" parent="lambda-grp" vertex="1">
+                    <mxGeometry x="36" y="30" width="48" height="48" as="geometry"/>
+                </mxCell>
+                <mxCell id="aurora-grp" value="Database" style="fillColor=#F5E6F7;strokeColor=#C925D1;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#C925D1;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" parent="1" vertex="1">
+                    <mxGeometry x="660" y="840" width="120" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="aurora-icon" value="Neon PostgreSQL&lt;div&gt;&lt;i&gt;Serverless DB&lt;/i&gt;&lt;/div&gt;" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#C925D1;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.rds;fontFamily=Helvetica;shadow=1;" parent="aurora-grp" vertex="1">
+                    <mxGeometry x="36" y="30" width="48" height="48" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
 </mxfile>
