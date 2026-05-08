@@ -16,7 +16,7 @@ function PolymarketEmbed({ slug }: { slug: string }) {
         width="100%"
         height={280}
         frameBorder="0"
-        allowTransparency
+        allowtransparency=""
         className="block w-full"
         loading="lazy"
       />

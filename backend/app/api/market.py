@@ -674,11 +674,30 @@ async def _load_movers_universe(
         print(f"load_sp500_performances failed; using fast movers subset: {e}")
 
     fast_rows = _fast_mover_symbol_rows()
-    stocks = await fetch_bulk_quotes(fast_rows, db, force_refresh=force_refresh)
-    if not stocks and not force_refresh:
-        stocks = await fetch_bulk_quotes(fast_rows, db, force_refresh=True)
-    if not stocks:
-        stocks = await _yfinance_fallback_performances(db, fast_rows, max_symbols=90)
+    try:
+        stocks = await asyncio.wait_for(
+            fetch_bulk_quotes(fast_rows, db, force_refresh=force_refresh),
+            timeout=12.0,
+        )
+        if not stocks and not force_refresh:
+            stocks = await asyncio.wait_for(
+                fetch_bulk_quotes(fast_rows, db, force_refresh=True),
+                timeout=12.0,
+            )
+    except asyncio.TimeoutError:
+        print("fetch_bulk_quotes (fast subset) timed out")
+        stocks = []
+    if stocks:
+        return stocks
+
+    try:
+        stocks = await asyncio.wait_for(
+            _yfinance_fallback_performances(db, fast_rows, max_symbols=90),
+            timeout=15.0,
+        )
+    except asyncio.TimeoutError:
+        print("_yfinance_fallback_performances timed out")
+        stocks = []
     return stocks
 
 
@@ -951,14 +970,17 @@ async def get_top_gainers(
     Get top gaining stocks with real data.
     NO FAKE DATA - returns only stocks with available quotes.
     """
+    if not force_refresh:
+        cached = _load_cached_mover_rows(db)
+        if cached:
+            cached.sort(key=lambda x: x.change_percent, reverse=True)
+            gainers = [s for s in cached if s.change_percent > 0]
+            if gainers:
+                return gainers[:limit]
+
     all_stocks = await _load_movers_universe(db, force_refresh=force_refresh)
-
-    # Sort by gain (highest positive change first)
     all_stocks.sort(key=lambda x: x.change_percent, reverse=True)
-
-    # Return only positive gainers — no abs() fallback to avoid misrepresenting losers as gainers
     gainers = [s for s in all_stocks if s.change_percent > 0]
-
     return gainers[:limit]
 
 
@@ -972,14 +994,17 @@ async def get_top_losers(
     Get top losing stocks with real data.
     NO FAKE DATA - returns only stocks with available quotes.
     """
+    if not force_refresh:
+        cached = _load_cached_mover_rows(db)
+        if cached:
+            cached.sort(key=lambda x: x.change_percent)
+            losers = [s for s in cached if s.change_percent < 0]
+            if losers:
+                return losers[:limit]
+
     all_stocks = await _load_movers_universe(db, force_refresh=force_refresh)
-
-    # Sort by loss (most negative first)
     all_stocks.sort(key=lambda x: x.change_percent)
-
-    # Return only negative losers — no abs() fallback to avoid misrepresenting gainers as losers
     losers = [s for s in all_stocks if s.change_percent < 0]
-
     return losers[:limit]
 
 

@@ -392,7 +392,7 @@ async def get_realtime_news(
 
 
 @router.get("/news/{symbol}/yfinance", response_model=List[NewsArticleResponse])
-async def get_yfinance_news(symbol: str, limit: int = Query(20, ge=1, le=50)):
+def get_yfinance_news(symbol: str, limit: int = Query(20, ge=1, le=50)):
     """Get news exclusively from yfinance (fastest)"""
     try:
         articles = RealtimeNewsFetcher.fetch_yfinance_news(symbol, limit)
@@ -403,7 +403,7 @@ async def get_yfinance_news(symbol: str, limit: int = Query(20, ge=1, le=50)):
 
 
 @router.get("/news/market/breaking")
-async def get_breaking_market_news(limit: int = Query(10, ge=1, le=50)):
+def get_breaking_market_news(limit: int = Query(10, ge=1, le=50)):
     """
     Get breaking market news from multiple sources.
     Combines Google News RSS (multiple queries), yfinance (market ETFs),

@@ -6,6 +6,7 @@ compute_features() is the canonical feature function — used by BOTH training a
 from __future__ import annotations
 
 import logging
+import random
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -53,14 +54,16 @@ def download_symbol(
                 pass  # re-download on read failure
 
     # Download with retry (yfinance can have transient 404s/rate limits)
-    max_retries = 2
+    # Jitter before first attempt to spread load when multiple shards start simultaneously
+    time.sleep(random.uniform(0, 0.5))
+    max_retries = 3
     for attempt in range(max_retries + 1):
         try:
             tk = yf.Ticker(symbol)
             df = tk.history(period=period, auto_adjust=True)
             if df.empty:
                 if attempt < max_retries:
-                    time.sleep(1 + attempt)
+                    time.sleep(2 ** attempt + random.uniform(0, 1))
                     continue
                 logger.warning(f"No data for {symbol} after {max_retries + 1} attempts")
                 return pd.DataFrame()
@@ -80,7 +83,7 @@ def download_symbol(
         except Exception as e:
             if attempt < max_retries:
                 logger.warning(f"Retry {attempt + 1}/{max_retries} for {symbol}: {e}")
-                time.sleep(2 + attempt * 2)
+                time.sleep(2 ** attempt + random.uniform(0, 2))
                 continue
             logger.error(f"Failed to download {symbol} after {max_retries + 1} attempts: {e}")
             # Fall back to stale cache if available
@@ -99,7 +102,7 @@ def download_bulk(
     symbols: list[str],
     period: str = "max",
     cache_dir: Path | str = DEFAULT_CACHE_DIR,
-    max_workers: int = 8,
+    max_workers: int = 4,
 ) -> dict[str, pd.DataFrame]:
     """Download multiple symbols in parallel."""
     results: dict[str, pd.DataFrame] = {}

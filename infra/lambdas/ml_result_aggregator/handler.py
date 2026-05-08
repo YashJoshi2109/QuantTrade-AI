@@ -33,10 +33,19 @@ def handler(event, context):
         logger.error("No run_id in event: %s", json.dumps(event)[:200])
         return {"status": "error", "message": "no run_id"}
 
-    success_shards = sum(
-        1 for r in shard_results
-        if isinstance(r, dict) and r.get("status") != "failed" and "error" not in r
-    )
+    def _is_shard_success(r: object) -> bool:
+        if not isinstance(r, dict):
+            return False
+        # SFN error payloads use capitalized "Error"/"Cause" keys
+        if "Error" in r or "Cause" in r:
+            return False
+        # batch-callback payload uses lowercase "error"
+        if "error" in r:
+            return False
+        status = r.get("status", "")
+        return status not in ("failed", "error", "FAILED")
+
+    success_shards = sum(1 for r in shard_results if _is_shard_success(r))
     failed_shards = len(shard_results) - success_shards
 
     if failed_shards == 0:

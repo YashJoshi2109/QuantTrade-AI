@@ -33,27 +33,66 @@ export interface ExchangeSector {
   stocks: ExchangeStockQuote[]
 }
 
-// ─── Yahoo Finance chart API (primary) ────────────────────────────────────
-async function fetchYahooQuote(symbol: string): Promise<{
+type QuoteResult = {
   price: number
   change: number
   change_percent: number
   volume: number
   market_cap: number
   currency: string
-} | null> {
+}
+
+const YF_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  Accept: 'application/json',
+  Referer: 'https://finance.yahoo.com/',
+}
+
+// ─── Yahoo Finance bulk quote API (primary) ───────────────────────────────
+async function fetchYahooBulk(symbols: string[]): Promise<Map<string, QuoteResult>> {
+  const map = new Map<string, QuoteResult>()
+  if (symbols.length === 0) return map
+  // Process in chunks of 100 to stay under Yahoo's URL length limit
+  const CHUNK = 100
+  const chunks: string[][] = []
+  for (let i = 0; i < symbols.length; i += CHUNK) chunks.push(symbols.slice(i, i + CHUNK))
+
+  await Promise.allSettled(
+    chunks.map(async (chunk) => {
+      try {
+        const encoded = chunk.map(encodeURIComponent).join(',')
+        const res = await fetch(
+          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encoded}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketVolume,marketCap,currency&formatted=false`,
+          { headers: YF_HEADERS, next: { revalidate: 120 } }
+        )
+        if (!res.ok) return
+        const data = await res.json()
+        const results: Record<string, unknown>[] = data?.quoteResponse?.result ?? []
+        for (const q of results) {
+          const sym = String(q.symbol ?? '')
+          const price = Number(q.regularMarketPrice ?? 0)
+          if (!sym || price <= 0) continue
+          map.set(sym, {
+            price,
+            change: Number(q.regularMarketChange ?? 0),
+            change_percent: Number(q.regularMarketChangePercent ?? 0),
+            volume: Number(q.regularMarketVolume ?? 0),
+            market_cap: Number(q.marketCap ?? 0),
+            currency: String(q.currency ?? 'USD'),
+          })
+        }
+      } catch { /* silent */ }
+    })
+  )
+  return map
+}
+
+// ─── Yahoo Finance chart API (per-symbol fallback) ───────────────────────
+async function fetchYahooQuote(symbol: string): Promise<QuoteResult | null> {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Accept: 'application/json',
-        Referer: 'https://finance.yahoo.com/',
-      },
-      next: { revalidate: 120 },
-    })
+    const res = await fetch(url, { headers: YF_HEADERS, next: { revalidate: 120 } })
     if (!res.ok) return null
-
     const data = await res.json()
     const meta = data?.chart?.result?.[0]?.meta
     if (!meta) return null
@@ -76,36 +115,43 @@ async function fetchYahooQuote(symbol: string): Promise<{
 }
 
 // ─── FMP batch quote fallback ─────────────────────────────────────────────
-async function fetchFMPBatch(symbols: string[]): Promise<Map<string, ReturnType<typeof fetchYahooQuote> extends Promise<infer T> ? NonNullable<T> : never>> {
-  const map = new Map<string, { price: number; change: number; change_percent: number; volume: number; market_cap: number; currency: string }>()
+async function fetchFMPBatch(symbols: string[]): Promise<Map<string, QuoteResult>> {
+  const map = new Map<string, QuoteResult>()
   if (!FMP_KEY || symbols.length === 0) return map
-  try {
-    const encoded = symbols.map(encodeURIComponent).join(',')
-    const res = await fetch(
-      `https://financialmodelingprep.com/api/v3/quote/${encoded}?apikey=${FMP_KEY}`,
-      { next: { revalidate: 120 } }
-    )
-    if (!res.ok) return map
-    const data: Record<string, unknown>[] = await res.json()
-    if (!Array.isArray(data)) return map
-    for (const q of data) {
-      const sym = String(q.symbol ?? '')
-      if (!sym) continue
-      const price = Number(q.price ?? 0)
-      if (price <= 0) continue
-      const prev = Number(q.previousClose ?? price)
-      map.set(sym, {
-        price,
-        change: Number(q.change ?? price - prev),
-        change_percent: Number(q.changesPercentage ?? 0),
-        volume: Number(q.volume ?? 0),
-        market_cap: Number(q.marketCap ?? 0),
-        currency: String(q.currency ?? 'USD'),
-      })
-    }
-  } catch {
-    // silent
-  }
+  // FMP /quote/ accepts unlimited comma-separated symbols; chunk to 100 to be safe
+  const CHUNK = 100
+  const chunks: string[][] = []
+  for (let i = 0; i < symbols.length; i += CHUNK) chunks.push(symbols.slice(i, i + CHUNK))
+
+  await Promise.allSettled(
+    chunks.map(async (chunk) => {
+      try {
+        const encoded = chunk.map(encodeURIComponent).join(',')
+        const res = await fetch(
+          `https://financialmodelingprep.com/api/v3/quote/${encoded}?apikey=${FMP_KEY}`,
+          { next: { revalidate: 120 } }
+        )
+        if (!res.ok) return
+        const data: Record<string, unknown>[] = await res.json()
+        if (!Array.isArray(data)) return
+        for (const q of data) {
+          const sym = String(q.symbol ?? '')
+          if (!sym) continue
+          const price = Number(q.price ?? 0)
+          if (price <= 0) continue
+          const prev = Number(q.previousClose ?? price)
+          map.set(sym, {
+            price,
+            change: Number(q.change ?? price - prev),
+            change_percent: Number(q.changesPercentage ?? 0),
+            volume: Number(q.volume ?? 0),
+            market_cap: Number(q.marketCap ?? 0),
+            currency: String(q.currency ?? 'USD'),
+          })
+        }
+      } catch { /* silent */ }
+    })
+  )
   return map
 }
 
@@ -163,7 +209,7 @@ async function fetchUniverseStocks(universeKey: string, limit: number): Promise<
   try {
     const exchangeParam = fmpExchanges.join(',')
     const res = await fetch(
-      `https://financialmodelingprep.com/api/v3/stock-screener?exchange=${encodeURIComponent(exchangeParam)}&marketCapMoreThan=500000000&isActivelyTrading=true&limit=${Math.min(limit * 2, 500)}&sortBy=marketCap&sortOrder=desc&apikey=${FMP_KEY}`,
+      `https://financialmodelingprep.com/api/v3/stock-screener?exchange=${encodeURIComponent(exchangeParam)}&marketCapMoreThan=500000000&limit=${Math.min(limit * 2, 500)}&sortBy=marketCap&sortOrder=desc&apikey=${FMP_KEY}`,
       { next: { revalidate: 21600 } }
     )
     if (!res.ok) return []
@@ -252,29 +298,26 @@ export async function GET(request: NextRequest) {
 
   const symbols = uniqueStocks.map((s) => s.symbol)
 
-  // 1. Yahoo Finance parallel fetch
-  const BATCH_SIZE = 20
-  const yfResults: Map<string, { price: number; change: number; change_percent: number; volume: number; market_cap: number; currency: string } | null> = new Map()
+  // 1. Yahoo Finance bulk fetch (all symbols in parallel chunks of 100)
+  const yfResults = await fetchYahooBulk(symbols)
 
-  // Process in batches of 20 to avoid overwhelming Yahoo Finance
-  for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
-    const batch = symbols.slice(i, i + BATCH_SIZE)
-    const results = await Promise.allSettled(batch.map((s) => fetchYahooQuote(s)))
-    for (let j = 0; j < batch.length; j++) {
-      const r = results[j]
-      yfResults.set(batch[j], r.status === 'fulfilled' ? r.value : null)
+  // 2. Per-symbol chart fallback for any Yahoo bulk misses, then FMP for remainder
+  const bulkMissed = symbols.filter((s) => !yfResults.has(s))
+
+  // Try individual Yahoo chart calls for missed symbols (parallel, no batching)
+  if (bulkMissed.length > 0) {
+    const chartResults = await Promise.allSettled(bulkMissed.map((s) => fetchYahooQuote(s)))
+    for (let i = 0; i < bulkMissed.length; i++) {
+      const r = chartResults[i]
+      if (r.status === 'fulfilled' && r.value) yfResults.set(bulkMissed[i], r.value)
     }
   }
 
-  // 2. Collect failed symbols for FMP fallback
-  const failedSymbols = symbols.filter((s) => {
-    const q = yfResults.get(s)
-    return !q || q.price <= 0
-  })
+  // 3. FMP batch fallback for all remaining failures (no symbol cap)
+  const failedSymbols = symbols.filter((s) => !yfResults.has(s))
+  const fmpMap = await fetchFMPBatch(failedSymbols)
 
-  const fmpMap = await fetchFMPBatch(failedSymbols.slice(0, 25)) // FMP limit
-
-  // 3. Build sector groups
+  // 4. Build sector groups
   const sectorMap: Record<string, ExchangeStockQuote[]> = {}
 
   for (const stock of uniqueStocks) {

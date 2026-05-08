@@ -201,7 +201,7 @@ async function fetchFMPExchangeMovers(
     const url =
       `https://financialmodelingprep.com/api/v3/stock-screener` +
       `?exchange=${exchangeCode}&limit=${count * 2}&sortBy=changePercentage&sortOrder=${sortOrder}` +
-      `&isActivelyTrading=true&apikey=${FMP_KEY}`
+      `&apikey=${FMP_KEY}`
     const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) return []
     const data: Record<string, unknown>[] = await res.json()
@@ -337,7 +337,7 @@ async function fmpContinentActives(continent: string, count: number): Promise<Gl
     codes.map(async (c) => {
       try {
         const res = await fetch(
-          `https://financialmodelingprep.com/api/v3/stock-screener?exchange=${c}&limit=${count * 2}&sortBy=volume&sortOrder=desc&isActivelyTrading=true&apikey=${FMP_KEY}`,
+          `https://financialmodelingprep.com/api/v3/stock-screener?exchange=${c}&limit=${count * 2}&sortBy=volume&sortOrder=desc&apikey=${FMP_KEY}`,
           { cache: 'no-store' }
         )
         if (!res.ok) return []

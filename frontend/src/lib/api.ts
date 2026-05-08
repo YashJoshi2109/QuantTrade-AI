@@ -1383,28 +1383,10 @@ export async function fetchMarketMovers(forceRefresh: boolean = false): Promise<
     if (forceRefresh) {
       url.searchParams.append('force_refresh', 'true')
     }
-    const response = await fetchWithTimeout(url.toString(), 60_000)
+    const response = await fetchWithTimeout(url.toString(), 15_000)
     const data = await parseJsonSafe<MarketMovers>(response)
     if (data && (data.gainers?.length > 0 || data.losers?.length > 0)) {
       return { ...data, updated_at: data.updated_at || updatedAt() }
-    }
-
-    if (!forceRefresh) {
-      const forceUrl = new URL(`${API_URL}/api/v1/market/movers`)
-      forceUrl.searchParams.append('force_refresh', 'true')
-      const forceResponse = await fetchWithTimeout(forceUrl.toString(), 60_000)
-      const forceData = await parseJsonSafe<MarketMovers>(forceResponse)
-      if (forceData && (forceData.gainers?.length > 0 || forceData.losers?.length > 0)) {
-        return { ...forceData, updated_at: forceData.updated_at || updatedAt() }
-      }
-    }
-
-    const [gainers, losers] = await Promise.all([
-      fetchTopGainers(10, true),
-      fetchTopLosers(10, true),
-    ])
-    if (gainers.length > 0 || losers.length > 0) {
-      return { gainers, losers, updated_at: updatedAt() }
     }
 
     if (!response.ok) {
@@ -1418,15 +1400,7 @@ export async function fetchMarketMovers(forceRefresh: boolean = false): Promise<
     }
   } catch (error) {
     console.error('Error fetching market movers:', error)
-    try {
-      const [gainers, losers] = await Promise.all([
-        fetchTopGainers(10, true),
-        fetchTopLosers(10, true),
-      ])
-      return { gainers, losers, updated_at: updatedAt() }
-    } catch {
-      return { gainers: [], losers: [], updated_at: updatedAt() }
-    }
+    return { gainers: [], losers: [], updated_at: updatedAt() }
   }
 }
 
@@ -1452,7 +1426,7 @@ export async function fetchTopGainers(limit: number = 10, forceRefresh: boolean 
   }
   
   try {
-    const response = await fetchWithTimeout(url.toString(), 60_000)
+    const response = await fetchWithTimeout(url.toString(), 15_000)
     if (!response.ok) {
       throw new Error(`Failed to fetch top gainers: ${response.status}`)
     }
@@ -1470,9 +1444,9 @@ export async function fetchTopLosers(limit: number = 10, forceRefresh: boolean =
   if (forceRefresh) {
     url.searchParams.append('force_refresh', 'true')
   }
-  
+
   try {
-    const response = await fetchWithTimeout(url.toString(), 60_000)
+    const response = await fetchWithTimeout(url.toString(), 15_000)
     if (!response.ok) {
       throw new Error(`Failed to fetch top losers: ${response.status}`)
     }

@@ -530,7 +530,8 @@ function getHeatColor(pct: number): string {
   if (pct >= 2) return '#15803d'
   if (pct >= 1) return '#16a34a'
   if (pct >= 0.5) return '#22c55e'
-  if (pct > 0) return '#4ade80'
+  if (pct > 0.1) return '#4ade80'
+  if (pct >= -0.1) return '#475569'   // flat / 0% → slate neutral, not red
   if (pct >= -0.5) return '#f87171'
   if (pct >= -1) return '#ef4444'
   if (pct >= -2) return '#dc2626'
@@ -543,8 +544,9 @@ function SessionChangeLegendStrip({ className = '' }: { className?: string }) {
     '#7f1d1d',
     '#b91c1c',
     '#dc2626',
+    '#ef4444',
     '#f87171',
-    '#64748b',
+    '#475569',
     '#4ade80',
     '#22c55e',
     '#16a34a',

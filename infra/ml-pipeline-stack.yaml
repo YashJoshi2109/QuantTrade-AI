@@ -239,9 +239,9 @@ Resources:
         ExecutionRoleArn: !GetAtt BatchExecutionRole.Arn
         ResourceRequirements:
           - Type: VCPU
-            Value: '1'
+            Value: '2'
           - Type: MEMORY
-            Value: '2048'
+            Value: '4096'
         NetworkConfiguration:
           AssignPublicIp: ENABLED
         Environment:
@@ -263,7 +263,7 @@ Resources:
             Value: https://www.quanttrade.us
         Secrets:
           - Name: ML_CALLBACK_SECRET
-            ValueFrom: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:quanttrade/ml-pipeline-hzDIpH:ML_CALLBACK_SECRET::
+            ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:quanttrade/ml-pipeline-hzDIpH:ML_CALLBACK_SECRET::"
         LogConfiguration:
           LogDriver: awslogs
           Options:

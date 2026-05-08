@@ -63,7 +63,7 @@ async function fetchFMPScreener(exchanges: string[], limit: number): Promise<Uni
   if (!FMP_KEY) return []
   try {
     const exchangeParam = exchanges.join(',')
-    const url = `https://financialmodelingprep.com/api/v3/stock-screener?exchange=${encodeURIComponent(exchangeParam)}&marketCapMoreThan=100000000&isActivelyTrading=true&limit=${Math.min(limit * 2, 500)}&sortBy=marketCap&sortOrder=desc&apikey=${FMP_KEY}`
+    const url = `https://financialmodelingprep.com/api/v3/stock-screener?exchange=${encodeURIComponent(exchangeParam)}&marketCapMoreThan=100000000&limit=${Math.min(limit * 2, 500)}&sortBy=marketCap&sortOrder=desc&apikey=${FMP_KEY}`
     const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) return []
     const data: Record<string, unknown>[] = await res.json()

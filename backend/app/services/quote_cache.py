@@ -385,6 +385,15 @@ class QuoteCacheService:
         # 1. Public.com (real-time quotes)
         quote = await self._fetch_from_public(symbol)
         if quote and quote.get('price') and quote.get('price') > 0:
+            # Public.com may return change_percent=0 after market close when
+            # oneDayChange is absent and previousClose is unavailable.
+            # Supplement with Yahoo Direct change data in that case.
+            if not quote.get('change_percent') and not quote.get('change'):
+                yahoo = await self._fetch_from_yahoo_direct(symbol)
+                if yahoo and (yahoo.get('change_percent') or yahoo.get('change')):
+                    quote['change'] = yahoo.get('change', 0)
+                    quote['change_percent'] = yahoo.get('change_percent', 0)
+                    quote['previous_close'] = yahoo.get('previous_close', 0)
             return quote
 
         # 2. Yahoo Finance direct API
