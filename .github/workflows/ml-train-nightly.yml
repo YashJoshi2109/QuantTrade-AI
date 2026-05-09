@@ -206,6 +206,18 @@ jobs:
 
           PYEOF
 
+      - name: Evaluate model quality
+        if: always()
+        working-directory: ./backend
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+        run: |
+          # Produce model_card.json — exits 1 if any horizon fails hard floor
+          # Non-zero exit marks the step failed but does NOT block artifact uploads
+          python -m ml.model_evaluator \
+            --summary ml/train_summary.json \
+            --card ml/model_card.json || echo "EVAL_FAILED=true" >> $GITHUB_ENV
+
       - name: Training summary
         if: always()
         working-directory: ./backend
@@ -218,6 +230,9 @@ jobs:
           echo ""
           echo "=== Experiments ==="
           ls ml/experiments/ 2>/dev/null | wc -l | xargs echo "Total experiment runs:"
+          echo ""
+          echo "=== Model Card ==="
+          cat ml/model_card.json 2>/dev/null || echo "No model card"
 
       - name: Upload checkpoints
         uses: actions/upload-artifact@v4
@@ -252,3 +267,61 @@ jobs:
           name: ml-experiments-${{ matrix.label }}-${{ github.run_id }}
           path: backend/ml/experiments/
           retention-days: 30
+
+      - name: Upload model card
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ml-model-card-${{ matrix.label }}-${{ github.run_id }}
+          path: backend/ml/model_card.json
+          retention-days: 90
+
+      # ── Post-training smoke test ────────────────────────────────
+      # Hit the live prediction endpoint to verify the full chain:
+      # checkpoint → inference endpoint → response 200
+      # Runs only when training completed (not on pure failures).
+      - name: Smoke test prediction endpoint
+        if: success()
+        env:
+          QUANTTRADE_API_BASE: ${{ secrets.QUANTTRADE_API_BASE_URL || 'https://www.quanttrade.us' }}
+        run: |
+          echo "Smoke testing prediction endpoint..."
+          MAX_RETRIES=5
+          DELAY=10
+          for i in $(seq 1 $MAX_RETRIES); do
+            HTTP=$(curl -s -o /tmp/pred_response.json -w "%{http_code}" \
+              "${QUANTTRADE_API_BASE}/api/v1/predictions/AAPL?horizon=1" \
+              --max-time 15)
+            echo "Attempt $i: HTTP $HTTP"
+            if [ "$HTTP" = "200" ]; then
+              echo "=== Prediction response ==="
+              cat /tmp/pred_response.json
+              # Validate required fields exist
+              python3 -c "
+          import json, sys
+          d = json.load(open('/tmp/pred_response.json'))
+          required = ['symbol','horizon','predicted_return','predicted_direction','confidence','model_version']
+          missing = [k for k in required if k not in d]
+          if missing:
+              print(f'MISSING FIELDS: {missing}', file=sys.stderr)
+              sys.exit(1)
+          print(f'OK: symbol={d[\"symbol\"]} dir={d[\"predicted_direction\"]} conf={d[\"confidence\"]} ver={d[\"model_version\"]}')
+          "
+              exit 0
+            fi
+            echo "Not 200 — waiting ${DELAY}s"
+            sleep $DELAY
+          done
+          echo "Smoke test FAILED after $MAX_RETRIES attempts"
+          exit 1
+
+      # Eval gate: fail the job if model evaluation floors were not met
+      - name: Enforce eval gate
+        if: always()
+        run: |
+          if [ "$EVAL_FAILED" = "true" ]; then
+            echo "Model evaluation gate FAILED — one or more horizons below floor."
+            echo "This run will NOT be promoted to production."
+            exit 1
+          fi
+          echo "Eval gate OK."
