@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 from ml.constants import NUM_FEATURES
 from ml.dataset import StockDataset
 from ml.model import LSTMPredictor
+from ml.model import TransformerEncoderBlock
 from ml.train import train_one_epoch, evaluate_epoch, EarlyStopping, HybridDirectionalLoss
 
 
@@ -154,6 +155,40 @@ class TestHybridDirectionalLoss:
         assert abs(float(got) - float(expected)) < 1e-5
 
 
+class TestTransformerEncoderBlock:
+    def test_shape_preserved(self):
+        """Block must preserve (batch, seq_len, hidden_size) shape."""
+        block = TransformerEncoderBlock(hidden_size=32, num_heads=4, ffn_dim=128, dropout=0.0)
+        block.eval()
+        x = torch.randn(4, 60, 32)
+        with torch.no_grad():
+            out = block(x)
+        assert out.shape == (4, 60, 32)
+
+    def test_both_add_norm_layers_present(self):
+        """Block must have norm1 (after MHA) and norm2 (after FFN)."""
+        block = TransformerEncoderBlock(hidden_size=32, num_heads=4, ffn_dim=128, dropout=0.0)
+        assert isinstance(block.norm1, nn.LayerNorm)
+        assert isinstance(block.norm2, nn.LayerNorm)
+
+    def test_ffn_has_correct_expansion(self):
+        """FFN must expand hidden_size → ffn_dim → hidden_size."""
+        block = TransformerEncoderBlock(hidden_size=32, num_heads=4, ffn_dim=128, dropout=0.0)
+        assert block.ffn[0].in_features == 32
+        assert block.ffn[0].out_features == 128
+        assert block.ffn[3].in_features == 128
+        assert block.ffn[3].out_features == 32
+
+    def test_no_nan_output(self):
+        block = TransformerEncoderBlock(hidden_size=16, num_heads=4, ffn_dim=64, dropout=0.0)
+        block.eval()
+        x = torch.randn(2, 30, 16)
+        with torch.no_grad():
+            out = block(x)
+        assert not torch.isnan(out).any()
+        assert not torch.isinf(out).any()
+
+
 class TestImprovedModelArchitecture:
     def test_forward_shape(self):
         model = LSTMPredictor(input_size=NUM_FEATURES, hidden_size=32, num_layers=2)
@@ -170,20 +205,41 @@ class TestImprovedModelArchitecture:
         assert isinstance(model.input_proj[0], nn.Linear)
         assert isinstance(model.input_proj[1], nn.LayerNorm)
 
-    def test_mha_present(self):
-        """Model must have multi-head attention."""
+    def test_encoder_blocks_present(self):
+        """Model must have stacked TransformerEncoderBlocks."""
+        model = LSTMPredictor(input_size=NUM_FEATURES, hidden_size=32, num_layers=1, num_encoder_blocks=2)
+        assert hasattr(model, "encoder_blocks")
+        assert isinstance(model.encoder_blocks, nn.ModuleList)
+        assert len(model.encoder_blocks) == 2
+        assert all(isinstance(b, TransformerEncoderBlock) for b in model.encoder_blocks)
+
+    def test_num_encoder_blocks_configurable(self):
+        """Different block counts should produce correct ModuleList sizes."""
+        for n in [1, 2, 3]:
+            m = LSTMPredictor(input_size=NUM_FEATURES, hidden_size=16, num_layers=1, num_encoder_blocks=n)
+            assert len(m.encoder_blocks) == n
+
+    def test_each_block_has_ffn_and_both_norms(self):
+        """Each block must have FFN + norm1 + norm2 (both Add&Norm layers)."""
+        model = LSTMPredictor(input_size=NUM_FEATURES, hidden_size=32, num_layers=1, num_encoder_blocks=2)
+        for block in model.encoder_blocks:
+            assert isinstance(block.norm1, nn.LayerNorm)
+            assert isinstance(block.norm2, nn.LayerNorm)
+            assert isinstance(block.ffn, nn.Sequential)
+
+    def test_ffn_uses_4x_expansion(self):
+        """FFN hidden dim should be 4× the model hidden_size."""
         model = LSTMPredictor(input_size=NUM_FEATURES, hidden_size=32, num_layers=1)
-        assert hasattr(model, "mha")
-        assert isinstance(model.mha, nn.MultiheadAttention)
+        for block in model.encoder_blocks:
+            assert block.ffn[0].out_features == 4 * 32  # 128
 
     def test_num_heads_auto_corrected(self):
         """num_heads that doesn't divide hidden_size must be auto-corrected."""
-        # hidden=8, num_heads=3 → should auto-correct to 2 (largest divisor ≤ 3)
         model = LSTMPredictor(input_size=NUM_FEATURES, hidden_size=8, num_layers=1, num_heads=3)
-        assert model.mha.num_heads in (1, 2, 4, 8)
+        for block in model.encoder_blocks:
+            assert block.mha.num_heads in (1, 2, 4, 8)
 
     def test_no_nan_output(self):
-        """Forward pass should never produce NaN."""
         model = LSTMPredictor(input_size=NUM_FEATURES, hidden_size=32, num_layers=2, dropout=0.0)
         model.eval()
         x = torch.randn(8, 60, NUM_FEATURES)

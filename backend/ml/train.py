@@ -220,6 +220,7 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
         num_layers=config.num_layers,
         dropout=config.dropout,
         num_heads=getattr(config, "num_attention_heads", 4),
+        num_encoder_blocks=getattr(config, "num_encoder_blocks", 2),
     ).to(device)
     logger.info(f"Model: {sum(p.numel() for p in model.parameters()):,} parameters")
 

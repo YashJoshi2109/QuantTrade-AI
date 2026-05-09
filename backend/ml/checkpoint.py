@@ -30,6 +30,7 @@ class CheckpointMetadata:
     num_layers: int = 3
     dropout: float = 0.2
     num_attention_heads: int = 4
+    num_encoder_blocks: int = 2
     feature_columns: list[str] | None = None
     scaler_type: str = "standard"
     target_mode: str = "log_return"
@@ -83,7 +84,8 @@ def save_checkpoint(
         hidden_size=model.hidden_size if hasattr(model, "hidden_size") else 128,
         num_layers=model.num_layers if hasattr(model, "num_layers") else 3,
         dropout=model.dropout.p if hasattr(model, "dropout") else 0.2,
-        num_attention_heads=model.mha.num_heads if hasattr(model, "mha") else 4,
+        num_attention_heads=model.encoder_blocks[0].mha.num_heads if hasattr(model, "encoder_blocks") and model.encoder_blocks else 4,
+        num_encoder_blocks=len(model.encoder_blocks) if hasattr(model, "encoder_blocks") else 2,
         feature_columns=list(FEATURE_COLUMNS),
         scaler_type=type(scaler).__name__.lower().replace("scaler", ""),
         target_mode=getattr(config, "target_mode", "log_return"),
@@ -131,13 +133,14 @@ def load_checkpoint(
                 f"current features {FEATURE_COLUMNS}"
             )
 
-    # Reconstruct model — use metadata fields with defaults for pre-MHA checkpoints
+    # Reconstruct model — defaults handle pre-architecture-upgrade checkpoints
     model = LSTMPredictor(
         input_size=metadata.input_size,
         hidden_size=metadata.hidden_size,
         num_layers=metadata.num_layers,
         dropout=metadata.dropout,
         num_heads=getattr(metadata, "num_attention_heads", 4),
+        num_encoder_blocks=getattr(metadata, "num_encoder_blocks", 2),
     )
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)

@@ -36,6 +36,7 @@ class TrainConfig:
     num_layers: int = DEFAULT_NUM_LAYERS
     dropout: float = DEFAULT_DROPOUT
     num_attention_heads: int = 4
+    num_encoder_blocks: int = 2      # Transformer encoder blocks after LSTM
 
     # ── Loss ───────────────────────────────────────────────────────────
     use_hybrid_loss: bool = False     # alpha*MSE + (1-alpha)*BCE(direction)

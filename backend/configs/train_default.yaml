@@ -20,6 +20,7 @@ hidden_size: 128           # LSTM hidden units (keep 128 for CI 3h timeout safet
 num_layers: 3              # 3-layer LSTM with multi-head attention
 dropout: 0.2               # regularization
 num_attention_heads: 4     # MHA heads — must divide hidden_size (128/4=32 per head)
+num_encoder_blocks: 2     # stacked Transformer encoder blocks (MHA→Add&Norm→FFN→Add&Norm)
 
 # ── Loss ──────────────────────────────────────────────────────────────
 use_hybrid_loss: true      # alpha*MSE + (1-alpha)*BCE(direction) — directly optimizes DA

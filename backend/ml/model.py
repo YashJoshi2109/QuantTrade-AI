@@ -1,7 +1,7 @@
 """LSTM model definition — single source of truth.
 
 Both training (ml.train) and inference (lstm_prediction_service) import from here.
-Architecture: input projection → N-layer LSTM → multi-head temporal attention → FC head.
+Architecture: input projection → N-layer LSTM → M×TransformerEncoderBlock → output head.
 """
 
 import torch
@@ -10,13 +10,53 @@ import torch.nn as nn
 from ml.constants import NUM_FEATURES, DEFAULT_HIDDEN_SIZE, DEFAULT_NUM_LAYERS, DEFAULT_DROPOUT
 
 
-class LSTMPredictor(nn.Module):
-    """Multi-head attention LSTM for time-series return prediction.
+class TransformerEncoderBlock(nn.Module):
+    """Full Transformer encoder block: MHA → Add&Norm → FFN → Add&Norm.
 
-    Improvements over scalar-attention baseline:
-    - Input LayerNorm projection: normalizes raw features before LSTM, improves gradient flow
-    - Multi-head temporal attention: richer time-step weighting vs. single linear
-    - Residual skip from last hidden state: gradient stability + preserves recency signal
+    Matches the encoder side of "Attention Is All You Need" (Vaswani et al., 2017).
+    Both Add&Norm operations use post-norm style: LayerNorm(x + sublayer(x)).
+
+    Input/Output: (batch, seq_len, hidden_size)
+    """
+
+    def __init__(
+        self,
+        hidden_size: int,
+        num_heads: int,
+        ffn_dim: int,
+        dropout: float,
+    ):
+        super().__init__()
+        self.mha = nn.MultiheadAttention(
+            hidden_size, num_heads, dropout=dropout, batch_first=True,
+        )
+        self.norm1 = nn.LayerNorm(hidden_size)   # Add & Norm after MHA
+        self.ffn = nn.Sequential(
+            nn.Linear(hidden_size, ffn_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(ffn_dim, hidden_size),
+        )
+        self.norm2 = nn.LayerNorm(hidden_size)   # Add & Norm after FFN
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Self-attention: all timesteps attend to all timesteps
+        attn_out, _ = self.mha(x, x, x)
+        x = self.norm1(x + self.dropout(attn_out))   # Add & Norm
+        ffn_out = self.ffn(x)
+        x = self.norm2(x + self.dropout(ffn_out))    # Add & Norm
+        return x
+
+
+class LSTMPredictor(nn.Module):
+    """LSTM + stacked Transformer encoder blocks for time-series return prediction.
+
+    Architecture:
+        input_proj (Linear + LayerNorm)
+        → LSTM (sequential ordering)
+        → N × TransformerEncoderBlock (MHA→Add&Norm→FFN→Add&Norm)
+        → last timestep → output head
 
     Input: (batch, seq_len, input_size)
     Output: (batch, 1)
@@ -29,6 +69,7 @@ class LSTMPredictor(nn.Module):
         num_layers: int = DEFAULT_NUM_LAYERS,
         dropout: float = DEFAULT_DROPOUT,
         num_heads: int = 4,
+        num_encoder_blocks: int = 2,
     ):
         super().__init__()
         self.hidden_size = hidden_size
@@ -45,35 +86,28 @@ class LSTMPredictor(nn.Module):
             batch_first=True, dropout=dropout if num_layers > 1 else 0.0,
         )
 
-        # Guarantee num_heads divides hidden_size (e.g. hidden=8, heads=4 → 2 per head)
+        # Guarantee num_heads divides hidden_size
         _heads = num_heads
         while _heads > 1 and hidden_size % _heads != 0:
             _heads //= 2
-        self.mha = nn.MultiheadAttention(
-            embed_dim=hidden_size, num_heads=_heads, dropout=dropout, batch_first=True,
-        )
-        self.attn_norm = nn.LayerNorm(hidden_size)
 
-        # FC head
-        self.fc1 = nn.Linear(hidden_size, 64)
-        self.fc2 = nn.Linear(64, 1)
+        # Stacked Transformer encoder blocks (FFN uses standard 4× expansion)
+        ffn_dim = 4 * hidden_size
+        self.encoder_blocks = nn.ModuleList([
+            TransformerEncoderBlock(hidden_size, _heads, ffn_dim, dropout)
+            for _ in range(num_encoder_blocks)
+        ])
+
+        self.output_head = nn.Linear(hidden_size, 1)
         self.dropout = nn.Dropout(dropout)
-        self.relu = nn.ReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (batch, seq_len, input_size)
-        x = self.input_proj(x)                          # (batch, seq_len, hidden_size)
-        lstm_out, _ = self.lstm(x)                      # (batch, seq_len, hidden_size)
+        x = self.input_proj(x)          # (batch, seq_len, hidden_size)
+        x, _ = self.lstm(x)             # (batch, seq_len, hidden_size)
 
-        # Multi-head attention: query = last timestep, key/value = all timesteps
-        query = lstm_out[:, -1:, :]                     # (batch, 1, hidden_size)
-        context, _ = self.mha(query, lstm_out, lstm_out)
-        context = context.squeeze(1)                    # (batch, hidden_size)
+        for block in self.encoder_blocks:
+            x = block(x)               # MHA→Add&Norm→FFN→Add&Norm each block
 
-        # Residual + norm: last hidden state preserves recency signal
-        last_hidden = lstm_out[:, -1, :]                # (batch, hidden_size)
-        out = self.attn_norm(context + last_hidden)
-
-        out = self.relu(self.fc1(out))
-        out = self.dropout(out)
-        return self.fc2(out)                            # (batch, 1)
+        out = self.dropout(x[:, -1, :])  # last timestep (batch, hidden_size)
+        return self.output_head(out)     # (batch, 1)
