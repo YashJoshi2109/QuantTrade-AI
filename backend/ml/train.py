@@ -59,16 +59,19 @@ def get_device() -> str:
 # ── Early stopping ─────────────────────────────────────────────────────
 
 class EarlyStopping:
-    def __init__(self, patience: int = 10, min_delta: float = 1e-5):
+    """Stop on val DA (higher = better). Breaks val-loss/DA mismatch where
+    lowest MSE loss != best directional accuracy on test set."""
+
+    def __init__(self, patience: int = 10, min_delta: float = 1e-4):
         self.patience = patience
         self.min_delta = min_delta
-        self.best_loss = float("inf")
+        self.best_da = -float("inf")
         self.counter = 0
         self.best_state: dict | None = None
 
-    def step(self, val_loss: float, model: nn.Module) -> bool:
-        if val_loss < self.best_loss - self.min_delta:
-            self.best_loss = val_loss
+    def step(self, val_da: float, model: nn.Module) -> bool:
+        if val_da > self.best_da + self.min_delta:
+            self.best_da = val_da
             self.counter = 0
             self.best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
             return False
@@ -256,8 +259,8 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
             f"lr={lr_now:.2e}"
         )
 
-        if early_stopper.step(val_loss, model):
-            logger.info(f"Early stopping at epoch {epoch}")
+        if early_stopper.step(val_metrics.directional_accuracy, model):
+            logger.info(f"Early stopping at epoch {epoch} (best val DA={early_stopper.best_da:.1%})")
             break
 
     # Restore best weights
