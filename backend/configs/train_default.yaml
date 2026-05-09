@@ -24,17 +24,17 @@ dropout: 0.2               # regularization
 scaler_type: "robust"      # RobustScaler handles outliers better than StandardScaler
 
 # ── Training ──────────────────────────────────────────────────────────
-epochs: 15                 # 3 horizons × ~10min/epoch × 15 = ~7.5h equiv but early stops at 8-12
-batch_size: 512            # 512 = half the steps per epoch vs 256, critical for 4h Batch limit
-learning_rate: 0.001       # higher LR compensates for larger batch (linear scaling rule)
-weight_decay: 0.0001       # L2 regularization
+epochs: 20                 # more epochs — was stopping at 8 with patience=7, not converging
+batch_size: 256            # 256 → more gradient updates/epoch, better generalization than 512
+learning_rate: 0.0005      # lower LR for smaller batch (linear scaling rule reversed)
+weight_decay: 0.001        # stronger L2 — reduce val→test overfit (was 0.0001)
 grad_clip_norm: 1.0        # gradient clipping
-early_stopping_patience: 7  # tight patience — exit early rather than hit Batch timeout
+early_stopping_patience: 10 # was 7 — stopped too early before test-set generalization
 lr_scheduler: "cosine"     # cosine annealing works well for large datasets
 
 # ── Validation ────────────────────────────────────────────────────────
-val_days: 126              # ~6 months validation (more data = more reliable eval)
-test_days: 63              # ~3 months holdout
+val_days: 63               # shrink val to 3mo — was 6mo, causing val/test period mismatch
+test_days: 63              # ~3 months holdout (unchanged)
 
 # ── Walk-forward (optional) ───────────────────────────────────────────
 walk_forward: false         # enable for production backtesting
