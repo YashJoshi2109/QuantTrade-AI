@@ -1,0 +1,205 @@
+name: ML Data Pipeline
+
+# ── Triggers ─────────────────────────────────────────────────────────
+# Runs 2h before nightly training so features are warm when training starts.
+# Manual dispatch for ad-hoc reruns or forced recompute.
+on:
+  schedule:
+    - cron: '0 1 * * 1-5'   # Mon–Fri 01:00 UTC (training is 03:00 UTC)
+  workflow_dispatch:
+    inputs:
+      symbol_tier:
+        description: 'Symbol tier to process'
+        default: 'tier_2'
+        type: choice
+        options:
+          - tier_1
+          - tier_2
+          - tier_3
+          - all
+          - tier_1_exclusive
+          - tier_2_exclusive
+          - tier_3a
+          - tier_3b
+          - tier_3c
+      force:
+        description: 'Force recompute even if features are < 18h old'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Cancel in-progress runs on the same branch (avoids duplicate runs on rapid dispatches)
+concurrency:
+  group: ml-data-pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Determine tier matrix ──────────────────────────────────────────
+  plan:
+    name: Plan tiers
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Build tier matrix
+        id: set-matrix
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TIER="${{ github.event.inputs.symbol_tier || 'tier_2' }}"
+            echo "matrix={\"include\":[{\"tier\":\"$TIER\",\"label\":\"$TIER\"}]}" >> $GITHUB_OUTPUT
+          elif [ "$(date +%u)" = "7" ]; then
+            # Sunday — full coverage (5 shards matching train nightly)
+            echo 'matrix={"include":[{"tier":"tier_1_exclusive","label":"tier_1"},{"tier":"tier_2_exclusive","label":"tier_2"},{"tier":"tier_3a","label":"tier_3a"},{"tier":"tier_3b","label":"tier_3b"},{"tier":"tier_3c","label":"tier_3c"}]}' >> $GITHUB_OUTPUT
+          else
+            # Weekdays — tier_2 (tier_1 + tier_2, ~230 symbols)
+            echo 'matrix={"include":[{"tier":"tier_2","label":"tier_2"}]}' >> $GITHUB_OUTPUT
+          fi
+
+  # ── Data pipeline shards ───────────────────────────────────────────
+  data-pipeline:
+    name: Data Pipeline (${{ matrix.label }})
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # ── Caches ───────────────────────────────────────────────────
+      - name: Restore OHLCV data cache
+        uses: actions/cache@v4
+        with:
+          path: backend/ml/data_cache
+          key: ml-data-cache-v5-${{ matrix.tier }}-${{ github.run_id }}
+          restore-keys: |
+            ml-data-cache-v5-${{ matrix.tier }}-
+            ml-data-cache-v5-
+            ml-data-cache-v4-
+
+      - name: Restore feature store cache
+        uses: actions/cache@v4
+        with:
+          path: backend/ml/feature_store_data
+          key: ml-feature-store-v1-${{ matrix.tier }}-${{ github.run_id }}
+          restore-keys: |
+            ml-feature-store-v1-${{ matrix.tier }}-
+            ml-feature-store-v1-
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-ml-v3-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: pip-ml-v3-
+
+      # ── Install ───────────────────────────────────────────────────
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      # ── Run data pipeline ─────────────────────────────────────────
+      - name: Run data pipeline
+        working-directory: ./backend
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+          OMP_NUM_THREADS: "2"
+          MKL_NUM_THREADS: "2"
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-2"
+          ML_S3_BUCKET: "quanttrade-ml-artifacts"
+        run: |
+          FORCE_FLAG=""
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            FORCE_FLAG="--force"
+          fi
+
+          echo "═══════════════════════════════════════════════"
+          echo "  Tier:    ${{ matrix.tier }}"
+          echo "  Label:   ${{ matrix.label }}"
+          echo "  Force:   ${FORCE_FLAG:-no}"
+          echo "═══════════════════════════════════════════════"
+
+          python -m ml.data_pipeline \
+            --symbol-tier ${{ matrix.tier }} \
+            $FORCE_FLAG
+
+      # ── Gate check ────────────────────────────────────────────────
+      - name: Read pipeline summary
+        if: always()
+        working-directory: ./backend
+        run: |
+          if [ -f ml/data_pipeline_summary.json ]; then
+            echo "=== Data Pipeline Summary ==="
+            cat ml/data_pipeline_summary.json | python3 -c "
+          import json, sys
+          s = json.load(sys.stdin)
+          print(f'Tier:            {s[\"tier\"]}')
+          print(f'Total symbols:   {s[\"total_symbols\"]}')
+          print(f'Fetch OK:        {s[\"fetch\"][\"ok\"]}')
+          print(f'Fetch failed:    {s[\"fetch\"][\"failed\"]}  {s[\"fetch\"][\"failed_symbols\"]}')
+          print(f'Features OK:     {s[\"features\"][\"ok\"]} / {s[\"features\"][\"total\"]}')
+          print(f'Feature store:   {s[\"feature_store_symbols\"]} symbols on disk')
+          print(f'EDA anomalies:   {s[\"eda_anomalies\"] or \"none\"}')
+          print(f'Gate:            {\"PASSED\" if s[\"gate_passed\"] else \"FAILED\"}')
+          "
+          else
+            echo "No summary file found — pipeline may have crashed before completion"
+          fi
+
+      # ── Upload artifacts ──────────────────────────────────────────
+      - name: Upload feature store snapshot
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: feature-store-${{ matrix.label }}-${{ github.run_id }}
+          path: backend/ml/feature_store_data/
+          retention-days: 7
+
+      - name: Upload pipeline summary
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: data-pipeline-summary-${{ matrix.label }}-${{ github.run_id }}
+          path: backend/ml/data_pipeline_summary.json
+          retention-days: 14
+
+      - name: Upload raw data cache snapshot
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: raw-data-cache-${{ matrix.label }}-${{ github.run_id }}
+          path: backend/ml/data_cache/
+          retention-days: 3
+
+  # ── Final gate — fails CI if any shard gate failed ─────────────────
+  gate:
+    name: Pipeline gate
+    needs: data-pipeline
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check shard outcomes
+        run: |
+          STATUS="${{ needs.data-pipeline.result }}"
+          echo "Data pipeline shards: $STATUS"
+          if [ "$STATUS" = "failure" ]; then
+            echo "One or more data pipeline shards failed the gate."
+            echo "Check failed_symbols in artifacts and update ml/constants.py."
+            exit 1
+          fi
+          echo "All shards passed."
