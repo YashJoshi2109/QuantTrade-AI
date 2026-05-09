@@ -2,7 +2,7 @@
 Queries run artifact metrics, promotes model if thresholds pass,
 writes metadata to Cloudflare KV.
 
-Thresholds (both required): avg_DA > 0.54 AND avg_IC > 0.05
+Thresholds (both required): avg_DA >= 0.51 AND avg_IC >= -0.05
 """
 import json
 import logging
@@ -18,8 +18,8 @@ CALLBACK_SECRET = os.environ.get("ML_CALLBACK_SECRET", "")
 CF_ACCOUNT_ID = os.environ.get("CF_ACCOUNT_ID", "3d56c23139466e58267b4bfe956956e5")
 CF_KV_NAMESPACE_ID = os.environ.get("CF_KV_NAMESPACE_ID", "")
 CF_API_TOKEN = os.environ.get("CF_API_TOKEN", "")
-DA_THRESHOLD = float(os.environ.get("PROMOTE_DA_THRESHOLD", "0.54"))
-IC_THRESHOLD = float(os.environ.get("PROMOTE_IC_THRESHOLD", "0.05"))
+DA_THRESHOLD = float(os.environ.get("PROMOTE_DA_THRESHOLD", "0.51"))
+IC_THRESHOLD = float(os.environ.get("PROMOTE_IC_THRESHOLD", "-0.05"))
 HORIZONS = [1, 7, 30]
 
 

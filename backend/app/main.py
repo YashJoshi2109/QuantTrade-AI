@@ -536,6 +536,10 @@ app.include_router(ml_runs.router, prefix="/api/v1", tags=["ml-pipeline"])
 # Internal machine-to-machine endpoints (batch callbacks, Lambda callbacks — no user JWT)
 app.include_router(ml_runs.internal_router, prefix="/api/v1", tags=["ml-internal"])
 
+# ML Predictions — LSTM inference serving endpoint (used by Cloudflare Worker)
+from app.api import predictions
+app.include_router(predictions.router, prefix="/api/v1", tags=["predictions"])
+
 # Static files — serve locally-uploaded community media (fallback when R2 is not configured)
 import pathlib as _pathlib
 _storage_root = _pathlib.Path(os.getenv("LOCAL_STORAGE_PATH", "./storage"))

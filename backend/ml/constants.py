@@ -73,18 +73,18 @@ TIER_2_SYMBOLS: list[str] = [
     "NEE", "DUK", "SO", "AEP", "D", "SRE", "EXC", "XEL", "CEG", "VST",
     "PLD", "AMT", "EQIX", "CCI", "PSA", "SPG", "O", "WELL", "DLR", "AVB",
     # Telecom + Media
-    "T", "VZ", "TMUS", "CMCSA", "CHTR", "WBD", "PARA", "FOX",
+    "T", "VZ", "TMUS", "CMCSA", "CHTR", "WBD", "FOX",
     # Materials
     "LIN", "APD", "SHW", "ECL", "DD", "NEM", "FCX", "NUE", "STLD", "CF",
     # ── New large-cap additions (42) ─────────────────────────────────
     # Large-cap tech
     "MSTR", "GDDY", "TWLO", "ZM", "DOCU", "AKAM", "HPE", "ZBRA", "KEYS",
     # Finance
-    "USB", "PNC", "TFC", "COF", "DFS", "FITB", "HBAN", "KEY", "CFG", "MTB",
-    "RJF", "NTRS", "STT", "BK", "CINF", "GL", "AFL", "PRU", "ALL", "RE",
+    "USB", "PNC", "TFC", "COF", "FITB", "HBAN", "KEY", "CFG", "MTB",
+    "RJF", "NTRS", "STT", "BK", "CINF", "GL", "AFL", "PRU", "ALL", "EG",
     # Healthcare
-    "A", "BAX", "RMD", "HOLX", "MTD", "TFX", "TECH", "WAT", "PKI", "BIO",
-    "CTLT", "CRL", "GEHC",
+    "A", "BAX", "RMD", "HOLX", "MTD", "TFX", "TECH", "WAT", "RVTY", "BIO",
+    "CRL", "GEHC",
 ]
 
 TIER_3_SYMBOLS: list[str] = [
