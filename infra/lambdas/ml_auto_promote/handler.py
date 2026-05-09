@@ -20,7 +20,7 @@ CF_KV_NAMESPACE_ID = os.environ.get("CF_KV_NAMESPACE_ID", "")
 CF_API_TOKEN = os.environ.get("CF_API_TOKEN", "")
 DA_THRESHOLD = float(os.environ.get("PROMOTE_DA_THRESHOLD", "0.51"))
 IC_THRESHOLD = float(os.environ.get("PROMOTE_IC_THRESHOLD", "-0.05"))
-HORIZONS = [1, 7, 30]
+HORIZONS = [1, 7]
 
 
 def _kv_put(key: str, value: dict) -> None:

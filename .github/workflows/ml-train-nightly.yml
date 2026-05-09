@@ -84,6 +84,15 @@ jobs:
             ml-data-cache-v5-
             ml-data-cache-v4-
 
+      - name: Cache feature store
+        uses: actions/cache@v4
+        with:
+          path: backend/ml/feature_store_data
+          key: ml-feature-store-v1-${{ matrix.tier }}-${{ github.run_id }}
+          restore-keys: |
+            ml-feature-store-v1-${{ matrix.tier }}-
+            ml-feature-store-v1-
+
       - name: Cache pip packages
         uses: actions/cache@v4
         with:
