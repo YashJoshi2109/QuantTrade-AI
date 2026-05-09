@@ -54,10 +54,10 @@ TIER_2_SYMBOLS: list[str] = [
     # Large-cap tech
     "AMD", "INTC", "CRM", "ADBE", "ORCL", "CSCO", "QCOM", "TXN", "NOW", "AMAT",
     "LRCX", "KLAC", "MRVL", "SNPS", "CDNS", "FTNT", "PANW", "CRWD", "ZS", "NET",
-    "DDOG", "SNOW", "MDB", "SHOP", "SQ", "COIN", "PLTR", "ARM", "SMCI", "DELL",
+    "DDOG", "SNOW", "MDB", "SHOP", "XYZ", "COIN", "PLTR", "ARM", "SMCI", "DELL",
     # Finance
     "BAC", "WFC", "GS", "MS", "BLK", "SCHW", "C", "AXP", "ICE", "CME",
-    "MCO", "MSCI", "SPGI", "CB", "AON", "MMC", "PGR", "TRV", "MET", "AIG",
+    "MCO", "MSCI", "SPGI", "CB", "AON", "AJG", "PGR", "TRV", "MET", "AIG",
     # Healthcare
     "PFE", "ABBV", "TMO", "ABT", "DHR", "BMY", "AMGN", "GILD", "VRTX", "REGN",
     "ISRG", "MDT", "SYK", "BDX", "EW", "ZTS", "IDXX", "DXCM", "ALGN", "BSX",

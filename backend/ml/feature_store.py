@@ -108,7 +108,7 @@ class FeatureStore:
                 if col not in features.columns:
                     logger.error(f"Feature store: {symbol} — missing column {col}")
                     return None
-                if features[col].isinf().any():
+                if np.isinf(features[col]).any():
                     features[col] = features[col].replace([np.inf, -np.inf], np.nan)
                     features[col] = features[col].fillna(features[col].median())
 
