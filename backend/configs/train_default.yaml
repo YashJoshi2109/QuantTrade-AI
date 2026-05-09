@@ -16,9 +16,15 @@ seq_len: 60                # 60 trading days lookback (~3 months)
 horizons: [1, 7]           # 1-day, 1-week predictions (h30 dropped: DA<50%, IC<-0.1 with 60d seq_len)
 
 # ── Model architecture ────────────────────────────────────────────────
-hidden_size: 128           # LSTM hidden units
-num_layers: 3              # 3-layer LSTM with attention
+hidden_size: 128           # LSTM hidden units (keep 128 for CI 3h timeout safety)
+num_layers: 3              # 3-layer LSTM with multi-head attention
 dropout: 0.2               # regularization
+num_attention_heads: 4     # MHA heads — must divide hidden_size (128/4=32 per head)
+
+# ── Loss ──────────────────────────────────────────────────────────────
+use_hybrid_loss: true      # alpha*MSE + (1-alpha)*BCE(direction) — directly optimizes DA
+hybrid_loss_alpha: 0.6     # weight on MSE; 0.4 on directional BCE
+hybrid_loss_scale: 20.0    # sigmoid scale: ±0.05 return → sigmoid≈0.73/0.27
 
 # ── Scaler ────────────────────────────────────────────────────────────
 scaler_type: "robust"      # RobustScaler handles outliers better than StandardScaler

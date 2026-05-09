@@ -35,6 +35,12 @@ class TrainConfig:
     hidden_size: int = DEFAULT_HIDDEN_SIZE
     num_layers: int = DEFAULT_NUM_LAYERS
     dropout: float = DEFAULT_DROPOUT
+    num_attention_heads: int = 4
+
+    # ── Loss ───────────────────────────────────────────────────────────
+    use_hybrid_loss: bool = False     # alpha*MSE + (1-alpha)*BCE(direction)
+    hybrid_loss_alpha: float = 0.6   # weight on MSE component
+    hybrid_loss_scale: float = 20.0  # sigmoid scale for BCE component
 
     # ── Scaler ─────────────────────────────────────────────────────────
     scaler_type: str = "standard"  # standard | minmax | robust

@@ -56,6 +56,31 @@ def get_device() -> str:
     return "cpu"
 
 
+# ── Hybrid directional loss ────────────────────────────────────────────
+
+class HybridDirectionalLoss(nn.Module):
+    """alpha*MSE + (1-alpha)*BCE(sigmoid(pred*scale), direction).
+
+    Optimizes return magnitude (MSE) AND directional accuracy (BCE) jointly.
+    scale=20 maps predicted_return of ±0.05 to sigmoid ≈ 0.73/0.27 — enough separation
+    for gradient signal without saturating the sigmoid on typical log-return values.
+    """
+
+    def __init__(self, alpha: float = 0.6, scale: float = 20.0):
+        super().__init__()
+        self.alpha = alpha
+        self.scale = scale
+        self.mse = nn.MSELoss()
+        self.bce = nn.BCELoss()
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        mse_loss = self.mse(pred, target)
+        direction = (target > 0).float()
+        pred_prob = torch.sigmoid(pred * self.scale)
+        bce_loss = self.bce(pred_prob, direction)
+        return self.alpha * mse_loss + (1.0 - self.alpha) * bce_loss
+
+
 # ── Early stopping ─────────────────────────────────────────────────────
 
 class EarlyStopping:
@@ -194,6 +219,7 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
         hidden_size=config.hidden_size,
         num_layers=config.num_layers,
         dropout=config.dropout,
+        num_heads=getattr(config, "num_attention_heads", 4),
     ).to(device)
     logger.info(f"Model: {sum(p.numel() for p in model.parameters()):,} parameters")
 
@@ -208,6 +234,11 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
     # Loss
     if config.target_mode == "binary_direction":
         criterion = nn.BCEWithLogitsLoss()
+    elif getattr(config, "use_hybrid_loss", False):
+        criterion = HybridDirectionalLoss(
+            alpha=getattr(config, "hybrid_loss_alpha", 0.6),
+            scale=getattr(config, "hybrid_loss_scale", 20.0),
+        )
     else:
         criterion = nn.MSELoss()
 

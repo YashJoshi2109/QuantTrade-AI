@@ -29,6 +29,7 @@ class CheckpointMetadata:
     hidden_size: int = 128
     num_layers: int = 3
     dropout: float = 0.2
+    num_attention_heads: int = 4
     feature_columns: list[str] | None = None
     scaler_type: str = "standard"
     target_mode: str = "log_return"
@@ -69,11 +70,20 @@ def save_checkpoint(
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
+    # input_proj exists on the new multi-head attention architecture
+    if hasattr(model, "input_proj"):
+        _input_size = model.input_proj[0].in_features
+    elif hasattr(model, "lstm"):
+        _input_size = model.lstm.input_size
+    else:
+        _input_size = 0
+
     metadata = CheckpointMetadata(
-        input_size=model.lstm.input_size if hasattr(model, "lstm") else 0,
+        input_size=_input_size,
         hidden_size=model.hidden_size if hasattr(model, "hidden_size") else 128,
         num_layers=model.num_layers if hasattr(model, "num_layers") else 3,
         dropout=model.dropout.p if hasattr(model, "dropout") else 0.2,
+        num_attention_heads=model.mha.num_heads if hasattr(model, "mha") else 4,
         feature_columns=list(FEATURE_COLUMNS),
         scaler_type=type(scaler).__name__.lower().replace("scaler", ""),
         target_mode=getattr(config, "target_mode", "log_return"),
@@ -121,12 +131,13 @@ def load_checkpoint(
                 f"current features {FEATURE_COLUMNS}"
             )
 
-    # Reconstruct model
+    # Reconstruct model — use metadata fields with defaults for pre-MHA checkpoints
     model = LSTMPredictor(
         input_size=metadata.input_size,
         hidden_size=metadata.hidden_size,
         num_layers=metadata.num_layers,
         dropout=metadata.dropout,
+        num_heads=getattr(metadata, "num_attention_heads", 4),
     )
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)
