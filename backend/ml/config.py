@@ -39,12 +39,12 @@ class TrainConfig:
     num_encoder_blocks: int = 2      # Transformer encoder blocks after LSTM
 
     # ── Loss ───────────────────────────────────────────────────────────
-    use_hybrid_loss: bool = False     # alpha*MSE + (1-alpha)*BCE(direction)
+    use_hybrid_loss: bool = True      # alpha*MSE + (1-alpha)*BCE(direction)
     hybrid_loss_alpha: float = 0.6   # weight on MSE component
     hybrid_loss_scale: float = 20.0  # sigmoid scale for BCE component
 
     # ── Scaler ─────────────────────────────────────────────────────────
-    scaler_type: str = "standard"  # standard | minmax | robust
+    scaler_type: str = "robust"  # standard | minmax | robust
 
     # ── Training ───────────────────────────────────────────────────────
     epochs: int = 100
@@ -52,8 +52,8 @@ class TrainConfig:
     learning_rate: float = 1e-3
     weight_decay: float = 1e-4
     grad_clip_norm: float = 1.0
-    early_stopping_patience: int = 10
-    early_stopping_min_epochs: int = 5   # warmup: don't allow early stop before this epoch
+    early_stopping_patience: int = 15
+    early_stopping_min_epochs: int = 10  # warmup: don't allow early stop before this epoch
     lr_scheduler: str = "one_cycle"  # one_cycle | cosine | reduce_on_plateau
 
     # ── Validation ─────────────────────────────────────────────────────

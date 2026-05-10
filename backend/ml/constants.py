@@ -24,8 +24,8 @@ FEATURE_COLUMNS: list[str] = [
     "MACD_Histogram",
     "ROC_10",
     # Volatility
-    "BB_Upper",
-    "BB_Lower",
+    "BB_pctB",
+    "BB_Width",
     "ATR_14",
     "Drawdown",
     # Volume
@@ -224,5 +224,5 @@ DEFAULT_CONFIG_PATH = ML_ROOT.parent / "configs" / "train_default.yaml"
 DEFAULT_SEQ_LEN = 60
 DEFAULT_HIDDEN_SIZE = 128
 DEFAULT_NUM_LAYERS = 3
-DEFAULT_DROPOUT = 0.2
+DEFAULT_DROPOUT = 0.3
 DEFAULT_HORIZONS = [1, 7]

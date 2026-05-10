@@ -187,8 +187,11 @@ def compute_features(df: pd.DataFrame, spy_df: pd.DataFrame | None = None) -> pd
     # Volatility
     bb_mid = close.rolling(20).mean()
     bb_std = close.rolling(20).std()
-    out["BB_Upper"] = bb_mid + 2 * bb_std
-    out["BB_Lower"] = bb_mid - 2 * bb_std
+    bb_upper = bb_mid + 2 * bb_std
+    bb_lower = bb_mid - 2 * bb_std
+    bb_range = (bb_upper - bb_lower).replace(0, np.nan)
+    out["BB_pctB"] = ((close - bb_lower) / bb_range).fillna(0.5)   # bounded ~[0,1], scale-free
+    out["BB_Width"] = (bb_range / bb_mid.replace(0, np.nan)).fillna(0)  # volatility expansion proxy
     out["ATR_14"] = _compute_atr(high, low, close, 14)
 
     # Drawdown from rolling 252-day peak

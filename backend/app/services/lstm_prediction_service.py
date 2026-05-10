@@ -177,7 +177,7 @@ class StockPredictor:
         if _ML_AVAILABLE:
             self._load_all_checkpoints()
 
-        fallback_input_size = NUM_FEATURES if _ML_AVAILABLE else len(self._FEATURE_COLS)
+        fallback_input_size = NUM_FEATURES if self._trained else len(self._FEATURE_COLS)
         if not self._trained:
             logger.warning("No trained LSTM checkpoints found — using untrained fallback.")
             self.lstm_model = LSTMPredictor(input_size=fallback_input_size)
