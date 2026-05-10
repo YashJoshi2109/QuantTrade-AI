@@ -70,13 +70,14 @@ Resources:
   - `ec2:DescribeInstances` (self-tagging)
 - **`MLRunnerInstanceProfile`** — binds role to instances
 - **`MLRunnerSecurityGroup`** — egress HTTPS/443 only, no ingress
-- **`MLRunnerLaunchTemplate`** — c5.2xlarge Spot, Ubuntu 22.04 (ami-0c55b159cbfafe1f0 us-east-2), 30GB gp3 EBS, max spot price $0.25/hr
+- **`MLRunnerLaunchTemplate`** — c5.2xlarge Spot, Ubuntu 22.04 resolved dynamically via SSM (`{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}`), 30GB gp3 EBS, max spot price $0.25/hr
 - **`MLRunnerLauncherRole`** — Lambda IAM role
   - `secretsmanager:GetSecretValue` on `quanttrade/github-pat`
   - `ec2:RunInstances` with condition `LaunchTemplate=ml-runner-lt`
   - `ec2:CreateTags` (tag instances with RunDate for cost tracking), `iam:PassRole`
 - **`MLRunnerLauncherFunction`** — Lambda (Python 3.12, 128MB, 60s timeout)
-- **`MLRunnerLauncherSchedule`** — EventBridge rule: `cron(45 2 ? * MON-FRI *)` weekdays + `cron(45 2 ? * SUN *)` Sundays
+- **`MLRunnerLauncherScheduleWeekday`** — EventBridge rule: `cron(45 2 ? * MON-FRI *)`, input constant `{"n_runners": 1}`
+- **`MLRunnerLauncherScheduleSunday`** — EventBridge rule: `cron(45 2 ? * SUN *)`, input constant `{"n_runners": 5}`
 
 ### Lambda: `ml-runner-launcher`
 File: `infra/lambdas/ml_runner_launcher/handler.py`
@@ -84,26 +85,31 @@ File: `infra/lambdas/ml_runner_launcher/handler.py`
 ```python
 def handler(event, context):
     pat = get_secret("quanttrade/github-pat")
-    # Sunday = 5 runners (5 parallel shards), Mon-Fri = 1 runner
-    n_runners = 5 if datetime.utcnow().weekday() == 6 else 1
+    # n_runners injected by EventBridge input constant (1 weekday, 5 Sunday)
+    # Never computed from datetime — cron shift would silently break that
+    n_runners = int(event.get("n_runners", 1))
     for i in range(n_runners):
         token = github_post(".../actions/runners/registration-token", pat)
-        userdata = build_userdata(token["token"], runner_index=i)
+        userdata = build_userdata(token["token"], runner_index=i,
+                                  token_issued_at=int(time.time()))
         launch_spot(userdata, fallback_types=["c5.2xlarge", "c5.4xlarge", "m5.2xlarge"])
 ```
 
-Each runner gets its own unique JIT token (tokens are single-use). Each `--ephemeral` runner picks up exactly one shard job and self-terminates. Fallback: tries instance types in order until `RunInstances` succeeds. On total failure: publishes to SNS topic `ml-runner-alerts`.
+Each runner gets its own unique JIT token (tokens are single-use). Each `--ephemeral` runner picks up exactly one shard job and self-terminates. `runner_index` is passed to bootstrap — only index 0 writes pip/torch cache back to S3 (avoids 5 simultaneous PUT race on Sunday). `token_issued_at` lets bootstrap abort if registration is attempted >50min after issue (JIT tokens expire at 1hr). Fallback: tries instance types in order until `RunInstances` succeeds. On total failure: publishes to SNS topic `ml-runner-alerts`.
 
 ### Bootstrap Script: `ml-runner-userdata.sh`
 Embedded in CloudFormation as `UserData` per-instance (token injected by Lambda at launch time via `run_instances` UserData, not tags — tags are visible in AWS console). Key steps:
-1. Read `JIT_TOKEN` from UserData environment variable (set by Lambda before launch)
-2. Restore pip + torch wheel from S3 (`runner-cache/pip/`, `runner-cache/torch/`)
-3. `apt-get install -y python3.12 python3.12-venv git`
-4. `pip install -r backend/requirements.txt` + `pip install torch --index-url ...`
-5. Write cache back to S3 (only if changed)
-6. Clone repo, configure runner: `./config.sh --ephemeral --labels ml --unattended --token $JIT_TOKEN`
-7. `./run.sh`
-8. `sudo shutdown -h now`
+1. Read `JIT_TOKEN`, `RUNNER_INDEX`, `TOKEN_ISSUED_AT` from UserData env vars
+2. Abort if `now - TOKEN_ISSUED_AT > 3000s` (50min guard — JIT token expires at 60min)
+3. Install CloudWatch agent + configure log group `/quanttrade/ml-runner/bootstrap` — done early so all subsequent steps are captured
+4. `apt-get install -y python3.12 python3.12-venv git`
+5. Restore pip + torch cache from S3 (`runner-cache/pip/`, `runner-cache/torch/`)
+6. `pip install -r backend/requirements.txt` + `pip install torch --index-url ...`
+7. If `RUNNER_INDEX == 0`: write pip/torch cache back to S3 — only index 0 writes, prevents 5-way PUT race on Sunday
+8. Download GHA runner binary from S3 mirror (`runner-cache/actions-runner-linux-x64-2.x.tar.gz`)
+9. `./config.sh --ephemeral --labels ml --unattended --token $JIT_TOKEN`
+10. `./run.sh`
+11. `sudo shutdown -h now`
 
 ### Workflow Change
 File: `.github/workflows/ml-train-nightly.yml`
@@ -190,7 +196,7 @@ aws lambda invoke --function-name ml-runner-launcher \
 | `infra/ml-runner-cf.yaml` | CloudFormation: all AWS resources |
 | `infra/ml-runner-userdata.sh` | EC2 bootstrap (also embedded in CFN) |
 | `infra/lambdas/ml_runner_launcher/handler.py` | Lambda entrypoint |
-| `infra/lambdas/ml_runner_launcher/requirements.txt` | `boto3` only (Lambda runtime has it) |
+| `infra/lambdas/ml_runner_launcher/requirements.txt` | `requests` (for GitHub API — not in Lambda runtime; `boto3` is runtime-provided) |
 | `.github/workflows/ml-train-nightly.yml` | One-line change: runs-on |
 
 ---
