@@ -68,7 +68,7 @@ def test_build_userdata_index_0_writes_cache():
     ud = handler.build_userdata("TOKEN123", runner_index=0, token_issued_at=1000000)
     decoded = base64.b64decode(ud).decode()
     # Index 0 should contain the cache write block
-    assert 'RUNNER_INDEX" -eq 0' in decoded
+    assert 'if [ "$RUNNER_INDEX" -eq 0 ]' in decoded
     assert "runner-cache/pip" in decoded
 
 
@@ -128,13 +128,19 @@ def test_launch_spot_raises_when_all_types_exhausted():
 
 # ── handler (integration) ─────────────────────────────────────────────────────
 
-def _make_full_mocks(n_instances=1, pat="ghp_test", token="JITTOKEN"):
+def _make_full_mocks(pat="ghp_test", token="JITTOKEN"):
     mock_sm = MagicMock()
     mock_sm.get_secret_value.return_value = {"SecretString": pat}
 
+    call_counter = [0]
+
+    def run_instances_side_effect(**kwargs):
+        idx = call_counter[0]
+        call_counter[0] += 1
+        return {"Instances": [{"InstanceId": f"i-{idx:04d}"}]}
+
     mock_ec2 = MagicMock()
-    mock_ec2.run_instances.return_value = {"Instances": [{"InstanceId": f"i-{i:04d}"}
-                                                          for i in range(n_instances)]}
+    mock_ec2.run_instances.side_effect = run_instances_side_effect
 
     mock_gh = MagicMock()
     mock_gh.return_value.json.return_value = {"token": token}
@@ -150,7 +156,7 @@ def test_handler_weekday_launches_one_runner():
         result = handler.handler({"n_runners": 1}, None)
     assert len(result["launched"]) == 1
     assert result["errors"] == []
-    assert mock_gh.call_count == 1  # one JIT token requested
+    assert mock_gh.call_count == 1
 
 
 def test_handler_sunday_launches_five_runners():
@@ -160,6 +166,7 @@ def test_handler_sunday_launches_five_runners():
         mock_boto.side_effect = lambda svc, **kw: mock_sm if svc == "secretsmanager" else mock_ec2
         result = handler.handler({"n_runners": 5}, None)
     assert len(result["launched"]) == 5
+    assert len(set(result["launched"])) == 5  # all unique instance IDs
     assert mock_gh.call_count == 5  # unique JIT token per runner
 
 
@@ -167,12 +174,14 @@ def test_handler_notifies_sns_on_pat_failure():
     mock_sm = MagicMock()
     mock_sm.get_secret_value.side_effect = Exception("secret not found")
     mock_sns = MagicMock()
-    with patch("handler.boto3.client") as mock_boto:
+    with patch("handler.boto3.client") as mock_boto, \
+         patch("handler.SNS_TOPIC_ARN", "arn:aws:sns:us-east-2:123:ml-runner-alerts"):
         mock_boto.side_effect = lambda svc, **kw: (
             mock_sm if svc == "secretsmanager" else mock_sns
         )
         with pytest.raises(Exception, match="secret not found"):
             handler.handler({"n_runners": 1}, None)
+    mock_sns.publish.assert_called_once()
 
 
 def test_handler_continues_on_single_runner_failure():

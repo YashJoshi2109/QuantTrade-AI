@@ -40,6 +40,8 @@ def get_registration_token(pat: str) -> dict:
 def build_userdata(token: str, runner_index: int, token_issued_at: int) -> str:
     script = f"""#!/bin/bash
 set -euo pipefail
+# Handle Spot interruption gracefully (EC2 sends SIGTERM 2min before reclaim)
+trap 'echo "[bootstrap] SIGTERM received — Spot interrupted, shutting down"; shutdown -h now' SIGTERM SIGINT
 export JIT_TOKEN="{token}"
 export RUNNER_INDEX="{runner_index}"
 export TOKEN_ISSUED_AT="{token_issued_at}"
@@ -179,6 +181,8 @@ def notify_failure(message: str) -> None:
 def handler(event: dict, context) -> dict:
     """Lambda entrypoint. event.n_runners set by EventBridge input constant."""
     n_runners = int(event.get("n_runners", 1))
+    if not LAUNCH_TEMPLATE_ID:
+        raise RuntimeError("LAUNCH_TEMPLATE_ID env var is required")
     print(f"Launching {n_runners} ephemeral runner(s)")
 
     try:
