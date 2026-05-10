@@ -1,0 +1,256 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  QuantTrade ML — Ephemeral self-hosted GHA runner on EC2 Spot.
+  EventBridge fires Lambda at 02:45 UTC; Lambda launches N Spot instances
+  that register as --ephemeral GHA runners, run one shard job, then terminate.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for runner instances (same VPC as app server)
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Public subnet for runner instances (needs internet access for GitHub/PyPI)
+  GithubPATSecretArn:
+    Type: String
+    Description: ARN of Secrets Manager secret containing GitHub classic PAT (repo scope)
+  SNSEmail:
+    Type: String
+    Default: ''
+    Description: Email address for launch failure alerts (leave empty to skip)
+  LambdaCodeS3Bucket:
+    Type: String
+    Description: S3 bucket containing the packaged Lambda zip
+  LambdaCodeS3Key:
+    Type: String
+    Default: runner-cache/ml-runner-launcher.zip
+    Description: S3 key for the Lambda zip
+
+Resources:
+
+  # ── IAM: EC2 instance role ───────────────────────────────────────────────
+  MLRunnerInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: quanttrade-ml-runner-instance
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Policies:
+        - PolicyName: MLRunnerInstancePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: S3MLArtifacts
+                Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:ListBucket, s3:DeleteObject]
+                Resource:
+                  - arn:aws:s3:::quanttrade-ml-artifacts
+                  - arn:aws:s3:::quanttrade-ml-artifacts/*
+              - Sid: SecretsMLPipeline
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:quanttrade/ml-pipeline-*
+              - Sid: EC2SelfDescribe
+                Effect: Allow
+                Action: ec2:DescribeInstances
+                Resource: '*'
+
+  MLRunnerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: quanttrade-ml-runner-instance
+      Roles: [!Ref MLRunnerInstanceRole]
+
+  # ── IAM: Lambda execution role ───────────────────────────────────────────
+  MLRunnerLauncherRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: quanttrade-ml-runner-launcher
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: MLRunnerLauncherPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: GetGithubPAT
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref GithubPATSecretArn
+              - Sid: LaunchSpotRunner
+                Effect: Allow
+                Action: ec2:RunInstances
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    ec2:LaunchTemplate: !Ref MLRunnerLaunchTemplate
+              - Sid: TagInstances
+                Effect: Allow
+                Action: ec2:CreateTags
+                Resource: !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*
+              - Sid: PassInstanceRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt MLRunnerInstanceRole.Arn
+              - Sid: PublishSNS
+                Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref MLRunnerAlertsTopic
+
+  # ── Security Group ────────────────────────────────────────────────────────
+  MLRunnerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: quanttrade-ml-runner
+      GroupDescription: ML runner EC2 — egress-only (HTTPS to GitHub, PyPI, AWS APIs)
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS egress (GitHub, PyPI, AWS)
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP egress (apt-get, redirects)
+
+  # ── Launch Template ───────────────────────────────────────────────────────
+  MLRunnerLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: quanttrade-ml-runner
+      LaunchTemplateData:
+        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
+        InstanceType: c5.2xlarge
+        IamInstanceProfile:
+          Arn: !GetAtt MLRunnerInstanceProfile.Arn
+        SecurityGroupIds: [!Ref MLRunnerSecurityGroup]
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              VolumeSize: 30
+              VolumeType: gp3
+              DeleteOnTermination: true
+        MetadataOptions:
+          HttpTokens: required
+          HttpEndpoint: enabled
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - {Key: Project, Value: quanttrade}
+              - {Key: Role, Value: ml-runner}
+
+  # ── SNS Alert Topic ───────────────────────────────────────────────────────
+  MLRunnerAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: ml-runner-alerts
+      Subscription:
+        - !If
+          - HasSNSEmail
+          - {Protocol: email, Endpoint: !Ref SNSEmail}
+          - !Ref AWS::NoValue
+
+  # ── Lambda Function ───────────────────────────────────────────────────────
+  MLRunnerLauncherFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: ml-runner-launcher
+      Runtime: python3.12
+      Handler: handler.handler
+      Role: !GetAtt MLRunnerLauncherRole.Arn
+      Timeout: 120
+      MemorySize: 128
+      Code:
+        S3Bucket: !Ref LambdaCodeS3Bucket
+        S3Key: !Ref LambdaCodeS3Key
+      Environment:
+        Variables:
+          LAUNCH_TEMPLATE_ID: !Ref MLRunnerLaunchTemplate
+          SNS_TOPIC_ARN: !Ref MLRunnerAlertsTopic
+          S3_BUCKET: quanttrade-ml-artifacts
+
+  # ── EventBridge Rules ─────────────────────────────────────────────────────
+  MLRunnerScheduleWeekday:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: ml-runner-launcher-weekday
+      Description: Launch 1 ML runner 15min before weekday nightly cron (03:00 UTC)
+      ScheduleExpression: 'cron(45 2 ? * MON-FRI *)'
+      State: ENABLED
+      Targets:
+        - Id: MLRunnerLauncherWeekday
+          Arn: !GetAtt MLRunnerLauncherFunction.Arn
+          Input: '{"n_runners": 1}'
+
+  MLRunnerScheduleSunday:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: ml-runner-launcher-sunday
+      Description: Launch 5 ML runners 15min before Sunday full retrain (03:00 UTC)
+      ScheduleExpression: 'cron(45 2 ? * SUN *)'
+      State: ENABLED
+      Targets:
+        - Id: MLRunnerLauncherSunday
+          Arn: !GetAtt MLRunnerLauncherFunction.Arn
+          Input: '{"n_runners": 5}'
+
+  MLRunnerPermissionWeekday:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt MLRunnerLauncherFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt MLRunnerScheduleWeekday.Arn
+
+  MLRunnerPermissionSunday:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt MLRunnerLauncherFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt MLRunnerScheduleSunday.Arn
+
+  # ── CloudWatch Alarm ──────────────────────────────────────────────────────
+  MLRunnerLauncherErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: ml-runner-launcher-errors
+      AlarmDescription: Lambda errors launching ML runner
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Dimensions:
+        - {Name: FunctionName, Value: ml-runner-launcher}
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref MLRunnerAlertsTopic]
+
+Conditions:
+  HasSNSEmail: !Not [!Equals [!Ref SNSEmail, '']]
+
+Outputs:
+  LaunchTemplateId:
+    Value: !Ref MLRunnerLaunchTemplate
+    Description: EC2 launch template ID (use in Lambda env var LAUNCH_TEMPLATE_ID)
+  LambdaFunctionName:
+    Value: !Ref MLRunnerLauncherFunction
+  SNSTopicArn:
+    Value: !Ref MLRunnerAlertsTopic
