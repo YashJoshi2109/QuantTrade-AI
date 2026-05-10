@@ -18,7 +18,7 @@ horizons: [1, 7]           # 1-day, 1-week predictions (h30 dropped: DA<50%, IC<
 # ── Model architecture ────────────────────────────────────────────────
 hidden_size: 128           # LSTM hidden units (keep 128 for CI 3h timeout safety)
 num_layers: 3              # 3-layer LSTM with multi-head attention
-dropout: 0.2               # regularization
+dropout: 0.3               # regularization (0.3 > 0.2: reduce val→test overfit)
 num_attention_heads: 4     # MHA heads — must divide hidden_size (128/4=32 per head)
 num_encoder_blocks: 1     # stacked Transformer encoder blocks (MHA→Add&Norm→FFN→Add&Norm); 2 exceeds 3h CI budget
 
@@ -31,13 +31,13 @@ hybrid_loss_scale: 20.0    # sigmoid scale: ±0.05 return → sigmoid≈0.73/0.2
 scaler_type: "robust"      # RobustScaler handles outliers better than StandardScaler
 
 # ── Training ──────────────────────────────────────────────────────────
-epochs: 20                 # more epochs — was stopping at 8 with patience=7, not converging
+epochs: 30                 # 30 max; early stopping fires at min_epochs+patience=25 if no improvement
 batch_size: 256            # 256 → more gradient updates/epoch, better generalization than 512
 learning_rate: 0.0005      # lower LR for smaller batch (linear scaling rule reversed)
 weight_decay: 0.001        # stronger L2 — reduce val→test overfit (was 0.0001)
 grad_clip_norm: 1.0        # gradient clipping
-early_stopping_patience: 10 # was 7 — stopped too early before test-set generalization
-early_stopping_min_epochs: 5  # don't fire before epoch 5 — prevents saving near-random epoch-1 weights
+early_stopping_patience: 15 # extended patience: gives model more time to generalize
+early_stopping_min_epochs: 10 # warmup: no early stop before epoch 10 — skip near-random early weights
 lr_scheduler: "cosine"     # cosine annealing works well for large datasets
 
 # ── Validation ────────────────────────────────────────────────────────
