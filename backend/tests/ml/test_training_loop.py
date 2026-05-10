@@ -67,7 +67,7 @@ class TestTrainOneEpoch:
 class TestEarlyStopping:
     def test_triggers_after_patience(self):
         """Should stop when DA hasn't improved for `patience` consecutive steps."""
-        es = EarlyStopping(patience=3)
+        es = EarlyStopping(patience=3, min_epochs=1)
         model = LSTMPredictor(input_size=NUM_FEATURES, hidden_size=8, num_layers=1)
 
         # First call sets best DA
@@ -79,7 +79,7 @@ class TestEarlyStopping:
 
     def test_resets_on_improvement(self):
         """Counter must reset when DA improves (higher = better)."""
-        es = EarlyStopping(patience=3)
+        es = EarlyStopping(patience=3, min_epochs=1)
         model = LSTMPredictor(input_size=NUM_FEATURES, hidden_size=8, num_layers=1)
 
         assert not es.step(0.50, model)  # best_da=0.50, counter=0
@@ -89,7 +89,7 @@ class TestEarlyStopping:
         assert not es.step(0.52, model)  # counter=2 (not yet patience=3)
 
     def test_restore_best(self):
-        es = EarlyStopping(patience=3)
+        es = EarlyStopping(patience=3, min_epochs=1)
         model = LSTMPredictor(input_size=NUM_FEATURES, hidden_size=8, num_layers=1)
 
         es.step(0.55, model)  # save state at DA=0.55
@@ -104,12 +104,40 @@ class TestEarlyStopping:
 
     def test_best_da_tracked(self):
         """best_da should track the highest DA seen."""
-        es = EarlyStopping(patience=5)
+        es = EarlyStopping(patience=5, min_epochs=1)
         model = LSTMPredictor(input_size=NUM_FEATURES, hidden_size=8, num_layers=1)
         es.step(0.51, model)
         es.step(0.55, model)
         es.step(0.53, model)
         assert abs(es.best_da - 0.55) < 1e-6
+
+    def test_min_epochs_warmup_prevents_early_trigger(self):
+        """Early stop must not fire during warmup period even with no DA improvement."""
+        es = EarlyStopping(patience=2, min_epochs=4)
+        model = LSTMPredictor(input_size=NUM_FEATURES, hidden_size=8, num_layers=1)
+
+        # Epoch 1: sets best
+        assert not es.step(0.55, model)
+        # Epochs 2-4: no improvement, but in warmup — must not stop
+        assert not es.step(0.50, model)
+        assert not es.step(0.50, model)  # counter would be 2 = patience, but still warmup
+        assert not es.step(0.50, model)  # epoch 4 = last warmup epoch — still no stop
+        # Epoch 5: first post-warmup epoch, patience counter active
+        assert not es.step(0.50, model)  # counter=1 (not yet patience=2)
+        assert es.step(0.50, model)       # counter=2 = patience → stop
+
+    def test_min_epochs_best_state_saved_during_warmup(self):
+        """Best state is still tracked during warmup even though stopping is blocked."""
+        es = EarlyStopping(patience=5, min_epochs=3)
+        model = LSTMPredictor(input_size=NUM_FEATURES, hidden_size=8, num_layers=1)
+
+        es.step(0.60, model)  # epoch 1: best DA=0.60 saved during warmup
+        for p in model.parameters():
+            p.data.fill_(99.0)   # corrupt weights
+
+        es.restore_best(model)
+        for p in model.parameters():
+            assert not torch.all(p.data == 99.0)  # restored from warmup-era best
 
 
 class TestHybridDirectionalLoss:

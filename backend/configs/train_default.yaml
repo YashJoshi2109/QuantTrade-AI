@@ -20,7 +20,7 @@ hidden_size: 128           # LSTM hidden units (keep 128 for CI 3h timeout safet
 num_layers: 3              # 3-layer LSTM with multi-head attention
 dropout: 0.2               # regularization
 num_attention_heads: 4     # MHA heads — must divide hidden_size (128/4=32 per head)
-num_encoder_blocks: 2     # stacked Transformer encoder blocks (MHA→Add&Norm→FFN→Add&Norm)
+num_encoder_blocks: 1     # stacked Transformer encoder blocks (MHA→Add&Norm→FFN→Add&Norm); 2 exceeds 3h CI budget
 
 # ── Loss ──────────────────────────────────────────────────────────────
 use_hybrid_loss: true      # alpha*MSE + (1-alpha)*BCE(direction) — directly optimizes DA
@@ -37,6 +37,7 @@ learning_rate: 0.0005      # lower LR for smaller batch (linear scaling rule rev
 weight_decay: 0.001        # stronger L2 — reduce val→test overfit (was 0.0001)
 grad_clip_norm: 1.0        # gradient clipping
 early_stopping_patience: 10 # was 7 — stopped too early before test-set generalization
+early_stopping_min_epochs: 5  # don't fire before epoch 5 — prevents saving near-random epoch-1 weights
 lr_scheduler: "cosine"     # cosine annealing works well for large datasets
 
 # ── Validation ────────────────────────────────────────────────────────

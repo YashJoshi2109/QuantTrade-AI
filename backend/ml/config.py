@@ -53,6 +53,7 @@ class TrainConfig:
     weight_decay: float = 1e-4
     grad_clip_norm: float = 1.0
     early_stopping_patience: int = 10
+    early_stopping_min_epochs: int = 5   # warmup: don't allow early stop before this epoch
     lr_scheduler: str = "one_cycle"  # one_cycle | cosine | reduce_on_plateau
 
     # ── Validation ─────────────────────────────────────────────────────

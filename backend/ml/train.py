@@ -85,20 +85,31 @@ class HybridDirectionalLoss(nn.Module):
 
 class EarlyStopping:
     """Stop on val DA (higher = better). Breaks val-loss/DA mismatch where
-    lowest MSE loss != best directional accuracy on test set."""
+    lowest MSE loss != best directional accuracy on test set.
 
-    def __init__(self, patience: int = 10, min_delta: float = 1e-4):
+    min_epochs: don't allow early stop until this many epochs have passed.
+    Prevents saving near-random epoch-1 weights when val DA fluctuates high
+    before the model has actually learned anything.
+    """
+
+    def __init__(self, patience: int = 10, min_delta: float = 1e-4, min_epochs: int = 5):
         self.patience = patience
         self.min_delta = min_delta
+        self.min_epochs = min_epochs
         self.best_da = -float("inf")
         self.counter = 0
+        self._epoch = 0
         self.best_state: dict | None = None
 
     def step(self, val_da: float, model: nn.Module) -> bool:
+        self._epoch += 1
         if val_da > self.best_da + self.min_delta:
             self.best_da = val_da
             self.counter = 0
             self.best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+            return False
+        if self._epoch <= self.min_epochs:
+            # Warmup: count epochs 1..min_epochs, never trigger
             return False
         self.counter += 1
         return self.counter >= self.patience
@@ -266,7 +277,10 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
             optimizer, mode="min", patience=5, factor=0.5
         )
 
-    early_stopper = EarlyStopping(patience=config.early_stopping_patience)
+    early_stopper = EarlyStopping(
+        patience=config.early_stopping_patience,
+        min_epochs=getattr(config, "early_stopping_min_epochs", 5),
+    )
 
     # Training loop
     for epoch in range(1, config.epochs + 1):
