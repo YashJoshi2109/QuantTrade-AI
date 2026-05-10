@@ -95,7 +95,7 @@ Resources:
                 Resource: '*'
                 Condition:
                   StringEquals:
-                    ec2:LaunchTemplate: !Ref MLRunnerLaunchTemplate
+                    ec2:LaunchTemplate: !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:launch-template/${MLRunnerLaunchTemplate}'
               - Sid: TagInstances
                 Effect: Allow
                 Action: ec2:CreateTags
@@ -234,7 +234,7 @@ Resources:
       MetricName: Errors
       Namespace: AWS/Lambda
       Dimensions:
-        - {Name: FunctionName, Value: ml-runner-launcher}
+        - {Name: FunctionName, Value: !Ref MLRunnerLauncherFunction}
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
