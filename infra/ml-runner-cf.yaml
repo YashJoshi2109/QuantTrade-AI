@@ -183,6 +183,7 @@ Resources:
           LAUNCH_TEMPLATE_ID: !Ref MLRunnerLaunchTemplate
           SNS_TOPIC_ARN: !Ref MLRunnerAlertsTopic
           S3_BUCKET: quanttrade-ml-artifacts
+          USE_SPOT: 'false'
 
   # ── EventBridge Rules ─────────────────────────────────────────────────────
   MLRunnerScheduleWeekday:

@@ -14,6 +14,8 @@ PAT_SECRET_NAME = os.environ.get("PAT_SECRET_NAME", "quanttrade/github-pat")
 LAUNCH_TEMPLATE_ID = os.environ.get("LAUNCH_TEMPLATE_ID", "")
 SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
 S3_BUCKET = os.environ.get("S3_BUCKET", "quanttrade-ml-artifacts")
+# Set USE_SPOT=true once Spot vCPU quota is approved; false = On-Demand (works immediately)
+USE_SPOT = os.environ.get("USE_SPOT", "false").lower() == "true"
 
 _FALLBACK_TYPES = ["c5.2xlarge", "c5.4xlarge", "m5.2xlarge"]
 
@@ -135,18 +137,15 @@ shutdown -h now
 
 def launch_spot(userdata: str, runner_index: int, fallback_types: list) -> dict:
     ec2 = boto3.client("ec2", region_name=REGION)
+    market = "Spot" if USE_SPOT else "On-Demand"
     for instance_type in fallback_types:
         try:
-            resp = ec2.run_instances(
+            kwargs = dict(
                 MinCount=1,
                 MaxCount=1,
                 LaunchTemplate={"LaunchTemplateId": LAUNCH_TEMPLATE_ID},
                 InstanceType=instance_type,
                 UserData=userdata,
-                InstanceMarketOptions={
-                    "MarketType": "spot",
-                    "SpotOptions": {"MaxPrice": "0.25", "SpotInstanceType": "one-time"},
-                },
                 TagSpecifications=[{
                     "ResourceType": "instance",
                     "Tags": [
@@ -157,11 +156,18 @@ def launch_spot(userdata: str, runner_index: int, fallback_types: list) -> dict:
                     ],
                 }],
             )
-            print(f"Launched {instance_type} Spot {resp['Instances'][0]['InstanceId']} (runner {runner_index})")
+            if USE_SPOT:
+                kwargs["InstanceMarketOptions"] = {
+                    "MarketType": "spot",
+                    "SpotOptions": {"MaxPrice": "0.25", "SpotInstanceType": "one-time"},
+                }
+            resp = ec2.run_instances(**kwargs)
+            print(f"Launched {instance_type} {market} {resp['Instances'][0]['InstanceId']} (runner {runner_index})")
             return resp
         except ClientError as e:
             code = e.response["Error"]["Code"]
-            if code in ("InsufficientInstanceCapacity", "InsufficientHostCapacity", "Unsupported"):
+            if code in ("InsufficientInstanceCapacity", "InsufficientHostCapacity",
+                        "MaxSpotInstanceCountExceeded", "VcpuLimitExceeded", "Unsupported"):
                 print(f"{instance_type} unavailable ({code}), trying next...")
                 continue
             raise

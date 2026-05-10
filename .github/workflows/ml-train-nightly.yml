@@ -56,7 +56,7 @@ jobs:
   train-lstm:
     name: Train LSTM (${{ matrix.label }})
     needs: plan
-    runs-on: [self-hosted, ml]
+    runs-on: ubuntu-latest  # TODO: revert to [self-hosted, ml] after Spot vCPU quota approved
     timeout-minutes: 360
     strategy:
       fail-fast: false
