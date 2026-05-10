@@ -114,7 +114,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: quanttrade-ml-runner
-      GroupDescription: ML runner EC2 — egress-only (HTTPS to GitHub, PyPI, AWS APIs)
+      GroupDescription: ML runner EC2 - egress-only (HTTPS to GitHub, PyPI, AWS APIs)
       VpcId: !Ref VpcId
       SecurityGroupEgress:
         - IpProtocol: tcp
