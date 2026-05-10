@@ -39,13 +39,17 @@ jobs:
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TIER="${{ github.event.inputs.symbol_tier || 'tier_2' }}"
-            echo "matrix={\"include\":[{\"tier\":\"$TIER\",\"label\":\"$TIER\"}]}" >> $GITHUB_OUTPUT
+            EPOCHS="${{ github.event.inputs.epochs || '20' }}"
+            echo "matrix={\"include\":[{\"tier\":\"$TIER\",\"label\":\"$TIER\",\"max_epochs\":$EPOCHS}]}" >> $GITHUB_OUTPUT
           elif [ "$(date +%u)" = "7" ]; then
-            # Sunday — 5 exclusive parallel jobs for full coverage
-            echo 'matrix={"include":[{"tier":"tier_1_exclusive","label":"tier_1"},{"tier":"tier_2_exclusive","label":"tier_2"},{"tier":"tier_3a","label":"tier_3a"},{"tier":"tier_3b","label":"tier_3b"},{"tier":"tier_3c","label":"tier_3c"}]}' >> $GITHUB_OUTPUT
+            # Sunday — 5 exclusive parallel jobs; per-tier epoch budgets fit within 6h timeout
+            # tier_1: 30 sym ~2.5min/ep → 30ep×2h = 150min ✓
+            # tier_2: 180 sym ~15min/ep  →  8ep×2h = 240min ✓
+            # tier_3: 87 sym  ~7min/ep   → 12ep×2h = 168min ✓
+            echo 'matrix={"include":[{"tier":"tier_1_exclusive","label":"tier_1","max_epochs":30},{"tier":"tier_2_exclusive","label":"tier_2","max_epochs":8},{"tier":"tier_3a","label":"tier_3a","max_epochs":12},{"tier":"tier_3b","label":"tier_3b","max_epochs":12},{"tier":"tier_3c","label":"tier_3c","max_epochs":12}]}' >> $GITHUB_OUTPUT
           else
-            # Weekdays — tier_2 (tier_1 + tier_2 combined, ~230 symbols)
-            echo 'matrix={"include":[{"tier":"tier_2","label":"tier_2"}]}' >> $GITHUB_OUTPUT
+            # Weekdays — tier_2 combined (~230 symbols); 6 epochs fits 3h timeout
+            echo 'matrix={"include":[{"tier":"tier_2","label":"tier_2","max_epochs":6}]}' >> $GITHUB_OUTPUT
           fi
 
   # ── Training shard jobs (parallel on Sunday) ──────────────────────
@@ -53,7 +57,7 @@ jobs:
     name: Train LSTM (${{ matrix.label }})
     needs: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
@@ -131,8 +135,10 @@ jobs:
           try:
               sys.path.insert(0, ".")
               from ml.constants import SYMBOL_TIERS
-              tier = os.environ.get("ML_TIER", "tier_2")
-              symbol_count = len(SYMBOL_TIERS.get(tier, []))
+              tier_raw = os.environ.get("ML_TIER", "tier_2")
+              # strip _exclusive suffix: "tier_1_exclusive" → "tier_1"
+              tier = tier_raw.replace("_exclusive", "")
+              symbol_count = len(SYMBOL_TIERS.get(tier, SYMBOL_TIERS.get(tier_raw, [])))
           except Exception:
               symbol_count = 0
 
@@ -177,7 +183,7 @@ jobs:
           echo "═══════════════════════════════════════════════"
           python -m ml.train --config configs/train_default.yaml \
             --symbol-tier ${{ matrix.tier }} \
-            ${{ github.event.inputs.epochs && format('--epochs {0}', github.event.inputs.epochs) || '' }}
+            --epochs ${{ matrix.max_epochs }}
 
       - name: Report results to Neon
         if: always()
