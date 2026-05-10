@@ -491,10 +491,14 @@ def _write_train_summary(
         "run_id": run_id,
         "shard_name": shard_name,
         "symbol_tier": getattr(config, "symbol_tier", None),
+        "symbol_count": next(
+            (r.get("symbols_trained") for r in results if r.get("symbols_trained")), 0
+        ),
         "results": [
             {
                 "horizon": r["horizon"],
                 "test_metrics": r.get("test_metrics", {}),
+                "val_metrics": r.get("val_metrics", {}),
                 "status": "failed" if "error" in r else "completed",
                 "error": r.get("error"),
             }

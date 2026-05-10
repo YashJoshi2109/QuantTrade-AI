@@ -107,6 +107,57 @@ jobs:
           pip install -r requirements.txt
           pip install torch --index-url https://download.pytorch.org/whl/cpu
 
+      - name: Register training start in Neon
+        working-directory: ./backend
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, uuid, sys, time
+          try:
+              import requests
+          except ImportError:
+              sys.exit(0)
+
+          api    = os.environ.get("QUANTTRADE_API_BASE", "")
+          secret = os.environ.get("ML_CALLBACK_SECRET", "")
+          run_id = os.environ.get("ML_RUN_ID", "")
+          shard_name = os.environ.get("ML_SHARD_NAME", "gha")
+          shard_id   = os.environ.get("ML_SHARD_ID", str(uuid.uuid4()))
+
+          if not api or not secret or not run_id:
+              print("Missing env — skipping batch-start")
+              sys.exit(0)
+
+          # Resolve symbol count from tier constants (best-effort)
+          try:
+              sys.path.insert(0, ".")
+              from ml.constants import SYMBOL_TIERS
+              tier = os.environ.get("ML_TIER", "tier_2")
+              symbol_count = len(SYMBOL_TIERS.get(tier, []))
+          except Exception:
+              symbol_count = 0
+
+          headers = {"X-ML-Callback-Secret": secret, "Content-Type": "application/json"}
+          try:
+              resp = requests.post(
+                  f"{api}/api/v1/internal/ml/batch-start",
+                  json={"run_id": run_id, "shard_id": shard_id, "shard_name": shard_name,
+                        "symbol_count": symbol_count, "horizons": [1, 7],
+                        "batch_job_id": os.environ.get("GITHUB_RUN_ID", "")},
+                  headers=headers, timeout=15,
+              )
+              print(f"batch-start: HTTP {resp.status_code}  symbols={symbol_count}")
+          except Exception as e:
+              print(f"batch-start error (non-fatal): {e}")
+
+          # Persist shard_id for the callback step
+          with open(os.environ.get("GITHUB_ENV", "/dev/null"), "a") as f:
+              f.write(f"ML_SHARD_ID={shard_id}\n")
+              f.write(f"ML_TRAIN_START_TS={int(time.time())}\n")
+          PYEOF
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+          ML_TIER: ${{ matrix.tier }}
+
       - name: Run ML Training Shard
         working-directory: ./backend
         env:
@@ -133,18 +184,19 @@ jobs:
         working-directory: ./backend
         run: |
           python3 - <<'PYEOF'
-          import json, os, uuid, sys
+          import json, os, uuid, sys, time
           try:
               import requests
           except ImportError:
               print("requests not installed — skipping callback")
               sys.exit(0)
 
-          api = os.environ.get("QUANTTRADE_API_BASE", "")
-          secret = os.environ.get("ML_CALLBACK_SECRET", "")
-          run_id = os.environ.get("ML_RUN_ID", "")
+          api        = os.environ.get("QUANTTRADE_API_BASE", "")
+          secret     = os.environ.get("ML_CALLBACK_SECRET", "")
+          run_id     = os.environ.get("ML_RUN_ID", "")
           shard_name = os.environ.get("ML_SHARD_NAME", "gha")
-          shard_id = str(uuid.uuid4())
+          shard_id   = os.environ.get("ML_SHARD_ID", str(uuid.uuid4()))
+          start_ts   = int(os.environ.get("ML_TRAIN_START_TS", "0"))
 
           if not api or not secret or not run_id:
               print("Missing QUANTTRADE_API_BASE, ML_CALLBACK_SECRET, or ML_RUN_ID — skipping callback")
@@ -153,13 +205,16 @@ jobs:
           headers = {"X-ML-Callback-Secret": secret, "Content-Type": "application/json"}
 
           # Read train_summary.json written by train.py
-          artifacts = []
-          status = "failed"
+          artifacts    = []
+          status       = "failed"
+          symbol_count = 0
           summary_path = "ml/train_summary.json"
+          summary      = {}
           if os.path.exists(summary_path):
               try:
                   with open(summary_path) as f:
                       summary = json.load(f)
+                  symbol_count = summary.get("symbol_count", 0)
                   completed = [r for r in summary.get("results", []) if r.get("status") == "completed"]
                   status = "completed" if completed else "failed"
                   for r in completed:
@@ -176,14 +231,16 @@ jobs:
           else:
               print("Warning: train_summary.json not found — reporting failure")
 
-          print(f"Reporting to Neon: run={run_id[:8]} status={status} artifacts={len(artifacts)}")
+          runtime_seconds = (int(time.time()) - start_ts) if start_ts else None
+          print(f"Reporting to Neon: run={run_id[:8]} status={status} symbols={symbol_count} artifacts={len(artifacts)} runtime={runtime_seconds}s")
 
-          # POST batch-callback (auto-creates run record in Neon)
+          # POST batch-callback
           try:
               resp = requests.post(
                   f"{api}/api/v1/internal/ml/batch-callback",
                   json={"run_id": run_id, "shard_id": shard_id, "shard_name": shard_name,
-                        "status": status, "artifacts": artifacts},
+                        "status": status, "symbol_count": symbol_count,
+                        "runtime_seconds": runtime_seconds, "artifacts": artifacts},
                   headers=headers, timeout=30,
               )
               print(f"batch-callback: HTTP {resp.status_code}")
@@ -203,6 +260,30 @@ jobs:
               print(f"finalize: HTTP {resp.status_code}")
           except Exception as e:
               print(f"finalize error (non-fatal): {e}")
+
+          # POST promote — trigger auto-promotion when thresholds met
+          # (GHA bypasses the SFN aggregator so we handle this inline)
+          if status == "completed" and artifacts:
+              das = [a["directional_accuracy"] for a in artifacts if a.get("directional_accuracy") is not None]
+              ics = [a["information_coefficient"] for a in artifacts if a.get("information_coefficient") is not None]
+              if das and ics:
+                  avg_da = sum(das) / len(das)
+                  avg_ic = sum(ics) / len(ics)
+                  da_thresh = float(os.environ.get("PROMOTE_DA_THRESHOLD", "0.51"))
+                  ic_thresh = float(os.environ.get("PROMOTE_IC_THRESHOLD", "-0.05"))
+                  promo_status = "production" if (avg_da >= da_thresh and avg_ic >= ic_thresh) else "staging"
+                  from datetime import datetime, timezone
+                  version = f"v{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M')}"
+                  try:
+                      resp = requests.post(
+                          f"{api}/api/v1/internal/ml/runs/{run_id}/promote",
+                          json={"model_version": version, "avg_da": avg_da, "avg_ic": avg_ic,
+                                "promotion_status": promo_status},
+                          headers=headers, timeout=30,
+                      )
+                      print(f"promote: HTTP {resp.status_code}  status={promo_status}  DA={avg_da:.3f}  IC={avg_ic:.3f}")
+                  except Exception as e:
+                      print(f"promote error (non-fatal): {e}")
 
           PYEOF
 

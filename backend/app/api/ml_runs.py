@@ -95,6 +95,7 @@ class BatchCallbackRequest(BaseModel):
     shard_id: str
     shard_name: str = ""
     status: str  # completed | failed
+    symbol_count: Optional[int] = None
     runtime_seconds: Optional[int] = None
     error_type: Optional[str] = None
     error_summary: Optional[str] = None
@@ -629,13 +630,19 @@ async def batch_job_callback(
 
     # Upsert run and shard in case batch-start callback was missed
     from app.models.ml_training import TrainingShard as _TrainingShard
+    sym_count = req.symbol_count or 0
     if not mds.get_run(db, run_uid):
-        mds.create_run(db, run_id=run_uid, run_type=req.shard_name or "batch",
-                       trigger_source="sfn", total_symbols=0, total_shards=1)
+        mds.create_run(db, run_id=run_uid, run_type=req.shard_name or "gha",
+                       trigger_source="github_actions", total_symbols=sym_count, total_shards=1)
         logger.info("Batch callback: auto-created missing run %s", req.run_id[:8])
+    elif sym_count > 0:
+        run_rec = mds.get_run(db, run_uid)
+        if run_rec and not run_rec.total_symbols:
+            run_rec.total_symbols = sym_count
+            db.commit()
     if not db.query(_TrainingShard).filter(_TrainingShard.shard_id == shard_uid).first():
         mds.create_shard(db, shard_id=shard_uid, run_id=run_uid, shard_index=0,
-                         shard_name=req.shard_name, symbol_count=0, horizons=[1, 7, 30])
+                         shard_name=req.shard_name, symbol_count=sym_count, horizons=[1, 7, 30])
         logger.info("Batch callback: auto-created missing shard %s", req.shard_id[:8])
 
     mds.update_shard_from_callback(

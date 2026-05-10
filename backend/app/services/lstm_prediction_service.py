@@ -177,15 +177,16 @@ class StockPredictor:
         if _ML_AVAILABLE:
             self._load_all_checkpoints()
 
+        fallback_input_size = NUM_FEATURES if _ML_AVAILABLE else len(self._FEATURE_COLS)
         if not self._trained:
             logger.warning("No trained LSTM checkpoints found — using untrained fallback.")
-            self.lstm_model = LSTMPredictor(input_size=len(self._FEATURE_COLS))
+            self.lstm_model = LSTMPredictor(input_size=fallback_input_size)
             self.lstm_model.eval()
             self.scaler = MinMaxScaler()
         else:
-            # Keep a dedicated legacy scaler for prepare_features() (12-feature path)
-            # so that legacy callers / tests don't collide with the trained 20-feature scaler.
-            self.lstm_model = LSTMPredictor(input_size=len(self._FEATURE_COLS))
+            # Legacy scaler for 12-feature prepare_features() path; trained 20-feature
+            # path uses _trained_scalers[h] loaded from checkpoint.
+            self.lstm_model = LSTMPredictor(input_size=fallback_input_size)
             self.lstm_model.eval()
             self.scaler = MinMaxScaler()
 
