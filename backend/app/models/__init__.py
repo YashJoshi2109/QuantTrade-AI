@@ -52,6 +52,9 @@ from app.models.exchange_ranked_symbol import ExchangeRankedSymbol
 # Model Index Engine
 from app.models.model_index import ModelIndexSnapshot, BasketHolding, FactorScoreHistory
 
+# SEC EDGAR financial data
+from app.models.edgar import CompanyEDGAR, FinancialStatement
+
 __all__ = [
     "User",
     "Symbol",
@@ -98,4 +101,7 @@ __all__ = [
     "TrainingShard",
     "TrainingArtifact",
     "ModelVersion",
+    # SEC EDGAR
+    "CompanyEDGAR",
+    "FinancialStatement",
 ]

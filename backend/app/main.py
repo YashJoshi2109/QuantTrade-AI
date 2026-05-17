@@ -55,6 +55,7 @@ from app.api import community, posts, comments, notifications, users, search
 from app.api import bookmarks, uploads, reactions
 from app.api import mlops
 from app.api import moderation as moderation_api
+from app.api import research as research_api
 from app.api import bans
 from app.api import ws as ws_api
 from app.db.database import engine, Base
@@ -116,6 +117,7 @@ from app.models.ml_training import (
     TrainingArtifact as _TrainingArtifact,
     ModelVersion as _MLModelVersion,
 )
+from app.models.edgar import CompanyEDGAR, FinancialStatement
 
 
 def _create_db_tables():
@@ -525,6 +527,9 @@ app.include_router(messages_api.router, prefix="/api/v1", tags=["messages"])
 
 # MLOps — model registry, experiments, monitoring, pipeline control
 app.include_router(mlops.router, prefix="/api/v1", tags=["mlops"])
+
+# Research — SEC EDGAR financials, company overview, filings, AI insights
+app.include_router(research_api.router)
 
 # Agentic RAG Copilot — ingest trigger, status, health check (admin)
 from app.api.agentic_copilot import router as agentic_router
