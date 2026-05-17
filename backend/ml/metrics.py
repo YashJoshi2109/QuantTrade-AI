@@ -76,10 +76,16 @@ def compute_ranking_metrics(
     pearson_ic = _safe_pearsonr(predictions, actuals)
     spearman_ic = _safe_spearmanr(predictions, actuals)
 
-    # ICIR — daily cross-sectional when dates provided, else block-wise
+    # ICIR — daily cross-sectional when dates provided and length matches, else block-wise
     ic_series: list[float] = []
-    if dates is not None:
-        dates_arr = np.asarray(dates)[mask]
+    dates_arr_raw = np.asarray(dates) if dates is not None else None
+    # dates must be pre-aligned to predictions length (same # of samples, same order)
+    use_daily_ic = (
+        dates_arr_raw is not None
+        and len(dates_arr_raw) == len(mask)  # mask built from original (pre-NaN-drop) preds
+    )
+    if use_daily_ic:
+        dates_arr = dates_arr_raw[mask]
         for d in np.unique(dates_arr):
             idx = dates_arr == d
             if idx.sum() >= 3:

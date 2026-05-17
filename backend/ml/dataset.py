@@ -437,15 +437,23 @@ def build_datasets_from_cache(
 
     train_f = np.concatenate(train_feats, axis=0)
     train_t = np.concatenate(train_tgts, axis=0)
-    val_f = np.concatenate(val_feats, axis=0) if val_feats else train_f[-val_days:]
-    val_t = np.concatenate(val_tgts, axis=0) if val_tgts else train_t[-val_days:]
-    test_f = np.concatenate(test_feats, axis=0) if test_feats else train_f[-test_days:]
-    test_t = np.concatenate(test_tgts, axis=0) if test_tgts else train_t[-test_days:]
+
+    if not val_feats:
+        raise ValueError(
+            f"No symbols had sufficient data for val/test splits at h={horizon} "
+            f"(need val_start >= seq_len={seq_len}). Reduce val_days/test_days or use more data."
+        )
+
+    val_f = np.concatenate(val_feats, axis=0)
+    val_t = np.concatenate(val_tgts, axis=0)
+    test_f = np.concatenate(test_feats, axis=0) if test_feats else np.empty((0, val_f.shape[1]))
+    test_t = np.concatenate(test_tgts, axis=0) if test_tgts else np.array([])
 
     scaler = make_scaler(scaler_type)
     train_f = scaler.fit_transform(train_f)
     val_f = scaler.transform(val_f)
-    test_f = scaler.transform(test_f)
+    if len(test_f) > 0:
+        test_f = scaler.transform(test_f)
 
     logger.info(f"[h={horizon}] Dataset sizes — train: {len(train_f)}, val: {len(val_f)}, test: {len(test_f)}")
 
@@ -581,13 +589,33 @@ def build_datasets_with_metadata(
 
     train_f = np.concatenate(train_feats, axis=0)
     train_t = np.concatenate(train_tgts, axis=0)
-    val_f = np.concatenate(val_feats, axis=0) if val_feats else train_f[-val_days:]
-    val_t = np.concatenate(val_tgts, axis=0) if val_tgts else train_t[-val_days:]
-    test_f = np.concatenate(test_feats, axis=0) if test_feats else train_f[-test_days:]
-    test_t = np.concatenate(test_tgts, axis=0) if test_tgts else train_t[-test_days:]
-    val_dates_all = np.concatenate(val_date_arrays, axis=0) if val_date_arrays else np.array([])
-    test_dates_all = np.concatenate(test_date_arrays, axis=0) if test_date_arrays else np.array([])
     train_dates_all = np.concatenate(train_date_arrays, axis=0) if train_date_arrays else np.array([])
+
+    if not val_feats:
+        raise ValueError(
+            f"No symbols had sufficient data for val/test splits at h={horizon}. "
+            f"All {len(all_features)} symbols were too short to produce val_start >= seq_len={seq_len}. "
+            f"Reduce val_days/test_days or use more historical data."
+        )
+
+    val_f = np.concatenate(val_feats, axis=0)
+    val_t = np.concatenate(val_tgts, axis=0)
+    test_f = np.concatenate(test_feats, axis=0) if test_feats else np.empty((0, val_f.shape[1]))
+    test_t = np.concatenate(test_tgts, axis=0) if test_tgts else np.array([])
+    val_dates_raw = np.concatenate(val_date_arrays, axis=0)
+    test_dates_raw = np.concatenate(test_date_arrays, axis=0) if test_date_arrays else np.array([])
+
+    # Adjust date arrays to align with StockDataset sliding-window output.
+    # StockDataset sample i: features[i:i+seq_len], target = targets[i+seq_len-1].
+    # Prediction date = dates[i + seq_len - 1], for i = 0 .. len(ds)-1.
+    # Slice: dates[seq_len-1 : -1]  (length = len(dates) - seq_len = len(StockDataset))
+    def _window_dates(d: np.ndarray) -> np.ndarray:
+        if len(d) <= seq_len:
+            return np.array([])
+        return d[seq_len - 1: -1]
+
+    val_dates_all = _window_dates(val_dates_raw)
+    test_dates_all = _window_dates(test_dates_raw)
 
     # Neutral-zone filtering — training only
     threshold = float(threshold_bps) / 10_000
