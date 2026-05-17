@@ -31,6 +31,27 @@ def persistence_baseline(actuals: np.ndarray) -> np.ndarray:
     return np.zeros_like(actuals)
 
 
+def always_up_baseline(n: int, return_magnitude: float = 0.001) -> np.ndarray:
+    """Always predict a small positive return — naive bull market assumption."""
+    return np.full(n, return_magnitude)
+
+
+def prev_day_sign_baseline(dataset) -> np.ndarray:
+    """Predict same direction as previous day's log return (momentum)."""
+    preds = []
+    for i in range(len(dataset)):
+        x, _ = dataset[i]
+        # Log_Return is feature column 17
+        prev_return = float(x.numpy()[-1, 17])
+        preds.append(prev_return)
+    return np.array(preds)
+
+
+def five_day_momentum_baseline(dataset) -> np.ndarray:
+    """Predict mean of last 5 days' log returns (short-term momentum)."""
+    return momentum_baseline(dataset, lookback=5)
+
+
 def momentum_baseline(dataset, lookback: int = 10) -> np.ndarray:
     """Predict continuation of recent trend (mean of last `lookback` returns)."""
     preds = []
@@ -117,17 +138,42 @@ def run_all_baselines(
 
     # Get test actuals
     _, test_actuals = _flatten_windows(test_dataset, max_samples=len(test_dataset))
+    n = len(test_actuals)
 
     # Persistence
     preds = persistence_baseline(test_actuals)
     results["persistence"] = compute_metrics(preds, test_actuals, transaction_cost_bps)
-    logger.info(f"Persistence: DA={results['persistence'].directional_accuracy:.1%}")
+    logger.info(f"Persistence:      DA={results['persistence'].directional_accuracy:.1%}")
 
-    # Momentum
+    # Always-up
+    try:
+        preds = always_up_baseline(n)
+        results["always_up"] = compute_metrics(preds, test_actuals, transaction_cost_bps)
+        logger.info(f"Always-up:        DA={results['always_up'].directional_accuracy:.1%}")
+    except Exception as e:
+        logger.warning(f"Always-up baseline failed: {e}")
+
+    # Previous-day sign
+    try:
+        preds = prev_day_sign_baseline(test_dataset)
+        results["prev_day_sign"] = compute_metrics(preds, test_actuals[:len(preds)], transaction_cost_bps)
+        logger.info(f"Prev-day sign:    DA={results['prev_day_sign'].directional_accuracy:.1%}")
+    except Exception as e:
+        logger.warning(f"Prev-day sign baseline failed: {e}")
+
+    # 5-day momentum
+    try:
+        preds = five_day_momentum_baseline(test_dataset)
+        results["momentum_5d"] = compute_metrics(preds, test_actuals[:len(preds)], transaction_cost_bps)
+        logger.info(f"Momentum (5d):    DA={results['momentum_5d'].directional_accuracy:.1%}")
+    except Exception as e:
+        logger.warning(f"5-day momentum baseline failed: {e}")
+
+    # 10-day momentum
     try:
         preds = momentum_baseline(test_dataset)
-        results["momentum"] = compute_metrics(preds, test_actuals[:len(preds)], transaction_cost_bps)
-        logger.info(f"Momentum: DA={results['momentum'].directional_accuracy:.1%}")
+        results["momentum_10d"] = compute_metrics(preds, test_actuals[:len(preds)], transaction_cost_bps)
+        logger.info(f"Momentum (10d):   DA={results['momentum_10d'].directional_accuracy:.1%}")
     except Exception as e:
         logger.warning(f"Momentum baseline failed: {e}")
 
@@ -135,7 +181,7 @@ def run_all_baselines(
     try:
         preds = linear_regression_baseline(train_dataset, test_dataset)
         results["linear_regression"] = compute_metrics(preds, test_actuals, transaction_cost_bps)
-        logger.info(f"Linear Reg: DA={results['linear_regression'].directional_accuracy:.1%}")
+        logger.info(f"Linear Reg:       DA={results['linear_regression'].directional_accuracy:.1%}")
     except Exception as e:
         logger.warning(f"Linear regression baseline failed: {e}")
 
@@ -145,7 +191,7 @@ def run_all_baselines(
             preds = xgboost_baseline(train_dataset, test_dataset)
             if len(preds) > 0:
                 results["xgboost"] = compute_metrics(preds, test_actuals, transaction_cost_bps)
-                logger.info(f"XGBoost: DA={results['xgboost'].directional_accuracy:.1%}")
+                logger.info(f"XGBoost:          DA={results['xgboost'].directional_accuracy:.1%}")
         except Exception as e:
             logger.warning(f"XGBoost baseline failed: {e}")
 

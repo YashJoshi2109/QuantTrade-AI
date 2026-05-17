@@ -50,6 +50,23 @@ wf_train_days: 1260        # 5 years
 wf_retrain_every: 252      # 1 year
 wf_expanding: true
 
+# ── Phase 1: Thresholded direction / neutral-zone filtering ───────────
+use_thresholded_direction: true
+direction_threshold_bps: {7: 50}  # drop |return| < 50bps from training
+drop_neutral_samples: true
+
+# ── Phase 1: Validation mode ──────────────────────────────────────────
+validation_mode: "days"     # days | ratio
+train_ratio: 0.70
+val_ratio: 0.15
+test_ratio: 0.15
+
+# ── Phase 1: Composite early stopping ────────────────────────────────
+early_stopping_metric: "composite"  # composite | directional_accuracy | spearman_ic
+composite_da_weight: 0.30
+composite_ic_weight: 0.50
+composite_precision_weight: 0.20
+
 # ── Portfolio evaluation ──────────────────────────────────────────────
 transaction_cost_bps: 10.0
 

@@ -66,12 +66,37 @@ class TrainConfig:
     wf_retrain_every: int = 252  # 1 year
     wf_expanding: bool = True
 
+    # ── Phase 1: Thresholded direction / neutral-zone filtering ────────
+    use_thresholded_direction: bool = False
+    direction_threshold_bps: dict = field(default_factory=lambda: {7: 50})
+    drop_neutral_samples: bool = True
+
+    # ── Phase 1: Validation mode ───────────────────────────────────────
+    validation_mode: str = "days"   # days | ratio
+    train_ratio: float = 0.70
+    val_ratio: float = 0.15
+    test_ratio: float = 0.15
+
+    # ── Phase 1: Composite early stopping ─────────────────────────────
+    early_stopping_metric: str = "composite"  # composite | directional_accuracy | spearman_ic
+    composite_da_weight: float = 0.30
+    composite_ic_weight: float = 0.50
+    composite_precision_weight: float = 0.20
+
     # ── Output ─────────────────────────────────────────────────────────
     checkpoint_dir: str = str(DEFAULT_CHECKPOINT_DIR)
     experiment_name: str = "default"
 
     # ── Portfolio / evaluation ─────────────────────────────────────────
     transaction_cost_bps: float = 10.0  # basis points per trade
+
+    def get_threshold_bps(self, horizon: int) -> int:
+        """Return neutral-zone threshold in bps for a given horizon. 0 = disabled."""
+        if not self.use_thresholded_direction:
+            return 0
+        thresholds = self.direction_threshold_bps or {}
+        # Support both int and string keys (YAML may load either)
+        return int(thresholds.get(horizon) or thresholds.get(str(horizon)) or 0)
 
     def resolve_symbols(self) -> list[str]:
         """Return final symbol list: explicit symbols override tier."""

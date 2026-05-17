@@ -246,6 +246,7 @@ def make_targets(
     close: pd.Series,
     horizon: int = 1,
     mode: str = "log_return",
+    threshold_bps: int = 0,
 ) -> pd.Series:
     """Create target variable from close prices.
 
@@ -253,6 +254,7 @@ def make_targets(
     Modes:
         log_return: log(close[t+h] / close[t])
         binary_direction: 1 if positive return, 0 if negative
+        thresholded_direction: +1 / -1 / 0 based on threshold_bps
     """
     future_close = close.shift(-horizon)
     log_ret = np.log(future_close / close)
@@ -261,6 +263,12 @@ def make_targets(
         return log_ret
     elif mode == "binary_direction":
         return (log_ret > 0).astype(float)
+    elif mode == "thresholded_direction":
+        threshold = float(threshold_bps) / 10_000
+        result = pd.Series(0.0, index=log_ret.index)
+        result[log_ret > threshold] = 1.0
+        result[log_ret < -threshold] = -1.0
+        return result
     else:
         raise ValueError(f"Unknown target mode: {mode}")
 
@@ -470,4 +478,181 @@ def build_datasets(
         cached, horizon=horizon, target_mode=target_mode,
         scaler_type=scaler_type, seq_len=seq_len,
         val_days=val_days, test_days=test_days,
+    )
+
+
+def build_datasets_with_metadata(
+    cached: PrecomputedFeatures,
+    horizon: int = 1,
+    target_mode: str = "log_return",
+    scaler_type: str = "standard",
+    seq_len: int = DEFAULT_SEQ_LEN,
+    val_days: int = 63,
+    test_days: int = 63,
+    threshold_bps: int = 0,
+    drop_neutral: bool = True,
+    validation_mode: str = "days",
+    train_ratio: float = 0.70,
+    val_ratio: float = 0.15,
+    test_ratio: float = 0.15,
+) -> tuple[StockDataset, StockDataset, StockDataset, Any, dict]:
+    """Build train/val/test datasets and return split metadata (Phase 1).
+
+    Extends build_datasets_from_cache() with:
+    - Date-range logging per split
+    - Neutral-zone filtering for training (threshold_bps > 0 and drop_neutral=True)
+    - Raw log-return arrays for val/test (needed for ranking metric computation)
+    - Split summary dict
+
+    Returns:
+        (train_ds, val_ds, test_ds, scaler, metadata)
+        metadata keys:
+            split_summary:       dict with rows/date-ranges/symbol counts
+            val_raw_targets:     np.ndarray of raw log-returns for val
+            test_raw_targets:    np.ndarray of raw log-returns for test
+            positive_count:      training samples with return > threshold
+            negative_count:      training samples with return < -threshold
+            neutral_count:       training samples dropped (|return| < threshold)
+    """
+    all_features: list[np.ndarray] = []
+    all_targets: list[np.ndarray] = []   # log_return targets (used for training + val/test eval)
+    all_dates: list[np.ndarray] = []     # date per row (for split summary)
+
+    for sym in cached.symbols:
+        feat_df = cached.symbol_features[sym]
+        close = cached.symbol_close[sym]
+
+        tgt = make_targets(close, horizon=horizon, mode="log_return")
+        valid_mask = tgt.notna()
+        feat_arr = feat_df[valid_mask].values
+        tgt_arr = tgt[valid_mask].values
+        date_arr = feat_df.index[valid_mask].to_numpy()
+
+        min_rows = seq_len + val_days + test_days + 10
+        if len(feat_arr) < min_rows:
+            continue
+
+        all_features.append(feat_arr)
+        all_targets.append(tgt_arr)
+        all_dates.append(date_arr)
+
+    if not all_features:
+        raise ValueError(
+            f"No valid data for h={horizon}. "
+            f"{len(cached.symbols)} symbols had features but none had enough rows "
+            f"(need >= {seq_len + val_days + test_days + 10})."
+        )
+
+    # Temporal split per symbol
+    train_feats, train_tgts = [], []
+    val_feats, val_tgts = [], []
+    test_feats, test_tgts = [], []
+    val_date_arrays, test_date_arrays = [], []
+    train_date_arrays: list[np.ndarray] = []
+
+    for feat_arr, tgt_arr, date_arr in zip(all_features, all_targets, all_dates):
+        n = len(feat_arr)
+
+        if validation_mode == "ratio":
+            val_size = max(1, int(n * val_ratio))
+            test_size = max(1, int(n * test_ratio))
+        else:
+            val_size = val_days
+            test_size = test_days
+
+        test_start = n - test_size
+        val_start = test_start - val_size
+
+        if val_start < seq_len:
+            train_feats.append(feat_arr)
+            train_tgts.append(tgt_arr)
+            train_date_arrays.append(date_arr)
+            continue
+
+        train_feats.append(feat_arr[:val_start])
+        train_tgts.append(tgt_arr[:val_start])
+        train_date_arrays.append(date_arr[:val_start])
+        val_feats.append(feat_arr[val_start:test_start])
+        val_tgts.append(tgt_arr[val_start:test_start])
+        val_date_arrays.append(date_arr[val_start:test_start])
+        test_feats.append(feat_arr[test_start:])
+        test_tgts.append(tgt_arr[test_start:])
+        test_date_arrays.append(date_arr[test_start:])
+
+    train_f = np.concatenate(train_feats, axis=0)
+    train_t = np.concatenate(train_tgts, axis=0)
+    val_f = np.concatenate(val_feats, axis=0) if val_feats else train_f[-val_days:]
+    val_t = np.concatenate(val_tgts, axis=0) if val_tgts else train_t[-val_days:]
+    test_f = np.concatenate(test_feats, axis=0) if test_feats else train_f[-test_days:]
+    test_t = np.concatenate(test_tgts, axis=0) if test_tgts else train_t[-test_days:]
+    val_dates_all = np.concatenate(val_date_arrays, axis=0) if val_date_arrays else np.array([])
+    test_dates_all = np.concatenate(test_date_arrays, axis=0) if test_date_arrays else np.array([])
+    train_dates_all = np.concatenate(train_date_arrays, axis=0) if train_date_arrays else np.array([])
+
+    # Neutral-zone filtering — training only
+    threshold = float(threshold_bps) / 10_000
+    positive_count = int((train_t > threshold).sum()) if threshold > 0 else int((train_t > 0).sum())
+    negative_count = int((train_t < -threshold).sum()) if threshold > 0 else int((train_t < 0).sum())
+    neutral_count = 0
+
+    if threshold > 0 and drop_neutral:
+        neutral_mask = np.abs(train_t) < threshold
+        neutral_count = int(neutral_mask.sum())
+        keep = ~neutral_mask
+        train_f = train_f[keep]
+        train_t = train_t[keep]
+        if len(train_dates_all) == len(keep):
+            train_dates_all = train_dates_all[keep]
+        logger.info(
+            f"[h={horizon}] Neutral-zone filter (±{threshold_bps}bps): "
+            f"+{positive_count} / -{negative_count} / neutral={neutral_count} dropped"
+        )
+
+    # Scale features (fit on training only)
+    scaler = make_scaler(scaler_type)
+    train_f = scaler.fit_transform(train_f)
+    val_f = scaler.transform(val_f)
+    test_f = scaler.transform(test_f)
+
+    def _date_range(arr: np.ndarray) -> dict:
+        if len(arr) == 0:
+            return {"min": None, "max": None}
+        return {"min": str(np.min(arr))[:10], "max": str(np.max(arr))[:10]}
+
+    split_summary = {
+        "horizon": horizon,
+        "symbols": len(all_features),
+        "train": {"rows": len(train_f), "dates": _date_range(train_dates_all)},
+        "val":   {"rows": len(val_f),   "dates": _date_range(val_dates_all)},
+        "test":  {"rows": len(test_f),  "dates": _date_range(test_dates_all)},
+        "threshold_bps": threshold_bps,
+        "neutral_dropped": neutral_count,
+        "positive_train": positive_count,
+        "negative_train": negative_count,
+    }
+
+    logger.info(
+        f"[h={horizon}] Dataset — train: {len(train_f)} "
+        f"({split_summary['train']['dates']['min']} → {split_summary['train']['dates']['max']}), "
+        f"val: {len(val_f)} ({split_summary['val']['dates']['min']} → {split_summary['val']['dates']['max']}), "
+        f"test: {len(test_f)} ({split_summary['test']['dates']['min']} → {split_summary['test']['dates']['max']})"
+    )
+
+    metadata = {
+        "split_summary": split_summary,
+        "val_raw_targets": val_t,
+        "test_raw_targets": test_t,
+        "val_dates": val_dates_all,
+        "test_dates": test_dates_all,
+        "positive_count": positive_count,
+        "negative_count": negative_count,
+        "neutral_count": neutral_count,
+    }
+
+    return (
+        StockDataset(train_f, train_t, seq_len),
+        StockDataset(val_f, val_t, seq_len),
+        StockDataset(test_f, test_t, seq_len),
+        scaler,
+        metadata,
     )

@@ -21,13 +21,14 @@ from torch.utils.data import DataLoader
 
 from ml.config import TrainConfig
 from ml.constants import DEFAULT_CONFIG_PATH, FEATURE_COLUMNS, SYMBOL_TIERS
-from ml.dataset import build_datasets, precompute_features, build_datasets_from_cache
+from ml.dataset import build_datasets, precompute_features, build_datasets_from_cache, build_datasets_with_metadata
 from ml.model import LSTMPredictor
 from ml.evaluate import compute_metrics, print_report
 from ml.baselines import run_all_baselines
 from ml.calibration import build_calibration
 from ml.checkpoint import save_checkpoint, checkpoint_filename
 from ml.structured_logger import LogContext, StructuredLogger, reset_structured_logger
+from ml.metrics import compute_ranking_metrics, compute_composite_score, RankingMetrics
 
 logging.basicConfig(
     level=logging.INFO,
@@ -86,32 +87,69 @@ class HybridDirectionalLoss(nn.Module):
 # ── Early stopping ─────────────────────────────────────────────────────
 
 class EarlyStopping:
-    """Stop on val DA (higher = better). Breaks val-loss/DA mismatch where
-    lowest MSE loss != best directional accuracy on test set.
+    """Composite early stopping: 0.50*Spearman_IC + 0.30*DA + 0.20*Precision@10.
+
+    Falls back to raw DA when spearman_ic / precision_at_10 are not passed.
 
     min_epochs: don't allow early stop until this many epochs have passed.
-    Prevents saving near-random epoch-1 weights when val DA fluctuates high
+    Prevents saving near-random epoch-1 weights when val metrics fluctuate high
     before the model has actually learned anything.
+
+    best_da: always tracks raw val DA (backward compat with tests and logging).
     """
 
-    def __init__(self, patience: int = 10, min_delta: float = 1e-4, min_epochs: int = 5):
+    def __init__(
+        self,
+        patience: int = 10,
+        min_delta: float = 1e-4,
+        min_epochs: int = 5,
+        metric: str = "composite",
+        da_weight: float = 0.30,
+        ic_weight: float = 0.50,
+        prec_weight: float = 0.20,
+    ):
         self.patience = patience
         self.min_delta = min_delta
         self.min_epochs = min_epochs
-        self.best_da = -float("inf")
+        self.metric = metric
+        self.da_weight = da_weight
+        self.ic_weight = ic_weight
+        self.prec_weight = prec_weight
+        self.best_da = -float("inf")     # raw DA at best epoch (logged + tested)
+        self._best_score = -float("inf") # composite score used for comparison
         self.counter = 0
         self._epoch = 0
         self.best_state: dict | None = None
 
-    def step(self, val_da: float, model: nn.Module) -> bool:
+    def _score(self, val_da: float, spearman_ic: float, precision_at_10: float) -> float:
+        if self.metric == "composite":
+            return compute_composite_score(
+                val_da, spearman_ic, precision_at_10,
+                da_weight=self.da_weight,
+                ic_weight=self.ic_weight,
+                prec_weight=self.prec_weight,
+            )
+        elif self.metric == "spearman_ic":
+            return float(spearman_ic)
+        else:  # directional_accuracy (default fallback)
+            return float(val_da)
+
+    def step(
+        self,
+        val_da: float,
+        model: nn.Module,
+        spearman_ic: float = 0.0,
+        precision_at_10: float = 0.5,
+    ) -> bool:
         self._epoch += 1
-        if val_da > self.best_da + self.min_delta:
-            self.best_da = val_da
+        score = self._score(val_da, spearman_ic, precision_at_10)
+        if score > self._best_score + self.min_delta:
+            self._best_score = score
+            self.best_da = val_da  # keep raw DA for logging
             self.counter = 0
             self.best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
             return False
         if self._epoch <= self.min_epochs:
-            # Warmup: count epochs 1..min_epochs, never trigger
             return False
         self.counter += 1
         return self.counter >= self.patience
@@ -194,8 +232,9 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
     logger.info(f"Device: {device}")
 
     # Build datasets — use cache if available (avoids recomputing features per horizon)
+    split_meta: dict = {}
     if cached_features is not None:
-        train_ds, val_ds, test_ds, scaler = build_datasets_from_cache(
+        train_ds, val_ds, test_ds, scaler, split_meta = build_datasets_with_metadata(
             cached=cached_features,
             horizon=horizon,
             target_mode=config.target_mode,
@@ -203,6 +242,12 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
             seq_len=config.seq_len,
             val_days=config.val_days,
             test_days=config.test_days,
+            threshold_bps=config.get_threshold_bps(horizon),
+            drop_neutral=getattr(config, "drop_neutral_samples", True),
+            validation_mode=getattr(config, "validation_mode", "days"),
+            train_ratio=getattr(config, "train_ratio", 0.70),
+            val_ratio=getattr(config, "val_ratio", 0.15),
+            test_ratio=getattr(config, "test_ratio", 0.15),
         )
     else:
         train_ds, val_ds, test_ds, scaler = build_datasets(
@@ -285,7 +330,14 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
             getattr(config, "early_stopping_min_epochs", 5),
             max(1, config.epochs // 3),
         ),
+        metric=getattr(config, "early_stopping_metric", "composite"),
+        da_weight=getattr(config, "composite_da_weight", 0.30),
+        ic_weight=getattr(config, "composite_ic_weight", 0.50),
+        prec_weight=getattr(config, "composite_precision_weight", 0.20),
     )
+
+    val_raw = split_meta.get("val_raw_targets")
+    val_dates = split_meta.get("val_dates")
 
     # Training loop
     for epoch in range(1, config.epochs + 1):
@@ -301,17 +353,39 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
         elif isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingLR):
             scheduler.step()
 
-        val_metrics = compute_metrics(val_preds, val_acts, config.transaction_cost_bps)
+        # Ranking metrics against raw log-returns (more meaningful for signal quality)
+        eval_acts = val_raw if (val_raw is not None and len(val_raw) == len(val_preds)) else val_acts
+        val_metrics = compute_metrics(val_preds, eval_acts, config.transaction_cost_bps)
+        val_ranking = compute_ranking_metrics(val_preds, eval_acts, dates=val_dates)
+        composite = compute_composite_score(
+            val_metrics.directional_accuracy,
+            val_ranking.spearman_ic,
+            val_ranking.precision_at_10,
+            da_weight=getattr(config, "composite_da_weight", 0.30),
+            ic_weight=getattr(config, "composite_ic_weight", 0.50),
+            prec_weight=getattr(config, "composite_precision_weight", 0.20),
+        )
         lr_now = optimizer.param_groups[0]["lr"]
         logger.info(
             f"[h={horizon}] Epoch {epoch:3d}/{config.epochs} | "
             f"train={train_loss:.6f} val={val_loss:.6f} | "
-            f"DA={val_metrics.directional_accuracy:.1%} IC={val_metrics.information_coefficient:.3f} | "
+            f"DA={val_metrics.directional_accuracy:.1%} "
+            f"IC={val_ranking.spearman_ic:.3f} "
+            f"ICIR={val_ranking.icir:.3f} "
+            f"P@10={val_ranking.precision_at_10:.2f} | "
+            f"composite={composite:.4f} | "
             f"lr={lr_now:.2e}"
         )
 
-        if early_stopper.step(val_metrics.directional_accuracy, model):
-            logger.info(f"Early stopping at epoch {epoch} (best val DA={early_stopper.best_da:.1%})")
+        if early_stopper.step(
+            val_metrics.directional_accuracy, model,
+            spearman_ic=val_ranking.spearman_ic,
+            precision_at_10=val_ranking.precision_at_10,
+        ):
+            logger.info(
+                f"Early stopping at epoch {epoch} "
+                f"(best val DA={early_stopper.best_da:.1%}, composite={early_stopper._best_score:.4f})"
+            )
             break
 
     # Restore best weights
@@ -321,11 +395,32 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
     _, val_preds, val_acts = evaluate_epoch(model, val_loader, criterion, device)
     _, test_preds, test_acts = evaluate_epoch(model, test_loader, criterion, device)
 
-    val_metrics = compute_metrics(val_preds, val_acts, config.transaction_cost_bps)
-    test_metrics = compute_metrics(test_preds, test_acts, config.transaction_cost_bps)
+    test_raw = split_meta.get("test_raw_targets")
+    test_dates = split_meta.get("test_dates")
+    val_eval_acts = val_raw if (val_raw is not None and len(val_raw) == len(val_preds)) else val_acts
+    test_eval_acts = test_raw if (test_raw is not None and len(test_raw) == len(test_preds)) else test_acts
+
+    val_metrics = compute_metrics(val_preds, val_eval_acts, config.transaction_cost_bps)
+    test_metrics = compute_metrics(test_preds, test_eval_acts, config.transaction_cost_bps)
+    val_ranking = compute_ranking_metrics(val_preds, val_eval_acts, dates=val_dates)
+    test_ranking = compute_ranking_metrics(test_preds, test_eval_acts, dates=test_dates)
 
     print_report(val_metrics, f"h={horizon} Validation")
     print_report(test_metrics, f"h={horizon} Test")
+    logger.info(
+        f"[h={horizon}] Val  ranking: "
+        f"spearman_ic={val_ranking.spearman_ic:.4f} "
+        f"icir={val_ranking.icir:.4f} "
+        f"P@10={val_ranking.precision_at_10:.3f} "
+        f"spread={val_ranking.top_bottom_spread:.6f}"
+    )
+    logger.info(
+        f"[h={horizon}] Test ranking: "
+        f"spearman_ic={test_ranking.spearman_ic:.4f} "
+        f"icir={test_ranking.icir:.4f} "
+        f"P@10={test_ranking.precision_at_10:.3f} "
+        f"spread={test_ranking.top_bottom_spread:.6f}"
+    )
 
     # Baselines
     logger.info("Running baselines for comparison...")
@@ -353,13 +448,128 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
         horizon=horizon,
     )
 
+    # Save training artifacts (non-fatal)
+    _save_training_artifacts(
+        ckpt_path=ckpt_path,
+        horizon=horizon,
+        val_preds=val_preds,
+        val_acts=val_eval_acts,
+        test_preds=test_preds,
+        test_acts=test_eval_acts,
+        val_metrics=val_metrics,
+        test_metrics=test_metrics,
+        val_ranking=val_ranking,
+        test_ranking=test_ranking,
+        baselines=baselines,
+        split_meta=split_meta,
+    )
+
     return {
         "horizon": horizon,
         "val_metrics": val_metrics.to_dict(),
         "test_metrics": test_metrics.to_dict(),
+        "val_ranking": val_ranking.to_dict(),
+        "test_ranking": test_ranking.to_dict(),
         "baselines": {k: v.to_dict() for k, v in baselines.items()},
         "checkpoint_path": str(ckpt_path),
     }
+
+
+def _save_training_artifacts(
+    ckpt_path: Path,
+    horizon: int,
+    val_preds: np.ndarray,
+    val_acts: np.ndarray,
+    test_preds: np.ndarray,
+    test_acts: np.ndarray,
+    val_metrics,
+    test_metrics,
+    val_ranking: RankingMetrics,
+    test_ranking: RankingMetrics,
+    baselines: dict,
+    split_meta: dict,
+) -> None:
+    """Save training artifacts alongside checkpoint. Non-fatal — never aborts training."""
+    import csv
+    import json as _json
+
+    artifact_dir = ckpt_path.parent / "artifacts" / f"h{horizon}"
+    try:
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+
+        # metrics.json
+        metrics_payload = {
+            "horizon": horizon,
+            "val": {**val_metrics.to_dict(), "ranking": val_ranking.to_dict()},
+            "test": {**test_metrics.to_dict(), "ranking": test_ranking.to_dict()},
+            "baselines": {k: v.to_dict() for k, v in baselines.items()},
+        }
+        (artifact_dir / "metrics.json").write_text(_json.dumps(metrics_payload, indent=2, default=str))
+
+        # split_summary.json
+        if split_meta.get("split_summary"):
+            (artifact_dir / "split_summary.json").write_text(
+                _json.dumps(split_meta["split_summary"], indent=2, default=str)
+            )
+
+        # validation_predictions.csv
+        _write_predictions_csv(artifact_dir / "validation_predictions.csv", val_preds, val_acts)
+        # test_predictions.csv
+        _write_predictions_csv(artifact_dir / "test_predictions.csv", test_preds, test_acts)
+
+        # signal_report.md
+        _write_signal_report(artifact_dir / "signal_report.md", horizon, test_metrics, test_ranking, baselines)
+
+        logger.info("Artifacts saved to %s", artifact_dir)
+    except Exception as exc:
+        logger.warning("Artifact save failed (non-fatal): %s", exc)
+
+
+def _write_predictions_csv(path: Path, preds: np.ndarray, acts: np.ndarray) -> None:
+    import csv
+    with open(path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["predicted_return", "actual_return", "correct_direction"])
+        for p, a in zip(preds.flatten(), acts.flatten()):
+            correct = int(np.sign(p) == np.sign(a)) if a != 0 else ""
+            writer.writerow([f"{p:.8f}", f"{a:.8f}", correct])
+
+
+def _write_signal_report(
+    path: Path,
+    horizon: int,
+    test_metrics,
+    test_ranking: RankingMetrics,
+    baselines: dict,
+) -> None:
+    lines = [
+        f"# Signal Report — h={horizon}",
+        "",
+        "## Test Metrics",
+        f"| Metric | Value |",
+        f"|--------|-------|",
+        f"| Directional Accuracy | {test_metrics.directional_accuracy:.1%} |",
+        f"| Spearman IC          | {test_ranking.spearman_ic:.4f} |",
+        f"| ICIR                 | {test_ranking.icir:.4f} |",
+        f"| Precision@5          | {test_ranking.precision_at_5:.3f} |",
+        f"| Precision@10         | {test_ranking.precision_at_10:.3f} |",
+        f"| Precision@20         | {test_ranking.precision_at_20:.3f} |",
+        f"| Top-Decile Return    | {test_ranking.top_decile_return:.6f} |",
+        f"| Bottom-Decile Return | {test_ranking.bottom_decile_return:.6f} |",
+        f"| Top-Bottom Spread    | {test_ranking.top_bottom_spread:.6f} |",
+        f"| Hypothetical Sharpe  | {test_metrics.hypothetical_sharpe:.3f} |",
+        f"| N Samples            | {test_ranking.n_samples} |",
+        "",
+        "## Baseline Comparison",
+        "| Baseline | DA | IC | Sharpe |",
+        "|----------|----|----|--------|",
+    ]
+    for name, m in baselines.items():
+        lines.append(
+            f"| {name} | {m.directional_accuracy:.1%} | "
+            f"{m.information_coefficient:.3f} | {m.hypothetical_sharpe:.2f} |"
+        )
+    path.write_text("\n".join(lines) + "\n")
 
 
 def train(config: TrainConfig) -> list[dict]:
@@ -406,6 +616,9 @@ def train(config: TrainConfig) -> list[dict]:
                 if "test_metrics" in result:
                     h_metrics["directional_accuracy"] = result["test_metrics"].get("directional_accuracy", 0)
                     h_metrics["information_coefficient"] = result["test_metrics"].get("information_coefficient", 0)
+                if "test_ranking" in result:
+                    h_metrics["spearman_ic"] = result["test_ranking"].get("spearman_ic", 0)
+                    h_metrics["precision_at_10"] = result["test_ranking"].get("precision_at_10", 0)
                 results.append(result)
         except Exception as e:
             logger.exception(f"Training failed for h={h}: {e}")
@@ -572,10 +785,14 @@ def main():
             print(f"  h={r['horizon']}: FAILED — {r['error']}")
         else:
             m = r["test_metrics"]
+            rk = r.get("test_ranking", {})
             print(
                 f"  h={r['horizon']}: "
                 f"DA={m['directional_accuracy']:.1%} "
-                f"IC={m['information_coefficient']:.3f} "
+                f"IC={rk.get('spearman_ic', m.get('information_coefficient', 0)):.3f} "
+                f"ICIR={rk.get('icir', 0):.3f} "
+                f"P@10={rk.get('precision_at_10', 0):.3f} "
+                f"spread={rk.get('top_bottom_spread', 0):.6f} "
                 f"Sharpe={m['hypothetical_sharpe']:.2f} "
                 f"-> {Path(r['checkpoint_path']).name}"
             )
