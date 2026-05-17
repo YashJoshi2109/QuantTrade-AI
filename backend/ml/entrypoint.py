@@ -94,16 +94,16 @@ def run_shard(config: BatchConfig) -> tuple[int, int]:
                 logger.info(f"Loaded manifest: {len(symbols)} symbols, horizons={train_config.horizons}")
             except Exception as e:
                 slog.error("manifest_load", "infra", f"Failed to load manifest: {e}")
-                return 3
+                return 3, 0
         elif config.symbol_tier:
             symbols = SYMBOL_TIERS.get(config.symbol_tier, [])
             if not symbols:
                 slog.error("symbol_resolution", "data", f"Unknown tier: {config.symbol_tier}")
-                return 1
+                return 1, 0
             logger.info(f"Resolved tier '{config.symbol_tier}': {len(symbols)} symbols")
         else:
             slog.error("symbol_resolution", "data", "No manifest or tier specified")
-            return 1
+            return 1, 0
 
         # Apply overrides
         train_config.symbols = symbols
@@ -244,7 +244,7 @@ def _post_start_callback(config: BatchConfig, symbol_count: int, horizons: list[
     import urllib.request
     import json as _json
 
-    api_base = _os.environ.get("FASTAPI_INTERNAL_URL", "https://api.quanttrade.us")
+    api_base = _os.environ.get("FASTAPI_INTERNAL_URL", "https://www.quanttrade.us")
     secret = _os.environ.get("ML_CALLBACK_SECRET", "")
     if not secret:
         logger.warning("ML_CALLBACK_SECRET not set — skipping start callback")
@@ -285,7 +285,7 @@ def _post_callback(config: BatchConfig, results: list[dict], exit_code: int, run
     import urllib.request
     import json as _json
 
-    api_base = _os.environ.get("FASTAPI_INTERNAL_URL", "https://api.quanttrade.us")
+    api_base = _os.environ.get("FASTAPI_INTERNAL_URL", "https://www.quanttrade.us")
     secret = _os.environ.get("ML_CALLBACK_SECRET", "")
     if not secret:
         logger.warning("ML_CALLBACK_SECRET not set — skipping callback")

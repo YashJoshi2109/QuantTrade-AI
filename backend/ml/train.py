@@ -382,6 +382,7 @@ def train(config: TrainConfig) -> list[dict]:
         feat_metrics["symbols_requested"] = len(symbols)
         feat_metrics["symbols_valid"] = len(cached.symbols)
         logger.info(f"Feature precomputation complete: {len(cached.symbols)} symbols ready")
+        config._symbol_count_trained = len(cached.symbols)
 
     if len(cached.symbols) == 0:
         logger.error(
@@ -491,9 +492,7 @@ def _write_train_summary(
         "run_id": run_id,
         "shard_name": shard_name,
         "symbol_tier": getattr(config, "symbol_tier", None),
-        "symbol_count": next(
-            (r.get("symbols_trained") for r in results if r.get("symbols_trained")), 0
-        ),
+        "symbol_count": getattr(config, "_symbol_count_trained", None) or len(config.resolve_symbols()),
         "results": [
             {
                 "horizon": r["horizon"],

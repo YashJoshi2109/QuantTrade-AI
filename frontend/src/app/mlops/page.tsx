@@ -885,7 +885,7 @@ function OverviewTab() {
                 </div>
                 <div>
                   <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">Symbols</div>
-                  <div className="text-lg font-bold text-fg-secondary font-mono">{liveRun.total_symbols}</div>
+                  <div className="text-lg font-bold text-fg-secondary font-mono">{liveRun.total_symbols || '--'}</div>
                 </div>
               </div>
               {(liveRun.total_shards ?? 0) > 0 && (
@@ -1052,7 +1052,7 @@ function TrainingRunsTab() {
   // Backfill modal
   const [showBackfill, setShowBackfill] = useState(false)
   const [bfSymbols, setBfSymbols] = useState('')
-  const [bfHorizons, setBfHorizons] = useState('1,7,30')
+  const [bfHorizons, setBfHorizons] = useState('1,7')
   const [bfSubmitting, setBfSubmitting] = useState(false)
   const [bfMsg, setBfMsg] = useState<string | null>(null)
   const liveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -1260,9 +1260,8 @@ function TrainingRunsTab() {
                     className="w-full bg-surface-base border border-line-subtle rounded-lg px-3 py-2 text-sm text-fg-primary focus:outline-none focus:border-violet-500/50"
                   >
                     <option value="1">1-day only</option>
-                    <option value="1,7">1-day + 7-day</option>
-                    <option value="1,7,30">1-day + 7-day + 30-day</option>
-                    <option value="7,30">7-day + 30-day</option>
+                    <option value="7">7-day only</option>
+                    <option value="1,7">1-day + 7-day (recommended)</option>
                   </select>
                 </div>
 
@@ -1326,8 +1325,16 @@ function TrainingRunsTab() {
                     }
                   </div>
                   <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-3 items-center">
-                    <div className="flex items-center gap-2">
-                      <code className="text-xs text-fg-secondary font-mono">{run.run_id?.slice(0, 14)}</code>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <code className="text-xs text-fg-secondary font-mono">{run.run_id?.slice(0, 12)}</code>
+                      {run.run_type && run.run_type !== 'manual' && (
+                        <span className={`hidden sm:inline text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider ${
+                          run.run_type === 'nightly' ? 'bg-cyan-500/10 text-cyan-400' :
+                          run.run_type === 'sunday' ? 'bg-purple-500/10 text-purple-400' :
+                          run.run_type === 'backfill' ? 'bg-violet-500/10 text-violet-400' :
+                          'bg-surface-hover text-fg-muted'
+                        }`}>{run.run_type}</span>
+                      )}
                       {run.status === 'running' && (
                         <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-bold animate-pulse">
                           <span className="w-1 h-1 rounded-full bg-emerald-400" />LIVE
@@ -1343,7 +1350,7 @@ function TrainingRunsTab() {
                     </div>
                     <div className="hidden md:block">
                       <span className="text-xs text-fg-muted font-mono">
-                        {run.success_shards ?? 0}/{run.total_shards ?? 1} shards · {run.total_symbols ?? 0} sym
+                        {run.success_shards ?? 0}/{run.total_shards ?? 1} shards · {run.total_symbols ? `${run.total_symbols} sym` : '--'}
                       </span>
                     </div>
                     <div className="hidden md:block text-right">
@@ -1424,11 +1431,14 @@ function TrainingRunsTab() {
                               <div key={si} className="flex items-center gap-3 p-2 rounded bg-surface-hover border border-line-subtle">
                                 <Hash className="w-3 h-3 text-fg-muted" />
                                 <span className="text-xs text-fg-muted font-mono flex-1">
-                                  Shard {shard.shard_index ?? si}
+                                  {shard.shard_name || `shard-${shard.shard_index ?? si}`}
                                 </span>
                                 <span className="text-[10px] text-fg-muted font-mono">
-                                  {shard.symbols_count || shard.symbols?.length || '?'} sym
+                                  {shard.symbol_count || shard.symbols_count || shard.symbols?.length || '?'} sym
                                 </span>
+                                {shard.runtime_seconds != null && (
+                                  <span className="text-[10px] text-fg-muted font-mono hidden sm:inline">{formatDuration(shard.runtime_seconds)}</span>
+                                )}
                                 <StatusBadge status={shard.status || 'pending'} size="xs" />
                               </div>
                             ))}
@@ -1932,8 +1942,29 @@ function MonitoringTab() {
 
   return (
     <div className="space-y-6">
+      {/* Promotion Thresholds */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'DA Threshold', value: '≥ 51.0%', pass: perfData?.performance?.directional_accuracy != null ? perfData.performance.directional_accuracy >= 0.51 : null, color: 'text-emerald-400' },
+          { label: 'IC Threshold', value: '≥ -5.0%', pass: perfData?.performance?.information_coefficient != null ? perfData.performance.information_coefficient >= -0.05 : null, color: 'text-cyan-400' },
+          { label: 'Active Horizons', value: 'h=1, h=7', pass: true, color: 'text-blue-400' },
+          { label: 'Promotion Mode', value: 'Auto', pass: null, color: 'text-purple-400' },
+        ].map(({ label, value, pass, color }) => (
+          <div key={label} className="p-3 rounded-lg bg-surface-raised border border-line-subtle">
+            <div className="text-[10px] text-fg-muted uppercase tracking-wider mb-1">{label}</div>
+            <div className={`text-sm font-bold font-mono ${color}`}>{value}</div>
+            {pass !== null && (
+              <div className={`text-[10px] mt-1 flex items-center gap-1 ${pass ? 'text-emerald-400' : 'text-red-400'}`}>
+                {pass ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                {pass ? 'Passing' : 'Below threshold'}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
       {/* Performance overview */}
-      <Panel title="Model Performance — lstm_h1 (30d)" icon={BarChart3} color="text-emerald-400"
+      <Panel title="Model Performance — Active Horizons (30d)" icon={BarChart3} color="text-emerald-400"
         actions={
           perfData?.should_retrain ? (
             <span className="text-[10px] px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20 flex items-center gap-1">
@@ -1955,8 +1986,16 @@ function MonitoringTab() {
                 <p className="text-xs text-amber-300">{perfData.retrain_reason}</p>
               </div>
             )}
-            <div className="text-xs text-fg-muted mb-2">
-              {perfData.performance?.sample_size} artifact{perfData.performance?.sample_size !== 1 ? 's' : ''} from horizons: {((perfData.performance as any)?.horizons_covered || []).join(', ')}d
+            <div className="text-xs text-fg-muted mb-2 flex items-center gap-2 flex-wrap">
+              <span>{perfData.performance?.sample_size} artifact{perfData.performance?.sample_size !== 1 ? 's' : ''} from horizons:</span>
+              {((perfData.performance as any)?.horizons_covered || []).map((h: number) => (
+                <span key={h} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                  h === 30 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-surface-hover text-fg-secondary'
+                }`}>
+                  h={h}
+                  {h === 30 && <span className="text-[9px] opacity-70">(deprecated)</span>}
+                </span>
+              ))}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
               {[

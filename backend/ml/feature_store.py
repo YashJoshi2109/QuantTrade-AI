@@ -81,10 +81,10 @@ class FeatureStore:
         """
         path = _symbol_path(symbol)
 
-        # Check freshness (skip if computed within 18 hours)
+        # Check freshness (skip if computed within 26 hours — covers 24h nightly interval with slack)
         if not force and path.exists():
             mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
-            if datetime.now(timezone.utc) - mtime < timedelta(hours=18):
+            if datetime.now(timezone.utc) - mtime < timedelta(hours=26):
                 logger.debug(f"Feature store: {symbol} is fresh (< 18h), skipping")
                 return self._load_metadata(symbol)
 

@@ -68,6 +68,9 @@ jobs:
       ML_TRIGGER_SOURCE: github_actions
       QUANTTRADE_API_BASE: ${{ secrets.QUANTTRADE_API_BASE_URL || 'https://www.quanttrade.us' }}
       ML_CALLBACK_SECRET: ${{ secrets.ML_CALLBACK_SECRET }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
 
     steps:
       - name: Checkout repository
@@ -78,24 +81,28 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Get cache date key
+        id: cache-date
+        run: echo "date=$(date -u +%Y-%m-%d)" >> $GITHUB_OUTPUT
+
       - name: Cache parquet data
         uses: actions/cache@v4
         with:
           path: backend/ml/data_cache
-          key: ml-data-cache-v5-${{ matrix.tier }}-${{ github.run_id }}
+          # Daily key: same-day retries hit primary; next day falls back to restore-key (< 26h old → still fresh)
+          key: ml-data-cache-v6-${{ matrix.tier }}-${{ steps.cache-date.outputs.date }}
           restore-keys: |
+            ml-data-cache-v6-${{ matrix.tier }}-
             ml-data-cache-v5-${{ matrix.tier }}-
-            ml-data-cache-v5-
-            ml-data-cache-v4-
 
       - name: Cache feature store
         uses: actions/cache@v4
         with:
           path: backend/ml/feature_store_data
-          key: ml-feature-store-v2-${{ matrix.tier }}-${{ github.run_id }}
+          key: ml-feature-store-v3-${{ matrix.tier }}-${{ steps.cache-date.outputs.date }}
           restore-keys: |
+            ml-feature-store-v3-${{ matrix.tier }}-
             ml-feature-store-v2-${{ matrix.tier }}-
-            ml-feature-store-v2-
 
       - name: Cache pip packages
         uses: actions/cache@v4
@@ -290,6 +297,31 @@ jobs:
                       print(f"promote: HTTP {resp.status_code}  status={promo_status}  DA={avg_da:.3f}  IC={avg_ic:.3f}")
                   except Exception as e:
                       print(f"promote error (non-fatal): {e}")
+
+                  # Write to Cloudflare KV so the CF Worker /predict endpoint gets the live model version
+                  # Batch path uses auto-promote Lambda for this; GHA path must do it inline.
+                  if promo_status == "production":
+                      cf_account  = os.environ.get("CF_ACCOUNT_ID", "")
+                      cf_ns       = os.environ.get("CF_KV_NAMESPACE_ID", "")
+                      cf_token    = os.environ.get("CF_API_TOKEN", "")
+                      if cf_account and cf_ns and cf_token:
+                          now_iso = datetime.now(timezone.utc).isoformat()
+                          for h in [1, 7]:
+                              try:
+                                  kv_resp = requests.put(
+                                      f"https://api.cloudflare.com/client/v4/accounts/{cf_account}"
+                                      f"/storage/kv/namespaces/{cf_ns}/values/model:lstm_h{h}:production",
+                                      data=json.dumps({"version": version, "avg_da": round(avg_da, 4),
+                                                       "avg_ic": round(avg_ic, 4), "promoted_at": now_iso}),
+                                      headers={"Authorization": f"Bearer {cf_token}",
+                                               "Content-Type": "application/json"},
+                                      timeout=10,
+                                  )
+                                  print(f"CF KV h={h}: HTTP {kv_resp.status_code}")
+                              except Exception as e:
+                                  print(f"CF KV write h={h} (non-fatal): {e}")
+                      else:
+                          print("CF KV not configured — skipping KV write (set CF_ACCOUNT_ID, CF_KV_NAMESPACE_ID, CF_API_TOKEN secrets)")
 
           PYEOF
 

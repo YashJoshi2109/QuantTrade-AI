@@ -11,7 +11,7 @@ import requests
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-API_BASE = os.environ.get("FASTAPI_INTERNAL_URL", "https://api.quanttrade.us")
+API_BASE = os.environ.get("FASTAPI_INTERNAL_URL", "https://www.quanttrade.us")
 CALLBACK_SECRET = os.environ.get("ML_CALLBACK_SECRET", "")
 AUTO_PROMOTE_FUNCTION = os.environ.get("AUTO_PROMOTE_FUNCTION_NAME", "ml-auto-promote-production")
 

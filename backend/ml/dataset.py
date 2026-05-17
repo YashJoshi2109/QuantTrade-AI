@@ -29,7 +29,7 @@ def download_symbol(
     symbol: str,
     period: str = "max",
     cache_dir: Path | str = DEFAULT_CACHE_DIR,
-    max_age_hours: float = 18.0,
+    max_age_hours: float = 26.0,
 ) -> pd.DataFrame:
     """Download OHLCV via yfinance with parquet caching.
 

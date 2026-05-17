@@ -13,7 +13,7 @@ import requests
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-API_BASE = os.environ.get("FASTAPI_INTERNAL_URL", "https://api.quanttrade.us")
+API_BASE = os.environ.get("FASTAPI_INTERNAL_URL", "https://www.quanttrade.us")
 CALLBACK_SECRET = os.environ.get("ML_CALLBACK_SECRET", "")
 CF_ACCOUNT_ID = os.environ.get("CF_ACCOUNT_ID", "3d56c23139466e58267b4bfe956956e5")
 CF_KV_NAMESPACE_ID = os.environ.get("CF_KV_NAMESPACE_ID", "")

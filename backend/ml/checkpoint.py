@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import pickle
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -92,7 +92,7 @@ def save_checkpoint(
         target_horizon=horizon,
         seq_len=getattr(config, "seq_len", 60),
         trained_symbols=trained_symbols,
-        train_date=datetime.utcnow().isoformat(),
+        train_date=datetime.now(timezone.utc).isoformat(),
         metrics=metrics,
         config_hash=config.config_hash() if hasattr(config, "config_hash") else "",
     )
@@ -174,5 +174,5 @@ def find_latest_checkpoint(
 
 def checkpoint_filename(experiment: str, horizon: int) -> str:
     """Generate checkpoint filename with timestamp."""
-    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     return f"lstm_{experiment}_h{horizon}_{ts}.pt"
