@@ -80,7 +80,7 @@ export default function MobileHelp() {
       <section className="px-1 grid grid-cols-3 gap-2">
         <a
           className="rounded-2xl bg-surface-raised border border-line-subtle p-3 text-center active:scale-[0.98] transition-transform"
-          href="mailto:support@quanttrade.us"
+          href="mailto:quanttrade.us@icloud.com"
         >
           <MessageCircle className="w-5 h-5 text-[#00D9FF] mx-auto mb-1" />
           <p className="text-[11px] text-fg-primary font-semibold">Chat</p>
@@ -88,7 +88,7 @@ export default function MobileHelp() {
         </a>
         <a
           className="rounded-2xl bg-surface-raised border border-line-subtle p-3 text-center active:scale-[0.98] transition-transform"
-          href="mailto:support@quanttrade.us"
+          href="mailto:quanttrade.us@icloud.com"
         >
           <Mail className="w-5 h-5 text-amber-400 mx-auto mb-1" />
           <p className="text-[11px] text-fg-primary font-semibold">Email</p>
@@ -129,7 +129,7 @@ export default function MobileHelp() {
             Reach out and we’ll get you unstuck quickly.
           </p>
           <a
-            href="mailto:support@quanttrade.us"
+            href="mailto:quanttrade.us@icloud.com"
             className="mt-3 inline-flex items-center justify-center w-full h-11 rounded-full bg-[#00D9FF] text-[#0A0E1A] font-semibold text-[13px]"
           >
             Contact Support

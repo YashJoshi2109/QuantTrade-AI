@@ -97,7 +97,7 @@ const organizationSchema = {
   logo: `${BASE_URL}/favicon.png`,
   contactPoint: {
     '@type': 'ContactPoint',
-    email: 'support@quanttrade.us',
+    email: 'quanttrade.us@icloud.com',
     contactType: 'customer support',
   },
   founder: {

@@ -452,7 +452,7 @@ export default function TermsPage() {
               {/* 15. Termination */}
               <SectionHeading {...SECTIONS[14]} />
               <P>
-                We may suspend or terminate your access at any time, for any reason, with or without notice, including for violations of these Terms. You may terminate your account at any time by contacting support@quanttrade.us.
+                We may suspend or terminate your access at any time, for any reason, with or without notice, including for violations of these Terms. You may terminate your account at any time by contacting quanttrade.us@icloud.com.
               </P>
 
               <HR />
@@ -469,7 +469,7 @@ export default function TermsPage() {
               <SectionHeading {...SECTIONS[16]} />
               <div className="rounded-xl border border-white/8 overflow-hidden" style={{ background: 'rgba(13,24,40,0.6)' }}>
                 {[
-                  { label: 'General',   value: 'support@quanttrade.us',  mono: true },
+                  { label: 'General',   value: 'quanttrade.us@icloud.com',  mono: true },
                   { label: 'Privacy',   value: 'privacy@quanttrade.us',  mono: true },
                   { label: 'Legal',     value: 'legal@quanttrade.us',    mono: true },
                   { label: 'Security',  value: 'security@quanttrade.us', mono: true },

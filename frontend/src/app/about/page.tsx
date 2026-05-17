@@ -190,8 +190,8 @@ export default function AboutPage() {
                       <a href="https://github.com/YashJoshi2109" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-hover border border-line-subtle text-fg-primary text-sm font-medium hover:border-line-default hover:text-fg-primary transition-all">
                         <Github className="w-4 h-4" /> GitHub
                       </a>
-                      <a href="mailto:support@quanttrade.us" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-hover border border-line-subtle text-fg-primary text-sm font-medium hover:border-line-default hover:text-fg-primary transition-all">
-                        <Mail className="w-4 h-4" /> support@quanttrade.us
+                      <a href="mailto:quanttrade.us@icloud.com" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-hover border border-line-subtle text-fg-primary text-sm font-medium hover:border-line-default hover:text-fg-primary transition-all">
+                        <Mail className="w-4 h-4" /> quanttrade.us@icloud.com
                       </a>
                     </div>
                   </div>

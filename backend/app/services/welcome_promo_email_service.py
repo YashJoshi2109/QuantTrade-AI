@@ -68,7 +68,7 @@ def _build_welcome_promo_html(
         </p>
         <p class="fine">
           The code is subject to Stripe&apos;s limits (e.g. max redemptions). If it doesn&apos;t apply, check spelling or ask
-          <a href="mailto:support@quanttrade.us" style="color:#38bdf8;">support@quanttrade.us</a>.
+          <a href="mailto:quanttrade.us@icloud.com" style="color:#38bdf8;">quanttrade.us@icloud.com</a>.
         </p>
       </div>
       <div class="foot">

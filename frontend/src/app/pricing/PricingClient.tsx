@@ -666,10 +666,10 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
             <p className="text-sm text-fg-muted">
               Questions?{' '}
               <a
-                href="mailto:support@quanttrade.us"
+                href="mailto:quanttrade.us@icloud.com"
                 className="text-cyan-400 hover:text-cyan-300 transition-colors"
               >
-                support@quanttrade.us
+                quanttrade.us@icloud.com
               </a>
               <span className="mx-3 text-fg-muted">·</span>
               <Link href="/terms" className="text-fg-muted hover:text-fg-primary transition-colors">

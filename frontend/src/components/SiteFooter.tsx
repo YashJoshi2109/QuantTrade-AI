@@ -160,7 +160,7 @@ export default function SiteFooter() {
                   Contact
                 </p>
                 <ul className="space-y-1.5 text-fg-muted">
-                  <li>support@quanttrade.us</li>
+                  <li>quanttrade.us@icloud.com</li>
                   <li>Feedback & feature requests</li>
                   <li>Partnerships</li>
                 </ul>
