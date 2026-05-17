@@ -22,7 +22,7 @@ redis==5.0.1
 yfinance==0.2.32
 pandas>=2.2.0,<3.0.0
 numpy>=1.26.2,<2.0.0
-requests==2.31.0
+requests>=2.33.0
 beautifulsoup4==4.12.2
 httpx==0.25.2
 

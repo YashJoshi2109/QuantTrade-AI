@@ -21,7 +21,7 @@ redis==5.0.1
 yfinance>=1.2.2
 pandas>=2.2.0
 numpy>=1.26.2
-requests>=2.31.0
+requests>=2.33.0  # <2.33.0 had CVE-2024-35195 (proxy credential leak) + SSRF fixes
 beautifulsoup4==4.12.2
 httpx==0.25.2
 lxml>=5.3.1  # >=5.3.1 fixes CVE-2024-55549/CVE-2025-24928; For Finviz HTML parsing
@@ -58,7 +58,7 @@ pyarrow>=14.0.0  # Parquet caching for ML data pipeline
 # LLM + RAG
 openai>=2.0.0,<3.0.0
 langchain>=1.0.0
-langchain-openai>=1.0.0
+langchain-openai>=1.1.14  # <1.1.14 had credential exposure CVE
 langchain-anthropic>=1.0.0
 langchain-community>=0.4.0
 sentence-transformers>=3.0.0

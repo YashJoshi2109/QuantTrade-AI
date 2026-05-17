@@ -18,7 +18,7 @@ python-jose[cryptography]>=3.5.0
 
 # HTTP Client
 httpx>=0.27.0
-requests>=2.32.0
+requests>=2.33.0
 
 # Data Processing (lightweight)
 pandas>=2.2.0
