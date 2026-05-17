@@ -160,7 +160,7 @@ jobs:
               resp = requests.post(
                   f"{api}/api/v1/internal/ml/batch-start",
                   json={"run_id": run_id, "shard_id": shard_id, "shard_name": shard_name,
-                        "symbol_count": symbol_count, "horizons": [1, 7],
+                        "symbol_count": symbol_count, "horizons": [7],
                         "batch_job_id": os.environ.get("GITHUB_RUN_ID", "")},
                   headers=headers, timeout=15,
               )
@@ -312,7 +312,7 @@ jobs:
                       cf_token    = os.environ.get("CF_API_TOKEN", "")
                       if cf_account and cf_ns and cf_token:
                           now_iso = datetime.now(timezone.utc).isoformat()
-                          for h in [1, 7]:
+                          for h in [7]:
                               try:
                                   kv_resp = requests.put(
                                       f"https://api.cloudflare.com/client/v4/accounts/{cf_account}"

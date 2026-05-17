@@ -155,7 +155,7 @@ async def get_predictions(
 
 @router.get("/mlops/monitoring/performance")
 async def get_performance(
-    model_name: str = Query("lstm_h1"),
+    model_name: str = Query("lstm_h7"),
     window_days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
 ):

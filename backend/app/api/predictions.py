@@ -1,6 +1,6 @@
 """Prediction serving endpoint.
 
-GET /api/v1/predictions/{symbol}?horizon=1|7
+GET /api/v1/predictions/{symbol}?horizon=7
 
 Loads the latest local checkpoint for the requested horizon, computes features
 via FeatureStore, runs LSTM inference, and returns a structured prediction.
@@ -159,7 +159,7 @@ def _run_inference(symbol: str, horizon: int) -> dict:
 @router.get("/predictions/{symbol}")
 def get_prediction(
     symbol: str,
-    horizon: int = Query(default=1, description="Forecast horizon in days: 1 or 7"),
+    horizon: int = Query(default=7, description="Forecast horizon in days (7 supported; h=1 deprecated)"),
 ):
     """Return LSTM prediction for a single symbol at the given horizon.
 

@@ -172,7 +172,7 @@ def plan_shards(
     if not symbols:
         raise ValueError("No symbols provided for shard planning")
 
-    horizons = horizons or [1, 7, 30]
+    horizons = horizons or [7]
     run_id = run_id or str(uuid.uuid4())
     hints = runtime_hints or DEFAULT_RUNTIME_HINTS
 

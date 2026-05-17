@@ -13,7 +13,7 @@ cache_dir: "ml/data_cache"
 # ── Features ──────────────────────────────────────────────────────────
 target_mode: "log_return"  # log_return gives better gradient signal than binary
 seq_len: 60                # 60 trading days lookback (~3 months)
-horizons: [1, 7]           # 1-day, 1-week predictions (h30 dropped: DA<50%, IC<-0.1 with 60d seq_len)
+horizons: [7]              # h=1 dropped: DA<50%, IC negative — not beating momentum baseline
 
 # ── Model architecture ────────────────────────────────────────────────
 hidden_size: 128           # LSTM hidden units (keep 128 for CI 3h timeout safety)

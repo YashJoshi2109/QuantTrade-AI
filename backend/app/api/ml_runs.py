@@ -59,7 +59,7 @@ class TriggerNightlyRequest(BaseModel):
 
 class BackfillRequest(BaseModel):
     symbols: List[str] = Field(..., min_length=1)
-    horizons: List[int] = Field(default=[1, 7])
+    horizons: List[int] = Field(default=[7])
     run_type: str = "backfill"
 
 
@@ -86,7 +86,7 @@ class BatchStartRequest(BaseModel):
     batch_job_id: str = ""
     symbol_count: int = 0
     run_type: str = "manual"
-    horizons: List[int] = Field(default_factory=lambda: [1, 7])
+    horizons: List[int] = Field(default_factory=lambda: [7])
     shard_index: int = 0
 
 
@@ -123,7 +123,7 @@ async def trigger_nightly_run(
     from ml.shard_planner import plan_shards
     plan = plan_shards(
         symbols=symbols,
-        horizons=req.horizons or [1, 7],
+        horizons=req.horizons or [7],
         run_id=str(run_id),
         run_type=req.run_type,
     )
@@ -642,7 +642,7 @@ async def batch_job_callback(
             db.commit()
     if not db.query(_TrainingShard).filter(_TrainingShard.shard_id == shard_uid).first():
         mds.create_shard(db, shard_id=shard_uid, run_id=run_uid, shard_index=0,
-                         shard_name=req.shard_name, symbol_count=sym_count, horizons=[1, 7])
+                         shard_name=req.shard_name, symbol_count=sym_count, horizons=[7])
         logger.info("Batch callback: auto-created missing shard %s", req.shard_id[:8])
 
     mds.update_shard_from_callback(
@@ -778,7 +778,7 @@ async def promote_run_model(
         promotion_status=req.promotion_status,
         avg_directional_accuracy=req.avg_da,
         avg_information_coefficient=req.avg_ic,
-        horizons=[1, 7],
+        horizons=[7],
         symbol_count=symbol_count,
         promoted_at=datetime.now(timezone.utc),
         promoted_by="auto-promote-lambda",

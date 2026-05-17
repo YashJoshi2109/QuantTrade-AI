@@ -75,7 +75,7 @@ class MLPipeline:
         )
 
         symbols = symbols or TIER_1_SYMBOLS
-        horizons = horizons or [1, 7, 30]
+        horizons = horizons or [7]
         set_global_seed(42)
 
         logger.info(f"Pipeline {pipeline_id}: starting with {len(symbols)} symbols, horizons={horizons}")
