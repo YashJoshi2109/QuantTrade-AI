@@ -865,9 +865,13 @@ async def ml_health(db: Session = Depends(get_db)):
     runs = mds.list_runs(db, limit=5)
     latest = runs[0] if runs else None
 
+    # "failed" only — cancelled/stale runs don't indicate infra failure
     recent_failures = sum(1 for r in runs if r.status == "failed")
-
-    if recent_failures >= 3 or (latest and latest.status == "failed"):
+    # Require 2 consecutive failures OR 3+ of last 5 failed (not just any single failure)
+    latest_two_failed = (
+        len(runs) >= 2 and runs[0].status == "failed" and runs[1].status == "failed"
+    )
+    if recent_failures >= 3 or latest_two_failed:
         pipeline_status = "degraded"
     else:
         pipeline_status = "healthy"

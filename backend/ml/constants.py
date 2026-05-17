@@ -35,9 +35,14 @@ FEATURE_COLUMNS: list[str] = [
     "Log_Return",
     "Distance_52w_High",
     "Returns_vs_SPY",
+    # New: directional-signal features
+    "Momentum_5",       # 5-day price rate-of-change (short-term momentum)
+    "Momentum_20",      # 20-day price rate-of-change (medium-term trend)
+    "Stochastic_K",     # 14-period stochastic %K (overbought/oversold)
+    "Volume_Force",     # Force Index: close_change * volume (buying/selling pressure)
 ]
 
-NUM_FEATURES = len(FEATURE_COLUMNS)  # 20
+NUM_FEATURES = len(FEATURE_COLUMNS)  # 24
 
 # ── Symbol tiers ───────────────────────────────────────────────────────
 

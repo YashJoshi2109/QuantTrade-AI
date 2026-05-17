@@ -41,11 +41,13 @@ class TransformerEncoderBlock(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Self-attention: all timesteps attend to all timesteps
-        attn_out, _ = self.mha(x, x, x)
-        x = self.norm1(x + self.dropout(attn_out))   # Add & Norm
-        ffn_out = self.ffn(x)
-        x = self.norm2(x + self.dropout(ffn_out))    # Add & Norm
+        # Pre-norm: normalize BEFORE sublayer (better gradient flow than post-norm)
+        x_norm = self.norm1(x)
+        attn_out, _ = self.mha(x_norm, x_norm, x_norm)
+        x = x + self.dropout(attn_out)
+        x_norm = self.norm2(x)
+        ffn_out = self.ffn(x_norm)
+        x = x + self.dropout(ffn_out)
         return x
 
 

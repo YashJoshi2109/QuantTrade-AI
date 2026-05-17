@@ -161,13 +161,13 @@ class TestHybridDirectionalLoss:
         assert torch.isfinite(pred.grad).all()
 
     def test_alpha_zero_equals_bce(self):
-        """alpha=0 → pure BCE loss."""
+        """alpha=0 → pure BCE loss with label smoothing (direction * 0.9 + 0.05)."""
         criterion_hybrid = HybridDirectionalLoss(alpha=0.0, scale=20.0)
         criterion_bce = nn.BCELoss()
         torch.manual_seed(0)
         pred = torch.randn(16, 1) * 0.05
         target = torch.randn(16, 1) * 0.01
-        direction = (target > 0).float()
+        direction = (target > 0).float() * 0.9 + 0.05  # matches label smoothing in forward()
         expected = criterion_bce(torch.sigmoid(pred * 20.0), direction)
         got = criterion_hybrid(pred, target)
         assert abs(float(got) - float(expected)) < 1e-5

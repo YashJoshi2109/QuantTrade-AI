@@ -22,6 +22,12 @@ permissions:
   actions: read
   packages: read
 
+# Cancel any previously-queued run for the same trigger type.
+# Without this, jobs pile up in the GHA queue (each waits 6h then auto-cancels).
+concurrency:
+  group: ml-train-nightly-${{ github.event_name }}
+  cancel-in-progress: true
+
 jobs:
   # ── Determine training shards ─────────────────────────────────────
   plan:
@@ -48,8 +54,8 @@ jobs:
             # tier_3: 87 sym  ~7min/ep   → 12ep×2h = 168min ✓
             echo 'matrix={"include":[{"tier":"tier_1_exclusive","label":"tier_1","max_epochs":30},{"tier":"tier_2_exclusive","label":"tier_2","max_epochs":8},{"tier":"tier_3a","label":"tier_3a","max_epochs":12},{"tier":"tier_3b","label":"tier_3b","max_epochs":12},{"tier":"tier_3c","label":"tier_3c","max_epochs":12}]}' >> $GITHUB_OUTPUT
           else
-            # Weekdays — tier_2 combined (~230 symbols); 6 epochs fits 3h timeout
-            echo 'matrix={"include":[{"tier":"tier_2","label":"tier_2","max_epochs":6}]}' >> $GITHUB_OUTPUT
+            # Weekdays — tier_1_exclusive (30 mega-caps): fast run (<45min), meaningful daily signal
+            echo 'matrix={"include":[{"tier":"tier_1_exclusive","label":"tier_1","max_epochs":30}]}' >> $GITHUB_OUTPUT
           fi
 
   # ── Training shard jobs (parallel on Sunday) ──────────────────────

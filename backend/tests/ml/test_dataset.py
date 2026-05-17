@@ -36,7 +36,7 @@ class TestComputeFeatures:
         df = _synthetic_ohlcv(500)
         feat = compute_features(df)
         assert list(feat.columns) == FEATURE_COLUMNS
-        assert feat.shape[1] == NUM_FEATURES == 20
+        assert feat.shape[1] == NUM_FEATURES == 24
 
     def test_no_nan_after_compute(self):
         df = _synthetic_ohlcv(500)

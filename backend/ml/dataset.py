@@ -219,6 +219,17 @@ def compute_features(df: pd.DataFrame, spy_df: pd.DataFrame | None = None) -> pd
     else:
         out["Returns_vs_SPY"] = 0.0
 
+    # New directional features
+    out["Momentum_5"] = close.pct_change(5) * 100
+    out["Momentum_20"] = close.pct_change(20) * 100
+    low_14 = low.rolling(14).min()
+    high_14 = high.rolling(14).max()
+    hl_range = (high_14 - low_14).replace(0, np.nan)
+    out["Stochastic_K"] = ((close - low_14) / hl_range * 100).fillna(50)
+    force_raw = (close - close.shift(1)) * volume
+    out["Volume_Force"] = force_raw.rolling(13).mean() / (close * volume.replace(0, np.nan)).rolling(13).mean().replace(0, np.nan)
+    out["Volume_Force"] = out["Volume_Force"].replace([np.inf, -np.inf], np.nan).fillna(0)
+
     # Ensure column order matches FEATURE_COLUMNS exactly
     out = out[FEATURE_COLUMNS]
 

@@ -76,6 +76,8 @@ class HybridDirectionalLoss(nn.Module):
     def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         mse_loss = self.mse(pred, target)
         direction = (target > 0).float()
+        # Label smoothing: prevents overconfident directional predictions (reduces val→test overfit)
+        direction = direction * 0.9 + 0.05
         pred_prob = torch.sigmoid(pred * self.scale)
         bce_loss = self.bce(pred_prob, direction)
         return self.alpha * mse_loss + (1.0 - self.alpha) * bce_loss
@@ -279,7 +281,10 @@ def train_single_horizon(config: TrainConfig, horizon: int, cached_features=None
 
     early_stopper = EarlyStopping(
         patience=config.early_stopping_patience,
-        min_epochs=getattr(config, "early_stopping_min_epochs", 5),
+        min_epochs=min(
+            getattr(config, "early_stopping_min_epochs", 5),
+            max(1, config.epochs // 3),
+        ),
     )
 
     # Training loop
