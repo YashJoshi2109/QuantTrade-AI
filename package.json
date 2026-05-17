@@ -1,8 +1,12 @@
 {
   "dependencies": {
-    "@neondatabase/auth": "^0.2.0-beta.1",
-    "@neondatabase/neon-js": "^0.2.0-beta.1",
+    "@neondatabase/auth": "^0.4.1-beta",
+    "@neondatabase/neon-js": "^0.6.1-beta",
+    "better-auth": "^1.6.11",
     "react-fast-marquee": "1.6.5",
     "react-router-dom": "^7.13.0"
+  },
+  "overrides": {
+    "better-auth": "^1.6.11"
   }
 }
