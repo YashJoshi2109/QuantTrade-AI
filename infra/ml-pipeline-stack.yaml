@@ -15,10 +15,10 @@ Parameters:
   ECRRepositoryName:
     Type: String
     Default: quanttrade-ml-training
-  NeonDatabaseUrl:
+  DatabaseUrl:
     Type: String
     NoEcho: true
-    Description: Neon PostgreSQL connection URL for metadata
+    Description: AWS RDS PostgreSQL connection URL for metadata
   VpcId:
     Type: AWS::EC2::VPC::Id
     Description: VPC for Batch compute environment
@@ -249,8 +249,8 @@ Resources:
             Value: !Ref MLBucketName
           - Name: AWS_REGION
             Value: !Ref AWS::Region
-          - Name: NEON_DATABASE_URL
-            Value: !Ref NeonDatabaseUrl
+          - Name: DATABASE_URL
+            Value: !Ref DatabaseUrl
           - Name: CLOUDWATCH_NAMESPACE
             Value: QuantTrade/ML
           - Name: ML_TRIGGER_SOURCE

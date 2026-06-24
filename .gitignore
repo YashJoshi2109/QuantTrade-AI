@@ -99,3 +99,6 @@ frontend/playwright-report/
 frontend/test-results/
 test-results/
 playwright-report/
+.rds-migration.secret
+*.neon.bak
+backend/.env.neon.bak

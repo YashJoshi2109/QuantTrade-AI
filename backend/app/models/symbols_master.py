@@ -34,7 +34,7 @@ class SymbolsMaster(Base):
     id = Column(Integer, primary_key=True, index=True)
     
     # Symbol identification (uppercase normalized)
-    symbol = Column(String(10), unique=True, nullable=False, index=True)
+    symbol = Column(String(32), unique=True, nullable=False, index=True)  # 32 to fit intl tickers (e.g. IDFCFIRSTB.NS)
     name = Column(String(255), nullable=False)
     
     # Exchange and classification
