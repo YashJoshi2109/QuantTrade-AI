@@ -6,6 +6,7 @@
  *   USD price and is labelled as the ETF, never as the index.
  */
 import { formatNumber } from '@/lib/format'
+import { isIndexLevelSymbol } from '@/lib/indexQuotes'
 
 export interface LevelLike {
   symbol: string
@@ -16,8 +17,10 @@ export interface LevelLike {
 
 export function isIndexLevel(q: LevelLike): boolean {
   if (q.is_proxy) return false
-  if (typeof q.is_index_level === 'boolean') return q.is_index_level
-  return q.symbol.startsWith('^')
+  // A known index symbol (incl. caret-less 000001.SS / 000300.SS) is always points,
+  // even if an older cached row said otherwise — indices are never FX-converted.
+  if (isIndexLevelSymbol(q.symbol)) return true
+  return q.is_index_level === true
 }
 
 /** Ticker to show on the tile: the ETF actually priced when the row is a proxy. */

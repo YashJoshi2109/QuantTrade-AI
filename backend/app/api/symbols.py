@@ -21,9 +21,11 @@ from app.services.sync_rate_limit import sync_rate_limit
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, case, func, literal, text
 from typing import List, Optional
+from datetime import datetime, timedelta, timezone
 from app.db.database import get_db
 from app.models.symbol import Symbol
 from app.models.symbols_master import SymbolsMaster
+from app.models.fundamentals import Fundamentals
 from app.services.data_fetcher import DataFetcher
 from app.services.ticker_validation import normalize_ticker
 from pydantic import BaseModel
@@ -102,6 +104,46 @@ def _like_escape(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+# symbols.market_cap is written once when the row is created and never refreshed
+# (NVDA showed "$2200.0B" in search vs $3.43T on Research). Search therefore uses
+# the Research page's source, the fundamentals row, and only while it is recent.
+_MARKET_CAP_MAX_AGE = timedelta(days=3)
+
+
+def _fresh_market_caps(db: Session, symbols: List[str]) -> dict:
+    """{SYMBOL: market_cap} from recent fundamentals rows; stale/missing -> absent."""
+    syms = sorted({(s or "").upper() for s in symbols if s})
+    if not syms:
+        return {}
+    try:
+        rows = (
+            db.query(Symbol.symbol, Fundamentals.market_cap, Fundamentals.fetched_at)
+            .join(Fundamentals, Fundamentals.symbol_id == Symbol.id)
+            .filter(Symbol.symbol.in_(syms))
+            .all()
+        )
+    except Exception as e:
+        db.rollback()
+        logger.warning("market cap lookup failed: %s", e)
+        return {}
+    now = datetime.now(timezone.utc)
+    out = {}
+    for sym, cap, fetched_at in rows:
+        if cap is None or cap <= 0 or fetched_at is None:
+            continue
+        ts = fetched_at if fetched_at.tzinfo else fetched_at.replace(tzinfo=timezone.utc)
+        if now - ts <= _MARKET_CAP_MAX_AGE:
+            out[sym.upper()] = float(cap)
+    return out
+
+
+def _with_fresh_caps(db: Session, results: List[SearchResultResponse]) -> List[SearchResultResponse]:
+    caps = _fresh_market_caps(db, [r.symbol for r in results])
+    for r in results:
+        r.market_cap = caps.get(r.symbol.upper())
+    return results
+
+
 @router.get("/symbols/search", response_model=List[SearchResultResponse])
 def universal_search(
     q: str = Query(..., min_length=1, max_length=50, description="Search query"),
@@ -126,7 +168,7 @@ def universal_search(
         try:
             results = _search_symbols_master(db, query, limit, use_trgm=trgm)
             if results:
-                return results
+                return _with_fresh_caps(db, results)
             break  # query succeeded with no rows: try the symbols table
         except Exception as e:
             # A failed statement aborts the PostgreSQL transaction; roll back
@@ -135,7 +177,7 @@ def universal_search(
             logger.warning("symbols_master search failed (trgm=%s): %s", trgm, e)
 
     try:
-        return _search_symbols_fallback(db, query, limit)
+        return _with_fresh_caps(db, _search_symbols_fallback(db, query, limit))
     except Exception as e:
         db.rollback()
         logger.error("symbols fallback search failed for %r: %s", query_upper, e)
@@ -259,7 +301,14 @@ def get_symbols(
         )
     
     symbols = query.limit(100).all()
-    return symbols
+    caps = _fresh_market_caps(db, [s.symbol for s in symbols])
+    return [
+        SymbolResponse(
+            id=s.id, symbol=s.symbol, name=s.name, sector=s.sector,
+            industry=s.industry, market_cap=caps.get(s.symbol.upper()),
+        )
+        for s in symbols
+    ]
 
 
 @router.get("/symbols/{symbol}", response_model=SymbolResponse)

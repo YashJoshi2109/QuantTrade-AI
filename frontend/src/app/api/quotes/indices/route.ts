@@ -6,9 +6,13 @@ import {
   getExchangeById,
 } from '@/lib/world-exchanges'
 import {
+  BENCHMARK_INDEX_LABELS,
   FINNHUB_PROXY_ETFS,
   isIndexLevelSymbol,
+  lastKnownIndexLevel,
   pickQuote,
+  plausibleIndexFallback,
+  rememberIndexLevel,
   toIndexQuote,
   type IndexQuote,
   type RawQuote,
@@ -22,9 +26,10 @@ export type { IndexQuote } from '@/lib/indexQuotes'
  *  1. Yahoo Finance chart API (real index levels, free, per-symbol)
  *  2. Financial Modeling Prep (batch fallback for failed symbols)
  *  3. Twelve Data (individual fallback)
- *  4. Finnhub — last resort. For indices / futures Finnhub only serves ETF proxies
- *     (^GSPC → SPY, CL=F → USO …). A proxy price is NEVER labelled as the index:
- *     the row is relabelled as the ETF (`is_proxy: true`, `proxy_symbol`).
+ *  4. Finnhub — last resort, futures only (CL=F → USO, relabelled as the ETF with
+ *     `is_proxy: true`). Index symbols are never priced from an ETF: when every
+ *     provider fails, the last known level is served with `is_stale: true`,
+ *     otherwise the row has price 0 and renders as "—".
  */
 
 // In-memory response cache — prevents 40+ Yahoo Finance calls per request
@@ -183,6 +188,20 @@ async function fetchFinnhubIndexQuote(yahooSymbol: string): Promise<RawQuote | n
 
 // ─── Meta helpers ──────────────────────────────────────────────────────────
 function macroMeta(symbol: string) {
+  const bench = BENCHMARK_INDEX_LABELS[symbol]
+  if (bench) {
+    return {
+      name: bench.name,
+      shortName: bench.shortName,
+      exchangeId: 'us-benchmarks',
+      exchangeName: 'US',
+      country: 'United States',
+      countryCode: 'US',
+      continent: 'americas',
+      currency: 'USD',
+      color: '#007AFF',
+    }
+  }
   const m = MACRO_SYMBOL_LABELS[symbol]
   return {
     name: m?.name ?? symbol,
@@ -310,15 +329,25 @@ export async function GET(request: NextRequest) {
   const quotes: IndexQuote[] = []
   for (const symbol of batch) {
     const info = indexInfoMap[symbol] ?? macroMeta(symbol)
+    const isLevel = isIndexLevelSymbol(symbol)
+    const last = isLevel ? lastKnownIndexLevel(symbol) : undefined
+    // Fallback providers resolve some index tickers loosely; a "level" that is
+    // far from the last known one (e.g. an ETF price) is rejected for indices.
+    const fallback = (q: RawQuote | undefined) =>
+      isLevel && q && !plausibleIndexFallback(q, last?.quote) ? undefined : q
     const quote = pickQuote(
       yfMap.get(symbol),
-      fmpMap.get(symbol),
-      twelveMap.get(symbol),
+      fallback(fmpMap.get(symbol)),
+      fallback(twelveMap.get(symbol)),
       finnhubFallbackMap.get(symbol),
     )
 
     if (quote) {
+      if (isLevel) rememberIndexLevel(symbol, quote)
       quotes.push(toIndexQuote(symbol, info, quote))
+    } else if (last) {
+      // Every provider failed: last known level, clearly marked stale — never an ETF.
+      quotes.push({ ...toIndexQuote(symbol, info, last.quote), is_stale: true, as_of: last.asOf })
     } else {
       // Include with zero data so UI at least shows the index name
       quotes.push({

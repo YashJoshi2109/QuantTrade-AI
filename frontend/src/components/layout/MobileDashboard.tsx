@@ -225,13 +225,13 @@ export default function MobileDashboard() {
     if (indices && indices.length > 0) {
       indices.forEach((idx) => {
         const key = idx.symbol.toUpperCase()
-        // Same symbols the desktop tiles use; ETF rows (SPY/QQQ/DIA) only appear as
-        // labelled proxies when no index level is available.
-        if (key.includes('GSPC') || key.includes('SPX') || key === 'SPY') {
+        // Same symbols the desktop tiles use. ETF rows (SPY/QQQ/DIA) are never
+        // mapped onto an index card: a missing level renders as "—".
+        if (key.includes('GSPC') || key.includes('SPX')) {
           map.sp500 ??= idx
-        } else if (key.includes('IXIC') || key === 'QQQ') {
+        } else if (key.includes('IXIC')) {
           map.nasdaq ??= idx
-        } else if (key.includes('DJI') || key === 'DIA') {
+        } else if (key.includes('DJI')) {
           map.dow ??= idx
         }
       })

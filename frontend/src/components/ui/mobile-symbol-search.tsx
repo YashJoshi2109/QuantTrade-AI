@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Search, X, Loader2 } from 'lucide-react'
 import TickerLogo from '@/components/TickerLogo'
 import { searchSymbols, type SearchResult } from '@/lib/api'
+import { formatMarketCap } from '@/lib/valuation'
 
 interface MobileSymbolSearchProps {
   value: string
@@ -150,6 +151,12 @@ export default function MobileSymbolSearch({
                       {result.name}
                     </p>
                   </div>
+                  {/* Same source (fundamentals row) and formatter as Research / desktop search */}
+                  {result.market_cap != null && result.market_cap > 0 && (
+                    <span className="text-[10px] font-mono text-[#007AFF] shrink-0">
+                      {formatMarketCap(result.market_cap)}
+                    </span>
+                  )}
                   {result.asset_type && (
                     <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 uppercase font-bold shrink-0">
                       {result.asset_type}
