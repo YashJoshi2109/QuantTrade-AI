@@ -478,9 +478,25 @@ def parse_filings_list(submissions_data: dict, form_types: list[str] = None, lim
 
 # ── AI filing insights ─────────────────────────────────────────────────
 
-async def generate_filing_insights(ticker: str, financials: list[dict], filings: list[dict], company_info: dict) -> str:
-    """Generate AI insights on a company's filings using Claude."""
-    import os
+INSIGHTS_PROMPT_VERSION = 1
+INSIGHTS_CACHE_TTL_S = 7 * 86400
+
+
+async def generate_filing_insights(
+    ticker: str,
+    financials: list[dict],
+    filings: list[dict],
+    company_info: dict,
+    before_llm=None,
+) -> str:
+    """Generate AI insights on a company's filings using Claude.
+
+    The prompt is fully determined by the filing data, so the result is cached
+    (memory → Redis → ai_result_cache table, 7 days) by ticker + prompt hash:
+    refreshes never re-bill.  On a cache miss `before_llm()` is called first —
+    it may raise (quota / budget errors propagate) or return False to serve the
+    rule-based fallback instead of calling the model.
+    """
 
     # Build context from recent financials. Every line states its exact span so the
     # model never compares a 3-month quarter with a full fiscal year.
@@ -536,21 +552,34 @@ Write GitHub-flavored Markdown with exactly these four `###` headings, 2-3 sente
 ### Cash Flow Quality
 ### Key Risks & Opportunities"""
 
+    import asyncio as _asyncio
+    from app.services import ai_guard
+    from app.services.agentic.bedrock_client import get_llm_anthropic
+
+    cache_key = f"sec_insights:v{INSIGHTS_PROMPT_VERSION}:{ticker.upper()}:" + ai_guard.cache_key(prompt)[:32]
+    cached = await _asyncio.to_thread(ai_guard.cache_get, cache_key, persistent=True)
+    if cached:
+        return cached
+
+    llm = get_llm_anthropic(max_tokens=800)
+    if llm is None:
+        return _fallback_insights(ticker, financials, company_info)
+    if before_llm is not None and before_llm() is False:
+        return _fallback_insights(ticker, financials, company_info)
+
     try:
-        from langchain_anthropic import ChatAnthropic
         from langchain_core.messages import HumanMessage
-        import os
 
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        if not api_key:
-            return _fallback_insights(ticker, financials, company_info)
-
-        llm = ChatAnthropic(model="claude-haiku-4-5-20251001", max_tokens=800, api_key=api_key)
         response = await llm.ainvoke([HumanMessage(content=prompt)])
-        return response.content
+        text = response.content if isinstance(response.content, str) else str(response.content)
+    except ai_guard.AIQuotaError:
+        raise
     except Exception as e:
         logger.warning("AI insight generation failed: %s", e)
         return _fallback_insights(ticker, financials, company_info)
+    if text:
+        await _asyncio.to_thread(ai_guard.cache_set, cache_key, text, INSIGHTS_CACHE_TTL_S, persistent=True)
+    return text
 
 
 def _fallback_insights(ticker: str, financials: list[dict], company_info: dict) -> str:

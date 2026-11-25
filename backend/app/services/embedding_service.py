@@ -59,6 +59,39 @@ class EmbeddingService:
             self._openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
         return self._openai_client
     
+    def _openai_embed(self, texts: List[str]) -> List[List[float]]:
+        """OpenAI embeddings through the AI usage guard: per-text char cap,
+        content-hash cache, budget reservation reconciled from response.usage."""
+        from app.services import ai_guard
+
+        caps = ai_guard.io_caps()
+        texts = [(t or " ")[: caps["embed_max_chars"]] for t in texts[: caps["embed_max_texts"]]]
+        keys = [ai_guard.cache_key("emb", self.model_name, t) for t in texts]
+        out: List[Optional[List[float]]] = [None] * len(texts)
+        missing = []
+        for i, k in enumerate(keys):
+            hit = ai_guard.cache_get(k)
+            if hit is not None:
+                out[i] = json.loads(hit)
+            else:
+                missing.append(i)
+        if missing:
+            todo = [texts[i] for i in missing]
+            est = sum(ai_guard.estimate_tokens(t) for t in todo)
+            res = ai_guard.reserve("openai", self.model_name, est_input_tokens=est,
+                                   units=est, unit_kind="embed_tokens")
+            try:
+                response = self.openai_client.embeddings.create(model=self.model_name, input=todo)
+            except Exception:
+                res.release()
+                raise
+            used = getattr(getattr(response, "usage", None), "prompt_tokens", None) or est
+            res.commit(input_tokens=int(used), units=int(used))
+            for i, d in zip(missing, response.data):
+                out[i] = d.embedding
+                ai_guard.cache_set(keys[i], json.dumps(d.embedding), 30 * 86400)
+        return out  # type: ignore[return-value]
+
     def embed_text(self, text: str) -> List[float]:
         """Generate embedding for a single text"""
         if not text or not text.strip():
@@ -66,11 +99,7 @@ class EmbeddingService:
         
         if self.use_openai:
             try:
-                response = self.openai_client.embeddings.create(
-                    model=self.model_name,
-                    input=text[:8191]  # OpenAI max input length
-                )
-                return response.data[0].embedding
+                return self._openai_embed([text])[0]
             except Exception as e:
                 print(f"OpenAI embedding error: {e}")
                 return [0.0] * self.embedding_dim
@@ -91,14 +120,7 @@ class EmbeddingService:
                 # OpenAI can handle batches up to ~2048 inputs
                 results = []
                 for i in range(0, len(valid_texts), batch_size):
-                    batch = valid_texts[i:i + batch_size]
-                    # Truncate each text to max length
-                    batch = [t[:8191] for t in batch]
-                    response = self.openai_client.embeddings.create(
-                        model=self.model_name,
-                        input=batch
-                    )
-                    results.extend([d.embedding for d in response.data])
+                    results.extend(self._openai_embed(valid_texts[i:i + batch_size]))
                 return results
             except Exception as e:
                 print(f"OpenAI batch embedding error: {e}")

@@ -25,6 +25,9 @@ from app.services.risk_scorer import RiskScorer
 from app.services.comprehensive_analysis import build_comprehensive_analysis
 from app.models.fundamentals import Fundamentals
 from app.api.auth import get_current_user, require_auth
+from app.api.ai_quota import require_llm_quota
+from app.services import ai_guard
+from app.services.ai_guard import GuardContext
 
 router = APIRouter()
 rag_service = RAGService()
@@ -291,12 +294,18 @@ async def chat(
     message: ChatMessage,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_auth),
+    guard_ctx: GuardContext = Depends(require_llm_quota("chat")),
 ):
     """
     AI copilot chat endpoint with RAG, QuantTrade Stock Analysis integration,
     structured visual responses, persistent conversations, and snapshot storage.
-    Requires authentication.
+    Requires an authenticated, verified user with AI quota (ai_guard).
     """
+    max_chars = ai_guard.io_caps()["max_prompt_chars"]
+    if len(message.message or "") > max_chars:
+        raise HTTPException(status_code=413, detail=f"Message too long (max {max_chars} characters).")
+    message.top_k = max(1, min(message.top_k, 10))
+    ai_guard.set_context(guard_ctx)
     request_id = str(uuid.uuid4())
     symbol_id = None
     resolved_symbol: Optional[str] = None

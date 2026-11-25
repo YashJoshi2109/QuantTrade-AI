@@ -97,6 +97,58 @@ export function createRateLimiter(limit: number, windowMs: number) {
   }
 }
 
+/** Backend origin for server-side fetches (same-origin when unset). */
+export function backendBaseUrl(req: AuthRequestLike): string {
+  return backendBase(req)
+}
+
+export type AiQuotaResult =
+  | { ok: true; maxTokens: number }
+  | { ok: false; status: number; detail: string }
+
+/**
+ * Ask the backend AI usage guard (POST /api/v1/ai-usage/reserve) for quota
+ * before a relay spends on a paid provider. The backend checks auth, email
+ * verification, per-user / per-IP limits and the global budget, and charges
+ * the worst case (prompt + maxTokens). Fails closed: no answer = no spend.
+ */
+export async function reserveAiQuota(
+  req: AuthRequestLike,
+  body: { feature: 'copilot_relay' | 'ai_analysis'; model: string; inputChars: number; maxTokens: number },
+  fetchImpl: typeof fetch = fetch
+): Promise<AiQuotaResult> {
+  const token = getAuthToken(req)
+  if (!token) return { ok: false, status: 401, detail: 'Sign in to use AI features.' }
+  const base = backendBase(req)
+  if (!base) return { ok: false, status: 503, detail: 'AI service unavailable' }
+  try {
+    const res = await fetchImpl(`${base}/api/v1/ai-usage/reserve`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-Forwarded-For': clientIp(req),
+      },
+      body: JSON.stringify({
+        feature: body.feature,
+        model: body.model,
+        input_chars: body.inputChars,
+        max_tokens: body.maxTokens,
+      }),
+      cache: 'no-store',
+    })
+    const data = (await res.json().catch(() => ({}))) as { detail?: unknown; max_tokens?: unknown }
+    if (!res.ok) {
+      const detail = typeof data.detail === 'string' ? data.detail : 'AI request not allowed'
+      return { ok: false, status: res.status, detail }
+    }
+    const maxTokens = typeof data.max_tokens === 'number' ? data.max_tokens : body.maxTokens
+    return { ok: true, maxTokens }
+  } catch {
+    return { ok: false, status: 503, detail: 'AI service unavailable' }
+  }
+}
+
 export function jsonError(message: string, status: number, extraHeaders: Record<string, string> = {}): Response {
   return new Response(JSON.stringify({ error: message }), {
     status,

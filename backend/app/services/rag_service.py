@@ -2,7 +2,6 @@
 RAG (Retrieval-Augmented Generation) service using Claude (Anthropic)
 """
 from typing import List, Dict, Optional
-from app.config import settings
 from app.services.embedding_service import EmbeddingService
 from app.models.filing import FilingChunk
 from app.models.news import NewsArticle
@@ -11,52 +10,20 @@ from sqlalchemy import text
 import json
 import numpy as np
 
-# Import Anthropic
-ANTHROPIC_AVAILABLE = False
-try:
-    from langchain_anthropic import ChatAnthropic
-    from langchain_core.prompts import ChatPromptTemplate
-    ANTHROPIC_AVAILABLE = True
-    print("✅ LangChain Anthropic available")
-except ImportError:
-    print("⚠️ LangChain Anthropic not available - install with: pip install langchain-anthropic")
-
-
 class RAGService:
     """RAG service for document retrieval and generation using Claude"""
     
     def __init__(self):
         self.embedding_service = EmbeddingService()
-        self._llm = None
-        self._llm_initialized = False
     
     @property
     def llm(self):
-        """Lazy-initialize Claude LLM"""
-        if not self._llm_initialized:
-            self._llm_initialized = True
-            
-            if settings.ANTHROPIC_API_KEY and ANTHROPIC_AVAILABLE:
-                try:
-                    print(f"🤖 Initializing Claude (key: {settings.ANTHROPIC_API_KEY[:20]}...)")
-                    self._llm = ChatAnthropic(
-                        model="claude-3-haiku-20240307",
-                        temperature=0.7,
-                        anthropic_api_key=settings.ANTHROPIC_API_KEY,
-                        max_tokens=1024
-                    )
-                    print("✅ Claude initialized successfully!")
-                except Exception as e:
-                    print(f"❌ Claude init failed: {e}")
-                    self._llm = None
-            else:
-                if not settings.ANTHROPIC_API_KEY:
-                    print("⚠️ ANTHROPIC_API_KEY not set in .env")
-                if not ANTHROPIC_AVAILABLE:
-                    print("⚠️ langchain-anthropic not installed")
-                    
-        return self._llm
-    
+        """Claude Haiku via the guarded factory (AI usage guard: quota, budget,
+        max_tokens).  A new client per access so it binds the caller's guard
+        context.  None when ANTHROPIC_API_KEY is not configured."""
+        from app.services.agentic.bedrock_client import get_llm_anthropic
+        return get_llm_anthropic(max_tokens=1024, temperature=0.7)
+
     def retrieve_filing_chunks(
         self,
         db: Session,
@@ -225,7 +192,8 @@ class RAGService:
                 context_text += f"Content: {filing['content']}\n"
         
         # If we have Claude available, use it
-        if self.llm:
+        llm = self.llm
+        if llm:
             try:
                 symbol_context = f" for {symbol}" if symbol else ""
                 
@@ -249,7 +217,7 @@ Instructions:
 
 Your response:"""
 
-                response = self.llm.invoke(prompt)
+                response = llm.invoke(prompt)
                 response_text = response.content if hasattr(response, 'content') else str(response)
                 
                 sources = list(set([doc.get("source", "Unknown") for doc in context_docs[:5]]))
@@ -262,6 +230,9 @@ Your response:"""
                 }
                 
             except Exception as e:
+                from app.services.ai_guard import AIQuotaError
+                if isinstance(e, AIQuotaError):
+                    raise
                 print(f"❌ Claude error: {e}")
                 # Fall through to fallback
         

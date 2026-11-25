@@ -559,6 +559,10 @@ app.include_router(copilot_stream.router, prefix="/api/v1", tags=["copilot"])
 from app.api.agentic_stream import router as agentic_stream_router
 app.include_router(agentic_stream_router, prefix="/api/v1")
 
+# AI usage guard — /me/ai-usage, /admin/llm-usage, /ai-usage/reserve (Next.js relays)
+from app.api.ai_quota import router as ai_quota_router
+app.include_router(ai_quota_router, prefix="/api/v1")
+
 # WebSocket — Real-time market data push (ideas, pulse, scanner)
 app.include_router(ws_api.router, prefix="/api/v1", tags=["websocket"])
 

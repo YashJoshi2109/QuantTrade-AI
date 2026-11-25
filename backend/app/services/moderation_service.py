@@ -6,7 +6,7 @@ AI Moderation Service for financial community content.
   2. AI Content Analysis (~500ms) -- Claude-based financial claim detection
   3. Decision Engine -- score thresholds -> auto-approve / queue / auto-remove
 
-Uses the Anthropic Python SDK (already a project dependency).
+Uses Claude Haiku via the guarded factory (bedrock_client.get_llm_anthropic), charged to the system AI budget.
 """
 import json
 import logging
@@ -14,7 +14,6 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -123,24 +122,7 @@ Respond ONLY with valid JSON (no markdown fences):
 }}"""
 
     def __init__(self):
-        self._client = None
-        self._client_initialized = False
-
-    @property
-    def _anthropic(self):
-        """Lazy-init Anthropic client."""
-        if not self._client_initialized:
-            self._client_initialized = True
-            if settings.ANTHROPIC_API_KEY:
-                try:
-                    from anthropic import Anthropic
-                    self._client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-                    logger.info("Moderation AI client initialized")
-                except Exception as exc:
-                    logger.warning("Anthropic client init failed: %s", exc)
-            else:
-                logger.warning("ANTHROPIC_API_KEY not set -- AI moderation disabled")
-        return self._client
+        pass
 
     # ── Stage 1: keyword filter ──────────────────────────────────────────
 
@@ -165,21 +147,23 @@ Respond ONLY with valid JSON (no markdown fences):
     # ── Stage 2: AI analysis ─────────────────────────────────────────────
 
     async def _ai_analyze(self, prompt: str) -> dict:
-        """Call Claude for content analysis. Returns parsed JSON or empty dict on failure."""
-        client = self._anthropic
-        if not client:
-            return {}
+        """Call Claude for content analysis. Returns parsed JSON or empty dict on failure.
+
+        Moderation is a platform cost, so it is charged to the system budget
+        (LLM_SYSTEM_DAILY_BUDGET_USD) through the guarded factory; when that
+        budget is exhausted the keyword filter alone decides.
+        """
+        from app.services.agentic.bedrock_client import get_llm_anthropic
+        from app.services.ai_guard import system_context
 
         try:
-            import asyncio
-            response = await asyncio.to_thread(
-                client.messages.create,
-                model="claude-3-haiku-20240307",
-                max_tokens=512,
-                temperature=0.0,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            raw = response.content[0].text.strip()
+            with system_context("moderation"):
+                llm = get_llm_anthropic(max_tokens=512, temperature=0.0)
+                if llm is None:
+                    return {}
+                response = await llm.ainvoke([("human", prompt[:12000])])
+            content = response.content
+            raw = (content if isinstance(content, str) else str(content)).strip()
             # Strip markdown fences if present
             if raw.startswith("```"):
                 raw = re.sub(r"^```(?:json)?\s*", "", raw)

@@ -45,10 +45,22 @@ export async function POST(request: NextRequest) {
     })
 
     if (!backendRes.ok) {
-      const errText = await backendRes.text().catch(() => backendRes.statusText)
-      return new Response(JSON.stringify({ error: errText }), {
+      // Pass the backend's {"detail": ...} through untouched (429 limits,
+      // 503 "AI features are paused for today (budget reached).", 401/403).
+      const errText = await backendRes.text().catch(() => '')
+      let detail = backendRes.statusText || 'Request failed'
+      try {
+        const parsed = JSON.parse(errText) as { detail?: unknown }
+        if (typeof parsed.detail === 'string') detail = parsed.detail
+      } catch {
+        /* non-JSON body */
+      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const retry = backendRes.headers.get('Retry-After')
+      if (retry) headers['Retry-After'] = retry
+      return new Response(JSON.stringify({ detail, error: detail }), {
         status: backendRes.status,
-        headers: { 'Content-Type': 'application/json' },
+        headers,
       })
     }
 

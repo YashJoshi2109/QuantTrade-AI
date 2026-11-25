@@ -273,7 +273,15 @@ Provide:
 3. Brief reasoning (one sentence)
 
 Respond in JSON format."""
-        
+
+        # Background job: charged to the system AI budget (ai_guard); skipped when exhausted.
+        from app.services import ai_guard
+        try:
+            res = ai_guard.reserve_system("threat_classification", est_tokens=400,
+                                          provider="groq", model="mixtral-8x7b-32768")
+        except ai_guard.AIQuotaError:
+            return None
+
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -294,8 +302,12 @@ Respond in JSON format."""
                     timeout=10.0
                 )
                 
+                if response.status_code != 200:
+                    res.release()
                 if response.status_code == 200:
                     result = response.json()
+                    usage = result.get("usage") or {}
+                    res.commit(int(usage.get("prompt_tokens") or 250), int(usage.get("completion_tokens") or 150))
                     content = result["choices"][0]["message"]["content"]
                     
                     # Parse JSON response
@@ -310,6 +322,7 @@ Respond in JSON format."""
                         return None
         
         except Exception as e:
+            res.release()  # no-op if already committed
             print(f"LLM classification error: {e}")
         
         return None

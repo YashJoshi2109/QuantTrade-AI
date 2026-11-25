@@ -1,19 +1,22 @@
-import os
-import io
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
-from pydantic import BaseModel
+"""
+ElevenLabs voice generation for game characters.
+
+Requires an authenticated, verified user; characters are capped per request and
+per day, identical lines are cached, and spend is bounded by the ElevenLabs and
+global AI budgets (app.services.tts_service → app.services.ai_guard).
+"""
 from typing import Optional
 
-router = APIRouter()
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
 
-# Initialize the ElevenLabs client. Will throw if key is missing/invalid when requested.
-try:
-    from elevenlabs.client import ElevenLabs
-    client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY", ""))
-except Exception as e:
-    client = None
-    print(f"ElevenLabs client initialization failed: {e}")
+from app.api.ai_quota import require_media_quota
+from app.services import ai_guard
+from app.services.ai_guard import GuardContext
+from app.services.tts_service import TTSUnavailable, synthesize
+
+router = APIRouter()
 
 # Voice Registry — deep, natural-sounding voices that don't sound AI-generated
 # Using ElevenLabs voices known for warm, human-like quality
@@ -36,47 +39,28 @@ VOICE_SETTINGS = {
     "elder":       {"stability": 0.75, "similarity_boost": 0.50, "style": 0.05, "use_speaker_boost": False},
 }
 
+
 class VoiceRequest(BaseModel):
-    text: str
+    text: str = Field(min_length=1, max_length=5000)
     role: str = "narrator"
     emotion: Optional[str] = "Neutral"
     npc_id: Optional[str] = None
 
-@router.post("/generate")
-def generate_voice(request: VoiceRequest):
-    """
-    Generate ElevenLabs voice audio for the given text and character role.
-    """
-    if not client:
-        raise HTTPException(status_code=503, detail="Voice engine is not configured.")
 
-    # Determine voice ID and settings based on role
+@router.post("/generate")
+def generate_voice(request: VoiceRequest, ctx: GuardContext = Depends(require_media_quota("voice"))):
+    """Generate ElevenLabs voice audio for the given text and character role."""
     role_key = request.role.lower()
     voice_id = VOICE_REGISTRY.get(role_key, VOICE_REGISTRY["narrator"])
     settings = VOICE_SETTINGS.get(role_key, VOICE_SETTINGS["narrator"])
-
-    # Truncate long text to avoid high latency
-    text = request.text[:1200] if len(request.text) > 1200 else request.text
-
     try:
-        from elevenlabs import VoiceSettings
-
-        audio_generator = client.text_to_speech.convert(
-            text=text,
-            voice_id=voice_id,
-            model_id="eleven_multilingual_v2",
-            output_format="mp3_44100_128",
-            voice_settings=VoiceSettings(
-                stability=settings["stability"],
-                similarity_boost=settings["similarity_boost"],
-                style=settings.get("style", 0.0),
-                use_speaker_boost=settings.get("use_speaker_boost", True),
-            ),
-        )
-
-        audio_bytes = b"".join([chunk for chunk in audio_generator])
-        return Response(content=audio_bytes, media_type="audio/mpeg")
-    
-    except Exception as e:
-        print(f"Voice generation error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate audio.")
+        with ai_guard.use_context(ctx):
+            audio = synthesize(
+                request.text,
+                voice_id,
+                model_id="eleven_multilingual_v2",
+                voice_settings=settings,
+            )
+    except TTSUnavailable:
+        raise HTTPException(status_code=503, detail="Voice engine is not available.")
+    return Response(content=audio, media_type="audio/mpeg")

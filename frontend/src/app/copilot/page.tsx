@@ -1498,15 +1498,20 @@ function UsageBadge() {
         )}
       </div>
       <div className="space-y-2.5 text-[11px] text-fg-primary">
+        {data.paused && (
+          <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-300">
+            {data.paused_message || 'AI features are paused for today (budget reached).'}
+          </p>
+        )}
         <div>
           <div className="mb-1 flex justify-between font-mono text-[10px] text-fg-muted">
             <span>Daily requests</span>
             <span className="text-fg-primary">
               {data.today_requests}
-              {!data.is_pro && data.free_limit > 0 ? ` / ${data.free_limit}` : ''}
+              {data.free_limit > 0 ? ` / ${data.free_limit}` : ''}
             </span>
           </div>
-          {!data.is_pro && data.free_limit > 0 && (
+          {data.free_limit > 0 && (
             <div className="h-2 w-full overflow-hidden rounded-full bg-surface-raised">
               <div
                 className={`h-full rounded-full transition-all ${barColor}`}
@@ -1514,9 +1519,9 @@ function UsageBadge() {
               />
             </div>
           )}
-          {!data.is_pro && data.free_limit > 0 && (
+          {data.free_limit > 0 && (
             <p className="mt-1 font-mono text-[10px] text-fg-muted">
-              {data.free_remaining} remaining ({pctRemaining.toFixed(0)}% of daily free quota)
+              {data.free_remaining} remaining ({pctRemaining.toFixed(0)}% of today&apos;s quota)
             </p>
           )}
         </div>
@@ -1589,10 +1594,15 @@ function UsageBadge() {
           aria-expanded={open}
           aria-haspopup="dialog"
         >
-          {data.is_pro ? (
+          {data.paused ? (
+            <>
+              <span className="font-bold text-amber-400">AI paused</span>
+              <ChevronDown className={`h-3 w-3 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </>
+          ) : data.is_pro ? (
             <>
               <span className="font-bold">PRO</span>
-              <span className="text-emerald-300/80">{data.today_requests} req</span>
+              <span className="text-emerald-300/80">{data.free_remaining} left</span>
               <ChevronDown className={`h-3 w-3 opacity-70 transition-transform ${open ? 'rotate-180' : ''}`} />
             </>
           ) : (
@@ -1999,7 +2009,8 @@ function CopilotInner() {
   })
 
   const isAtLimit = Boolean(
-    copilotUsage && !copilotUsage.is_pro && copilotUsage.free_remaining <= 0
+    copilotUsage &&
+      (copilotUsage.paused || (copilotUsage.free_limit > 0 && copilotUsage.free_remaining <= 0))
   )
 
   // Fetch conversation history
@@ -2460,16 +2471,24 @@ function CopilotInner() {
             <div className="flex flex-col items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-5 text-center">
               <Lock className="h-5 w-5 text-amber-400" />
               <div>
-                <p className="text-sm font-medium text-fg-primary">Daily limit reached</p>
-                <p className="mt-0.5 text-xs text-fg-muted">5/5 free requests used today. Resets at midnight UTC.</p>
+                <p className="text-sm font-medium text-fg-primary">
+                  {copilotUsage?.paused ? 'AI paused' : 'Daily limit reached'}
+                </p>
+                <p className="mt-0.5 text-xs text-fg-muted">
+                  {copilotUsage?.paused
+                    ? copilotUsage.paused_message || 'AI features are paused for today (budget reached).'
+                    : `${copilotUsage?.free_limit ?? 0}/${copilotUsage?.free_limit ?? 0} requests used today. Resets at midnight UTC.`}
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => router.push('/pricing')}
-                className="rounded-xl bg-gradient-to-br from-[#0a84ff] to-[#0060c9] px-5 py-2 text-sm font-semibold text-white shadow-[0_0_24px_rgba(0,122,255,0.25)] transition-all hover:brightness-110"
-              >
-                Upgrade to Pro — Unlimited Access
-              </button>
+              {!copilotUsage?.paused && !copilotUsage?.is_pro && (
+                <button
+                  type="button"
+                  onClick={() => router.push('/pricing')}
+                  className="rounded-xl bg-gradient-to-br from-[#0a84ff] to-[#0060c9] px-5 py-2 text-sm font-semibold text-white shadow-[0_0_24px_rgba(0,122,255,0.25)] transition-all hover:brightness-110"
+                >
+                  Upgrade to Pro — More Daily Requests
+                </button>
+              )}
             </div>
           ) : (
             <div className="shadow-[0_16px_48px_rgba(0,0,0,0.45)]">

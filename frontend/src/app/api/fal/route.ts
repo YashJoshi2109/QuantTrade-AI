@@ -1,30 +1,25 @@
 /**
- * Next.js API proxy for fal.ai — keeps FAL_API_KEY server-side only.
+ * Image generation proxy — forwards to the backend's guarded fal.ai endpoint
+ * (POST /api/v1/ai-image/generate), which enforces auth, email verification,
+ * images/day per user, per-IP limits, the fal + global daily budgets, and
+ * caches identical requests. This route never holds or spends the fal key.
+ *
  * POST /api/fal  (requires a signed-in session)
- * Body: { model?, prompt, width?, height?, steps? }
- *   model  — must be one of FAL_ALLOWED_MODELS (see src/lib/proxy-guards.ts)
- *   width/height/steps — clamped server-side
+ * Body: { model?, prompt, width?, height?, steps? }  — validated/clamped here too
  * Returns: { url: string } or { error: string }
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { clientIp, createRateLimiter, getSessionUser } from '@/lib/server-auth'
+import { backendBaseUrl, clientIp, createRateLimiter, getAuthToken } from '@/lib/server-auth'
 import { parseFalRequest } from '@/lib/proxy-guards'
 
-const FAL_BASE = 'https://fal.run'
-const FAL_API_KEY = process.env.FAL_API_KEY || ''
-
-const rateLimit = createRateLimiter(10, 60_000) // 10 images / min per IP+user
+const rateLimit = createRateLimiter(10, 60_000) // speed bump; the backend owns the real quota
 
 export async function POST(req: NextRequest) {
-  if (!FAL_API_KEY) {
-    return NextResponse.json({ error: 'Image generation not configured' }, { status: 503 })
-  }
-
-  const user = await getSessionUser(req)
-  if (!user) {
+  const token = getAuthToken(req)
+  if (!token) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
-  if (!rateLimit(`${clientIp(req)}:${user.id}`)) {
+  if (!rateLimit(`${clientIp(req)}:${token.slice(-16)}`)) {
     return NextResponse.json(
       { error: 'Too many requests. Please slow down.' },
       { status: 429, headers: { 'Retry-After': '60' } }
@@ -37,46 +32,32 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
-
   const parsed = parseFalRequest(raw)
   if ('error' in parsed) {
     return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
 
-  const payload = {
-    prompt: parsed.prompt,
-    image_size: { width: parsed.width, height: parsed.height },
-    num_inference_steps: parsed.steps,
-    num_images: 1,
-    enable_safety_checker: true,
-  }
-
+  const base = backendBaseUrl(req)
+  if (!base) return NextResponse.json({ error: 'Image generation unavailable' }, { status: 503 })
   try {
-    // parsed.model is from a fixed allowlist, so the upstream path is constant.
-    const falRes = await fetch(`${FAL_BASE}/${parsed.model}`, {
+    const res = await fetch(`${base}/api/v1/ai-image/generate`, {
       method: 'POST',
       headers: {
-        Authorization: `Key ${FAL_API_KEY}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
+        'X-Forwarded-For': clientIp(req),
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(parsed),
+      cache: 'no-store',
     })
-
-    if (!falRes.ok) {
-      const text = await falRes.text().catch(() => '')
-      console.error('fal.ai upstream error', falRes.status, text.slice(0, 500))
-      return NextResponse.json({ error: 'Image generation failed' }, { status: 502 })
+    const data = (await res.json().catch(() => ({}))) as { url?: unknown; detail?: unknown }
+    if (!res.ok || typeof data.url !== 'string') {
+      const detail = typeof data.detail === 'string' ? data.detail : 'Image generation failed'
+      return NextResponse.json({ error: detail }, { status: res.ok ? 502 : res.status })
     }
-
-    const data = await falRes.json()
-    const images: Array<{ url: string }> = data.images || []
-    if (!images.length) {
-      return NextResponse.json({ error: 'Image generation failed' }, { status: 502 })
-    }
-
-    return NextResponse.json({ url: images[0]!.url })
+    return NextResponse.json({ url: data.url })
   } catch (err) {
-    console.error('fal.ai proxy failure', err)
+    console.error('image proxy failure', err)
     return NextResponse.json({ error: 'Image generation failed' }, { status: 502 })
   }
 }

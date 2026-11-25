@@ -1,13 +1,14 @@
 /**
- * Input validation for the Next.js proxies to paid AI APIs (/api/copilot,
- * /api/fal). Kept out of the route files so they can be unit tested (Next
- * route modules may only export route handlers/config).
+ * Input validation for the Next.js proxies to paid AI APIs (/api/fal). Kept
+ * out of the route files so they can be unit tested (Next route modules may
+ * only export route handlers/config). Quota itself is enforced by the backend
+ * AI usage guard.
  */
 
-// ── /api/copilot (Groq) ─────────────────────────────────────────────────────
+// ── Chat message sanitizing (used by any chat relay) ────────────────────────
 
 export const COPILOT_LIMITS = {
-  maxTokens: 2048, // the app's own caller (copilot-api.ts) requests 2048
+  maxTokens: 2048,
   maxMessages: 40,
   maxTotalChars: 60_000,
 } as const

@@ -1,81 +1,52 @@
 /**
- * OG image generation endpoint.
+ * OG image endpoint (PUBLIC — social-preview crawlers).
  * GET /api/og?title=...&subtitle=...&type=stock|markets|game|default
  *
- * Calls fal.ai to generate a branded social-preview image and returns
- * a redirect to the generated URL (cached by CDN on subsequent hits).
+ * Never spends on fal.ai directly. The backend (GET /api/v1/ai-image/og) caches
+ * each generated image persistently per (type, title, subtitle, template
+ * version), so every image is generated at most once, rate limits misses per
+ * IP and stops at a global daily cap (AI_OG_IMAGES_PER_DAY). When it says
+ * "fallback" (cap hit, rate limited, unavailable) we redirect to a static image.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { backendBaseUrl, clientIp, createRateLimiter } from '@/lib/server-auth'
 
-const FAL_BASE = 'https://fal.run'
-const FAL_API_KEY = process.env.FAL_API_KEY || ''
-const MODEL = 'fal-ai/flux/schnell'
+const FALLBACK_PATH = '/og-fallback.png'
+const rateLimit = createRateLimiter(20, 60_000) // per IP; cache hits are cheap but still bounded
 
-// Simple in-process cache so the same title/type doesn't regenerate every request
-const _cache = new Map<string, { url: string; ts: number }>()
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 h
+// Generated URLs are immutable; let the CDN keep the redirect for a day.
+const CACHED = 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800'
+const SHORT = 'public, max-age=300, s-maxage=600'
 
-const TYPE_THEMES: Record<string, string> = {
-  stock:   'dark navy stock market terminal, glowing candlestick charts, Bloomberg aesthetic, electric blue and cyan',
-  markets: 'global financial markets, glowing world map with data overlays, gold and cyan accents',
-  game:    'epic medieval fantasy kingdom at night, glowing torches, golden coins, mystical atmosphere',
-  default: 'futuristic fintech platform, holographic data streams, dark background, cyan and blue neon',
+function fallback(req: NextRequest): NextResponse {
+  const res = NextResponse.redirect(new URL(FALLBACK_PATH, req.nextUrl.origin), 302)
+  res.headers.set('Cache-Control', SHORT)
+  return res
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
-  const title    = (searchParams.get('title')    || 'QuantTrade AI').slice(0, 80)
+  const title = (searchParams.get('title') || 'QuantTrade AI').slice(0, 80)
   const subtitle = (searchParams.get('subtitle') || '').slice(0, 120)
-  const type     = searchParams.get('type') || 'default'
+  const type = (searchParams.get('type') || 'default').slice(0, 20)
 
-  // Fallback: if no key, return a simple JSON response
-  if (!FAL_API_KEY) {
-    return NextResponse.json({ error: 'FAL_API_KEY not set' }, { status: 503 })
-  }
+  if (!rateLimit(clientIp(req))) return fallback(req)
 
-  const cacheKey = `${type}:${title}:${subtitle}`
-  const cached = _cache.get(cacheKey)
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-    return NextResponse.redirect(cached.url)
-  }
-
-  const theme = TYPE_THEMES[type] || TYPE_THEMES.default
-  const prompt = (
-    `Stunning social media preview image, ${theme}, ` +
-    `professional branding, bold space for title text, ` +
-    `'${title}' visible as main headline, dark rich background, ` +
-    `cinematic depth of field, 16:9 aspect ratio, no people, high contrast`
-  )
-
-  const payload = {
-    prompt,
-    image_size: { width: 1200, height: 630 },
-    num_inference_steps: 4,
-    num_images: 1,
-    enable_safety_checker: true,
-  }
-
+  const base = backendBaseUrl(req)
+  if (!base) return fallback(req)
   try {
-    const falRes = await fetch(`${FAL_BASE}/${MODEL}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Key ${FAL_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
+    const qs = new URLSearchParams({ title, subtitle, type })
+    const res = await fetch(`${base}/api/v1/ai-image/og?${qs}`, {
+      headers: { 'X-Forwarded-For': clientIp(req) },
+      cache: 'no-store',
     })
-
-    if (!falRes.ok) {
-      return NextResponse.json({ error: `fal.ai ${falRes.status}` }, { status: 502 })
-    }
-
-    const data = await falRes.json()
-    const url: string | undefined = data.images?.[0]?.url
-    if (!url) return NextResponse.json({ error: 'No image returned' }, { status: 502 })
-
-    _cache.set(cacheKey, { url, ts: Date.now() })
-    return NextResponse.redirect(url)
-  } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 502 })
+    if (!res.ok) return fallback(req)
+    const data = (await res.json()) as { url?: unknown }
+    if (typeof data.url !== 'string' || !/^https:\/\//.test(data.url)) return fallback(req)
+    const out = NextResponse.redirect(data.url, 302)
+    out.headers.set('Cache-Control', CACHED)
+    return out
+  } catch {
+    return fallback(req)
   }
 }

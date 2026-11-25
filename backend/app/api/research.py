@@ -9,7 +9,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -20,6 +20,8 @@ from app.services.instrument_identity import identity_check
 from app.services.ticker_validation import classify_asset_type
 from app.models.edgar import CompanyEDGAR, FinancialStatement
 from app.models.symbol import Symbol
+from app.models.user import User
+from app.api.auth import get_current_user
 from app.services.sec_edgar_service import (
     sync_edgar_data, get_cik, parse_filings_list, get_submissions,
     generate_filing_insights, stored_parser_version, PARSER_VERSION,
@@ -309,9 +311,16 @@ def get_filings(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpool
 @router.get("/{ticker}/ai-insights")
 async def get_ai_insights(
     ticker: str,
+    request: Request,
     db: Session = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user),
 ):
-    """AI-generated analysis of company financials and filings."""
+    """AI-generated analysis of company financials and filings.
+
+    Cached results are served to anyone.  A cache miss calls the model only for
+    an authenticated, verified user with AI quota (ai_guard); anonymous callers
+    get the rule-based summary instead.
+    """
     sym = _get_symbol(ticker, db)
 
     def _load_rows():
@@ -354,8 +363,23 @@ async def get_ai_insights(
         if submissions:
             filings = parse_filings_list(submissions, limit=5)
 
-    insights = await generate_filing_insights(ticker, financials, filings, company_info)
-    return {"ticker": ticker.upper(), "insights": insights}
+    from app.api.ai_quota import build_context
+    from app.services import ai_guard
+
+    admitted = {"ai": False}
+
+    def _before_llm() -> bool:
+        if user is None:
+            return False
+        ctx = build_context(request, user, db, "sec_insights")
+        ai_guard.admit_request(ctx)  # 429 / 503 propagate to the caller
+        ai_guard.set_context(ctx)
+        admitted["ai"] = True
+        return True
+
+    insights = await generate_filing_insights(ticker, financials, filings, company_info, before_llm=_before_llm)
+    return {"ticker": ticker.upper(), "insights": insights,
+            "requires_login": user is None and not admitted["ai"]}
 
 
 # ── Sync trigger ───────────────────────────────────────────────────────

@@ -1725,8 +1725,15 @@ export interface CopilotUsage {
   budget_remaining_usd: number
   budget_ok: boolean
   is_pro: boolean
+  /** Daily AI request limit for the caller's tier (free / pro / admin). */
   free_limit: number
   free_remaining: number
+  tier?: 'free' | 'pro' | 'admin'
+  /** True when the global AI budget is exhausted for today. */
+  paused?: boolean
+  paused_message?: string | null
+  tokens_limit?: number
+  tokens_remaining?: number
 }
 
 export async function getCopilotUsage(): Promise<CopilotUsage> {
@@ -1734,8 +1741,8 @@ export async function getCopilotUsage(): Promise<CopilotUsage> {
   const response = await apiFetch(`${API_URL}/api/v1/copilot/usage`, { headers })
   if (!response.ok) return {
     today_requests: 0, today_input_tokens: 0, today_output_tokens: 0,
-    today_cost_usd: 0, daily_budget_usd: 2.0, budget_remaining_usd: 2.0, budget_ok: true,
-    is_pro: false, free_limit: 50, free_remaining: 50,
+    today_cost_usd: 0, daily_budget_usd: 0, budget_remaining_usd: 0, budget_ok: true,
+    is_pro: false, free_limit: 0, free_remaining: 0,
   }
   return response.json()
 }

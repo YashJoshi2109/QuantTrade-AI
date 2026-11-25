@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { clientIp, createRateLimiter, getSessionUser, reserveAiQuota } from '@/lib/server-auth'
 
 /**
  * OpenRouter AI Analysis endpoint.
  * Uses a free/cheap model (google/gemini-flash-1.5-8b) to produce a concise
  * real-time analysis paragraph based on the indicators passed in the body.
  * Falls back gracefully when OPENROUTER_API_KEY is missing.
+ *
+ * Requires a signed-in user and a quota reservation from the backend AI usage
+ * guard (per-user / per-IP limits + global budget) before spending.
  */
+
+const rateLimit = createRateLimiter(10, 60_000) // 10 req / min per IP+user (speed bump; backend enforces quota)
+const MAX_TOKENS = 280
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || ''
 const OPENROUTER_MODEL = 'google/gemini-flash-1.5-8b'
@@ -26,16 +33,38 @@ export interface AIAnalysisRequest {
   volume?: number
 }
 
-export async function POST(req: NextRequest) {
-  const body: AIAnalysisRequest = await req.json()
-  const { symbol, price, change_pct, rsi, macd, macd_signal, sma_20, sma_50, sma_200, bb_upper, bb_lower, volume } = body
+function num(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined
+}
 
+export async function POST(req: NextRequest) {
   if (!OPENROUTER_API_KEY) {
     return NextResponse.json(
       { error: 'OPENROUTER_API_KEY not configured' },
       { status: 503 },
     )
   }
+
+  const user = await getSessionUser(req)
+  if (!user) {
+    return NextResponse.json({ error: 'Sign in to use AI features.' }, { status: 401 })
+  }
+  if (!rateLimit(`${clientIp(req)}:${user.id}`)) {
+    return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429, headers: { 'Retry-After': '60' } })
+  }
+
+  let raw: Record<string, unknown>
+  try {
+    raw = (await req.json()) as Record<string, unknown>
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+  const symbol = typeof raw.symbol === 'string' ? raw.symbol.replace(/[^A-Za-z0-9.\-^=]/g, '').slice(0, 12) : ''
+  if (!symbol) return NextResponse.json({ error: 'symbol is required' }, { status: 400 })
+  const price = num(raw.price), change_pct = num(raw.change_pct), rsi = num(raw.rsi)
+  const macd = num(raw.macd), macd_signal = num(raw.macd_signal)
+  const sma_20 = num(raw.sma_20), sma_50 = num(raw.sma_50), sma_200 = num(raw.sma_200)
+  const bb_upper = num(raw.bb_upper), bb_lower = num(raw.bb_lower), volume = num(raw.volume)
 
   const lines: string[] = [`Symbol: ${symbol}`]
   if (price) lines.push(`Price: $${price.toFixed(2)}`)
@@ -52,6 +81,16 @@ export async function POST(req: NextRequest) {
 
 ${lines.join('\n')}`
 
+  const quota = await reserveAiQuota(req, {
+    feature: 'ai_analysis',
+    model: OPENROUTER_MODEL,
+    inputChars: prompt.length,
+    maxTokens: MAX_TOKENS,
+  })
+  if (!quota.ok) {
+    return NextResponse.json({ error: quota.detail, detail: quota.detail }, { status: quota.status })
+  }
+
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -63,15 +102,16 @@ ${lines.join('\n')}`
     body: JSON.stringify({
       model: OPENROUTER_MODEL,
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 280,
+      max_tokens: quota.maxTokens,
       temperature: 0.4,
       stream: true,
     }),
   })
 
   if (!response.ok) {
-    const errText = await response.text()
-    return NextResponse.json({ error: `OpenRouter error: ${response.status} ${errText}` }, { status: 502 })
+    const errText = await response.text().catch(() => '')
+    console.error('OpenRouter upstream error', response.status, errText.slice(0, 300))
+    return NextResponse.json({ error: 'AI analysis failed' }, { status: 502 })
   }
 
   // Forward the SSE stream directly

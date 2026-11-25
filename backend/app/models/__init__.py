@@ -55,7 +55,12 @@ from app.models.model_index import ModelIndexSnapshot, BasketHolding, FactorScor
 # SEC EDGAR financial data
 from app.models.edgar import CompanyEDGAR, FinancialStatement
 
+# Paid-AI usage accounting + deterministic result cache (app.services.ai_guard)
+from app.models.ai_usage import AIUsageEvent, AIResultCache
+
 __all__ = [
+    "AIUsageEvent",
+    "AIResultCache",
     "User",
     "Symbol",
     "PriceBar",
