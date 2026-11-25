@@ -38,6 +38,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# News-intelligence models baked into the image (never downloaded at request
+# time): FinBERT sentiment + MiniLM categorizer/embeddings. safetensors only
+# (skips the TF/Flax/ONNX/OpenVINO copies): ~530 MB layer. Placed before
+# `COPY . .` so code changes don't re-download. HF_HUB_OFFLINE=1 makes any
+# missing model fail fast instead of fetching from the Hub in production.
+ENV HF_HOME=/opt/hf-cache
+RUN python -c "from huggingface_hub import snapshot_download as d; \
+[d(r, allow_patterns=['*.json', '*.txt', 'model.safetensors']) for r in ('ProsusAI/finbert', 'sentence-transformers/all-MiniLM-L6-v2')]" \
+    && rm -rf /opt/hf-cache/xet /tmp/*
+ENV HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
+
 # Copy application code
 COPY --chown=appuser:appuser . .
 

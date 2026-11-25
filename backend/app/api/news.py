@@ -88,6 +88,22 @@ async def _fetch_finnhub_news(symbol: str, limit: int = 10) -> List[dict]:
         return []
 
 
+
+async def _classify_inplace(items: List[dict], only_flagged: bool = False) -> None:
+    """Shared FinBERT sentiment for items whose provider gives none."""
+    from app.services.news_intel.sentiment import classify_texts, sentiment_text
+
+    targets = [it for it in items if it.pop("_needs_sentiment", False) or not only_flagged]
+    if not targets:
+        return
+    results = await asyncio.to_thread(
+        classify_texts, [sentiment_text(it.get("title", ""), it.get("summary", "")) for it in targets]
+    )
+    for it, r in zip(targets, results):
+        it["sentiment"] = r.legacy_label()
+        it["sentiment_score"] = r.score
+
+
 @router.get("/news/{symbol}", response_model=List[NewsArticleResponse])
 def get_news(
     symbol: str,
@@ -318,13 +334,14 @@ async def get_finnhub_news(
             "source": item.get("source", "Unknown"),
             "url": item.get("url", ""),
             "published_at": published_at,
-            "sentiment": "Neutral",  # Finnhub doesn't provide sentiment
+            "sentiment": "Neutral",  # Finnhub has no sentiment: FinBERT below
             "sentiment_score": 0,
             "image_url": image_url,
             "category": item.get("category", ""),
             "related": item.get("related", "")
         })
     
+    await _classify_inplace(news_items)
     return {
         "news": news_items,
         "count": len(news_items),
@@ -370,6 +387,7 @@ async def get_combined_news(
                 "url": item.get("url", ""),
                 "published_at": published_at.isoformat(),
                 "sentiment": "Neutral",
+                "_needs_sentiment": True,
                 "image_url": item.get("image", ""),
                 "data_source": "finnhub"
             })
@@ -418,10 +436,14 @@ async def get_combined_news(
     
     # Sort by date (most recent first) and limit
     all_news.sort(key=lambda x: x["published_at"], reverse=True)
-    
+    all_news = all_news[:limit]
+    await _classify_inplace(all_news, only_flagged=True)
+    for it in all_news:
+        it.pop("_needs_sentiment", None)
+
     return {
-        "news": all_news[:limit],
-        "count": min(len(all_news), limit),
+        "news": all_news,
+        "count": len(all_news),
         "symbol": symbol.upper()
     }
 
@@ -449,7 +471,7 @@ async def get_realtime_market_news(
                 "url": a["url"],
                 "published_at": a["published_at"].isoformat() if hasattr(a["published_at"], 'isoformat') else str(a["published_at"]),
                 "sentiment": a["sentiment"],
-                "sentiment_score": 0.2 if a["sentiment"] == "Bullish" else (-0.2 if a["sentiment"] == "Bearish" else 0),
+                "sentiment_score": a.get("sentiment_score", 0.0),
                 "image_url": a.get("image_url", ""),
                 "tickers": []
             }
@@ -482,7 +504,7 @@ async def get_realtime_symbol_news(
                     "url": a["url"],
                     "published_at": a["published_at"].isoformat() if hasattr(a["published_at"], 'isoformat') else str(a["published_at"]),
                     "sentiment": a["sentiment"],
-                    "sentiment_score": 0.2 if a["sentiment"] == "Bullish" else (-0.2 if a["sentiment"] == "Bearish" else 0),
+                    "sentiment_score": a.get("sentiment_score", 0.0),
                     "image_url": a.get("image_url", "")
                 }
                 for a in articles
@@ -542,6 +564,7 @@ async def get_all_news_sources(
                 "url": url,
                 "published_at": published_at,
                 "sentiment": "Neutral",
+                "_needs_sentiment": True,
                 "image_url": item.get("image", ""),
                 "data_source": "finnhub"
             })

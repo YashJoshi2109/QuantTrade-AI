@@ -352,6 +352,23 @@ class PredictionAlertResponse(BaseModel):
     name: Optional[str] = None
 
 
+def _apply_shared_sentiment(articles: list) -> None:
+    """Set 'sentiment' (Bullish/Bearish/Neutral) from the shared FinBERT classifier."""
+    if not articles:
+        return
+    from app.services.news_intel.sentiment import classify_texts, sentiment_text
+
+    try:
+        results = classify_texts(
+            [sentiment_text(a.get("title", ""), a.get("content", "")) for a in articles]
+        )
+    except Exception as e:  # never fail the page over sentiment
+        logger.warning("shared sentiment failed: %s", e)
+        return
+    for a, r in zip(articles, results):
+        a["sentiment"] = r.legacy_label()
+
+
 @router.get("/news/{symbol}/realtime", response_model=List[NewsArticleResponse])
 def get_realtime_news(
     symbol: str,
@@ -402,6 +419,7 @@ def get_realtime_news(
         
         # Limit total results
         articles = articles[:limit]
+        _apply_shared_sentiment(articles)
         
         return [NewsArticleResponse(**article) for article in articles]
         
@@ -432,32 +450,6 @@ def get_breaking_market_news(limit: int = Query(10, ge=1, le=50)):
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
     import re
-
-    BULLISH_KEYWORDS = [
-        'surge', 'surges', 'soar', 'soars', 'rally', 'rallies', 'gain', 'gains',
-        'jump', 'jumps', 'rise', 'rises', 'climb', 'climbs', 'record high',
-        'all-time high', 'bull', 'bullish', 'upgrade', 'upgrades', 'beat',
-        'beats', 'outperform', 'boom', 'recover', 'recovery', 'breakout',
-        'positive', 'strong', 'growth', 'profit', 'profits', 'up %',
-    ]
-    BEARISH_KEYWORDS = [
-        'crash', 'crashes', 'plunge', 'plunges', 'tumble', 'tumbles', 'drop',
-        'drops', 'fall', 'falls', 'decline', 'declines', 'slump', 'slumps',
-        'sell-off', 'selloff', 'bear', 'bearish', 'downgrade', 'downgrades',
-        'miss', 'misses', 'underperform', 'recession', 'fear', 'fears',
-        'warning', 'risk', 'loss', 'losses', 'negative', 'weak', 'cut',
-        'layoff', 'layoffs', 'down %', 'inflation',
-    ]
-
-    def classify_sentiment(title: str, content: str = "") -> str:
-        text = (title + " " + (content or "")).lower()
-        bull_score = sum(1 for kw in BULLISH_KEYWORDS if kw in text)
-        bear_score = sum(1 for kw in BEARISH_KEYWORDS if kw in text)
-        if bull_score > bear_score and bull_score >= 1:
-            return "Bullish"
-        if bear_score > bull_score and bear_score >= 1:
-            return "Bearish"
-        return "Neutral"
 
     def extract_tickers(title: str) -> list:
         """Extract stock tickers from title (uppercase 1-5 letter words preceded by $ or in parentheses)."""
@@ -612,13 +604,6 @@ def get_breaking_market_news(limit: int = Query(10, ge=1, le=50)):
             if url:
                 seen_urls.add(url)
 
-            # Apply sentiment classification if not already set
-            if article.get('sentiment') in (None, 'Neutral', ''):
-                article['sentiment'] = classify_sentiment(
-                    article.get('title', ''),
-                    article.get('content', ''),
-                )
-
             # Extract tickers from title if not provided
             if not article.get('related_tickers'):
                 tickers = extract_tickers(article.get('title', ''))
@@ -637,6 +622,10 @@ def get_breaking_market_news(limit: int = Query(10, ge=1, le=50)):
         )
 
         final = unique[:limit]
+        # Shared FinBERT classifier (one batch for the page) replaces the old
+        # per-endpoint keyword lists; provider labels are not trusted (most
+        # sources hard-code "Neutral").
+        _apply_shared_sentiment(final)
         print(f"✓ Breaking news: {len(final)} articles (from {len(all_articles)} raw, {len(unique)} unique)")
         return [NewsArticleResponse(**a) for a in final]
 

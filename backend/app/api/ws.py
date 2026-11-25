@@ -5,6 +5,7 @@ Channels:
 - /ws/ideas     — Live trade ideas + market pulse updates
 - /ws/pulse     — Market pulse sidebar updates only
 - /ws/scanner   — Market scanner real-time results
+- /ws/news      — News intelligence clusters (new/updated)
 - /ws/community/{channel} — Community real-time updates:
     - feed:{community_slug} — new posts in a community
     - post:{post_id}        — new comments, votes on a post
@@ -161,6 +162,64 @@ async def scanner_websocket(websocket: WebSocket):
         logger.debug(f"WS scanner error: {e}")
     finally:
         listener_task.cancel()
+        await ws_manager.disconnect(websocket, channel)
+
+
+# ── News intelligence WebSocket ─────────────────────────────────────────────
+# One Redis listener per process for the news channel (ref-counted), not one per
+# socket: every listener broadcasts to the whole channel, so per-socket
+# listeners would deliver each message N times.
+
+NEWS_REDIS_CHANNEL = "qt:ws:news"
+_news_listener: Optional[asyncio.Task] = None
+_news_clients = 0
+_news_lock = asyncio.Lock()
+
+
+async def _news_listener_acquire() -> None:
+    global _news_listener, _news_clients
+    async with _news_lock:
+        _news_clients += 1
+        if _news_listener is None or _news_listener.done():
+            _news_listener = asyncio.create_task(_redis_listener(NEWS_REDIS_CHANNEL, "news"))
+
+
+async def _news_listener_release() -> None:
+    global _news_listener, _news_clients
+    async with _news_lock:
+        _news_clients = max(0, _news_clients - 1)
+        if _news_clients == 0 and _news_listener is not None:
+            _news_listener.cancel()
+            _news_listener = None
+
+
+@router.websocket("/ws/news")
+async def news_websocket(websocket: WebSocket):
+    """Live news clusters: {"type":"news","item":{...same shape as /news/feed items...}}.
+
+    Sent for every new cluster and whenever a cluster gains a source or an AI
+    note. Clients reply "ping" -> "pong"; server sends {"type":"heartbeat"}
+    after 30s of silence."""
+    channel = "news"
+    await ws_manager.connect(websocket, channel)
+    await _news_listener_acquire()
+    try:
+        while True:
+            try:
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30)
+                if data == "ping":
+                    await websocket.send_text("pong")
+            except asyncio.TimeoutError:
+                try:
+                    await websocket.send_text(json.dumps({"type": "heartbeat"}))
+                except Exception:
+                    break
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.debug(f"WS news error: {e}")
+    finally:
+        await _news_listener_release()
         await ws_manager.disconnect(websocket, channel)
 
 

@@ -135,7 +135,7 @@ class NewsFetcher:
                     # Analyze sentiment from title and description
                     title = item.get("title", "")
                     description = item.get("description", "") or ""
-                    sentiment = self._analyze_text_sentiment(f"{title} {description}")
+                    sentiment = "Neutral"  # set in batch by _apply_sentiment
                     
                     articles.append({
                         "title": title,
@@ -150,6 +150,7 @@ class NewsFetcher:
                     print(f"Error parsing NewsAPI article: {e}")
                     continue
             
+            self._apply_sentiment(articles)
             print(f"✓ Fetched {len(articles)} articles from NewsAPI")
             return articles
             
@@ -202,7 +203,7 @@ class NewsFetcher:
                     
                     title = item.get("title", "")
                     description = item.get("description", "") or ""
-                    sentiment = self._analyze_text_sentiment(f"{title} {description}")
+                    sentiment = "Neutral"  # set in batch by _apply_sentiment
                     
                     articles.append({
                         "title": title,
@@ -216,6 +217,7 @@ class NewsFetcher:
                 except Exception as e:
                     continue
             
+            self._apply_sentiment(articles)
             print(f"✓ Fetched {len(articles)} market news articles")
             return articles
             
@@ -224,31 +226,23 @@ class NewsFetcher:
             return []
     
     def _analyze_text_sentiment(self, text: str) -> str:
-        """Simple keyword-based sentiment analysis"""
-        text_lower = text.lower()
-        
-        bullish_words = [
-            'surge', 'soar', 'jump', 'rally', 'gain', 'rise', 'up', 'high', 'record',
-            'beat', 'exceed', 'strong', 'growth', 'profit', 'boost', 'bullish', 'buy',
-            'upgrade', 'outperform', 'positive', 'optimistic', 'breakout', 'momentum'
-        ]
-        
-        bearish_words = [
-            'fall', 'drop', 'plunge', 'crash', 'decline', 'down', 'low', 'loss',
-            'miss', 'weak', 'bearish', 'sell', 'downgrade', 'underperform', 'negative',
-            'pessimistic', 'warning', 'risk', 'concern', 'fear', 'crisis', 'cut'
-        ]
-        
-        bullish_count = sum(1 for word in bullish_words if word in text_lower)
-        bearish_count = sum(1 for word in bearish_words if word in text_lower)
-        
-        if bullish_count > bearish_count + 1:
-            return "Bullish"
-        elif bearish_count > bullish_count + 1:
-            return "Bearish"
-        else:
-            return "Neutral"
-    
+        """Shared FinBERT classifier (app.services.news_intel.sentiment)."""
+        from app.services.news_intel.sentiment import classify_texts
+
+        return classify_texts([text])[0].legacy_label()
+
+    @staticmethod
+    def _apply_sentiment(articles: List[Dict]) -> None:
+        """Batch-classify articles in place: sets 'sentiment' and 'sentiment_score'."""
+        if not articles:
+            return
+        from app.services.news_intel.sentiment import classify_texts, sentiment_text
+
+        results = classify_texts([sentiment_text(a.get("title", ""), a.get("content", "")) for a in articles])
+        for a, r in zip(articles, results):
+            a["sentiment"] = r.legacy_label()
+            a["sentiment_score"] = r.score
+
     def fetch_alpha_vantage_news(
         self,
         symbol: str,
