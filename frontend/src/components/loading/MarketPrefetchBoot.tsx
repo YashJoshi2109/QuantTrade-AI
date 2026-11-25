@@ -6,9 +6,9 @@ import {
   fetchMarketMovers,
   fetchSectorPerformance,
   fetchMarketIndices,
-  fetchLiveMarketHeadlines,
   fetchPredictionAlerts,
 } from '@/lib/api'
+import { fetchNewsFeedWithFallback, newsFeedQueryKey } from '@/lib/newsFeed'
 
 /**
  * Warms the React Query cache for dashboard-critical keys on mount so the first
@@ -31,8 +31,8 @@ export default function MarketPrefetchBoot() {
       queryFn: () => fetchMarketIndices(),
     })
     void queryClient.prefetchQuery({
-      queryKey: ['breakingNews', 'liveHeadlines', 20],
-      queryFn: () => fetchLiveMarketHeadlines(20),
+      queryKey: newsFeedQueryKey({ limit: 50 }),
+      queryFn: () => fetchNewsFeedWithFallback({ limit: 50 }),
     })
     void queryClient.prefetchQuery({
       queryKey: ['predictionAlerts'],

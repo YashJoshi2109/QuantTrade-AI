@@ -22,7 +22,6 @@ import {
   fetchMarketMovers,
   fetchSectorPerformance,
   fetchMarketIndices,
-  fetchLiveMarketHeadlines,
   fetchPredictionAlerts,
   fetchHeatmapData,
   fetchMarketStatus,
@@ -33,6 +32,7 @@ import {
   getWatchlist,
   getCopilotUsage,
 } from '@/lib/api'
+import { fetchNewsFeedWithFallback, newsFeedQueryKey } from '@/lib/newsFeed'
 
 // Stagger delay between batches (ms) to avoid API collisions
 const BATCH_DELAY = 300
@@ -86,8 +86,8 @@ export default function PrefetchEngine() {
           staleTime: 120_000,
         }),
         queryClient.prefetchQuery({
-          queryKey: ['breakingNews', 'liveHeadlines', 20],
-          queryFn: () => fetchLiveMarketHeadlines(20),
+          queryKey: newsFeedQueryKey({ limit: 50 }),
+          queryFn: () => fetchNewsFeedWithFallback({ limit: 50 }),
           staleTime: 60_000,
         }),
       ]

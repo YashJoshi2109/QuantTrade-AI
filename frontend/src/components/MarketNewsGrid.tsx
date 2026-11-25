@@ -1,634 +1,292 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Activity, Minus, RefreshCw, Sparkles, TrendingDown, TrendingUp } from 'lucide-react'
+import { useNewsFeed } from '@/hooks/useNewsFeed'
 import {
-  TrendingUp,
-  TrendingDown,
-  Activity,
-  Sparkles,
-  Clock,
-  Cpu,
-} from 'lucide-react'
-import { fetchBreakingMarketNews, NewsArticle } from '@/lib/api'
+  categoryMeta,
+  DEFAULT_NEWS_CATEGORIES,
+  fetchNewsCategories,
+  NEWS_SORT_OPTIONS,
+  type NewsCategory,
+  type NewsFeedItem,
+  type NewsSentimentLabel,
+  type NewsSort,
+} from '@/lib/newsFeed'
+import NewsFeedCard from '@/components/news/NewsFeedCard'
+import NewsCategoryTabs from '@/components/news/NewsCategoryTabs'
+import { NewsLiveRegion, NewsLiveStatus } from '@/components/news/NewsLiveStatus'
 
-/* ────────────────── Types ────────────────── */
+type SentimentFilter = 'all' | NewsSentimentLabel
 
-type FilterTab = 'all' | 'macro' | 'earnings' | 'ai'
-type SortMode = 'impactful' | 'bullish' | 'bearish' | 'latest'
+const SENTIMENT_FILTERS: { key: SentimentFilter; label: string }[] = [
+  { key: 'all', label: 'Any' },
+  { key: 'bullish', label: 'Bullish' },
+  { key: 'bearish', label: 'Bearish' },
+  { key: 'neutral', label: 'Neutral' },
+]
 
-/* ────────────────── Helpers ────────────────── */
-
-/**
- * Extract a favicon URL from an article URL or source name.
- * Uses Google's favicon service for reliable, high-quality favicons.
- */
-function getFaviconUrl(articleUrl: string | null, source: string | null): string {
-  // Try to extract domain from article URL first
-  if (articleUrl) {
-    try {
-      const domain = new URL(articleUrl).hostname
-      return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`
-    } catch {
-      // URL parsing failed, fall through
-    }
-  }
-
-  // Map common source names to domains
-  const SOURCE_DOMAINS: Record<string, string> = {
-    'yahoo finance': 'finance.yahoo.com',
-    'reuters': 'reuters.com',
-    'bloomberg': 'bloomberg.com',
-    'cnbc': 'cnbc.com',
-    'marketwatch': 'marketwatch.com',
-    'the wall street journal': 'wsj.com',
-    'wsj': 'wsj.com',
-    'seeking alpha': 'seekingalpha.com',
-    'barrons': 'barrons.com',
-    "barron's": 'barrons.com',
-    'investopedia': 'investopedia.com',
-    'the motley fool': 'fool.com',
-    'motley fool': 'fool.com',
-    'financial times': 'ft.com',
-    'ft': 'ft.com',
-    'cnn': 'cnn.com',
-    'bbc': 'bbc.com',
-    'nbc': 'nbcnews.com',
-    'abc news': 'abcnews.go.com',
-    'fox business': 'foxbusiness.com',
-    'forbes': 'forbes.com',
-    'business insider': 'businessinsider.com',
-    'insider': 'businessinsider.com',
-    'techcrunch': 'techcrunch.com',
-    'the verge': 'theverge.com',
-    'google news': 'news.google.com',
-    'newsapi': 'newsapi.org',
-    'benzinga': 'benzinga.com',
-    'tipranks': 'tipranks.com',
-    'zacks': 'zacks.com',
-    'thestreet': 'thestreet.com',
-  }
-
-  if (source) {
-    const key = source.toLowerCase().trim()
-    const domain = SOURCE_DOMAINS[key]
-    if (domain) {
-      return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`
-    }
-    // Try using source name as domain guess
-    const guess = key.replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')
-    return `https://www.google.com/s2/favicons?domain=${guess}.com&sz=128`
-  }
-
-  return `https://www.google.com/s2/favicons?domain=news.google.com&sz=128`
+/** "No bearish Earnings stories right now." — names exactly which filter is empty. */
+export function emptyStateMessage(category: string, sentiment: SentimentFilter, categories: NewsCategory[]): string {
+  const catLabel =
+    category === 'all' ? '' : (categories.find((c) => c.key === category)?.label ?? categoryMeta(category).label)
+  const sentLabel = sentiment === 'all' ? '' : sentiment
+  const parts = [sentLabel, catLabel].filter(Boolean).join(' ')
+  return parts ? `No ${parts} stories right now.` : 'No stories right now.'
 }
-
-/**
- * SourceFavicon: small inline favicon with source name
- */
-function SourceFavicon({ url, source }: { url: string | null; source: string | null }) {
-  const faviconSrc = getFaviconUrl(url, source)
-  return (
-    <img
-      src={faviconSrc}
-      alt=""
-      className="w-4 h-4 rounded-sm flex-shrink-0"
-      loading="lazy"
-      onError={(e) => {
-        // Hide broken favicon images
-        ;(e.target as HTMLImageElement).style.display = 'none'
-      }}
-    />
-  )
-}
-
-function timeAgo(dateStr: string): string {
-  const now = new Date()
-  const date = new Date(dateStr)
-  const diffMs = now.getTime() - date.getTime()
-  const diffMin = Math.floor(diffMs / 60000)
-  if (diffMin < 1) return 'Just now'
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffHr = Math.floor(diffMin / 60)
-  if (diffHr < 24) return `${diffHr}h ago`
-  const diffDay = Math.floor(diffHr / 24)
-  return `${diffDay}d ago`
-}
-
-function estimateReadTime(content: string | null): string {
-  if (!content) return '2 min read'
-  const words = content.split(/\s+/).length
-  const mins = Math.max(1, Math.ceil(words / 200))
-  return `${mins} min read`
-}
-
-function getSentimentColor(sentiment: string | null) {
-  switch (sentiment?.toLowerCase()) {
-    case 'bullish':
-      return {
-        bg: 'bg-emerald-500/10',
-        text: 'text-emerald-400',
-        border: 'border-emerald-500/20',
-        icon: <TrendingUp className="w-3 h-3" />,
-      }
-    case 'bearish':
-      return {
-        bg: 'bg-red-500/10',
-        text: 'text-red-400',
-        border: 'border-red-500/20',
-        icon: <TrendingDown className="w-3 h-3" />,
-      }
-    default:
-      return {
-        bg: 'bg-surface-raised',
-        text: 'text-fg-secondary',
-        border: 'border-line-subtle',
-        icon: <Activity className="w-3 h-3" />,
-      }
-  }
-}
-
-/* ────────────────── Skeleton Loader ────────────────── */
 
 function NewsGridSkeleton() {
   return (
-    <div className="grid grid-cols-12 gap-5 animate-pulse">
-      <div className="col-span-3 space-y-4">
+    <div className="grid grid-cols-1 gap-4 motion-safe:animate-pulse lg:grid-cols-12" aria-hidden>
+      <div className="h-72 rounded-xl bg-surface-raised lg:col-span-6" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:col-span-6">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="space-y-2 pb-4 border-b border-line-subtle">
-            <div className="h-4 bg-surface-raised rounded w-full" />
-            <div className="h-3 bg-surface-raised rounded w-3/4" />
-            <div className="h-2 bg-surface-raised rounded w-1/2" />
-          </div>
-        ))}
-      </div>
-      <div className="col-span-6 space-y-4">
-        <div className="h-48 bg-surface-raised rounded-xl" />
-        <div className="h-6 bg-surface-raised rounded w-3/4" />
-        <div className="h-4 bg-surface-raised rounded w-full" />
-        <div className="h-3 bg-surface-raised rounded w-1/2" />
-      </div>
-      <div className="col-span-3 space-y-4">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="flex gap-3">
-            <div className="w-20 h-16 bg-surface-raised rounded-lg flex-shrink-0" />
-            <div className="flex-1 space-y-2">
-              <div className="h-3 bg-surface-raised rounded w-full" />
-              <div className="h-3 bg-surface-raised rounded w-2/3" />
-              <div className="h-2 bg-surface-raised rounded w-1/3" />
-            </div>
-          </div>
+          <div key={i} className="h-32 rounded-xl bg-surface-raised" />
         ))}
       </div>
     </div>
   )
 }
 
-/* ────────────────── Left Column: Stacked Headlines ────────────────── */
+function SentimentSummary({ items }: { items: NewsFeedItem[] }) {
+  const counts = { bullish: 0, bearish: 0, neutral: 0 }
+  items.forEach((i) => {
+    counts[i.sentiment?.label ?? 'neutral'] += 1
+  })
+  const total = Math.max(1, items.length)
+  return (
+    <div className="flex items-center gap-3 text-[10px]" aria-label="Sentiment mix of shown stories">
+      <div className="flex h-1.5 w-24 overflow-hidden rounded-full bg-surface-overlay sm:w-32" aria-hidden>
+        <span className="h-full bg-emerald-500/70" style={{ width: `${(counts.bullish / total) * 100}%` }} />
+        <span className="h-full bg-fg-muted/50" style={{ width: `${(counts.neutral / total) * 100}%` }} />
+        <span className="h-full bg-red-500/70" style={{ width: `${(counts.bearish / total) * 100}%` }} />
+      </div>
+      <span className="inline-flex items-center gap-1 text-emerald-400">
+        <TrendingUp className="h-3 w-3" aria-hidden />
+        {counts.bullish}
+        <span className="sr-only">bullish</span>
+      </span>
+      <span className="inline-flex items-center gap-1 text-fg-muted">
+        <Minus className="h-3 w-3" aria-hidden />
+        {counts.neutral}
+        <span className="sr-only">neutral</span>
+      </span>
+      <span className="inline-flex items-center gap-1 text-red-400">
+        <TrendingDown className="h-3 w-3" aria-hidden />
+        {counts.bearish}
+        <span className="sr-only">bearish</span>
+      </span>
+    </div>
+  )
+}
 
-function LeftColumnItem({ article }: { article: NewsArticle }) {
-  const inner = (
-    <div className="py-3.5 border-b border-line-subtle group hover:bg-surface-hover -mx-2 px-2 rounded-lg transition-all">
-      <h4 className="text-[13px] font-semibold text-fg-secondary leading-snug group-hover:text-white transition-colors line-clamp-2">
-        {article.title}
-      </h4>
-      {article.content && (
-        <p className="text-[11px] text-fg-muted mt-1 line-clamp-1">
-          {article.content}
-        </p>
-      )}
-      <div className="flex items-center gap-2 mt-1.5">
-        <SourceFavicon url={article.url} source={article.source} />
-        <span className="text-[10px] text-fg-muted">{article.source}</span>
-        <span className="text-[10px] text-fg-muted">&middot;</span>
-        <span className="text-[10px] text-fg-muted">
-          {estimateReadTime(article.content)}
-        </span>
-        {article.related_tickers && article.related_tickers.length > 0 && (
+export default function MarketNewsGrid({ ticker }: { ticker?: string } = {}) {
+  const [category, setCategory] = useState<string>('all')
+  const [sentiment, setSentiment] = useState<SentimentFilter>('all')
+  const [sort, setSort] = useState<NewsSort>('latest')
+  const [expanded, setExpanded] = useState(false)
+  const uid = useId().replace(/:/g, '')
+  const panelId = `news-panel-${uid}`
+  const sortId = `news-sort-${uid}`
+
+  const { data: categories = DEFAULT_NEWS_CATEGORIES } = useQuery<NewsCategory[]>({
+    queryKey: ['news-categories'],
+    queryFn: fetchNewsCategories,
+    staleTime: 60 * 60_000,
+    gcTime: 2 * 60 * 60_000,
+  })
+
+  const feed = useNewsFeed({
+    category,
+    ticker,
+    sentiment: sentiment === 'all' ? null : sentiment,
+    sort,
+    limit: 50,
+    announce: true,
+  })
+
+  // Counts from the unfiltered view stay as the baseline so tabs don't vanish when one is selected.
+  const baselineCounts = useRef<Record<string, number>>({})
+  const baselineTotal = useRef(0)
+  if (category === 'all' && sentiment === 'all' && !feed.isLoading) {
+    baselineCounts.current = feed.categoryCounts
+    baselineTotal.current = feed.totalCount
+  }
+  const counts = useMemo(
+    () => ({ ...baselineCounts.current, ...feed.categoryCounts }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [feed.categoryCounts, category, sentiment]
+  )
+  const total = category === 'all' && sentiment === 'all' ? feed.totalCount : Math.max(baselineTotal.current, feed.totalCount)
+
+  const items = feed.items
+  const hero = items[0] ?? null
+  const side = items.slice(1, 5)
+  const rest = items.slice(5, expanded ? items.length : 11)
+  const hasMore = !expanded && items.length > 11
+
+  const resetFilters = () => {
+    setCategory('all')
+    setSentiment('all')
+  }
+
+  return (
+    <section className="hud-panel p-4 sm:p-6" aria-labelledby={`${panelId}-title`}>
+      <NewsLiveRegion message={feed.announcement} />
+
+      {/* Header */}
+      <div className="mb-4 flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <Sparkles className="h-4 w-4 text-blue-400" aria-hidden />
+              <h2 id={`${panelId}-title`} className="text-sm font-bold tracking-wide text-fg-primary">
+                Market Intelligence &amp; News
+              </h2>
+              <NewsLiveStatus feed={feed} />
+            </div>
+            <p className="text-[11px] text-fg-muted">
+              Model-classified stories, deduplicated across sources
+              {feed.totalCount > 0 && <span className="ml-1 font-mono">&middot; {feed.totalCount} stories</span>}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {items.length > 0 && <SentimentSummary items={items} />}
+            <button
+              type="button"
+              onClick={feed.refetch}
+              disabled={feed.isFetching}
+              aria-label="Refresh news"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-line-subtle bg-surface-raised text-fg-muted transition-colors hover:text-fg-primary disabled:opacity-40"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${feed.isFetching ? 'motion-safe:animate-spin' : ''}`} aria-hidden />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <NewsCategoryTabs
+            categories={categories}
+            counts={counts}
+            total={total}
+            value={category}
+            onChange={(k) => {
+              setCategory(k)
+              setExpanded(false)
+            }}
+            idPrefix={`news-cat-${uid}`}
+            panelId={panelId}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <div role="group" aria-label="Sentiment filter" className="flex gap-0.5 rounded-lg border border-line-subtle bg-surface-raised p-0.5">
+              {SENTIMENT_FILTERS.map((s) => {
+                const active = sentiment === s.key
+                const activeCls =
+                  s.key === 'bullish'
+                    ? 'bg-emerald-500/15 text-emerald-300'
+                    : s.key === 'bearish'
+                      ? 'bg-red-500/15 text-red-300'
+                      : 'bg-blue-500/15 text-blue-300'
+                return (
+                  <button
+                    key={s.key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setSentiment(s.key)}
+                    className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 ${
+                      active ? activeCls : 'text-fg-muted hover:text-fg-primary'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                )
+              })}
+            </div>
+            <label htmlFor={sortId} className="sr-only">
+              Sort stories
+            </label>
+            <select
+              id={sortId}
+              value={sort}
+              onChange={(e) => setSort(e.target.value as NewsSort)}
+              className="rounded-lg border border-line-subtle bg-surface-raised px-2 py-1.5 text-[10px] text-fg-secondary focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+            >
+              {NEWS_SORT_OPTIONS.map((o) => (
+                <option key={o.key} value={o.key}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div id={panelId} role="tabpanel" aria-labelledby={`news-cat-${uid}-${category}`} aria-busy={feed.isLoading}>
+        {feed.isLoading ? (
+          <NewsGridSkeleton />
+        ) : items.length === 0 ? (
+          <div className="py-14 text-center">
+            <Activity className="mx-auto mb-3 h-9 w-9 text-fg-muted" aria-hidden />
+            <p className="text-sm text-fg-secondary">
+              {feed.isError ? 'News is temporarily unavailable.' : emptyStateMessage(category, sentiment, categories)}
+            </p>
+            {category !== 'all' || sentiment !== 'all' ? (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="mt-2 text-[11px] font-medium text-blue-400 transition-colors hover:text-white"
+              >
+                Show all stories &rarr;
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={feed.refetch}
+                className="mt-2 text-[11px] font-medium text-blue-400 transition-colors hover:text-white"
+              >
+                Refresh &rarr;
+              </button>
+            )}
+          </div>
+        ) : (
           <>
-            <span className="text-[10px] text-fg-muted">&middot;</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              {article.related_tickers[0]}
-            </span>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+              {hero && (
+                <div className="lg:col-span-6">
+                  <NewsFeedCard item={hero} variant="hero" isNew={feed.newIds.has(hero.cluster_id)} />
+                </div>
+              )}
+              {side.length > 0 && (
+                <div className="grid grid-cols-1 content-start gap-3 sm:grid-cols-2 lg:col-span-6">
+                  {side.map((it) => (
+                    <NewsFeedCard key={it.cluster_id} item={it} isNew={feed.newIds.has(it.cluster_id)} />
+                  ))}
+                </div>
+              )}
+            </div>
+            {rest.length > 0 && (
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {rest.map((it) => (
+                  <NewsFeedCard key={it.cluster_id} item={it} isNew={feed.newIds.has(it.cluster_id)} />
+                ))}
+              </div>
+            )}
+            {hasMore && (
+              <div className="mt-4 text-center">
+                <button
+                  type="button"
+                  onClick={() => setExpanded(true)}
+                  className="rounded-lg border border-line-subtle bg-surface-raised px-3 py-1.5 text-[11px] font-medium text-fg-secondary transition-colors hover:text-fg-primary"
+                >
+                  Show {items.length - 11} more
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
-    </div>
-  )
-
-  return article.url ? (
-    <a href={article.url} target="_blank" rel="noopener noreferrer">
-      {inner}
-    </a>
-  ) : (
-    inner
-  )
-}
-
-/* ────────────────── Center Column: Hero Story ────────────────── */
-
-function HeroStory({ article }: { article: NewsArticle }) {
-  const sc = getSentimentColor(article.sentiment)
-
-  return (
-    <a
-      href={article.url || '#'}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block group"
-    >
-      {/* Hero image */}
-      <div className="relative w-full h-52 rounded-xl overflow-hidden bg-gradient-to-br from-surface-overlay via-surface-base to-surface-raised border border-line-subtle mb-4">
-        <img
-          src={article.thumbnail || getFaviconUrl(article.url, article.source)}
-          alt=""
-          className={article.thumbnail
-            ? "w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
-            : "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-2xl opacity-60 group-hover:opacity-80 transition-opacity"
-          }
-          loading="lazy"
-          onError={(e) => {
-            ;(e.target as HTMLImageElement).style.display = 'none'
-          }}
-        />
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E1A]/80 to-transparent" />
-        {/* Sentiment badge */}
-        <div className="absolute top-3 left-3">
-          <span
-            className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border backdrop-blur-sm ${sc.bg} ${sc.text} ${sc.border}`}
-          >
-            {sc.icon}
-            {article.sentiment || 'Neutral'}
-          </span>
-        </div>
-      </div>
-
-      {/* Headline */}
-      <h2 className="text-xl font-bold text-white leading-tight group-hover:text-blue-400 transition-colors line-clamp-3 mb-2">
-        {article.title}
-      </h2>
-
-      {/* Summary */}
-      {article.content && (
-        <p className="text-[13px] text-fg-secondary leading-relaxed line-clamp-2 mb-3">
-          {article.content}
-        </p>
-      )}
-
-      {/* Meta row */}
-      <div className="flex items-center gap-3 text-[10px]">
-        <span className="flex items-center gap-1.5 text-fg-muted font-medium">
-          <SourceFavicon url={article.url} source={article.source} />
-          {article.source}
-        </span>
-        <span className="text-fg-muted">&middot;</span>
-        <span className="flex items-center gap-1 text-fg-muted">
-          <Clock className="w-3 h-3" />
-          {timeAgo(article.published_at)}
-        </span>
-        <span className="text-fg-muted">&middot;</span>
-        <span className="text-fg-muted">
-          {estimateReadTime(article.content)}
-        </span>
-        {article.related_tickers && article.related_tickers.length > 0 && (
-          <div className="flex gap-1 ml-auto">
-            {article.related_tickers.slice(0, 3).map((t) => (
-              <span
-                key={t}
-                className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[9px] font-mono"
-              >
-                {t}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    </a>
-  )
-}
-
-/* ────────────────── Right Column: Compact Cards ────────────────── */
-
-function RightColumnCard({ article }: { article: NewsArticle }) {
-  const sc = getSentimentColor(article.sentiment)
-
-  const inner = (
-    <div className="flex gap-3 py-3 border-b border-line-subtle group hover:bg-surface-hover -mx-2 px-2 rounded-lg transition-all">
-      {/* Thumbnail */}
-      <div className="w-20 h-16 rounded-lg overflow-hidden bg-surface-raised border border-line-subtle flex-shrink-0 flex items-center justify-center">
-        <img
-          src={article.thumbnail || getFaviconUrl(article.url, article.source)}
-          alt=""
-          className={article.thumbnail
-            ? "w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-            : "w-8 h-8 rounded opacity-70 group-hover:opacity-100 transition-opacity"
-          }
-          loading="lazy"
-          onError={(e) => {
-            ;(e.target as HTMLImageElement).style.display = 'none'
-          }}
-        />
-      </div>
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <h4 className="text-[12px] font-semibold text-fg-secondary leading-snug group-hover:text-white transition-colors line-clamp-2">
-          {article.title}
-        </h4>
-        <div className="flex items-center gap-1.5 mt-1">
-          <SourceFavicon url={article.url} source={article.source} />
-          <span className="text-[9px] text-fg-muted">{article.source}</span>
-          <span className="text-[9px] text-fg-muted">&middot;</span>
-          <span className="text-[9px] text-fg-muted">
-            {timeAgo(article.published_at)}
-          </span>
-        </div>
-      </div>
-    </div>
-  )
-
-  return article.url ? (
-    <a href={article.url} target="_blank" rel="noopener noreferrer">
-      {inner}
-    </a>
-  ) : (
-    inner
-  )
-}
-
-/* ────────────────── AI Quick Take Box ────────────────── */
-
-function AIQuickTake({ articles }: { articles: NewsArticle[] }) {
-  const bullishCount = articles.filter(
-    (a) => a.sentiment?.toLowerCase() === 'bullish',
-  ).length
-  const bearishCount = articles.filter(
-    (a) => a.sentiment?.toLowerCase() === 'bearish',
-  ).length
-  const total = articles.length
-  const dominantSentiment =
-    bullishCount > bearishCount
-      ? 'Bullish'
-      : bearishCount > bullishCount
-        ? 'Bearish'
-        : 'Mixed'
-
-  return (
-    <div className="mt-4 rounded-xl bg-gradient-to-br from-blue-500/[0.08] to-cyan-500/[0.04] border border-blue-500/10 p-3.5">
-      <div className="flex items-center gap-2 mb-2">
-        <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-        <span className="text-[11px] font-bold text-white">
-          AI Quick Take
-        </span>
-        <span className="ml-auto px-1.5 py-0.5 text-[9px] rounded bg-cyan-500/15 text-cyan-400 border border-cyan-500/20 font-mono">
-          BETA
-        </span>
-      </div>
-      <p className="text-[11px] text-fg-secondary leading-relaxed">
-        Sentiment across {total} stories is{' '}
-        <span
-          className={
-            dominantSentiment === 'Bullish'
-              ? 'text-emerald-400 font-bold'
-              : dominantSentiment === 'Bearish'
-                ? 'text-red-400 font-bold'
-                : 'text-amber-400 font-bold'
-          }
-        >
-          {dominantSentiment}
-        </span>
-        . {bullishCount} bullish, {bearishCount} bearish,{' '}
-        {total - bullishCount - bearishCount} neutral signals detected.
-      </p>
-    </div>
-  )
-}
-
-/* ────────────────── Main Component ────────────────── */
-
-export default function MarketNewsGrid() {
-  const [filter, setFilter] = useState<FilterTab>('all')
-  const [sort, setSort] = useState<SortMode>('latest')
-
-  const { data: articles = [], isLoading, dataUpdatedAt } = useQuery<NewsArticle[]>({
-    queryKey: ['newsGrid'],
-    queryFn: () => fetchBreakingMarketNews(30),
-    refetchInterval: 60000,   // Refresh every 60s for live daily news
-    staleTime: 30000,         // Consider stale after 30s
-    gcTime: 120000,           // Keep in cache for 2 minutes
-    retry: 2,
-  })
-
-  const lastUpdatedLabel = dataUpdatedAt
-    ? new Date(dataUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : null
-
-  const filtered = useMemo(() => {
-    let result = [...articles]
-
-    // Filter
-    if (filter === 'macro') {
-      result = result.filter(
-        (a) =>
-          !a.related_tickers ||
-          a.related_tickers.length === 0 ||
-          a.title.toLowerCase().includes('fed') ||
-          a.title.toLowerCase().includes('inflation') ||
-          a.title.toLowerCase().includes('gdp') ||
-          a.title.toLowerCase().includes('rate'),
-      )
-    } else if (filter === 'earnings') {
-      result = result.filter(
-        (a) =>
-          a.title.toLowerCase().includes('earnings') ||
-          a.title.toLowerCase().includes('revenue') ||
-          a.title.toLowerCase().includes('profit') ||
-          a.title.toLowerCase().includes('eps'),
-      )
-    } else if (filter === 'ai') {
-      result = result.filter(
-        (a) => a.sentiment === 'Bullish' || a.sentiment === 'Bearish',
-      )
-    }
-
-    // Sort
-    switch (sort) {
-      case 'bullish':
-        result.sort((a, b) => {
-          const sa = a.sentiment === 'Bullish' ? 2 : a.sentiment === 'Bearish' ? 0 : 1
-          const sb = b.sentiment === 'Bullish' ? 2 : b.sentiment === 'Bearish' ? 0 : 1
-          return sb - sa
-        })
-        break
-      case 'bearish':
-        result.sort((a, b) => {
-          const sa = a.sentiment === 'Bearish' ? 2 : a.sentiment === 'Bullish' ? 0 : 1
-          const sb = b.sentiment === 'Bearish' ? 2 : b.sentiment === 'Bullish' ? 0 : 1
-          return sb - sa
-        })
-        break
-      case 'impactful':
-        result.sort((a, b) => {
-          const ta = a.related_tickers?.length ?? 0
-          const tb = b.related_tickers?.length ?? 0
-          return tb - ta
-        })
-        break
-      case 'latest':
-      default:
-        result.sort(
-          (a, b) =>
-            new Date(b.published_at).getTime() -
-            new Date(a.published_at).getTime(),
-        )
-    }
-
-    return result
-  }, [articles, filter, sort])
-
-  // Distribute articles into columns
-  const hero = filtered[0] || null
-  const leftItems = filtered.slice(1, 5)
-  const rightItems = filtered.slice(5, 9)
-
-  const FILTER_TABS: { key: FilterTab; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'macro', label: 'Macro' },
-    { key: 'earnings', label: 'Earnings' },
-    { key: 'ai', label: 'AI Curated' },
-  ]
-
-  const SORT_OPTIONS: { key: SortMode; label: string }[] = [
-    { key: 'latest', label: 'Latest' },
-    { key: 'impactful', label: 'Most Impactful' },
-    { key: 'bullish', label: 'Most Bullish' },
-    { key: 'bearish', label: 'Most Bearish' },
-  ]
-
-  return (
-    <div className="hud-panel p-5 sm:p-6">
-      {/* Section Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="w-4 h-4 text-blue-400" />
-            <h2 className="text-sm font-bold text-white tracking-wide">
-              Market Intelligence &amp; News
-            </h2>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold text-white bg-gradient-to-r from-red-500 to-rose-500 rounded-lg uppercase tracking-wider shadow-lg shadow-red-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              Live
-            </span>
-          </div>
-          <p className="text-[11px] text-fg-muted">
-            Yahoo Finance, Google News, Finnhub or NewsAPI when configured — macro, earnings, and movers
-            {lastUpdatedLabel && (
-              <span className="ml-2 text-fg-muted font-mono">
-                &middot; Updated {lastUpdatedLabel}
-              </span>
-            )}
-            {articles.length > 0 && (
-              <span className="ml-2 text-fg-muted font-mono">
-                &middot; {articles.length} stories
-              </span>
-            )}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Filter Tabs */}
-          <div className="flex gap-1 rounded-lg bg-surface-raised p-0.5 border border-line-subtle">
-            {FILTER_TABS.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setFilter(tab.key)}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-                  filter === tab.key
-                    ? 'bg-blue-500/15 text-blue-400'
-                    : 'text-fg-muted hover:text-fg-primary'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Sort dropdown */}
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortMode)}
-            className="text-[10px] bg-surface-raised border border-line-subtle text-fg-secondary rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.key} value={opt.key}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Grid Layout */}
-      {isLoading ? (
-        <NewsGridSkeleton />
-      ) : filtered.length === 0 ? (
-        <div className="py-16 text-center">
-          <Activity className="w-10 h-10 text-fg-muted mx-auto mb-3" />
-          <p className="text-sm text-fg-secondary">No news articles match your filter.</p>
-          <button
-            type="button"
-            onClick={() => setFilter('all')}
-            className="mt-2 text-[11px] text-blue-400 hover:text-white transition-colors"
-          >
-            Show all stories &rarr;
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-12 gap-5">
-          {/* Left Column: Stacked text headlines */}
-          <div className="col-span-12 lg:col-span-3 order-2 lg:order-1">
-            <div className="border-b lg:border-b-0 lg:border-r border-line-subtle lg:pr-4 pb-4 lg:pb-0">
-              {leftItems.map((article, i) => (
-                <LeftColumnItem key={article.id ?? i} article={article} />
-              ))}
-              {leftItems.length === 0 && (
-                <p className="text-[11px] text-fg-muted py-4">
-                  No additional stories
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Center Column: Hero Story */}
-          <div className="col-span-12 lg:col-span-6 order-1 lg:order-2">
-            {hero ? (
-              <HeroStory article={hero} />
-            ) : (
-              <div className="h-64 flex items-center justify-center text-fg-muted text-sm">
-                No featured story available
-              </div>
-            )}
-          </div>
-
-          {/* Right Column: Compact image + headline cards */}
-          <div className="col-span-12 lg:col-span-3 order-3">
-            <div className="lg:border-l border-line-subtle lg:pl-4">
-              {rightItems.map((article, i) => (
-                <RightColumnCard key={article.id ?? i} article={article} />
-              ))}
-              {rightItems.length === 0 && (
-                <p className="text-[11px] text-fg-muted py-4">
-                  No stories
-                </p>
-              )}
-
-              {/* AI Quick Take */}
-              {filtered.length >= 3 && <AIQuickTake articles={filtered} />}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </section>
   )
 }

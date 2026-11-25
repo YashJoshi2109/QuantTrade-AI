@@ -6,7 +6,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileDashboard from '@/components/layout/MobileDashboard'
-import { useBreakingNews } from '@/hooks/useRealtimeNews'
+import { useNewsFeed } from '@/hooks/useNewsFeed'
+import { feedItemToNewsArticle } from '@/lib/newsFeed'
 import { useClientNow } from '@/lib/use-client-now'
 import { useAuth } from '@/contexts/AuthContext'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -1222,18 +1223,15 @@ function DesktopHome() {
     [exchangeHeatmapData]
   )
 
-  const newsContext = useMemo(
-    () => ({ continent: activeContinent, exchangeId: selectedExchangeId }),
-    [activeContinent, selectedExchangeId]
-  )
-
+  // Unified model-classified feed: same cache entry as MarketNewsGrid / mobile home (limit 50, latest).
   const {
-    data: liveNews = [],
-    isPending: newsPending,
+    items: newsFeedItems,
+    isLoading: newsPending,
     isError: newsError,
     isFetching: newsFetching,
     refetch: refetchNews,
-  } = useBreakingNews(20, 45_000, newsContext)
+  } = useNewsFeed({ limit: 50 })
+  const liveNews = useMemo(() => newsFeedItems.slice(0, 20).map(feedItemToNewsArticle), [newsFeedItems])
   const { data: continentNewsData, isLoading: continentNewsLoading } = useQuery<ContinentNewsData>({
     queryKey: ['monitor-continent-news'],
     queryFn: fetchContinentNews,
