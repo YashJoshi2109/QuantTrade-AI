@@ -47,6 +47,12 @@ def inject_aws_secrets():
     Only injects keys that are NOT already set in the environment,
     so explicit env vars and .env files take precedence.
     """
+    # Local dev must not pull production secrets just because the developer's
+    # shell happens to have AWS credentials (e.g. after `aws login`).
+    if os.environ.get("APP_ENV", "").lower() in {"development", "dev", "local"}:
+        logger.info("APP_ENV=development — skipping AWS Secrets Manager")
+        return
+
     region = os.environ.get("AWS_REGION", "us-east-2")
     secret_name = os.environ.get("AWS_SECRET_NAME", "quanttrade/backend")
 

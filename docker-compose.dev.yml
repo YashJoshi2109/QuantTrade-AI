@@ -1,44 +1,99 @@
 # ============================================
-# QuantTrade AI - Local Development Docker Compose
+# QuantTrade AI - Local Development Stack
 # ============================================
 #
-# Usage:
-#   docker compose -f docker-compose.dev.yml up --build
-#   docker compose -f docker-compose.dev.yml down
+# Self-contained: local Postgres (same major version + pgvector as prod RDS)
+# and Redis. Nothing here can reach the production database.
 #
-# Prerequisites:
-#   - Copy .env.development.template to .env.development
-#   - Fill in your local PostgreSQL URL and API keys
+#   docker compose -f docker-compose.dev.yml up -d          # postgres + redis + backend
+#   docker compose -f docker-compose.dev.yml up -d postgres redis   # data services only
+#   docker compose -f docker-compose.dev.yml --profile full up -d   # + production-build frontend
+#   docker compose -f docker-compose.dev.yml down            # stop (data kept)
+#   docker compose -f docker-compose.dev.yml down -v         # stop + wipe local data
+#
+# API keys (optional): copy backend/.env.local.example to backend/.env.local.
+# Seed real reference data: see docs/LOCAL_DEV.md.
 # ============================================
 
+x-local-db-env: &local-db-env
+  APP_ENV: development
+  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/quanttrade
+  REDIS_URL: redis://redis:6379/0
+  # Scheduler + forecast warm write shared data and call rate-limited APIs: off locally.
+  RUN_BACKGROUND_JOBS: "0"
+  FORECAST_WARM: "0"
+  DB_POOL_SIZE: "2"
+  DB_MAX_OVERFLOW: "3"
+
 services:
+  postgres:
+    image: pgvector/pgvector:pg17   # prod RDS runs PostgreSQL 17 + pgvector
+    container_name: quanttrade-postgres-dev
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: quanttrade
+    ports:
+      - "5433:5432"   # 5433 on the host so it never clashes with a Homebrew Postgres
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d quanttrade"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - quanttrade-dev-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: quanttrade-redis-dev
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - quanttrade-dev-network
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: quanttrade-backend-dev
+    # Hot reload instead of the production gunicorn CMD
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
     ports:
       - "8000:8000"
     env_file:
-      - .env.development
+      - path: backend/.env.local
+        required: false
     environment:
-      - DEBUG=true
-      - LOG_LEVEL=DEBUG
-      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000
+      <<: *local-db-env
+      DEBUG: "true"
+      LOG_LEVEL: DEBUG
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000
+    volumes:
+      - ./backend/app:/app/app
+      - backend-storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
-      start_period: 10s
+      start_period: 20s
       retries: 3
     networks:
       - quanttrade-dev-network
-    volumes:
-      # Mount source code for hot reload (optional - remove for production-like testing)
-      # - ./backend/app:/app/app:ro
-      - backend-storage:/app/storage
 
   frontend:
+    profiles: ["full"]   # usually faster to run `npm run dev` on the host
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -47,17 +102,9 @@ services:
     container_name: quanttrade-frontend-dev
     ports:
       - "3000:3000"
-    env_file:
-      - .env.development
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:8000
-    healthcheck:
-      test: ["CMD-SHELL", "node -e \"const http = require('http'); http.get('http://localhost:3000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
-      interval: 30s
-      timeout: 10s
-      start_period: 15s
-      retries: 3
     networks:
       - quanttrade-dev-network
     depends_on:
@@ -69,4 +116,5 @@ networks:
     driver: bridge
 
 volumes:
+  postgres-dev-data:
   backend-storage:

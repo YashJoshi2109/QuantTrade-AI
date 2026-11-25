@@ -276,9 +276,15 @@ async def lifespan(app: FastAPI):
     # Run table creation in a thread so /health is available immediately
     t = threading.Thread(target=_create_db_tables, daemon=True)
     t.start()
-    # Start background scheduler
-    sched_t = threading.Thread(target=_start_scheduler, daemon=True)
-    sched_t.start()
+    # Background jobs (APScheduler + forecast warm) write shared data and call
+    # paid/rate-limited APIs: exactly one deployment should run them.
+    # RUN_BACKGROUND_JOBS=0 (local dev default) turns them off.
+    background_jobs = os.environ.get("RUN_BACKGROUND_JOBS", "1") != "0"
+    if background_jobs:
+        sched_t = threading.Thread(target=_start_scheduler, daemon=True)
+        sched_t.start()
+    else:
+        print("⏸️  RUN_BACKGROUND_JOBS=0 — scheduler and forecast warm disabled")
 
     # Warm caches after DB is ready (non-blocking)
     def _warm_caches():
@@ -321,7 +327,7 @@ async def lifespan(app: FastAPI):
     # Pre-compute statistical forecasts for popular tickers (runs on this loop,
     # where the async Redis client lives). FORECAST_WARM=0 disables it.
     forecast_warm_task = None
-    if os.environ.get("FORECAST_WARM", "1") != "0" and "pytest" not in sys.modules:
+    if background_jobs and os.environ.get("FORECAST_WARM", "1") != "0" and "pytest" not in sys.modules:
         from app.api.forecast import forecast_warm_loop
         forecast_warm_task = asyncio.create_task(forecast_warm_loop())
 

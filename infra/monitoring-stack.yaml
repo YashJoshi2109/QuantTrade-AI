@@ -217,6 +217,46 @@ Resources:
       AlarmActions: [!Ref AlertTopic]
       OKActions: [!Ref AlertTopic]
 
+  Ec2CpuCreditsLow:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'quanttrade-ec2-${EC2InstanceId}-CPUCreditBalance-low'
+      AlarmDescription: 'HIGH: t3.small CPU credit balance < 10. At 0 the instance is throttled to its 20% baseline: requests slow down although CPUUtilization never looks high.'
+      Namespace: AWS/EC2
+      MetricName: CPUCreditBalance
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref EC2InstanceId
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 10
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  RdsCpuCreditsLow:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${DBInstanceIdentifier}-CPUCreditBalance-low'
+      AlarmDescription: 'HIGH: db.t4g.micro CPU credit balance < 10. At 0 RDS is throttled to baseline and every query slows down.'
+      Namespace: AWS/RDS
+      MetricName: CPUCreditBalance
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DBInstanceIdentifier
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 10
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
   RedisMemoryHigh:
     Type: AWS::CloudWatch::Alarm
     Properties:
