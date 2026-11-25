@@ -32,7 +32,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # Redis: using AWS ElastiCache (quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379)
+  # Redis: using AWS ElastiCache (quanttrade-redis.zape9f.0001.use2.cache.amazonaws.com:6379)
   # In-container Redis removed — ElastiCache provides persistence, better perf, separate resources.
 
   frontend:
@@ -99,9 +99,9 @@ services:
       - WEBAUTHN_RP_ID=quanttrade.us
       - WEBAUTHN_ORIGIN=https://www.quanttrade.us
       - WEBAUTHN_ORIGINS=https://www.quanttrade.us,https://quanttrade.us
-      - REDIS_URL=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
-      - CELERY_BROKER_URL=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
-      - CELERY_RESULT_BACKEND=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
+      - REDIS_URL=redis://quanttrade-redis.zape9f.0001.use2.cache.amazonaws.com:6379/0
+      - CELERY_BROKER_URL=redis://quanttrade-redis.zape9f.0001.use2.cache.amazonaws.com:6379/0
+      - CELERY_RESULT_BACKEND=redis://quanttrade-redis.zape9f.0001.use2.cache.amazonaws.com:6379/0
       - AWS_REGION=us-east-2
       - AWS_SECRET_NAME=quanttrade/backend
       # ── Stock Market Data APIs ──────────────────────────────────────
@@ -190,9 +190,9 @@ services:
       - .env
     environment:
       - LOCAL_STORAGE_PATH=/tmp/storage
-      - REDIS_URL=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
-      - CELERY_BROKER_URL=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
-      - CELERY_RESULT_BACKEND=redis://quanttrade-redis.hkxtsb.0001.use2.cache.amazonaws.com:6379/0
+      - REDIS_URL=redis://quanttrade-redis.zape9f.0001.use2.cache.amazonaws.com:6379/0
+      - CELERY_BROKER_URL=redis://quanttrade-redis.zape9f.0001.use2.cache.amazonaws.com:6379/0
+      - CELERY_RESULT_BACKEND=redis://quanttrade-redis.zape9f.0001.use2.cache.amazonaws.com:6379/0
       - AWS_REGION=us-east-2
       - AWS_SECRET_NAME=quanttrade/backend
     command: celery -A app.tasks.celery_app worker --beat --loglevel=info --concurrency=1 --schedule=/tmp/celerybeat-schedule

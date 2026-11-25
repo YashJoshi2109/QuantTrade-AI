@@ -54,7 +54,7 @@ class BatchConfig:
             config_path=os.environ.get("ML_CONFIG_PATH", "configs/train_default.yaml"),
             s3_bucket=os.environ.get("ML_S3_BUCKET", "quanttrade-ml-artifacts"),
             aws_region=os.environ.get("AWS_REGION", "us-east-2"),
-            neon_database_url=os.environ.get("NEON_DATABASE_URL", os.environ.get("DATABASE_URL", "")),
+            neon_database_url=os.environ.get("DATABASE_URL", os.environ.get("NEON_DATABASE_URL", "")),
             cloudwatch_namespace=os.environ.get("CLOUDWATCH_NAMESPACE", "QuantTrade/ML"),
             log_level=os.environ.get("LOG_LEVEL", "INFO"),
         )

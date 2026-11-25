@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  QuantTrade-AI primary database — AWS RDS PostgreSQL 17 (migrated from Neon, 2026-06-23).
+  Codifies the live `quanttrade-prod` instance: t4g.small, single-AZ, gp3, pgvector, force_ssl.
+  Master password is managed by RDS in Secrets Manager (ManageMasterUserPassword).
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the RDS instance (default VPC vpc-0e53d61903dd4c3b9)
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: At least two subnets in different AZs for the DB subnet group
+  AppSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security group of the app/EC2 tier allowed to reach Postgres (e.g. sg-0782fd07f9f5b1991)
+  AdminCidr:
+    Type: String
+    Default: 0.0.0.0/32
+    Description: Optional admin CIDR allowed on 5432 (set to your /32; default blocks all)
+  DBInstanceClass:
+    Type: String
+    Default: db.t4g.small
+  AllocatedStorage:
+    Type: Number
+    Default: 20
+  EngineVersion:
+    Type: String
+    Default: '17.9'
+  MasterUsername:
+    Type: String
+    Default: quantadmin
+  BackupRetentionPeriod:
+    Type: Number
+    Default: 7
+    Description: Days of automated backups (AWS Free Tier accounts allow at most 1)
+
+Resources:
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: quanttrade-rds-subnets
+      DBSubnetGroupDescription: QuantTrade RDS subnets
+      SubnetIds: !Ref SubnetIds
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: quanttrade-rds-sg
+      GroupDescription: QuantTrade RDS Postgres access
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref AppSecurityGroupId
+          Description: app/EC2 tier
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref AdminCidr
+          Description: admin /32
+
+  DBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: QuantTrade pg17 force ssl
+      Family: postgres17
+      Parameters:
+        rds.force_ssl: '1'
+
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: quanttrade-prod
+      DBName: quanttrade
+      Engine: postgres
+      EngineVersion: !Ref EngineVersion
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref AllocatedStorage
+      StorageType: gp3
+      StorageEncrypted: true
+      MasterUsername: !Ref MasterUsername
+      ManageMasterUserPassword: true
+      MultiAZ: false
+      PubliclyAccessible: true
+      Port: 5432
+      BackupRetentionPeriod: !Ref BackupRetentionPeriod
+      CopyTagsToSnapshot: true
+      DeletionProtection: true
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DBParameterGroupName: !Ref DBParameterGroup
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      Tags:
+        - Key: Project
+          Value: QuantTrade-AI
+        - Key: MigratedFrom
+          Value: Neon
+
+Outputs:
+  Endpoint:
+    Description: RDS endpoint address
+    Value: !GetAtt DBInstance.Endpoint.Address
+  Port:
+    Value: !GetAtt DBInstance.Endpoint.Port
+  ManagedSecretArn:
+    Description: ARN of the RDS-managed master password secret
+    Value: !GetAtt DBInstance.MasterUserSecret.SecretArn

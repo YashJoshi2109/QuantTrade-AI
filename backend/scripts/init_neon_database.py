@@ -10,8 +10,9 @@ from pathlib import Path
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
-# Set database URL before importing models
-neon_db_url = 'postgresql://neondb_owner:npg_XfjiwxFS27dT@ep-empty-feather-aekdevk0-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
+# DEPRECATED: superseded by scripts/init_rds_database.py (Neon → AWS RDS migration).
+# Reads DATABASE_URL from environment; no hardcoded credentials.
+neon_db_url = os.environ['DATABASE_URL']
 
 # Convert to psycopg format
 if neon_db_url.startswith('postgresql://'):

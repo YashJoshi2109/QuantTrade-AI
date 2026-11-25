@@ -1,7 +1,8 @@
 import urllib.parse
 from sqlalchemy import create_engine, text
 
-db_url = "postgresql+psycopg://neondb_owner:npg_XfjiwxFS27dT@ep-empty-feather-aekdevk0-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+import os as _os
+db_url = _os.environ["DATABASE_URL"].replace("postgresql://", "postgresql+psycopg://", 1)
 
 engine = create_engine(db_url)
 with engine.connect() as conn:

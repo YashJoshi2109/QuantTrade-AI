@@ -1,0 +1,34 @@
+# Free-data branch — h=20 LightGBM with OHLCV + SEC + GDELT
+use_stooq: true
+use_yfinance: true
+use_sec_edgar: true
+use_gdelt: true
+use_finnhub: false
+
+sec_user_agent: "QuantTradeAI research@quanttrade.ai"
+sec_forms:
+  - "10-K"
+  - "10-Q"
+  - "8-K"
+sec_rate_limit_delay: 0.12
+sec_max_retries: 5
+
+gdelt_lookback_days: 1095  # 3 years
+gdelt_max_articles_per_symbol: 10000
+
+ohlcv_start_date: "2018-01-01"
+
+horizon: 20
+wf_train_days: 756
+wf_test_days: 63
+wf_retrain_every: 63
+top_k_long: 20
+transaction_cost_bps: 10.0
+slippage_bps: 5.0
+promo_min_ic: 0.03
+promo_min_ic_hit_rate: 0.55
+
+rag_chunk_size: 1000
+rag_chunk_overlap: 200
+rag_embedding_model: "all-MiniLM-L6-v2"
+rag_embedding_dim: 384

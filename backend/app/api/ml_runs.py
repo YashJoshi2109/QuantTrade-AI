@@ -981,7 +981,11 @@ async def ml_stream(request: Request):
 
     AWS_REGION = os.environ.get("AWS_REGION", "us-east-2")
     BATCH_QUEUE = "ml-training-queue-production"
-    SFN_ARN = "arn:aws:states:us-east-2:688282503628:stateMachine:ml-nightly-pipeline-production"
+    AWS_ACCOUNT_ID = os.environ.get("AWS_ACCOUNT_ID", "208638972407")
+    SFN_ARN = os.environ.get(
+        "ML_SFN_ARN",
+        f"arn:aws:states:{AWS_REGION}:{AWS_ACCOUNT_ID}:stateMachine:ml-nightly-pipeline-production",
+    )
     CW_LOG_GROUP = "/aws/batch/ml-training-production"
     KEY_PATTERNS = [
         "horizon", "phase", "epoch", "Epoch", "callback",

@@ -1,6 +1,14 @@
 """
 Celery application configuration
 """
+# Inject AWS Secrets Manager values BEFORE app.config reads os.environ
+# (so DATABASE_URL etc. resolve from Secrets Manager, same as the web process).
+try:
+    from app.config_aws import inject_aws_secrets
+    inject_aws_secrets()
+except Exception as _aws_err:  # noqa: BLE001
+    print(f"⚠️ AWS secrets load skipped (celery): {_aws_err}")
+
 from celery import Celery
 from app.config import settings
 
