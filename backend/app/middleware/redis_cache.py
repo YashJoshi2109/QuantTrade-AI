@@ -101,8 +101,11 @@ def _cache_key(path: str, query: str) -> str:
 class RedisCacheMiddleware(BaseHTTPMiddleware):
     """Cache GET API responses in Redis."""
 
-    def __init__(self, app, redis_client: aioredis.Redis):
+    def __init__(self, app, redis_client: Optional[aioredis.Redis] = None):
         super().__init__(app)
+        # Normally None: the client is created in the app lifespan and read from
+        # request.app.state.redis per request (middleware must be registered at
+        # import time — Starlette forbids add_middleware after startup).
         self.redis = redis_client
 
     async def dispatch(self, request: Request, call_next):
@@ -125,11 +128,15 @@ class RedisCacheMiddleware(BaseHTTPMiddleware):
         if ttl is None:
             return await call_next(request)
 
+        redis = self.redis or getattr(request.app.state, "redis", None)
+        if redis is None:
+            return await call_next(request)
+
         key = _cache_key(path, request.url.query or "")
 
         # Try cache
         try:
-            cached = await self.redis.get(key)
+            cached = await redis.get(key)
             if cached:
                 data = json.loads(cached)
                 return JSONResponse(
@@ -157,7 +164,7 @@ class RedisCacheMiddleware(BaseHTTPMiddleware):
                         body += chunk
 
                     # Store in Redis
-                    await self.redis.setex(key, ttl, body)
+                    await redis.setex(key, ttl, body)
 
                     # Return new response with cache headers
                     return Response(
