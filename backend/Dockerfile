@@ -53,6 +53,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY --from=builder /opt/news-models /opt/news-models
 ENV NEWS_MODELS_DIR=/opt/news-models
 
+# Commit this image was built from; reported by /health so a deploy can
+# verify prod serves exactly the commit it shipped.
+ARG GIT_SHA=unknown
+ENV GIT_SHA=${GIT_SHA}
+
 # Copy application code
 COPY --chown=appuser:appuser . .
 
