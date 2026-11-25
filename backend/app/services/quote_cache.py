@@ -29,6 +29,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import asyncio
+import threading
 import pytz
 import httpx
 import concurrent.futures
@@ -60,6 +61,29 @@ class QuoteCacheService:
     def __init__(self, db: Session):
         self.db = db
         self.et_tz = pytz.timezone('America/New_York')
+        # Serialises this instance's session use across worker threads.
+        self._db_lock = threading.Lock()
+
+    async def _db(self, fn, *args):
+        """Run a blocking session operation in a worker thread.
+
+        get_quote/get_quotes are awaited from async handlers; running the query
+        inline froze the event loop for every request whenever the DB pool was
+        exhausted (pool_timeout) or RDS was slow.
+        """
+        def call():
+            with self._db_lock:
+                return fn(*args)
+        return await asyncio.to_thread(call)
+
+    def _release_connection(self) -> None:
+        """End the read-only transaction so the pooled connection is returned
+        while we wait on quote providers (seconds to tens of seconds)."""
+        try:
+            if not (self.db.new or self.db.dirty or self.db.deleted):
+                self.db.commit()
+        except Exception:
+            self.db.rollback()
     
     def _get_current_ttl(self) -> int:
         """Determine TTL based on current market status"""
@@ -486,6 +510,34 @@ class QuoteCacheService:
             print(f"Cache update failed for {symbol}: {e}")
             return None
     
+    def _update_cache_bulk(self, quotes: Dict[str, Dict[str, Any]], ttl: int) -> int:
+        """Upsert many quotes with one query + one commit (was one commit per symbol)."""
+        if not quotes:
+            return 0
+        try:
+            upper = {s.upper(): q for s, q in quotes.items()}
+            existing = {
+                snap.symbol: snap
+                for snap in self.db.query(QuoteSnapshot).filter(QuoteSnapshot.symbol.in_(list(upper))).all()
+            }
+            now = datetime.now(timezone.utc)
+            for symbol, data in upper.items():
+                snap = existing.get(symbol)
+                if snap:
+                    snap.payload = data
+                    snap.fetched_at = now
+                    snap.ttl_seconds = ttl
+                    snap.data_source = data.get('data_source')
+                else:
+                    self.db.add(QuoteSnapshot(symbol=symbol, payload=data, fetched_at=now,
+                                              ttl_seconds=ttl, data_source=data.get('data_source')))
+            self.db.commit()
+            return len(upper)
+        except Exception as e:
+            self.db.rollback()
+            print(f"Bulk cache update failed for {len(quotes)} symbols: {e}")
+            return 0
+
     async def get_quote(self, symbol: str, force_refresh: bool = False) -> Dict[str, Any]:
         """
         Get quote for a symbol, using cache if fresh.
@@ -498,24 +550,16 @@ class QuoteCacheService:
         
         # Check cache first (unless force refresh)
         if not force_refresh:
-            snapshot = self.db.query(QuoteSnapshot).filter(
-                QuoteSnapshot.symbol == symbol
-            ).first()
-            
-            if snapshot and self._is_cache_fresh(snapshot):
-                data = snapshot.payload.copy()
-                data['cached'] = True
-                data['cache_age_seconds'] = (
-                    datetime.now(timezone.utc) - snapshot.fetched_at.replace(tzinfo=timezone.utc)
-                ).total_seconds()
+            data = (await self._db(self._get_cached_quotes_bulk, [symbol])).get(symbol)
+            if data:
                 return data
-        
+
         # Fetch fresh data
         quote = await self._fetch_quote(symbol)
         
         if quote:
             ttl = self._get_current_ttl()
-            self._update_cache(symbol, quote, ttl)
+            await self._db(self._update_cache, symbol, quote, ttl)
             quote['cached'] = False
             return quote
         
@@ -543,7 +587,7 @@ class QuoteCacheService:
         
         # First, check cache for all symbols (fast database query)
         if not force_refresh:
-            cached = self._get_cached_quotes_bulk(symbols)
+            cached = await self._db(self._get_cached_quotes_bulk, symbols)
             for symbol, data in cached.items():
                 if data:
                     results[symbol] = data
@@ -556,14 +600,15 @@ class QuoteCacheService:
         if symbols_to_fetch:
             fresh_quotes = await self._fetch_quotes_parallel(symbols_to_fetch)
             
-            # Update cache with fresh data
+            # Update cache with fresh data (one worker-thread pass, one commit)
             ttl = self._get_current_ttl()
+            to_store = {}
             for symbol, quote in fresh_quotes.items():
                 if quote and not quote.get("unavailable"):
                     price = quote.get("price", 0)
                     # Only cache if price is valid (not null, not zero)
                     if price and price > 0:
-                        self._update_cache(symbol, quote, ttl)
+                        to_store[symbol] = dict(quote)
                         quote['cached'] = False
                     else:
                         # Invalid price, mark as unavailable
@@ -574,6 +619,8 @@ class QuoteCacheService:
                             "timestamp": datetime.now(timezone.utc).isoformat()
                         }
                 results[symbol] = quote
+            if to_store:
+                await self._db(self._update_cache_bulk, to_store, ttl)
         
         # Return unavailable for any remaining symbols
         for symbol in symbols:
@@ -600,19 +647,23 @@ class QuoteCacheService:
             QuoteSnapshot.symbol.in_(upper_symbols)
         ).all()
         
-        snapshot_map = {s.symbol: s for s in snapshots}
+        payloads = {s.symbol: (dict(s.payload or {}), s.fetched_at, s.ttl_seconds) for s in snapshots}
+        self._release_connection()
         
+        now = datetime.now(timezone.utc)
         for symbol in upper_symbols:
-            snapshot = snapshot_map.get(symbol)
-            if snapshot and self._is_cache_fresh(snapshot):
-                data = snapshot.payload.copy()
-                data['cached'] = True
-                data['cache_age_seconds'] = (
-                    datetime.now(timezone.utc) - snapshot.fetched_at.replace(tzinfo=timezone.utc)
-                ).total_seconds()
-                results[symbol] = data
-            else:
-                results[symbol] = None
+            entry = payloads.get(symbol)
+            if entry and entry[1] is not None:
+                data, fetched_at, ttl = entry
+                if fetched_at.tzinfo is None:
+                    fetched_at = fetched_at.replace(tzinfo=timezone.utc)
+                age = (now - fetched_at).total_seconds()
+                if age < (ttl or 0):
+                    data['cached'] = True
+                    data['cache_age_seconds'] = age
+                    results[symbol] = data
+                    continue
+            results[symbol] = None
         
         return results
     

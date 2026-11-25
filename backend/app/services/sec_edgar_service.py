@@ -51,11 +51,27 @@ def get_cik(ticker: str) -> Optional[str]:
 
 # ── S3 caching helpers ─────────────────────────────────────────────────
 
+_S3 = None
+
+
+def _s3_client():
+    """One shared client with tight timeouts: boto3's defaults (60s connect +
+    60s read, 4 retries) let one S3 hiccup hold a request thread for minutes."""
+    global _S3
+    if _S3 is None:
+        import boto3
+        from botocore.config import Config
+
+        _S3 = boto3.client(
+            "s3",
+            config=Config(connect_timeout=3, read_timeout=15, retries={"max_attempts": 2, "mode": "standard"}),
+        )
+    return _S3
+
 def _s3_get(key: str) -> Optional[dict]:
     """Return parsed JSON from S3 key, or None if missing/expired."""
     try:
-        import boto3, botocore
-        s3 = boto3.client("s3")
+        s3 = _s3_client()
         obj = s3.get_object(Bucket="quanttrade-ml-artifacts-208638972407", Key=key)
         return json.loads(obj["Body"].read())
     except Exception:
@@ -65,8 +81,7 @@ def _s3_get(key: str) -> Optional[dict]:
 def _s3_put(key: str, data: dict) -> None:
     """Write JSON to S3 key."""
     try:
-        import boto3
-        s3 = boto3.client("s3")
+        s3 = _s3_client()
         s3.put_object(
             Bucket="quanttrade-ml-artifacts-208638972407",
             Key=key,
