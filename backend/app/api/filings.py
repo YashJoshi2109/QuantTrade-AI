@@ -1,6 +1,7 @@
 """
 SEC filings API endpoints
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -12,6 +13,8 @@ from app.models.user import User
 from app.services.filings_fetcher import FilingsFetcher
 from app.api.auth import get_current_user
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 filings_fetcher = FilingsFetcher()
@@ -134,4 +137,5 @@ async def sync_filings(
         # Surface quota errors clearly to the client
         raise HTTPException(status_code=429, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error")

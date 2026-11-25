@@ -152,9 +152,7 @@ export default function ConnectPage() {
                             if (!accountId) return
                             const res = await createStorefrontCheckout({
                               account_id: accountId,
-                              product_name: p.name,
-                              amount_cents: amount,
-                              currency: p?.default_price?.currency || 'usd',
+                              product_id: p.id,
                             })
                             if (res?.url) window.location.href = res.url
                           })

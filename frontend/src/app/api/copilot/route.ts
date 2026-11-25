@@ -1,4 +1,6 @@
 import { NextRequest } from 'next/server'
+import { clientIp, createRateLimiter, getSessionUser, jsonError } from '@/lib/server-auth'
+import { clampMaxTokens, COPILOT_LIMITS, sanitizeMessages } from '@/lib/proxy-guards'
 
 /**
  * GROQ AI Copilot API — Server-side streaming
@@ -16,23 +18,35 @@ const GROQ_MODELS = [
 export const runtime = 'edge'
 export const maxDuration = 60
 
+const rateLimit = createRateLimiter(20, 60_000) // 20 req / min per IP+user
+
 export async function POST(request: NextRequest) {
   const apiKey = process.env.GROQ_API_KEY
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'GROQ API key not configured' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonError('AI service not configured', 503)
   }
 
-  let body: { messages: unknown[]; model?: string; max_tokens?: number }
+  const user = await getSessionUser(request)
+  if (!user) {
+    return jsonError('Authentication required', 401)
+  }
+  if (!rateLimit(`${clientIp(request)}:${user.id}`)) {
+    return jsonError('Too many requests. Please slow down.', 429, { 'Retry-After': '60' })
+  }
+
+  let body: { messages: unknown; model?: string; max_tokens?: number }
   try {
     body = await request.json()
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonError('Invalid request body', 400)
+  }
+
+  const messages = sanitizeMessages(body?.messages)
+  if (!messages) {
+    return jsonError(
+      `messages must be 1-${COPILOT_LIMITS.maxMessages} {role, content} items with at most ${COPILOT_LIMITS.maxTotalChars} characters in total`,
+      400
+    )
   }
 
   const modelId = body.model && GROQ_MODELS.includes(body.model)
@@ -41,8 +55,8 @@ export async function POST(request: NextRequest) {
 
   const groqPayload = {
     model: modelId,
-    messages: body.messages,
-    max_tokens: body.max_tokens ?? 1024,
+    messages,
+    max_tokens: clampMaxTokens(body.max_tokens),
     temperature: 0.7,
     stream: true,
   }
@@ -82,11 +96,12 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const errText = await groqRes.text()
-      return new Response(JSON.stringify({ error: errText }), {
-        status: groqRes.status,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      const errText = await groqRes.text().catch(() => '')
+      console.error('GROQ upstream error', groqRes.status, errText.slice(0, 500))
+      return jsonError(
+        groqRes.status === 429 ? 'AI service is busy. Please try again shortly.' : 'AI service error',
+        groqRes.status === 429 ? 429 : 502
+      )
     }
 
     if (!groqRes.body) {
@@ -105,9 +120,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (err) {
-    return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : 'Unknown error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    )
+    console.error('GROQ proxy failure', err)
+    return jsonError('AI service error', 502)
   }
 }

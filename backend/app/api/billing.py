@@ -266,9 +266,10 @@ def _validate_recurring_subscription_price(price_id: str) -> None:
     try:
         price = stripe.Price.retrieve(price_id)
     except stripe.error.StripeError as exc:
+        logger.error("Stripe price retrieve failed for %s: %s", price_id, exc)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid or inaccessible Stripe price: {exc}",
+            detail="Invalid or inaccessible Stripe price",
         ) from exc
     if price.get("type") != "recurring":
         raise HTTPException(
@@ -411,7 +412,7 @@ async def create_checkout_session(
             logger.error("Stripe Checkout error for user_id=%s: %s", user.id, exc)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Stripe Checkout error: {str(exc)}",
+                detail="Could not start checkout. Please try again or contact support.",
             ) from exc
 
 
@@ -654,7 +655,7 @@ async def cancel_subscription(
         logger.error("Stripe cancel error user_id=%s: %s", user_id, exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Stripe could not cancel subscription: {exc}",
+            detail="Stripe could not cancel subscription. Please try again or contact support.",
         )
 
     access_until = None

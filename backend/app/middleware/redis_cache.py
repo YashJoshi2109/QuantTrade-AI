@@ -36,8 +36,12 @@ CACHE_PATHS: dict[str, int] = {
     "/api/v1/enhanced/prediction-alerts": 60,
     "/api/v1/monitor/": 120,
     "/api/v1/ideas/trending": 60,
-    "/api/v1/ideas/generate": 60,
+    # NOTE: never list auth-required/personalised endpoints here (e.g.
+    # /api/v1/ideas/generate requires auth) — the cache key is not per-user.
 }
+
+# Cookie that carries the session JWT (see app.auth.jwt.COOKIE_NAME).
+AUTH_COOKIE_NAME = "qt_access_token"
 
 # Never cache these
 SKIP_PREFIXES = (
@@ -119,8 +123,9 @@ class RedisCacheMiddleware(BaseHTTPMiddleware):
         if any(path.startswith(p) for p in SKIP_PREFIXES):
             return await call_next(request)
 
-        # Skip authenticated requests
-        if request.headers.get("authorization"):
+        # Skip authenticated requests (Bearer header OR session cookie) so a
+        # user-specific response is never stored and replayed to others.
+        if request.headers.get("authorization") or request.cookies.get(AUTH_COOKIE_NAME):
             return await call_next(request)
 
         # Check if path is cacheable
