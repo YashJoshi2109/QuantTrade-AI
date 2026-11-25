@@ -51,6 +51,13 @@ class QuoteFact(Fact):
     def label(self) -> str:
         return f"{self.ticker} quote"
 
+    def ui(self) -> Dict[str, Any]:
+        d = super().ui()
+        if self.price is not None:
+            chg = f" ({self.change_percent:+.2f}%)" if self.change_percent is not None else ""
+            d["snippet"] = f"${self.price:,.2f}{chg}" + (f", market {self.market_session.lower()}" if self.market_session else "")
+        return d
+
 
 class FundamentalsFact(Fact):
     kind: Literal["fundamentals"] = "fundamentals"
@@ -120,6 +127,19 @@ class StatementPeriod(Fact):
     def label(self) -> str:
         return f"{self.ticker} {self.period_label} ({self.form or 'SEC'})"
 
+    def ui(self) -> Dict[str, Any]:
+        d = super().ui()
+        def b(v: Optional[float]) -> str:
+            return f"${v / 1e9:,.2f}B" if v is not None else "n/a"
+        parts = [f"Revenue {b(self.revenue)}", f"net income {b(self.net_income)}"]
+        if self.gross_margin_pct is not None:
+            parts.append(f"gross margin {self.gross_margin_pct}%")
+        if self.revenue_yoy_pct is not None:
+            parts.append(f"revenue YoY {self.revenue_yoy_pct:+}%")
+        d.update(filing_type=self.form, fiscal_year=self.fiscal_year, period=self.period_label,
+                 filed_date=self.filed, snippet="; ".join(parts) + (f". ({self.derived})" if self.derived else "."))
+        return d
+
 
 class ForecastHorizon(BaseModel):
     h: int
@@ -144,6 +164,12 @@ class ForecastFact(Fact):
 
     def label(self) -> str:
         return f"{self.ticker} QuantTrade forecast"
+
+    def ui(self) -> Dict[str, Any]:
+        d = super().ui()
+        d["snippet"] = "; ".join(
+            f"{h.h}d: ${h.p10}–${h.p90} (median ${h.p50})" for h in self.horizons) + f". {self.model}. {self.note}"
+        return d
 
 
 class TechnicalsFact(Fact):

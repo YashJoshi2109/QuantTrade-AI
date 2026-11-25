@@ -257,7 +257,11 @@ class LiveSources:
                 db.close()
 
         r = await asyncio.to_thread(load)
-        return fundamentals_fact(ticker, r) if r else None
+        if not r:
+            return None
+        f = fundamentals_fact(ticker, r)
+        meta = {"id", "kind", "source", "as_of", "ticker"}
+        return f if any(v is not None for k, v in f.model_dump().items() if k not in meta) else None
 
     # statements ───────────────────────────────────────────────────────────
     async def statements(self, ticker: str) -> List[StatementPeriod]:
@@ -378,11 +382,17 @@ class LiveSources:
 
 
 def fundamentals_fact(ticker: str, r: Dict[str, Any]) -> FundamentalsFact:
+    # The table holds finviz-style percents (27.6) or yfinance-style ratios (0.276)
+    # depending on which fetcher wrote the row; decide per row from the margins.
+    margins = [fnum(r.get(k)) for k in ("profit_margin", "operating_margin", "gross_margin", "roe")]
+    margins = [m for m in margins if m]
+    ratio_row = bool(margins) and all(abs(m) <= 1.0 for m in margins)
+
     def pct(k: str) -> Optional[float]:
         v = fnum(r.get(k))
         if v is None:
             return None
-        return round(v * 100, 2) if abs(v) < 1.5 else round(v, 2)   # stored as ratio or percent
+        return round(v * 100, 2) if ratio_row else round(v, 2)
 
     return FundamentalsFact(
         id=f"fund:{ticker}", source="fundamentals table (finviz / yfinance / FMP)",
@@ -398,4 +408,12 @@ def fundamentals_fact(ticker: str, r: Dict[str, Any]) -> FundamentalsFact:
         current_ratio=fnum(r.get("current_ratio")), dividend_yield_pct=pct("dividend_yield"),
         beta=fnum(r.get("beta")), week_52_high=fnum(r.get("week_52_high")),
         week_52_low=fnum(r.get("week_52_low")), target_price=fnum(r.get("target_price")),
-        recommendation=r.get("recommendation"), earnings_date=r.get("earnings_date"))
+        recommendation=_recommendation(r.get("recommendation")), earnings_date=r.get("earnings_date"))
+
+
+def _recommendation(v: Any) -> Optional[str]:
+    """finviz stores the consensus as a number (1 = strong buy ... 5 = sell)."""
+    if v is None or v == "":
+        return None
+    f = fnum(v)
+    return f"{f:g} on a 1 (strong buy) to 5 (sell) scale" if f is not None else str(v)

@@ -17,6 +17,14 @@ import time
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("copilot.trace")
+if not logger.handlers and not logging.getLogger().handlers:
+    # The API never calls logging.basicConfig; without a handler INFO traces
+    # would be dropped.  One stdout line per request -> CloudWatch / docker logs.
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(asctime)s %(name)s %(message)s"))
+    logger.addHandler(_h)
+    logger.setLevel(os.getenv("COPILOT_TRACE_LEVEL", "INFO"))
+    logger.propagate = False
 
 
 class Trace:

@@ -44,8 +44,8 @@ Tools: the context usually already has quote, key stats, financial statements, f
 technicals and recent news for the requested tickers. Call a tool only for data that is missing \
 (another ticker, filing text, macro, market movers). Prefer one round of parallel calls.
 
-Style: concise markdown, lead with the direct answer, use a small table for comparisons, \
-end with one line noting this is informational, not financial advice."""
+Style: concise markdown, lead with the direct answer, use short bullet lists (not tables; \
+the chat UI does not render markdown tables) for comparisons, end with one line noting this is informational, not financial advice."""
 
 
 def system_prompt() -> str:

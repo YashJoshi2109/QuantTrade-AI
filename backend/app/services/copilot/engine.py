@@ -85,11 +85,12 @@ def structured_compat(pack: TickerContextPack) -> Optional[Dict[str, Any]]:
         out["quote"] = {"price": q.price, "change": q.change, "change_percent": q.change_percent,
                         "volume": q.volume, "high": q.day_high, "low": q.day_low, "open": None,
                         "previous_close": q.previous_close, "data_source": q.source}
-    if f:
+    if f and any(v is not None for k, v in f.model_dump().items() if k not in ("id", "kind", "source", "as_of", "ticker")):
         out["fundamentals"] = {k: v for k, v in {
             "market_cap": f.market_cap, "pe_ratio": f.pe_ratio, "forward_pe": f.forward_pe,
             "peg_ratio": f.peg_ratio, "price_to_book": f.price_to_book, "eps": f.eps_ttm, "beta": f.beta,
-            "dividend_yield": f.dividend_yield_pct, "week_52_high": f.week_52_high,
+            "dividend_yield": (f.dividend_yield_pct / 100) if f.dividend_yield_pct is not None else None,
+            "week_52_high": f.week_52_high,
             "week_52_low": f.week_52_low, "profit_margin": f.profit_margin_pct,
             "operating_margin": f.operating_margin_pct, "roe": f.roe_pct, "debt_to_equity": f.debt_to_equity,
             "current_ratio": f.current_ratio, "target_price": f.target_price,
