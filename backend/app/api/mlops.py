@@ -8,7 +8,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 
 from app.db.database import get_db
-from app.api.auth import require_auth
+from app.api.auth import require_admin, require_auth
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ async def get_model_card(model_name: str, version: int = Query(None)):
     return asdict(card)
 
 
-@router.post("/mlops/models/{model_name}/promote")
+@router.post("/mlops/models/{model_name}/promote", dependencies=[Depends(require_admin)])
 async def promote_model(
     model_name: str,
     version: int = Query(...),
@@ -82,7 +82,7 @@ async def promote_model(
     return {"message": f"Promoted {model_name} v{version} to {stage}", "model": asdict(mv)}
 
 
-@router.post("/mlops/models/{model_name}/rollback")
+@router.post("/mlops/models/{model_name}/rollback", dependencies=[Depends(require_admin)])
 async def rollback_model(
     model_name: str,
     user: User = Depends(require_auth),
@@ -281,7 +281,7 @@ async def get_feature_stats(symbol: str):
     return stats
 
 
-@router.post("/mlops/features/refresh")
+@router.post("/mlops/features/refresh", dependencies=[Depends(require_admin)])
 async def refresh_features(
     symbols: Optional[List[str]] = None,
     user: User = Depends(require_auth),
@@ -297,7 +297,7 @@ async def refresh_features(
 
 # ── Pipeline ────────────────────────────────────────────────────────────
 
-@router.post("/mlops/pipeline/run")
+@router.post("/mlops/pipeline/run", dependencies=[Depends(require_admin)])
 async def run_pipeline(
     force: bool = Query(False),
     user: User = Depends(require_auth),

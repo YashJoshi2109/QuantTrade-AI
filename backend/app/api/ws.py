@@ -167,20 +167,77 @@ async def scanner_websocket(websocket: WebSocket):
 # ── Community WebSocket ─────────────────────────────────────────────────────
 
 
+_PUBLIC_COMMUNITY_PREFIXES = {"feed", "post", "trending"}
+_PRIVATE_COMMUNITY_PREFIXES = {"user", "dm"}
+
+
+def _ws_user_id(websocket: WebSocket, token: Optional[str]) -> Optional[int]:
+    """Resolve the authenticated user from the session cookie (sent on same-origin
+    WebSocket upgrades) or an explicit ?token= query param."""
+    from app.api.auth import decode_token
+    from app.auth.jwt import COOKIE_NAME
+
+    raw = token or websocket.cookies.get(COOKIE_NAME)
+    return decode_token(raw) if raw else None
+
+
+def _is_dm_participant(conversation_id: int, user_id: int) -> bool:
+    from app.db.database import SessionLocal
+    from app.models.messaging import ConversationParticipant
+
+    if SessionLocal is None:
+        return False
+    db = SessionLocal()
+    try:
+        return (
+            db.query(ConversationParticipant.id)
+            .filter(
+                ConversationParticipant.conversation_id == conversation_id,
+                ConversationParticipant.user_id == user_id,
+            )
+            .first()
+            is not None
+        )
+    finally:
+        db.close()
+
+
+async def _authorize_community_channel(websocket: WebSocket, channel: str, token: Optional[str]) -> bool:
+    """Public channels are open; user:{id} and dm:{id} require the owner / a participant."""
+    prefix, _, ident = channel.partition(":")
+    if prefix in _PUBLIC_COMMUNITY_PREFIXES:
+        return True
+    if prefix not in _PRIVATE_COMMUNITY_PREFIXES or not ident.isdigit():
+        return False
+    user_id = _ws_user_id(websocket, token)
+    if not user_id:
+        return False
+    if prefix == "user":
+        return int(ident) == user_id
+    return await asyncio.to_thread(_is_dm_participant, int(ident), user_id)
+
+
 @router.websocket("/ws/community/{channel}")
 async def community_websocket(
     websocket: WebSocket,
     channel: str,
+    token: Optional[str] = Query(None),
 ):
     """
     WebSocket for real-time community updates.
 
     Channels:
-      - feed:{community_slug} — new posts in a community
-      - post:{post_id} — new comments, votes on a post
-      - user:{user_id} — personal notifications
-      - trending — trending ticker updates
+      - feed:{community_slug} — new posts in a community   (public)
+      - post:{post_id}        — new comments, votes on a post (public)
+      - trending              — trending ticker updates      (public)
+      - user:{user_id}        — personal notifications       (owner only)
+      - dm:{conversation_id}  — direct messages              (participants only)
     """
+    if not await _authorize_community_channel(websocket, channel, token):
+        # 1008 = policy violation; close before accept so nothing is streamed.
+        await websocket.close(code=1008)
+        return
+
     ws_channel = f"community:{channel}"
     await ws_manager.connect(websocket, ws_channel)
     try:

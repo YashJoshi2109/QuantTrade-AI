@@ -54,7 +54,7 @@ router = APIRouter()
 security = HTTPBearer(auto_error=False)
 
 # JWT Settings
-SECRET_KEY = settings.SECRET_KEY or "your-secret-key-change-in-production"
+SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 7
 
@@ -194,6 +194,15 @@ def require_auth(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
+    return user
+
+
+
+def require_admin(user: User = Depends(require_auth)) -> User:
+    """Require an authenticated user whose email is in ADMIN_EMAILS (comma-separated)."""
+    admins = {e.strip().lower() for e in (getattr(settings, "ADMIN_EMAILS", "") or "").split(",") if e.strip()}
+    if not user.email or user.email.lower() not in admins:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
     return user
 
 
@@ -1033,7 +1042,7 @@ class TestEmailRequest(BaseModel):
     subject: str = "QuantTrade AI — Test Email"
 
 
-@router.post("/test-email")
+@router.post("/test-email", dependencies=[Depends(require_admin)])
 async def test_email(req: TestEmailRequest):
     """
     Diagnostic endpoint: send a test email via Brevo and return detailed result.

@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     
     # JWT Auth (should be set via environment variable in production)
     # Default secret key (override with SECRET_KEY env var for production)
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "7730eae563847420772c890ecb062bb7")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "")  # REQUIRED in prod; see __init__
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     ALLOWED_ORIGINS: str = ""
@@ -199,6 +199,14 @@ class Settings(BaseSettings):
             print("⚠️ WARNING: DATABASE_URL/NEON_DATABASE_URL not set - DB features will fail. Set in .env on EC2.")
 
         self.DATABASE_URL = db_url or ""
+
+        if not self.SECRET_KEY:
+            # Never fall back to a known constant (anyone could forge JWTs).
+            # Ephemeral key: sessions reset on restart and differ per worker,
+            # so this is only acceptable for local dev.
+            import secrets as _secrets
+            self.SECRET_KEY = _secrets.token_hex(32)
+            print("⚠️ WARNING: SECRET_KEY not set — using an ephemeral random key. Set SECRET_KEY in production.")
 
 
 settings = Settings()
