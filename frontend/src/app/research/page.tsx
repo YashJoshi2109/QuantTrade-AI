@@ -149,6 +149,9 @@ function ResearchContent() {
   useEffect(() => {
     if (!advancedOpen) return
     const onDoc = (e: MouseEvent) => {
+      const target = e.target as Element | null
+      // The settings panel is portalled to <body>; clicks inside it are not "outside".
+      if (target?.closest?.('[data-chart-settings-portal]')) return
       if (advancedRef.current && !advancedRef.current.contains(e.target as Node)) {
         setAdvancedOpen(false)
       }
@@ -687,7 +690,7 @@ function ResearchContent() {
                     )}
                     <div className="text-[11px] text-fg-muted flex items-center gap-1.5 mt-1">
                       <Sparkles className="w-3 h-3" />
-                      Click "AI Refresh" above for a real-time Gemini-powered read
+                      Click "AI Refresh" above for a real-time QuantTrade AI read
                     </div>
                   </>
                 )}

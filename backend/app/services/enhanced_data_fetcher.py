@@ -168,8 +168,13 @@ class EnhancedDataFetcher:
                 from app.services.data_fetcher import DataFetcher
                 db_symbol = DataFetcher.sync_symbol_to_db(db, symbol.upper())
             
-            # Fetch from Finviz
+            # Fetch from Finviz; fall back to yfinance when Finviz blocks us (403)
+            # or returns no valuation data, filling only the fields Finviz left empty.
             data = FinvizFetcher.fetch_stock_fundamentals(symbol)
+            if data.get("error") or data.get("market_cap") is None:
+                fallback = FinvizFetcher.fetch_yfinance_fundamentals(symbol)
+                if not fallback.get("error"):
+                    data = {**fallback, **{k: v for k, v in data.items() if v not in (None, "") and k != "error"}}
             
             # Check if fundamentals exist
             fundamentals = db.query(Fundamentals).filter(

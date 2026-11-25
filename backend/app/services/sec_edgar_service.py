@@ -148,7 +148,7 @@ _INCOME_TAGS = {
     "net_income": ["NetIncomeLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"],
     "eps_basic": ["EarningsPerShareBasic"],
     "eps_diluted": ["EarningsPerShareDiluted"],
-    "shares_basic": ["CommonStockSharesOutstanding", "WeightedAverageNumberOfSharesOutstandingBasic"],
+    "shares_basic": ["WeightedAverageNumberOfSharesOutstandingBasic"],
     "shares_diluted": ["WeightedAverageNumberOfDilutedSharesOutstanding"],
     "rd_expense": ["ResearchAndDevelopmentExpense"],
     "sga_expense": ["SellingGeneralAndAdministrativeExpense"],
@@ -172,44 +172,165 @@ _CASHFLOW_TAGS = {
     "operating_cash_flow": ["NetCashProvidedByUsedInOperatingActivities"],
     "investing_cash_flow": ["NetCashProvidedByUsedInInvestingActivities"],
     "financing_cash_flow": ["NetCashProvidedByUsedInFinancingActivities"],
-    "capital_expenditures": ["PaymentsToAcquirePropertyPlantAndEquipment"],
+    "capital_expenditures": [
+        "PaymentsToAcquirePropertyPlantAndEquipment",
+        "PaymentsToAcquireProductiveAssets",
+        "PaymentsToAcquirePropertyPlantAndEquipmentAndIntangibleAssets",
+    ],
     "dividends_paid": ["PaymentsOfDividends", "PaymentsOfDividendsCommonStock"],
     "share_repurchases": ["PaymentsForRepurchaseOfCommonStock"],
 }
 
+# Used only to derive EBITDA (= operating income + D&A) when no EBITDA tag exists.
+_DA_TAGS = ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationAmortizationAndAccretionNet"]
+
+# Bump when parsing changes so rows stored by an older parser get re-synced.
+PARSER_VERSION = 2
+
+_QUARTER_DAYS = (75, 105)
+_ANNUAL_DAYS = (340, 390)
+
+
+def _days(entry: dict) -> Optional[int]:
+    start, end = entry.get("start"), entry.get("end")
+    if not start or not end:
+        return None
+    try:
+        return (datetime.strptime(end, "%Y-%m-%d") - datetime.strptime(start, "%Y-%m-%d")).days
+    except ValueError:
+        return None
+
 
 def _extract_concept(facts_data: dict, tags: list[str], unit: str = "USD") -> list[dict]:
-    """Extract time-series values for a concept from company_facts JSON."""
+    """All entries for a concept, MERGED across alias tags.
+
+    Companies switch tags over the years (NVDA capex moved from
+    PaymentsToAcquirePropertyPlantAndEquipment to PaymentsToAcquireProductiveAssets),
+    so stopping at the first tag that exists silently drops recent periods.
+    Earlier tags win when two tags report the same (start, end).
+    """
     us_gaap = facts_data.get("facts", {}).get("us-gaap", {})
-    for tag in tags:
-        concept = us_gaap.get(tag)
-        if not concept:
-            continue
-        units_data = concept.get("units", {}).get(unit, [])
-        if units_data:
-            return units_data
-    return []
+    merged: dict[tuple, dict] = {}
+    for priority, tag in enumerate(tags):
+        for e in us_gaap.get(tag, {}).get("units", {}).get(unit, []):
+            key = (e.get("start"), e.get("end"))
+            cur = merged.get(key)
+            if cur is None or (cur["_p"] == priority and e.get("filed", "") > cur.get("filed", "")):
+                merged[key] = {**e, "_p": priority}
+    return list(merged.values())
 
 
-def _pick_period_value(entries: list[dict], period_end: str, form_type: str) -> Optional[dict]:
-    """Pick the best matching entry for a given period-end date and form."""
-    # Filter by period end date and form type
-    matches = [
-        e for e in entries
-        if e.get("end") == period_end and form_type in e.get("form", "")
-    ]
-    if not matches:
+def _latest(entries: list[dict]) -> Optional[dict]:
+    return max(entries, key=lambda e: e.get("filed", "")) if entries else None
+
+
+def _in_range(entry: dict, bounds: tuple[int, int]) -> bool:
+    d = _days(entry)
+    return d is not None and bounds[0] <= d <= bounds[1]
+
+
+def _duration_value(entries: list[dict], period_end: str, is_annual: bool, allow_ytd_diff: bool = True) -> Optional[float]:
+    """Value covering exactly the period: a full year for 10-K, ~3 months for 10-Q.
+
+    10-Qs report both the 3-month value and the year-to-date total with the same
+    end date; picking by end date alone returned YTD sums (NVDA "Q2" revenue
+    $177.84B instead of $96.22B). Cash-flow statements are YTD-only, so a quarter
+    is derived as YTD(this quarter) − YTD(previous quarter) with the same start.
+    """
+    bounds = _ANNUAL_DAYS if is_annual else _QUARTER_DAYS
+    at_end = [e for e in entries if e.get("end") == period_end and _days(e) is not None]
+    direct = _latest([e for e in at_end if _in_range(e, bounds)])
+    if direct:
+        return direct["val"]
+    if is_annual or not allow_ytd_diff:
         return None
-    # Prefer most recently filed
-    matches.sort(key=lambda x: x.get("filed", ""), reverse=True)
-    return matches[0]
+    end_dt = datetime.strptime(period_end, "%Y-%m-%d")
+    for ytd in sorted((e for e in at_end if _days(e) > bounds[1]), key=lambda e: e.get("filed", ""), reverse=True):
+        prior = [
+            e for e in entries
+            if e.get("start") == ytd.get("start") and e.get("end") and e["end"] < period_end
+            and 0 < (end_dt - datetime.strptime(e["end"], "%Y-%m-%d")).days <= bounds[1]
+        ]
+        p = _latest(prior)
+        if p is not None:
+            return ytd["val"] - p["val"]
+    return None
+
+
+def _value_for(entries: list[dict], period_end: str, is_annual: bool, allow_ytd_diff: bool = True) -> Optional[float]:
+    """Duration concepts (income/cash flow) vs instant concepts (balance sheet)."""
+    if not entries:
+        return None
+    if any(e.get("start") for e in entries):
+        return _duration_value(entries, period_end, is_annual, allow_ytd_diff)
+    m = _latest([e for e in entries if e.get("end") == period_end])
+    return m["val"] if m else None
 
 
 def _fmt(value, unit="USD") -> Optional[str]:
     """Serialize a numeric value + unit to JSON string for DB storage."""
     if value is None:
         return None
-    return json.dumps({"value": value, "unit": unit})
+    return json.dumps({"value": value, "unit": unit, "pv": PARSER_VERSION})
+
+
+def stored_parser_version(row) -> int:
+    """Parser version that produced a FinancialStatement row (0 = before versioning)."""
+    for field in ("revenue", "net_income", "total_assets", "operating_cash_flow"):
+        raw = getattr(row, field, None)
+        if raw:
+            try:
+                return int(json.loads(raw).get("pv", 0))
+            except Exception:
+                return 0
+    return 0
+
+
+def _discover_periods(facts_data: dict) -> list[dict]:
+    """Reporting periods labelled with SEC's own fiscal year/period.
+
+    The earliest filing reporting a period end is the filing *for* that period,
+    so its fy/fp are the correct labels (later filings restate it as a
+    comparative under their own fy). Calendar-month quarters mislabelled
+    non-calendar fiscal years (NVDA FY ends late January).
+    """
+    # Raw entries (every filing's copy), NOT the de-duplicated merge: we need the
+    # original filing's fy/fp, which comparatives in later filings overwrite.
+    us_gaap = facts_data.get("facts", {}).get("us-gaap", {})
+    def _raw(tags):
+        return [e for t in tags for e in us_gaap.get(t, {}).get("units", {}).get("USD", [])]
+    entries = _raw(_INCOME_TAGS["revenue"]) or _raw(_INCOME_TAGS["net_income"])
+    first: dict[tuple, dict] = {}
+    for e in entries:
+        form = (e.get("form") or "").replace("/A", "")
+        if form == "10-K":
+            if e.get("fp") != "FY" or not _in_range(e, _ANNUAL_DAYS):
+                continue
+        elif form == "10-Q":
+            if not _in_range(e, (_QUARTER_DAYS[0], 300)):  # quarter or YTD
+                continue
+        else:
+            continue
+        key = (e["end"], form)
+        if key not in first or e.get("filed", "") < first[key].get("filed", ""):
+            first[key] = e
+
+    periods: dict[str, dict] = {}
+    for (end, form), e in first.items():
+        fy = int(e.get("fy") or end[:4])
+        fp = e.get("fp") or ""
+        if form == "10-K":
+            label, fq = f"{fy}-FY", None
+        elif len(fp) == 2 and fp[0] == "Q" and fp[1] in "123":
+            fq = int(fp[1])
+            label = f"{fy}-Q{fq}"
+        else:
+            continue
+        periods.setdefault(label, {
+            "period": label, "fiscal_year": fy, "fiscal_quarter": fq,
+            "form": form, "period_end_date": end, "filed_date": e.get("filed", ""),
+        })
+    return sorted(periods.values(), key=lambda p: p["period_end_date"], reverse=True)
 
 
 def parse_financials(facts_data: dict, cik: str, symbol_id: int, ticker: str) -> list[dict]:
@@ -217,90 +338,54 @@ def parse_financials(facts_data: dict, cik: str, symbol_id: int, ticker: str) ->
     Parse EDGAR company_facts JSON into a list of FinancialStatement dicts.
     Returns up to 20 most recent periods (mix of annual + quarterly).
     """
-    from app.models.edgar import FinancialStatement
+    periods = _discover_periods(facts_data)[:20]
 
-    # Get list of 10-K and 10-Q filing periods from the filing history in facts
-    # We use revenue time series to discover available periods
-    all_tags = {**_INCOME_TAGS, **_BALANCE_TAGS, **_CASHFLOW_TAGS}
+    series_cache: dict[tuple, list[dict]] = {}
 
-    # Discover all available periods from revenue (most reliably present)
-    period_index: dict[str, dict] = {}  # "2024-Q3" → {period_end, fiscal_year, fiscal_quarter, form}
+    def series(tags: list[str], unit: str = "USD") -> list[dict]:
+        key = (tuple(tags), unit)
+        if key not in series_cache:
+            series_cache[key] = _extract_concept(facts_data, tags, unit)
+        return series_cache[key]
 
-    revenue_entries = _extract_concept(facts_data, _INCOME_TAGS["revenue"])
-    for entry in revenue_entries:
-        form = entry.get("form", "")
-        if form not in ("10-K", "10-Q", "10-K/A", "10-Q/A"):
-            continue
-        end = entry.get("end", "")
-        if not end:
-            continue
-        fy = int(end[:4])
-        is_annual = "10-K" in form
-
-        if is_annual:
-            key = f"{fy}-FY"
-            period_index.setdefault(key, {"period": key, "fiscal_year": fy, "fiscal_quarter": None, "form": "10-K", "period_end_date": end, "filed_date": entry.get("filed", "")})
-        else:
-            # Derive quarter from end date
-            month = int(end[5:7])
-            fq = (month // 3) if month % 3 == 0 else (month // 3 + 1)
-            key = f"{fy}-Q{fq}"
-            period_index.setdefault(key, {"period": key, "fiscal_year": fy, "fiscal_quarter": fq, "form": "10-Q", "period_end_date": end, "filed_date": entry.get("filed", "")})
-
-    # Sort by period descending, take 20 most recent
-    periods = sorted(period_index.values(), key=lambda x: x["period_end_date"], reverse=True)[:20]
+    def unit_for(field: str) -> str:
+        if field in ("eps_basic", "eps_diluted"):
+            return "USD/shares"
+        if field in ("shares_basic", "shares_diluted"):
+            return "shares"
+        return "USD"
 
     results = []
     for p in periods:
-        period_end = p["period_end_date"]
-        form = p["form"]
-        row = {
-            "cik": cik,
-            "symbol_id": symbol_id,
-            "period": p["period"],
-            "fiscal_year": p["fiscal_year"],
-            "fiscal_quarter": p["fiscal_quarter"],
-            "form": form,
-            "period_end_date": period_end,
-            "filed_date": p["filed_date"],
-        }
+        end = p["period_end_date"]
+        annual = p["form"] == "10-K"
+        row = {"cik": cik, "symbol_id": symbol_id, **p}
+        vals: dict[str, Optional[float]] = {}
 
-        # Income statement
         for field, tags in _INCOME_TAGS.items():
-            entries = _extract_concept(facts_data, tags, "USD" if field not in ("eps_basic", "eps_diluted") else "USD/shares")
-            # Also try USD for eps fallback
-            if not entries and field in ("eps_basic", "eps_diluted"):
-                entries = _extract_concept(facts_data, tags, "USD")
-            match = _pick_period_value(entries, period_end, form)
-            unit = "USD/shares" if field in ("eps_basic", "eps_diluted") else "USD"
-            if field in ("shares_basic", "shares_diluted"):
-                entries = _extract_concept(facts_data, tags, "shares")
-                match = _pick_period_value(entries, period_end, form)
-                unit = "shares"
-            row[field] = _fmt(match["val"] if match else None, unit)
+            unit = unit_for(field)
+            # Per-share and share-count values are not additive: never derive
+            # a quarter by subtracting year-to-date figures.
+            additive = unit == "USD"
+            vals[field] = _value_for(series(tags, unit), end, annual, allow_ytd_diff=additive)
+            row[field] = _fmt(vals[field], unit)
 
-        # Balance sheet
         for field, tags in _BALANCE_TAGS.items():
-            entries = _extract_concept(facts_data, tags)
-            match = _pick_period_value(entries, period_end, form)
-            row[field] = _fmt(match["val"] if match else None)
+            vals[field] = _value_for(series(tags), end, annual)
+            row[field] = _fmt(vals[field])
 
-        # Cash flow
         for field, tags in _CASHFLOW_TAGS.items():
-            entries = _extract_concept(facts_data, tags)
-            match = _pick_period_value(entries, period_end, form)
-            row[field] = _fmt(match["val"] if match else None)
+            vals[field] = _value_for(series(tags), end, annual)
+            row[field] = _fmt(vals[field])
 
-        # Compute free cash flow
-        try:
-            ocf = json.loads(row.get("operating_cash_flow") or "null")
-            capex = json.loads(row.get("capital_expenditures") or "null")
-            if ocf and capex and ocf.get("value") is not None and capex.get("value") is not None:
-                row["free_cash_flow"] = _fmt(ocf["value"] - capex["value"])
-            else:
-                row["free_cash_flow"] = None
-        except Exception:
-            row["free_cash_flow"] = None
+        # EBITDA = operating income + D&A when the company doesn't tag EBITDA
+        if vals.get("ebitda") is None and vals.get("operating_income") is not None:
+            da = _value_for(series(_DA_TAGS), end, annual)
+            if da is not None:
+                row["ebitda"] = _fmt(vals["operating_income"] + da)
+
+        ocf, capex = vals.get("operating_cash_flow"), vals.get("capital_expenditures")
+        row["free_cash_flow"] = _fmt(ocf - capex) if ocf is not None and capex is not None else None
 
         results.append(row)
 
@@ -377,45 +462,59 @@ async def generate_filing_insights(ticker: str, financials: list[dict], filings:
     """Generate AI insights on a company's filings using Claude."""
     import os
 
-    # Build context from recent financials
-    recent = financials[:8] if financials else []
+    # Build context from recent financials. Every line states its exact span so the
+    # model never compares a 3-month quarter with a full fiscal year.
+    def _val(f, field):
+        try:
+            v = json.loads(f.get(field) or "null")
+            return v["value"] if v else None
+        except Exception:
+            return None
+
+    def _money(v):
+        if v is None:
+            return "n/a"
+        return f"${v/1e9:.2f}B" if abs(v) >= 1e8 else f"${v/1e6:.1f}M"
+
     fin_summary = []
-    for f in recent:
-        def _val(field):
-            try:
-                v = json.loads(f.get(field) or "null")
-                return v["value"] if v else None
-            except Exception:
-                return None
-
-        rev = _val("revenue")
-        ni = _val("net_income")
-        ocf = _val("operating_cash_flow")
-
-        line = f"{f.get('period','?')} ({f.get('form','?')})"
-        if rev: line += f" Revenue: ${rev/1e9:.2f}B"
-        if ni: line += f" Net Income: ${ni/1e9:.2f}B"
-        if ocf: line += f" OCF: ${ocf/1e9:.2f}B"
-        fin_summary.append(line)
+    for f in (financials or [])[:12]:
+        label = f.get("period", "?")
+        fy, _, part = label.partition("-")
+        span = "full fiscal year" if part == "FY" else "3-month quarter"
+        name = f"FY{fy} {'annual' if part == 'FY' else part}"
+        fields = [
+            ("Revenue", "revenue"), ("Gross profit", "gross_profit"), ("Operating income", "operating_income"),
+            ("Net income", "net_income"), ("OCF", "operating_cash_flow"), ("CapEx", "capital_expenditures"),
+            ("FCF", "free_cash_flow"), ("Cash", "cash_and_equivalents"), ("Current assets", "current_assets"),
+            ("Current liabilities", "current_liabilities"), ("Total liabilities", "total_liabilities"),
+            ("Long-term debt", "long_term_debt"), ("Equity", "stockholders_equity"),
+        ]
+        parts = [f"{k} {_money(_val(f, key))}" for k, key in fields if _val(f, key) is not None]
+        eps = _val(f, "eps_diluted")
+        if eps is not None:
+            parts.append(f"EPS (diluted) ${eps:.2f}")
+        fin_summary.append(f"- {name} ({span}, ended {f.get('period_end_date', '?')}): " + "; ".join(parts))
 
     recent_filings = [f"{f['form_type']} filed {f['filing_date']}" for f in filings[:5]]
 
-    prompt = f"""You are a senior equity analyst. Analyze {ticker} ({company_info.get('company_name', ticker)}) based on SEC EDGAR data.
+    prompt = f"""You are a senior equity analyst. Analyze {ticker} ({company_info.get('company_name', ticker)}) using only the SEC EDGAR data below.
 
 Company: {company_info.get('company_name', ticker)}
 Industry: {company_info.get('sic_description', 'N/A')}
-Recent filings: {', '.join(recent_filings)}
+Recent filings: {', '.join(recent_filings) or 'n/a'}
 
-Financial trend (most recent first):
+Financials (most recent first; fiscal-year labels follow the company's fiscal calendar):
 {chr(10).join(fin_summary) if fin_summary else 'No financial data available'}
 
-Provide a concise 4-section analysis:
-1. **Revenue & Profitability Trend**: Revenue growth, margin trajectory, net income trend
-2. **Balance Sheet Health**: Debt levels, cash position, liquidity
-3. **Cash Flow Quality**: Operating vs free cash flow, capex intensity
-4. **Key Risks & Opportunities**: From recent filings, flag any notable risks or growth catalysts
+Rules:
+- Compare like with like: quarter vs the same quarter a year earlier (YoY) or vs the prior quarter (QoQ); fiscal year vs prior fiscal year. Never compare a quarter with a full year.
+- Use only the numbers given; if something is n/a, say it is not reported rather than guessing.
 
-Keep each section to 2-3 sentences. Be specific with numbers where available. Focus on what matters most to investors."""
+Write GitHub-flavored Markdown with exactly these four `###` headings, 2-3 sentences each, specific numbers where available:
+### Revenue & Profitability
+### Balance Sheet Health
+### Cash Flow Quality
+### Key Risks & Opportunities"""
 
     try:
         from langchain_anthropic import ChatAnthropic
@@ -509,17 +608,11 @@ def sync_edgar_data(ticker: str, db: Session, force_refresh: bool = False) -> di
     # 5. Parse + upsert financial statements
     financial_rows = parse_financials(facts_data, cik, symbol.id, ticker)
     upserted = 0
-    for row in financial_rows:
-        existing = db.query(FinancialStatement).filter(
-            FinancialStatement.symbol_id == symbol.id,
-            FinancialStatement.period == row["period"],
-            FinancialStatement.form == row["form"],
-        ).first()
-        if existing:
-            for k, v in row.items():
-                if k not in ("symbol_id", "cik"):
-                    setattr(existing, k, v)
-        else:
+    if financial_rows:
+        # Replace, don't merge: period labels can change between parser versions
+        # (calendar → fiscal quarters), and stale labels would linger as duplicates.
+        db.query(FinancialStatement).filter(FinancialStatement.symbol_id == symbol.id).delete(synchronize_session=False)
+        for row in financial_rows:
             db.add(FinancialStatement(**row))
             upserted += 1
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { useQuery } from '@tanstack/react-query'
 import {
   FileText, RefreshCw, ExternalLink, ChevronDown, ChevronUp,
@@ -538,12 +539,35 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
 
             {/* ── AI Insights output ──────────────────────────────────── */}
             {aiInsights && (
-              <div className="rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/[0.07] to-purple-500/[0.04] backdrop-blur-sm p-5 text-sm text-fg-secondary leading-relaxed whitespace-pre-wrap shadow-[0_0_24px_rgba(139,92,246,0.08)]">
-                <div className="flex items-center gap-2 mb-3 pb-3 border-b border-violet-500/15">
-                  <Sparkles className="w-4 h-4 text-violet-400 shrink-0" />
-                  <span className="text-xs font-bold text-violet-400 uppercase tracking-wider">Claude AI Analysis</span>
+              <div className="rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/[0.07] to-purple-500/[0.04] backdrop-blur-sm p-4 sm:p-5 text-sm text-fg-secondary leading-relaxed shadow-[0_0_24px_rgba(139,92,246,0.08)]">
+                <div className="flex items-center justify-between gap-2 mb-3 pb-3 border-b border-violet-500/15">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-violet-400 shrink-0" />
+                    <span className="text-xs font-bold text-violet-400 uppercase tracking-wider">QuantTrade AI Analysis</span>
+                  </div>
+                  <span className="text-[10px] text-fg-muted">From SEC filings · not investment advice</span>
                 </div>
-                {aiInsights}
+                <div className="space-y-2">
+                  <ReactMarkdown
+                    components={{
+                      h1: () => null,
+                      h2: ({ children }) => <h3 className="text-sm font-semibold text-fg-primary">{children}</h3>,
+                      h3: ({ children }) => (
+                        <h3 className="pt-2 first:pt-0 text-[11px] font-bold uppercase tracking-wider text-violet-300 flex items-center gap-1.5">
+                          <span className="w-1 h-3.5 bg-violet-400 rounded-full" />
+                          {children}
+                        </h3>
+                      ),
+                      p: ({ children }) => <p className="text-fg-secondary">{children}</p>,
+                      strong: ({ children }) => <strong className="font-semibold text-fg-primary">{children}</strong>,
+                      ul: ({ children }) => <ul className="list-disc pl-5 space-y-1">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal pl-5 space-y-1">{children}</ol>,
+                      li: ({ children }) => <li className="text-fg-secondary">{children}</li>,
+                    }}
+                  >
+                    {aiInsights}
+                  </ReactMarkdown>
+                </div>
               </div>
             )}
 

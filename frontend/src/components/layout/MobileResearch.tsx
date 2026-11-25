@@ -41,6 +41,7 @@ import Chart from '@/components/Chart'
 import LiveNews from '@/components/LiveNews'
 import KeyFactorsPanel from '@/components/KeyFactorsPanel'
 import FundamentalsPanel from '@/components/FundamentalsPanel'
+import SecEdgarPanel from '@/components/research/SecEdgarPanel'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 
 const TIMEFRAMES = ['1D', '1W', '1M', '3M', '1Y', 'All'] as const
@@ -602,13 +603,17 @@ export default function MobileResearch() {
 
         {/* === FINANCIALS TAB === */}
         {activeTab === 'financials' && (
-          <FundamentalsPanel
-            fundamentals={fundamentals ?? null}
-            price={price}
-            loading={fundamentalsLoading}
-            onSync={handleSync}
-            syncing={syncing}
-          />
+          <div className="space-y-4">
+            <FundamentalsPanel
+              fundamentals={fundamentals ?? null}
+              price={price}
+              loading={fundamentalsLoading}
+              onSync={handleSync}
+              syncing={syncing}
+            />
+            {/* Same SEC EDGAR statements + AI analysis as desktop */}
+            {symbolFromUrl && <SecEdgarPanel symbol={symbolFromUrl} />}
+          </div>
         )}
 
         {/* === TECHNICALS TAB === */}
