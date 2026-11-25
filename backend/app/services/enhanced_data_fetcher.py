@@ -13,6 +13,7 @@ from app.models.fundamentals import Fundamentals
 from app.models.realtime_quote import RealtimeQuote, MarketIndex
 from app.services.finviz_fetcher import FinvizFetcher
 from app.config import settings
+from app.services.ticker_validation import yahoo_symbol
 from sqlalchemy.orm import Session
 
 
@@ -94,7 +95,7 @@ class EnhancedDataFetcher:
         
         # Final fallback to yfinance
         try:
-            ticker = yf.Ticker(symbol)
+            ticker = yf.Ticker(yahoo_symbol(symbol))
             info = ticker.info
             latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
             
@@ -268,7 +269,7 @@ class EnhancedDataFetcher:
         
         for symbol, name in indices.items():
             try:
-                ticker = yf.Ticker(symbol)
+                ticker = yf.Ticker(yahoo_symbol(symbol))
                 info = ticker.info
                 hist = ticker.history(period="1d")
                 

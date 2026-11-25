@@ -50,7 +50,7 @@ def ticker_exists_upstream(symbol: str) -> bool:
     try:
         import yfinance as yf
 
-        hist = yf.Ticker(symbol).history(period="5d", auto_adjust=False)
+        hist = yf.Ticker(yahoo_symbol(symbol)).history(period="5d", auto_adjust=False)
         if hist is not None and not hist.empty:
             return True
     except Exception as e:  # pragma: no cover - network dependent
@@ -69,3 +69,59 @@ def ticker_exists_upstream(symbol: str) -> bool:
         logger.debug("Finnhub validation failed for %s: %s", symbol, e)
 
     return False
+
+
+# ── Provider symbol mapping ───────────────────────────────────────────────
+#
+# US share-class tickers are written with a dot in our DB / URLs (BRK.B, BF.B),
+# but Yahoo Finance and Finviz spell them with a dash (BRK-B, BF-B). Querying
+# them with the dot returns nothing, which left BRK.B fundamentals all-null.
+#
+# Yahoo also uses dots for exchange suffixes (0700.HK, SHOP.TO, VOD.L), which
+# must NOT be rewritten. A share class is a single letter after the dot on a
+# purely alphabetic root; single-letter Yahoo exchange suffixes are excluded.
+_SHARE_CLASS_RE = re.compile(r"^([A-Z]{1,6})\.([A-Z])$")
+_YAHOO_SINGLE_LETTER_SUFFIXES = {"L", "V", "F", "T"}
+
+
+def is_share_class_ticker(symbol: str) -> bool:
+    m = _SHARE_CLASS_RE.match((symbol or "").strip().upper())
+    return bool(m) and m.group(2) not in _YAHOO_SINGLE_LETTER_SUFFIXES
+
+
+def yahoo_symbol(symbol: str) -> str:
+    """BRK.B -> BRK-B for Yahoo/yfinance; any other symbol is returned upper-cased."""
+    sym = (symbol or "").strip().upper()
+    return sym.replace(".", "-") if is_share_class_ticker(sym) else sym
+
+
+def finviz_symbol(symbol: str) -> str:
+    """Finviz uses the same dash spelling as Yahoo for share classes (BRK-B)."""
+    return yahoo_symbol(symbol)
+
+
+# ── Asset type ────────────────────────────────────────────────────────────
+
+def classify_asset_type(symbol: str, stored_type: str | None = None) -> str:
+    """Return 'index' | 'etf' | 'fund' | 'future' | 'fx' | 'crypto' | 'equity'.
+
+    Index symbols (^GSPC) never have a Symbol row or SEC filer, so the symbol
+    shape decides first; the stored asset_type (Equity/ETF/...) decides the rest.
+    """
+    sym = (symbol or "").strip().upper()
+    if sym.startswith("^"):
+        return "index"
+    if sym.endswith("=F"):
+        return "future"
+    if sym.endswith("=X"):
+        return "fx"
+    if re.match(r"^[A-Z0-9]+-USD$", sym):
+        return "crypto"
+    t = (stored_type or "").strip().lower()
+    if t in ("etf", "etn"):
+        return "etf"
+    if t in ("fund", "mutual fund", "mutualfund", "closed-end fund", "cef"):
+        return "fund"
+    if t == "index":
+        return "index"
+    return "equity"

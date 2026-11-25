@@ -48,6 +48,7 @@ import ForecastPanel from '@/components/research/ForecastPanel'
 import IndicatorToolbar from '@/components/research/IndicatorToolbar'
 import TickerLogo from '@/components/TickerLogo'
 import { getExchangeTimezone } from '@/lib/world-exchanges'
+import { isCompanyAsset } from '@/lib/assetType'
 
 type ChartPeriod = ResearchChartPeriod
 
@@ -122,6 +123,9 @@ function ResearchContent() {
     staleTime: 300_000,
     retry: 1,
   })
+
+  // Index / ETF symbols hide company-only panels (same helper as MobileResearch).
+  const showCompanyPanels = isCompanyAsset(selectedSymbol, tickerInfo?.asset_type)
 
   const inWatchlist = useMemo(
     () => watchlistItems.some((i) => i.symbol.toUpperCase() === selectedSymbol.toUpperCase()),
@@ -766,7 +770,7 @@ function ResearchContent() {
           </div>
 
           {/* Fundamentals Panel */}
-          <div className="col-span-12 lg:col-span-6">
+          {showCompanyPanels && <div className="col-span-12 lg:col-span-6">
             <FundamentalsPanel
               fundamentals={fundamentals}
               price={priceInfo.price}
@@ -774,21 +778,21 @@ function ResearchContent() {
               onSync={handleSyncData}
               syncing={syncing}
             />
-          </div>
+          </div>}
 
-          <CompanyFolioPanel
+          {showCompanyPanels && <CompanyFolioPanel
             symbol={selectedSymbol}
             info={tickerInfo}
             isLoading={tickerInfoLoading}
-          />
+          />}
 
           {/* Earnings, Short Interest & Key Stats */}
-          <div className="col-span-12">
+          {showCompanyPanels && <div className="col-span-12">
             <EarningsShortInterestPanel
               symbol={selectedSymbol}
               tickerInfo={tickerInfo}
             />
-          </div>
+          </div>}
 
           {/* Option Chain with Greeks (Public.com) */}
           <OptionChainPanel symbol={selectedSymbol} />
@@ -797,7 +801,7 @@ function ResearchContent() {
           <ForecastPanel symbol={selectedSymbol} />
 
           {/* SEC EDGAR Fundamentals & Filings */}
-          <SecEdgarPanel symbol={selectedSymbol} />
+          {showCompanyPanels && <SecEdgarPanel symbol={selectedSymbol} />}
 
           {/* Live News Section */}
           <div className="col-span-12">

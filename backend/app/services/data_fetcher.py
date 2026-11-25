@@ -10,6 +10,7 @@ from typing import List, Optional
 from app.models.symbol import Symbol
 from app.models.price import PriceBar
 from app.config import settings
+from app.services.ticker_validation import yahoo_symbol
 from sqlalchemy.orm import Session
 
 
@@ -44,7 +45,7 @@ class DataFetcher:
         
         # Fallback to yfinance
         try:
-            ticker = yf.Ticker(symbol)
+            ticker = yf.Ticker(yahoo_symbol(symbol))
             info = ticker.info
             return {
                 "symbol": symbol,
@@ -141,7 +142,7 @@ class DataFetcher:
         # Try yfinance first (works without API key)
         print(f"Fetching data for {symbol} via yfinance...")
         try:
-            ticker = yf.Ticker(symbol)
+            ticker = yf.Ticker(yahoo_symbol(symbol))
 
             if start_date and end_date:
                 df = ticker.history(start=start_date, end=end_date)

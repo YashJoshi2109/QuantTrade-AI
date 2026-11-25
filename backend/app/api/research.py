@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from app.db import database as _database
 from app.db.database import get_db
 from app.services.sync_rate_limit import sync_rate_limit
+from app.services.instrument_identity import identity_check
+from app.services.ticker_validation import classify_asset_type
 from app.models.edgar import CompanyEDGAR, FinancialStatement
 from app.models.symbol import Symbol
 from app.services.sec_edgar_service import (
@@ -50,8 +52,30 @@ def company_overview(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpoo
     ticker: str,
     db: Session = Depends(get_db),
 ):
-    """Company facts from SEC EDGAR — CIK, SIC, incorporation state, fiscal year."""
-    sym = _get_symbol(ticker, db)
+    """Company facts from SEC EDGAR — CIK, SIC, incorporation state, fiscal year.
+
+    Always carries ``asset_type`` so the UI can hide company-only panels for
+    indices / ETFs (which have no SEC company facts) instead of erroring.
+    """
+    upper = ticker.upper()
+    sym = db.query(Symbol).filter(Symbol.symbol == upper).first()
+    asset_type = classify_asset_type(upper, sym.asset_type if sym else None)
+    if asset_type != "equity":
+        return {
+            "ticker": upper,
+            "asset_type": asset_type,
+            "company_name": (sym.name if sym and sym.name else upper),
+            "cik": None,
+            "sic": None,
+            "sic_description": None,
+            "state_of_incorporation": None,
+            "fiscal_year_end": None,
+            "category": None,
+            "identity_status": "ok",
+            "updated_at": None,
+        }
+    if not sym:
+        raise HTTPException(status_code=404, detail=f"Symbol {ticker} not found")
     edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym.id).first()
 
     if not edgar:
@@ -65,7 +89,8 @@ def company_overview(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpoo
         raise HTTPException(status_code=404, detail="EDGAR data not available")
 
     return {
-        "ticker": ticker.upper(),
+        "ticker": upper,
+        "asset_type": asset_type,
         "cik": edgar.cik,
         "company_name": edgar.company_name,
         "sic": edgar.sic,
@@ -73,6 +98,9 @@ def company_overview(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpoo
         "state_of_incorporation": edgar.state_of_incorporation,
         "fiscal_year_end": edgar.fiscal_year_end,
         "category": edgar.category,
+        # SEC's ticker map is authoritative for who holds the ticker *now*; flag
+        # when our listing disagrees (reassigned ticker, e.g. PARA after Skydance).
+        **identity_check(upper, sym.name, edgar.company_name),
         "updated_at": edgar.updated_at.isoformat() if edgar.updated_at else None,
     }
 

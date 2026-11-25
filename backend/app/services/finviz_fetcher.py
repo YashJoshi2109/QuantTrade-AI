@@ -4,9 +4,57 @@ Uses finviz library for NASDAQ and S&P 500 data
 """
 import requests
 from typing import Dict, List, Optional
-from datetime import datetime
+from datetime import date, datetime
 import json
 from bs4 import BeautifulSoup
+
+from app.services.ticker_validation import finviz_symbol, yahoo_symbol
+
+
+def meaningful_peg(value: Optional[float]) -> Optional[float]:
+    """PEG is only defined for positive earnings growth; <= 0 is not meaningful."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return v if v == v and v > 0 else None
+
+
+def normalize_earnings_date(raw, today: Optional[date] = None) -> str:
+    """Return an ISO date (YYYY-MM-DD) for an earnings date, or "".
+
+    Accepts a Unix timestamp (yfinance) or Finviz's year-less "Nov 02 AMC" /
+    "Jan 28 BMO". A year-less date is placed in the year that keeps it within
+    ~6 months of today, so "Nov 02" seen on Nov 25 is the past report, not a
+    future one, and "Jan 28" seen in November is next year's.
+    """
+    today = today or datetime.utcnow().date()
+    if raw is None or raw == "":
+        return ""
+    if isinstance(raw, (int, float)):
+        try:
+            return datetime.utcfromtimestamp(float(raw)).date().isoformat()
+        except (OverflowError, OSError, ValueError):
+            return ""
+    text = str(raw).strip()
+    if not text or text == "-":
+        return ""
+    try:
+        return date.fromisoformat(text[:10]).isoformat()
+    except ValueError:
+        pass
+    parts = text.replace(",", " ").split()
+    if len(parts) < 2:
+        return ""
+    try:
+        d = datetime.strptime(f"{parts[0][:3]} {parts[1]} {today.year}", "%b %d %Y").date()
+    except ValueError:
+        return ""
+    if (d - today).days > 183:
+        d = d.replace(year=d.year - 1)
+    elif (today - d).days > 183:
+        d = d.replace(year=d.year + 1)
+    return d.isoformat()
 
 
 class FinvizFetcher:
@@ -24,7 +72,7 @@ class FinvizFetcher:
         Much faster than yfinance for basic metrics
         """
         try:
-            url = f"{FinvizFetcher.BASE_URL}/quote.ashx?t={symbol.upper()}"
+            url = f"{FinvizFetcher.BASE_URL}/quote.ashx?t={finviz_symbol(symbol)}"
             response = requests.get(url, headers=FinvizFetcher.HEADERS, timeout=5)
             response.raise_for_status()
             
@@ -62,7 +110,7 @@ class FinvizFetcher:
                 "market_cap": FinvizFetcher._parse_market_cap(fundamentals.get("Market Cap")),
                 "pe_ratio": FinvizFetcher._parse_float(fundamentals.get("P/E")),
                 "forward_pe": FinvizFetcher._parse_float(fundamentals.get("Forward P/E")),
-                "peg_ratio": FinvizFetcher._parse_float(fundamentals.get("PEG")),
+                "peg_ratio": meaningful_peg(FinvizFetcher._parse_float(fundamentals.get("PEG"))),
                 "price_to_sales": FinvizFetcher._parse_float(fundamentals.get("P/S")),
                 "price_to_book": FinvizFetcher._parse_float(fundamentals.get("P/B")),
                 
@@ -93,7 +141,7 @@ class FinvizFetcher:
                 "eps": FinvizFetcher._parse_float(fundamentals.get("EPS (ttm)")),
                 "eps_next_quarter": FinvizFetcher._parse_float(fundamentals.get("EPS next Q")),
                 "eps_next_year": FinvizFetcher._parse_float(fundamentals.get("EPS next Y")),
-                "earnings_date": fundamentals.get("Earnings", ""),
+                "earnings_date": normalize_earnings_date(fundamentals.get("Earnings", "")),
                 
                 # Trading
                 "shares_outstanding": FinvizFetcher._parse_shares(fundamentals.get("Shs Outstand")),
@@ -130,7 +178,7 @@ class FinvizFetcher:
         """
         try:
             import yfinance as yf
-            info = yf.Ticker(symbol.upper()).info or {}
+            info = yf.Ticker(yahoo_symbol(symbol)).info or {}
         except Exception as e:
             print(f"yfinance fundamentals error for {symbol}: {e}")
             return {"symbol": symbol.upper(), "error": str(e), "fetched_at": datetime.utcnow().isoformat()}
@@ -149,7 +197,8 @@ class FinvizFetcher:
 
         de = num("debtToEquity")
         rec = num("recommendationMean")
-        ets = info.get("earningsTimestamp")
+        # earningsTimestampStart is the next scheduled report; earningsTimestamp can be the last one.
+        ets = info.get("earningsTimestampStart") or info.get("earningsTimestamp")
         return {
             "symbol": symbol.upper(),
             "company_name": info.get("longName") or info.get("shortName"),
@@ -162,7 +211,7 @@ class FinvizFetcher:
             "market_cap": num("marketCap"),
             "pe_ratio": num("trailingPE"),
             "forward_pe": num("forwardPE"),
-            "peg_ratio": num("trailingPegRatio") or num("pegRatio"),
+            "peg_ratio": meaningful_peg(num("trailingPegRatio") or num("pegRatio")),
             "price_to_sales": num("priceToSalesTrailing12Months"),
             "price_to_book": num("priceToBook"),
             "dividend_yield": pct("trailingAnnualDividendYield"),
@@ -180,7 +229,7 @@ class FinvizFetcher:
             "beta": num("beta"),
             "eps": num("trailingEps"),
             "eps_next_year": num("forwardEps"),
-            "earnings_date": datetime.utcfromtimestamp(ets).strftime("%b %d") if isinstance(ets, (int, float)) else "",
+            "earnings_date": normalize_earnings_date(ets if isinstance(ets, (int, float)) else ""),
             "shares_outstanding": num("sharesOutstanding"),
             "shares_float": num("floatShares"),
             "short_float": pct("shortPercentOfFloat"),
