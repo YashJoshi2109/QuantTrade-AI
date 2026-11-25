@@ -111,6 +111,35 @@ export function citationChipText(c: CitationData): string {
   return c.label
 }
 
+function shortDate(iso?: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? String(iso).slice(0, 10) : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+/** Human source label for a citation pill: "Q3 FY2026 10-Q", "10-K FY2025 · Risk Factors",
+ *  "Reuters · Nov 23, 2026", "AAPL quote · Nov 25, 2026", "FRED FEDFUNDS · Oct 1, 2026". */
+export function citationShortLabel(c: CitationData): string {
+  switch (c.kind) {
+    case 'statement':
+      return [c.period, c.filing_type].filter(Boolean).join(' ') || c.label
+    case 'filing':
+      return [`${c.filing_type ?? 'Filing'}${c.fiscal_year ? ` FY${c.fiscal_year}` : ''}`, c.section].filter(Boolean).join(' · ')
+    case 'news':
+      return [c.publisher || 'News', shortDate(c.published_at ?? c.as_of)].filter(Boolean).join(' · ')
+    case 'macro':
+      return [c.source, shortDate(c.as_of)].filter(Boolean).join(' · ')
+    default:
+      return [c.label, shortDate(c.as_of)].filter(Boolean).join(' · ')
+  }
+}
+
+/** Fundamentals API contract: margins / ROE / ROA / dividend yield are percentage
+ *  points (27.6 == 27.6 %) for every fetcher (backend fundamental_units.py). */
+export function formatPercentPoints(v: number | null | undefined, digits = 1): string | null {
+  return v == null || !Number.isFinite(v) ? null : `${v.toFixed(digits)}%`
+}
+
 export function formatCompactNumber(v: number | null | undefined, prefix = ''): string {
   if (v == null || !Number.isFinite(v)) return '—'
   const a = Math.abs(v)

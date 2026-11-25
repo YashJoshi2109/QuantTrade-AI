@@ -233,7 +233,7 @@ export function SnapshotCard({ data }: { data: StockAnalysisData }) {
           {fund?.eps != null && <span><span className="text-fg-muted">EPS </span><span className="font-mono text-fg-secondary">{fmt(fund.eps)}</span></span>}
           {fund?.beta != null && <span><span className="text-fg-muted">β </span><span className="font-mono text-fg-secondary">{fund.beta.toFixed(2)}</span></span>}
           {fund?.dividend_yield != null && fund.dividend_yield > 0 && (
-            <span><span className="text-fg-muted">Div </span><span className="font-mono text-fg-secondary">{(fund.dividend_yield * 100).toFixed(2)}%</span></span>
+            <span><span className="text-fg-muted">Div </span><span className="font-mono text-fg-secondary">{fund.dividend_yield.toFixed(2)}%</span></span>
           )}
         </div>
       </div>

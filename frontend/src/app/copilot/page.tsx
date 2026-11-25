@@ -63,7 +63,6 @@ import {
 } from '@/lib/copilot-engine'
 import {
   fetchFinnhubQuote,
-  fetchQuote,
   fetchFundamentals,
   fetchIndicators,
   listConversations,
@@ -91,6 +90,8 @@ import TickerContextCard from '@/components/copilot/TickerContextCard'
 import CitationSourcePanel from '@/components/copilot/CitationSourcePanel'
 import {
   citationChipText,
+  citationShortLabel,
+  formatPercentPoints,
   citationIdFromHref,
   citationKindLabel,
   linkifyCitations,
@@ -98,6 +99,31 @@ import {
   suggestedQuestions,
 } from '@/lib/copilot-handoff'
 import { cn } from '@/lib/utils'
+
+const CITATION_ICONS: Record<string, typeof FileText> = {
+  filing: FileText, statement: BarChart3, news: Globe, forecast: TrendingUp, quote: Activity,
+  fundamentals: PieChart, technicals: Activity, macro: Globe, movers: Zap,
+}
+
+/** Context-pack quote -> the side panel's QuoteData (single source of truth for price). */
+function packQuoteToQuoteData(ctx: TickerContext): QuoteData | null {
+  const q = ctx.quote
+  if (!q || q.price == null) return null
+  return {
+    symbol: ctx.ticker,
+    price: q.price,
+    change: q.change ?? 0,
+    change_percent: q.change_percent ?? 0,
+    volume: q.volume ?? 0,
+    high: q.day_high ?? 0,
+    low: q.day_low ?? 0,
+    open: 0,
+    previous_close: q.previous_close ?? 0,
+    timestamp: q.as_of ?? '',
+    market_status: q.market_session ?? undefined,
+    data_source: q.source,
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -192,12 +218,12 @@ function FundamentalsCard({ data }: { data: StockAnalysisData }) {
     { label: 'EPS', value: f.eps ? `$${f.eps.toFixed(2)}` : null },
     { label: 'Mkt Cap', value: f.market_cap ? formatLargeNumber(f.market_cap) : null },
     { label: 'P/B', value: f.price_to_book?.toFixed(2) },
-    { label: 'Profit Mgn', value: f.profit_margin ? `${(f.profit_margin * 100).toFixed(1)}%` : null },
-    { label: 'Op Mgn', value: f.operating_margin ? `${(f.operating_margin * 100).toFixed(1)}%` : null },
-    { label: 'ROE', value: f.roe ? `${(f.roe * 100).toFixed(1)}%` : null },
+    { label: 'Profit Mgn', value: formatPercentPoints(f.profit_margin) },
+    { label: 'Op Mgn', value: formatPercentPoints(f.operating_margin) },
+    { label: 'ROE', value: formatPercentPoints(f.roe) },
     { label: 'D/E', value: f.debt_to_equity?.toFixed(2) },
     { label: 'Beta', value: f.beta?.toFixed(2) },
-    { label: 'Div Yield', value: f.dividend_yield ? `${(f.dividend_yield * 100).toFixed(2)}%` : null },
+    { label: 'Div Yield', value: f.dividend_yield ? formatPercentPoints(f.dividend_yield, 2) : null },
   ].filter((m) => m.value != null)
 
   return (
@@ -765,30 +791,26 @@ function MessageBubble({
               <FileText className="w-3 h-3" />
               {msg.citations.length} source{msg.citations.length !== 1 ? 's' : ''} cited
             </p>
-            {/* Horizontal scrollable citation cards */}
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-line-subtle scrollbar-track-transparent">
-              {msg.citations.slice(0, 12).map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => onCitationClick?.(c)}
-                  className="shrink-0 flex flex-col gap-1 p-2 rounded-xl border border-[rgba(0,122,255,0.18)] bg-[rgba(0,122,255,0.04)] hover:bg-[rgba(0,122,255,0.1)] hover:border-[rgba(0,122,255,0.4)] transition-all text-left group cursor-pointer"
-                  style={{ minWidth: 140, maxWidth: 160 }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="w-4 h-4 rounded bg-[#007AFF]/25 text-[#007AFF] flex items-center justify-center font-bold text-[9px] shrink-0">
+            {/* Source pills: number + type icon + readable source label (wraps, no clipping) */}
+            <div className="flex flex-wrap gap-1.5" data-testid="citation-pills">
+              {msg.citations.slice(0, 12).map((c) => {
+                const KindIcon = CITATION_ICONS[c.kind] ?? FileText
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => onCitationClick?.(c)}
+                    title={`${citationKindLabel(c.kind)} · ${citationChipText(c)}`}
+                    className="group inline-flex !min-h-0 max-w-full items-center gap-1.5 rounded-full border border-line-subtle bg-surface-raised py-1 pl-1 pr-2.5 text-left text-[11px] text-fg-primary transition-colors hover:border-[#007AFF]/50 hover:bg-[#007AFF]/10"
+                  >
+                    <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-[#007AFF]/15 px-1 text-[9px] font-bold text-[#0060c9] dark:bg-[#007AFF]/30 dark:text-[#8fc6ff]">
                       {c.n}
                     </span>
-                    <ExternalLink className="w-2.5 h-2.5 text-fg-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <div className="space-y-0.5 min-w-0">
-                    <p className="text-[10px] font-semibold text-fg-primary leading-tight line-clamp-2">
-                      {citationChipText(c)}
-                    </p>
-                    <p className="text-[9px] text-[#007AFF] font-medium truncate">{citationKindLabel(c.kind)}</p>
-                    <p className="text-[9px] text-fg-muted truncate">{c.filed_date ?? c.as_of?.slice(0, 10) ?? ''}</p>
-                  </div>
-                </button>
-              ))}
+                    <KindIcon className="h-3 w-3 shrink-0 text-[#007AFF]" aria-hidden />
+                    <span className="truncate font-medium">{citationShortLabel(c)}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
@@ -900,7 +922,7 @@ function StockQuickPanel({
             <span className="text-[10px] text-fg-muted truncate max-w-[100px]">{fundamentals.company_name}</span>
           )}
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-raised/60 text-fg-muted hover:text-white transition-colors">
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-raised/60 text-fg-muted hover:text-fg-primary transition-colors">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -915,17 +937,22 @@ function StockQuickPanel({
             <span className="text-sm font-semibold tabular-nums" style={{ color: changeColor }}>
               {isUp ? '+' : ''}{quote.change?.toFixed(2)} ({isUp ? '+' : ''}{quote.change_percent?.toFixed(2)}%)
             </span>
-            {quote.data_source && <span className="text-[9px] text-fg-muted font-mono">{quote.data_source}</span>}
+            {quote.data_source && (
+              <span className="text-[9px] text-fg-muted font-mono text-right">
+                {quote.data_source}
+                {quote.timestamp ? ` · ${new Date(quote.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+              </span>
+            )}
           </div>
 
           {/* OHLV row */}
-          <div className="grid grid-cols-4 gap-1 mt-3 pt-3 border-t border-[rgba(255,255,255,0.06)]">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(64px,1fr))] gap-1 mt-3 pt-3 border-t border-line-subtle">
             {[
-              { l: 'O', v: quote.open },
-              { l: 'H', v: quote.high },
-              { l: 'L', v: quote.low },
-              { l: 'C', v: quote.previous_close },
-            ].map(({ l, v }) => (
+              { l: 'Open', v: quote.open },
+              { l: 'High', v: quote.high },
+              { l: 'Low', v: quote.low },
+              { l: 'Prev close', v: quote.previous_close },
+            ].filter(({ v }) => v != null && v > 0).map(({ l, v }) => (
               <div key={l} className="text-center">
                 <p className="text-[9px] text-fg-muted">{l}</p>
                 <p className="text-[11px] font-semibold text-fg-secondary tabular-nums">
@@ -937,12 +964,12 @@ function StockQuickPanel({
 
           {/* 52W range bar */}
           {fundamentals?.week_52_high && fundamentals?.week_52_low && quote.price && (
-            <div className="mt-3 pt-3 border-t border-[rgba(255,255,255,0.06)]">
+            <div className="mt-3 pt-3 border-t border-line-subtle">
               <div className="flex justify-between text-[9px] text-fg-muted mb-1">
                 <span>52W Low ${fundamentals.week_52_low.toFixed(0)}</span>
                 <span>52W High ${fundamentals.week_52_high.toFixed(0)}</span>
               </div>
-              <div className="h-1.5 rounded-full bg-[rgba(255,255,255,0.06)] relative overflow-hidden">
+              <div className="h-1.5 rounded-full bg-line-subtle relative overflow-hidden">
                 <div className="h-full rounded-full bg-gradient-to-r from-red-500 via-[#007AFF] to-emerald-500 opacity-30" style={{ width: '100%' }} />
                 <div className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white border border-[#007AFF]"
                   style={{ left: `${((quote.price - fundamentals.week_52_low) / (fundamentals.week_52_high - fundamentals.week_52_low) * 100).toFixed(1)}%`, transform: 'translate(-50%,-50%)' }} />
@@ -1012,9 +1039,9 @@ function StockQuickPanel({
                 { label: 'P/B',           val: fundamentals.price_to_book?.toFixed(2) ?? '—' },
                 { label: 'EPS',           val: fundamentals.eps != null ? `$${fundamentals.eps.toFixed(2)}` : '—' },
                 { label: 'Beta',          val: fundamentals.beta?.toFixed(2) ?? '—' },
-                { label: 'ROE',           val: fundamentals.roe != null ? `${(fundamentals.roe * 100).toFixed(1)}%` : '—' },
+                { label: 'ROE',           val: formatPercentPoints(fundamentals.roe) ?? '—' },
                 { label: 'Debt/Equity',   val: fundamentals.debt_to_equity?.toFixed(2) ?? '—' },
-                { label: 'Profit Margin', val: fundamentals.profit_margin != null ? `${(fundamentals.profit_margin * 100).toFixed(1)}%` : '—' },
+                { label: 'Profit Margin', val: formatPercentPoints(fundamentals.profit_margin) ?? '—' },
                 { label: 'Target Price',  val: fmt(fundamentals.target_price) },
               ].filter(r => r.val !== '—').map(({ label, val }) => (
                 <div key={label}>
@@ -1031,7 +1058,7 @@ function StockQuickPanel({
                 <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
                   fundamentals.recommendation?.toLowerCase().includes('buy') ? 'bg-emerald-500/20 text-emerald-400' :
                   fundamentals.recommendation?.toLowerCase().includes('sell') ? 'bg-red-500/20 text-red-400' :
-                  'bg-[rgba(255,255,255,0.08)] text-fg-secondary'
+                  'bg-line-subtle text-fg-secondary'
                 }`}>
                   {fundamentals.recommendation}
                 </span>
@@ -2053,6 +2080,8 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
         },
         {
           onContext: (ctx) => {
+            const pq = packQuoteToQuoteData(ctx)
+            if (pq) setQuickQuote((prev) => (!prev || prev.symbol === pq.symbol || ctx.ticker === focus ? pq : prev))
             // The card follows the pinned symbol; otherwise the first ticker of this answer.
             setTickerContext((prev) => (!focus || ctx.ticker === focus || !prev ? ctx : prev))
           },
@@ -2075,12 +2104,12 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
             )
             // Fetch quote + fundamentals + technicals in parallel when ticker detected
             if (symbol) {
+              // The quote comes from the context pack (onContext) so the side panel,
+              // the ticker card and the answer show one price / as-of.
               Promise.allSettled([
-                fetchQuote(symbol, 'high'),
                 fetchFundamentals(symbol),
                 fetchIndicators(symbol),
-              ]).then(([qRes, fRes, iRes]) => {
-                if (qRes.status === 'fulfilled') setQuickQuote(qRes.value)
+              ]).then(([fRes, iRes]) => {
                 if (fRes.status === 'fulfilled') setStockFundamentals(fRes.value)
                 if (iRes.status === 'fulfilled') setStockIndicators(iRes.value)
               })
@@ -2578,7 +2607,7 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
             animate={{ width: '45%', opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="hidden lg:flex flex-col border-l border-line-subtle bg-[#0A0E1A] overflow-hidden"
+            className="hidden lg:flex flex-col border-l border-line-subtle bg-white dark:bg-[#0A0E1A] overflow-hidden"
           >
             <AnalysisDashboard data={analysisData} onClose={() => setShowDashboard(false)} />
           </motion.div>
@@ -2589,7 +2618,7 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
             animate={{ width: '38%', opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.28, ease: 'easeInOut' }}
-            className="hidden lg:flex flex-col border-l border-line-subtle bg-[#08091A] overflow-hidden"
+            className="hidden lg:flex flex-col border-l border-line-subtle bg-white dark:bg-[#08091A] overflow-hidden"
           >
             <StockQuickPanel
               quote={quickQuote}
@@ -2655,11 +2684,11 @@ export default function CopilotPage() {
           <CopilotInner variant="desktop" />
         </AppLayout>
       </div>
-      <div className="md:hidden flex flex-col h-[100dvh] bg-[#0A0E1A] overflow-hidden text-white">
+      <div className="md:hidden flex flex-col h-[100dvh] bg-surface-base overflow-hidden text-fg-primary dark:bg-[#0A0E1A]">
         <div className="flex-1 overflow-hidden flex flex-col pt-safe">
           <CopilotInner variant="mobile" />
         </div>
-        <div className="shrink-0 h-[80px] pb-safe bg-[#0A0E1A]" />
+        <div className="shrink-0 h-[80px] pb-safe bg-surface-base dark:bg-[#0A0E1A]" />
         <BottomNav />
       </div>
     </>

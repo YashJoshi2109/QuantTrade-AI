@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   buildCopilotHref,
   citationIdFromHref,
+  citationShortLabel,
+  formatPercentPoints,
   citationIds,
   linkifyCitations,
   normalizeSymbol,
@@ -36,6 +38,21 @@ describe('copilot handoff', () => {
         identity: { status: 'changed', successor_symbol: 'PSKY' } },
     )
     expect(moved).toContain('Analyze PSKY')
+  })
+})
+
+describe('source labels and units', () => {
+  it('labels citation pills by source', () => {
+    const base = { id: 'x', n: 1, source: 's', label: 'L' }
+    expect(citationShortLabel({ ...base, kind: 'statement', period: 'Q3 FY2026', filing_type: '10-Q' } as CitationData)).toBe('Q3 FY2026 10-Q')
+    expect(citationShortLabel({ ...base, kind: 'filing', filing_type: '10-K', fiscal_year: 2026, section: 'Risk Factors' } as CitationData)).toBe('10-K FY2026 · Risk Factors')
+    expect(citationShortLabel({ ...base, kind: 'news', publisher: 'Reuters', published_at: '2026-11-23T12:00:00Z' } as CitationData)).toMatch(/^Reuters · Nov 2\d, 2026$/)
+  })
+
+  it('formats fundamentals as percentage points (never x100 again)', () => {
+    expect(formatPercentPoints(142.26)).toBe('142.3%')
+    expect(formatPercentPoints(0.3, 2)).toBe('0.30%')
+    expect(formatPercentPoints(null)).toBeNull()
   })
 })
 

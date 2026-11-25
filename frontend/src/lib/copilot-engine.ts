@@ -235,6 +235,10 @@ export interface TickerContextQuote {
   as_of?: string | null
   source: string
   market_session?: string | null
+  volume?: number | null
+  previous_close?: number | null
+  day_high?: number | null
+  day_low?: number | null
 }
 
 export interface TickerContextNews {
