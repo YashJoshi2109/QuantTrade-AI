@@ -67,14 +67,8 @@ def _compute(ticker: str) -> dict:
     return out
 
 
-@router.get("/forecast/{ticker}")
-async def get_forecast(ticker: str, refresh: bool = False):
-    """Price forecast with calibrated 50/80/95% bands for 1, 5 and 20 trading days,
-    plus walk-forward accuracy versus a random-walk (naive) baseline."""
-    t = ticker.upper().strip()
-    if not _TICKER_RE.match(t):
-        raise HTTPException(status_code=400, detail="Invalid ticker")
-
+async def _get_or_compute(t: str, refresh: bool = False) -> dict:
+    """Cached forecast for a validated ticker; concurrent callers share one fit."""
     key = f"forecast:{_CACHE_VERSION}:{t}"
     if not refresh:
         cached = await cache_service.get(key)
@@ -87,14 +81,67 @@ async def get_forecast(ticker: str, refresh: bool = False):
             cached = await cache_service.get(key)
             if cached:
                 return cached
-        try:
-            result = await asyncio.wait_for(asyncio.to_thread(_compute, t), timeout=90)
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
-        except asyncio.TimeoutError:
-            raise HTTPException(status_code=504, detail="Forecast timed out — try again shortly")
-        except Exception:
-            logger.exception("forecast failed for %s", t)
-            raise HTTPException(status_code=503, detail="Forecast temporarily unavailable")
+        result = await asyncio.wait_for(asyncio.to_thread(_compute, t), timeout=90)
         await cache_service.set(key, result, ttl=_seconds_to_next_close())
         return result
+
+
+@router.get("/forecast/{ticker}")
+async def get_forecast(ticker: str, refresh: bool = False):
+    """Price forecast with calibrated 50/80/95% bands for 1, 5 and 20 trading days,
+    plus walk-forward accuracy versus a random-walk (naive) baseline."""
+    t = ticker.upper().strip()
+    if not _TICKER_RE.match(t):
+        raise HTTPException(status_code=400, detail="Invalid ticker")
+    try:
+        return await _get_or_compute(t, refresh)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Forecast timed out — try again shortly")
+    except Exception:
+        logger.exception("forecast failed for %s", t)
+        raise HTTPException(status_code=503, detail="Forecast temporarily unavailable")
+
+
+# ── Cache warming ──────────────────────────────────────────────────────────
+# A cold fit takes ~4s locally but up to ~60s on the burstable prod instance,
+# and starves other requests of CPU meanwhile. Pre-compute the most viewed
+# tickers right after each close so users nearly always hit the cache.
+
+WARM_TICKERS = (
+    "SPY", "QQQ", "IWM", "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA",
+    "AVGO", "AMD", "NFLX", "PLTR", "JPM", "V", "MA", "BRK.B", "LLY", "UNH",
+    "XOM", "COST", "WMT", "ORCL", "CRM", "INTC", "DIS", "BA", "COIN", "SOFI",
+)
+_WARM_PAUSE_S = 3.0  # between fits, so interactive requests get the CPU
+
+
+async def warm_forecasts(tickers=WARM_TICKERS, pause: float = _WARM_PAUSE_S) -> int:
+    """Fill the cache for tickers that are missing it. Returns how many were fitted."""
+    fitted = 0
+    for t in tickers:
+        key = f"forecast:{_CACHE_VERSION}:{t}"
+        try:
+            if await cache_service.get(key):
+                continue
+            await _get_or_compute(t)
+            fitted += 1
+        except Exception as e:  # one bad ticker must not stop the rest
+            logger.warning("forecast warm failed for %s: %s", t, e)
+        await asyncio.sleep(pause)
+    return fitted
+
+
+async def forecast_warm_loop(initial_delay: float = 120.0) -> None:
+    """Warm once after startup, then ~15 min after each cache expiry (post-close)."""
+    await asyncio.sleep(initial_delay)
+    while True:
+        try:
+            n = await warm_forecasts()
+            logger.info("forecast cache warmed: %d fitted", n)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("forecast warm loop error")
+        await asyncio.sleep(_seconds_to_next_close() + 900)
