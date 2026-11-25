@@ -53,6 +53,7 @@ import {
   type CopilotIntent,
   type CopilotMeta,
   type CitationData,
+  type TickerContext,
   formatLargeNumber,
   formatPercent,
   formatPrice,
@@ -69,6 +70,7 @@ import {
   getConversationMessages,
   deleteConversation,
   getCopilotUsage,
+  fetchCopilotContext,
   type QuoteData,
   type FundamentalsData,
   type Indicators,
@@ -85,6 +87,16 @@ import {
   InlineStructuredSnapshots,
   SnapshotCard,
 } from '@/components/copilot/copilot-snapshot-cards'
+import TickerContextCard from '@/components/copilot/TickerContextCard'
+import CitationSourcePanel from '@/components/copilot/CitationSourcePanel'
+import {
+  citationChipText,
+  citationIdFromHref,
+  citationKindLabel,
+  linkifyCitations,
+  parseCopilotParams,
+  suggestedQuestions,
+} from '@/lib/copilot-handoff'
 import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -616,6 +628,9 @@ function MessageBubble({
   onCitationClick?: (c: CitationData) => void
 }) {
   const isUser = msg.role === 'user'
+  const citeById = (id: string): CitationData =>
+    msg.citations?.find((c) => c.id === id) ??
+    ({ id, n: 0, kind: id.split(':')[0], source: 'Source details arrive when the answer finishes', label: id } as CitationData)
 
   return (
     <motion.div
@@ -711,9 +726,30 @@ function MessageBubble({
                     </blockquote>
                   ),
                   hr: () => <hr className="border-line-subtle my-3" />,
+                  a: ({ href, children }) => {
+                    const cid = citationIdFromHref(href)
+                    if (cid) {
+                      const c = citeById(cid)
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => onCitationClick?.(c)}
+                          title={`${citationKindLabel(c.kind)} · ${c.label}`}
+                          className="mx-0.5 inline-flex !h-4 !min-h-0 min-w-4 !py-0 leading-none -translate-y-px items-center justify-center rounded bg-[#007AFF]/15 px-1 align-middle text-[9px] font-bold text-[#0060c9] dark:bg-[#007AFF]/25 dark:text-[#8fc6ff] transition-colors hover:bg-[#007AFF] hover:text-white"
+                        >
+                          {children}
+                        </button>
+                      )
+                    }
+                    return (
+                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#4da3ff] underline">
+                        {children}
+                      </a>
+                    )
+                  },
                 }}
               >
-                {msg.content}
+                {linkifyCitations(msg.content, msg.streaming ? null : msg.citations)}
               </ReactMarkdown>
               {msg.streaming && (
                 <span className="inline-block w-1.5 h-4 bg-[#007AFF] rounded-sm animate-pulse ml-0.5 -mb-0.5" />
@@ -727,29 +763,29 @@ function MessageBubble({
           <div className="mt-2.5 px-1">
             <p className="text-[10px] text-fg-muted mb-1.5 flex items-center gap-1">
               <FileText className="w-3 h-3" />
-              {msg.citations.length} SEC source{msg.citations.length !== 1 ? 's' : ''}
+              {msg.citations.length} source{msg.citations.length !== 1 ? 's' : ''} cited
             </p>
             {/* Horizontal scrollable citation cards */}
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-line-subtle scrollbar-track-transparent">
-              {msg.citations.slice(0, 8).map((c) => (
+              {msg.citations.slice(0, 12).map((c) => (
                 <button
-                  key={c.source_n}
+                  key={c.id}
                   onClick={() => onCitationClick?.(c)}
                   className="shrink-0 flex flex-col gap-1 p-2 rounded-xl border border-[rgba(0,122,255,0.18)] bg-[rgba(0,122,255,0.04)] hover:bg-[rgba(0,122,255,0.1)] hover:border-[rgba(0,122,255,0.4)] transition-all text-left group cursor-pointer"
                   style={{ minWidth: 140, maxWidth: 160 }}
                 >
                   <div className="flex items-center justify-between">
                     <span className="w-4 h-4 rounded bg-[#007AFF]/25 text-[#007AFF] flex items-center justify-center font-bold text-[9px] shrink-0">
-                      {c.source_n}
+                      {c.n}
                     </span>
                     <ExternalLink className="w-2.5 h-2.5 text-fg-muted opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] font-semibold text-fg-primary leading-tight">
-                      {c.ticker} {c.filing_type}
+                  <div className="space-y-0.5 min-w-0">
+                    <p className="text-[10px] font-semibold text-fg-primary leading-tight line-clamp-2">
+                      {citationChipText(c)}
                     </p>
-                    <p className="text-[9px] text-[#007AFF] font-medium truncate">{c.section}</p>
-                    <p className="text-[9px] text-fg-muted">{c.filed_date}</p>
+                    <p className="text-[9px] text-[#007AFF] font-medium truncate">{citationKindLabel(c.kind)}</p>
+                    <p className="text-[9px] text-fg-muted truncate">{c.filed_date ?? c.as_of?.slice(0, 10) ?? ''}</p>
                   </div>
                 </button>
               ))}
@@ -775,107 +811,6 @@ function MessageBubble({
         )}
       </div>
     </motion.div>
-  )
-}
-
-// ─── SEC Document Side Panel ─────────────────────────────────────────────────
-
-function SECDocPanel({
-  citation,
-  onClose,
-}: {
-  citation: CitationData
-  onClose: () => void
-}) {
-  const scoreColor =
-    citation.score >= 0.85 ? '#22c55e' : citation.score >= 0.7 ? '#eab308' : '#94a3b8'
-
-  return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-line-subtle shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <FileText className="w-4 h-4 text-[#007AFF] shrink-0" />
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-fg-primary truncate">
-              {citation.ticker} · {citation.filing_type} {citation.fiscal_year}
-            </p>
-            <p className="text-[10px] text-fg-muted truncate">{citation.section}</p>
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-surface-raised/60 text-fg-muted hover:text-white transition-colors shrink-0 ml-2"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Meta row */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-line-subtle shrink-0 bg-[rgba(0,122,255,0.03)]">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[9px] font-mono text-fg-muted uppercase tracking-wider">Relevance</span>
-          <span className="text-[10px] font-bold" style={{ color: scoreColor }}>
-            {Math.round(citation.score * 100)}%
-          </span>
-        </div>
-        <div className="w-px h-3 bg-line-subtle" />
-        <span className="text-[10px] text-fg-muted">Filed {citation.filed_date}</span>
-        <div className="w-px h-3 bg-line-subtle" />
-        <span className="text-[9px] text-[#007AFF] font-medium">Source {citation.source_n}</span>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {citation.snippet ? (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-[9px] font-mono text-fg-muted uppercase tracking-wider">Extracted passage</span>
-              <div className="flex-1 h-px bg-line-subtle" />
-            </div>
-            <div className="relative">
-              {/* Left accent line */}
-              <div className="absolute left-0 top-0 bottom-0 w-0.5 rounded-full bg-gradient-to-b from-[#007AFF] to-cyan-500" />
-              <p className="pl-4 text-sm text-fg-secondary leading-relaxed font-serif">
-                {citation.snippet}
-                {citation.snippet.length >= 320 && (
-                  <span className="text-fg-muted italic"> …[excerpt]</span>
-                )}
-              </p>
-            </div>
-
-            {/* Section tag */}
-            <div className="mt-4 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[rgba(0,122,255,0.1)] text-[10px] text-[#007AFF] font-medium border border-[rgba(0,122,255,0.2)]">
-                <FileText className="w-2.5 h-2.5" />
-                {citation.section}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-32 gap-2 text-fg-muted">
-            <FileText className="w-8 h-8 opacity-30" />
-            <p className="text-xs">No excerpt available for this source</p>
-          </div>
-        )}
-
-        {/* Filing info card */}
-        <div className="mt-5 rounded-xl border border-line-subtle bg-surface-base p-3 space-y-2">
-          <p className="text-[10px] font-mono text-fg-muted uppercase tracking-wider mb-1">Filing details</p>
-          {[
-            ['Ticker', citation.ticker],
-            ['Form', citation.filing_type],
-            ['Fiscal year', String(citation.fiscal_year)],
-            ['Filed', citation.filed_date],
-          ].map(([label, val]) => (
-            <div key={label} className="flex justify-between items-center">
-              <span className="text-[11px] text-fg-muted">{label}</span>
-              <span className="text-[11px] font-semibold text-fg-primary">{val}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -1132,10 +1067,10 @@ function StockQuickPanel({
             </p>
             <div className="space-y-1.5">
               {relatedCitations.slice(0, 4).map((c) => (
-                <button key={c.source_n} onClick={() => onCitationClick?.(c)}
+                <button key={c.id} onClick={() => onCitationClick?.(c)}
                   className="w-full flex items-center gap-2 p-2 rounded-lg border border-[rgba(0,122,255,0.15)] bg-[rgba(0,122,255,0.04)] hover:bg-[rgba(0,122,255,0.1)] hover:border-[rgba(0,122,255,0.35)] transition-all text-left group"
                 >
-                  <span className="shrink-0 w-4 h-4 rounded bg-[#007AFF]/25 text-[#007AFF] flex items-center justify-center font-bold text-[9px]">{c.source_n}</span>
+                  <span className="shrink-0 w-4 h-4 rounded bg-[#007AFF]/25 text-[#007AFF] flex items-center justify-center font-bold text-[9px]">{c.n}</span>
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-semibold text-fg-secondary truncate">{c.filing_type} {c.fiscal_year} · {c.section}</p>
                     <p className="text-[9px] text-fg-muted">Filed {c.filed_date}</p>
@@ -1857,8 +1792,14 @@ function ConversationSidebar({
 
 // ─── Main Copilot ─────────────────────────────────────────────────────────────
 
-function CopilotInner() {
+function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
   const router = useRouter()
+  // Research -> Copilot handoff: /copilot?symbol=NVDA[&q=...]. The pinned symbol
+  // is sent with every message (the backend treats it as the primary ticker).
+  const [pinnedSymbol, setPinnedSymbol] = useState<string | null>(null)
+  const [tickerContext, setTickerContext] = useState<TickerContext | null>(null)
+  const [contextLoading, setContextLoading] = useState(false)
+  const autoAskedRef = useRef(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -2068,7 +2009,7 @@ function CopilotInner() {
   }, [activeConversationId, queryClient])
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, symbolOverride?: string | null) => {
       if (!text.trim() || streaming) return
 
       const userMsg: Message = {
@@ -2099,16 +2040,30 @@ function CopilotInner() {
       setStockIndicators(null)
       setCurrentIntent(undefined)
       setCurrentSymbol(null)
-      setActiveModel('claude-sonnet-4-6')
+      setActiveModel('claude-sonnet-5')
 
       abortRef.current = new AbortController()
+      const focus = symbolOverride ?? pinnedSymbol
 
       await streamCopilotAnalysis(
         {
           message: text.trim(),
+          symbol: focus,
           conversation_id: activeConversationId || undefined,
         },
         {
+          onContext: (ctx) => {
+            // The card follows the pinned symbol; otherwise the first ticker of this answer.
+            setTickerContext((prev) => (!focus || ctx.ticker === focus || !prev ? ctx : prev))
+          },
+
+          onFinalText: (finalText) => {
+            // Post-checks changed the streamed answer (removed bad citations, flagged numbers).
+            setMessages((prev) =>
+              prev.map((m) => (m.id === assistantMsgId ? { ...m, content: finalText } : m)),
+            )
+          },
+
           onIntent: (intent, symbol, symbols) => {
             setCurrentIntent(intent)
             setCurrentSymbol(symbol)
@@ -2258,8 +2213,40 @@ function CopilotInner() {
         abortRef.current.signal
       )
     },
-    [streaming, activeConversationId, queryClient]
+    [streaming, activeConversationId, queryClient, pinnedSymbol]
   )
+
+  // Read ?symbol= / ?q= once; load the context card immediately (no LLM call).
+  useEffect(() => {
+    const { symbol, q } = parseCopilotParams(window.location.search)
+    if (!symbol) return
+    setPinnedSymbol(symbol)
+    setContextLoading(true)
+    fetchCopilotContext(symbol)
+      .then((ctx) => {
+        if (ctx) setTickerContext(ctx)
+      })
+      .finally(() => setContextLoading(false))
+    // Both layouts are mounted; only the visible one may auto-send the prefilled question.
+    const visible = window.matchMedia('(min-width: 768px)').matches === (variant === 'desktop')
+    if (q && visible && !autoAskedRef.current) {
+      autoAskedRef.current = true
+      sendMessage(q, symbol)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const clearPinnedSymbol = () => {
+    setPinnedSymbol(null)
+    setTickerContext(null)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('symbol')
+    url.searchParams.delete('q')
+    window.history.replaceState(null, '', url.pathname + url.search)
+  }
+
+  const cardSymbol = pinnedSymbol ?? tickerContext?.ticker ?? null
+  const cardSuggestions = suggestedQuestions(tickerContext, cardSymbol)
 
   const stopStreaming = () => {
     abortRef.current?.abort()
@@ -2430,10 +2417,38 @@ function CopilotInner() {
             aria-hidden
           />
           <GlassFilter />
-          {!hasMessages ? (
+          {!hasMessages && cardSymbol ? (
+            <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-1 flex-col justify-start gap-3 overflow-y-auto py-2 md:justify-center">
+              <TickerContextCard
+                symbol={cardSymbol}
+                ctx={tickerContext}
+                loading={contextLoading}
+                suggestions={cardSuggestions}
+                onAsk={(q) => sendMessage(q)}
+                onClear={clearPinnedSymbol}
+                compact={variant === 'mobile'}
+                disabled={streaming || isAtLimit}
+              />
+              <p className="text-center text-[11px] text-fg-muted">
+                Ask anything about {cardSymbol}. Every number in the answer is cited to its source.
+              </p>
+            </div>
+          ) : !hasMessages ? (
             <WelcomeScreen onPrompt={(p) => sendMessage(p)} />
           ) : (
             <div className="relative z-10 space-y-4">
+              {cardSymbol && (
+                <TickerContextCard
+                  symbol={cardSymbol}
+                  ctx={tickerContext}
+                  loading={contextLoading}
+                  suggestions={streaming ? [] : cardSuggestions.slice(0, variant === 'mobile' ? 2 : 4)}
+                  onAsk={(q) => sendMessage(q)}
+                  onClear={pinnedSymbol ? clearPinnedSymbol : undefined}
+                  compact
+                  disabled={streaming || isAtLimit}
+                />
+              )}
               {messages.map((msg) => {
                 // Show Unicorn WebGL loading scene for empty streaming messages
                 if (msg.role === 'assistant' && msg.streaming && !msg.content) {
@@ -2511,14 +2526,39 @@ function CopilotInner() {
 
           {!isAtLimit && (
             <p className="mt-2.5 text-center text-[10px] leading-relaxed text-fg-muted">
-              Enter to send · Shift+Enter for new line · Full pipeline: RAG → Quant → LLM · Not
+              Enter to send · Shift+Enter for new line
+              {pinnedSymbol ? ` · Focused on ${pinnedSymbol}` : ''} · Answers cite their sources · Not
               financial advice
             </p>
           )}
         </div>
       </div>
 
-      {/* ─── Right Info Panel (SEC doc > Analysis dashboard > Quick quote) ─── */}
+      {/* ─── Source sheet below lg (the side panel is lg+ only) ─── */}
+      <AnimatePresence>
+        {activeCitation && (
+          <motion.div
+            key="source-sheet"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-end bg-black/60 lg:hidden"
+            onClick={() => setActiveCitation(null)}
+          >
+            <motion.div
+              initial={{ y: 40 }}
+              animate={{ y: 0 }}
+              exit={{ y: 40 }}
+              className="max-h-[75dvh] w-full overflow-hidden rounded-t-2xl border-t border-line-subtle bg-white pb-safe dark:bg-[#0b1020]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <CitationSourcePanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Right Info Panel (source > Analysis dashboard > Quick quote) ─── */}
       <AnimatePresence mode="wait">
         {activeCitation ? (
           <motion.div
@@ -2527,9 +2567,9 @@ function CopilotInner() {
             animate={{ width: '42%', opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.28, ease: 'easeInOut' }}
-            className="hidden lg:flex flex-col border-l border-line-subtle bg-[#08091A] overflow-hidden"
+            className="hidden lg:flex flex-col border-l border-line-subtle bg-white dark:bg-[#0b1020] overflow-hidden"
           >
-            <SECDocPanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
+            <CitationSourcePanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
           </motion.div>
         ) : showDashboard && analysisData ? (
           <motion.div
@@ -2557,7 +2597,7 @@ function CopilotInner() {
               indicators={stockIndicators}
               relatedCitations={messages
                 .flatMap((m) => m.citations ?? [])
-                .filter((c) => (currentSymbol ? c.ticker === currentSymbol : true))
+                .filter((c) => c.kind === 'filing' && (currentSymbol ? c.ticker === currentSymbol : true))
                 .slice(0, 4)}
               onClose={() => setQuickQuote(null)}
               onCitationClick={setActiveCitation}
@@ -2612,12 +2652,12 @@ export default function CopilotPage() {
     <>
       <div className="hidden md:block">
         <AppLayout hideFooter>
-          <CopilotInner />
+          <CopilotInner variant="desktop" />
         </AppLayout>
       </div>
       <div className="md:hidden flex flex-col h-[100dvh] bg-[#0A0E1A] overflow-hidden text-white">
         <div className="flex-1 overflow-hidden flex flex-col pt-safe">
-          <CopilotInner />
+          <CopilotInner variant="mobile" />
         </div>
         <div className="shrink-0 h-[80px] pb-safe bg-[#0A0E1A]" />
         <BottomNav />

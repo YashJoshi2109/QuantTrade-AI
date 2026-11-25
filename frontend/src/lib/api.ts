@@ -9,6 +9,7 @@ import {
   getExchangeById,
   type Continent,
 } from '@/lib/world-exchanges'
+import type { TickerContext } from '@/lib/copilot-engine'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -401,46 +402,7 @@ export async function syncNews(symbol: string): Promise<any> {
   return response.json()
 }
 
-// Phase 2: Chat
-export interface ChatMessage {
-  message: string
-  symbol?: string
-  include_news?: boolean
-  include_filings?: boolean
-  top_k?: number
-  session_id?: string
-  conversation_id?: string
-}
-
-export interface ResponseMeta {
-  symbol?: string
-  as_of?: string
-  ttl_expires_at?: string
-  data_freshness?: {
-    quote?: string
-    technicals?: string
-    news?: string
-    fundamentals?: string
-  }
-}
-
-export interface ChatResponse {
-  version?: string
-  request_id?: string
-  conversation_id?: string
-  message_id?: number
-  intent?: string
-  response: string
-  sources: string[]
-  context_docs: number
-  symbol?: string
-  session_id?: string
-  analysis_summary?: string
-  response_type?: string
-  structured_data?: Record<string, any>
-  meta?: ResponseMeta
-}
-
+// Phase 2: Chat (copilot answers stream via lib/copilot-engine.ts)
 export interface ConversationSummary {
   id: string
   title: string | null
@@ -488,17 +450,11 @@ async function apiFetchWithTimeout(
   return fetchWithTimeout(url, timeoutMs, { ...init, credentials: 'include' })
 }
 
-export async function sendChatMessage(message: ChatMessage): Promise<ChatResponse> {
+/** Ticker context card for the copilot (no LLM call). null when unknown / signed out. */
+export async function fetchCopilotContext(symbol: string): Promise<TickerContext | null> {
   const headers = await getAuthHeadersClient()
-  const response = await apiFetch(`${API_URL}/api/v1/chat`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(message),
-  })
-  if (!response.ok) {
-    if (response.status === 401) throw new Error('AUTH_REQUIRED')
-    throw new Error('Failed to send chat message')
-  }
+  const response = await apiFetch(`${API_URL}/api/v1/copilot/context/${encodeURIComponent(symbol)}`, { headers })
+  if (!response.ok) return null
   return response.json()
 }
 

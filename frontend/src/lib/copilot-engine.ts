@@ -193,28 +193,113 @@ export interface CopilotMeta {
 
 // ─── Citation ───────────────────────────────────────────────────────────────
 
+/** A cited fact. `id` is what the answer cites as `[id]` (quote:AAPL, fs:AAPL:2026-Q3,
+ *  news:123, filing:abc…, fc:AAPL, macro:FED_RATE …); `n` is display order. */
 export interface CitationData {
+  id: string
+  n: number
+  kind: 'quote' | 'fundamentals' | 'statement' | 'forecast' | 'technicals' | 'news' | 'filing' | 'macro' | 'movers' | string
+  source: string
   label: string
-  ticker: string
-  filing_type: string
-  fiscal_year: number
-  section: string
-  filed_date: string
-  score: number
-  source_n: number
+  as_of?: string | null
+  ticker?: string | null
+  // filing
+  filing_type?: string
+  fiscal_year?: number
+  section?: string
+  /** statement period label, e.g. "Q3 FY2026" */
+  period?: string
+  filed_date?: string
+  accession?: string
+  url?: string | null
   snippet?: string
+  score?: number
+  // news
+  title?: string
+  publisher?: string
+  published_at?: string
+  sentiment?: string | null
+  category?: string | null
+  suspicious?: boolean
+  /** legacy alias of n */
+  source_n?: number
+}
+
+// ─── Ticker context (SSE `context` event / GET /copilot/context/{symbol}) ────
+
+export interface TickerContextQuote {
+  id: string
+  price: number | null
+  change: number | null
+  change_percent: number | null
+  as_of?: string | null
+  source: string
+  market_session?: string | null
+}
+
+export interface TickerContextNews {
+  id: string
+  title: string
+  publisher?: string | null
+  url?: string | null
+  published_at?: string | null
+  sentiment?: string | null
+  category?: string | null
+  suspicious?: boolean
+}
+
+export interface TickerContext {
+  ticker: string
+  name?: string | null
+  asset_type: string
+  identity: { status: 'ok' | 'mismatch' | 'changed' | 'unknown'; note?: string | null; successor_symbol?: string | null }
+  built_at?: string
+  quote: TickerContextQuote | null
+  key_stats: Record<string, number | string | null>
+  key_stats_id?: string | null
+  forecast: { id: string; as_of?: string | null; horizon_days: number; p10: number | null; p50: number | null; p90: number | null; prob_up_pct?: number | null } | null
+  latest_statement: { id: string; period_label: string; form?: string | null; revenue?: number | null; net_income?: number | null; gross_margin_pct?: number | null; revenue_yoy_pct?: number | null; filed?: string | null } | null
+  news: TickerContextNews[]
+  filings: CitationData[]
+  errors: Record<string, string>
+  timings_ms?: Record<string, number>
+  cached?: boolean
+}
+
+export interface CopilotToolEvent {
+  id?: string
+  name: string
+  args: Record<string, unknown>
+  status: 'running' | 'done' | 'error'
+  facts?: number
+  error?: string | null
+}
+
+export interface CopilotDone {
+  request_id: string
+  conversation_id: string
+  model?: string | null
+  provider?: string | null
+  final_text?: string | null
+  refusal?: string | null
+  citations: CitationData[]
+  latency_ms?: Record<string, number>
+  postcheck?: { unverified_numbers?: string[]; invalid_citations?: string[]; policy_flags?: string[] } | null
 }
 
 // ─── SSE Event Handlers ─────────────────────────────────────────────────────
 
 export interface CopilotStreamCallbacks {
   onIntent?: (intent: CopilotIntent, symbol: string | null, symbols: string[]) => void
+  onContext?: (ctx: TickerContext) => void
   onStructuredData?: (data: CopilotStructuredData) => void
   onToken?: (text: string) => void
   onMeta?: (meta: CopilotMeta) => void
   onError?: (error: string) => void
-  onDone?: () => void
+  onDone?: (done?: CopilotDone) => void
+  onFinalText?: (text: string) => void
   onCitation?: (citation: CitationData) => void
+  onTool?: (tool: CopilotToolEvent) => void
   onToolCall?: (message: string) => void
   onToolResult?: (message: string) => void
   onNoFilings?: (symbol: string) => void
@@ -222,11 +307,8 @@ export interface CopilotStreamCallbacks {
 
 export interface CopilotStreamRequest {
   message: string
-  symbol?: string
+  symbol?: string | null
   conversation_id?: string
-  include_news?: boolean
-  include_filings?: boolean
-  top_k?: number
 }
 
 // ─── Stream Client ──────────────────────────────────────────────────────────
@@ -265,9 +347,6 @@ export async function streamCopilotAnalysis(
       message: request.message,
       symbol: request.symbol || null,
       conversation_id: request.conversation_id || null,
-      include_news: request.include_news ?? true,
-      include_filings: request.include_filings ?? true,
-      top_k: request.top_k ?? 5,
     }),
     signal,
   })
@@ -289,6 +368,9 @@ export async function streamCopilotAnalysis(
   let buffer = ''
   let detectedIntent: CopilotIntent = 'text'
   let doneCalled = false
+  // Outside the read loop: an `event:` line and its `data:` line can arrive in
+  // different network chunks.
+  let currentEvent = ''
 
   while (true) {
     const { done, value } = await reader.read()
@@ -297,8 +379,6 @@ export async function streamCopilotAnalysis(
     buffer += decoder.decode(value, { stream: true })
     const lines = buffer.split('\n')
     buffer = lines.pop() ?? ''
-
-    let currentEvent = ''
 
     for (const line of lines) {
       if (line.startsWith('event: ')) {
@@ -318,6 +398,18 @@ export async function streamCopilotAnalysis(
               )
               break
 
+            case 'context':
+              callbacks.onContext?.(data as TickerContext)
+              break
+
+            case 'tool': {
+              const t = data as CopilotToolEvent
+              callbacks.onTool?.(t)
+              if (t.status === 'running') callbacks.onToolCall?.(t.name)
+              else callbacks.onToolResult?.(t.name)
+              break
+            }
+
             case 'structured_data':
               callbacks.onStructuredData?.(data as CopilotStructuredData)
               break
@@ -335,7 +427,7 @@ export async function streamCopilotAnalysis(
               break
 
             case 'citation':
-              callbacks.onCitation?.(data as CitationData)
+              callbacks.onCitation?.({ ...(data as CitationData), source_n: (data as CitationData).n })
               break
 
             case 'token':
@@ -350,18 +442,20 @@ export async function streamCopilotAnalysis(
               callbacks.onError?.(data.message || 'Unknown error')
               break
 
-            case 'done':
-              // Bridge done payload → onMeta for backward compat (conversation_id tracking)
+            case 'done': {
+              const done = data as CopilotDone
+              if (done.final_text) callbacks.onFinalText?.(done.final_text)
               callbacks.onMeta?.({
-                request_id: data.request_id || '',
-                conversation_id: data.conversation_id || '',
-                sources: (data.citations || []).map((c: CitationData) => c.label),
+                request_id: done.request_id || '',
+                conversation_id: done.conversation_id || '',
+                sources: (done.citations || []).map((c) => c.label),
                 intent: detectedIntent,
-                model: data.model || 'claude-sonnet-4-6',
+                model: done.model || undefined,
               })
-              callbacks.onDone?.()
+              callbacks.onDone?.(done)
               doneCalled = true
               break
+            }
           }
         } catch {
           // Non-JSON data line, skip
