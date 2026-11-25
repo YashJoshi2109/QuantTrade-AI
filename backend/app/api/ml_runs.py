@@ -37,7 +37,7 @@ def _get_callback_secret() -> str:
         try:
             import json as _json
             client = boto3.client("secretsmanager", region_name=os.environ.get("AWS_REGION", "us-east-2"))
-            resp = client.get_secret_value(SecretId="quanttrade/ml-pipeline-hzDIpH")
+            resp = client.get_secret_value(SecretId=os.environ.get("ML_PIPELINE_SECRET_ID", "quanttrade/ml-pipeline-production"))
             val = _json.loads(resp["SecretString"]).get("ML_CALLBACK_SECRET", "")
             if val:
                 logger.info("ML_CALLBACK_SECRET loaded from Secrets Manager")

@@ -36,12 +36,25 @@ Parameters:
   MLKVNamespaceId:
     Type: String
     Description: Cloudflare KV namespace ID for ml-model-metadata
+  ScheduleState:
+    Type: String
+    Default: DISABLED
+    AllowedValues: [ENABLED, DISABLED]
+    Description: Nightly training schedules. Keep DISABLED until the pipeline runs end-to-end.
   CFApiToken:
     Type: String
     NoEcho: true
     Description: Cloudflare API token with KV edit permissions
 
 Resources:
+  # ── Secret consumed by Batch jobs (was a hard-coded ARN from the old account) ──
+  MLPipelineSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub quanttrade/ml-pipeline-${Environment}
+      Description: Secrets injected into ML Batch training containers
+      SecretString: !Sub '{"ML_CALLBACK_SECRET":"${MLCallbackSecret}"}'
+
   # ── S3 Bucket ─────────────────────────────────────────────────────
   MLArtifactsBucket:
     Type: AWS::S3::Bucket
@@ -263,7 +276,7 @@ Resources:
             Value: https://www.quanttrade.us
         Secrets:
           - Name: ML_CALLBACK_SECRET
-            ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:quanttrade/ml-pipeline-hzDIpH:ML_CALLBACK_SECRET::"
+            ValueFrom: !Sub "${MLPipelineSecret}:ML_CALLBACK_SECRET::"
         LogConfiguration:
           LogDriver: awslogs
           Options:
@@ -638,7 +651,7 @@ Resources:
       ScheduleExpressionTimezone: UTC
       FlexibleTimeWindow:
         Mode: 'OFF'
-      State: ENABLED
+      State: !Ref ScheduleState
       Target:
         Arn: !Ref MLNightlyPipeline
         RoleArn: !GetAtt EventBridgeRole.Arn
@@ -652,7 +665,7 @@ Resources:
       ScheduleExpressionTimezone: UTC
       FlexibleTimeWindow:
         Mode: 'OFF'
-      State: ENABLED
+      State: !Ref ScheduleState
       Target:
         Arn: !Ref MLNightlyPipeline
         RoleArn: !GetAtt EventBridgeRole.Arn
