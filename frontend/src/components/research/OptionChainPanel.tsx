@@ -30,7 +30,7 @@ function formatInt(val: number | null): string {
 }
 
 function ContractRow({ c, type }: { c: OptionContract; type: 'call' | 'put' }) {
-  const ivPct = c.implied_volatility !== null ? (c.implied_volatility * 100).toFixed(1) + '%' : '—'
+  const ivPct = c.implied_volatility != null ? (c.implied_volatility * 100).toFixed(1) + '%' : '—'
   return (
     <tr className="border-b border-line-subtle hover:bg-surface-hover transition-colors text-xs">
       <td className="py-1.5 px-2 font-mono text-fg-primary">{formatPrice(c.strike)}</td>
@@ -108,7 +108,7 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
   const expiration = selectedExpiration || expData?.expirations?.[0] || null
 
   // Fetch option chain for selected expiration
-  const { data: chainData, isLoading: chainLoading } = useQuery({
+  const { data: chainData, isLoading: chainLoading, error: chainError } = useQuery({
     queryKey: ['option-chain', symbol, expiration],
     queryFn: () => fetchOptionChain(symbol, expiration!),
     staleTime: 60_000,
@@ -126,16 +126,20 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
   )
   const pcRatio = totalCallVol > 0 ? (totalPutVol / totalCallVol).toFixed(2) : '—'
 
-  if (expError) {
+  const noExpirations = !expLoading && !expError && (expData?.expirations?.length ?? 0) === 0
+  if (expError || chainError || noExpirations) {
     return (
       <div className="col-span-12">
-        <div className="hud-panel p-5">
+        <div className="hud-panel p-5" role="status">
           <div className="flex items-center gap-2 mb-2">
             <Activity className="w-4 h-4 text-cyan-400" />
             <h3 className="font-bold text-sm text-fg-primary">Option Chain</h3>
           </div>
-          <p className="text-xs text-fg-muted">
-            Options data unavailable for {symbol}. Requires Public.com API key.
+          <p className="text-sm font-medium text-fg-secondary">Options data unavailable</p>
+          <p className="mt-1 text-xs text-fg-muted">
+            {noExpirations
+              ? `No listed option expirations were found for ${symbol}.`
+              : `The options feed did not respond for ${symbol}. Try again later.`}
           </p>
         </div>
       </div>
@@ -151,8 +155,11 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
             <Activity className="w-4 h-4 text-cyan-400" />
             <h3 className="font-bold text-sm text-fg-primary">Option Chain</h3>
             <span className="text-[9px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded">
-              Public.com
+              {chainData?.source || expData?.source || 'Public.com'}
             </span>
+            {(chainData?.source || expData?.source) === 'yfinance' && (
+              <span className="text-[9px] text-fg-muted">Greeks unavailable</span>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -228,7 +235,7 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
 
         {/* Content */}
         <div className="p-4">
-          {chainLoading ? (
+          {chainLoading || expLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-5 h-5 animate-spin text-cyan-400 mr-2" />
               <span className="text-xs text-fg-muted">Loading option chain...</span>

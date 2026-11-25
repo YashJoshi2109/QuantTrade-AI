@@ -299,15 +299,19 @@ class PublicClient:
 
             from public_api_sdk import InstrumentType
             from public_api_sdk.models import OrderInstrument
+            from public_api_sdk.models.option import OptionChainRequest
 
             account_id = getattr(client, '_qt_account_id', None)
             instrument = OrderInstrument(symbol=symbol.upper(), type=InstrumentType.EQUITY)
+            # SDK >= 0.1.10 takes a request model, not instrument=/expiration_date= kwargs
+            # (the old call raised "unexpected keyword argument 'instrument'" every time).
             response = await client.get_option_chain(
-                instrument=instrument,
-                expiration_date=expiration_date,
+                OptionChainRequest(instrument=instrument, expiration_date=expiration_date),
                 account_id=account_id,
             )
-            return response if isinstance(response, dict) else response.__dict__
+            if isinstance(response, dict):
+                return response
+            return option_chain_response_to_dict(response)
         except Exception as e:
             logger.warning(f"Public.com option chain failed for {symbol}: {e}")
             return None
@@ -324,11 +328,12 @@ class PublicClient:
 
             from public_api_sdk import InstrumentType
             from public_api_sdk.models import OrderInstrument
+            from public_api_sdk.models.option import OptionExpirationsRequest
 
             account_id = getattr(client, '_qt_account_id', None)
             instrument = OrderInstrument(symbol=symbol.upper(), type=InstrumentType.EQUITY)
             response = await client.get_option_expirations(
-                instrument=instrument,
+                OptionExpirationsRequest(instrument=instrument),
                 account_id=account_id,
             )
             if isinstance(response, dict):
@@ -374,3 +379,32 @@ class PublicClient:
 
 # Singleton
 public_client = PublicClient()
+
+
+def occ_strike(option_symbol: str) -> Optional[float]:
+    """Strike from an OCC option symbol, e.g. NVDA261127C00190000 -> 190.0."""
+    sym = (option_symbol or "").strip()
+    if len(sym) < 15 or not sym[-8:].isdigit():
+        return None
+    return int(sym[-8:]) / 1000.0
+
+
+def option_chain_response_to_dict(response: Any) -> Dict[str, Any]:
+    """Flatten SDK OptionChainResponse (calls/puts lists of Quote) into the
+    {"options": [...]} shape app/api/options.py parses, tagging each contract's type."""
+    options: List[Dict[str, Any]] = []
+    for side in ("calls", "puts"):
+        for q in getattr(response, side, None) or []:
+            inst = getattr(q, "instrument", None)
+            sym = getattr(inst, "symbol", "") if inst is not None else ""
+            options.append({
+                "symbol": sym,
+                "strike": occ_strike(sym),
+                "bid": getattr(q, "bid", None),
+                "ask": getattr(q, "ask", None),
+                "last": getattr(q, "last", None),
+                "volume": getattr(q, "volume", None),
+                "openInterest": getattr(q, "open_interest", None),
+                "type": "PUT" if side == "puts" else "CALL",
+            })
+    return {"options": options}

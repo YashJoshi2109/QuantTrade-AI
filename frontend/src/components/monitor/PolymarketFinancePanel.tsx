@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, Activity, Flame } from 'lucide-react'
+import SourceUnavailableNotice from '@/components/monitor/SourceUnavailableNotice'
 import { fetchPolymarketFinance, type PolymarketFinanceData, type PolymarketFinanceItem } from '@/lib/monitor-extended-api'
 import { PredictionMarketCard } from '@/components/ui/prediction-market-card'
 
@@ -53,7 +54,7 @@ function PredictionItem({ item, index }: { item: PolymarketFinanceItem; index: n
 export default function PolymarketFinancePanel() {
   const [tab, setTab] = useState<'stocks' | 'trending'>('stocks')
 
-  const { data, isLoading } = useQuery<PolymarketFinanceData>({
+  const { data, isLoading, isError } = useQuery<PolymarketFinanceData>({
     queryKey: ['polymarket-finance'],
     queryFn: fetchPolymarketFinance,
     refetchInterval: 120_000,
@@ -108,6 +109,8 @@ export default function PolymarketFinancePanel() {
               <div key={i} className="h-[280px] bg-surface-hover rounded-lg animate-pulse" />
             ))}
           </div>
+        ) : isError || (data && !data.stocks?.length && !data.trending?.length && !data.macro?.length) ? (
+          <SourceUnavailableNotice detail="Polymarket did not return markets. Retrying every 2 minutes." />
         ) : items.length === 0 ? (
           <div className="flex items-center justify-center p-8 text-xs text-fg-muted">
             No predictions found

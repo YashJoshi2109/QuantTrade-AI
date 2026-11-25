@@ -94,6 +94,9 @@ class TradePolicyResponse(BaseModel):
     policies: List[TradePolicy]
     total: int
     updated_at: str
+    # "ok" when any source returned rows, "unavailable" when every source failed.
+    source_status: str = "ok"
+    sources_tried: List[str] = []
 
 class ContinentNews(BaseModel):
     title: str
@@ -371,6 +374,7 @@ class ContinentNewsFeed(BaseModel):
 class ContinentNewsResponse(BaseModel):
     feeds: List[ContinentNewsFeed]
     updated_at: str
+    source_status: str = "ok"  # ok | partial | unavailable
 
 class PolymarketOutcome(BaseModel):
     name: str
@@ -663,32 +667,39 @@ async def get_market_radar():
 
 # ─── Economic Indicators ───────────────────────────────────────
 
+# (display name, series id, kind). `kind` is the series' native FRED unit; see
+# app/services/fred_transforms.py. A series id prefixed "yahoo:" is read from the
+# Yahoo chart API instead, so the Energy tab and the Commodities widget
+# (/commodities, also Yahoo CL=F / NG=F) show the same oil and gas prices.
 FRED_SERIES = {
     "indicators": [
-        ("Fed Total Assets", "WALCL", "B"),
-        ("Fed Funds Rate", "FEDFUNDS", "%"),
-        ("10Y-2Y Spread", "T10Y2Y", "%"),
-        ("Unemployment", "UNRATE", "%"),
-        ("CPI (YoY)", "CPIAUCSL", "%"),
-        ("GDP Growth", "GDP", "B"),
+        ("Fed Total Assets", "WALCL", "usd_millions"),
+        ("Fed Funds Rate", "FEDFUNDS", "pct"),
+        ("10Y-2Y Spread", "T10Y2Y", "pct"),
+        ("Unemployment", "UNRATE", "pct"),
+        ("CPI (YoY)", "CPIAUCSL", "yoy_pct"),
+        # Real GDP growth, % change from preceding quarter (SAAR). The old "GDP"
+        # series is the nominal level in $B, not growth.
+        ("GDP Growth (QoQ ann.)", "A191RL1Q225SBEA", "pct"),
     ],
     "oil": [
-        ("WTI Crude", "DCOILWTICO", "$"),
-        ("Brent Crude", "DCOILBRENTEU", "$"),
-        ("Henry Hub NatGas", "DHHNGSP", "$"),
-        ("Gasoline", "GASREGW", "$"),
+        ("WTI Crude", "yahoo:CL=F", "usd"),
+        ("Brent Crude", "yahoo:BZ=F", "usd"),
+        ("Henry Hub NatGas", "yahoo:NG=F", "usd"),
+        ("Gasoline (US retail)", "GASREGW", "usd"),
     ],
     "gov": [
-        ("US 10Y Yield", "DGS10", "%"),
-        ("US 2Y Yield", "DGS2", "%"),
-        ("US 30Y Yield", "DGS30", "%"),
-        ("US Debt to GDP", "GFDEGDQ188S", "%"),
+        ("US 10Y Yield", "DGS10", "pct"),
+        ("US 2Y Yield", "DGS2", "pct"),
+        ("US 30Y Yield", "DGS30", "pct"),
+        ("US Debt to GDP", "GFDEGDQ188S", "pct"),
     ],
     "central_banks": [
-        ("Fed Balance Sheet", "WALCL", "B"),
-        ("M2 Money Supply", "M2SL", "B"),
-        ("Bank Prime Rate", "DPRIME", "%"),
-        ("Excess Reserves", "EXCSRESNS", "B"),
+        ("Fed Balance Sheet", "WALCL", "usd_millions"),
+        ("M2 Money Supply", "M2SL", "usd_billions"),
+        ("Bank Prime Rate", "DPRIME", "pct"),
+        # EXCSRESNS was discontinued in 2020; WRESBAL is the live reserve series.
+        ("Reserve Balances", "WRESBAL", "usd_millions"),
     ],
 }
 
@@ -702,23 +713,30 @@ async def get_economic_indicators(
     """
     series_list = FRED_SERIES.get(tab, FRED_SERIES["indicators"])
     indicators: List[EconomicIndicator] = []
-    
+
     async with httpx.AsyncClient(timeout=15) as client:
         tasks = []
-        for name, series_id, unit in series_list:
-            tasks.append(_fetch_fred_series(client, name, series_id, unit))
+        for name, series_id, kind in series_list:
+            if series_id.startswith("yahoo:"):
+                tasks.append(_fetch_yahoo_indicator(client, name, series_id))
+            else:
+                tasks.append(_fetch_fred_series(client, name, series_id, kind))
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
             if isinstance(r, EconomicIndicator):
                 indicators.append(r)
-    
+
     return EconomicIndicatorsResponse(
         tab=tab,
         indicators=indicators,
         updated_at=datetime.now(timezone.utc).isoformat()
     )
 
-async def _fetch_fred_series(client: httpx.AsyncClient, name: str, series_id: str, unit: str) -> EconomicIndicator:
+async def _fetch_fred_series(client: httpx.AsyncClient, name: str, series_id: str, kind: str) -> EconomicIndicator:
+    from app.services.fred_transforms import obs_limit, transform_observations
+
+    if not settings.FRED_API_KEY:
+        return EconomicIndicator(name=name, series_id=series_id, value="N/A", date="FRED_API_KEY not set")
     try:
         resp = await client.get(
             "https://api.stlouisfed.org/fred/series/observations",
@@ -727,40 +745,63 @@ async def _fetch_fred_series(client: httpx.AsyncClient, name: str, series_id: st
                 "api_key": settings.FRED_API_KEY,
                 "file_type": "json",
                 "sort_order": "desc",
-                "limit": 5
+                "limit": obs_limit(kind),
             }
         )
         if resp.status_code == 200:
-            obs = resp.json().get("observations", [])
-            valid = [o for o in obs if o["value"] != "."]
-            if valid:
-                current = float(valid[0]["value"])
-                prev = float(valid[1]["value"]) if len(valid) > 1 else current
-                change = current - prev
-                
-                if unit == "B":
-                    value_str = f"{current:,.0f}$B" if current > 100 else f"{current:.1f}$B"
-                elif unit == "$":
-                    value_str = f"${current:,.2f}"
-                else:
-                    value_str = f"{current:.2f}%"
-                
-                change_str = f"{change:+.2f}" + ("$B" if unit == "B" else "%" if unit == "%" else "$")
-                
+            shown = transform_observations(kind, resp.json().get("observations", []))
+            if shown:
                 return EconomicIndicator(
                     name=name,
                     series_id=series_id,
-                    value=value_str,
-                    date=valid[0]["date"],
-                    change=change_str,
-                    change_direction="up" if change > 0 else "down" if change < 0 else "flat"
+                    value=shown.value,
+                    date=shown.date,
+                    change=shown.change,
+                    change_direction=shown.change_direction,
                 )
+        else:
+            logger.warning("FRED %s returned HTTP %s", series_id, resp.status_code)
     except Exception as e:
-        pass
-    
+        logger.warning("FRED %s fetch failed: %s", series_id, e)
+
     return EconomicIndicator(
         name=name, series_id=series_id, value="N/A", date="—"
     )
+
+
+async def _fetch_yahoo_indicator(client: httpx.AsyncClient, name: str, series_id: str) -> EconomicIndicator:
+    """Front-month futures price from Yahoo (same source as /commodities)."""
+    yf_sym = series_id.split(":", 1)[1]
+    try:
+        resp = await client.get(
+            f"https://query1.finance.yahoo.com/v8/finance/chart/{yf_sym}",
+            params={"interval": "1d", "range": "2d"},
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        if resp.status_code == 200:
+            chart = resp.json().get("chart", {}).get("result", [])
+            if chart:
+                meta = chart[0].get("meta", {})
+                price = meta.get("regularMarketPrice")
+                prev = meta.get("chartPreviousClose") or meta.get("previousClose") or price
+                if price:
+                    change = float(price) - float(prev or price)
+                    ts = meta.get("regularMarketTime")
+                    date = (
+                        datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+                        if isinstance(ts, (int, float)) else datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                    )
+                    return EconomicIndicator(
+                        name=name,
+                        series_id=yf_sym,
+                        value=f"${float(price):,.2f}",
+                        date=date,
+                        change=f"{change:+.2f}",
+                        change_direction="up" if change > 0 else "down" if change < 0 else "flat",
+                    )
+    except Exception as e:
+        logger.warning("Yahoo %s fetch failed: %s", yf_sym, e)
+    return EconomicIndicator(name=name, series_id=yf_sym, value="N/A", date="—")
 
 
 # ─── Economic Calendar (Finnhub) ───────────────────────────────
@@ -975,36 +1016,13 @@ async def get_trade_policy(
     """
     policies: List[TradePolicy] = []
     
+    sources_tried: List[str] = []
     async with httpx.AsyncClient(timeout=20) as client:
-        # WTO ePing API — SPS/TBT notifications
-        try:
-            resp = await client.get(
-                "https://eping.wto.org/en/Search/Index",
-                params={"PageSize": limit, "DateFrom": "2026-01-01"},
-                headers={"Accept": "application/json"},
-                follow_redirects=True
-            )
-            # Fallback: WTO Timeseries for trade indicators
-            ts_resp = await client.get(
-                "https://api.wto.org/timeseries/v1/data",
-                params={
-                    "i": "TP_A_0010",  # Trade policy indicator
-                    "r": "all",
-                    "ps": "2025",
-                    "pc": "all",
-                    "fmt": "json",
-                    "mode": "full",
-                    "lang": "1",
-                    "head": "H",
-                    "max": 20
-                },
-                headers={"Ocp-Apim-Subscription-Key": "open"},
-                follow_redirects=True
-            )
-        except Exception:
-            pass
-        
+        # (The WTO ePing / timeseries calls that used to sit here were never parsed
+        # and only added ~10s of latency, so they were removed.)
+
         # ── Guardian trade policy news (primary) ──
+        sources_tried.append("guardian")
         try:
             g_resp = await client.get(
                 _GUARDIAN_BASE,
@@ -1034,6 +1052,7 @@ async def get_trade_policy(
 
         # ── GDELT fallback (only if Guardian returned nothing) ──
         if not policies:
+            sources_tried.append("gdelt")
             try:
                 gdelt_resp = await client.get(
                     "https://api.gdeltproject.org/api/v2/doc/doc",
@@ -1058,13 +1077,35 @@ async def get_trade_policy(
                             category="trade_news",
                             url=art.get("url"),
                         ))
+                elif gdelt_resp.status_code == 429:
+                    logger.warning("GDELT trade-policy rate limited (429)")
             except Exception:
                 pass
-    
+
+        # ── Google News RSS fallback (free, no key) ──
+        if not policies:
+            from app.services.google_news_rss import fetch_google_news
+
+            sources_tried.append("google_news_rss")
+            for item in await fetch_google_news(
+                client, "tariff OR sanctions OR \"trade policy\" OR \"export ban\"", limit=limit
+            ):
+                policies.append(TradePolicy(
+                    title=str(item["title"]),
+                    country=None,
+                    date=str(item["date"]),
+                    description=None,
+                    source=str(item["source"]),
+                    category="trade_news",
+                    url=item.get("url"),  # type: ignore[arg-type]
+                ))
+
     return TradePolicyResponse(
         policies=policies,
         total=len(policies),
-        updated_at=datetime.now(timezone.utc).isoformat()
+        updated_at=datetime.now(timezone.utc).isoformat(),
+        source_status="ok" if policies else "unavailable",
+        sources_tried=sources_tried,
     )
 
 
@@ -1131,16 +1172,16 @@ async def get_continent_news(db: Session = Depends(get_db)):
                 if isinstance(r, ContinentNewsFeed) and r.count > 0:
                     feeds_by_continent[r.continent] = r
 
-    # If everything failed, one-shot GDELT for all categories
-    if not feeds_by_continent or all(f.count == 0 for f in feeds_by_continent.values()):
-        logger.warning("Guardian/GDELT sparse — full GDELT sweep")
-        async with httpx.AsyncClient(timeout=20) as client:
-            tasks = [
-                _fetch_continent_news_gdelt(client, continent, query)
-                for continent, query in _GDELT_CONTINENT_QUERIES.items()
-            ]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for r in results:
+    # Columns still empty: Google News RSS (free, no key). GDELT allows one request
+    # per 5s, so the old 9-way parallel GDELT re-sweep always came back HTTP 429.
+    still_empty = [c for c in _GUARDIAN_CONTINENT_QUERIES if feeds_by_continent.get(c) is None or feeds_by_continent[c].count == 0]
+    if still_empty:
+        async with httpx.AsyncClient(timeout=12) as client:
+            rss_results = await asyncio.gather(
+                *[_fetch_continent_news_rss(client, c, _GUARDIAN_CONTINENT_QUERIES[c]["q"]) for c in still_empty],
+                return_exceptions=True,
+            )
+            for r in rss_results:
                 if isinstance(r, ContinentNewsFeed) and r.count > 0:
                     feeds_by_continent[r.continent] = r
 
@@ -1199,10 +1240,38 @@ async def get_continent_news(db: Session = Depends(get_db)):
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
+    filled = sum(1 for f in feeds if f.count > 0)
     return ContinentNewsResponse(
         feeds=feeds,
         updated_at=datetime.now(timezone.utc).isoformat(),
+        source_status="ok" if filled == len(feeds) else "partial" if filled else "unavailable",
     )
+
+
+async def _fetch_continent_news_rss(
+    client: httpx.AsyncClient, continent: str, query: str
+) -> ContinentNewsFeed:
+    from app.services.google_news_rss import fetch_google_news, time_ago
+
+    articles: List[ContinentNews] = []
+    for item in await fetch_google_news(client, query, limit=35):
+        title = str(item["title"])
+        tl = title.lower()
+        tags: List[str] = []
+        if "conflict" in tl or "war" in tl:
+            tags.append("CONFLICT")
+        if "military" in tl:
+            tags.append("MILITARY")
+        articles.append(ContinentNews(
+            title=title,
+            source=str(item["source"]),
+            url=item.get("url"),  # type: ignore[arg-type]
+            time_ago=time_ago(item.get("published_ts")),  # type: ignore[arg-type]
+            tags=tags,
+            tickers=_extract_tickers(title),
+            category=continent,
+        ))
+    return ContinentNewsFeed(continent=continent, live=True, count=len(articles), articles=articles)
 
 
 async def _fetch_continent_news_guardian(
@@ -1788,6 +1857,8 @@ class ACLEDResponse(BaseModel):
     events: List[ACLEDEvent]
     total: int
     updated_at: str
+    # "unavailable" when ACLED (ACLED_API_KEY + ACLED_EMAIL), Guardian and GDELT all returned nothing.
+    source_status: str = "ok"
 
 @router.get("/acled-conflicts", response_model=ACLEDResponse)
 async def get_acled_conflicts(
@@ -2044,7 +2115,8 @@ async def get_acled_conflicts(
     return ACLEDResponse(
         events=events,
         total=len(events),
-        updated_at=datetime.now(timezone.utc).isoformat()
+        updated_at=datetime.now(timezone.utc).isoformat(),
+        source_status="ok" if events else "unavailable",
     )
 
 
@@ -2176,8 +2248,23 @@ async def get_energy_data():
         ("Strategic Reserve", "PET.WCSSTUS1.W", "K barrels"),
     ]
     
+    # Spot prices come from the same Yahoo front-month futures as /commodities and
+    # the Economic Indicators "oil" tab, so the monitor shows one oil price, not
+    # three (EIA daily spot lags ~1 week). EIA stays as the fallback.
+    yahoo_price_source = {"PET.RWTC.D": "CL=F", "NG.RNGWHHD.D": "NG=F"}
+
     async with httpx.AsyncClient(timeout=15) as client:
         for name, series_id, unit in series:
+            yf_sym = yahoo_price_source.get(series_id)
+            if yf_sym:
+                live = await _fetch_yahoo_indicator(client, name, f"yahoo:{yf_sym}")
+                if live.value != "N/A":
+                    data_points.append(EnergyDataPoint(
+                        name=name, series_id=yf_sym,
+                        value=live.value.lstrip("$"), date=live.date, unit=unit,
+                        change=live.change,
+                    ))
+                    continue
             try:
                 resp = await client.get(
                     f"https://api.eia.gov/v2/seriesid/{series_id}",

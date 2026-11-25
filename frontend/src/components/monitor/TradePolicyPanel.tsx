@@ -3,9 +3,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { Scale, ExternalLink } from 'lucide-react'
 import { fetchTradePolicy, type TradePolicyData } from '@/lib/monitor-extended-api'
+import { isSourceUnavailable } from '@/lib/monitorStatus'
+import SourceUnavailableNotice from '@/components/monitor/SourceUnavailableNotice'
 
 export default function TradePolicyPanel() {
-  const { data, isLoading } = useQuery<TradePolicyData>({
+  const { data, isLoading, isError } = useQuery<TradePolicyData>({
     queryKey: ['trade-policy'],
     queryFn: () => fetchTradePolicy(20),
     refetchInterval: 300_000,
@@ -19,7 +21,7 @@ export default function TradePolicyPanel() {
         <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-fg-primary font-mono">
           TRADE POLICY
         </span>
-        <span className="text-[9px] text-fg-muted font-mono">WTO / GDELT</span>
+        <span className="text-[9px] text-fg-muted font-mono">Guardian / GDELT / Google News</span>
       </div>
 
       {/* Policy List */}
@@ -29,6 +31,10 @@ export default function TradePolicyPanel() {
             {[...Array(5)].map((_, i) => (
               <div key={i} className="h-14 bg-surface-hover rounded animate-pulse" />
             ))}
+          </div>
+        ) : isError || isSourceUnavailable(data, data?.policies.length ?? 0) ? (
+          <div className="p-4">
+            <SourceUnavailableNotice detail="Trade-policy news sources (The Guardian, GDELT, Google News) did not return data. Retrying every 5 minutes." />
           </div>
         ) : data?.policies.length === 0 ? (
           <div className="flex items-center justify-center p-8 text-xs text-fg-muted">

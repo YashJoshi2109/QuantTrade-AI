@@ -246,7 +246,9 @@ async def _sync_usgs_earthquakes_async(db: Session):
     
     try:
         # Only fetch significant earthquakes (M4.0+)
-        events = await fetcher.fetch_earthquakes(min_magnitude=4.0, timespan_hours=1, limit=100)
+        # Beat runs this every 4h, so look back 6h (dedup by event_id) instead of 1h,
+        # which silently skipped 3 of every 4 hours.
+        events = await fetcher.fetch_earthquakes(min_magnitude=4.0, timespan_hours=6, limit=100)
         
         inserted = 0
         skipped = 0

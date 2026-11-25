@@ -38,16 +38,19 @@ celery_app.conf.update(
             "task": "sync_opensky_flights",
             "schedule": 900.0,  # 15 minutes
         },
+        # Task names must match @shared_task(name=...) in global_monitor_tasks.py;
+        # the old names (sync_nasa_firms, calculate_instability_indices,
+        # detect_geographic_clusters) matched no task, so beat dropped them.
         "sync-nasa-firms": {
-            "task": "sync_nasa_firms",
+            "task": "sync_nasa_fires",
             "schedule": 86400.0,  # Daily
         },
         "calculate-instability": {
-            "task": "calculate_instability_indices",
+            "task": "update_instability_indices",
             "schedule": 21600.0,  # 6 hours
         },
         "detect-clusters": {
-            "task": "detect_geographic_clusters",
+            "task": "calculate_derived_metrics",
             "schedule": 3600.0,  # 1 hour
         },
         "sync-reddit-posts": {

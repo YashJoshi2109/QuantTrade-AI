@@ -106,6 +106,9 @@ export interface TradePolicyData {
   policies: TradePolicy[]
   total: number
   updated_at: string
+  /** 'unavailable' when every upstream (Guardian, GDELT, Google News RSS) failed. */
+  source_status?: 'ok' | 'unavailable'
+  sources_tried?: string[]
 }
 
 export async function fetchTradePolicy(limit: number = 20): Promise<TradePolicyData> {
@@ -138,6 +141,7 @@ export interface ContinentNewsFeed {
 export interface ContinentNewsData {
   feeds: ContinentNewsFeed[]
   updated_at: string
+  source_status?: 'ok' | 'partial' | 'unavailable'
 }
 
 export async function fetchContinentNews(): Promise<ContinentNewsData> {
@@ -239,6 +243,7 @@ export interface ACLEDData {
   events: ACLEDEvent[]
   total: number
   updated_at: string
+  source_status?: 'ok' | 'unavailable'
 }
 
 export async function fetchACLEDConflicts(

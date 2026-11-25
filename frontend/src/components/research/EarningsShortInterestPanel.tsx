@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { formatNumber, isNumber } from '@/lib/format'
+import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 import type { EarningsQuarter } from '@/app/api/quotes/earnings/route'
 
@@ -81,9 +81,9 @@ function fmtPrice(val: unknown): string {
   return `$${formatNumber(val, 2)}`
 }
 
+// /api/quotes/ticker returns percent-unit numbers (0.33 means 0.33%), so no x100 here.
 function fmtPercent(val: unknown): string {
-  if (!isNumber(val)) return 'N/A'
-  return `${(val * 100).toFixed(2)}%`
+  return formatPercent(val)
 }
 
 /* ------------------------------------------------------------------ */

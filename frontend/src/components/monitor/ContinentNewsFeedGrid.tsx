@@ -96,7 +96,7 @@ function GridFeed({ feed }: { feed: FeedType }) {
       <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
         <Newspaper className="w-10 h-10 text-fg-muted" aria-hidden />
         <p className="text-[11px] text-fg-muted leading-relaxed max-w-xs">
-          No headlines for {feed.continent} right now. Sources rotate between The Guardian and GDELT — try refresh in a minute.
+          No headlines for {feed.continent} right now. Sources: The Guardian, GDELT, Google News. Try refresh in a minute.
         </p>
       </div>
     )
@@ -124,10 +124,12 @@ function GridFeed({ feed }: { feed: FeedType }) {
   )
 }
 
+import SourceUnavailableNotice from '@/components/monitor/SourceUnavailableNotice'
+
 export default function ContinentNewsFeedGrid() {
   const [activeTab, setActiveTab] = useState(0)
 
-  const { data, isLoading } = useQuery<ContinentNewsData>({
+  const { data, isLoading, isError } = useQuery<ContinentNewsData>({
     queryKey: ['continent-news'],
     queryFn: fetchContinentNews,
     refetchInterval: 120_000,
@@ -153,6 +155,14 @@ export default function ContinentNewsFeedGrid() {
 
   const feeds = data?.feeds ?? []
   const activeFeed = feeds[activeTab]
+
+  if (isError || (data && (data.source_status === 'unavailable' || feeds.every((f) => f.count === 0)))) {
+    return (
+      <div className="p-3">
+        <SourceUnavailableNotice detail="News sources (The Guardian, GDELT, Google News) returned no headlines. Retrying every 2 minutes." />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full">
