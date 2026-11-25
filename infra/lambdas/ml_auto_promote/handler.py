@@ -91,7 +91,7 @@ def handler(event, context):
         resp.raise_for_status()
         logger.info("Registered version %s as %s", version, promotion_status)
     except Exception as e:
-        logger.error("Neon registration failed: %s", e)
+        logger.error("DB registration failed: %s", e)
         return {"promoted": False, "reason": f"register failed: {e}"}
 
     if thresholds_met:

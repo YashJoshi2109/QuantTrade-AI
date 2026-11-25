@@ -27,7 +27,7 @@
 - Monolithic FastAPI backend (31 routers, 60+ services, 24 models)
 - Monolithic Next.js 16 frontend (39 routes, 90+ components)
 - Single EC2 instance with Docker Compose
-- Neon PostgreSQL (managed) + ElastiCache Redis
+- AWS RDS PostgreSQL (managed) + ElastiCache Redis
 - GitHub Actions CI/CD → GHCR → EC2 SSH deploy
 - No IaC, no event streaming, no service mesh
 
@@ -63,7 +63,7 @@
 |-------|-------------|-----|
 | Single EC2 running everything | ~$30-50 (t3.small) | Fine for MVP, but no HA |
 | 15+ API key subscriptions | $200-500+ | Consolidate to 4 providers |
-| Neon PostgreSQL (serverless) | $19-69 | Keep Neon — autoscaling, branching, read replicas. Only evaluate Aurora at 1M+ users |
+| AWS RDS PostgreSQL (serverless) | $19-69 | Keep PostgreSQL — autoscaling, branching, read replicas. Only evaluate Aurora at 1M+ users |
 | No CDN for API responses | N/A | Add Cloudflare Cache Rules for public endpoints |
 | ML training in CI (GitHub Actions) | Compute minutes | Move to scheduled EC2 spot instances |
 
@@ -120,7 +120,7 @@
                     └────┬────┴────┬────┘
                          │         │
                     ┌────┴────┐   ┌┴──────┐
-                    │  Neon   │   │ Redis │
+                    │  PostgreSQL   │   │ Redis │
                     │ Postgres│   │ (local│
                     │ (managed│   │  or   │
                     │  $19/mo)│   │ Elasti│
@@ -144,7 +144,7 @@
 - Real-time presence (just show online count)
 
 **Database strategy:**
-- Single Neon PostgreSQL with schemas:
+- Single AWS RDS PostgreSQL with schemas:
   - `public` — existing tables (users, symbols, prices, etc.)
   - `community` — posts, comments, reactions, threads
   - `moderation` — flags, actions, audit_log
@@ -189,7 +189,7 @@
 **What changes:**
 - **ECS Fargate** replaces single EC2 (auto-scaling, no server management)
 - **Extract Community Service** — First microservice extraction (highest write load)
-- **Neon PostgreSQL stays** (read replicas available on Pro plan, autoscaling, PR branching already configured)
+- **AWS RDS PostgreSQL stays** (read replicas available on Pro plan, autoscaling, PR branching already configured)
 - **SQS/SNS** for async events (post created → feed update, notification, moderation check)
 - **OpenSearch** for community search (posts, users, tickers)
 - **Cloudflare R2** for media uploads (images in posts)
@@ -204,8 +204,8 @@
 | Everything else | Stays in Core API monolith |
 
 **Database strategy:**
-- Neon PostgreSQL Pro (primary + read replica, autoscaling, PR branching)
-- Community service gets its own schema (or separate Neon project if write-heavy)
+- AWS RDS PostgreSQL Pro (primary + read replica, autoscaling, PR branching)
+- Community service gets its own schema (or separate PostgreSQL project if write-heavy)
 - Redis Cluster mode for session + feed cache
 - OpenSearch for full-text search
 
@@ -256,7 +256,7 @@
 - **EKS** replaces ECS (service mesh, better observability, team autonomy)
 - **MSK (Kafka)** replaces SQS for high-throughput event streaming
 - **Full microservices**: Auth, User, Community, Feed, Moderation, Notification, Search, Media, Market Data, AI/ML
-- **Aurora Global Database** for multi-region (migrate from Neon only at this scale)
+- **Aurora Global Database** for multi-region (migrate from PostgreSQL only at this scale)
 - **Redis Global Datastore** for session replication
 - **Cloudflare Stream** for video content
 - **API Gateway** with usage plans per user tier
@@ -2070,7 +2070,7 @@ jobs:
 
 | Decision | Cost | Alternative | Why This Choice |
 |----------|------|-------------|-----------------|
-| Neon → Aurora migration | +$200/mo | Stay on Neon | HA + read replicas at scale |
+| PostgreSQL → Aurora migration | +$200/mo | Stay on PostgreSQL | HA + read replicas at scale |
 | SQS vs Kafka | $10/mo (SQS) vs $300/mo (MSK) | Start SQS | MSK only at 1M+ events/day |
 | ECS Fargate vs EC2 | +$100-200/mo | Stay on EC2 | Auto-scaling, no server management |
 | Cloudflare Pro plan | $25/mo | Free plan | WAF rules, bot protection, analytics |

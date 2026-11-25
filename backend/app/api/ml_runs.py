@@ -555,7 +555,7 @@ async def batch_job_start(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Called by Batch container at startup. Upserts run/shard records in Neon for live dashboard."""
+    """Called by Batch container at startup. Upserts run/shard records in PostgreSQL for live dashboard."""
     from app.models.ml_training import TrainingShard
     expected_secret = _get_callback_secret()
     provided_secret = request.headers.get("X-ML-Callback-Secret", "")
@@ -612,7 +612,7 @@ async def batch_job_callback(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Called by Batch container after training. Updates Neon + emits CloudWatch metric."""
+    """Called by Batch container after training. Updates PostgreSQL + emits CloudWatch metric."""
     expected_secret = _get_callback_secret()
     provided_secret = request.headers.get("X-ML-Callback-Secret", "")
     if not expected_secret:
@@ -914,7 +914,7 @@ async def ml_metrics_summary(
 
 @router.get("/internal/ml/dashboard")
 async def ml_dashboard(db: Session = Depends(get_db)):
-    """Unified dashboard snapshot: model counts, run stats, latest run — all from Neon DB."""
+    """Unified dashboard snapshot: model counts, run stats, latest run — all from PostgreSQL."""
     import asyncio
     from datetime import datetime, timezone
 
@@ -972,7 +972,7 @@ async def ml_dashboard(db: Session = Depends(get_db)):
 
 @router.get("/internal/ml/stream")
 async def ml_stream(request: Request):
-    """Server-Sent Events stream: Neon DB + AWS Batch + Step Functions + CloudWatch logs."""
+    """Server-Sent Events stream: PostgreSQL + AWS Batch + Step Functions + CloudWatch logs."""
     import asyncio
     import json
     from datetime import datetime, timezone
@@ -1070,7 +1070,7 @@ async def ml_stream(request: Request):
             # Open a fresh DB session per tick
             db = SessionLocal()
             try:
-                # Neon DB queries
+                # PostgreSQL queries
                 runs = mds.list_runs(db, status="running", limit=1)
                 latest_run = runs[0] if runs else None
 

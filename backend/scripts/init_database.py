@@ -1,6 +1,6 @@
 """
 Initialize database tables for production
-Run this script to create all necessary tables in your Neon PostgreSQL database
+Run this script to create all necessary tables in your PostgreSQL database
 """
 import sys
 import os

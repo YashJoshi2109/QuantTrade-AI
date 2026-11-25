@@ -150,7 +150,7 @@ nano /opt/quanttrade/.env
 Add your production secrets:
 
 ```env
-# Database (Neon Postgres)
+# Database (AWS RDS PostgreSQL)
 DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
 
 # JWT Authentication

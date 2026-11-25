@@ -33,21 +33,21 @@
 
 **Cost**: ~$1.80/month for all training runs (5 Spot shards per Sunday + 1 weekday job).
 
-## ADR-003: Neon PostgreSQL over DynamoDB for Metadata
+## ADR-003: AWS RDS PostgreSQL over DynamoDB for Metadata
 
-**Decision**: Store training pipeline metadata in Neon PostgreSQL (existing DB).
+**Decision**: Store training pipeline metadata in AWS RDS PostgreSQL (existing DB).
 
 **Context**: Need to persist training run history, shard status, artifact lineage, and model version registry.
 
 **Rationale**:
-- Neon is already the primary database with 50+ tables and working connection patterns
+- PostgreSQL is already the primary database with 50+ tables and working connection patterns
 - Relational model is natural for run→shard→artifact hierarchy (foreign keys)
 - Complex queries (JOIN shards with artifacts, filter by status+date) trivial in SQL
 - No additional service to manage (DynamoDB would require separate provisioning)
 - Existing SQLAlchemy ORM + session management reusable
-- Metadata volume is low (~100 rows/day) — well within Neon free tier
+- Metadata volume is low (~100 rows/day) — well within PostgreSQL free tier
 
-**Not stored in Neon**: High-volume telemetry (per-epoch metrics, per-batch timing). These go to CloudWatch logs/metrics.
+**Not stored in PostgreSQL**: High-volume telemetry (per-epoch metrics, per-batch timing). These go to CloudWatch logs/metrics.
 
 ## ADR-004: Manifest-Driven Sharding over Static Tier Splits
 

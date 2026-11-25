@@ -33,7 +33,7 @@
 | **AI Moderation** | 3-stage pipeline | Regex filter → Claude analysis → Decision engine (auto-approve/review/remove) |
 | **Reputation** | Point system | 9 action types, calculate + update functions |
 | **Auth** | Production-ready | httpOnly cookies, JWT, Google OAuth, WebAuthn passkeys, RBAC |
-| **Infra** | Deployed | EC2 + Docker, Neon PostgreSQL, Redis, GitHub Actions CI/CD |
+| **Infra** | Deployed | EC2 + Docker, AWS RDS PostgreSQL, Redis, GitHub Actions CI/CD |
 
 ### Reddit-Like Completion: ~60%
 

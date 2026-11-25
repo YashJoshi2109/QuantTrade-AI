@@ -93,7 +93,7 @@ curl https://api.quanttrade.us/api/v1/internal/ml/config/effective
 - Retry usually works after data cache refresh
 
 ### Infrastructure failure (exit code 3)
-- S3 unreachable, Neon connection timeout
+- S3 unreachable, PostgreSQL connection timeout
 - Auto-retried by Batch (max 2 attempts)
 - Check AWS health dashboard
 

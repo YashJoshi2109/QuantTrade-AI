@@ -22,7 +22,7 @@
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AWS_REGION` | us-east-2 | AWS region |
-| `NEON_DATABASE_URL` | — | Neon PostgreSQL connection URL |
+| `DATABASE_URL` | — | AWS RDS PostgreSQL connection URL |
 | `CLOUDWATCH_NAMESPACE` | QuantTrade/ML | CloudWatch metrics namespace |
 | `OMP_NUM_THREADS` | 2 | CPU threads for PyTorch |
 | `MKL_NUM_THREADS` | 2 | CPU threads for MKL |
@@ -40,7 +40,7 @@ s3://quanttrade-ml-artifacts/
 └── reports/{run_id}/summary.json
 ```
 
-## Neon Schema
+## PostgreSQL Schema
 
 ### training_runs
 Top-level run record. One per nightly trigger.

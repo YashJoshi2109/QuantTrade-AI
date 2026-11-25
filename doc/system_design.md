@@ -33,7 +33,7 @@ flowchart TD
     end
 
     subgraph Storage ["Persistent Storage"]
-        DB[("Primary DB (Neon PostgreSQL)\nUsers, Passkeys, Game State\npgvector (Embeddings Index)")]
+        DB[("Primary DB (AWS RDS PostgreSQL)\nUsers, Passkeys, Game State\npgvector (Embeddings Index)")]
     end
 
     subgraph CacheLayer ["Caching & Queue"]

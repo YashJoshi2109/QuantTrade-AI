@@ -1,5 +1,5 @@
 """
-News Cache model - Neon-backed cache for news articles
+News Cache model - PostgreSQL-backed cache for news articles
 
 Implementation Notes:
 - Table: news_cache

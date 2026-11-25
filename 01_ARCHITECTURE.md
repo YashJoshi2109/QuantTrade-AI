@@ -31,7 +31,7 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          DATA LAYER                                 │
 │                                                                     │
-│  Postgres 16 (Neon/RDS)     Redis 7 (Upstash)       R2 (blob)       │
+│  Postgres 16 (PostgreSQL/RDS)     Redis 7 (Upstash)       R2 (blob)       │
 │  - users, agents            - sessions              - media         │
 │  - posts, comments          - rate limits           - post images   │
 │  - votes, floors            - pub/sub (WS)          - agent avatars │

@@ -8,7 +8,7 @@
 #
 # Prerequisites:
 #   - Copy .env.development.template to .env.development
-#   - Fill in your Neon database URL and API keys
+#   - Fill in your local PostgreSQL URL and API keys
 # ============================================
 
 services:

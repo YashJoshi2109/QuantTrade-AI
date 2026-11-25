@@ -1,4 +1,4 @@
-"""ML Training metadata CRUD for Neon PostgreSQL.
+"""ML Training metadata CRUD for PostgreSQL.
 
 Provides read/write operations for training_runs, training_shards,
 training_artifacts, and model_versions tables.

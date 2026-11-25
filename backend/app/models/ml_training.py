@@ -2,7 +2,7 @@
 ML Training Pipeline metadata tables.
 
 Stores training run orchestration, shard execution, artifact lineage,
-and model version registry in Neon PostgreSQL.
+and model version registry in PostgreSQL.
 """
 
 from sqlalchemy import (

@@ -59,7 +59,7 @@ QuantTrade AI is a full-stack financial intelligence platform that combines real
 - **Shard Planner** — Weighted bin-packing: balances shards by estimated runtime, supports dry-run inspection
 - **AWS Batch Orchestration** — Step Functions state machine, EventBridge scheduler, Spot EC2 (c5.xlarge), per-shard retry
 - **S3 Artifact Store** — Deterministic paths for checkpoints, metrics, manifests, feature cache, reports
-- **Neon Metadata Layer** — training_runs, training_shards, training_artifacts, model_versions tables
+- **PostgreSQL Metadata Layer** — training_runs, training_shards, training_artifacts, model_versions tables
 - **Internal Operator API** — 14 endpoints: trigger runs, retry shards, inspect artifacts, shard planning, health checks
 - **Feature Store** — Offline batch compute + online serving, 20 engineered features, parquet storage, schema versioning
 - **Experiment Tracking** — Run lifecycle, metric logging, artifact registration, run comparison
@@ -119,7 +119,7 @@ flowchart TD
     end
 
     subgraph Storage ["Persistent Storage"]
-        DB[("Primary DB (Neon PostgreSQL)\nUsers, Passkeys, Game State\npgvector (Embeddings Index)")]
+        DB[("Primary DB (AWS RDS PostgreSQL)\nUsers, Passkeys, Game State\npgvector (Embeddings Index)")]
     end
 
     subgraph CacheLayer ["Caching & Queue"]
@@ -553,7 +553,7 @@ sequenceDiagram
     actor User
     participant FE as Frontend
     participant BE as auth.py
-    participant DB as Neon PostgreSQL
+    participant DB as PostgreSQL (RDS)
     participant Email as Brevo/Resend
     participant Google as Google OAuth
 
@@ -675,7 +675,7 @@ flowchart TB
         Nginx --> BE["Backend Container\n(FastAPI :8000)"]
     end
 
-    BE --> Neon["Neon PostgreSQL\n(pgvector, serverless)"]
+    BE --> RDS["AWS RDS PostgreSQL\n(pgvector)"]
     BE --> ElastiCache["AWS ElastiCache\n(Redis 7)"]
     BE --> SecretsManager["AWS Secrets Manager"]
     BE --> GHCR["GitHub Container Registry\n(Docker images)"]
@@ -704,7 +704,7 @@ flowchart TB
     classDef ext fill:#374151,stroke:#9ca3af,color:#fff
 
     class CF,GHCR cloud
-    class EC2,Neon,ElastiCache,SecretsManager aws
+    class EC2,RDS,ElastiCache,SecretsManager aws
     class FMPx,Finnhubx,YFx,Stripex,Brevox,GROQx,OpenRouterx,ElevenLabsx ext
 ```
 
@@ -728,7 +728,7 @@ flowchart LR
     J3 --> Finn["finnhub_fetcher"] & Redis
     J4 --> MDS & TAS & Redis
     J5 --> Ingest["data_ingestion_service"] & Embed["embedding_service"] & VS["vector_store"]
-    J6 --> ExchSvc["exchange_universe_service"] & DB["Neon DB"]
+    J6 --> ExchSvc["exchange_universe_service"] & DB["PostgreSQL"]
     J7 --> DB
     J8 --> Email["email_service"]
 
@@ -807,7 +807,7 @@ flowchart TD
     end
 
     subgraph Orchestration ["AWS Step Functions"]
-        Init["Initialize Run\n(Neon: training_runs)"]
+        Init["Initialize Run\n(PostgreSQL: training_runs)"]
         Plan["Plan Shards\n(shard_planner.py)"]
         Submit["Submit Batch Jobs\n(Map state, parallel)"]
         Wait["Wait + Poll"]
@@ -833,7 +833,7 @@ flowchart TD
 
     subgraph Storage ["Data Plane"]
         S3B[("S3\nquanttrade-ml-artifacts\ncheckpoints / metrics /\nmanifests / feature-cache")]
-        Neon[("Neon PostgreSQL\ntraining_runs\ntraining_shards\ntraining_artifacts\nmodel_versions")]
+        MetaDB[("PostgreSQL\ntraining_runs\ntraining_shards\ntraining_artifacts\nmodel_versions")]
         CW["CloudWatch\nStructured Logs\nMetrics + Alarms"]
     end
 
@@ -854,11 +854,11 @@ flowchart TD
 
     S1 --> Entry --> Feat --> Train --> Ckpt
     Ckpt --> S3B
-    Ckpt --> Neon
+    Ckpt --> MetaDB
     Entry --> CW
 
     S3B --> Pred
-    Neon --> FAPI
+    MetaDB --> FAPI
     Pred --> Cache --> FAPI
 
     classDef trigger fill:#1e3a5f,stroke:#60a5fa,color:#fff
@@ -872,7 +872,7 @@ flowchart TD
     class Init,Plan,Submit,Wait,Retry,Agg,Final orch
     class S1,S2,S3,S4,S5 compute
     class Entry,Feat,Train,Ckpt container
-    class S3B,Neon,CW storage
+    class S3B,MetaDB,CW storage
     class FAPI,Pred,Cache serve
 ```
 
@@ -934,7 +934,7 @@ We supply the source code for producing ultra-high fidelity network mapping in `
 | **Charts** | TradingView Lightweight Charts, custom Canvas sparklines |
 | **State** | TanStack Query v5, Zustand, WebSocket hooks |
 | **Backend** | Python 3.14, FastAPI, SQLAlchemy 2.0, Pydantic v2 |
-| **Database** | PostgreSQL (Neon serverless), pgvector |
+| **Database** | PostgreSQL 17 (AWS RDS), pgvector |
 | **Cache** | Redis (ElastiCache) with in-memory fallback |
 | **Auth** | httpOnly cookies, WebAuthn/FIDO2 passkeys, Google OAuth, JWT |
 | **AI/LLM** | Anthropic Claude (Sonnet/Haiku), OpenAI, LangGraph, Cohere (rerank), FinBERT (sentiment), LangChain |
@@ -1047,7 +1047,7 @@ QuantTrade-AI/
 
 - Python 3.11+ (3.14 works locally; use 3.11 for Docker/EC2)
 - Node.js 18+
-- PostgreSQL (or [Neon](https://neon.tech) free tier)
+- PostgreSQL 15+ with pgvector (local Homebrew/Docker)
 
 ### 1. Clone & setup backend
 
@@ -1283,13 +1283,12 @@ DATABASE_URL=postgresql://...
 ### MLOps
 - [MLOps System Architecture](docs/mlops-system-architecture.drawio) — Full ML lifecycle diagram (HLD)
 - [MLOps Pipeline Flow](docs/mlops-pipeline-flow.drawio) — 10-stage pipeline flow diagram
-- [MLOps HLD](docs/mlops-hld.drawio) — AWS infrastructure view (EventBridge → Step Functions → Batch → S3/Neon → Serving) + component architecture (all Python modules)
+- [MLOps HLD](docs/mlops-hld.drawio) — AWS infrastructure view (EventBridge → Step Functions → Batch → S3/PostgreSQL → Serving) + component architecture (all Python modules)
 - [QuantTrade System HLD](docs/quanttrade-overall-hld.drawio) — Complete system overview (all 7 service domains, storage, CI/CD, background jobs)
 
 ### Operations & Setup
 - [Quick Start](docs/QUICK_START.md) — Fast setup and key endpoints
 - [Global Monitor](docs/GLOBAL_MONITOR_README.md) — Geopolitical intelligence layer
-- [Neon Setup](docs/NEON_MIGRATION_GUIDE.md) — Serverless PostgreSQL configuration
 - [Installation Guide](docs/INSTALLATION_EXPLAINED.md) — Full environment setup
 
 ---

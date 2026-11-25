@@ -124,7 +124,7 @@ jobs:
           pip install -r requirements.txt
           pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Register training start in Neon
+      - name: Register training start in PostgreSQL
         working-directory: ./backend
         run: |
           python3 - <<'PYEOF'
@@ -198,7 +198,7 @@ jobs:
             --symbol-tier ${{ matrix.tier }} \
             --epochs ${{ matrix.max_epochs }}
 
-      - name: Report results to Neon
+      - name: Report results to PostgreSQL
         if: always()
         working-directory: ./backend
         run: |
@@ -251,7 +251,7 @@ jobs:
               print("Warning: train_summary.json not found — reporting failure")
 
           runtime_seconds = (int(time.time()) - start_ts) if start_ts else None
-          print(f"Reporting to Neon: run={run_id[:8]} status={status} symbols={symbol_count} artifacts={len(artifacts)} runtime={runtime_seconds}s")
+          print(f"Reporting to PostgreSQL: run={run_id[:8]} status={status} symbols={symbol_count} artifacts={len(artifacts)} runtime={runtime_seconds}s")
 
           # POST batch-callback
           try:

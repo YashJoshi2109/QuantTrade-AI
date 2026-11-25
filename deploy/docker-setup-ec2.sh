@@ -34,8 +34,7 @@ cat > /opt/quanttrade/.env.template << 'EOF'
 # Copy this to .env and fill in your values
 # ============================================
 
-# Database (Neon Postgres)
-DATABASE_URL=postgresql://user:password@host/database?sslmode=require
+# DATABASE_URL is NOT set here — backend reads it from AWS Secrets Manager (quanttrade/backend)
 
 # JWT Authentication
 JWT_SECRET_KEY=your-super-secret-jwt-key-change-this

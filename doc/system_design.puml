@@ -49,7 +49,7 @@ package "Machine Learning & AI Engine" #FCE4EC {
     component "Feature Engineering\n(ta Technical Analysis, Pandas)" as TA
 }
 
-database "Primary DB (Neon PostgreSQL)" as DB #FFF3E0
+database "Primary DB (AWS RDS PostgreSQL)" as DB #FFF3E0
 note right of DB
   **Relational:** Users, Passkeys, Game State, Billing
   **Vector:** pgvector (Embeddings index for RAG)

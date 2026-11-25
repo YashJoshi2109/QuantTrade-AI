@@ -47,7 +47,7 @@ const STACK = [
   { label: 'Frontend', value: 'Next.js 15, React 18, Framer Motion, Three.js, Lightweight Charts, Tailwind CSS' },
   { label: 'Backend',  value: 'FastAPI (Python), SQLAlchemy, Celery task queue, WebSockets' },
   { label: 'AI/ML',   value: 'OpenAI GPT-4o, LangChain RAG pipeline, pgvector embeddings' },
-  { label: 'Data',    value: 'PostgreSQL (Neon serverless), Redis cache, 14 external live APIs' },
+  { label: 'Data',    value: 'PostgreSQL (AWS RDS, pgvector), Redis cache, 14 external live APIs' },
   { label: 'Infra',   value: 'Vercel Edge (frontend), Railway (backend), Cloudflare CDN' },
 ]
 
@@ -414,7 +414,7 @@ function MobileAbout() {
             { label: 'Frontend', value: 'Next.js 15, React 18, Framer Motion, Three.js' },
             { label: 'Backend',  value: 'FastAPI, SQLAlchemy, Celery, WebSockets' },
             { label: 'AI / ML',  value: 'GPT-4o, LangChain RAG, pgvector embeddings' },
-            { label: 'Data',     value: 'PostgreSQL (Neon), Redis, 14 live APIs' },
+            { label: 'Data',     value: 'PostgreSQL (AWS RDS), Redis, 14 live APIs' },
             { label: 'Infra',    value: 'Vercel Edge, Railway, Cloudflare CDN' },
           ].map((s) => (
             <div key={s.label} className="flex gap-2">

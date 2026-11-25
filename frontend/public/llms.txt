@@ -51,9 +51,9 @@ Twitter: https://twitter.com/quanttradeai
 ## Technical Architecture
 
 - Frontend: Next.js 15 (App Router), React 19, Tailwind CSS, TradingView Lightweight Charts, Three.js
-- Backend: FastAPI (Python), SQLAlchemy, Neon PostgreSQL, Celery, Upstash Redis
+- Backend: FastAPI (Python), SQLAlchemy, PostgreSQL (AWS RDS, pgvector), Celery, Redis (AWS ElastiCache)
 - AI: Anthropic Claude, OpenAI GPT-4, RAG with vector embeddings, Groq for low-latency inference
-- Deployment: Vercel (frontend), Render (backend), Neon (database)
+- Deployment: Docker on AWS EC2 behind nginx + Cloudflare; AWS RDS PostgreSQL
 
 ## Important Disclaimer
 

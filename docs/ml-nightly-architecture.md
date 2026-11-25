@@ -9,7 +9,7 @@ Training 804 stock symbols across 3 prediction horizons (1/7/30 day) using LSTM 
 - **train.py** — Core training loop with structured logging
 - **shard_planner.py** — Manifest-driven weighted shard balancing
 - **Filesystem** — Checkpoints, experiments, feature store (local)
-- **Neon PostgreSQL** — Training metadata (runs, shards, artifacts, model versions)
+- **AWS RDS PostgreSQL** — Training metadata (runs, shards, artifacts, model versions)
 
 ### Data Flow
 ```
@@ -19,7 +19,7 @@ Cron/API trigger
     → precompute_features() [once per shard]
     → train per horizon [1, 7, 30]
     → checkpoint + metrics → local disk + S3
-    → metadata → Neon
+    → metadata → PostgreSQL
   → Aggregate results
 ```
 
@@ -40,7 +40,7 @@ Cron/API trigger
 - **Local parquet cache** — OHLCV data (yfinance, 18h TTL)
 
 ### Metadata Plane
-- **Neon PostgreSQL** — training_runs, training_shards, training_artifacts, model_versions
+- **AWS RDS PostgreSQL** — training_runs, training_shards, training_artifacts, model_versions
 - Queryable via internal API
 
 ### Observability
@@ -52,7 +52,7 @@ Cron/API trigger
 1. Phase 0 (Bridge): Sub-tier splitting, structured logs, S3 artifacts — GH Actions
 2. Phase 1: Container + batch entrypoint
 3. Phase 2: CloudFormation stack (Batch, Step Functions, EventBridge, S3)
-4. Phase 3: Neon metadata tables
+4. Phase 3: PostgreSQL metadata tables
 5. Phase 4: Internal operator API
 6. Phase 5: Hardening, alarms, docs
 

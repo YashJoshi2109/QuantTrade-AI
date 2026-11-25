@@ -1,4 +1,4 @@
-"""Create ML training metadata tables in Neon PostgreSQL.
+"""Create ML training metadata tables in PostgreSQL.
 
 Idempotent — safe to run multiple times. Uses SQLAlchemy's checkfirst=True.
 

@@ -15,7 +15,7 @@ Usage:
   source .venv/bin/activate
   python scripts/seed_symbols_master.py
 
-Note: First run migrate_mvp_lean.py to create the table.
+Note: tables are created by scripts/init_rds_database.py.
 """
 import os
 import sys

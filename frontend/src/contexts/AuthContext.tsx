@@ -2,13 +2,11 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { User, checkSession, logout as authLogout, login as authLogin, register as authRegister, googleVerify as authGoogleVerify, setToken, setUser as storeUser } from '@/lib/auth'
-import { isNeonAuthConfigured, neonSignIn, neonSignUp, neonGetUser, neonSignOut, NeonUser } from '@/lib/neon-auth'
 
-export type AuthMethod = 'jwt' | 'neon-auth'
+export type AuthMethod = 'jwt'
 
 interface AuthContextType {
   user: User | null
-  neonUser: NeonUser | null
   isLoading: boolean
   isAuthenticated: boolean
   authMethod: AuthMethod | null
@@ -25,10 +23,6 @@ interface AuthContextType {
   googleVerify: (credential: string) => Promise<void>
   loginWithToken: (token: string) => Promise<void>
 
-  // Neon Auth methods
-  neonLogin: (email: string, password: string) => Promise<void>
-  neonRegister: (email: string, password: string, name?: string) => Promise<void>
-  
   logout: () => void
   refreshSession: () => Promise<void>
 }
@@ -37,7 +31,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [neonUser, setNeonUser] = useState<NeonUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [authMethod, setAuthMethod] = useState<AuthMethod | null>(null)
 
@@ -47,32 +40,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const jwtResult = await checkSession()
       if (jwtResult.user) {
         setUser(jwtResult.user)
-        setNeonUser(null)
         setAuthMethod('jwt')
         setIsLoading(false)
         return
       }
 
-      // Check Neon Auth session if JWT not found
-      if (isNeonAuthConfigured()) {
-        const neonResult = await neonGetUser()
-        if (neonResult) {
-          setNeonUser(neonResult)
-          setUser(null)
-          setAuthMethod('neon-auth')
-          setIsLoading(false)
-          return
-        }
-      }
-
       // No session found
       setUser(null)
-      setNeonUser(null)
       setAuthMethod(null)
     } catch (error) {
       console.error('Session refresh error:', error)
       setUser(null)
-      setNeonUser(null)
       setAuthMethod(null)
     } finally {
       setIsLoading(false)
@@ -87,7 +65,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string, turnstileToken?: string) => {
     const result = await authLogin(email, password, turnstileToken)
     setUser(result.user)
-    setNeonUser(null)
     setAuthMethod('jwt')
   }
 
@@ -100,14 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ) => {
     const result = await authRegister(email, username, password, fullName, options)
     setUser(result.user)
-    setNeonUser(null)
     setAuthMethod('jwt')
   }
 
   const googleVerify = async (credential: string) => {
     const result = await authGoogleVerify(credential)
     setUser(result.user)
-    setNeonUser(null)
     setAuthMethod('jwt')
   }
 
@@ -121,39 +96,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userObj: User = await res.json()
     storeUser(userObj)
     setUser(userObj)
-    setNeonUser(null)
     setAuthMethod('jwt')
   }
 
-  // Neon Auth Methods
-  const neonLogin = async (email: string, password: string) => {
-    const result = await neonSignIn(email, password)
-    if (result?.user) {
-      setNeonUser(result.user)
-      setUser(null)
-      setAuthMethod('neon-auth')
-    }
-  }
-
-  const neonRegister = async (email: string, password: string, name?: string) => {
-    const result = await neonSignUp(email, password, name)
-    if (result?.user) {
-      setNeonUser(result.user)
-      setUser(null)
-      setAuthMethod('neon-auth')
-    }
-  }
 
   const logout = async () => {
-    // Logout from whichever auth method is active
     if (authMethod === 'jwt') {
       authLogout()
-    } else if (authMethod === 'neon-auth') {
-      await neonSignOut()
     }
-    
+
     setUser(null)
-    setNeonUser(null)
     setAuthMethod(null)
   }
 
@@ -161,16 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        neonUser,
         isLoading,
-        isAuthenticated: !!user || !!neonUser,
+        isAuthenticated: !!user,
         authMethod,
         login,
         register,
         googleVerify,
         loginWithToken,
-        neonLogin,
-        neonRegister,
         logout,
         refreshSession
       }}
