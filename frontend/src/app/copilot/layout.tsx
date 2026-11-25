@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
-  title: 'AI Copilot — Research Assistant | QuantTrade AI',
+  title: 'AI Copilot — Research Assistant',
   description:
     'Context-aware AI research assistant for stocks. Generates structured investment memos with source citations from SEC filings, earnings, and geopolitical events. Unlimited queries on Pro.',
   keywords: [

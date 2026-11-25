@@ -19,11 +19,32 @@ from app.models.symbol import Symbol
 from app.models.quote_snapshot import QuoteSnapshot
 from app.config import settings
 from app.services.quote_cache import QuoteCacheService
-from app.services.market_breadth import classify_change, is_stale_quote
+from app.services.market_breadth import (
+    classify_change,
+    is_implausible_move,
+    is_usable_quote,
+    robust_sector_change,
+)
 from pydantic import BaseModel
 import httpx
 
 router = APIRouter()
+
+
+def _usable(symbol: str, quote: Optional[Dict[str, Any]]) -> bool:
+    """Shared quote gate for movers / sectors / heatmap (see market_breadth.is_usable_quote).
+
+    Logs rows dropped for an implausible one-day move so bad previous_close data
+    (delisted / renamed tickers such as PARA, SBNY) is visible in logs.
+    """
+    if not is_usable_quote(quote):
+        if quote and not quote.get("unavailable") and is_implausible_move(quote.get("change_percent")):
+            logger.warning(
+                "Dropping implausible quote %s: change_percent=%s price=%s",
+                symbol, quote.get("change_percent"), quote.get("price"),
+            )
+        return False
+    return True
 
 
 def _heatmap_sample_symbol_count() -> int:
@@ -75,19 +96,19 @@ SP500_STOCKS = {
         ("TEAM", "Atlassian Corp"), ("HUBS", "HubSpot Inc"), ("DOCU", "DocuSign Inc"),
         ("BILL", "Bill Holdings"), ("MDB", "MongoDB Inc"), ("PANW", "Palo Alto Networks"),
         ("OKTA", "Okta Inc"), ("ZM", "Zoom Video Comms"), ("U", "Unity Software"),
-        ("PATH", "UiPath Inc"), ("GTLB", "GitLab Inc"), ("CFLT", "Confluent Inc"),
+        ("PATH", "UiPath Inc"), ("GTLB", "GitLab Inc"),
         ("S", "SentinelOne Inc"), ("ESTC", "Elastic NV"), ("DT", "Dynatrace Inc"),
         ("FIVN", "Five9 Inc"), ("RNG", "RingCentral Inc"), ("TWLO", "Twilio Inc"),
-        ("ZI", "ZoomInfo Technologies"), ("GEN", "Gen Digital Inc"),
+        ("GEN", "Gen Digital Inc"),
         ("MNDY", "monday.com Ltd"), ("PAYC", "Paycom Software"), ("PCTY", "Paylocity Holding"),
         ("TOST", "Toast Inc"), ("QLYS", "Qualys Inc"), ("RPD", "Rapid7 Inc"),
-        ("TENB", "Tenable Holdings"), ("VRNS", "Varonis Systems"), ("CYBR", "CyberArk Software"),
+        ("TENB", "Tenable Holdings"), ("VRNS", "Varonis Systems"),
         ("BSY", "Bentley Systems"), ("APPF", "AppFolio Inc"), ("PTC", "PTC Inc"),
-        ("AZPN", "Aspen Technology"), ("CDNS", "Cadence Design"), ("SNPS", "Synopsys Inc"),
+        ("CDNS", "Cadence Design"), ("SNPS", "Synopsys Inc"),
         ("TYL", "Tyler Technologies"), ("MANH", "Manhattan Associates"),
-        ("CDAY", "Ceridian HCM"), ("WEX", "WEX Inc"), ("SMAR", "Smartsheet Inc"),
-        ("BOX", "Box Inc"), ("JAMF", "Jamf Holding"), ("PEGA", "Pegasystems Inc"),
-        ("FOUR", "Shift4 Payments"), ("SQSP", "Squarespace Inc"), ("CWAN", "Clearwater Analytics"),
+        ("WEX", "WEX Inc"),
+        ("BOX", "Box Inc"), ("PEGA", "Pegasystems Inc"),
+        ("FOUR", "Shift4 Payments"),
         ("RIOT", "Riot Platforms"), ("MARA", "Marathon Digital"), ("DELL", "Dell Technologies"),
         ("SMCI", "Super Micro Computer"), ("IOT", "Samsara Inc"), ("CRDO", "Credo Technology"),
         ("FLEX", "Flex Ltd"), ("HPE", "Hewlett Packard Enterprise"), ("ANET", "Arista Networks"),
@@ -108,15 +129,15 @@ SP500_STOCKS = {
         ("CI", "Cigna Group"), ("HUM", "Humana Inc"), ("A", "Agilent Technologies"),
         ("IDXX", "IDEXX Labs"), ("EW", "Edwards Lifesciences"), ("IQV", "IQVIA Holdings"),
         # --- new additions to reach ~55 ---
-        ("DXCM", "DexCom Inc"), ("HOLX", "Hologic Inc"), ("MTD", "Mettler-Toledo"),
+        ("DXCM", "DexCom Inc"), ("MTD", "Mettler-Toledo"),
         ("RMD", "ResMed Inc"), ("ALGN", "Align Technology"), ("TFX", "Teleflex Inc"),
         ("BAX", "Baxter International"), ("BDX", "Becton Dickinson"), ("COO", "Cooper Companies"),
         ("PODD", "Insulet Corp"), ("VEEV", "Veeva Systems"), ("WAT", "Waters Corp"),
-        ("PKI", "Revvity Inc"), ("CNC", "Centene Corp"), ("MOH", "Molina Healthcare"),
+        ("CNC", "Centene Corp"), ("MOH", "Molina Healthcare"),
         ("HCA", "HCA Healthcare"), ("THC", "Tenet Healthcare"), ("UHS", "Universal Health Svcs"),
         ("DVA", "DaVita Inc"), ("HSIC", "Henry Schein"), ("XRAY", "Dentsply Sirona"),
         ("STE", "STERIS PLC"), ("INSP", "Inspire Medical Sys"),
-        ("MASI", "Masimo Corp"), ("ENSG", "Ensign Group"), ("GEHC", "GE HealthCare"),
+        ("ENSG", "Ensign Group"), ("GEHC", "GE HealthCare"),
         ("SOLV", "Solventum Corp"), ("GMED", "Globus Medical"), ("NVST", "Envista Holdings"),
         ("PEN", "Penumbra Inc"), ("TNDM", "Tandem Diabetes Care"), ("WRBY", "Warby Parker"),
         ("OMCL", "Omnicell Inc"), ("HAE", "Haemonetics Corp"), ("AZTA", "Azenta Inc"),
@@ -129,7 +150,7 @@ SP500_STOCKS = {
         ("AXP", "American Express"), ("C", "Citigroup Inc"), ("SPGI", "S&P Global"),
         ("CME", "CME Group"), ("PNC", "PNC Financial"), ("USB", "US Bancorp"),
         ("TFC", "Truist Financial"), ("MCO", "Moody's Corp"), ("ICE", "Intercontinental Exch"),
-        ("COF", "Capital One"), ("DFS", "Discover Financial"), ("AIG", "AIG Inc"),
+        ("COF", "Capital One"), ("AIG", "AIG Inc"),
         ("PRU", "Prudential Financial"), ("MET", "MetLife Inc"), ("AFL", "Aflac Inc"),
         ("ALL", "Allstate Corp"), ("MTB", "M&T Bank"), ("FITB", "Fifth Third Bancorp"),
         ("RF", "Regions Financial"), ("KEY", "KeyCorp"), ("CFG", "Citizens Financial"),
@@ -138,19 +159,18 @@ SP500_STOCKS = {
         ("MSCI", "MSCI Inc"), ("NDAQ", "Nasdaq Inc"), ("CBOE", "Cboe Global Markets"),
         ("FIS", "Fidelity National Info"), ("FISV", "Fiserv Inc"), ("GPN", "Global Payments"),
         ("WRB", "W.R. Berkley"), ("TRV", "Travelers Companies"), ("CB", "Chubb Ltd"),
-        ("MMC", "Marsh & McLennan"), ("AON", "Aon PLC"), ("AJG", "Arthur J Gallagher"),
+        ("AON", "Aon PLC"), ("AJG", "Arthur J Gallagher"),
         ("BRO", "Brown & Brown"), ("RJF", "Raymond James"), ("LPLA", "LPL Financial"),
-        ("NTRS", "Northern Trust"), ("STT", "State Street Corp"), ("BK", "Bank of New York Mellon"),
-        ("SIVB", "SVB Financial Group"), ("ZION", "Zions Bancorporation"),
-        ("CMA", "Comerica Inc"), ("FHN", "First Horizon"), ("ALLY", "Ally Financial"),
+        ("NTRS", "Northern Trust"), ("STT", "State Street Corp"),
+        ("ZION", "Zions Bancorporation"),
+        ("FHN", "First Horizon"), ("ALLY", "Ally Financial"),
         ("SYF", "Synchrony Financial"), ("CINF", "Cincinnati Financial"),
-        ("L", "Loews Corp"), ("EG", "Everest Group"), ("RE", "Everest Group Ltd"),
+        ("L", "Loews Corp"), ("EG", "Everest Group"),
         ("GL", "Globe Life Inc"), ("ACGL", "Arch Capital Group"),
         ("FNF", "Fidelity Natl Financial"), ("TROW", "T Rowe Price"),
         ("IVZ", "Invesco Ltd"), ("BEN", "Franklin Resources"),
         ("EWBC", "East West Bancorp"), ("WAL", "Western Alliance Bancorp"),
-        ("FRC", "First Republic Bank"), ("SBNY", "Signature Bank"),
-        ("PYPL", "PayPal Holdings"), ("SQ", "Block Inc"),
+        ("PYPL", "PayPal Holdings"),
         ("COIN", "Coinbase Global"), ("SOFI", "SoFi Technologies"),
         ("HOOD", "Robinhood Markets"), ("MKTX", "MarketAxess Holdings"),
         ("VIRT", "Virtu Financial"), ("OWL", "Blue Owl Capital"),
@@ -181,7 +201,7 @@ SP500_STOCKS = {
         ("LCID", "Lucid Group"), ("ULTA", "Ulta Beauty"), ("BIRK", "Birkenstock Holding"),
         ("CAVA", "CAVA Group"), ("SHAK", "Shake Shack"), ("SIX", "Six Flags Entertainment"),
         ("NCLH", "Norwegian Cruise Line"), ("RCL", "Royal Caribbean"), ("CCL", "Carnival Corp"),
-        ("PENN", "PENN Entertainment"), ("MTN", "Vail Resorts"), ("SKX", "Skechers USA"),
+        ("PENN", "PENN Entertainment"), ("MTN", "Vail Resorts"),
         ("CROX", "Crocs Inc"), ("VFC", "VF Corp"), ("HAS", "Hasbro Inc"),
         ("MAT", "Mattel Inc"),
     ],
@@ -189,18 +209,18 @@ SP500_STOCKS = {
         # --- existing 20 ---
         ("GOOG", "Alphabet Inc C"), ("NFLX", "Netflix Inc"), ("DIS", "Walt Disney"),
         ("CMCSA", "Comcast Corp"), ("VZ", "Verizon Comms"), ("T", "AT&T Inc"),
-        ("TMUS", "T-Mobile US"), ("CHTR", "Charter Comms"), ("EA", "Electronic Arts"),
-        ("WBD", "Warner Bros Discovery"), ("SNAP", "Snap Inc"), ("PINS", "Pinterest Inc"),
+        ("TMUS", "T-Mobile US"), ("CHTR", "Charter Comms"),
+        ("SNAP", "Snap Inc"), ("PINS", "Pinterest Inc"),
         ("MTCH", "Match Group"), ("LYV", "Live Nation Ent"), ("FOXA", "Fox Corp"),
-        ("IPG", "Interpublic Group"), ("OMC", "Omnicom Group"), ("TTWO", "Take-Two Interactive"),
+        ("OMC", "Omnicom Group"), ("TTWO", "Take-Two Interactive"),
         ("RBLX", "Roblox Corp"), ("SPOT", "Spotify Technology"),
         # --- new additions to reach ~35 ---
-        ("PARA", "Paramount Global"), ("NWSA", "News Corp"), ("NWS", "News Corp B"),
-        ("LBRDA", "Liberty Broadband A"), ("SIRI", "Sirius XM Holdings"),
-        ("ROKU", "Roku Inc"), ("ZG", "Zillow Group"), ("YELP", "Yelp Inc"),
-        ("IAC", "IAC Inc"), ("ANGI", "Angi Inc"), ("CARG", "CarGurus Inc"),
+        ("NWSA", "News Corp"), ("NWS", "News Corp B"),
+        ("SIRI", "Sirius XM Holdings"),
+        ("ZG", "Zillow Group"), ("YELP", "Yelp Inc"),
+        ("ANGI", "Angi Inc"), ("CARG", "CarGurus Inc"),
         ("GENI", "Genius Sports"), ("MGNI", "Magnite Inc"), ("TTD", "Trade Desk Inc"),
-        ("PUBM", "PubMatic Inc"), ("LBRDK", "Liberty Broadband C"),
+        ("PUBM", "PubMatic Inc"),
         ("FWONA", "Liberty Formula One"), ("MSGS", "Madison Square Garden Sports"),
         ("MSGE", "Madison Square Garden Ent"), ("IMAX", "IMAX Corp"),
     ],
@@ -226,16 +246,16 @@ SP500_STOCKS = {
         ("ACM", "AECOM"), ("J", "Jacobs Solutions"), ("MTZ", "MasTec Inc"),
         ("FIX", "Comfort Systems USA"), ("CLH", "Clean Harbors"), ("ALLE", "Allegion PLC"),
         ("AXON", "Axon Enterprise"), ("BR", "Broadridge Financial"),
-        ("DNB", "Dun & Bradstreet"), ("DAL", "Delta Air Lines"), ("AAL", "American Airlines"),
+        ("DAL", "Delta Air Lines"), ("AAL", "American Airlines"),
         ("LUV", "Southwest Airlines"), ("ALK", "Alaska Air Group"),
         ("BLDR", "Builders FirstSource"), ("HUBB", "Hubbell Inc"), ("WCC", "WESCO Intl"),
         ("AIT", "Applied Industrial"), ("AGCO", "AGCO Corp"), ("OSK", "Oshkosh Corp"),
         ("TEX", "Terex Corp"), ("MIDD", "Middleby Corp"), ("ENTG", "Entegris Inc"),
         ("VRSK", "Verisk Analytics"), ("CPRT", "Copart Inc"), ("RRX", "Regal Rexnord"),
-        ("TREX", "Trex Co"), ("SRCL", "Stericycle Inc"), ("NFE", "New Fortress Energy"),
+        ("TREX", "Trex Co"), ("NFE", "New Fortress Energy"),
         ("APG", "APi Group Corp"), ("FERG", "Ferguson Enterprises"),
-        ("AZEK", "AZEK Company"), ("SITE", "SiteOne Landscape"),
-        ("CNHI", "CNH Industrial"), ("GATX", "GATX Corp"),
+        ("SITE", "SiteOne Landscape"),
+        ("GATX", "GATX Corp"),
         ("CSL", "Carlisle Companies"), ("RHI", "Robert Half Intl"),
     ],
     "Transportation": [
@@ -252,8 +272,7 @@ SP500_STOCKS = {
         ("HUBG", "Hub Group Inc"), ("ARCB", "ArcBest Corp"),
         ("LSTR", "Landstar System"), ("RXO", "RXO Inc"),
         ("UAL", "United Airlines"), ("SKYW", "SkyWest Inc"),
-        ("SAVE", "Spirit Airlines"), ("JBLU", "JetBlue Airways"),
-        ("ATSG", "Air Transport Services"), ("AAWW", "Atlas Air Worldwide"),
+        ("JBLU", "JetBlue Airways"),
         ("FWRD", "Forward Air Corp"),
     ],
     "Consumer Defensive": [
@@ -262,7 +281,7 @@ SP500_STOCKS = {
         ("COST", "Costco Wholesale"), ("WMT", "Walmart Inc"), ("PM", "Philip Morris"),
         ("MDLZ", "Mondelez Intl"), ("MO", "Altria Group"), ("CL", "Colgate-Palmolive"),
         ("KMB", "Kimberly-Clark"), ("GIS", "General Mills"), ("SYY", "Sysco Corp"),
-        ("KR", "Kroger Co"), ("HSY", "Hershey Co"), ("K", "Kellanova"),
+        ("KR", "Kroger Co"), ("HSY", "Hershey Co"),
         ("STZ", "Constellation Brands"), ("TAP", "Molson Coors"), ("TSN", "Tyson Foods"),
         ("HRL", "Hormel Foods"), ("CAG", "Conagra Brands"), ("CPB", "Campbell Soup"),
         ("MKC", "McCormick & Co"), ("CHD", "Church & Dwight"), ("CLX", "Clorox Co"),
@@ -270,10 +289,9 @@ SP500_STOCKS = {
         ("ADM", "Archer-Daniels-Midland"), ("BG", "Bunge Global"),
         ("KDP", "Keurig Dr Pepper"), ("MNST", "Monster Beverage"), ("SAM", "Boston Beer Co"),
         ("SJM", "J.M. Smucker"), ("INGR", "Ingredion Inc"), ("DAR", "Darling Ingredients"),
-        ("EL", "Estee Lauder"), ("KVUE", "Kenvue Inc"), ("COTY", "Coty Inc"),
-        ("LW", "Lamb Weston"), ("POST", "Post Holdings"), ("THS", "TreeHouse Foods"),
+        ("EL", "Estee Lauder"), ("COTY", "Coty Inc"),
+        ("LW", "Lamb Weston"), ("POST", "Post Holdings"),
         ("FLO", "Flowers Foods"), ("USFD", "US Foods Holding"), ("PFGC", "Performance Food Group"),
-        ("SPTN", "SpartanNash Co"), ("WBA", "Walgreens Boots Alliance"),
         ("DG", "Dollar General"), ("DLTR", "Dollar Tree"), ("FIVE", "Five Below"),
         ("BJ", "BJ's Wholesale"), ("GO", "Grocery Outlet"), ("CELH", "Celsius Holdings"),
         ("SMPL", "Simply Good Foods"),
@@ -288,16 +306,15 @@ SP500_STOCKS = {
         ("KMI", "Kinder Morgan"), ("WMB", "Williams Companies"), ("OKE", "ONEOK Inc"),
         ("ET", "Energy Transfer"), ("TRGP", "Targa Resources"),
         # --- new additions to reach ~45 ---
-        ("HES", "Hess Corp"), ("MRO", "Marathon Oil"), ("CTRA", "Coterra Energy"),
         ("EQT", "EQT Corp"), ("AR", "Antero Resources"), ("RRC", "Range Resources"),
-        ("SWN", "Southwestern Energy"), ("PR", "Permian Resources"),
+        ("PR", "Permian Resources"),
         ("CHRD", "Chord Energy"), ("SM", "SM Energy"), ("MTDR", "Matador Resources"),
         ("DINO", "HF Sinclair Corp"), ("DK", "Delek US Holdings"),
         ("PBF", "PBF Energy Inc"), ("PARR", "Par Pacific Holdings"),
-        ("AM", "Antero Midstream"), ("ENLC", "EnLink Midstream"), ("DTM", "DT Midstream"),
+        ("AM", "Antero Midstream"), ("DTM", "DT Midstream"),
         ("HESM", "Hess Midstream Partners"), ("EPD", "Enterprise Products Partners"),
         ("MPLX", "MPLX LP"), ("PAA", "Plains All American"),
-        ("VNOM", "Viper Energy"), ("CIVI", "Civitas Resources"),
+        ("VNOM", "Viper Energy"),
         ("NOV", "NOV Inc"), ("FTI", "TechnipFMC"),
     ],
     "Utilities": [
@@ -314,8 +331,8 @@ SP500_STOCKS = {
         ("AES", "AES Corp"), ("PCG", "PG&E Corp"), ("EIX", "Edison International"),
         ("CNP", "CenterPoint Energy"), ("AEE", "Ameren Corp"), ("LNT", "Alliant Energy"),
         ("EVRG", "Evergy Inc"), ("PEG", "Public Service Enterprise"),
-        ("BKH", "Black Hills Corp"), ("AVA", "Avista Corp"), ("NWE", "NorthWestern Energy"),
-        ("SR", "Spire Inc"), ("SJW", "SJW Group"), ("WTRG", "Essential Utilities"),
+        ("BKH", "Black Hills Corp"), ("AVA", "Avista Corp"),
+        ("SR", "Spire Inc"), ("WTRG", "Essential Utilities"),
         ("CWT", "California Water Svc"), ("MSEX", "Middlesex Water"),
         ("UTL", "Unitil Corp"), ("IDA", "IDACORP Inc"), ("OGS", "ONE Gas Inc"),
         ("POR", "Portland General Elec"), ("MGEE", "MGE Energy"),
@@ -325,7 +342,7 @@ SP500_STOCKS = {
         ("PLD", "Prologis Inc"), ("AMT", "American Tower"), ("CCI", "Crown Castle"),
         ("EQIX", "Equinix Inc"), ("PSA", "Public Storage"), ("O", "Realty Income"),
         ("WELL", "Welltower Inc"), ("SPG", "Simon Property Group"), ("DLR", "Digital Realty"),
-        ("AVB", "AvalonBay Communities"), ("EQR", "Equity Residential"), ("ARE", "Alexandria RE"),
+        ("ARE", "Alexandria RE"),
         ("VTR", "Ventas Inc"), ("HST", "Host Hotels"), ("KIM", "Kimco Realty"),
         ("REG", "Regency Centers"), ("WPC", "W.P. Carey"), ("IRM", "Iron Mountain"),
         ("INVH", "Invitation Homes"), ("EXR", "Extra Space Storage"),
@@ -336,11 +353,11 @@ SP500_STOCKS = {
         ("UDR", "UDR Inc"), ("ESS", "Essex Property Trust"),
         ("BXP", "Boston Properties"), ("SLG", "SL Green Realty"), ("VNO", "Vornado Realty"),
         ("HIW", "Highwoods Properties"), ("DEI", "Douglas Emmett"),
-        ("CUBE", "CubeSmart"), ("LSI", "Life Storage Inc"), ("NSA", "National Storage"),
+        ("CUBE", "CubeSmart"),
         ("REXR", "Rexford Industrial"), ("STAG", "STAG Industrial"), ("FR", "First Industrial"),
         ("TRNO", "Terreno Realty"), ("NNN", "NNN REIT Inc"), ("ADC", "Agree Realty"),
-        ("STOR", "STORE Capital"), ("SKT", "Tanger Factory Outlet"),
-        ("MPW", "Medical Properties Trust"), ("COLD", "Americold Realty"),
+        ("SKT", "Tanger Factory Outlet"),
+        ("COLD", "Americold Realty"),
         ("SBAC", "SBA Communications"), ("LTC", "LTC Properties"),
         ("OHI", "Omega Healthcare"), ("DOC", "Healthpeak Properties"),
         ("HR", "Healthcare Realty Trust"),
@@ -351,14 +368,14 @@ SP500_STOCKS = {
         ("ECL", "Ecolab Inc"), ("FCX", "Freeport-McMoRan"), ("NEM", "Newmont Corp"),
         ("NUE", "Nucor Corp"), ("DOW", "Dow Inc"), ("DD", "DuPont de Nemours"),
         ("VMC", "Vulcan Materials"), ("MLM", "Martin Marietta"), ("IP", "International Paper"),
-        ("PKG", "Packaging Corp"), ("AVY", "Avery Dennison"), ("SEE", "Sealed Air Corp"),
+        ("PKG", "Packaging Corp"), ("AVY", "Avery Dennison"),
         ("CE", "Celanese Corp"), ("EMN", "Eastman Chemical"), ("RPM", "RPM International"),
         ("CC", "Chemours Co"),
         # --- new additions to reach ~40 ---
         ("BALL", "Ball Corp"), ("CF", "CF Industries"), ("MOS", "Mosaic Co"),
-        ("FMC", "FMC Corp"), ("ALB", "Albemarle Corp"), ("LTHM", "Livent Corp"),
+        ("FMC", "FMC Corp"), ("ALB", "Albemarle Corp"),
         ("RS", "Reliance Steel"), ("STLD", "Steel Dynamics"),
-        ("CLF", "Cleveland-Cliffs"), ("X", "United States Steel"),
+        ("CLF", "Cleveland-Cliffs"),
         ("AA", "Alcoa Corp"), ("CENX", "Century Aluminum"),
         ("OLN", "Olin Corp"), ("HUN", "Huntsman Corp"), ("WLK", "Westlake Corp"),
         ("AXTA", "Axalta Coating Sys"), ("PPG", "PPG Industries"),
@@ -372,29 +389,29 @@ SP500_STOCKS = {
         ("BIIB", "Biogen Inc"), ("MRNA", "Moderna Inc"), ("ILMN", "Illumina Inc"),
         ("ALNY", "Alnylam Pharma"), ("BMRN", "BioMarin Pharma"),
         ("EXEL", "Exelixis Inc"), ("HALO", "Halozyme Therapeutics"), ("IONS", "Ionis Pharma"),
-        ("FOLD", "Amicus Therapeutics"), ("RARE", "Ultragenyx Pharma"), ("ACAD", "ACADIA Pharma"),
+        ("RARE", "Ultragenyx Pharma"), ("ACAD", "ACADIA Pharma"),
         ("PCVX", "Vaxcyte Inc"), ("RXRX", "Recursion Pharma"), ("RVMD", "Revolution Medicines"),
         # --- new additions to reach ~35 ---
-        ("SGEN", "Seagen Inc"), ("SRPT", "Sarepta Therapeutics"), ("NBIX", "Neurocrine Bio"),
+        ("SRPT", "Sarepta Therapeutics"), ("NBIX", "Neurocrine Bio"),
         ("UTHR", "United Therapeutics"), ("INSM", "Insmed Inc"), ("NTRA", "Natera Inc"),
         ("ARGX", "argenx SE"), ("LEGN", "Legend Biotech"), ("RPRX", "Royalty Pharma"),
         ("TECH", "Bio-Techne Corp"), ("BIO", "Bio-Rad Labs"), ("BNTX", "BioNTech SE"),
         ("NVAX", "Novavax Inc"), ("TWST", "Twist Bioscience"), ("CRSP", "CRISPR Therapeutics"),
         ("BEAM", "Beam Therapeutics"), ("NTLA", "Intellia Therapeutics"),
         ("EDIT", "Editas Medicine"), ("FATE", "Fate Therapeutics"),
-        ("IMVT", "Immunovant Inc"), ("DAWN", "Day One Biopharma"),
-        ("RCKT", "Rocket Pharma"), ("ARVN", "Arvinas Inc"), ("CRNX", "Crinetics Pharma"),
+        ("IMVT", "Immunovant Inc"),
+        ("RCKT", "Rocket Pharma"), ("ARVN", "Arvinas Inc"),
         ("KRYS", "Krystal Biotech"), ("IOVA", "Iovance Biotherapeutics"),
     ],
     "Aerospace & Defense": [
         ("BA", "Boeing Co"), ("RTX", "RTX Corp"), ("LMT", "Lockheed Martin"),
         ("GD", "General Dynamics"), ("NOC", "Northrop Grumman"), ("LHX", "L3Harris Technologies"),
-        ("TDG", "TransDigm Group"), ("HEI", "HEICO Corp"), ("HEI.A", "HEICO Corp A"),
-        ("TXT", "Textron Inc"), ("CW", "Curtiss-Wright"), ("MOG.A", "Moog Inc"),
+        ("TDG", "TransDigm Group"), ("HEI", "HEICO Corp"),
+        ("TXT", "Textron Inc"), ("CW", "Curtiss-Wright"),
         ("KTOS", "Kratos Defense"), ("BWXT", "BWX Technologies"), ("LDOS", "Leidos Holdings"),
         ("SAIC", "Science Applications"), ("BAH", "Booz Allen Hamilton"),
         ("PSN", "Parsons Corp"), ("KBR", "KBR Inc"), ("CACI", "CACI International"),
-        ("MRCY", "Mercury Systems"), ("SPR", "Spirit AeroSystems"),
+        ("MRCY", "Mercury Systems"),
         ("DCO", "Ducommun Inc"), ("AIR", "AAR Corp"), ("WWD", "Woodward Inc"),
         ("AVAV", "AeroVironment Inc"), ("RKLB", "Rocket Lab USA"),
         ("LUNR", "Intuitive Machines"), ("RDW", "Redwire Corp"),
@@ -409,7 +426,7 @@ SP500_STOCKS = {
         ("NXPI", "NXP Semiconductors"), ("ONTO", "Onto Innovation"), ("TER", "Teradyne Inc"),
         ("MPWR", "Monolithic Power"),
         # --- new additions to reach ~35 ---
-        ("ON", "ON Semiconductor"), ("SWKS", "Skyworks Solutions"), ("QRVO", "Qorvo Inc"),
+        ("ON", "ON Semiconductor"), ("SWKS", "Skyworks Solutions"),
         ("MCHP", "Microchip Technology"), ("GFS", "GlobalFoundries"), ("ARM", "Arm Holdings"),
         ("WOLF", "Wolfspeed Inc"), ("DIOD", "Diodes Inc"), ("SLAB", "Silicon Laboratories"),
         ("LSCC", "Lattice Semiconductor"), ("RMBS", "Rambus Inc"), ("CRUS", "Cirrus Logic"),
@@ -435,7 +452,7 @@ async def fetch_stock_performance(
     try:
         quote = await cache_service.get_quote(symbol)
         
-        if not quote or quote.get("unavailable") or is_stale_quote(quote):
+        if not _usable(symbol, quote):
             return None
         
         return StockPerformance(
@@ -478,8 +495,9 @@ async def fetch_bulk_quotes(
         failed_symbols = []
         
         for symbol, quote in quotes.items():
-            if is_stale_quote(quote):
-                continue  # delisted/halted: frozen price, not a real 0% day
+            if quote and not quote.get("unavailable") and float(quote.get("price") or 0) > 0:
+                if not _usable(symbol, quote):
+                    continue  # stale (delisted/halted) or implausible move: drop, no fallback
             if quote and not quote.get("unavailable"):
                 price = quote.get("price", 0)
                 # Only include stocks with valid prices
@@ -507,7 +525,7 @@ async def fetch_bulk_quotes(
                 tv_quotes = await TradingViewFetcher.get_quotes_bulk(failed_symbols)
                 
                 for symbol, quote in tv_quotes.items():
-                    if quote and quote.get("price") and quote.get("price") > 0 and not is_stale_quote(quote):
+                    if _usable(symbol, quote):
                         name, sector = symbol_map.get(symbol, (symbol, None))
                         results.append(StockPerformance(
                             symbol=symbol,
@@ -574,7 +592,7 @@ def _load_cached_mover_rows(
     for snap in snapshots:
         payload = snap.payload or {}
         price = float(payload.get("price", 0) or 0)
-        if price <= 0 or is_stale_quote(payload):
+        if not _usable(snap.symbol, payload):
             continue
         name, sector = symbol_meta.get(snap.symbol, (snap.symbol, None))
         out.append(
@@ -609,11 +627,9 @@ async def _yfinance_fallback_performances(
         symbol, name, sector = row
         try:
             quote = await cache_service._fetch_from_yfinance(symbol)
-            if not quote or quote.get("unavailable"):
+            if not _usable(symbol, quote):
                 return None
             price = float(quote.get("price", 0) or 0)
-            if price <= 0:
-                return None
             return StockPerformance(
                 symbol=symbol,
                 name=name,
@@ -858,11 +874,9 @@ async def get_sector_performance(db: Session = Depends(get_db)) -> List[SectorPe
     for sector_name, stock_list in SP500_STOCKS.items():
         for symbol, name in stock_list:
             quote = cached_map.get(symbol)
-            if not quote or quote.get("unavailable") or is_stale_quote(quote):
+            if not _usable(symbol, quote):
                 continue
             price = float(quote.get("price", 0) or 0)
-            if price <= 0:
-                continue
             perf = StockPerformance(
                 symbol=symbol,
                 name=name,
@@ -895,10 +909,11 @@ async def get_sector_performance(db: Session = Depends(get_db)) -> List[SectorPe
     for sector_name, stocks in sector_map.items():
         if not stocks:
             continue
-        avg_change = sum(s.change_percent for s in stocks) / len(stocks)
+        # Median, not mean: one bad row must not skew the whole sector.
+        sector_change = robust_sector_change(s.change_percent for s in stocks)
         sectors.append(SectorPerformance(
             sector=sector_name,
-            change_percent=round(avg_change, 2),
+            change_percent=round(sector_change, 2),
             stocks=stocks,
         ))
 
@@ -948,10 +963,10 @@ async def get_heatmap_data(
                 total_unchanged += 1
 
         if stocks:
-            avg_change = sum(s.change_percent for s in stocks) / len(stocks)
+            sector_change = robust_sector_change(s.change_percent for s in stocks)
             sectors.append(SectorPerformance(
                 sector=sector_name,
-                change_percent=round(avg_change, 2),
+                change_percent=round(sector_change, 2),
                 stocks=stocks
             ))
 

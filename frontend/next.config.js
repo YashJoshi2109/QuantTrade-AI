@@ -50,6 +50,10 @@ const nextConfig = {
       },
     ]
   },
+  // Legacy /dashboard links (the dashboard lives at /) used to 404.
+  async redirects() {
+    return [{ source: '/dashboard', destination: '/', permanent: true }]
+  },
   // Security headers
   async headers() {
     return [
@@ -78,11 +82,11 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://accounts.google.com https://apis.google.com https://embed.polymarket.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://accounts.google.com https://apis.google.com https://embed.polymarket.com https://static.cloudflareinsights.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https: http:",
-              `connect-src 'self' ${process.env.NODE_ENV === 'development' ? 'http://localhost:8000 http://127.0.0.1:8000 http://localhost:3000 ws://localhost:8000 ws://127.0.0.1:8000' : ''} https://www.quanttrade.us https://quanttrade.us https://quanttrade-live-visitors.yashjosh7486.workers.dev https://challenges.cloudflare.com https://www.google-analytics.com https://analytics.google.com https://accounts.google.com https://apis.google.com https://gamma-api.polymarket.com wss:`,
+              `connect-src 'self' ${process.env.NODE_ENV === 'development' ? 'http://localhost:8000 http://127.0.0.1:8000 http://localhost:3000 ws://localhost:8000 ws://127.0.0.1:8000' : ''} https://www.quanttrade.us https://quanttrade.us https://quanttrade-live-visitors.yashjosh7486.workers.dev https://challenges.cloudflare.com https://www.google-analytics.com https://analytics.google.com https://accounts.google.com https://apis.google.com https://gamma-api.polymarket.com https://cloudflareinsights.com wss:`,
               "frame-src 'self' https://challenges.cloudflare.com https://accounts.google.com https://js.stripe.com https://www.youtube.com https://embed.polymarket.com https://polymarket.com",
               "worker-src 'self' blob:",
               `media-src 'self' blob: data: ${process.env.NODE_ENV === 'development' ? 'http://localhost:8000 http://127.0.0.1:8000' : 'https://quanttrade.us https://www.quanttrade.us'} https:`,

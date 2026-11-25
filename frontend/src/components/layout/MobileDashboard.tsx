@@ -34,6 +34,9 @@ import {
 } from '@/lib/api'
 import { useBreakingNews } from '@/hooks/useRealtimeNews'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
+import { computeBreadth } from '@/lib/marketBreadth'
+import { formatLevelOrPrice, isIndexLevel } from '@/lib/quoteDisplay'
+import { normalizeMoverRows } from '@/lib/movers'
 import MarketNewsGrid from '@/components/MarketNewsGrid'
 import EconomicCalendarStrip from '@/components/EconomicCalendarStrip'
 import MiniWorldMonitorSnapshot from '@/components/MiniWorldMonitorSnapshot'
@@ -82,11 +85,16 @@ function DashboardIndexCard({ index, label }: DashboardIndexCardProps) {
   const value = index?.price
   const pct = index?.change_percent
   const isUp = isNumber(pct) && pct >= 0
+  // An ETF proxy (SPY for ^GSPC) is labelled as the ETF, never as the index.
+  const shownLabel = index?.is_proxy ? index.name : label
+  const level = index ? isIndexLevel(index) : true
 
   return (
     <div className="shrink-0 w-[140px] h-[100px] rounded-2xl bg-surface-raised border border-line-subtle backdrop-blur-xl p-3 flex flex-col justify-between mr-2">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-fg-secondary font-medium">{label}</span>
+        <span className="text-[10px] text-fg-secondary font-medium truncate" title={shownLabel}>
+          {shownLabel}
+        </span>
         {isNumber(pct) && (
           <span
             className={`flex items-center gap-0.5 text-[10px] font-mono ${
@@ -101,7 +109,7 @@ function DashboardIndexCard({ index, label }: DashboardIndexCardProps) {
       </div>
       <div className="mt-1">
         <div className="text-[14px] font-semibold text-fg-primary font-mono">
-          {isNumber(value) ? formatNumber(value, 2) : '—'}
+          {formatLevelOrPrice(value, level)}
         </div>
         <p className="mt-1 text-[10px] text-fg-muted">
           {index?.timestamp
@@ -217,53 +225,26 @@ export default function MobileDashboard() {
     if (indices && indices.length > 0) {
       indices.forEach((idx) => {
         const key = idx.symbol.toUpperCase()
+        // Same symbols the desktop tiles use; ETF rows (SPY/QQQ/DIA) only appear as
+        // labelled proxies when no index level is available.
         if (key.includes('GSPC') || key.includes('SPX') || key === 'SPY') {
-          map.sp500 = idx
-        } else if (key.includes('IXIC') || key.includes('NDX')) {
-          map.nasdaq = idx
-        } else if (key.includes('DJI') || key.includes('DOW')) {
-          map.dow = idx
+          map.sp500 ??= idx
+        } else if (key.includes('IXIC') || key === 'QQQ') {
+          map.nasdaq ??= idx
+        } else if (key.includes('DJI') || key === 'DIA') {
+          map.dow ??= idx
         }
       })
     }
 
-    // Fallback static values if API or cache fails
-    if (!map.sp500) {
-      map.sp500 = {
-        symbol: '^GSPC',
-        name: 'S&P 500',
-        price: 4783.45,
-        change: 0.42,
-        change_percent: 0.42,
-        timestamp: new Date().toISOString(),
-      }
-    }
-    if (!map.nasdaq) {
-      map.nasdaq = {
-        symbol: '^IXIC',
-        name: 'NASDAQ',
-        price: 15234.12,
-        change: 0.87,
-        change_percent: 0.87,
-        timestamp: new Date().toISOString(),
-      }
-    }
-    if (!map.dow) {
-      map.dow = {
-        symbol: '^DJI',
-        name: 'Dow Jones',
-        price: 37892.67,
-        change: 0.15,
-        change_percent: 0.15,
-        timestamp: new Date().toISOString(),
-      }
-    }
-
+    // No fabricated fallback levels: a missing index renders as "—".
     return map
   }, [indices])
 
-  const topGainers = movers?.gainers?.slice(0, 8) ?? []
-  const topLosers = movers?.losers?.slice(0, 8) ?? []
+  const topGainers = normalizeMoverRows(movers?.gainers).slice(0, 8)
+  const topLosers = normalizeMoverRows(movers?.losers).slice(0, 8)
+  // Same source (sector heatmap), classifier and ±0.1% flat band as desktop home + /markets.
+  const breadth = useMemo(() => computeBreadth(sectors), [sectors])
   const topSectors = sectors?.slice(0, 6) ?? []
 
   return (
@@ -399,6 +380,13 @@ export default function MobileDashboard() {
                 NYSE · NASDAQ{' '}
                 {status?.is_weekday ? (status?.is_open ? 'session live' : 'off-hours') : 'weekend'}
               </p>
+              {breadth.total > 0 && (
+                <p className="mt-1 text-[9px] font-mono tabular-nums" aria-label="Market breadth">
+                  <span className="text-emerald-400">{breadth.gainers}↑</span>{' '}
+                  <span className="text-red-400">{breadth.losers}↓</span>{' '}
+                  <span className="text-fg-muted">{breadth.flat} flat /{breadth.total}</span>
+                </p>
+              )}
             </div>
           </div>
 
