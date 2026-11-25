@@ -144,6 +144,7 @@ class QuoteCacheService:
                 "previous_close": round(previous_close, 2) if previous_close else 0,
                 "market_cap": None,  # Not available in history
                 "timestamp": datetime.now(timezone.utc).isoformat(),
+                "market_time": hist.index[-1].to_pydatetime().isoformat(),
                 "data_source": "yfinance"
             }
         except Exception as e:
@@ -222,6 +223,12 @@ class QuoteCacheService:
                 "previous_close": round(previous_close, 2) if previous_close else 0,
                 "market_cap": meta.get("marketCap"),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
+                # Last trade time — lets callers drop delisted tickers whose
+                # frozen price would otherwise read as a 0% day.
+                "market_time": (
+                    datetime.fromtimestamp(meta["regularMarketTime"], tz=timezone.utc).isoformat()
+                    if meta.get("regularMarketTime") else None
+                ),
                 "data_source": "yahoo_direct"
             }
         except Exception as e:
@@ -257,6 +264,10 @@ class QuoteCacheService:
                     "open": round(data.get('o', 0), 2),
                     "previous_close": round(data.get('pc', 0), 2),
                     "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "market_time": (
+                        datetime.fromtimestamp(data['t'], tz=timezone.utc).isoformat()
+                        if data.get('t') else None
+                    ),
                     "data_source": "finnhub"
                 }
         except Exception as e:
@@ -394,6 +405,10 @@ class QuoteCacheService:
                     quote['change'] = yahoo.get('change', 0)
                     quote['change_percent'] = yahoo.get('change_percent', 0)
                     quote['previous_close'] = yahoo.get('previous_close', 0)
+                # A 0% quote is the classic signature of a delisted ticker; keep
+                # Yahoo's last-trade time so it can be recognised as stale.
+                if yahoo and yahoo.get('market_time') and not quote.get('market_time'):
+                    quote['market_time'] = yahoo['market_time']
             return quote
 
         # 2. Yahoo Finance direct API

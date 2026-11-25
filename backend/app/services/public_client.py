@@ -156,7 +156,8 @@ def _parse_quote(raw) -> Optional[Dict[str, Any]]:
         ask = float(_get(raw, "ask", 0) or 0)
 
         ts = _get(raw, "last_timestamp", None) or _get(raw, "lastTimestamp", None)
-        ts_str = ts.isoformat() if hasattr(ts, "isoformat") else (ts or datetime.now(timezone.utc).isoformat())
+        market_time = ts.isoformat() if hasattr(ts, "isoformat") else (str(ts) if ts else None)
+        ts_str = market_time or datetime.now(timezone.utc).isoformat()
 
         return {
             "symbol": symbol,
@@ -174,6 +175,7 @@ def _parse_quote(raw) -> Optional[Dict[str, Any]]:
             "ask_size": int(_get(raw, "ask_size", 0) or _get(raw, "askSize", 0) or 0),
             "market_cap": None,
             "timestamp": ts_str,
+            "market_time": market_time,  # last trade; None when Public doesn't report it
             "data_source": "public.com",
         }
     except Exception as e:
