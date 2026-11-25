@@ -142,7 +142,9 @@ def get_submissions(cik: str, force_refresh: bool = False) -> Optional[dict]:
 
 # Map common XBRL tags to our field names
 _INCOME_TAGS = {
-    "revenue": ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "RevenueFromContractWithCustomerIncludingAssessedTax"],
+    # Banks (e.g. JPM) report headline "total net revenue" as RevenuesNetOfInterestExpense;
+    # no non-bank uses that tag, so listing it first is safe.
+    "revenue": ["RevenuesNetOfInterestExpense", "Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "RevenueFromContractWithCustomerIncludingAssessedTax"],
     "gross_profit": ["GrossProfit"],
     "operating_income": ["OperatingIncomeLoss"],
     "net_income": ["NetIncomeLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"],
@@ -185,7 +187,7 @@ _CASHFLOW_TAGS = {
 _DA_TAGS = ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationAmortizationAndAccretionNet"]
 
 # Bump when parsing changes so rows stored by an older parser get re-synced.
-PARSER_VERSION = 2
+PARSER_VERSION = 3  # 3: bank revenue tag + period discovery from revenue ∪ net income
 
 _QUARTER_DAYS = (75, 105)
 _ANNUAL_DAYS = (340, 390)
@@ -299,7 +301,10 @@ def _discover_periods(facts_data: dict) -> list[dict]:
     us_gaap = facts_data.get("facts", {}).get("us-gaap", {})
     def _raw(tags):
         return [e for t in tags for e in us_gaap.get(t, {}).get("units", {}).get("USD", [])]
-    entries = _raw(_INCOME_TAGS["revenue"]) or _raw(_INCOME_TAGS["net_income"])
+    # Union with net income: a company's revenue tag can stop years before its
+    # latest filing (JPM's generic "Revenues" ended 2014 in some filings), which
+    # previously made a 12-year-old quarter look like the newest one.
+    entries = _raw(_INCOME_TAGS["revenue"]) + _raw(_INCOME_TAGS["net_income"])
     first: dict[tuple, dict] = {}
     for e in entries:
         form = (e.get("form") or "").replace("/A", "")
