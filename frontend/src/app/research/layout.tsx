@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
-  title: 'Research — AI Stock Analysis | QuantTrade AI',
+  title: 'Research — AI Stock Analysis', // root template appends ' | QuantTrade AI'
   description:
     'Deep stock research workspace. Real-time quotes, technical charts, SEC 10-K/10-Q filing analysis with RAG, AI investment theses, insider transactions, IPO calendar, earnings history, and recommendations.',
   keywords: [
