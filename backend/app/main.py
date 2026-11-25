@@ -407,7 +407,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if path in ("/health", "/", "/docs", "/openapi.json"):
             return await call_next(request)
 
-        client_ip = request.client.host if request.client else "unknown"
+        # Behind nginx (only nginx can reach the backend container), request.client
+        # is the nginx container IP for every user. nginx sets X-Real-IP from
+        # CF-Connecting-IP via set_real_ip_from, so key the limiter on that.
+        client_ip = (
+            request.headers.get("x-real-ip")
+            or (request.client.host if request.client else "unknown")
+        )
         now = _time.time()
         window = now - 60
 
