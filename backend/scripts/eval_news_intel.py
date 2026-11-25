@@ -13,7 +13,7 @@ Evaluate the news-intelligence fast path.
   4. Memory: process RSS before/after loading both models.
 
 Usage (from backend/):
-  python scripts/eval_news_intel.py [--quantize auto|0|1] [--threads 1] [--json out.json]
+  python scripts/eval_news_intel.py [--models-dir /opt/news-models] [--threads 1] [--json out.json]
 No database or network needed except the one-time HF downloads.
 """
 from __future__ import annotations
@@ -38,6 +38,13 @@ def rss_mb() -> float:
 
         return psutil.Process().memory_info().rss / 1e6
     except ImportError:
+        try:
+            with open("/proc/self/status") as f:
+                for line in f:
+                    if line.startswith("VmRSS:"):
+                        return int(line.split()[1]) / 1e3
+        except FileNotFoundError:
+            pass
         import subprocess
 
         out = subprocess.run(["ps", "-o", "rss=", "-p", str(os.getpid())], capture_output=True, text=True)
@@ -160,17 +167,19 @@ def eval_latency(clf, cat, texts, reps=40):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--quantize", default=os.environ.get("NEWS_INTEL_QUANTIZE", "0"))
-    ap.add_argument("--threads", default=os.environ.get("NEWS_INTEL_TORCH_THREADS", "1"))
+    ap.add_argument("--models-dir", default=os.environ.get("NEWS_MODELS_DIR", "/opt/news-models"),
+                    help="output of app/services/news_intel/export_models.py")
+    ap.add_argument("--threads", default=os.environ.get("NEWS_INTEL_THREADS", "1"))
     ap.add_argument("--skip-phrasebank", action="store_true")
     ap.add_argument("--json", help="write full results here")
     args = ap.parse_args()
-    os.environ["NEWS_INTEL_QUANTIZE"] = str(args.quantize)
-    os.environ["NEWS_INTEL_TORCH_THREADS"] = str(args.threads)
+    os.environ["NEWS_INTEL_MODELS"] = "1"
+    os.environ["NEWS_MODELS_DIR"] = args.models_dir
+    os.environ["NEWS_INTEL_THREADS"] = str(args.threads)
 
-    import torch  # noqa: F401  (import cost out of the RSS delta)
-    import transformers  # noqa: F401
-    import sentence_transformers  # noqa: F401
+    import numpy  # noqa: F401  (import cost out of the RSS delta)
+    import onnxruntime  # noqa: F401
+    import tokenizers  # noqa: F401
     from app.services.news_intel.categorizer import Categorizer
     from app.services.news_intel.sentiment import SentimentClassifier
 
@@ -188,7 +197,7 @@ def main():
 
     import platform
     res = {"env": {"platform": platform.platform(), "machine": platform.machine(),
-                   "torch_threads": int(args.threads), "quantize": args.quantize,
+                   "threads": int(args.threads), "runtime": "onnxruntime " + onnxruntime.__version__,
                    "sentiment_backend": clf.backend},
            "load_seconds": {"finbert": round(sent_load, 2), "minilm_categorizer": round(cat_load, 2)},
            "memory_mb": {"after_imports": round(rss0), "after_finbert": round(rss1),

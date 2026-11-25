@@ -65,6 +65,9 @@ sentence-transformers>=3.0.0
 langchain-aws>=1.0.0
 langgraph>=1.0.0
 fastembed>=0.3.0
+# News intelligence runtime (news-worker): int8 ONNX FinBERT + MiniLM, no torch
+onnxruntime>=1.17.0
+tokenizers>=0.15.0
 cohere>=5.0.0
 pdfplumber>=0.11.0
 

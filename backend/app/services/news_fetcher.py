@@ -226,22 +226,23 @@ class NewsFetcher:
             return []
     
     def _analyze_text_sentiment(self, text: str) -> str:
-        """Shared FinBERT classifier (app.services.news_intel.sentiment)."""
-        from app.services.news_intel.sentiment import classify_texts
+        """Deterministic keyword rule (the API process never loads FinBERT)."""
+        from app.services.news_intel.sentiment import keyword_sentiment
 
-        return classify_texts([text])[0].legacy_label()
+        return keyword_sentiment(text).legacy_label()
 
     @staticmethod
     def _apply_sentiment(articles: List[Dict]) -> None:
-        """Batch-classify articles in place: sets 'sentiment' and 'sentiment_score'."""
+        """Sets 'sentiment' and 'sentiment_score' in place: news_items (FinBERT) by
+        URL/title hash, else the keyword rule."""
         if not articles:
             return
-        from app.services.news_intel.sentiment import classify_texts, sentiment_text
+        from app.services.news_intel.legacy import apply_legacy_sentiment
 
-        results = classify_texts([sentiment_text(a.get("title", ""), a.get("content", "")) for a in articles])
-        for a, r in zip(articles, results):
-            a["sentiment"] = r.legacy_label()
-            a["sentiment_score"] = r.score
+        try:
+            apply_legacy_sentiment(articles)
+        except Exception as e:
+            print(f"legacy sentiment failed: {e}")
 
     def fetch_alpha_vantage_news(
         self,

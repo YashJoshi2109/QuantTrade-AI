@@ -332,11 +332,13 @@ async def lifespan(app: FastAPI):
         from app.api.forecast import forecast_warm_loop
         forecast_warm_task = asyncio.create_task(forecast_warm_loop())
 
-    # News intelligence ingestion (pollers + Alpaca stream + classifier + AI
-    # notes). A Redis leader lock keeps it to one process. NEWS_INTEL_ENABLED=0
-    # turns just this off.
+    # News intelligence ingestion runs in the separate news-worker container
+    # (python -m app.services.news_intel.worker) so the API never loads the
+    # models. NEWS_INTEL_IN_API=1 runs it in-process instead (single-process dev
+    # only; also needs NEWS_INTEL_MODELS=1 for FinBERT/MiniLM).
     news_intel_task = None
-    if background_jobs and "pytest" not in sys.modules:
+    if (background_jobs and os.environ.get("NEWS_INTEL_IN_API", "0") == "1"
+            and "pytest" not in sys.modules):
         try:
             from app.services.news_intel.pipeline import start_news_intel
             news_intel_task = start_news_intel(redis=getattr(app.state, "redis", None))

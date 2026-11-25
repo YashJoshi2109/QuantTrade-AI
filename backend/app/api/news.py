@@ -90,18 +90,13 @@ async def _fetch_finnhub_news(symbol: str, limit: int = 10) -> List[dict]:
 
 
 async def _classify_inplace(items: List[dict], only_flagged: bool = False) -> None:
-    """Shared FinBERT sentiment for items whose provider gives none."""
-    from app.services.news_intel.sentiment import classify_texts, sentiment_text
+    """Sentiment for items whose provider gives none: news_items lookup (FinBERT,
+    scored by the news-worker) else keyword rule. Never loads a model here."""
+    from app.services.news_intel.legacy import apply_legacy_sentiment
 
     targets = [it for it in items if it.pop("_needs_sentiment", False) or not only_flagged]
-    if not targets:
-        return
-    results = await asyncio.to_thread(
-        classify_texts, [sentiment_text(it.get("title", ""), it.get("summary", "")) for it in targets]
-    )
-    for it, r in zip(targets, results):
-        it["sentiment"] = r.legacy_label()
-        it["sentiment_score"] = r.score
+    if targets:
+        await asyncio.to_thread(apply_legacy_sentiment, targets)
 
 
 @router.get("/news/{symbol}", response_model=List[NewsArticleResponse])

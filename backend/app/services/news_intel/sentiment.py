@@ -1,24 +1,21 @@
 """
-Shared financial-news sentiment classifier (ProsusAI/finbert).
+Shared financial-news sentiment classifier (ProsusAI/finbert, int8 ONNX).
 
-One model instance per process, loaded lazily and thread-safely. Every news
-surface (ingestion pipeline, legacy /news endpoints, community post scoring)
-goes through `get_sentiment_classifier()` so only one copy of FinBERT lives in
-memory.
+Runtime is onnxruntime + `tokenizers` only (no torch/transformers import).
+The model files are exported at image build time (app/services/news_intel/export_models.py).
+
+The model is loaded ONLY in processes that opt in with NEWS_INTEL_MODELS=1 —
+the news-worker sets it; the API process never does. Without it (or if the
+model files are missing) every call uses the deterministic keyword fallback.
 
 score = P(positive) - P(negative)  in [-1, 1]
 confidence = max class probability
 label = bullish | bearish | neutral (argmax)
 
 Env:
-  NEWS_INTEL_MODELS=0        never load transformer models (keyword fallback only)
-  NEWS_INTEL_QUANTIZE=0      int8 dynamic quantization: 0 (default) | 1 | auto (x86_64 only).
-                             Off by default: measured in the Linux image, fp32
-                             safetensors weights stay mmap'd/file-backed (+~20 MB
-                             anon), while quantize_dynamic materialises fp32+int8
-                             copies (+~650 MB anon) for no accuracy change.
-  NEWS_INTEL_TORCH_THREADS=1 intra-op threads for inference (keep the API responsive)
-  FINBERT_MODEL=ProsusAI/finbert
+  NEWS_INTEL_MODELS=1     allow loading the ONNX models in this process (default 0)
+  NEWS_MODELS_DIR         model directory (default /opt/news-models)
+  NEWS_INTEL_THREADS=1    onnxruntime intra-op threads
 """
 from __future__ import annotations
 
@@ -32,9 +29,12 @@ from typing import Dict, List, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
-FINBERT_MODEL = os.environ.get("FINBERT_MODEL", "ProsusAI/finbert")
 MAX_TOKENS = 96  # headlines + short summaries; FinBERT allows 512 but cost is quadratic
 DEFAULT_BATCH = 16
+
+
+def models_enabled() -> bool:
+    return os.environ.get("NEWS_INTEL_MODELS", "0") == "1"
 
 
 @dataclass
@@ -56,7 +56,7 @@ class Sentiment:
         return asdict(self)
 
 
-# ── Deterministic keyword fallback (only when FinBERT cannot load) ─────────
+# ── Deterministic keyword fallback (API process, or model unavailable) ─────
 _BULL = re.compile(
     r"\b(surges?|soars?|jumps?|rall(?:y|ies)|gains?|climbs?|rises?|record high|all-time high|"
     r"beats?|tops?|exceeds?|upgrades?d?|outperform|raises? (?:guidance|outlook|forecast|dividend)|"
@@ -96,43 +96,32 @@ def sentiment_text(title: str, summary: Optional[str] = None) -> str:
     return title
 
 
-def _pick_quant_engine(torch) -> Optional[str]:
-    engines = list(torch.backends.quantized.supported_engines)
-    for e in ("x86", "fbgemm", "qnnpack"):
-        if e in engines:
-            return e
-    return None
-
-
 class SentimentClassifier:
-    """Thread-safe lazy FinBERT wrapper with batching and a keyword fallback."""
+    """Thread-safe lazy FinBERT (ONNX int8) wrapper with batching and a keyword fallback."""
 
-    def __init__(self, model_name: str = FINBERT_MODEL):
-        self.model_name = model_name
-        self._model = None
-        self._tokenizer = None
+    def __init__(self, model_dir=None):
+        self.model_dir = model_dir
+        self._model = None           # FinbertOnnx, or any object with .probs(texts)
         self._id2label: Dict[int, str] = {}
         self._load_lock = threading.Lock()
         self._infer_lock = threading.Lock()
         self._load_attempted = False
-        self.quantized = False
         self.load_seconds: Optional[float] = None
         self.load_error: Optional[str] = None
 
-    # ── loading ──────────────────────────────────────────────────────────
     @property
     def loaded(self) -> bool:
         return self._model is not None
 
     @property
     def backend(self) -> str:
-        return "finbert-int8" if self.quantized else ("finbert" if self.loaded else "keyword")
+        return "finbert-onnx-int8" if self.loaded else "keyword"
 
     def load(self) -> bool:
-        """Load FinBERT once. Returns True when the model is usable."""
+        """Load FinBERT once (only when NEWS_INTEL_MODELS=1). True when usable."""
         if self._model is not None:
             return True
-        if os.environ.get("NEWS_INTEL_MODELS", "1") == "0":
+        if not models_enabled():
             return False
         with self._load_lock:
             if self._model is not None or self._load_attempted:
@@ -140,54 +129,24 @@ class SentimentClassifier:
             self._load_attempted = True
             t0 = time.perf_counter()
             try:
-                import torch
-                from transformers import AutoModelForSequenceClassification, AutoTokenizer
+                from app.services.news_intel.onnx_models import FinbertOnnx
 
-                threads = int(os.environ.get("NEWS_INTEL_TORCH_THREADS", "1") or 1)
-                if threads > 0:
-                    torch.set_num_threads(threads)
-                tok = AutoTokenizer.from_pretrained(self.model_name)
-                model = AutoModelForSequenceClassification.from_pretrained(self.model_name).eval()
-
-                import platform
-
-                mode = os.environ.get("NEWS_INTEL_QUANTIZE", "0").lower()
-                engine = _pick_quant_engine(torch)
-                # int8 kernels only pay off on x86 (fbgemm/x86); on ARM (qnnpack)
-                # they are 3-8x slower than fp32, so "auto" requires x86_64.
-                is_x86 = platform.machine().lower() in ("x86_64", "amd64")
-                want_q = mode in ("1", "true", "yes") or (mode == "auto" and is_x86 and engine in ("x86", "fbgemm"))
-                if want_q and engine:
-                    try:
-                        torch.backends.quantized.engine = engine
-                        model = torch.quantization.quantize_dynamic(
-                            model, {torch.nn.Linear}, dtype=torch.qint8
-                        )
-                        self.quantized = True
-                    except Exception as qe:  # keep fp32 model
-                        logger.warning("FinBERT quantization failed, using fp32: %s", qe)
-                self._tokenizer = tok
-                self._id2label = {int(k): v.lower() for k, v in model.config.id2label.items()}
+                model = FinbertOnnx(self.model_dir, max_length=MAX_TOKENS)
+                self._id2label = model.id2label
                 self._model = model
                 self.load_seconds = round(time.perf_counter() - t0, 2)
-                logger.info("FinBERT loaded in %.1fs (quantized=%s)", self.load_seconds, self.quantized)
+                logger.info("FinBERT (ONNX int8) loaded in %.2fs", self.load_seconds)
                 return True
             except Exception as e:
                 self.load_error = f"{type(e).__name__}: {e}"
                 logger.warning("FinBERT unavailable, using keyword fallback: %s", self.load_error)
                 return False
 
-    # ── inference ────────────────────────────────────────────────────────
     def _infer(self, texts: List[str]) -> List[Sentiment]:
-        import torch
-
-        out: List[Sentiment] = []
-        with self._infer_lock, torch.inference_mode():
-            enc = self._tokenizer(
-                texts, padding=True, truncation=True, max_length=MAX_TOKENS, return_tensors="pt"
-            )
-            probs = torch.softmax(self._model(**enc).logits, dim=-1).tolist()
+        with self._infer_lock:
+            probs = self._model.probs(texts)
         name_map = {"positive": "bullish", "negative": "bearish", "neutral": "neutral"}
+        out: List[Sentiment] = []
         for row in probs:
             p = {name_map.get(self._id2label.get(i, ""), f"c{i}"): float(v) for i, v in enumerate(row)}
             pos, neg, neu = p.get("bullish", 0.0), p.get("bearish", 0.0), p.get("neutral", 0.0)
@@ -203,11 +162,7 @@ class SentimentClassifier:
 
     def classify(self, texts: Sequence[str], batch_size: int = DEFAULT_BATCH,
                  load: bool = True) -> List[Sentiment]:
-        """Classify texts (blocking; call from a worker thread in async code).
-
-        load=False never triggers a model load: if FinBERT is not in memory yet
-        the keyword fallback answers instead (for latency-critical paths).
-        """
+        """Classify texts (blocking; call from a worker thread in async code)."""
         texts = [(t or "").strip() for t in texts]
         if not texts:
             return []

@@ -143,20 +143,15 @@ class _FakeOut:
         self.logits = logits
 
 
-def test_classifier_interface_with_mocked_model(monkeypatch):
-    torch = pytest.importorskip("torch")
+def test_classifier_interface_with_mocked_model():
     clf = sentiment_mod.SentimentClassifier()
     probs = {"good": [0.9, 0.05, 0.05], "bad": [0.1, 0.8, 0.1], "meh": [0.1, 0.1, 0.8]}
 
-    class Tok:
-        def __call__(self, texts, **kw):
-            return {"texts": texts}
+    class Model:  # stands in for onnx_models.FinbertOnnx
+        def probs(self, texts):
+            return [probs[t] for t in texts]
 
-    class Model:
-        def __call__(self, texts):
-            return _FakeOut(torch.log(torch.tensor([probs[t] for t in texts])))
-
-    clf._tokenizer, clf._model = Tok(), Model()
+    clf._model = Model()
     clf._id2label = {0: "positive", 1: "negative", 2: "neutral"}
     out = clf.classify(["good", "bad", "meh"], batch_size=2)
     assert [s.label for s in out] == ["bullish", "bearish", "neutral"]
@@ -164,7 +159,37 @@ def test_classifier_interface_with_mocked_model(monkeypatch):
     assert out[1].score == pytest.approx(-0.7, abs=1e-3)
     assert out[2].confidence == pytest.approx(0.8, abs=1e-3)   # max prob
     assert out[0].as_api() == {"label": "bullish", "score": out[0].score, "confidence": out[0].confidence}
-    assert out[0].legacy_label() == "Bullish"
+    assert out[0].legacy_label() == "Bullish" and out[0].model == "finbert-onnx-int8"
+
+
+def test_api_process_never_loads_models(monkeypatch):
+    """Models load only with NEWS_INTEL_MODELS=1 (set by the news-worker)."""
+    monkeypatch.delenv("NEWS_INTEL_MODELS", raising=False)
+    from app.services.news_intel.categorizer import Categorizer
+
+    clf = sentiment_mod.SentimentClassifier()
+    assert clf.load() is False and clf.backend == "keyword"
+    assert Categorizer().load() is False
+    assert clf.classify(["Stock soars on record profit"])[0].model == "keyword"
+
+
+def test_onnx_models_end_to_end_if_exported(monkeypatch):
+    """Real int8 ONNX models (skipped unless app/services/news_intel/export_models.py output exists)."""
+    import os
+    from pathlib import Path
+
+    d = Path(os.environ.get("NEWS_MODELS_DIR", "/opt/news-models"))
+    if not (d / "finbert" / "model.onnx").exists():
+        pytest.skip("ONNX models not exported")
+    monkeypatch.setenv("NEWS_INTEL_MODELS", "1")
+    from app.services.news_intel.categorizer import Categorizer
+
+    clf = sentiment_mod.SentimentClassifier()
+    out = clf.classify(["Profit soared to a record and the company raised guidance",
+                        "Shares plunged after the company slashed its forecast"])
+    assert [o.label for o in out] == ["bullish", "bearish"]
+    res = Categorizer().classify(["Stocks to watch this week"])
+    assert res[0].method == "embedding"
 
 
 def test_keyword_fallback_when_models_disabled():
@@ -469,7 +494,39 @@ def test_ws_news_route_and_redis_bridge(monkeypatch):
             assert a.receive_text() == "pong"
             b.send_text("ping")
             assert b.receive_text() == "pong"
+            assert ws.listener_count("qt:ws:news") == 1
     assert started == [("qt:ws:news", "news")]  # one shared listener, not one per socket
+
+
+@pytest.mark.parametrize("path,channel", [("/api/v1/ws/pulse", "qt:ws:pulse"),
+                                          ("/api/v1/ws/scanner", "qt:ws:scanner"),
+                                          ("/api/v1/ws/ideas", "qt:ws:ideas")])
+def test_ws_market_channels_share_one_listener(monkeypatch, path, channel):
+    """Regression: each socket used to start its own listener -> N-fold duplicate delivery."""
+    from app.api import ws
+    from app.services.redis_cache_service import cache_service
+
+    app = FastAPI()
+    app.include_router(ws.router, prefix="/api/v1")
+    started = []
+
+    async def fake_listener(redis_channel, ws_channel):
+        started.append(redis_channel)
+        await asyncio.sleep(3600)
+
+    async def no_cache(key):
+        return None
+
+    monkeypatch.setattr(ws, "_redis_listener", fake_listener)
+    monkeypatch.setattr(cache_service, "get", no_cache)
+    with TestClient(app) as tc:
+        with tc.websocket_connect(path) as a, tc.websocket_connect(path) as b, tc.websocket_connect(path) as c:
+            for sock in (a, b, c):
+                sock.send_text("ping")
+                assert sock.receive_text() == "pong"
+            assert ws.listener_count(channel) == 1
+    assert started == [channel]
+    assert ws.listener_count(channel) == 0  # released when the last socket leaves
 
 
 def test_default_publisher_uses_redis_channel(monkeypatch, session_factory):
@@ -539,3 +596,63 @@ def test_google_title_publisher_suffix_stripped():
     item = parse_feed(rss, "google_business", "Google News", use_entry_source=True, keep_summary=False)[0]
     assert item.title == "Stocks slide as AI trade wobbles"
     assert item.source == "ABC News - Breaking News, Latest News"
+
+
+def test_legacy_sentiment_uses_news_items_then_keywords(session_factory):
+    from app.services.news_intel.dedupe import title_hash, url_hash
+    from app.services.news_intel.legacy import apply_legacy_sentiment
+
+    now = datetime.now(timezone.utc)
+    with session_factory() as db:
+        db.add(NewsItem(cluster_id="L1", title="Acme soars", url="https://a.com/x",
+                        url_hash=url_hash("https://a.com/x"), title_hash=title_hash("Acme soars"),
+                        published_at=now, ingested_at=now, sentiment_label="bearish", sentiment_score=-0.6,
+                        sentiment_confidence=0.9))
+        db.add(NewsItem(cluster_id="L2", title="Globex quietly files paperwork", url="https://g.com/1",
+                        url_hash=url_hash("https://g.com/1"), title_hash=title_hash("Globex quietly files paperwork"),
+                        published_at=now, ingested_at=now, sentiment_label="bullish", sentiment_score=0.7,
+                        sentiment_confidence=0.9))
+        db.commit()
+    arts = [
+        {"title": "different title", "url": "https://www.a.com/x?utm_source=rss"},     # URL hit
+        {"title": "Globex quietly files paperwork - Reuters", "url": "https://other.com/9"},  # title hit
+        {"title": "Shares plunge after recall", "url": "https://n.com/new"},           # keyword fallback
+    ]
+    apply_legacy_sentiment(arts, session_factory=session_factory)
+    assert [a["sentiment"] for a in arts] == ["Bearish", "Bullish", "Bearish"]
+    assert arts[0]["sentiment_score"] == -0.6 and arts[2]["sentiment_score"] < 0
+
+
+def test_worker_healthcheck(tmp_path, monkeypatch):
+    import os
+    import time as _time
+
+    from app.services.news_intel import worker
+
+    hb = tmp_path / "hb"
+    monkeypatch.setattr(worker, "HEARTBEAT_FILE", str(hb))
+    assert worker.healthcheck() == 1          # no heartbeat yet
+    hb.touch()
+    assert worker.healthcheck() == 0
+    old = _time.time() - 600
+    os.utime(hb, (old, old))
+    assert worker.healthcheck() == 1          # stale
+
+
+def test_status_loop_writes_heartbeat_and_redis(tmp_path, monkeypatch, session_factory):
+    from app.services.news_intel import pipeline
+
+    hb = tmp_path / "hb"
+    monkeypatch.setattr(pipeline, "HEARTBEAT_FILE", str(hb))
+    r = FakeRedis()
+    svc = pipeline.NewsIntelService(session_factory=session_factory, redis=r, pollers=[])
+
+    async def go():
+        t = asyncio.create_task(svc.status_loop(interval=0.01))
+        await asyncio.sleep(0.05)
+        t.cancel()
+    asyncio.run(go())
+    assert hb.exists()
+    import json as _json
+    st = _json.loads(r.kv[pipeline.STATUS_KEY])
+    assert st["models"]["sentiment"] == "keyword" and "stats" in st

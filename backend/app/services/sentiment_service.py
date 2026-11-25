@@ -1,11 +1,9 @@
 """
 Financial sentiment for community posts.
 
-Thin adapter over the shared FinBERT classifier in
-app.services.news_intel.sentiment, so the process holds ONE copy of the model
-(news pipeline, legacy news endpoints and community posts all share it).
-The deterministic keyword fallback lives there too and is used only if the
-model cannot load.
+Thin adapter over the shared classifier in app.services.news_intel.sentiment.
+In the API process models are disabled (NEWS_INTEL_MODELS unset), so posts get
+the deterministic keyword rule; only the news-worker loads the ONNX FinBERT.
 """
 import hashlib
 import logging

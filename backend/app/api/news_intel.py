@@ -95,9 +95,7 @@ def _db_health():
 @router.get("/news/health")
 async def news_health():
     from app.services.news_intel import ai_notes
-    from app.services.news_intel.categorizer import get_categorizer
-    from app.services.news_intel.pipeline import ALPACA_KEY, SOURCES_KEY, get_service
-    from app.services.news_intel.sentiment import get_sentiment_classifier
+    from app.services.news_intel.pipeline import ALPACA_KEY, SOURCES_KEY, STATUS_KEY, get_service
     from app.services.news_intel.sources import default_pollers
     from app.services.redis_cache_service import cache_service
 
@@ -105,21 +103,28 @@ async def news_health():
     redis = cache_service._redis if cache_service.available else None
 
     source_state: dict = {}
+    # The pipeline runs in the news-worker container; it publishes a status
+    # snapshot to Redis every 15s (absent/expired => worker down).
+    worker = svc.status() if svc is not None else None
     alpaca_connected = bool(svc and svc.alpaca and svc.alpaca.connected)
     ai_used = None
     if redis is not None:
         try:
+            raw_status = await redis.get(STATUS_KEY)
+            if raw_status:
+                worker = json.loads(raw_status)
             raw = await redis.hgetall(SOURCES_KEY)
             source_state = {k: json.loads(v) for k, v in (raw or {}).items()}
             alpaca_connected = alpaca_connected or bool(await redis.get(ALPACA_KEY))
             ai_used = await ai_notes.DailyCap(redis=redis).used()
         except Exception as e:
             logger.debug("news health redis error: %s", e)
-    if svc is not None:
-        for k, v in svc.source_state.items():
+    if worker:
+        for k, v in (worker.get("sources") or {}).items():
             source_state.setdefault(k, v)
-        if ai_used is None:
-            ai_used = await svc.ai_cap.used()
+        alpaca_connected = alpaca_connected or bool(worker.get("alpaca_connected"))
+    if ai_used is None and svc is not None:
+        ai_used = await svc.ai_cap.used()
 
     try:
         db_stats = await asyncio.to_thread(_db_health)
@@ -141,20 +146,18 @@ async def news_health():
             "items_24h": int(by_feed.get(k, 0)),
             "latency_seconds": (db_stats.get("latency_by_feed") or {}).get(k),
         }
-    clf = get_sentiment_classifier()
+    worker = worker or {}
     return {
         "sources": sources,
         "items_24h": db_stats.get("items_24h"),
         "latency_seconds": db_stats.get("latency_seconds", {}),
         "alpaca_connected": alpaca_connected,
-        "ingesting": bool(svc and svc.is_leader),
-        "queue_depth": svc.queue.qsize() if svc else None,
-        "stats": dict(svc.stats) if svc else None,
-        "models": {
-            "sentiment": clf.backend,
-            "sentiment_load_seconds": clf.load_seconds,
-            "categorizer_embeddings": get_categorizer().loaded,
-        },
+        "worker_alive": bool(worker),
+        "worker_last_seen": worker.get("ts"),
+        "ingesting": bool(worker.get("is_leader")),
+        "queue_depth": worker.get("queue_depth"),
+        "stats": worker.get("stats"),
+        "models": worker.get("models"),
         "ai_notes": {"used_today": ai_used, "daily_limit": ai_notes.daily_limit()},
         "as_of": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }

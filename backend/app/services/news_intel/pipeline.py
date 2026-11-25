@@ -20,6 +20,7 @@ import os
 import re
 import time
 import uuid
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
@@ -37,6 +38,8 @@ WS_CHANNEL = "qt:ws:news"
 LEADER_KEY = "qt:news:leader"
 SOURCES_KEY = "qt:news:sources"
 ALPACA_KEY = "qt:news:alpaca_connected"
+STATUS_KEY = "qt:news:worker:status"   # JSON snapshot written by the news-worker every 15s
+HEARTBEAT_FILE = os.environ.get("NEWS_WORKER_HEARTBEAT_FILE", "/tmp/news-worker.heartbeat")
 MAX_AGE_HOURS = 48          # ignore feed items older than this (RSS backlogs)
 BATCH_MAX = 32
 QUEUE_MAX = 5000
@@ -458,6 +461,34 @@ class NewsIntelService:
                 logger.exception("news-intel service error; restarting in 30s")
                 await asyncio.sleep(30)
 
+    def status(self) -> Dict[str, Any]:
+        clf = get_sentiment_classifier()
+        return {
+            "pid": os.getpid(),
+            "ts": _now().isoformat().replace("+00:00", "Z"),
+            "is_leader": self.is_leader,
+            "alpaca_connected": bool(self.alpaca and self.alpaca.connected),
+            "queue_depth": self.queue.qsize(),
+            "stats": dict(self.stats),
+            "sources": self.source_state,
+            "models": {"sentiment": clf.backend, "sentiment_load_seconds": clf.load_seconds,
+                       "categorizer_embeddings": get_categorizer().loaded},
+        }
+
+    async def status_loop(self, interval: float = 15.0) -> None:
+        """Heartbeat for the container healthcheck + status for /news/health."""
+        while True:
+            try:
+                Path(HEARTBEAT_FILE).touch()
+            except OSError:
+                pass
+            if self.redis is not None:
+                try:
+                    await self.redis.set(STATUS_KEY, json.dumps(self.status(), default=str), ex=90)
+                except Exception as e:
+                    logger.debug("news status write failed: %s", e)
+            await asyncio.sleep(interval)
+
     def start(self) -> asyncio.Task:
         self._task = asyncio.create_task(self.run(), name="news-intel")
         return self._task
@@ -544,7 +575,8 @@ def get_service() -> Optional[NewsIntelService]:
 
 
 def start_news_intel(redis=None) -> Optional[asyncio.Task]:
-    """Called from main.py lifespan when RUN_BACKGROUND_JOBS != "0"."""
+    """In-process start (dev only: main.py with NEWS_INTEL_IN_API=1). Production
+    runs the pipeline in the separate news-worker container (news_intel.worker)."""
     global _service
     if os.environ.get("NEWS_INTEL_ENABLED", "1") == "0":
         logger.info("news-intel disabled (NEWS_INTEL_ENABLED=0)")

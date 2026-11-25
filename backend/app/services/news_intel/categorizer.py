@@ -5,9 +5,11 @@ nearest-centroid fallback for anything the rules miss.
 Centroids = mean L2-normalised embedding of the SEEDS headlines per category.
 A headline whose best cosine similarity is below EMBED_MIN_SIM is "other".
 
-Env: NEWS_INTEL_MODELS=0 disables the embedding model (rules only),
-     NEWS_INTEL_EMBED_MODEL (default sentence-transformers/all-MiniLM-L6-v2),
-     NEWS_INTEL_EMBED_MIN_SIM (default 0.30).
+The embedding model is all-MiniLM-L6-v2 exported to int8 ONNX at build time
+(onnxruntime + tokenizers at runtime, no torch). It loads only when
+NEWS_INTEL_MODELS=1 (the news-worker); otherwise the categorizer is rules-only.
+
+Env: NEWS_INTEL_EMBED_MIN_SIM (default 0.30), NEWS_MODELS_DIR.
 """
 from __future__ import annotations
 
@@ -21,7 +23,6 @@ from app.services.news_intel.categories import CATEGORY_KEYS, PRIORITY, SEEDS, r
 
 logger = logging.getLogger(__name__)
 
-EMBED_MODEL = os.environ.get("NEWS_INTEL_EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 EMBED_MIN_SIM = float(os.environ.get("NEWS_INTEL_EMBED_MIN_SIM", "0.30"))
 
 
@@ -35,8 +36,8 @@ class CategoryResult:
 
 
 class Categorizer:
-    def __init__(self, model_name: str = EMBED_MODEL, min_sim: float = EMBED_MIN_SIM):
-        self.model_name = model_name
+    def __init__(self, model_dir=None, min_sim: float = EMBED_MIN_SIM):
+        self.model_dir = model_dir
         self.min_sim = min_sim
         self._model = None
         self._centroids = None  # np.ndarray [n_cat, dim]
@@ -52,7 +53,9 @@ class Categorizer:
     def load(self) -> bool:
         if self._model is not None:
             return True
-        if os.environ.get("NEWS_INTEL_MODELS", "1") == "0":
+        from app.services.news_intel.sentiment import models_enabled
+
+        if not models_enabled():
             return False
         with self._lock:
             if self._model is not None or self._attempted:
@@ -60,9 +63,9 @@ class Categorizer:
             self._attempted = True
             try:
                 import numpy as np
-                from sentence_transformers import SentenceTransformer
+                from app.services.news_intel.onnx_models import MiniLMOnnx
 
-                model = SentenceTransformer(self.model_name, device="cpu")
+                model = MiniLMOnnx(self.model_dir)
                 keys, cents = [], []
                 for key in CATEGORY_KEYS:
                     seeds = SEEDS.get(key) or []
@@ -70,7 +73,7 @@ class Categorizer:
                         continue
                     # "other" gets a centroid too (generic market wraps), so
                     # those don't get forced into the nearest real category.
-                    emb = model.encode(seeds, normalize_embeddings=True, convert_to_numpy=True)
+                    emb = model.embed(seeds)
                     c = emb.mean(axis=0)
                     cents.append(c / (np.linalg.norm(c) or 1.0))
                     keys.append(key)
@@ -85,7 +88,9 @@ class Categorizer:
                 return False
 
     def _embed_classify(self, texts: List[str]) -> List[tuple]:
-        emb = self._model.encode(texts, normalize_embeddings=True, convert_to_numpy=True, batch_size=32)
+        import numpy as np
+
+        emb = np.vstack([self._model.embed(texts[i:i + 32]) for i in range(0, len(texts), 32)])
         sims = emb @ self._centroids.T
         out = []
         for row in sims:

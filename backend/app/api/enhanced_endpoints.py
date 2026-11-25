@@ -353,20 +353,17 @@ class PredictionAlertResponse(BaseModel):
 
 
 def _apply_shared_sentiment(articles: list) -> None:
-    """Set 'sentiment' (Bullish/Bearish/Neutral) from the shared FinBERT classifier."""
+    """Set 'sentiment' (Bullish/Bearish/Neutral) without loading a model in the API:
+    FinBERT label from news_items (scored by the news-worker) when the article is
+    known by URL/title hash, else the deterministic keyword rule."""
     if not articles:
         return
-    from app.services.news_intel.sentiment import classify_texts, sentiment_text
+    from app.services.news_intel.legacy import apply_legacy_sentiment
 
     try:
-        results = classify_texts(
-            [sentiment_text(a.get("title", ""), a.get("content", "")) for a in articles]
-        )
+        apply_legacy_sentiment(articles, score_key=None)
     except Exception as e:  # never fail the page over sentiment
-        logger.warning("shared sentiment failed: %s", e)
-        return
-    for a, r in zip(articles, results):
-        a["sentiment"] = r.legacy_label()
+        logger.warning("legacy sentiment failed: %s", e)
 
 
 @router.get("/news/{symbol}/realtime", response_model=List[NewsArticleResponse])
