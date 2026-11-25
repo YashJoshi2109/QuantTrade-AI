@@ -77,7 +77,7 @@ class RefreshResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/conversations", response_model=ConversationOut)
-async def create_conversation(
+def create_conversation(
     body: ConversationCreate,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -100,7 +100,7 @@ async def create_conversation(
 
 
 @router.get("/conversations", response_model=List[ConversationOut])
-async def list_conversations(
+def list_conversations(
     limit: int = Query(default=30, le=100),
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -139,7 +139,7 @@ async def list_conversations(
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=List[MessageOut])
-async def get_conversation_messages(
+def get_conversation_messages(
     conversation_id: str,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -163,7 +163,7 @@ async def get_conversation_messages(
 
 
 @router.delete("/conversations/{conversation_id}")
-async def delete_conversation(
+def delete_conversation(
     conversation_id: str,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -296,7 +296,7 @@ class ChatHistoryItem(BaseModel):
 
 
 @router.get("/chat/history", response_model=List[ChatHistoryItem])
-async def get_chat_history(
+def get_chat_history(
     limit: int = 50,
     session_id: Optional[str] = None,
     db: Session = Depends(get_db),
@@ -310,7 +310,7 @@ async def get_chat_history(
 
 
 @router.delete("/chat/history")
-async def clear_chat_history(
+def clear_chat_history(
     session_id: Optional[str] = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),

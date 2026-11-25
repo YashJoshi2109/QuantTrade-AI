@@ -437,7 +437,7 @@ async def create_post(
 
 
 @router.get("/posts/{post_id}", response_model=PostResponse)
-async def get_post(
+def get_post(
     post_id: int,
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user),
@@ -456,7 +456,7 @@ async def get_post(
 
 
 @router.patch("/posts/{post_id}", response_model=PostResponse)
-async def update_post(
+def update_post(
     post_id: int,
     body: PostUpdate,
     db: Session = Depends(get_db),
@@ -488,7 +488,7 @@ async def update_post(
 
 
 @router.delete("/posts/{post_id}", status_code=status.HTTP_200_OK)
-async def delete_post(
+def delete_post(
     post_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -512,7 +512,7 @@ async def delete_post(
 
 
 @router.get("/communities/{slug}/posts", response_model=PaginatedPosts)
-async def community_posts(
+def community_posts(
     slug: str,
     sort: str = Query("hot", pattern="^(hot|new|top)$"),
     cursor: Optional[int] = Query(None, ge=0),
@@ -557,7 +557,7 @@ async def community_posts(
 
 
 @router.get("/feed", response_model=PaginatedPosts)
-async def user_feed(
+def user_feed(
     sort: str = Query("hot", pattern="^(hot|new|top|rising)$"),
     time: str = Query("all", pattern="^(day|week|month|year|all)$"),
     cursor: Optional[int] = Query(None, ge=0),
@@ -726,8 +726,26 @@ async def market_mood(
     return await cache_service.get_or_fetch(cache_key, 300, _compute_mood)
 
 
+def _tickers_contains(db: Session, ticker: str):
+    """Dialect-safe "ticker in posts.tickers" filter.
+
+    Post.tickers is a PortableARRAY (TypeDecorator with a JSON impl), so the
+    ARRAY comparator's ``.any()`` is not available on the column and raised on
+    every request. PostgreSQL stores a real ARRAY -> ``:t = ANY(tickers)``;
+    SQLite stores a JSON text list -> match the quoted element.
+    """
+    from sqlalchemy import String, bindparam, cast, text
+
+    if db.get_bind().dialect.name == "postgresql":
+        return text(":ticker_filter = ANY(posts.tickers)").bindparams(
+            bindparam("ticker_filter", ticker)
+        )
+    escaped = ticker.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return cast(Post.tickers, String).like(f'%"{escaped}"%', escape="\\")
+
+
 @router.get("/feed/ticker/{symbol}", response_model=PaginatedPosts)
-async def ticker_feed(
+def ticker_feed(
     symbol: str,
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -742,7 +760,7 @@ async def ticker_feed(
         .options(joinedload(Post.author), joinedload(Post.community))
         .filter(
             Post.is_removed == False,
-            Post.tickers.any(ticker),
+            _tickers_contains(db, ticker),
         )
     )
 
@@ -765,7 +783,7 @@ async def ticker_feed(
 
 
 @router.post("/posts/{post_id}/vote", status_code=status.HTTP_200_OK)
-async def vote_on_post(
+def vote_on_post(
     post_id: int,
     body: VoteRequest,
     db: Session = Depends(get_db),
@@ -858,7 +876,7 @@ async def vote_on_post(
 
 
 @router.post("/posts/{post_id}/pin")
-async def toggle_pin_post(
+def toggle_pin_post(
     post_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -884,7 +902,7 @@ async def toggle_pin_post(
 
 
 @router.post("/posts/{post_id}/lock")
-async def toggle_lock_post(
+def toggle_lock_post(
     post_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -910,7 +928,7 @@ async def toggle_lock_post(
 
 
 @router.delete("/posts/{post_id}/vote", status_code=status.HTTP_200_OK)
-async def remove_vote_on_post(
+def remove_vote_on_post(
     post_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),

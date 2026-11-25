@@ -141,7 +141,7 @@ def _bulk_user_votes(db: Session, user_id: int, post_ids: List[int]) -> dict:
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.post("/posts/{post_id}/bookmark", status_code=status.HTTP_201_CREATED)
-async def bookmark_post(
+def bookmark_post(
     post_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -178,7 +178,7 @@ async def bookmark_post(
 
 
 @router.delete("/posts/{post_id}/bookmark", status_code=status.HTTP_200_OK)
-async def remove_bookmark(
+def remove_bookmark(
     post_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -202,7 +202,7 @@ async def remove_bookmark(
 
 
 @router.get("/users/me/bookmarks", response_model=PaginatedBookmarks)
-async def list_bookmarks(
+def list_bookmarks(
     cursor: Optional[str] = Query(None),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),

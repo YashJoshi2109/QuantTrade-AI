@@ -431,7 +431,7 @@ async def _stream_generator(
 
 # ── LLM status ─────────────────────────────────────────────────────────────────
 @router.get("/llm-status")
-async def llm_status(user: User = Depends(require_auth)):
+def llm_status(user: User = Depends(require_auth)):
     """Return which LLM provider is active and which are configured."""
     import os as _os
     from app.services.agentic.bedrock_client import (
@@ -505,7 +505,7 @@ async def llm_status(user: User = Depends(require_auth)):
 
 # ── Endpoint ───────────────────────────────────────────────────────────────────
 @router.post("/stream")
-async def agentic_stream(
+def agentic_stream(
     req: AgenticStreamRequest,
     db: Session   = Depends(get_db),
     user: User    = Depends(require_auth),

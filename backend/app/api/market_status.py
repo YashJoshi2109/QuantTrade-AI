@@ -61,6 +61,6 @@ def is_market_open() -> dict:
 
 
 @router.get("/market/status")
-async def get_market_status():
+def get_market_status():
     """Get current market status (NYSE/NASDAQ open/closed)"""
     return is_market_open()

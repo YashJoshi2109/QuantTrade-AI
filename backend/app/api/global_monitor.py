@@ -124,7 +124,7 @@ class MapDataResponse(BaseModel):
 
 
 @router.get("/events", response_model=List[EventResponse])
-async def get_events(
+def get_events(
     category: Optional[str] = None,
     threat_level: Optional[str] = None,
     country_code: Optional[str] = None,
@@ -183,7 +183,7 @@ async def get_events(
 
 
 @router.get("/hotspots", response_model=List[ClusterResponse])
-async def get_hotspots(
+def get_hotspots(
     min_events: int = Query(3, ge=2),
     hours: int = Query(24, ge=1, le=168),
     db: Session = Depends(get_db)
@@ -213,7 +213,7 @@ async def get_hotspots(
 
 
 @router.get("/instability", response_model=List[CountryInstabilityResponse])
-async def get_country_instability(
+def get_country_instability(
     min_index: float = Query(0, ge=0, le=100),
     risk_level: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
@@ -250,7 +250,7 @@ async def get_country_instability(
 
 
 @router.get("/anomalies", response_model=List[AnomalyResponse])
-async def get_anomalies(
+def get_anomalies(
     anomaly_type: Optional[str] = None,
     min_z_score: float = Query(2.0, ge=0),
     hours: int = Query(24, ge=1, le=168),
@@ -287,7 +287,7 @@ async def get_anomalies(
 
 
 @router.get("/ticker-impact/{event_id}", response_model=List[TickerImpactResponse])
-async def get_ticker_impact(
+def get_ticker_impact(
     event_id: str,
     limit: int = Query(20, ge=1, le=50),
     db: Session = Depends(get_db)
@@ -347,7 +347,7 @@ async def get_ticker_impact(
 
 
 @router.get("/map-data", response_model=MapDataResponse)
-async def get_map_data(
+def get_map_data(
     hours: int = Query(24, ge=1, le=168),
     include_anomalies: bool = True,
     db: Session = Depends(get_db)
@@ -441,7 +441,7 @@ async def get_map_data(
 
 
 @router.get("/stats")
-async def get_monitor_stats(db: Session = Depends(get_db)):
+def get_monitor_stats(db: Session = Depends(get_db)):
     """Get global monitor statistics"""
     now = datetime.utcnow()
     last_24h = now - timedelta(hours=24)
@@ -485,7 +485,7 @@ async def get_monitor_stats(db: Session = Depends(get_db)):
 
 
 @router.get("/health")
-async def monitor_health(db: Session = Depends(get_db)):
+def monitor_health(db: Session = Depends(get_db)):
     """Health check for global monitor system"""
     from app.models.global_monitor import DataIngestionLog
     

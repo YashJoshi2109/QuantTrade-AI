@@ -179,7 +179,7 @@ def _check_membership(db: Session, community_id: int, user_id: int) -> Optional[
     response_model=CommunityResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_community(
+def create_community(
     body: CommunityCreate,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -229,7 +229,7 @@ async def create_community(
 
 
 @router.get("/communities", response_model=PaginatedCommunities)
-async def list_communities(
+def list_communities(
     category: Optional[str] = Query(None, max_length=50),
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -277,7 +277,7 @@ async def list_communities(
 
 
 @router.get("/communities/search", response_model=PaginatedCommunities)
-async def search_communities(
+def search_communities(
     q: str = Query(..., min_length=1, max_length=200, alias="q"),
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -330,7 +330,7 @@ async def search_communities(
 
 
 @router.get("/communities/{slug}", response_model=CommunityResponse)
-async def get_community(
+def get_community(
     slug: str,
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user),
@@ -344,7 +344,7 @@ async def get_community(
 
 
 @router.post("/communities/{slug}/join", status_code=status.HTTP_200_OK)
-async def join_community(
+def join_community(
     slug: str,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -380,7 +380,7 @@ async def join_community(
 
 
 @router.delete("/communities/{slug}/leave", status_code=status.HTTP_200_OK)
-async def leave_community(
+def leave_community(
     slug: str,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -409,7 +409,7 @@ async def leave_community(
 
 
 @router.get("/communities/{slug}/members", response_model=PaginatedMembers)
-async def list_members(
+def list_members(
     slug: str,
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -446,7 +446,7 @@ async def list_members(
 
 
 @router.patch("/communities/{slug}", response_model=CommunityResponse)
-async def update_community(
+def update_community(
     slug: str,
     body: CommunityUpdate,
     db: Session = Depends(get_db),
@@ -471,7 +471,7 @@ async def update_community(
 
 
 @router.delete("/communities/{slug}", status_code=status.HTTP_200_OK)
-async def delete_community(
+def delete_community(
     slug: str,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -493,7 +493,7 @@ class CommunityRules(BaseModel):
 
 
 @router.get("/communities/{slug}/rules", response_model=CommunityRules)
-async def get_community_rules(
+def get_community_rules(
     slug: str,
     db: Session = Depends(get_db),
 ):
@@ -504,7 +504,7 @@ async def get_community_rules(
 
 
 @router.put("/communities/{slug}/rules", response_model=CommunityRules)
-async def update_community_rules(
+def update_community_rules(
     slug: str,
     body: CommunityRules,
     db: Session = Depends(get_db),
@@ -535,7 +535,7 @@ class AutoModRule(BaseModel):
 
 
 @router.get("/communities/{slug}/automod")
-async def get_automod_rules(
+def get_automod_rules(
     slug: str,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -550,7 +550,7 @@ async def get_automod_rules(
 
 
 @router.put("/communities/{slug}/automod")
-async def update_automod_rules(
+def update_automod_rules(
     slug: str,
     rules: List[AutoModRule],
     db: Session = Depends(get_db),

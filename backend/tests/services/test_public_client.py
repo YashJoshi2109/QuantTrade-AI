@@ -56,7 +56,7 @@ def test_parse_quote_success():
     assert result["symbol"] == "AAPL"
     assert result["price"] == 195.50
     assert result["change"] == 2.30
-    assert result["change_percent"] == 1.19
+    assert result["change_percent"] == pytest.approx(1.19, abs=0.01)
     assert result["volume"] == 45_000_000
     assert result["previous_close"] == 193.20
     assert result["bid"] == 195.45

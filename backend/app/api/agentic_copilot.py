@@ -29,7 +29,7 @@ def _require_admin(user: User = Depends(require_auth)) -> User:
 
 
 @router.post("/ingest", response_model=dict)
-async def trigger_ingestion(
+def trigger_ingestion(
     background_tasks: BackgroundTasks,
     tickers: list[str] | None = None,
     years_back: int = 5,
@@ -53,14 +53,14 @@ async def trigger_ingestion(
 
 
 @router.get("/ingest/status")
-async def ingestion_status(_user: User = Depends(_require_admin)):
+def ingestion_status(_user: User = Depends(_require_admin)):
     """Return current ingestion progress. Admin only."""
     from app.services.agentic.ingestion.orchestrator import get_ingestion_status  # noqa: PLC0415
     return get_ingestion_status()
 
 
 @router.get("/health")
-async def health_check():
+def health_check():
     """Check Qdrant and Bedrock connectivity."""
     checks: dict[str, str] = {}
 

@@ -74,7 +74,7 @@ def _notification_to_response(n: Notification) -> NotificationResponse:
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.get("/notifications", response_model=PaginatedNotifications)
-async def get_notifications(
+def get_notifications(
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
     unread_only: bool = Query(False),
@@ -110,7 +110,7 @@ async def get_notifications(
 
 
 @router.patch("/notifications/{notification_id}/read", response_model=NotificationResponse)
-async def mark_notification_read(
+def mark_notification_read(
     notification_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -135,7 +135,7 @@ async def mark_notification_read(
 
 
 @router.post("/notifications/read-all", status_code=status.HTTP_200_OK)
-async def mark_all_read(
+def mark_all_read(
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
 ):
@@ -151,7 +151,7 @@ async def mark_all_read(
 
 
 @router.delete("/notifications/{notification_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_notification(
+def delete_notification(
     notification_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -172,7 +172,7 @@ async def delete_notification(
 
 
 @router.get("/notifications/unread-count", response_model=UnreadCountResponse)
-async def get_unread_count(
+def get_unread_count(
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
 ):
@@ -210,7 +210,7 @@ def _load_preferences_json(user: User) -> dict:
 
 
 @router.get("/notifications/preferences")
-async def get_notification_preferences(
+def get_notification_preferences(
     user: User = Depends(require_auth),
 ):
     """Get notification preferences."""
@@ -227,7 +227,7 @@ async def get_notification_preferences(
 
 
 @router.patch("/notifications/preferences")
-async def update_notification_preferences(
+def update_notification_preferences(
     body: NotificationPreferences,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),

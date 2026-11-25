@@ -18,7 +18,7 @@ router = APIRouter(dependencies=[Depends(require_auth)])
 # ── Model Registry ──────────────────────────────────────────────────────
 
 @router.get("/mlops/models")
-async def list_models():
+def list_models():
     """List all registered models."""
     try:
         from ml.model_registry import model_registry
@@ -42,7 +42,7 @@ async def list_models():
 
 
 @router.get("/mlops/models/{model_name}")
-async def get_model_versions(model_name: str):
+def get_model_versions(model_name: str):
     """Get all versions of a model."""
     from ml.model_registry import model_registry
     from dataclasses import asdict
@@ -53,7 +53,7 @@ async def get_model_versions(model_name: str):
 
 
 @router.get("/mlops/models/{model_name}/card")
-async def get_model_card(model_name: str, version: int = Query(None)):
+def get_model_card(model_name: str, version: int = Query(None)):
     """Get model card documentation."""
     from ml.model_registry import model_registry
     from dataclasses import asdict
@@ -67,7 +67,7 @@ async def get_model_card(model_name: str, version: int = Query(None)):
 
 
 @router.post("/mlops/models/{model_name}/promote", dependencies=[Depends(require_admin)])
-async def promote_model(
+def promote_model(
     model_name: str,
     version: int = Query(...),
     stage: str = Query("production"),
@@ -83,7 +83,7 @@ async def promote_model(
 
 
 @router.post("/mlops/models/{model_name}/rollback", dependencies=[Depends(require_admin)])
-async def rollback_model(
+def rollback_model(
     model_name: str,
     user: User = Depends(require_auth),
 ):
@@ -99,7 +99,7 @@ async def rollback_model(
 # ── Experiments ─────────────────────────────────────────────────────────
 
 @router.get("/mlops/experiments")
-async def list_experiments(limit: int = Query(20, ge=1, le=100)):
+def list_experiments(limit: int = Query(20, ge=1, le=100)):
     """List recent experiment runs."""
     from ml.experiment_tracker import experiment_tracker
     runs = experiment_tracker.list_runs(limit=limit)
@@ -107,7 +107,7 @@ async def list_experiments(limit: int = Query(20, ge=1, le=100)):
 
 
 @router.get("/mlops/experiments/compare")
-async def compare_experiments(
+def compare_experiments(
     run_ids: str = Query(..., description="Comma-separated run IDs"),
     metrics: Optional[str] = Query(None, description="Comma-separated metric keys"),
 ):
@@ -119,7 +119,7 @@ async def compare_experiments(
 
 
 @router.get("/mlops/experiments/{run_id}")
-async def get_experiment(run_id: str):
+def get_experiment(run_id: str):
     """Get details of a specific experiment run."""
     from ml.experiment_tracker import experiment_tracker
     run = experiment_tracker.get_run(run_id)
@@ -131,7 +131,7 @@ async def get_experiment(run_id: str):
 # ── Monitoring ──────────────────────────────────────────────────────────
 
 @router.get("/mlops/monitoring/drift/{symbol}")
-async def get_drift_report(symbol: str):
+def get_drift_report(symbol: str):
     """Get latest drift report for a symbol."""
     from ml.drift_detector import drift_detector
     from dataclasses import asdict
@@ -142,7 +142,7 @@ async def get_drift_report(symbol: str):
 
 
 @router.get("/mlops/monitoring/predictions")
-async def get_predictions(
+def get_predictions(
     symbol: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
 ):
@@ -154,7 +154,7 @@ async def get_predictions(
 
 
 @router.get("/mlops/monitoring/performance")
-async def get_performance(
+def get_performance(
     model_name: str = Query("lstm_h7"),
     window_days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
@@ -215,7 +215,7 @@ async def get_performance(
 
 
 @router.get("/mlops/monitoring/alerts")
-async def get_alerts(level: Optional[str] = Query(None), db: Session = Depends(get_db)):
+def get_alerts(level: Optional[str] = Query(None), db: Session = Depends(get_db)):
     """Get alerts from live run status in PostgreSQL."""
     from datetime import datetime, timezone
     import uuid as _uuid
@@ -263,7 +263,7 @@ async def get_alerts(level: Optional[str] = Query(None), db: Session = Depends(g
 # ── Feature Store ───────────────────────────────────────────────────────
 
 @router.get("/mlops/features/symbols")
-async def list_feature_symbols(db: Session = Depends(get_db)):
+def list_feature_symbols(db: Session = Depends(get_db)):
     """List symbols with training artifacts in PostgreSQL."""
     from app.models.ml_training import TrainingArtifact
     rows = db.query(TrainingArtifact.symbol).distinct().all()
@@ -272,7 +272,7 @@ async def list_feature_symbols(db: Session = Depends(get_db)):
 
 
 @router.get("/mlops/features/{symbol}")
-async def get_feature_stats(symbol: str):
+def get_feature_stats(symbol: str):
     """Get feature statistics for a symbol."""
     from ml.feature_store import feature_store
     stats = feature_store.get_baseline_stats(symbol)
@@ -282,7 +282,7 @@ async def get_feature_stats(symbol: str):
 
 
 @router.post("/mlops/features/refresh", dependencies=[Depends(require_admin)])
-async def refresh_features(
+def refresh_features(
     symbols: Optional[List[str]] = None,
     user: User = Depends(require_auth),
 ):
@@ -298,7 +298,7 @@ async def refresh_features(
 # ── Pipeline ────────────────────────────────────────────────────────────
 
 @router.post("/mlops/pipeline/run", dependencies=[Depends(require_admin)])
-async def run_pipeline(
+def run_pipeline(
     force: bool = Query(False),
     user: User = Depends(require_auth),
 ):
@@ -316,7 +316,7 @@ async def run_pipeline(
 
 
 @router.get("/mlops/overview")
-async def mlops_overview():
+def mlops_overview():
     """Get a high-level MLOps dashboard summary. Each service is fault-isolated."""
     result = {
         "models": {"registered": 0, "production": {}},

@@ -26,7 +26,7 @@ class DeleteAccountConfirmBody(BaseModel):
 
 
 @router.post("/delete-request")
-async def request_account_deletion(
+def request_account_deletion(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -47,7 +47,7 @@ async def request_account_deletion(
 
 
 @router.post("/delete-confirm")
-async def confirm_account_deletion(
+def confirm_account_deletion(
     body: DeleteAccountConfirmBody,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),

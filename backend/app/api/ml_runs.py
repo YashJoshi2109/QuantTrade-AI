@@ -105,7 +105,7 @@ class BatchCallbackRequest(BaseModel):
 # ── Training Run Management ───────────────────────────────────────────
 
 @router.post("/internal/ml/runs/nightly/trigger", dependencies=[Depends(require_admin)])
-async def trigger_nightly_run(
+def trigger_nightly_run(
     req: TriggerNightlyRequest,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -165,7 +165,7 @@ async def trigger_nightly_run(
 
 
 @router.post("/internal/ml/runs/backfill", dependencies=[Depends(require_admin)])
-async def trigger_backfill(
+def trigger_backfill(
     req: BackfillRequest,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -211,7 +211,7 @@ async def trigger_backfill(
 
 
 @router.get("/internal/ml/runs")
-async def list_runs(
+def list_runs(
     status: Optional[str] = Query(None),
     run_type: Optional[str] = Query(None),
     limit: int = Query(20, ge=1, le=100),
@@ -254,7 +254,7 @@ async def list_runs(
 
 
 @router.get("/internal/ml/runs/{run_id}")
-async def get_run(run_id: str, db: Session = Depends(get_db)):
+def get_run(run_id: str, db: Session = Depends(get_db)):
     """Get detailed run summary with shard breakdown."""
     try:
         uid = uuid.UUID(run_id)
@@ -268,7 +268,7 @@ async def get_run(run_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/internal/ml/runs/{run_id}/shards")
-async def get_run_shards(run_id: str, db: Session = Depends(get_db)):
+def get_run_shards(run_id: str, db: Session = Depends(get_db)):
     """List shard status for a run."""
     try:
         uid = uuid.UUID(run_id)
@@ -337,7 +337,7 @@ async def get_run_artifacts(run_id: str, request: Request, db: Session = Depends
 
 
 @router.post("/internal/ml/runs/{run_id}/retry-failed-shards", dependencies=[Depends(require_admin)])
-async def retry_failed_shards(
+def retry_failed_shards(
     run_id: str,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -371,7 +371,7 @@ async def retry_failed_shards(
 # ── Model Versions ───────────────────────────────────────────────────
 
 @router.get("/internal/ml/models/versions")
-async def list_model_versions(
+def list_model_versions(
     status: Optional[str] = Query(None),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -397,7 +397,7 @@ async def list_model_versions(
 
 
 @router.get("/internal/ml/models/versions/{version}")
-async def get_model_version(version: str, db: Session = Depends(get_db)):
+def get_model_version(version: str, db: Session = Depends(get_db)):
     """Get detailed model version info."""
     from app.models.ml_training import ModelVersion as MV
     mv = db.query(MV).filter(MV.model_version == version).first()
@@ -423,7 +423,7 @@ async def get_model_version(version: str, db: Session = Depends(get_db)):
 # ── Model Version Lifecycle ──────────────────────────────────────────
 
 @router.post("/internal/ml/models/versions/{version}/promote", dependencies=[Depends(require_admin)])
-async def promote_db_model_version(
+def promote_db_model_version(
     version: str,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -442,7 +442,7 @@ async def promote_db_model_version(
 
 
 @router.post("/internal/ml/models/versions/{version}/archive", dependencies=[Depends(require_admin)])
-async def archive_db_model_version(
+def archive_db_model_version(
     version: str,
     db: Session = Depends(get_db),
 ):
@@ -464,7 +464,7 @@ async def archive_db_model_version(
 # ── Symbol History ───────────────────────────────────────────────────
 
 @router.get("/internal/ml/symbols/{symbol}/history")
-async def get_symbol_training_history(
+def get_symbol_training_history(
     symbol: str,
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -502,7 +502,7 @@ async def get_symbol_training_history(
 # ── Shard Planning ───────────────────────────────────────────────────
 
 @router.post("/internal/ml/shards/plan", dependencies=[Depends(require_admin)])
-async def plan_shards_dryrun(req: ShardPlanRequest):
+def plan_shards_dryrun(req: ShardPlanRequest):
     """Dry-run shard planner — inspect generated shard assignments."""
     from ml.shard_planner import plan_shards_by_tier
 
@@ -794,7 +794,7 @@ async def promote_run_model(
 
 
 @router.post("/internal/ml/runs/{run_id}/register-staging", dependencies=[Depends(require_admin)])
-async def register_staging_for_run(
+def register_staging_for_run(
     run_id: str,
     db: Session = Depends(get_db),
     user=Depends(require_auth),
@@ -858,7 +858,7 @@ async def register_staging_for_run(
 # ── Health & Metrics ─────────────────────────────────────────────────
 
 @router.get("/internal/ml/health")
-async def ml_health(db: Session = Depends(get_db)):
+def ml_health(db: Session = Depends(get_db)):
     """Pipeline health summary."""
     from ml.constants import ALL_SYMBOLS, SYMBOL_TIERS
 
@@ -894,7 +894,7 @@ async def ml_health(db: Session = Depends(get_db)):
 
 
 @router.get("/internal/ml/metrics/summary")
-async def ml_metrics_summary(
+def ml_metrics_summary(
     days: int = Query(7, ge=1, le=90),
     db: Session = Depends(get_db),
 ):
@@ -913,7 +913,7 @@ async def ml_metrics_summary(
 
 
 @router.get("/internal/ml/dashboard")
-async def ml_dashboard(db: Session = Depends(get_db)):
+def ml_dashboard(db: Session = Depends(get_db)):
     """Unified dashboard snapshot: model counts, run stats, latest run — all from PostgreSQL."""
     import asyncio
     from datetime import datetime, timezone
@@ -1189,7 +1189,7 @@ async def ml_stream(request: Request):
 
 
 @router.get("/internal/ml/config/effective")
-async def get_effective_config():
+def get_effective_config():
     """Return current effective training config."""
     from ml.config import TrainConfig
     from ml.constants import DEFAULT_CONFIG_PATH

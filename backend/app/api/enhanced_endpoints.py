@@ -19,6 +19,7 @@ from app.services.enhanced_data_fetcher import EnhancedDataFetcher
 from app.services.portfolio_service import PortfolioService
 from app.services.realtime_news_fetcher import RealtimeNewsFetcher, _is_likely_ticker_symbol
 from app.services.finnhub_fetcher import FinnhubFetcher
+from app.services.ticker_validation import normalize_ticker, UnknownTickerError
 from app.services.rate_limiter import get_api_stats
 from app.api.auth import get_current_user, require_admin
 from app.models.user import User
@@ -58,7 +59,7 @@ class QuoteResponse(BaseModel):
 
 
 @router.get("/quote/{symbol}", response_model=QuoteResponse)
-async def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
+def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
     """Get real-time quote with millisecond-level latency tracking"""
     from datetime import datetime
     from app.models.price import PriceBar
@@ -338,7 +339,7 @@ class PredictionAlertResponse(BaseModel):
 
 
 @router.get("/news/{symbol}/realtime", response_model=List[NewsArticleResponse])
-async def get_realtime_news(
+def get_realtime_news(
     symbol: str,
     limit: int = Query(20, ge=1, le=100),
     sources: Optional[str] = Query(
@@ -632,14 +633,15 @@ def get_breaking_market_news(limit: int = Query(10, ge=1, le=50)):
 
 
 @router.get("/fundamentals/{symbol}")
-async def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
-    """Get fundamental data for a symbol"""
-    db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol.upper()).first()
+def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
+    """Get fundamental data for a symbol (sync handler: runs in threadpool)."""
+    symbol = normalize_ticker(symbol)
+    db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol).first()
     
     if not db_symbol:
-        # Create symbol
+        # Validates upstream first; unknown tickers raise 404, no row created
         from app.services.data_fetcher import DataFetcher
-        db_symbol = DataFetcher.sync_symbol_to_db(db, symbol.upper())
+        db_symbol = DataFetcher.sync_symbol_to_db(db, symbol)
     
     # Get cached fundamentals
     fundamentals = db.query(Fundamentals).filter(
@@ -710,7 +712,7 @@ async def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
 
 
 @router.post("/fundamentals/{symbol}/sync", dependencies=[Depends(require_admin)])
-async def sync_fundamentals(symbol: str, db: Session = Depends(get_db)):
+def sync_fundamentals(symbol: str, db: Session = Depends(get_db)):
     """Force refresh fundamentals from Finviz (admin only; not called by the UI)"""
     try:
         fundamentals = EnhancedDataFetcher.sync_fundamentals(symbol.upper(), db)
@@ -727,7 +729,7 @@ async def sync_fundamentals(symbol: str, db: Session = Depends(get_db)):
 # ============= BULK SYNC =============
 
 @router.post("/sync/sp500", dependencies=[Depends(require_admin)])
-async def sync_sp500_stocks(
+def sync_sp500_stocks(
     limit: Optional[int] = Query(None, description="Limit number of stocks to sync"),
     db: Session = Depends(get_db)
 ):
@@ -741,7 +743,7 @@ async def sync_sp500_stocks(
 
 
 @router.post("/sync/nasdaq", dependencies=[Depends(require_admin)])
-async def sync_nasdaq_stocks(
+def sync_nasdaq_stocks(
     limit: Optional[int] = Query(None, description="Limit number of stocks to sync"),
     db: Session = Depends(get_db)
 ):
@@ -771,7 +773,7 @@ class TradeRequest(BaseModel):
 
 
 @router.post("/portfolio/create")
-async def create_portfolio(
+def create_portfolio(
     request: CreatePortfolioRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -789,7 +791,7 @@ async def create_portfolio(
 
 
 @router.get("/portfolio/{portfolio_id}/summary")
-async def get_portfolio_summary(
+def get_portfolio_summary(
     portfolio_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -805,7 +807,7 @@ async def get_portfolio_summary(
 
 
 @router.post("/portfolio/{portfolio_id}/trade")
-async def execute_trade(
+def execute_trade(
     portfolio_id: int,
     request: TradeRequest,
     db: Session = Depends(get_db),
@@ -851,7 +853,7 @@ async def execute_trade(
 
 
 @router.get("/portfolio/{portfolio_id}/positions")
-async def get_positions(
+def get_positions(
     portfolio_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -881,7 +883,7 @@ async def get_positions(
 
 
 @router.get("/portfolio/{portfolio_id}/transactions")
-async def get_transaction_history(
+def get_transaction_history(
     portfolio_id: int,
     limit: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
@@ -928,7 +930,9 @@ async def get_finnhub_quote(symbol: str, priority: str = Query('high', pattern='
     source = "finnhub"
 
     try:
-        quote_data = FinnhubFetcher.get_quote(symbol.upper(), priority=priority)
+        # Blocking requests call (+ rate-limiter sleep for priority=high):
+        # run it off the event loop.
+        quote_data = await asyncio.to_thread(FinnhubFetcher.get_quote, symbol.upper(), priority=priority)
 
         if not quote_data or 'c' not in quote_data or not quote_data.get('c'):
             # Finnhub failed/rate-limited — fall back to multi-source quote cache
@@ -978,7 +982,7 @@ async def get_finnhub_quote(symbol: str, priority: str = Query('high', pattern='
 
 
 @router.get("/news/{symbol}/finnhub")
-async def get_finnhub_company_news(symbol: str, limit: int = Query(20, le=50), priority: str = Query('high', pattern='^(high|normal)$')):
+def get_finnhub_company_news(symbol: str, limit: int = Query(20, le=50), priority: str = Query('high', pattern='^(high|normal)$')):
     """Get company news from Finnhub with rate limiting"""
     try:
         news_data = FinnhubFetcher.get_company_news(symbol.upper(), priority=priority)
@@ -1003,7 +1007,7 @@ async def get_finnhub_company_news(symbol: str, limit: int = Query(20, le=50), p
 
 
 @router.get("/news/market/finnhub")
-async def get_finnhub_market_news(category: str = "general", limit: int = Query(20, le=50), priority: str = Query('high', pattern='^(high|normal)$')):
+def get_finnhub_market_news(category: str = "general", limit: int = Query(20, le=50), priority: str = Query('high', pattern='^(high|normal)$')):
     """Get market news from Finnhub with rate limiting"""
     try:
         news_data = FinnhubFetcher.get_market_news(category, limit, priority=priority)
@@ -1027,15 +1031,32 @@ async def get_finnhub_market_news(category: str = "general", limit: int = Query(
         raise HTTPException(status_code=500, detail="Finnhub market news error")
 
 
-@router.get("/company/{symbol}/profile")
-async def get_company_profile(symbol: str, priority: str = Query('normal', pattern='^(high|normal)$')):
-    """Get company profile from Finnhub with rate limiting"""
+def _millions_to_units(value):
+    """Finnhub profile2 values are in millions; convert to absolute units."""
+    if value is None:
+        return None
     try:
-        profile = FinnhubFetcher.get_company_profile(symbol.upper(), priority=priority)
-        financials = FinnhubFetcher.get_basic_financials(symbol.upper())
-        
+        return float(value) * 1_000_000
+    except (TypeError, ValueError):
+        return None
+
+
+@router.get("/company/{symbol}/profile")
+def get_company_profile(symbol: str, priority: str = Query('normal', pattern='^(high|normal)$')):
+    """Get company profile from Finnhub with rate limiting"""
+    sym = normalize_ticker(symbol)
+    try:
+        profile = FinnhubFetcher.get_company_profile(sym, priority=priority) or {}
+        if not (profile.get('name') or profile.get('ticker')):
+            # Finnhub returns {} for unknown tickers (also when rate-limited at
+            # normal priority); confirm before answering 404.
+            from app.services.ticker_validation import ticker_exists_upstream
+            if not ticker_exists_upstream(sym):
+                raise UnknownTickerError(sym)
+        financials = FinnhubFetcher.get_basic_financials(sym) or {}
+
         return {
-            "symbol": symbol.upper(),
+            "symbol": sym,
             "name": profile.get('name'),
             "logo": profile.get('logo'),
             "country": profile.get('country'),
@@ -1043,18 +1064,21 @@ async def get_company_profile(symbol: str, priority: str = Query('normal', patte
             "exchange": profile.get('exchange'),
             "industry": profile.get('finnhubIndustry'),
             "ipo_date": profile.get('ipo'),
-            "market_cap": profile.get('marketCapitalization'),
-            "shares_outstanding": profile.get('shareOutstanding'),
+            # Finnhub reports both in millions; return absolute USD / shares.
+            "market_cap": _millions_to_units(profile.get('marketCapitalization')),
+            "shares_outstanding": _millions_to_units(profile.get('shareOutstanding')),
             "website": profile.get('weburl'),
             "metrics": financials.get('metric', {})
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Company profile error")
         raise HTTPException(status_code=500, detail="Company profile error")
 
 
 @router.get("/sentiment/{symbol}")
-async def get_market_sentiment(symbol: str):
+def get_market_sentiment(symbol: str):
     """Get social sentiment for a symbol from Finnhub"""
     try:
         sentiment_data = FinnhubFetcher.get_sentiment(symbol.upper())
@@ -1065,7 +1089,7 @@ async def get_market_sentiment(symbol: str):
 
 
 @router.get("/recommendations/{symbol}")
-async def get_recommendations(symbol: str, priority: str = Query('normal', pattern='^(high|normal)$')):
+def get_recommendations(symbol: str, priority: str = Query('normal', pattern='^(high|normal)$')):
     """Get analyst recommendations from Finnhub with rate limiting"""
     try:
         recs = FinnhubFetcher.get_recommendation_trends(symbol.upper(), priority=priority)
@@ -1081,7 +1105,7 @@ async def get_recommendations(symbol: str, priority: str = Query('normal', patte
 
 
 @router.get("/api-stats")
-async def get_finnhub_api_stats():
+def get_finnhub_api_stats():
     """Get Finnhub API usage statistics and rate limit info"""
     stats = get_api_stats()
     hit_pct = stats.get("hit_ratio_pct")

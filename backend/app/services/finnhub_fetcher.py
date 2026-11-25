@@ -167,7 +167,7 @@ class FinnhubFetcher:
             endpoint='recommendations',
             params={'symbol': symbol},
             api_function=_fetch,
-            cache_ttl=CACHE_TTL['recommendations'],
+            cache_ttl=CACHE_TTL['recommendation'],
             priority=priority
         )
     
@@ -187,7 +187,7 @@ class FinnhubFetcher:
             endpoint='price_target',
             params={'symbol': symbol},
             api_function=_fetch,
-            cache_ttl=CACHE_TTL['recommendations'],
+            cache_ttl=CACHE_TTL['price_target'],
             priority=priority
         )
     
@@ -226,7 +226,7 @@ class FinnhubFetcher:
             endpoint='peers',
             params={'symbol': symbol},
             api_function=_fetch,
-            cache_ttl=CACHE_TTL['company_profile'],  # Cache peers for 1 hour like profile
+            cache_ttl=CACHE_TTL['peers'],  # Cache peers for 1 hour
             priority=priority
         )
     

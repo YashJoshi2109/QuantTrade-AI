@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 @router.get("/search")
-async def search(
+def search(
     q: str = Query(..., min_length=2, max_length=200),
     type: Optional[str] = Query(None, pattern="^(posts|comments|communities|users)$"),
     community: Optional[str] = Query(None),

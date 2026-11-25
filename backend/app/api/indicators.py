@@ -7,6 +7,9 @@ from typing import Dict, Optional
 from app.db.database import get_db
 from app.models.symbol import Symbol
 from app.services.indicators import IndicatorService
+from app.services.ticker_validation import (
+    UnknownTickerError, normalize_ticker, ticker_exists_upstream,
+)
 
 router = APIRouter()
 
@@ -22,7 +25,7 @@ EMPTY_INDICATORS = {
 
 
 @router.get("/indicators/{symbol}")
-async def get_indicators(
+def get_indicators(
     symbol: str,
     db: Session = Depends(get_db)
 ):
@@ -31,7 +34,7 @@ async def get_indicators(
     Tries database price history first; falls back to yfinance live data
     so indicators are never blank for valid symbols.
     """
-    symbol_upper = symbol.upper()
+    symbol_upper = normalize_ticker(symbol)
 
     # 1. Try database price history
     db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol_upper).first()
@@ -47,5 +50,9 @@ async def get_indicators(
             return {"symbol": symbol_upper, "indicators": indicators}
     except Exception as e:
         print(f"yfinance indicator fallback failed for {symbol_upper}: {e}")
+
+    # Unknown ticker (no DB row, no upstream data) -> 404 instead of 200 + nulls
+    if not db_symbol and not ticker_exists_upstream(symbol_upper):
+        raise UnknownTickerError(symbol_upper)
 
     return {"symbol": symbol_upper, "indicators": EMPTY_INDICATORS}

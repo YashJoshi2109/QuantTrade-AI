@@ -352,7 +352,7 @@ def _get_stripe_customer_for_user(db: Session, user: User) -> BillingCustomer:
     "/checkout-session",
     response_model=CheckoutSessionResponse,
 )
-async def create_checkout_session(
+def create_checkout_session(
     body: CheckoutSessionRequest,
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -420,7 +420,7 @@ async def create_checkout_session(
     "/session-status",
     response_model=SessionStatusResponse,
 )
-async def get_session_status(session_id: str):
+def get_session_status(session_id: str):
     """
     Retrieve a Checkout Session from Stripe and expose a minimal status snapshot.
     """
@@ -468,7 +468,7 @@ async def get_session_status(session_id: str):
     "/subscription",
     response_model=SubscriptionStatusResponse,
 )
-async def get_subscription_status(
+def get_subscription_status(
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -502,7 +502,7 @@ async def get_subscription_status(
     "/portal",
     response_model=PortalSessionResponse,
 )
-async def create_billing_portal_session(
+def create_billing_portal_session(
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -607,7 +607,7 @@ async def create_billing_portal_session(
     "/cancel-subscription",
     status_code=status.HTTP_200_OK,
 )
-async def cancel_subscription(
+def cancel_subscription(
     body: CancelSubscriptionBody,
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db),

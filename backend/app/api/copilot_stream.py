@@ -804,7 +804,7 @@ Provide your analysis following the mandatory output format. Use the real data a
 # Endpoint
 # ---------------------------------------------------------------------------
 @router.get("/copilot/usage")
-async def copilot_usage(
+def copilot_usage(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_auth),
 ):

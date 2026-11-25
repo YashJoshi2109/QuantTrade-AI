@@ -43,7 +43,7 @@ class VoiceRequest(BaseModel):
     npc_id: Optional[str] = None
 
 @router.post("/generate")
-async def generate_voice(request: VoiceRequest):
+def generate_voice(request: VoiceRequest):
     """
     Generate ElevenLabs voice audio for the given text and character role.
     """

@@ -142,7 +142,7 @@ def _log_audit(
 # ── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.post("/reports", response_model=ReportResponse, status_code=status.HTTP_201_CREATED)
-async def create_report(
+def create_report(
     body: ReportCreate,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -188,7 +188,7 @@ async def create_report(
 
 
 @router.get("/moderation/queue", response_model=PaginatedReports)
-async def moderation_queue(
+def moderation_queue(
     status_filter: str = Query("pending", pattern="^(pending|reviewed|resolved|all)$"),
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(50, ge=1, le=200),
@@ -222,7 +222,7 @@ async def moderation_queue(
     response_model=ActionResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def take_moderation_action(
+def take_moderation_action(
     report_id: int,
     body: ActionCreate,
     db: Session = Depends(get_db),
@@ -285,7 +285,7 @@ async def take_moderation_action(
 
 
 @router.get("/moderation/audit-log", response_model=PaginatedAuditLogs)
-async def audit_log(
+def audit_log(
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),

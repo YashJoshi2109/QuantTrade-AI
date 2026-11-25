@@ -406,7 +406,7 @@ async def create_comment(
 
 
 @router.get("/posts/{post_id}/comments", response_model=PaginatedComments)
-async def get_comments(
+def get_comments(
     post_id: int,
     sort: str = Query("best", pattern="^(best|top|new|controversial)$"),
     cursor: Optional[int] = Query(None, ge=0),
@@ -458,7 +458,7 @@ async def get_comments(
 
 
 @router.patch("/comments/{comment_id}", response_model=CommentResponse)
-async def update_comment(
+def update_comment(
     comment_id: int,
     body: CommentUpdate,
     db: Session = Depends(get_db),
@@ -497,7 +497,7 @@ async def update_comment(
 
 
 @router.delete("/comments/{comment_id}", status_code=status.HTTP_200_OK)
-async def delete_comment(
+def delete_comment(
     comment_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -524,7 +524,7 @@ async def delete_comment(
 
 
 @router.post("/comments/{comment_id}/vote", status_code=status.HTTP_200_OK)
-async def vote_on_comment(
+def vote_on_comment(
     comment_id: int,
     body: VoteRequest,
     db: Session = Depends(get_db),
