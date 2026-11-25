@@ -148,6 +148,10 @@ def _calculate_bollinger(prices: pd.Series, period: int = 20) -> tuple[pd.Series
 # ---------------------------------------------------------------------------
 
 
+class NoTrainedModelError(RuntimeError):
+    """No trained checkpoint exists for the requested horizon."""
+
+
 class StockPredictor:
     """Ensemble prediction engine.
 
@@ -274,18 +278,17 @@ class StockPredictor:
 
     # ── Prediction ─────────────────────────────────────────────────────
     def predict(self, symbol: str, timeframe_days: int = 1) -> PricePrediction:
-        """Generate a single-horizon price prediction."""
-        # Pick the closest available trained horizon
-        horizon_key = self._closest_horizon(timeframe_days) if self._trained else None
+        """Single-horizon prediction from a *trained* checkpoint for exactly that horizon.
 
-        if horizon_key is not None:
-            return self._predict_trained(symbol, timeframe_days, horizon_key)
-        return self._predict_fallback(symbol, timeframe_days)
-
-    def _closest_horizon(self, horizon: int) -> Optional[int]:
-        if not self._trained_models:
-            return None
-        return min(self._trained_models.keys(), key=lambda h: abs(h - horizon))
+        Raises NoTrainedModelError otherwise. Previously this (a) served the
+        closest trained horizon relabelled as the requested one (h=1 output shown
+        as "7_day"/"30_day"), and (b) with no checkpoint at all, fell back to a
+        randomly initialised LSTM whose noise reached users as high-confidence
+        alerts. Neither is acceptable to show.
+        """
+        if not self._trained or timeframe_days not in self._trained_models:
+            raise NoTrainedModelError(f"no trained model for horizon={timeframe_days}")
+        return self._predict_trained(symbol, timeframe_days, timeframe_days)
 
     def _predict_trained(self, symbol: str, timeframe_days: int, horizon_key: int) -> PricePrediction:
         t0 = time.time()
@@ -367,69 +370,7 @@ class StockPredictor:
             model_source="trained",
         )
 
-    def _predict_fallback(self, symbol: str, timeframe_days: int) -> PricePrediction:
-        """Untrained ensemble fallback — preserves legacy behavior."""
-        features = self.prepare_features(symbol)
 
-        ticker = yf.Ticker(symbol)
-        info = ticker.info or {}
-        current_price = info.get("currentPrice") or info.get("regularMarketPrice", 0)
-        if not current_price:
-            current_price = float(features[-1, 0])
-
-        seq_len = min(60, len(features))
-        X = torch.FloatTensor(features[-seq_len:]).unsqueeze(0)
-
-        with torch.no_grad():
-            lstm_pred = self.lstm_model(X).item()
-            linear_pred = self._linear_forecast(features, timeframe_days)
-            predicted_change = lstm_pred * 0.6 + linear_pred * 0.4
-
-        predicted_price = current_price * (1 + predicted_change)
-
-        denom = max(abs(lstm_pred), abs(linear_pred), 1e-8)
-        model_agreement = 1 - abs(lstm_pred - linear_pred) / denom
-        confidence = min(0.95, max(0.3, model_agreement))
-
-        volatility = features[-30:, 0].std() if len(features) >= 30 else 0.02
-        range_low = predicted_price - (current_price * volatility * 2)
-        range_high = predicted_price + (current_price * volatility * 2)
-
-        expected_return = ((predicted_price - current_price) / current_price) * 100 if current_price else 0
-
-        if expected_return > 1:
-            direction = "UP"
-            probability_up = min(0.95, 0.5 + (expected_return / 100 * 5))
-        elif expected_return < -1:
-            direction = "DOWN"
-            probability_up = max(0.05, 0.5 + (expected_return / 100 * 5))
-        else:
-            direction = "NEUTRAL"
-            probability_up = 0.5
-
-        return PricePrediction(
-            timeframe=f"{timeframe_days}_day",
-            predicted_price=round(predicted_price, 2),
-            current_price=round(current_price, 2),
-            confidence=round(confidence, 3),
-            direction=direction,
-            probability_up=round(probability_up, 3),
-            range_low=round(range_low, 2),
-            range_high=round(range_high, 2),
-            expected_return=round(expected_return, 2),
-            model_source="untrained",
-        )
-
-    @staticmethod
-    def _linear_forecast(features: np.ndarray, days: int) -> float:
-        window = min(10, len(features))
-        recent_trend = (features[-1, 0] - features[-window, 0]) / window
-        return recent_trend * days
-
-
-# ---------------------------------------------------------------------------
-# Cached prediction API (called by stock_analysis_client)
-# ---------------------------------------------------------------------------
 
 _predictor: Optional[StockPredictor] = None
 _cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
@@ -463,6 +404,8 @@ async def predict(symbol: str, horizons: Optional[List[int]] = None) -> Dict[str
         try:
             pred = predictor.predict(symbol, timeframe_days=h)
             predictions.append(asdict(pred))
+        except NoTrainedModelError:
+            continue  # only trained horizons are served
         except Exception as exc:
             logger.warning("LSTM prediction failed for %s/%dd: %s", symbol, h, exc)
 

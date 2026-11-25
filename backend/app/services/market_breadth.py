@@ -7,7 +7,7 @@ count with it, so their numbers always agree.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal, Mapping, Optional
+from typing import Any, Iterable, Literal, Mapping, Optional
 
 # A move within ±0.1% is "flat" (same band the heatmap colors neutral grey).
 FLAT_THRESHOLD_PCT = 0.1
@@ -56,3 +56,54 @@ def is_stale_quote(quote: Optional[Mapping[str, Any]], now: Optional[datetime] =
         return False
     now = now or datetime.now(timezone.utc)
     return now - traded_at > STALE_QUOTE_MAX_AGE
+
+
+# ── Quote sanity ─────────────────────────────────────────────────────────────
+# A one-day move beyond ±50% in a large/mid-cap universe is almost always a bad
+# previous_close (delisted / renamed / reverse-split ticker), e.g. PARA +8116%.
+# Such rows are dropped rather than shown as movers or averaged into sectors.
+MAX_PLAUSIBLE_MOVE_PCT = 50.0
+
+
+def is_implausible_move(change_percent: Any) -> bool:
+    try:
+        pct = float(change_percent or 0)
+    except (TypeError, ValueError):
+        return True
+    if pct != pct:  # NaN
+        return True
+    return abs(pct) > MAX_PLAUSIBLE_MOVE_PCT
+
+
+def is_usable_quote(quote: Optional[Mapping[str, Any]], now: Optional[datetime] = None) -> bool:
+    """True when a quote may be shown in movers / sectors / breadth.
+
+    Rejects missing/unavailable quotes, non-positive prices, stale last trades
+    (``is_stale_quote``) and implausible one-day moves (``is_implausible_move``).
+    """
+    if not quote or quote.get("unavailable"):
+        return False
+    try:
+        price = float(quote.get("price") or 0)
+    except (TypeError, ValueError):
+        return False
+    if price <= 0:
+        return False
+    if is_stale_quote(quote, now=now):
+        return False
+    return not is_implausible_move(quote.get("change_percent"))
+
+
+def robust_sector_change(changes: Iterable[Optional[float]]) -> float:
+    """Sector change % as the median of member moves.
+
+    A raw mean lets one bad row (PARA +8116%) drag a whole sector to +204%;
+    the median is unaffected by a single outlier.
+    """
+    vals = sorted(float(c) for c in changes if c is not None and float(c) == float(c))
+    if not vals:
+        return 0.0
+    mid = len(vals) // 2
+    if len(vals) % 2:
+        return vals[mid]
+    return (vals[mid - 1] + vals[mid]) / 2.0

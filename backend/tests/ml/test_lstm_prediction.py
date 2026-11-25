@@ -129,24 +129,28 @@ def test_prepare_features_shape(mock_yf):
 
 
 @patch("app.services.lstm_prediction_service.yf")
-def test_predict_returns_prediction(mock_yf):
+def test_untrained_predictor_refuses_to_predict(mock_yf):
+    """No checkpoint → no prediction (never random-weight output)."""
+    from app.services.lstm_prediction_service import NoTrainedModelError
+
     mock_yf.Ticker.return_value = _mock_ticker("AAPL")
     predictor = StockPredictor()
-    pred = predictor.predict("AAPL", timeframe_days=7)
-    assert isinstance(pred, PricePrediction)
-    assert pred.direction in ("UP", "DOWN", "NEUTRAL")
-    assert 0 < pred.confidence <= 1.0
-    assert 0 < pred.probability_up <= 1.0
-    assert pred.range_low < pred.range_high
+    predictor._trained = False
+    predictor._trained_models = {}
+    with pytest.raises(NoTrainedModelError):
+        predictor.predict("AAPL", timeframe_days=7)
 
 
-@patch("app.services.lstm_prediction_service.yf")
-def test_predict_multiple_horizons(mock_yf):
-    mock_yf.Ticker.return_value = _mock_ticker("AAPL")
+def test_only_exact_trained_horizon_is_served():
+    """A trained h=1 model must not be relabelled as 7_day / 30_day."""
+    from app.services.lstm_prediction_service import NoTrainedModelError
+
     predictor = StockPredictor()
-    for horizon in [1, 7, 30]:
-        pred = predictor.predict("AAPL", timeframe_days=horizon)
-        assert pred.timeframe == f"{horizon}_day"
+    predictor._trained = True
+    predictor._trained_models = {1: object()}
+    for h in (7, 30):
+        with pytest.raises(NoTrainedModelError):
+            predictor.predict("AAPL", timeframe_days=h)
 
 
 # ---------------------------------------------------------------------------
@@ -155,21 +159,17 @@ def test_predict_multiple_horizons(mock_yf):
 
 
 @patch("app.services.lstm_prediction_service.yf")
-def test_predict_api_returns_expected_format(mock_yf):
+def test_predict_api_without_model_returns_nothing(mock_yf):
     mock_yf.Ticker.return_value = _mock_ticker("AAPL")
+    import app.services.lstm_prediction_service as svc
 
-    # Clear cache
-    from app.services.lstm_prediction_service import _cache
-    _cache.clear()
-
+    svc._cache.clear()
+    p = svc._get_predictor()
+    p._trained, p._trained_models = False, {}
     result = asyncio.run(predict("AAPL", horizons=[1, 7]))
     assert result["symbol"] == "AAPL"
-    assert "generated_at" in result
-    assert len(result["predictions"]) == 2
-    for p in result["predictions"]:
-        assert "predicted_price" in p
-        assert "confidence" in p
-        assert "direction" in p
+    assert result["predictions"] == []
+    assert result["model_trained"] is False
 
 
 @patch("app.services.lstm_prediction_service.yf")

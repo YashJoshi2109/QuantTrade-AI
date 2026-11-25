@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import PricingClient from './PricingClient'
 
 export const metadata: Metadata = {
-  title: 'Pricing — QuantTrade AI',
+  title: 'Pricing',
   description: 'QuantTrade Pro — $8/month for unlimited AI copilot, full strategy backtester, Global Geopolitical Monitor, SEC filing deep-dives, Monte Carlo simulations, and real-time alerts. Save 17% with annual billing.',
   keywords: [
     'quanttrade pricing', 'AI trading platform cost', 'stock research subscription',

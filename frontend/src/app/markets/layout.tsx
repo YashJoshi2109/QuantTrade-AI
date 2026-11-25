@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
-  title: 'Markets — Sector Heatmaps & Indices | QuantTrade AI',
+  title: 'Markets — Sector Heatmaps & Indices',
   description:
     'Real-time markets dashboard. NYSE, NASDAQ, and AMEX sector heatmaps, top movers, major indices (SPX, NDX, DJI), earnings calendar, and global exchange coverage. Powered by Finnhub and Polygon.',
   keywords: [

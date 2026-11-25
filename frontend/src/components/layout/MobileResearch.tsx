@@ -42,6 +42,7 @@ import LiveNews from '@/components/LiveNews'
 import KeyFactorsPanel from '@/components/KeyFactorsPanel'
 import FundamentalsPanel from '@/components/FundamentalsPanel'
 import SecEdgarPanel from '@/components/research/SecEdgarPanel'
+import ForecastPanel from '@/components/research/ForecastPanel'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 
 const TIMEFRAMES = ['1D', '1W', '1M', '3M', '1Y', 'All'] as const
@@ -590,6 +591,9 @@ export default function MobileResearch() {
                 </div>
               </div>
             </div>
+
+            {/* Same statistical forecast as desktop */}
+            <ForecastPanel symbol={symbolFromUrl} />
 
             {/* Key Factors Panel */}
             <KeyFactorsPanel

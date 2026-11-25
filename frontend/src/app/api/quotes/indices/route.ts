@@ -5,13 +5,26 @@ import {
   WORLD_EXCHANGES,
   getExchangeById,
 } from '@/lib/world-exchanges'
+import {
+  FINNHUB_PROXY_ETFS,
+  isIndexLevelSymbol,
+  pickQuote,
+  toIndexQuote,
+  type IndexQuote,
+  type RawQuote,
+} from '@/lib/indexQuotes'
+
+export type { IndexQuote } from '@/lib/indexQuotes'
 
 /**
  * World Exchange Indices Quote API
- * Provider chain:
- *  1. Yahoo Finance chart API (free, per-symbol)
+ * Provider chain (same for every continent so tiles never flip between sources):
+ *  1. Yahoo Finance chart API (real index levels, free, per-symbol)
  *  2. Financial Modeling Prep (batch fallback for failed symbols)
  *  3. Twelve Data (individual fallback)
+ *  4. Finnhub — last resort. For indices / futures Finnhub only serves ETF proxies
+ *     (^GSPC → SPY, CL=F → USO …). A proxy price is NEVER labelled as the index:
+ *     the row is relabelled as the ETF (`is_proxy: true`, `proxy_symbol`).
  */
 
 // In-memory response cache — prevents 40+ Yahoo Finance calls per request
@@ -22,49 +35,6 @@ const FMP_KEY = process.env.FMP_API_KEY ?? ''
 const TWELVE_KEY =
   process.env.TWELVE_DATA_API_KEY ?? process.env.TWELVEDATA_API_KEY ?? ''
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY ?? ''
-
-/** Yahoo / index tickers → Finnhub-friendly symbols (ETF proxies where needed). */
-const FINNHUB_SYMBOL_ALIASES: Record<string, string> = {
-  '^GSPC': 'SPY',
-  '^IXIC': 'QQQ',
-  '^DJI': 'DIA',
-  '^RUT': 'IWM',
-  '^VIX': 'VIX',
-  'GC=F': 'GLD',
-  'CL=F': 'USO',
-}
-
-export interface IndexQuote {
-  symbol: string
-  name: string
-  shortName: string
-  exchangeId: string
-  exchangeName: string
-  country: string
-  countryCode: string
-  continent: string
-  currency: string
-  color: string
-  price: number
-  change: number
-  change_percent: number
-  prev_close: number
-  day_high: number
-  day_low: number
-  volume: number
-  market_state: string
-}
-
-type RawQuote = {
-  price: number
-  change: number
-  change_percent: number
-  prev_close: number
-  day_high: number
-  day_low: number
-  volume: number
-  market_state: string
-}
 
 // ─── Yahoo Finance chart API ───────────────────────────────────────────────
 async function fetchYahooQuote(symbol: string): Promise<RawQuote | null> {
@@ -179,10 +149,10 @@ async function fetchTwelveQuote(symbol: string): Promise<RawQuote | null> {
 // ─── Finnhub quote (last resort; uses ETF/index proxies) ───────────────────
 async function fetchFinnhubIndexQuote(yahooSymbol: string): Promise<RawQuote | null> {
   if (!FINNHUB_KEY) return null
-  const fh =
-    FINNHUB_SYMBOL_ALIASES[yahooSymbol] ??
-    (yahooSymbol.startsWith('^') ? yahooSymbol.slice(1) : yahooSymbol)
-  if (!fh) return null
+  const proxy = FINNHUB_PROXY_ETFS[yahooSymbol]
+  // Finnhub has no index levels: without a known ETF proxy, an index can't be priced here.
+  if (!proxy && (yahooSymbol.startsWith('^') || yahooSymbol.includes('='))) return null
+  const fh = proxy?.symbol ?? yahooSymbol
   try {
     const res = await fetch(
       `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(fh)}&token=${FINNHUB_KEY}`,
@@ -204,6 +174,7 @@ async function fetchFinnhubIndexQuote(yahooSymbol: string): Promise<RawQuote | n
       day_low: Number(j.l) || c,
       volume: 0,
       market_state: 'REGULAR',
+      ...(proxy ? { proxy } : {}),
     }
   } catch {
     return null
@@ -279,15 +250,9 @@ export async function GET(request: NextRequest) {
 
   const batch = symbols.slice(0, 40)
 
-  // Global: Finnhub is primary (real-time US indices via ETF proxies).
-  // Non-global: Yahoo is primary; Finnhub stays as last resort.
-  // Both sources run in parallel to avoid adding latency.
-  const [yfResults, fhParallelResults] = await Promise.all([
-    Promise.allSettled(batch.map((s) => fetchYahooQuote(s))),
-    continent === 'global' && FINNHUB_KEY
-      ? Promise.allSettled(batch.map((s) => fetchFinnhubIndexQuote(s)))
-      : Promise.resolve([] as PromiseSettledResult<RawQuote | null>[]),
-  ])
+  // Yahoo is primary for every continent: it serves real index levels. Finnhub
+  // (ETF proxies only) is the last resort, so a tile never flips between 7201 and 718.
+  const yfResults = await Promise.allSettled(batch.map((s) => fetchYahooQuote(s)))
 
   // Build Yahoo map
   const yfMap = new Map<string, RawQuote | null>()
@@ -297,21 +262,10 @@ export async function GET(request: NextRequest) {
     yfMap.set(batch[i], val)
   }
 
-  // Build Finnhub primary map (global only)
-  const finnhubPrimaryMap = new Map<string, RawQuote>()
-  if (continent === 'global' && fhParallelResults.length > 0) {
-    for (let i = 0; i < batch.length; i++) {
-      const r = fhParallelResults[i]
-      if (r.status === 'fulfilled' && r.value) finnhubPrimaryMap.set(batch[i], r.value)
-    }
-  }
-
-  // Symbols that neither primary source covered
+  // Symbols Yahoo did not cover
   const failedSymbols: string[] = []
   for (const sym of batch) {
-    const primary = continent === 'global'
-      ? (finnhubPrimaryMap.get(sym) ?? yfMap.get(sym))
-      : yfMap.get(sym)
+    const primary = yfMap.get(sym)
     if (!primary || primary.price <= 0) failedSymbols.push(sym)
   }
 
@@ -336,12 +290,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 4. Finnhub last-resort for non-global (anything still empty)
+  // 4. Finnhub last resort (anything still empty; indices come back as labelled ETF proxies)
   const finnhubFallbackMap = new Map<string, RawQuote>()
-  if (continent !== 'global') {
+  {
     const needFh = batch.filter((s) => {
-      const q = yfMap.get(s) ?? fmpMap.get(s) ?? twelveMap.get(s)
-      return !q || q.price <= 0
+      const q = pickQuote(yfMap.get(s), fmpMap.get(s), twelveMap.get(s))
+      return !q
     })
     if (needFh.length > 0 && FINNHUB_KEY) {
       const fhResults = await Promise.allSettled(needFh.map((s) => fetchFinnhubIndexQuote(s)))
@@ -352,18 +306,19 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Build final quotes array
-  // Global priority:     Finnhub → Yahoo → FMP → Twelve
-  // Non-global priority: Yahoo → FMP → Twelve → Finnhub
+  // Build final quotes array — priority: Yahoo → FMP → Twelve → Finnhub (proxy)
   const quotes: IndexQuote[] = []
   for (const symbol of batch) {
     const info = indexInfoMap[symbol] ?? macroMeta(symbol)
-    const quote = continent === 'global'
-      ? (finnhubPrimaryMap.get(symbol) ?? yfMap.get(symbol) ?? fmpMap.get(symbol) ?? twelveMap.get(symbol))
-      : (yfMap.get(symbol) ?? fmpMap.get(symbol) ?? twelveMap.get(symbol) ?? finnhubFallbackMap.get(symbol))
+    const quote = pickQuote(
+      yfMap.get(symbol),
+      fmpMap.get(symbol),
+      twelveMap.get(symbol),
+      finnhubFallbackMap.get(symbol),
+    )
 
-    if (quote && quote.price > 0) {
-      quotes.push({ symbol, ...info, ...quote })
+    if (quote) {
+      quotes.push(toIndexQuote(symbol, info, quote))
     } else {
       // Include with zero data so UI at least shows the index name
       quotes.push({
@@ -377,6 +332,7 @@ export async function GET(request: NextRequest) {
         day_low: 0,
         volume: 0,
         market_state: 'CLOSED',
+        is_index_level: isIndexLevelSymbol(symbol),
       })
     }
   }

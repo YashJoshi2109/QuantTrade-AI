@@ -1179,6 +1179,39 @@ export interface MarketIndex {
   change: number
   change_percent: number
   timestamp: string
+  /** Price is an ETF standing in for the index (name/proxy_symbol describe the ETF). */
+  is_proxy?: boolean
+  proxy_symbol?: string
+  /** Price is an index level in points (render without a currency symbol). */
+  is_index_level?: boolean
+}
+
+/**
+ * Last-resort ETF fallback when no index levels are available. The ETF price is
+ * labelled as the ETF (e.g. "SPY (S&P 500 ETF)"), never as the index level.
+ */
+async function fetchEtfProxyIndices(): Promise<MarketIndex[]> {
+  const proxies = [
+    { etf: 'SPY', label: 'S&P 500 ETF' },
+    { etf: 'QQQ', label: 'Nasdaq-100 ETF' },
+    { etf: 'DIA', label: 'Dow Jones ETF' },
+  ]
+  try {
+    const quotes = await Promise.all(proxies.map((p) => fetchQuote(p.etf, 'normal')))
+    return quotes.map((q, i) => ({
+      symbol: proxies[i].etf,
+      name: `${proxies[i].etf} (${proxies[i].label})`,
+      price: q.price,
+      change: q.change,
+      change_percent: q.change_percent,
+      timestamp: q.timestamp,
+      is_proxy: true,
+      proxy_symbol: proxies[i].etf,
+      is_index_level: false,
+    }))
+  } catch {
+    return []
+  }
 }
 
 const MARKETS_OVERVIEW_INDEX_SYMBOLS =
@@ -1199,6 +1232,9 @@ async function fetchMarketIndicesFromNextProxy(): Promise<MarketIndex[] | null> 
         price: number
         change: number
         change_percent: number
+        is_proxy?: boolean
+        proxy_symbol?: string
+        is_index_level?: boolean
       }>
     >(res)) ?? []
     if (!Array.isArray(rows) || rows.length === 0) return null
@@ -1211,6 +1247,9 @@ async function fetchMarketIndicesFromNextProxy(): Promise<MarketIndex[] | null> 
       change: Number(r.change) || 0,
       change_percent: Number(r.change_percent) || 0,
       timestamp: ts,
+      is_proxy: Boolean(r.is_proxy),
+      proxy_symbol: r.proxy_symbol,
+      is_index_level: r.is_index_level ?? r.symbol.startsWith('^'),
     }))
   } catch {
     return null
@@ -1230,80 +1269,12 @@ export async function fetchMarketIndices(): Promise<MarketIndex[]> {
       if (!allZero) return data
     }
     console.error('Failed to fetch market indices:', response.status)
-    // Fallback to ETFs that track indices (uses enhanced quote endpoint)
-    try {
-      const [spy, qqq, dia] = await Promise.all([
-        fetchQuote('SPY', 'normal'),
-        fetchQuote('QQQ', 'normal'),
-        fetchQuote('DIA', 'normal'),
-      ])
-      return [
-        {
-          symbol: '^GSPC',
-          name: 'S&P 500',
-          price: spy.price,
-          change: spy.change,
-          change_percent: spy.change_percent,
-          timestamp: spy.timestamp,
-        },
-        {
-          symbol: '^IXIC',
-          name: 'NASDAQ',
-          price: qqq.price,
-          change: qqq.change,
-          change_percent: qqq.change_percent,
-          timestamp: qqq.timestamp,
-        },
-        {
-          symbol: '^DJI',
-          name: 'Dow Jones',
-          price: dia.price,
-          change: dia.change,
-          change_percent: dia.change_percent,
-          timestamp: dia.timestamp,
-        },
-      ]
-    } catch {
-      return []
-    }
+    // Last resort: ETF proxies, labelled as the ETFs (never as index levels)
+    return fetchEtfProxyIndices()
   } catch (error) {
     console.error('Error fetching market indices:', error)
-    // Fallback to ETFs that track indices (uses enhanced quote endpoint)
-    try {
-      const [spy, qqq, dia] = await Promise.all([
-        fetchQuote('SPY', 'normal'),
-        fetchQuote('QQQ', 'normal'),
-        fetchQuote('DIA', 'normal'),
-      ])
-      return [
-        {
-          symbol: '^GSPC',
-          name: 'S&P 500',
-          price: spy.price,
-          change: spy.change,
-          change_percent: spy.change_percent,
-          timestamp: spy.timestamp,
-        },
-        {
-          symbol: '^IXIC',
-          name: 'NASDAQ',
-          price: qqq.price,
-          change: qqq.change,
-          change_percent: qqq.change_percent,
-          timestamp: qqq.timestamp,
-        },
-        {
-          symbol: '^DJI',
-          name: 'Dow Jones',
-          price: dia.price,
-          change: dia.change,
-          change_percent: dia.change_percent,
-          timestamp: dia.timestamp,
-        },
-      ]
-    } catch {
-      return []
-    }
+    // Last resort: ETF proxies, labelled as the ETFs (never as index levels)
+    return fetchEtfProxyIndices()
   }
 }
 

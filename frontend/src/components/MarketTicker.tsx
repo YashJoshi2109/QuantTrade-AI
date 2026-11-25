@@ -10,7 +10,8 @@ import {
   fetchSectorPerformance,
   StockPerformance,
 } from '@/lib/api'
-import { formatNumber, formatPercent, isNumber } from '@/lib/format'
+import { formatPercent, isNumber } from '@/lib/format'
+import { displaySymbol, formatLevelOrPrice, isIndexLevel } from '@/lib/quoteDisplay'
 import { useMarketRefreshInterval } from '@/hooks/useMarketRefresh'
 
 interface TickerItem {
@@ -19,6 +20,8 @@ interface TickerItem {
   price?: number
   change_percent?: number
   isIndex?: boolean
+  /** Index level in points: no "$" prefix. */
+  isLevel?: boolean
 }
 
 function TickerChip({ item }: { item: TickerItem }) {
@@ -40,7 +43,7 @@ function TickerChip({ item }: { item: TickerItem }) {
       </span>
       {isNumber(item.price) && (
         <span className="text-[10px] font-mono text-fg-secondary">
-          ${formatNumber(item.price, 2)}
+          {formatLevelOrPrice(item.price, Boolean(item.isLevel))}
         </span>
       )}
       {hasData && (
@@ -100,11 +103,12 @@ export default function MarketTicker() {
     for (const idx of indices || []) {
       if (!idx?.symbol) continue
       items.push({
-        symbol: idx.symbol,
+        symbol: displaySymbol(idx),
         name: idx.name || idx.symbol,
         price: idx.price,
         change_percent: idx.change_percent,
         isIndex: true,
+        isLevel: isIndexLevel(idx),
       })
     }
 

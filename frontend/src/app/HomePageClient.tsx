@@ -31,6 +31,7 @@ import {
 } from 'lucide-react'
 import {
   fetchSectorPerformance,
+  fetchMarketMovers,
   fetchPredictionAlerts,
   fetchQuote,
   fetchFinnhubQuote,
@@ -52,6 +53,9 @@ import MarketNewsGrid from '@/components/MarketNewsGrid'
 import MiniWorldMonitorSnapshot from '@/components/MiniWorldMonitorSnapshot'
 import TickerLogo from '@/components/TickerLogo'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
+import { computeBreadth, classifyChange } from '@/lib/marketBreadth'
+import { isIndexLevel, formatLevelOrPrice, displaySymbol } from '@/lib/quoteDisplay'
+import { normalizeMoverRows } from '@/lib/movers'
 import { SkeletonMoversSection, SkeletonSectorPerformance } from '@/components/Skeleton'
 import IndicesBarSkeleton from '@/components/loading/IndicesBarSkeleton'
 import { ProCard } from '@/components/ui/pro'
@@ -278,7 +282,8 @@ function WorldIndicesBar({
 
                 const q = it.q
                 const up = q.change_percent >= 0
-                const displayPrice = convertPrice(q.price, q.currency)
+                const level = isIndexLevel(q)
+                const displayPrice = level ? q.price : convertPrice(q.price, q.currency)
                 const active = selectedExchangeId === q.exchangeId
                 return (
                   <button
@@ -295,16 +300,16 @@ function WorldIndicesBar({
                         <span className="text-[10px] font-bold text-fg-primary font-mono group-hover:text-[#007AFF] transition-colors">
                           {q.shortName}
                         </span>
-                        <span className="text-[8px] font-bold text-cyan-500/80 uppercase hidden sm:inline">IDX</span>
+                        <span className="text-[8px] font-bold text-cyan-500/80 uppercase hidden sm:inline">
+                          {level ? 'IDX' : q.is_proxy ? 'ETF' : ''}
+                        </span>
                         <span className="text-[9px] text-fg-muted hidden sm:block max-w-[56px] truncate">
                           {q.exchangeName}
                         </span>
                       </div>
                       <div className="flex items-center gap-1 mt-0.5">
                         <span className="text-[11px] font-mono font-bold text-fg-primary">
-                          {displayPrice > 0
-                            ? `${currSymbol}${formatNumber(displayPrice, displayPrice > 100 ? 0 : 2)}`
-                            : '—'}
+                          {formatLevelOrPrice(displayPrice, level, currSymbol, displayPrice > 100 ? 0 : 2)}
                         </span>
                         <span
                           className={`text-[9px] font-mono font-bold flex items-center gap-0.5 ${
@@ -912,7 +917,8 @@ function ContinentIndicesGrid({
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
       {indices.filter((q) => q.price > 0).map((q) => {
         const up = q.change_percent >= 0
-        const displayPrice = convertPrice(q.price, q.currency)
+        const level = isIndexLevel(q)
+        const displayPrice = level ? q.price : convertPrice(q.price, q.currency)
         const active = selectedExchangeId === q.exchangeId
         return (
           <div key={q.symbol} className="relative">
@@ -942,9 +948,7 @@ function ContinentIndicesGrid({
                 </span>
               </div>
               <div className="text-sm font-bold font-mono text-fg-primary group-hover:text-[#007AFF] transition-colors">
-                {displayPrice > 0
-                  ? `${currSymbol}${formatNumber(displayPrice, displayPrice > 1000 ? 0 : 2)}`
-                  : '—'}
+                {formatLevelOrPrice(displayPrice, level, currSymbol, displayPrice > 1000 ? 0 : 2)}
               </div>
               <div className="text-[10px] text-fg-muted truncate mt-0.5">{q.shortName}</div>
             </button>
@@ -1017,12 +1021,14 @@ function MajorIndicesMacroGrid({
           })
           .map((q) => {
             const up = q.change_percent >= 0
-            const displayPrice = convertPrice(q.price, q.currency)
+            const level = isIndexLevel(q)
+            const displayPrice = level ? q.price : convertPrice(q.price, q.currency)
             const isMacro = q.exchangeId === 'macro'
             return (
               <Link
                 key={q.symbol}
-                href={`/research?symbol=${encodeURIComponent(q.symbol)}`}
+                href={`/research?symbol=${encodeURIComponent(displaySymbol(q))}`}
+                title={q.name}
                 className={`group hud-panel p-3 sm:p-4 rounded-xl border transition-all hover:border-[rgba(0,122,255,0.35)] ${
                   isMacro ? 'border-amber-500/20 bg-amber-500/[0.04]' : 'border-line-subtle/50'
                 }`}
@@ -1041,11 +1047,11 @@ function MajorIndicesMacroGrid({
                   </span>
                 </div>
                 <div className="text-lg sm:text-xl font-bold font-mono text-fg-primary group-hover:text-[#007AFF] transition-colors">
-                  {displayPrice > 0
-                    ? `${currSymbol}${formatNumber(displayPrice, displayPrice > 10_000 ? 0 : 2)}`
-                    : '—'}
+                  {formatLevelOrPrice(displayPrice, level, currSymbol, displayPrice > 10_000 ? 0 : 2)}
                 </div>
-                <div className="text-[10px] text-fg-muted truncate mt-0.5">{q.exchangeName}</div>
+                <div className="text-[10px] text-fg-muted truncate mt-0.5">
+                  {q.is_proxy ? q.name : q.exchangeName}
+                </div>
               </Link>
             )
           })}
@@ -1233,8 +1239,19 @@ function DesktopHome() {
   const { data: worldIndices = [], isLoading: indicesLoading } = useWorldIndices(activeContinent)
   const { data: currencyRates = {} } = useCurrencyRates()
 
-  const topGainers = regionMovers?.gainers?.slice(0, 10) || []
-  const topLosers = regionMovers?.losers?.slice(0, 10) || []
+  /** Global + no venue: same backend movers query (and cache key) as mobile home and /markets. */
+  const useSharedUsMovers = activeContinent === 'global' && !selectedExchangeId
+  const { data: usMovers, isLoading: usMoversLoading } = useQuery({
+    queryKey: ['marketMovers'],
+    queryFn: () => fetchMarketMovers(false),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    enabled: useSharedUsMovers,
+  })
+  const moverSource = useSharedUsMovers ? usMovers : regionMovers
+  const moverCardsLoading = useSharedUsMovers ? usMoversLoading : regionMoversLoading
+  const topGainers = normalizeMoverRows(moverSource?.gainers).slice(0, 10)
+  const topLosers = normalizeMoverRows(moverSource?.losers).slice(0, 10)
   const alertContextSymbols = useMemo(() => {
     const s = new Set<string>()
     if (selectedExchangeId) {
@@ -1256,16 +1273,12 @@ function DesktopHome() {
     }
     return s
   }, [regionMovers, sectors, selectedExchangeId, activeContinent])
-  /** Full-universe breadth from sector heatmap (covers all tracked stocks, not just top movers) */
-  const sectorAdvancers = useMemo(
-    () => sectors.reduce((sum, s) => sum + s.stocks.filter((st) => st.change_percent > 0).length, 0),
-    [sectors],
-  )
-  const sectorDecliners = useMemo(
-    () => sectors.reduce((sum, s) => sum + s.stocks.filter((st) => st.change_percent < 0).length, 0),
-    [sectors],
-  )
-  const sectorTotal = sectorAdvancers + sectorDecliners
+  /** Full-universe breadth from the sector heatmap — same data, classifier and ±0.1% flat band as /markets. */
+  const sectorBreadth = useMemo(() => computeBreadth(sectors), [sectors])
+  const sectorAdvancers = sectorBreadth.gainers
+  const sectorDecliners = sectorBreadth.losers
+  const sectorFlat = sectorBreadth.flat
+  const sectorTotal = sectorBreadth.total
   /** US heatmap sectors are global-only; avoid mixing US breadth with regional mover tabs */
   const useSectorBreadth = activeContinent === 'global' && sectorTotal > 0
 
@@ -1285,8 +1298,9 @@ function DesktopHome() {
     let up = 0
     let down = 0
     for (const m of rows) {
-      if (m.change_percent > 0) up++
-      else if (m.change_percent < 0) down++
+      const dir = classifyChange(m.change_percent)
+      if (dir === 'up') up++
+      else if (dir === 'down') down++
     }
     return { up, down, total: rows.length }
   }, [regionMovers, useSectorBreadth])
@@ -1439,7 +1453,7 @@ function DesktopHome() {
                       <span className="text-emerald-400">{pulseBreadthUp}↑</span>{' '}
                       <span className="text-red-400">{pulseBreadthDown}↓</span>
                       {useSectorBreadth && (
-                        <span className="text-fg-muted"> /{sectorTotal}</span>
+                        <span className="text-fg-muted"> {sectorFlat} flat /{sectorTotal}</span>
                       )}
                     </>
                   )}
@@ -1559,10 +1573,10 @@ function DesktopHome() {
                     </div>
                   </div>
                   <div className="flex-1 min-h-0 overflow-y-auto">
-                    {regionMoversLoading ? (
+                    {moverCardsLoading ? (
                       <SkeletonMoversSection count={8} />
                     ) : topGainers.length > 0 ? (
-                      topGainers.map((stock: GlobalMover, idx: number) => (
+                      topGainers.map((stock, idx: number) => (
                         <Link
                           key={stock.symbol || `gainer-${idx}`}
                           href={`/research?symbol=${stock.symbol}`}
@@ -1647,10 +1661,10 @@ function DesktopHome() {
                     </div>
                   </div>
                   <div className="flex-1 min-h-0 overflow-y-auto">
-                    {regionMoversLoading ? (
+                    {moverCardsLoading ? (
                       <SkeletonMoversSection count={8} />
                     ) : topLosers.length > 0 ? (
-                      topLosers.map((stock: GlobalMover, idx: number) => (
+                      topLosers.map((stock, idx: number) => (
                         <Link
                           key={stock.symbol || `loser-${idx}`}
                           href={`/research?symbol=${stock.symbol}`}

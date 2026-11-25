@@ -486,7 +486,9 @@ export async function GET(request: NextRequest) {
         const beLimit = Math.min(count, 500)
         const beRes = await fetch(
           `${backendUrl}/api/v1/market/movers?limit=${beLimit}`,
-          { cache: 'no-store', next: { revalidate: 60 } }
+          // Bounded wait: a hung backend used to leave the desktop movers cards on
+          // skeleton rows forever instead of falling through to Yahoo/FMP.
+          { cache: 'no-store', signal: AbortSignal.timeout(12_000) }
         )
         if (beRes.ok) {
            const data = await beRes.json()
