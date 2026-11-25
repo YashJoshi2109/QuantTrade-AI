@@ -52,12 +52,21 @@ def _safe_symbol(symbol: str) -> str:
     return re.sub(r'[^A-Za-z0-9_\-]', '', symbol).upper()
 
 
+def _contained(filename: str) -> Path:
+    """Resolve filename inside STORE_DIR; refuse anything that escapes it."""
+    base = os.path.normpath(str(STORE_DIR))
+    full = os.path.normpath(os.path.join(base, filename))
+    if not full.startswith(base + os.sep):
+        raise ValueError(f"invalid feature store path: {filename!r}")
+    return Path(full)
+
+
 def _symbol_path(symbol: str) -> Path:
-    return STORE_DIR / f"{_safe_symbol(symbol)}.parquet"
+    return _contained(f"{_safe_symbol(symbol)}.parquet")
 
 
 def _stats_path(symbol: str) -> Path:
-    return STORE_DIR / f"{_safe_symbol(symbol)}_stats.json"
+    return _contained(f"{_safe_symbol(symbol)}_stats.json")
 
 
 class FeatureStore:

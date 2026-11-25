@@ -166,10 +166,11 @@ class ExperimentTracker:
         """Get a specific run by ID."""
         if not re.fullmatch(r"[A-Za-z0-9_\-]{1,128}", run_id):
             return None
-        run_file = EXPERIMENTS_DIR / run_id / "run.json"
-        if not run_file.resolve().is_relative_to(EXPERIMENTS_DIR.resolve()):
+        base = os.path.normpath(str(EXPERIMENTS_DIR))
+        run_file = os.path.normpath(os.path.join(base, run_id, "run.json"))
+        if not run_file.startswith(base + os.sep):
             return None
-        if run_file.exists():
+        if os.path.exists(run_file):
             with open(run_file) as f:
                 return json.load(f)
         return None
