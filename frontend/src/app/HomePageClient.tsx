@@ -7,6 +7,7 @@ import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileDashboard from '@/components/layout/MobileDashboard'
 import { useBreakingNews } from '@/hooks/useRealtimeNews'
+import { useClientNow } from '@/lib/use-client-now'
 import { useAuth } from '@/contexts/AuthContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -426,10 +427,9 @@ function CurrencySelector({
   )
 }
 
-function sessionLabelForExchange(ex: Exchange): { open: boolean; line: string } {
+function sessionLabelForExchange(ex: Exchange, now: Date): { open: boolean; line: string } {
   try {
     const tz = ex.timezone
-    const now = new Date()
     const tStr = now.toLocaleTimeString('en-GB', {
       timeZone: tz,
       hour: '2-digit',
@@ -464,7 +464,12 @@ function ExchangeSessionsPopover({ continent }: { continent: Continent }) {
     if (continent === 'global') return getExchangesByContinent('americas').slice(0, 6)
     return getExchangesByContinent(continent)
   }, [continent])
-  const openCount = useMemo(() => list.filter((ex) => sessionLabelForExchange(ex).open).length, [list])
+  // Client-only clock: SSR time/zone differs from the browser's (hydration #418).
+  const now = useClientNow(60_000)
+  const openCount = useMemo(
+    () => (now ? list.filter((ex) => sessionLabelForExchange(ex, now).open).length : null),
+    [list, now]
+  )
 
   useEffect(() => {
     if (!open) return
@@ -487,10 +492,10 @@ function ExchangeSessionsPopover({ continent }: { continent: Continent }) {
         <span className="hidden sm:inline font-bold tracking-wide">Sessions</span>
         <span
           className={`px-1.5 py-0.5 rounded-md text-[9px] font-black ${
-            openCount > 0 ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' : 'bg-line-default text-fg-muted'
+            (openCount ?? 0) > 0 ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' : 'bg-line-default text-fg-muted'
           }`}
         >
-          {openCount}/{list.length} OPEN
+          {openCount ?? '–'}/{list.length} OPEN
         </span>
       </button>
       {open && (
@@ -500,7 +505,7 @@ function ExchangeSessionsPopover({ continent }: { continent: Continent }) {
         </div>
         <div className="space-y-1.5">
           {list.map((ex) => {
-            const s = sessionLabelForExchange(ex)
+            const s = sessionLabelForExchange(ex, now ?? new Date())
             return (
               <div
                 key={ex.id}
@@ -1179,6 +1184,7 @@ function ContinentMoversPanel({
 // ─── Desktop Dashboard ────────────────────────────────────────────────────────
 function DesktopHome() {
   const { user, isAuthenticated } = useAuth()
+  const clientNow = useClientNow(60_000)
   const [activeContinent, setActiveContinent] = useState<Continent>('global')
   const [displayCurrency, setDisplayCurrency] = useState('USD')
   const [selectedExchangeId, setSelectedExchangeId] = useState<string | null>(null)
@@ -1423,7 +1429,7 @@ function DesktopHome() {
               <Layers className="w-4 h-4 text-[#007AFF]" />
               {isAuthenticated && user ? (
                 <>
-                  {getTimeBasedGreeting()},{' '}
+                  {clientNow ? getTimeBasedGreeting(clientNow) : 'Welcome back'},{' '}
                   <span className="text-[#007AFF] font-semibold text-sm capitalize">
                     {(user as { full_name?: string; username?: string; email?: string }).full_name?.split(' ')[0] ||
                      (user as { full_name?: string; username?: string; email?: string }).username ||
@@ -1442,7 +1448,9 @@ function DesktopHome() {
               )}
             </h1>
             <p className="text-[11px] text-fg-muted mt-0.5 font-mono">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+              {clientNow
+                ? clientNow.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+                : '\u00a0'}
               {(activeContinent === 'global' || selectedExchangeId) && (
                 <>
                   {' · '}

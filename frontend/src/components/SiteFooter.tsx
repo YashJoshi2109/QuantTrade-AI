@@ -75,6 +75,7 @@ export default function SiteFooter() {
                     <input
                       type="email"
                       placeholder="Enter your work email"
+                      aria-label="Email address for the newsletter"
                       value={email}
                       onChange={(e) => {
                         setEmail(e.target.value)
@@ -139,10 +140,10 @@ export default function SiteFooter() {
                   Product
                 </p>
                 <ul className="space-y-1.5 text-fg-muted">
-                  <li>Dashboard</li>
-                  <li>Markets Monitor</li>
-                  <li>Ideas Lab</li>
-                  <li>Backtest Engine</li>
+                  <li><Link href="/" className="hover:text-fg-secondary transition-colors">Dashboard</Link></li>
+                  <li><Link href="/monitor" className="hover:text-fg-secondary transition-colors">Markets Monitor</Link></li>
+                  <li><Link href="/ideas-lab" className="hover:text-fg-secondary transition-colors">Ideas Lab</Link></li>
+                  <li><Link href="/backtest" className="hover:text-fg-secondary transition-colors">Backtest Engine</Link></li>
                 </ul>
               </div>
               <div className="space-y-1.5">
@@ -150,9 +151,9 @@ export default function SiteFooter() {
                   Resources
                 </p>
                 <ul className="space-y-1.5 text-fg-muted">
-                  <li>Changelog</li>
-                  <li>API Docs</li>
-                  <li>Security</li>
+                  <li><Link href="/help" className="hover:text-fg-secondary transition-colors">Help Center</Link></li>
+                  <li><Link href="/about" className="hover:text-fg-secondary transition-colors">About &amp; Data Sources</Link></li>
+                  <li><Link href="/legal" className="hover:text-fg-secondary transition-colors">Legal</Link></li>
                 </ul>
               </div>
               <div className="space-y-1.5">
@@ -160,9 +161,9 @@ export default function SiteFooter() {
                   Contact
                 </p>
                 <ul className="space-y-1.5 text-fg-muted">
-                  <li>quanttrade.us@icloud.com</li>
-                  <li>Feedback & feature requests</li>
-                  <li>Partnerships</li>
+                  <li><a href="mailto:quanttrade.us@icloud.com" className="hover:text-fg-secondary transition-colors break-all">quanttrade.us@icloud.com</a></li>
+                  <li><a href="mailto:quanttrade.us@icloud.com?subject=Feedback" className="hover:text-fg-secondary transition-colors">Feedback & feature requests</a></li>
+                  <li><a href="mailto:quanttrade.us@icloud.com?subject=Partnership" className="hover:text-fg-secondary transition-colors">Partnerships</a></li>
                 </ul>
               </div>
             </div>

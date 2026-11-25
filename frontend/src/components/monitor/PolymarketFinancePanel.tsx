@@ -7,35 +7,10 @@ import SourceUnavailableNotice from '@/components/monitor/SourceUnavailableNotic
 import { fetchPolymarketFinance, type PolymarketFinanceData, type PolymarketFinanceItem } from '@/lib/monitor-extended-api'
 import { PredictionMarketCard } from '@/components/ui/prediction-market-card'
 
-/* ── Live Polymarket embed iframe ────────────────────────── */
-function PolymarketEmbed({ slug }: { slug: string }) {
-  return (
-    <div className="relative rounded-lg overflow-hidden border border-line-subtle bg-surface-base/60">
-      <iframe
-        title={`Polymarket — ${slug}`}
-        src={`https://embed.polymarket.com/market?event=${encodeURIComponent(slug)}&rotate=true&theme=dark&liveactivity=true&height=280`}
-        width="100%"
-        height={280}
-        frameBorder="0"
-        className="block w-full"
-        loading="lazy"
-      />
-      <a
-        href={`https://polymarket.com/event/${slug}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="absolute top-3 right-4 w-[100px] h-[22px] z-10"
-        aria-label="View on Polymarket"
-      />
-    </div>
-  )
-}
-
-/* ── Render item: live embed if slug exists, else fallback card ── */
+/* ── Render item: native card from backend prices ──────────
+ * The embed.polymarket.com iframe rendered blank (panel showed headers only),
+ * so every item is drawn from the API's parsed outcomePrices instead. */
 function PredictionItem({ item, index }: { item: PolymarketFinanceItem; index: number }) {
-  if (item.slug) {
-    return <PolymarketEmbed slug={item.slug} />
-  }
   return (
     <PredictionMarketCard
       question={item.question}
@@ -45,7 +20,7 @@ function PredictionItem({ item, index }: { item: PolymarketFinanceItem; index: n
       volume={item.volume}
       slug={item.slug}
       category={item.category}
-      delay={index * 0.05}
+      delay={Math.min(index, 6) * 0.05}
     />
   )
 }
@@ -81,6 +56,8 @@ export default function PolymarketFinancePanel() {
 
       <div className="flex border-b border-line-subtle">
         <button
+          type="button"
+          aria-pressed={tab === 'stocks'}
           onClick={() => setTab('stocks')}
           className={`flex-1 px-3 py-2 text-[11px] font-medium transition-all flex items-center justify-center gap-1.5 ${
             tab === 'stocks'
@@ -91,6 +68,8 @@ export default function PolymarketFinancePanel() {
           <TrendingUp className="w-3 h-3" /> Stocks & Finance
         </button>
         <button
+          type="button"
+          aria-pressed={tab === 'trending'}
           onClick={() => setTab('trending')}
           className={`flex-1 px-3 py-2 text-[11px] font-medium transition-all flex items-center justify-center gap-1.5 ${
             tab === 'trending'
@@ -106,14 +85,14 @@ export default function PolymarketFinancePanel() {
         {isLoading ? (
           <div className="space-y-2">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-[280px] bg-surface-hover rounded-lg animate-pulse" />
+              <div key={i} className="h-28 bg-surface-hover rounded-lg animate-pulse" />
             ))}
           </div>
         ) : isError || (data && !data.stocks?.length && !data.trending?.length && !data.macro?.length) ? (
           <SourceUnavailableNotice detail="Polymarket did not return markets. Retrying every 2 minutes." />
         ) : items.length === 0 ? (
-          <div className="flex items-center justify-center p-8 text-xs text-fg-muted">
-            No predictions found
+          <div role="status" className="flex items-center justify-center p-8 text-xs text-fg-muted">
+            No {tab === 'stocks' ? 'stock & finance' : 'trending'} markets right now. Try the other tab.
           </div>
         ) : items.map((item, i) => (
           <PredictionItem key={`${tab}-${i}`} item={item} index={i} />

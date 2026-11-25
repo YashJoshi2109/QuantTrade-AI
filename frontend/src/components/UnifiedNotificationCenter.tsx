@@ -10,12 +10,9 @@ import {
   AtSign,
   UserPlus,
   AlertCircle,
-  TrendingUp,
-  TrendingDown,
   CheckCheck,
   X,
   ChevronRight,
-  Zap,
   MessageCircle,
   Newspaper,
   Users,
@@ -23,17 +20,20 @@ import {
 import {
   fetchUnreadCount,
   fetchNotifications,
-  fetchPredictionAlerts,
   markAllNotificationsRead,
   markNotificationRead,
   deleteNotification,
   type Notification,
-  type PredictionAlert,
 } from '@/lib/api'
+import {
+  NOTIFICATION_FEED_KEY,
+  filterNotificationsByCategory,
+  type NotificationCategory,
+} from '@/lib/notification-feed'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCommunityWS } from '@/hooks/useCommunityWS'
 
-type TabId = 'all' | 'community' | 'signals'
+type TabId = Extract<NotificationCategory, 'all' | 'unread' | 'social' | 'trading'>
 
 function relativeTime(dateStr: string): string {
   const now = Date.now()
@@ -96,15 +96,19 @@ export default function UnifiedNotificationCenter() {
   const [deletedIds, setDeletedIds] = useState<Set<number>>(new Set())
   const [readIds, setReadIds] = useState<Set<number>>(new Set())
   const panelRef = useRef<HTMLDivElement>(null)
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
 
-  // Poll community unread count
+  // Poll unread count, only when signed in (the endpoint 401s for anonymous visitors).
   const pollUnread = useCallback(async () => {
+    if (!isAuthenticated) {
+      setUnreadComm(0)
+      return
+    }
     try {
       const data = await fetchUnreadCount()
       setUnreadComm(data.count ?? 0)
     } catch { /* silent */ }
-  }, [])
+  }, [isAuthenticated])
 
   useEffect(() => {
     pollUnread()
@@ -127,28 +131,19 @@ export default function UnifiedNotificationCenter() {
   }, [])
   useCommunityWS(user?.id ? `user:${user.id}` : null, handleWSMessage)
 
-  // Fetch community notifications when open
-  const { data: communityNotifs = [] } = useQuery({
-    queryKey: ['notifications-panel'],
+  // Same feed as the /notifications page (QT-10): /api/v1/notifications, same categories.
+  const { data: feed = [] } = useQuery<Notification[]>({
+    queryKey: NOTIFICATION_FEED_KEY,
     queryFn: async () => {
       const data = await fetchNotifications(20)
       return data.notifications || []
     },
-    enabled: open,
+    enabled: open && isAuthenticated,
     refetchInterval: open ? 30_000 : false,
     staleTime: 15_000,
   })
 
-  // Fetch prediction alerts
-  const { data: predAlerts = [] } = useQuery<PredictionAlert[]>({
-    queryKey: ['predictionAlerts'],
-    queryFn: () => fetchPredictionAlerts(0.65, 2.0),
-    refetchInterval: 90_000,
-    staleTime: 45_000,
-  })
-
-  const signalCount = predAlerts.length
-  const totalBadge = unreadComm + signalCount
+  const totalBadge = unreadComm
 
   // Close on click outside
   useEffect(() => {
@@ -201,11 +196,25 @@ export default function UnifiedNotificationCenter() {
     }
   }
 
-  const tabs: { id: TabId; label: string; count: number }[] = useMemo(() => [
-    { id: 'all', label: 'All', count: totalBadge },
-    { id: 'community', label: 'Social', count: unreadComm },
-    { id: 'signals', label: 'Signals', count: signalCount },
-  ], [totalBadge, unreadComm, signalCount])
+  const visible = useMemo(
+    () =>
+      feed
+        .filter((n) => !deletedIds.has(n.id))
+        .map((n) => ({ ...n, is_read: n.is_read || readIds.has(n.id) })),
+    [feed, deletedIds, readIds]
+  )
+
+  const tabs: { id: TabId; label: string; count: number }[] = useMemo(() => {
+    const unreadIn = (c: TabId) => filterNotificationsByCategory(visible, c).filter((n) => !n.is_read).length
+    return [
+      { id: 'all', label: 'All', count: totalBadge },
+      { id: 'unread', label: 'Unread', count: totalBadge },
+      { id: 'social', label: 'Social', count: unreadIn('social') },
+      { id: 'trading', label: 'Trading', count: unreadIn('trading') },
+    ]
+  }, [totalBadge, visible])
+
+  const tabRows = useMemo(() => filterNotificationsByCategory(visible, tab).slice(0, 15), [visible, tab])
 
   return (
     <div ref={panelRef} className="relative">
@@ -244,6 +253,7 @@ export default function UnifiedNotificationCenter() {
                 <button
                   type="button"
                   onClick={handleMarkAllRead}
+                  aria-label="Mark all read"
                   className="p-1.5 rounded-md text-fg-muted hover:text-cyan-300 hover:bg-surface-hover transition-colors"
                   title="Mark all read"
                 >
@@ -253,6 +263,7 @@ export default function UnifiedNotificationCenter() {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
+                aria-label="Close notifications"
                 className="p-1.5 rounded-md text-fg-muted hover:text-fg-primary hover:bg-surface-hover transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -292,21 +303,19 @@ export default function UnifiedNotificationCenter() {
 
           {/* Content */}
           <div className="max-h-[400px] overflow-y-auto overscroll-contain">
-            {/* Community notifications */}
-            {(tab === 'all' || tab === 'community') && communityNotifs.length > 0 && (
+            {!isAuthenticated ? (
+              <div className="py-10 text-center px-4">
+                <Bell className="w-8 h-8 text-fg-muted mx-auto mb-2" aria-hidden />
+                <p className="text-xs text-fg-muted">Sign in to see your notifications.</p>
+              </div>
+            ) : tabRows.length === 0 ? (
+              <div className="py-10 text-center">
+                <Bell className="w-8 h-8 text-fg-muted mx-auto mb-2" aria-hidden />
+                <p className="text-xs text-fg-muted">{tab === 'unread' ? 'No unread notifications' : 'No notifications yet'}</p>
+              </div>
+            ) : (
               <div>
-                {tab === 'all' && (
-                  <div className="px-3 pt-2.5 pb-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
-                      Community
-                    </span>
-                  </div>
-                )}
-                {communityNotifs
-                  .filter((n: Notification) => !deletedIds.has(n.id))
-                  .map((n: Notification) => ({ ...n, is_read: n.is_read || readIds.has(n.id) }))
-                  .slice(0, tab === 'all' ? 5 : 15)
-                  .map((n: Notification) => {
+                {tabRows.map((n: Notification) => {
                   const Icon = COMM_ICONS[n.type] || Bell
                   const colorCls = COMM_COLORS[n.type] || 'text-fg-muted bg-surface-raised'
                   return (
@@ -362,69 +371,6 @@ export default function UnifiedNotificationCenter() {
                     </div>
                   )
                 })}
-              </div>
-            )}
-
-            {/* Prediction signal alerts */}
-            {(tab === 'all' || tab === 'signals') && predAlerts.length > 0 && (
-              <div>
-                {tab === 'all' && (
-                  <div className="px-3 pt-2.5 pb-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
-                      ML Signals
-                    </span>
-                  </div>
-                )}
-                {predAlerts.slice(0, tab === 'all' ? 5 : 15).map((a, i) => {
-                  const isUp = String(a.direction ?? '').trim().toUpperCase() === 'UP'
-                  return (
-                    <Link
-                      key={`${a.symbol}-${a.timeframe}-${a.direction}-${i}`}
-                      href={`/research?symbol=${a.symbol}`}
-                      onClick={() => setOpen(false)}
-                      className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-surface-hover transition-colors border-b border-line-subtle"
-                    >
-                      <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
-                        isUp ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
-                      }`}>
-                        {isUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[12px] font-bold text-fg-primary">{a.symbol}</span>
-                          <span className={`text-[9px] px-1 py-px rounded font-semibold ${
-                            a.severity === 'high'
-                              ? 'bg-red-500/20 text-red-300 border border-red-500/30'
-                              : a.severity === 'medium'
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                              : 'bg-surface-raised text-fg-secondary border border-line-default'
-                          }`}>
-                            {a.severity.toUpperCase()}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-fg-muted mt-0.5 line-clamp-1">{a.message}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className={`text-[11px] font-mono font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {a.expected_return > 0 ? '+' : ''}{a.expected_return.toFixed(1)}%
-                        </span>
-                        <div className="text-[9px] text-fg-muted mt-0.5">
-                          {(a.confidence * 100).toFixed(0)}% conf
-                        </div>
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* Empty state */}
-            {((tab === 'all' && communityNotifs.length === 0 && predAlerts.length === 0) ||
-              (tab === 'community' && communityNotifs.length === 0) ||
-              (tab === 'signals' && predAlerts.length === 0)) && (
-              <div className="py-10 text-center">
-                <Bell className="w-8 h-8 text-fg-muted mx-auto mb-2" />
-                <p className="text-xs text-fg-muted">No notifications yet</p>
               </div>
             )}
           </div>

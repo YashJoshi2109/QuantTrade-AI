@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import SourceUnavailableNotice from '@/components/monitor/SourceUnavailableNotice'
 import { TrendingUp, TrendingDown, Minus, BarChart2 } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
@@ -38,7 +39,7 @@ async function fetchCommodities(): Promise<CommodityQuote[]> {
 }
 
 export default function CommoditiesWidget() {
-  const { data: commodities, isLoading } = useQuery({
+  const { data: commodities, isLoading, isError } = useQuery({
     queryKey: ['commodities-widget'],
     queryFn: fetchCommodities,
     refetchInterval: 120_000,
@@ -65,9 +66,13 @@ export default function CommoditiesWidget() {
             <div key={i} className="h-8 bg-surface-hover rounded animate-pulse" />
           ))}
         </div>
+      ) : isError || !commodities || commodities.length === 0 ? (
+        <div className="p-3">
+          <SourceUnavailableNotice detail="Commodity and volatility quotes are unavailable right now. Retrying every 2 minutes." />
+        </div>
       ) : (
         <div className="divide-y divide-line-subtle">
-          {(commodities || []).slice(0, 10).map((c) => (
+          {commodities.slice(0, 10).map((c) => (
             <div key={c.symbol} className="flex items-center justify-between px-4 py-2.5 hover:bg-surface-hover transition-colors">
               <div className="flex items-center gap-2.5">
                 {c.direction === 'up' ? (

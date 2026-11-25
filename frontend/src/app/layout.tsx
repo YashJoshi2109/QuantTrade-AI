@@ -177,6 +177,8 @@ function JsonLd({ data }: { data: object }) {
   )
 }
 
+import SkipToContent from '@/components/SkipToContent'
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID
   const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
@@ -207,6 +209,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
       </head>
       <body>
+        <SkipToContent />
         {gtmId && (
           <noscript
             dangerouslySetInnerHTML={{

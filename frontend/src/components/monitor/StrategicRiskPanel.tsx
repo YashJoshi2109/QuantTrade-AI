@@ -3,9 +3,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { Shield, AlertTriangle, MapPin, ExternalLink } from 'lucide-react'
 import { fetchACLEDConflicts, type ACLEDData } from '@/lib/monitor-extended-api'
+import SourceUnavailableNotice from '@/components/monitor/SourceUnavailableNotice'
 
 export default function StrategicRiskPanel() {
-  const { data, isLoading } = useQuery<ACLEDData>({
+  const { data, isLoading, isError } = useQuery<ACLEDData>({
     queryKey: ['acled-conflicts'],
     queryFn: () => fetchACLEDConflicts(50),
     refetchInterval: 300_000,
@@ -55,6 +56,14 @@ export default function StrategicRiskPanel() {
             <div key={i} className="h-12 bg-surface-hover rounded animate-pulse" />
           ))}
         </div>
+      ) : isError || data?.source_status === 'unavailable' ? (
+        <div className="p-3">
+          <SourceUnavailableNotice detail="ACLED conflict data is not reachable right now (API key or upstream outage). Risk rankings appear here when the feed returns events." />
+        </div>
+      ) : topRisks.length === 0 ? (
+        <div className="p-3">
+          <SourceUnavailableNotice title="No data" detail="ACLED returned no conflict events for the current window." />
+        </div>
       ) : (
         <>
           {/* Top Risks */}
@@ -87,6 +96,9 @@ export default function StrategicRiskPanel() {
           <div className="px-3 pb-3">
             <div className="text-[9px] text-fg-muted uppercase tracking-wider font-bold mb-2">RECENT ALERTS ({alerts.length})</div>
             <div className="space-y-1.5 max-h-40 overflow-y-auto">
+              {alerts.length === 0 && (
+                <p className="px-2 py-1.5 text-[10px] text-fg-muted">No fatality-linked events in this window.</p>
+              )}
               {alerts.map((alert) => (
                 <div key={alert.event_id} className="px-2 py-2 rounded-md bg-surface-raised/40 border border-line-subtle">
                   <div className="flex items-center gap-2 mb-1">
