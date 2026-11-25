@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -596,24 +597,72 @@ def _fallback_insights(ticker: str, financials: list[dict], company_info: dict) 
 
     lines = [f"**{ticker} — {company_info.get('company_name', ticker)}**\n"]
 
-    # Revenue trend
-    revs = [_val(f, "revenue") for f in financials[:4] if _val(f, "revenue")]
-    if len(revs) >= 2:
-        growth = (revs[0] - revs[-1]) / abs(revs[-1]) * 100 if revs[-1] != 0 else 0
-        lines.append(f"**Revenue & Profitability**: Latest revenue ${revs[0]/1e9:.2f}B, {'+' if growth>0 else ''}{growth:.1f}% vs {len(revs)} periods ago.")
+    # Never mix spans: a fiscal year is only compared with the prior fiscal
+    # year, and a quarter with the same quarter one year earlier. (Comparing a
+    # 10-K year with a 10-Q quarter produced "+233%" revenue "growth".)
+    def _span(f):
+        p = str(f.get("period") or "")
+        m = re.match(r"^(\d{4})-(FY|Q[1-4])$", p)
+        if m:
+            return int(m.group(1)), m.group(2)
+        form = str(f.get("form") or "").upper()
+        return None, ("FY" if form.startswith("10-K") else None)
 
-    # Net income
-    nis = [_val(f, "net_income") for f in financials[:2] if _val(f, "net_income") is not None]
-    if nis:
-        lines.append(f"Net income: ${nis[0]/1e9:.2f}B (most recent period).")
+    def _label(f):
+        fy, span = _span(f)
+        if fy is None:
+            return "latest period"
+        return f"FY{fy}" if span == "FY" else f"{span} FY{fy}"
 
-    # OCF
-    ocfs = [_val(f, "operating_cash_flow") for f in financials[:2] if _val(f, "operating_cash_flow")]
-    if ocfs:
-        fcfs = [_val(f, "free_cash_flow") for f in financials[:2] if _val(f, "free_cash_flow")]
-        lines.append(f"\n**Cash Flow**: Operating cash flow ${ocfs[0]/1e9:.2f}B." + (f" Free cash flow ${fcfs[0]/1e9:.2f}B." if fcfs else ""))
+    def _money(v):
+        a = abs(v)
+        s = f"${a/1e12:.2f}T" if a >= 1e12 else f"${a/1e9:.2f}B" if a >= 1e9 else f"${a/1e6:.1f}M"
+        return f"-{s}" if v < 0 else s
 
-    return "\n".join(lines) if len(lines) > 1 else f"Financial data loaded for {ticker}. AI insights require Claude API key."
+    def _yoy(cur, prev):
+        if cur is None or prev in (None, 0):
+            return ""
+        g = (cur - prev) / abs(prev) * 100
+        return f" ({'+' if g >= 0 else ''}{g:.1f}% YoY)"
+
+    annual = [f for f in financials if _span(f)[1] == "FY"]
+    quarters = [f for f in financials if (_span(f)[1] or "").startswith("Q")]
+
+    def _same_span_prior(rows, f):
+        fy, span = _span(f)
+        if fy is None:
+            return None
+        return next((r for r in rows if _span(r) == (fy - 1, span)), None)
+
+    parts = []
+    if annual:
+        a = annual[0]
+        prev = _same_span_prior(annual, a)
+        rev = _val(a, "revenue")
+        if rev:
+            parts.append(f"{_label(a)} revenue {_money(rev)}{_yoy(rev, _val(prev, 'revenue') if prev else None)}")
+        ni = _val(a, "net_income")
+        if ni is not None:
+            parts.append(f"net income {_money(ni)}{_yoy(ni, _val(prev, 'net_income') if prev else None)}")
+    if quarters:
+        q = quarters[0]
+        prev = _same_span_prior(quarters, q)
+        rev = _val(q, "revenue")
+        if rev:
+            parts.append(f"{_label(q)} revenue {_money(rev)}{_yoy(rev, _val(prev, 'revenue') if prev else None)}")
+    if parts:
+        lines.append("**Revenue & Profitability**: " + "; ".join(parts) + ".")
+
+    # Cash flow from the same fiscal year as the revenue line when available
+    cf_row = next((f for f in (annual or financials) if _val(f, "operating_cash_flow")), None)
+    if cf_row:
+        ocf = _val(cf_row, "operating_cash_flow")
+        fcf = _val(cf_row, "free_cash_flow")
+        lines.append(f"\n**Cash Flow ({_label(cf_row)})**: Operating cash flow {_money(ocf)}."
+                     + (f" Free cash flow {_money(fcf)}." if fcf is not None else ""))
+
+    lines.append("\n_Source: SEC 10-K/10-Q filings. Sign in for the full AI analysis._")
+    return "\n".join(lines) if len(lines) > 2 else f"Financial data loaded for {ticker}. Sign in for the AI analysis."
 
 
 # ── Main sync function ─────────────────────────────────────────────────

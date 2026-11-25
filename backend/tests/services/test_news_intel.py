@@ -693,3 +693,38 @@ def test_status_loop_writes_heartbeat_and_redis(tmp_path, monkeypatch, session_f
     import json as _json
     st = _json.loads(r.kv[pipeline.STATUS_KEY])
     assert st["models"]["sentiment"] == "keyword" and "stats" in st
+
+
+def test_reclassify_other_upgrades_only_other(session_factory):
+    from app.services.news_intel import store
+    from app.services.news_intel.categories import rule_categories, taxonomy_version
+    from app.services.news_intel.dedupe import title_hash, url_hash
+
+    now = datetime.now(timezone.utc)
+    old = now - timedelta(hours=72)
+
+    def add(cid, title, primary, cats, when=now):
+        db.add(NewsItem(cluster_id=cid, title=title, url=f"https://x.com/{cid}",
+                        url_hash=url_hash(f"https://x.com/{cid}"), title_hash=title_hash(title),
+                        published_at=when, ingested_at=when, sentiment_label="neutral",
+                        sentiment_score=0.0, sentiment_confidence=0.5,
+                        primary_category=primary, categories=cats))
+
+    with session_factory() as db:
+        add("R1", "Stocks Finish Lower After Wild Session", "other", ["other"])
+        add("R2", "Acme to acquire Globex", "mna", ["mna"])                 # already categorized
+        add("R3", "Here's how to invest for retirement", "other", ["other"])  # stays other
+        add("R4", "Dow closes higher after erasing 1,100-point loss", "other", ["other"], when=old)  # too old
+        db.commit()
+
+        class _Res:
+            def __init__(self, t):
+                cats = rule_categories(t)
+                self.categories = cats or ["other"]
+                self.primary = cats[0] if cats else "other"
+
+        n = store.reclassify_other(db, lambda titles: [_Res(t) for t in titles], hours=48)
+        assert n == 1
+        got = {r.cluster_id: r.primary_category for r in db.query(NewsItem).all()}
+    assert got == {"R1": "market_moves", "R2": "mna", "R3": "other", "R4": "other"}
+    assert len(taxonomy_version()) == 12
