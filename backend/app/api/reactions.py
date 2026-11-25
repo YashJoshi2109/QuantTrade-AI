@@ -59,7 +59,7 @@ def _get_post_or_404(db: Session, post_id: int) -> Post:
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.post("/posts/{post_id}/reactions", status_code=status.HTTP_201_CREATED)
-async def add_reaction(
+def add_reaction(
     post_id: int,
     body: ReactionCreate,
     db: Session = Depends(get_db),
@@ -104,7 +104,7 @@ async def add_reaction(
 
 
 @router.delete("/posts/{post_id}/reactions/{emoji}", status_code=status.HTTP_200_OK)
-async def remove_reaction(
+def remove_reaction(
     post_id: int,
     emoji: str,
     db: Session = Depends(get_db),
@@ -134,7 +134,7 @@ async def remove_reaction(
 
 
 @router.get("/posts/{post_id}/reactions", response_model=ReactionResponse)
-async def get_reactions(
+def get_reactions(
     post_id: int,
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user),

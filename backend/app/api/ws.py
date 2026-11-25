@@ -254,7 +254,7 @@ async def community_websocket(
 
 
 @router.get("/ws/stats")
-async def ws_stats():
+def ws_stats():
     """Get WebSocket connection statistics."""
     channels = ws_manager.get_channels()
     return {

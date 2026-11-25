@@ -33,7 +33,7 @@ class PreferencesPatch(BaseModel):
 
 
 @router.get("/preferences")
-async def get_preferences(
+def get_preferences(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -46,7 +46,7 @@ async def get_preferences(
 
 
 @router.put("/preferences")
-async def put_preferences(
+def put_preferences(
     body: PreferencesPatch,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -62,7 +62,7 @@ async def put_preferences(
 
 
 @router.get("/me/preferences")
-async def get_theme_preference(
+def get_theme_preference(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -75,7 +75,7 @@ async def get_theme_preference(
 
 
 @router.patch("/me/preferences")
-async def update_theme_preference(
+def update_theme_preference(
     prefs: ThemePreference,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),

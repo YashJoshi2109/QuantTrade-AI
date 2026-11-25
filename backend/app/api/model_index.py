@@ -111,7 +111,7 @@ async def _run_pipeline_background(index_id: str):
 
 
 @router.get("/indices")
-async def list_indices():
+def list_indices():
     """List all available model index definitions."""
     indices = ModelIndex.list_indices()
     return {
@@ -127,7 +127,7 @@ _BATCH_TTL_SECONDS = 120  # Cache batch response for 2 minutes
 
 
 @router.get("/batch")
-async def batch_load(db: Session = Depends(get_db)):
+def batch_load(db: Session = Depends(get_db)):
     """
     Single call that returns indices + all cached snapshots + regime.
     Eliminates N+1 requests from the frontend.
@@ -185,7 +185,7 @@ async def batch_load(db: Session = Depends(get_db)):
 
 
 @router.get("/indices/{index_id}")
-async def get_index(
+def get_index(
     index_id: str,
     db: Session = Depends(get_db),
 ):
@@ -265,7 +265,7 @@ async def refresh_index(
 
 
 @router.post("/indices/refresh-all")
-async def refresh_all_indices(
+def refresh_all_indices(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(require_auth),
 ):
@@ -289,7 +289,7 @@ async def get_regime(db: Session = Depends(get_db)):
 
 
 @router.get("/regime/definitions")
-async def get_regime_definitions():
+def get_regime_definitions():
     """List all regime type definitions."""
     return {
         "regimes": RegimeEngine.get_all_regimes(),
@@ -335,7 +335,7 @@ async def get_universe_rankings(
 
 
 @router.get("/history/{index_id}")
-async def get_index_history(
+def get_index_history(
     index_id: str,
     limit: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
@@ -371,7 +371,7 @@ async def get_index_history(
 
 
 @router.get("/history/{index_id}/{snapshot_id}")
-async def get_historical_snapshot(
+def get_historical_snapshot(
     index_id: str,
     snapshot_id: int,
     db: Session = Depends(get_db),

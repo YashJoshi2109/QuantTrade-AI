@@ -54,6 +54,15 @@ def init_database() -> None:
         except Exception as e:  # noqa: BLE001
             print(f"⚠️  Could not create pgvector extension: {e}")
 
+    # pg_trgm powers fuzzy /symbols/search; needs CREATE privilege (rds_superuser
+    # on RDS). Search degrades to ILIKE without it, so a failure is non-fatal.
+    with engine.begin() as conn:
+        try:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+            print("✅ pg_trgm extension ready")
+        except Exception as e:  # noqa: BLE001
+            print(f"⚠️  Could not create pg_trgm extension (search falls back to ILIKE): {e}")
+
     print(f"\n📋 Creating {len(Base.metadata.tables)} tables...")
     Base.metadata.create_all(bind=engine, checkfirst=True)
 

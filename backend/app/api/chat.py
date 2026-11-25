@@ -2,6 +2,7 @@
 Chat/AI Copilot API endpoints with RAG integration and QuantTrade Stock Analysis.
 Supports structured visual responses for stock analysis, comparisons, screeners, and sectors.
 """
+import asyncio
 from datetime import datetime, timedelta, timezone
 import re
 import uuid
@@ -548,7 +549,8 @@ async def chat(
     # ------------------------------------------------------------------
     prediction_summary: Optional[str] = None
     if resolved_symbol:
-        prediction_summary = fetch_stock_prediction(resolved_symbol)
+        # Blocking (in-process LSTM, up to ~15s): keep it off the event loop.
+        prediction_summary = await asyncio.to_thread(fetch_stock_prediction, resolved_symbol)
 
     # ------------------------------------------------------------------
     # 6) Fetch FMP fundamentals snippet for RAG

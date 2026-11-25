@@ -112,6 +112,80 @@ async def _get_async_client():
         return None
 
 
+# Regular-session last-price keys, checked in order before the all-session
+# `last`. The current public_api_sdk Quote model exposes only `last`, so these
+# are forward-compatible hooks for raw/dict payloads that include them.
+_REGULAR_LAST_KEYS = ("regularMarketLast", "regular_market_last", "regularLast", "regular_last")
+
+# (symbol, ET date) -> previous session close, filled from daily bars.
+_prev_close_cache: Dict[tuple, float] = {}
+
+
+def _et_today():
+    try:
+        import pytz
+        return datetime.now(pytz.timezone("America/New_York")).date()
+    except Exception:
+        return datetime.now(timezone.utc).date()
+
+
+def _fetch_previous_closes(symbols: List[str]) -> Dict[str, float]:
+    """Close of the last completed session before today (ET) per symbol.
+
+    One batched yfinance daily download; results cached for the ET day.
+    Blocking — call via asyncio.to_thread.
+    """
+    today = _et_today()
+    out: Dict[str, float] = {}
+    missing = []
+    for sym in symbols:
+        cached = _prev_close_cache.get((sym, today))
+        if cached:
+            out[sym] = cached
+        else:
+            missing.append(sym)
+    if not missing:
+        return out
+    if len(_prev_close_cache) > 5000:
+        _prev_close_cache.clear()
+    try:
+        import yfinance as yf
+        import pandas as pd
+
+        data = yf.download(
+            missing, period="7d", interval="1d", progress=False,
+            group_by="ticker", auto_adjust=False, threads=False, timeout=10,
+        )
+        if data is None or data.empty:
+            return out
+        for sym in missing:
+            try:
+                frame = data[sym] if isinstance(data.columns, pd.MultiIndex) else data
+                closes = frame["Close"].dropna()
+                closes = closes[[d.date() < today for d in closes.index]]
+                if len(closes):
+                    val = float(closes.iloc[-1])
+                    if val > 0:
+                        out[sym] = val
+                        _prev_close_cache[(sym, today)] = val
+            except Exception:
+                continue
+    except Exception as e:
+        logger.debug(f"previous-close lookup failed: {e}")
+    return out
+
+
+def _apply_previous_close(quote: Dict[str, Any], prev_close: float) -> None:
+    """Fill previous_close and recompute change fields from the quote price."""
+    price = quote.get("price") or 0
+    if prev_close <= 0 or price <= 0:
+        return
+    change = price - prev_close
+    quote["previous_close"] = round(prev_close, 2)
+    quote["change"] = round(change, 2)
+    quote["change_percent"] = round(change / prev_close * 100, 4)
+
+
 def _parse_quote(raw) -> Optional[Dict[str, Any]]:
     """Parse a Public.com Quote object or dict into standardized format.
 
@@ -135,19 +209,43 @@ def _parse_quote(raw) -> Optional[Dict[str, Any]]:
         if not symbol:
             return None
 
-        price = float(_get(raw, "last", 0) or 0)
+        # Field choice (see _REGULAR_LAST_KEYS): the SDK's `last` is the most
+        # recent trade in ANY session (pre/after-hours/overnight). Prefer a
+        # regular-session last when the payload carries one; otherwise use
+        # `last`. change/change_percent are then always DERIVED from
+        # price - previous_close so the three fields can never disagree.
+        # (Previously `last` was paired with a regular-session oneDayChange,
+        # or — when Public omitted it — quote_cache spliced Yahoo's change onto
+        # Public's extended-hours price, e.g. NVDA 151.33 vs 165.05 - 9.67.)
+        price = 0.0
+        for key in _REGULAR_LAST_KEYS:
+            val = _get(raw, key, None)
+            if val:
+                price = float(val)
+                break
+        if price <= 0:
+            price = float(_get(raw, "last", 0) or 0)
         if price <= 0:
             return None
 
-        prev_close = float(_get(raw, "previousClose", 0) or 0)
+        prev_close = float(_get(raw, "previousClose", 0) or _get(raw, "previous_close", 0) or 0)
         one_day = _get(raw, "oneDayChange", None)
-        change = float(_get(one_day, "change", 0) or 0) if one_day else 0.0
-        change_pct = float(_get(one_day, "percentChange", 0) or 0) if one_day else 0.0
+        if prev_close <= 0 and one_day:
+            # No explicit previous close: back it out of the reported change,
+            # which is only valid relative to the same `last` price.
+            reported = _get(one_day, "change", None)
+            if reported not in (None, ""):
+                derived = price - float(reported)
+                prev_close = derived if derived > 0 else 0.0
 
-        # If oneDayChange not available, compute from previousClose
-        if not change and prev_close > 0:
+        if prev_close > 0:
             change = price - prev_close
-            change_pct = (change / prev_close * 100)
+            change_pct = change / prev_close * 100
+        else:
+            # Unknown baseline: report no change rather than a mismatched one.
+            # PublicClient.get_quotes() fills previous_close from daily bars.
+            change = 0.0
+            change_pct = 0.0
 
         volume = int(_get(raw, "volume", 0) or 0)
 
@@ -185,6 +283,27 @@ def _parse_quote(raw) -> Optional[Dict[str, Any]]:
 
 class PublicClient:
     """Public.com API client for real-time quotes and option data."""
+
+    async def _fill_previous_closes(self, results: Dict[str, Dict[str, Any]]) -> None:
+        """Give quotes without a previous close a self-consistent baseline.
+
+        Public's SDK quote carries no previous close, which left change=0 and
+        let downstream code pair Public's price with another provider's change.
+        """
+        need = [
+            sym for sym, q in results.items()
+            if not q.get("previous_close") and not sym.endswith("-USD")
+        ]
+        if not need:
+            return
+        try:
+            prevs = await asyncio.wait_for(asyncio.to_thread(_fetch_previous_closes, need), timeout=12)
+        except Exception as e:
+            logger.debug(f"Public.com previous-close fill failed: {e}")
+            return
+        for sym, prev in prevs.items():
+            if sym in results:
+                _apply_previous_close(results[sym], prev)
 
     async def get_quote(self, symbol: str) -> Optional[Dict[str, Any]]:
         """Fetch single real-time quote from Public.com."""
@@ -232,6 +351,7 @@ class PublicClient:
                 if parsed:
                     results[parsed["symbol"]] = parsed
 
+            await self._fill_previous_closes(results)
             logger.info(f"Public.com: Fetched {len(results)}/{len(symbols)} quotes")
             return results
 
@@ -269,7 +389,9 @@ class PublicClient:
                         results[parsed["symbol"]] = parsed
                 return results
 
-            return await asyncio.to_thread(_fetch)
+            results = await asyncio.to_thread(_fetch)
+            await self._fill_previous_closes(results)
+            return results
         except Exception as e:
             logger.debug(f"Public.com sync fallback failed: {e}")
             return {}

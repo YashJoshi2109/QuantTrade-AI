@@ -125,6 +125,15 @@ def _create_db_tables():
     if engine is None:
         print("⚠️ Skipping table creation - no database configured")
         return
+    # pg_trgm enables fuzzy symbol search. Best effort: a non-superuser role
+    # can't create it, and search falls back to ILIKE in that case.
+    if engine.dialect.name == "postgresql":
+        try:
+            from sqlalchemy import text as _text
+            with engine.begin() as conn:
+                conn.execute(_text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        except Exception as e:
+            print(f"⚠️ pg_trgm extension unavailable (symbol search uses ILIKE): {e}")
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
         print("✅ Database tables created/verified successfully")

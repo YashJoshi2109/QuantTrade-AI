@@ -46,7 +46,7 @@ def _require_mod(db: Session, community: Community, user: User):
 
 
 @router.post("/communities/{slug}/ban/{user_id}", status_code=201)
-async def ban_user(
+def ban_user(
     slug: str,
     user_id: int,
     body: BanCreate,
@@ -119,7 +119,7 @@ async def ban_user(
 
 
 @router.delete("/communities/{slug}/ban/{user_id}")
-async def unban_user(
+def unban_user(
     slug: str,
     user_id: int,
     db: Session = Depends(get_db),
@@ -152,7 +152,7 @@ async def unban_user(
 
 
 @router.get("/communities/{slug}/bans")
-async def list_bans(
+def list_bans(
     slug: str,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),

@@ -95,7 +95,7 @@ class RedisDeduplicator:
         
         try:
             # Use Upstash Redis REST API
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.get(
                     f"{self.redis_url}/get/{event_id}",
                     headers={"Authorization": f"Bearer {self.redis_token}"}
@@ -114,7 +114,7 @@ class RedisDeduplicator:
         
         try:
             ttl_seconds = self.ttl_hours * 3600
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=5.0) as client:
                 await client.post(
                     f"{self.redis_url}/setex/{event_id}/{ttl_seconds}/1",
                     headers={"Authorization": f"Bearer {self.redis_token}"}

@@ -31,7 +31,7 @@ class FilingResponse(BaseModel):
 
 
 @router.get("/filings/{symbol}", response_model=List[FilingResponse])
-async def get_filings(
+def get_filings(
     symbol: str,
     form_type: Optional[str] = Query(None, description="Filter by form type (e.g., 10-K, 10-Q)"),
     limit: int = Query(20, ge=1, le=100),
@@ -54,7 +54,7 @@ async def get_filings(
 
 
 @router.get("/filings/{symbol}/{filing_id}")
-async def get_filing_detail(
+def get_filing_detail(
     symbol: str,
     filing_id: int,
     db: Session = Depends(get_db)
@@ -87,7 +87,7 @@ async def get_filing_detail(
 
 
 @router.post("/filings/{symbol}/sync")
-async def sync_filings(
+def sync_filings(
     symbol: str,
     use_mock: bool = Query(True, description="Use mock data for testing"),
     db: Session = Depends(get_db),

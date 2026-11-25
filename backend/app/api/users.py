@@ -37,7 +37,7 @@ router = APIRouter()
 # ── User Search ───────────────────────────────────────────────────────────────
 
 @router.get("/users/search")
-async def search_users(
+def search_users(
     q: str = Query(..., min_length=1, max_length=200),
     limit: int = Query(10, ge=1, le=20),
     db: Session = Depends(get_db),
@@ -180,7 +180,7 @@ def _compute_badges(user) -> list:
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.patch("/users/me/profile")
-async def update_profile(
+def update_profile(
     body: ProfileUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -204,7 +204,7 @@ async def update_profile(
 
 
 @router.get("/users/by-username/{username}", response_model=UserProfileResponse)
-async def get_user_profile_by_username(
+def get_user_profile_by_username(
     username: str,
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user),
@@ -240,7 +240,7 @@ async def get_user_profile_by_username(
 
 
 @router.get("/users/by-username/{username}/posts", response_model=PaginatedUserPosts)
-async def get_user_posts_by_username(
+def get_user_posts_by_username(
     username: str,
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -285,7 +285,7 @@ async def get_user_posts_by_username(
 
 
 @router.get("/users/{user_id}", response_model=UserProfileResponse)
-async def get_user_profile(
+def get_user_profile(
     user_id: int,
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user),
@@ -316,7 +316,7 @@ async def get_user_profile(
 
 
 @router.get("/users/{user_id}/posts", response_model=PaginatedUserPosts)
-async def get_user_posts(
+def get_user_posts(
     user_id: int,
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -356,7 +356,7 @@ async def get_user_posts(
 
 
 @router.post("/users/{user_id}/follow", status_code=status.HTTP_201_CREATED)
-async def follow_user(
+def follow_user(
     user_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_auth),
@@ -392,7 +392,7 @@ async def follow_user(
 
 
 @router.delete("/users/{user_id}/follow", status_code=status.HTTP_200_OK)
-async def unfollow_user(
+def unfollow_user(
     user_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_auth),
@@ -435,7 +435,7 @@ async def unfollow_user(
 
 
 @router.get("/users/{user_id}/followers", response_model=PaginatedUsers)
-async def get_followers(
+def get_followers(
     user_id: int,
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -479,7 +479,7 @@ async def get_followers(
 
 
 @router.get("/users/{user_id}/following", response_model=PaginatedUsers)
-async def get_following(
+def get_following(
     user_id: int,
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -523,7 +523,7 @@ async def get_following(
 
 
 @router.get("/users/{user_id}/comments")
-async def get_user_comments(
+def get_user_comments(
     user_id: int,
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),

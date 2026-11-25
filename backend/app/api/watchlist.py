@@ -77,7 +77,7 @@ class ErrorResponse(BaseModel):
 
 
 @router.get("/watchlist", response_model=List[WatchlistItemResponse])
-async def get_watchlist(
+def get_watchlist(
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user)
 ):
@@ -118,7 +118,7 @@ async def get_watchlist(
         400: {"model": ErrorResponse, "description": "Invalid symbol format"},
     }
 )
-async def add_to_watchlist(
+def add_to_watchlist(
     request: AddToWatchlistRequest,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth)
@@ -187,7 +187,7 @@ async def add_to_watchlist(
         404: {"model": ErrorResponse, "description": "Symbol not in watchlist"},
     }
 )
-async def remove_from_watchlist(
+def remove_from_watchlist(
     symbol: str,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth)

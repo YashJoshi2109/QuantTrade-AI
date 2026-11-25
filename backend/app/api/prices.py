@@ -9,6 +9,7 @@ from app.db.database import get_db
 from app.models.symbol import Symbol
 from app.models.price import PriceBar
 from app.services.data_fetcher import DataFetcher
+from app.services.ticker_validation import normalize_ticker
 from app.config import settings
 from pydantic import BaseModel
 import httpx
@@ -30,8 +31,59 @@ class PriceBarResponse(BaseModel):
         from_attributes = True
 
 
+# Daily-bar history policy for /prices/{symbol}
+MAX_BACKFILL_DAYS = 3 * 365          # never backfill more than ~3 years
+DEFAULT_BACKFILL_DAYS = 2 * 365      # default history for a fresh symbol
+_SYNC_RETRY_SECONDS = 3600           # don't re-hit upstream for the same gap within 1h
+_last_sync_attempt: dict = {}
+
+
+def _last_trading_day(now_utc: Optional[datetime] = None):
+    """Most recent US trading session date whose daily bar should exist.
+
+    Before ~16:30 ET the current session's bar is not final, so the previous
+    weekday is used. Exchange holidays are not modelled; on a holiday this
+    asks for one extra refresh, which the retry throttle keeps cheap.
+    """
+    from datetime import timedelta, timezone
+    import pytz
+
+    now_utc = now_utc or datetime.now(timezone.utc)
+    if now_utc.tzinfo is None:
+        now_utc = now_utc.replace(tzinfo=timezone.utc)
+    et = now_utc.astimezone(pytz.timezone("America/New_York"))
+    day = et.date()
+    if et.hour < 16 or (et.hour == 16 and et.minute < 30):
+        day -= timedelta(days=1)
+    while day.weekday() >= 5:  # Sat/Sun -> Friday
+        day -= timedelta(days=1)
+    return day
+
+
+def _query_bars(db: Session, symbol_id: int, start, end, limit: int):
+    """Return up to `limit` bars, newest kept, in ascending time order."""
+    query = db.query(PriceBar).filter(PriceBar.symbol_id == symbol_id)
+    if start:
+        query = query.filter(PriceBar.timestamp >= start)
+    if end:
+        query = query.filter(PriceBar.timestamp <= end)
+    bars = query.order_by(PriceBar.timestamp.desc()).limit(limit).all()
+    bars.reverse()
+    return bars
+
+
+def _should_attempt(key) -> bool:
+    import time as _time
+    last = _last_sync_attempt.get(key)
+    now = _time.monotonic()
+    if last is not None and now - last < _SYNC_RETRY_SECONDS:
+        return False
+    _last_sync_attempt[key] = now
+    return True
+
+
 @router.get("/prices/{symbol}", response_model=List[PriceBarResponse])
-async def get_prices(
+def get_prices(
     symbol: str,
     start: Optional[datetime] = Query(None, description="Start date"),
     end: Optional[datetime] = Query(None, description="End date"),
@@ -40,84 +92,70 @@ async def get_prices(
     db: Session = Depends(get_db)
 ):
     """
-    Get price bars for a symbol.
-    Automatically syncs data if not available (even with date ranges).
+    Get daily price bars for a symbol (ascending by time, newest `limit` kept).
+
+    With auto_sync the stored history is kept fresh:
+    - no bars at all -> backfill (requested range, or ~2y / enough for `limit`)
+    - stored history shorter than requested -> backfill the missing older span
+    - newest bar older than the last completed trading day -> refresh the tail
+
+    Plain `def` so FastAPI runs the blocking DB/yfinance work in its threadpool.
+    Unknown tickers return 404 (no Symbol row is created).
     """
-    symbol_upper = symbol.upper()
+    from datetime import timedelta, timezone
+
+    symbol_upper = normalize_ticker(symbol)
     db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol_upper).first()
-    
     if not db_symbol:
-        # Try to sync symbol first
+        if not auto_sync:
+            raise HTTPException(status_code=404, detail=f"Unknown ticker: {symbol_upper}")
+        # Validates upstream and raises UnknownTickerError (404) for junk tickers.
         db_symbol = DataFetcher.sync_symbol_to_db(db, symbol_upper)
-        db.refresh(db_symbol)
-    
-    # Query for existing bars
-    query = db.query(PriceBar).filter(PriceBar.symbol_id == db_symbol.id)
-    
-    if start:
-        query = query.filter(PriceBar.timestamp >= start)
-    if end:
-        query = query.filter(PriceBar.timestamp <= end)
-    
-    bars = query.order_by(PriceBar.timestamp.asc()).limit(limit).all()
-    
-    # If no bars found and auto_sync is enabled, try to fetch data
-    data_synced = False
-    if not bars and auto_sync:
-        try:
-            logger.info(f"No price data found for {symbol_upper} in range {start} to {end}, attempting sync...")
-            
-            # If date range provided, sync with that range
-            # Otherwise, sync last 3 months (90 days) for chart display
-            sync_start = start
-            sync_end = end
-            
-            if not sync_start or not sync_end:
-                from datetime import timedelta
-                sync_end = datetime.utcnow()
-                sync_start = sync_end - timedelta(days=90)  # Default to 3 months
-            
-            sync_count = DataFetcher.sync_price_data_to_db(db, symbol_upper, sync_start, sync_end)
-            
-            if sync_count > 0:
-                logger.info(f"Synced {sync_count} bars for {symbol_upper}")
-                data_synced = True
-                # Re-query after sync
-                db.refresh(db_symbol)
-                query = db.query(PriceBar).filter(PriceBar.symbol_id == db_symbol.id)
-                
-                if start:
-                    query = query.filter(PriceBar.timestamp >= start)
-                if end:
-                    query = query.filter(PriceBar.timestamp <= end)
-                
-                bars = query.order_by(PriceBar.timestamp.asc()).limit(limit).all()
-            else:
-                # If sync returned 0 with date range, try without date range to get any available data
-                logger.info(f"No data synced with date range, trying without date range (last year)...")
-                sync_count = DataFetcher.sync_price_data_to_db(db, symbol_upper)
-                if sync_count > 0:
-                    logger.info(f"Synced {sync_count} bars for {symbol_upper} without date range")
-                    data_synced = True
-                    db.refresh(db_symbol)
-                    query = db.query(PriceBar).filter(PriceBar.symbol_id == db_symbol.id)
-                    if start:
-                        query = query.filter(PriceBar.timestamp >= start)
-                    if end:
-                        query = query.filter(PriceBar.timestamp <= end)
-                    bars = query.order_by(PriceBar.timestamp.asc()).limit(limit).all()
-                else:
-                    logger.warning(f"Failed to sync any price data for {symbol_upper}")
-        except Exception as e:
-            # Log error but don't fail - return empty array
-            logger.error(f"Error syncing price data for {symbol_upper}: {e}", exc_info=True)
-    
-    # Log result
-    if bars:
-        logger.info(f"Returning {len(bars)} bars for {symbol_upper}")
-    else:
+
+    bars = _query_bars(db, db_symbol.id, start, end, limit)
+    if not auto_sync:
+        return bars
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    synced = False
+    try:
+        if start or end:
+            # Explicit range: only fill when nothing is stored for it.
+            if not bars and _should_attempt((symbol_upper, "range", start, end)):
+                sync_start = start or (end or now) - timedelta(days=DEFAULT_BACKFILL_DAYS)
+                sync_end = end or now
+                synced = DataFetcher.sync_price_data_to_db(
+                    db, symbol_upper, sync_start, sync_end + timedelta(days=1)) > 0
+        else:
+            # ~252 trading days/year -> calendar span needed for `limit` bars.
+            want_days = min(MAX_BACKFILL_DAYS, max(DEFAULT_BACKFILL_DAYS, int(limit * 1.46) + 7))
+            want_start = now - timedelta(days=want_days)
+            oldest = bars[0].timestamp.replace(tzinfo=None) if bars else None
+            newest = bars[-1].timestamp.replace(tzinfo=None) if bars else None
+
+            if not bars or (len(bars) < limit and oldest > want_start + timedelta(days=7)):
+                if _should_attempt((symbol_upper, "backfill")):
+                    # Fresh symbol: fetch through today. Otherwise fill the older gap only.
+                    backfill_end = (oldest + timedelta(days=1)) if oldest else now + timedelta(days=1)
+                    synced |= DataFetcher.sync_price_data_to_db(
+                        db, symbol_upper, want_start, backfill_end) > 0
+
+            if newest is not None and newest.date() < _last_trading_day():
+                if _should_attempt((symbol_upper, "refresh", _last_trading_day())):
+                    synced |= DataFetcher.sync_price_data_to_db(
+                        db, symbol_upper, newest - timedelta(days=5), now + timedelta(days=1)) > 0
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Upstream failure: serve whatever is stored rather than erroring.
+        db.rollback()
+        logger.error(f"Error syncing price data for {symbol_upper}: {e}", exc_info=True)
+
+    if synced:
+        bars = _query_bars(db, db_symbol.id, start, end, limit)
+
+    if not bars:
         logger.warning(f"No price bars found for {symbol_upper} in range {start} to {end}")
-    
     return bars
 
 
@@ -330,7 +368,7 @@ async def get_intraday_prices(
 
 
 @router.post("/prices/{symbol}/sync")
-async def sync_prices(
+def sync_prices(
     symbol: str,
     start: Optional[datetime] = Query(None),
     end: Optional[datetime] = Query(None),
@@ -338,7 +376,7 @@ async def sync_prices(
 ):
     """Sync price data for a symbol"""
     try:
-        symbol_upper = symbol.upper()
+        symbol_upper = normalize_ticker(symbol)
         db_symbol = DataFetcher.sync_symbol_to_db(db, symbol_upper)
         
         # If no date range provided, default to last 3 months
@@ -360,6 +398,8 @@ async def sync_prices(
             "bars_inserted": count,
             "message": f"Price data synced successfully. Inserted {count} bars."
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error syncing price data for {symbol}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to sync price data: {str(e)}")

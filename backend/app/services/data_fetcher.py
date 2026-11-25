@@ -198,11 +198,23 @@ class DataFetcher:
     
     @staticmethod
     def sync_symbol_to_db(db: Session, symbol: str) -> Symbol:
-        """Sync symbol information to database"""
+        """Sync symbol information to database.
+
+        Raises UnknownTickerError (HTTP 404) when the ticker is malformed or
+        unknown upstream, so user input never creates junk Symbol rows.
+        """
+        from app.services.ticker_validation import (
+            UnknownTickerError, normalize_ticker, ticker_exists_upstream,
+        )
+
+        symbol = normalize_ticker(symbol)
         db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol).first()
         
         if not db_symbol:
+            if not ticker_exists_upstream(symbol):
+                raise UnknownTickerError(symbol)
             info = DataFetcher.fetch_symbol_info(symbol)
+            info["symbol"] = symbol
             db_symbol = Symbol(**info)
             db.add(db_symbol)
             db.commit()

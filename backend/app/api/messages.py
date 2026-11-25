@@ -56,7 +56,7 @@ class MessageResponse(BaseModel):
 # ── Conversations ─────────────────────────────────────────────────────
 
 @router.get("/messages/conversations")
-async def list_conversations(
+def list_conversations(
     limit: int = Query(20, ge=1, le=50),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -197,7 +197,7 @@ async def create_conversation(
 # ── Messages ──────────────────────────────────────────────────────────
 
 @router.get("/messages/conversations/{conversation_id}")
-async def get_messages(
+def get_messages(
     conversation_id: int,
     limit: int = Query(50, ge=1, le=100),
     before_id: Optional[int] = Query(None),
@@ -380,7 +380,7 @@ async def _send_message_to_convo(
 # ── Unread Count ──────────────────────────────────────────────────────
 
 @router.get("/messages/unread")
-async def get_unread_count(
+def get_unread_count(
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
 ):
@@ -404,7 +404,7 @@ async def get_unread_count(
 # ── Block/Unblock ─────────────────────────────────────────────────────
 
 @router.post("/messages/block/{user_id}")
-async def block_user(
+def block_user(
     user_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
@@ -425,7 +425,7 @@ async def block_user(
 
 
 @router.delete("/messages/block/{user_id}")
-async def unblock_user(
+def unblock_user(
     user_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),

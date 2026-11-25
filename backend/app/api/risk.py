@@ -6,20 +6,22 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.symbol import Symbol
 from app.services.risk_scorer import RiskScorer
+from app.services.ticker_validation import normalize_ticker
 
 router = APIRouter()
 
 
 @router.get("/risk/{symbol}")
-async def get_risk_metrics(
+def get_risk_metrics(
     symbol: str,
     db: Session = Depends(get_db)
 ):
     """Get risk metrics for a symbol"""
-    db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol.upper()).first()
+    symbol = normalize_ticker(symbol)
+    db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol).first()
     
     if not db_symbol:
-        raise HTTPException(status_code=404, detail="Symbol not found")
+        raise HTTPException(status_code=404, detail=f"Unknown ticker: {symbol}")
     
     risk_data = RiskScorer.calculate_risk_score(db, db_symbol.id)
     
@@ -30,7 +32,7 @@ async def get_risk_metrics(
 
 
 @router.get("/risk/portfolio")
-async def get_portfolio_risk(
+def get_portfolio_risk(
     user_id: str,
     db: Session = Depends(get_db)
 ):

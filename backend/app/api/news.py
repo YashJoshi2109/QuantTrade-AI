@@ -7,6 +7,7 @@ Enhanced with:
 - Image extraction fallback for missing images
 - Caching in news_cache table
 """
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -84,7 +85,7 @@ async def _fetch_finnhub_news(symbol: str, limit: int = 10) -> List[dict]:
 
 
 @router.get("/news/{symbol}", response_model=List[NewsArticleResponse])
-async def get_news(
+def get_news(
     symbol: str,
     limit: int = Query(20, ge=1, le=100),
     start_date: Optional[datetime] = Query(None),
@@ -113,7 +114,7 @@ async def get_news(
 
 
 @router.post("/news/{symbol}/sync")
-async def sync_news(
+def sync_news(
     symbol: str,
     use_mock: bool = Query(False, description="Use mock data for testing (default: use real Alpha Vantage data)"),
     db: Session = Depends(get_db)
@@ -133,7 +134,7 @@ async def sync_news(
 
 # GET endpoint for easy browser testing
 @router.get("/news/{symbol}/sync")
-async def sync_news_get(
+def sync_news_get(
     symbol: str,
     use_mock: bool = Query(False, description="Use mock data for testing"),
     db: Session = Depends(get_db)
@@ -425,7 +426,7 @@ async def get_realtime_market_news(
     Get real-time market/business news from NewsAPI (primary source).
     Returns top business headlines with sentiment analysis.
     """
-    articles = news_fetcher.fetch_market_news(limit)
+    articles = await asyncio.to_thread(news_fetcher.fetch_market_news, limit)
     
     if not articles:
         # Fallback to Alpha Vantage if NewsAPI fails
@@ -461,7 +462,7 @@ async def get_realtime_symbol_news(
     Falls back to Finnhub and Alpha Vantage if NewsAPI fails.
     """
     # Try NewsAPI first
-    articles = news_fetcher.fetch_newsapi_news(symbol, limit)
+    articles = await asyncio.to_thread(news_fetcher.fetch_newsapi_news, symbol, limit)
     
     if articles:
         return {
@@ -502,7 +503,7 @@ async def get_all_news_sources(
     seen_urls = set()
     
     # 1. Try NewsAPI first (real-time)
-    newsapi_articles = news_fetcher.fetch_newsapi_news(symbol, limit)
+    newsapi_articles = await asyncio.to_thread(news_fetcher.fetch_newsapi_news, symbol, limit)
     for a in newsapi_articles:
         if a["url"] and a["url"] not in seen_urls:
             seen_urls.add(a["url"])

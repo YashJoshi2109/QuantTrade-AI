@@ -339,7 +339,7 @@ def _run_single_backtest(
 # ── Endpoints ──────────────────────────────────────────────────────────
 
 @router.post("/backtest")
-async def run_backtest(request: BacktestRequest, db: Session = Depends(get_db)):
+def run_backtest(request: BacktestRequest, db: Session = Depends(get_db)):
     """Run a pro-level backtest with advanced metrics and Monte Carlo validation."""
     try:
         start_date, end_date = _parse_dates(request.start_date, request.end_date)
@@ -380,7 +380,7 @@ async def run_backtest(request: BacktestRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/backtest/compare")
-async def compare_strategies(request: CompareRequest, db: Session = Depends(get_db)):
+def compare_strategies(request: CompareRequest, db: Session = Depends(get_db)):
     """Run multiple strategies on the same symbol and return comparison data."""
     try:
         start_date, end_date = _parse_dates(request.start_date, request.end_date)
@@ -439,7 +439,7 @@ async def compare_strategies(request: CompareRequest, db: Session = Depends(get_
 
 
 @router.post("/backtest/scan")
-async def scan_symbols(request: ScanRequest, db: Session = Depends(get_db)):
+def scan_symbols(request: ScanRequest, db: Session = Depends(get_db)):
     """Scan multiple symbols with a strategy and return ranked results."""
     try:
         start_date, end_date = _parse_dates(request.start_date, request.end_date)
@@ -582,7 +582,7 @@ _US_STOCKS = {
 
 
 @router.get("/backtest/symbols")
-async def search_backtest_symbols(q: str = Query("", min_length=1), limit: int = Query(12, le=30)):
+def search_backtest_symbols(q: str = Query("", min_length=1), limit: int = Query(12, le=30)):
     """Search symbols for backtest — uses built-in directory + yfinance validation.
     Works for ALL US stocks, ETFs, crypto, and forex without DB dependency."""
     query = q.strip().upper()
@@ -643,7 +643,7 @@ async def search_backtest_symbols(q: str = Query("", min_length=1), limit: int =
 
 
 @router.get("/backtest/date-range/{symbol}")
-async def get_backtest_date_range(symbol: str):
+def get_backtest_date_range(symbol: str):
     """Return the earliest and latest dates with available price data for a symbol.
     Used by frontend to constrain date pickers to valid ranges."""
     import yfinance as yf
@@ -677,7 +677,7 @@ async def get_backtest_date_range(symbol: str):
 
 
 @router.get("/strategies")
-async def get_strategies():
+def get_strategies():
     """Return all available strategies with descriptions and default parameters."""
     strategies = []
     for name, info in STRATEGY_REGISTRY.items():
