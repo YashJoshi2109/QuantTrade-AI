@@ -414,6 +414,7 @@ class NewsIntelService:
         await asyncio.to_thread(get_ticker_index().refresh, True)
         await asyncio.to_thread(get_sentiment_classifier().load)
         await asyncio.to_thread(get_categorizer().load)
+        await self._reclassify_if_taxonomy_changed()
         try:
             rows = await asyncio.to_thread(self._db_call, _seed_rows)
             for cid, title, urls, titles, ingested in rows:
@@ -421,6 +422,32 @@ class NewsIntelService:
             logger.info("news-intel clusterer seeded with %d clusters", len(rows))
         except Exception as e:
             logger.warning("news-intel seed failed: %s", e)
+
+    async def _reclassify_if_taxonomy_changed(self) -> int:
+        """Once per taxonomy version: upgrade recent 'other' items (48h)."""
+        from app.services.news_intel.categories import taxonomy_version
+
+        version = taxonomy_version()
+        key = "qt:news:taxonomy_version"
+        try:
+            if self.redis is not None and (await self.redis.get(key)) == version:
+                return 0
+        except Exception:
+            pass
+        try:
+            n = await asyncio.to_thread(
+                self._db_call, store.reclassify_other, get_categorizer().classify, 48
+            )
+            logger.info("news-intel taxonomy %s: re-categorized %d recent 'other' items", version, n)
+        except Exception as e:
+            logger.warning("news-intel reclassify failed: %s", e)
+            return 0
+        try:
+            if self.redis is not None:
+                await self.redis.set(key, version)
+        except Exception:
+            pass
+        return n
 
     async def _run_as_leader(self) -> None:
         import httpx

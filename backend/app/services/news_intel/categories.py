@@ -183,6 +183,14 @@ RULES.append(("market_moves", _rx(
 )))
 
 
+def taxonomy_version() -> str:
+    """Changes whenever categories or rules change; lets the worker re-categorize
+    recent 'other' items once after a deploy that improves the taxonomy."""
+    import hashlib
+    blob = "|".join(CATEGORY_KEYS) + "||" + "|".join(f"{c}:{rx.pattern}" for c, rx in RULES)
+    return hashlib.sha1(blob.encode()).hexdigest()[:12]
+
+
 def rule_categories(text: str) -> List[str]:
     """Return every category whose rule matches `text`, in priority order."""
     if not text:

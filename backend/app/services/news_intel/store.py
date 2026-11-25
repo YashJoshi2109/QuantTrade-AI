@@ -142,6 +142,34 @@ def prune(db: Session, days: int = 14) -> int:
     return int(n or 0)
 
 
+def reclassify_other(db: Session, classify_titles, hours: int = 48) -> int:
+    """Re-categorize recent items still in 'other' with the current taxonomy.
+
+    Only upgrades 'other' -> a real category; never rewrites an item that
+    already has one (provider hints such as Finnhub 'merger' stay intact).
+    `classify_titles(titles) -> [CategoryResult(categories, primary, ...)]`.
+    """
+    cutoff = utcnow() - timedelta(hours=hours)
+    rows = (
+        db.query(NewsItem)
+        .filter(NewsItem.ingested_at >= cutoff, NewsItem.primary_category == "other")
+        .limit(5000)
+        .all()
+    )
+    if not rows:
+        return 0
+    results = classify_titles([r.title for r in rows])
+    changed = 0
+    for row, res in zip(rows, results):
+        if res.primary and res.primary != "other":
+            row.primary_category = res.primary
+            row.categories = list(res.categories) or [res.primary]
+            changed += 1
+    if changed:
+        db.commit()
+    return changed
+
+
 # ── reads ───────────────────────────────────────────────────────────────
 
 def recent_for_seed(db: Session, hours: int = 24) -> List[NewsItem]:
