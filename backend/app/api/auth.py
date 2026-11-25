@@ -242,7 +242,7 @@ class SendOtpRequest(BaseModel):
 @router.post("/send-otp")
 async def send_otp_endpoint(
     req: SendOtpRequest,
-    purpose: str = Query("register", regex="^(register|reset)$"),
+    purpose: str = Query("register", pattern="^(register|reset)$"),
     db: Session = Depends(get_db),
 ):
     """Send OTP to email for verification. Rate limited to 1 per minute.

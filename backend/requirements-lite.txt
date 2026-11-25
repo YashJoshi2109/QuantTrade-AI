@@ -2,7 +2,7 @@
 # Excludes heavy ML packages for smaller deployments
 
 # Core Framework
-fastapi>=0.115.0
+fastapi>=0.115.0,<0.166.0
 uvicorn[standard]>=0.32.0
 pydantic>=2.7.4
 pydantic-settings>=2.1.0

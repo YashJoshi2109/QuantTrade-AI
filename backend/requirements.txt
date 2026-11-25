@@ -1,5 +1,5 @@
 # FastAPI and server
-fastapi>=0.115.0  # 0.104.1 had PYSEC-2024-38 (SSRF via docs redirect)
+fastapi>=0.115.0,<0.166.0  # 0.104.1 had PYSEC-2024-38 (SSRF via docs redirect)
 uvicorn[standard]>=0.32.0
 pydantic>=2.7.4
 pydantic-settings>=2.1.0
