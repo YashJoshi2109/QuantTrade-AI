@@ -19,6 +19,7 @@ import { sanitizeQuoteSummaryCompanyName } from '@/lib/company-display-name'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 import type { ChartSeriesType } from '@/components/Chart'
 import TickerLogo from '@/components/TickerLogo'
+import AskCopilotButton from '@/components/copilot/AskCopilotButton'
 
 export type ResearchChartPeriod = '1D' | '5D' | '1M' | '3M' | '6M' | '1Y' | '2Y' | '5Y'
 
@@ -344,6 +345,7 @@ export function ResearchChartHeader({
           transition={{ delay: 0.08, duration: 0.35 }}
         >
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <AskCopilotButton symbol={selectedSymbol} variant="desktop" />
             <button
             type="button"
             onClick={onWatchlistToggle}

@@ -51,6 +51,7 @@ import OptionChainPanel from '@/components/research/OptionChainPanel'
 import EarningsShortInterestPanel from '@/components/research/EarningsShortInterestPanel'
 import { CompanyFolioPanel } from '@/components/research/CompanyFolioPanel'
 import TechnicalAnalysisGauge from '@/components/TechnicalAnalysisGauge'
+import AskCopilotButton from '@/components/copilot/AskCopilotButton'
 
 const TIMEFRAMES = ['1D', '1W', '1M', '3M', '1Y', 'All'] as const
 type Timeframe = (typeof TIMEFRAMES)[number]
@@ -431,6 +432,8 @@ export default function MobileResearch() {
             <p>{priceInfo.dataSource || (quoteLoading ? 'connecting…' : 'unavailable')}</p>
           </div>
         </div>
+
+        <AskCopilotButton symbol={symbolFromUrl} variant="mobile" />
 
         <div className="rounded-2xl bg-surface-raised border border-line-subtle overflow-hidden">
           <div className="h-[250px] chart-grid bg-surface-base">

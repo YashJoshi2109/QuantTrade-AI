@@ -53,6 +53,7 @@ import {
   type CopilotIntent,
   type CopilotMeta,
   type CitationData,
+  type TickerContext,
   formatLargeNumber,
   formatPercent,
   formatPrice,
@@ -62,13 +63,13 @@ import {
 } from '@/lib/copilot-engine'
 import {
   fetchFinnhubQuote,
-  fetchQuote,
   fetchFundamentals,
   fetchIndicators,
   listConversations,
   getConversationMessages,
   deleteConversation,
   getCopilotUsage,
+  fetchCopilotContext,
   type QuoteData,
   type FundamentalsData,
   type Indicators,
@@ -85,7 +86,44 @@ import {
   InlineStructuredSnapshots,
   SnapshotCard,
 } from '@/components/copilot/copilot-snapshot-cards'
+import TickerContextCard from '@/components/copilot/TickerContextCard'
+import CitationSourcePanel from '@/components/copilot/CitationSourcePanel'
+import {
+  citationChipText,
+  citationShortLabel,
+  formatPercentPoints,
+  citationIdFromHref,
+  citationKindLabel,
+  linkifyCitations,
+  parseCopilotParams,
+  suggestedQuestions,
+} from '@/lib/copilot-handoff'
 import { cn } from '@/lib/utils'
+
+const CITATION_ICONS: Record<string, typeof FileText> = {
+  filing: FileText, statement: BarChart3, news: Globe, forecast: TrendingUp, quote: Activity,
+  fundamentals: PieChart, technicals: Activity, macro: Globe, movers: Zap,
+}
+
+/** Context-pack quote -> the side panel's QuoteData (single source of truth for price). */
+function packQuoteToQuoteData(ctx: TickerContext): QuoteData | null {
+  const q = ctx.quote
+  if (!q || q.price == null) return null
+  return {
+    symbol: ctx.ticker,
+    price: q.price,
+    change: q.change ?? 0,
+    change_percent: q.change_percent ?? 0,
+    volume: q.volume ?? 0,
+    high: q.day_high ?? 0,
+    low: q.day_low ?? 0,
+    open: 0,
+    previous_close: q.previous_close ?? 0,
+    timestamp: q.as_of ?? '',
+    market_status: q.market_session ?? undefined,
+    data_source: q.source,
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -180,12 +218,12 @@ function FundamentalsCard({ data }: { data: StockAnalysisData }) {
     { label: 'EPS', value: f.eps ? `$${f.eps.toFixed(2)}` : null },
     { label: 'Mkt Cap', value: f.market_cap ? formatLargeNumber(f.market_cap) : null },
     { label: 'P/B', value: f.price_to_book?.toFixed(2) },
-    { label: 'Profit Mgn', value: f.profit_margin ? `${(f.profit_margin * 100).toFixed(1)}%` : null },
-    { label: 'Op Mgn', value: f.operating_margin ? `${(f.operating_margin * 100).toFixed(1)}%` : null },
-    { label: 'ROE', value: f.roe ? `${(f.roe * 100).toFixed(1)}%` : null },
+    { label: 'Profit Mgn', value: formatPercentPoints(f.profit_margin) },
+    { label: 'Op Mgn', value: formatPercentPoints(f.operating_margin) },
+    { label: 'ROE', value: formatPercentPoints(f.roe) },
     { label: 'D/E', value: f.debt_to_equity?.toFixed(2) },
     { label: 'Beta', value: f.beta?.toFixed(2) },
-    { label: 'Div Yield', value: f.dividend_yield ? `${(f.dividend_yield * 100).toFixed(2)}%` : null },
+    { label: 'Div Yield', value: f.dividend_yield ? formatPercentPoints(f.dividend_yield, 2) : null },
   ].filter((m) => m.value != null)
 
   return (
@@ -616,6 +654,9 @@ function MessageBubble({
   onCitationClick?: (c: CitationData) => void
 }) {
   const isUser = msg.role === 'user'
+  const citeById = (id: string): CitationData =>
+    msg.citations?.find((c) => c.id === id) ??
+    ({ id, n: 0, kind: id.split(':')[0], source: 'Source details arrive when the answer finishes', label: id } as CitationData)
 
   return (
     <motion.div
@@ -711,9 +752,30 @@ function MessageBubble({
                     </blockquote>
                   ),
                   hr: () => <hr className="border-line-subtle my-3" />,
+                  a: ({ href, children }) => {
+                    const cid = citationIdFromHref(href)
+                    if (cid) {
+                      const c = citeById(cid)
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => onCitationClick?.(c)}
+                          title={`${citationKindLabel(c.kind)} · ${c.label}`}
+                          className="mx-0.5 inline-flex !h-4 !min-h-0 min-w-4 !py-0 leading-none -translate-y-px items-center justify-center rounded bg-[#007AFF]/15 px-1 align-middle text-[9px] font-bold text-[#0060c9] dark:bg-[#007AFF]/25 dark:text-[#8fc6ff] transition-colors hover:bg-[#007AFF] hover:text-white"
+                        >
+                          {children}
+                        </button>
+                      )
+                    }
+                    return (
+                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#4da3ff] underline">
+                        {children}
+                      </a>
+                    )
+                  },
                 }}
               >
-                {msg.content}
+                {linkifyCitations(msg.content, msg.streaming ? null : msg.citations)}
               </ReactMarkdown>
               {msg.streaming && (
                 <span className="inline-block w-1.5 h-4 bg-[#007AFF] rounded-sm animate-pulse ml-0.5 -mb-0.5" />
@@ -727,32 +789,28 @@ function MessageBubble({
           <div className="mt-2.5 px-1">
             <p className="text-[10px] text-fg-muted mb-1.5 flex items-center gap-1">
               <FileText className="w-3 h-3" />
-              {msg.citations.length} SEC source{msg.citations.length !== 1 ? 's' : ''}
+              {msg.citations.length} source{msg.citations.length !== 1 ? 's' : ''} cited
             </p>
-            {/* Horizontal scrollable citation cards */}
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-line-subtle scrollbar-track-transparent">
-              {msg.citations.slice(0, 8).map((c) => (
-                <button
-                  key={c.source_n}
-                  onClick={() => onCitationClick?.(c)}
-                  className="shrink-0 flex flex-col gap-1 p-2 rounded-xl border border-[rgba(0,122,255,0.18)] bg-[rgba(0,122,255,0.04)] hover:bg-[rgba(0,122,255,0.1)] hover:border-[rgba(0,122,255,0.4)] transition-all text-left group cursor-pointer"
-                  style={{ minWidth: 140, maxWidth: 160 }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="w-4 h-4 rounded bg-[#007AFF]/25 text-[#007AFF] flex items-center justify-center font-bold text-[9px] shrink-0">
-                      {c.source_n}
+            {/* Source pills: number + type icon + readable source label (wraps, no clipping) */}
+            <div className="flex flex-wrap gap-1.5" data-testid="citation-pills">
+              {msg.citations.slice(0, 12).map((c) => {
+                const KindIcon = CITATION_ICONS[c.kind] ?? FileText
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => onCitationClick?.(c)}
+                    title={`${citationKindLabel(c.kind)} · ${citationChipText(c)}`}
+                    className="group inline-flex !min-h-0 max-w-full items-center gap-1.5 rounded-full border border-line-subtle bg-surface-raised py-1 pl-1 pr-2.5 text-left text-[11px] text-fg-primary transition-colors hover:border-[#007AFF]/50 hover:bg-[#007AFF]/10"
+                  >
+                    <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-[#007AFF]/15 px-1 text-[9px] font-bold text-[#0060c9] dark:bg-[#007AFF]/30 dark:text-[#8fc6ff]">
+                      {c.n}
                     </span>
-                    <ExternalLink className="w-2.5 h-2.5 text-fg-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] font-semibold text-fg-primary leading-tight">
-                      {c.ticker} {c.filing_type}
-                    </p>
-                    <p className="text-[9px] text-[#007AFF] font-medium truncate">{c.section}</p>
-                    <p className="text-[9px] text-fg-muted">{c.filed_date}</p>
-                  </div>
-                </button>
-              ))}
+                    <KindIcon className="h-3 w-3 shrink-0 text-[#007AFF]" aria-hidden />
+                    <span className="truncate font-medium">{citationShortLabel(c)}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
@@ -775,107 +833,6 @@ function MessageBubble({
         )}
       </div>
     </motion.div>
-  )
-}
-
-// ─── SEC Document Side Panel ─────────────────────────────────────────────────
-
-function SECDocPanel({
-  citation,
-  onClose,
-}: {
-  citation: CitationData
-  onClose: () => void
-}) {
-  const scoreColor =
-    citation.score >= 0.85 ? '#22c55e' : citation.score >= 0.7 ? '#eab308' : '#94a3b8'
-
-  return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-line-subtle shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <FileText className="w-4 h-4 text-[#007AFF] shrink-0" />
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-fg-primary truncate">
-              {citation.ticker} · {citation.filing_type} {citation.fiscal_year}
-            </p>
-            <p className="text-[10px] text-fg-muted truncate">{citation.section}</p>
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-surface-raised/60 text-fg-muted hover:text-white transition-colors shrink-0 ml-2"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Meta row */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-line-subtle shrink-0 bg-[rgba(0,122,255,0.03)]">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[9px] font-mono text-fg-muted uppercase tracking-wider">Relevance</span>
-          <span className="text-[10px] font-bold" style={{ color: scoreColor }}>
-            {Math.round(citation.score * 100)}%
-          </span>
-        </div>
-        <div className="w-px h-3 bg-line-subtle" />
-        <span className="text-[10px] text-fg-muted">Filed {citation.filed_date}</span>
-        <div className="w-px h-3 bg-line-subtle" />
-        <span className="text-[9px] text-[#007AFF] font-medium">Source {citation.source_n}</span>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {citation.snippet ? (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-[9px] font-mono text-fg-muted uppercase tracking-wider">Extracted passage</span>
-              <div className="flex-1 h-px bg-line-subtle" />
-            </div>
-            <div className="relative">
-              {/* Left accent line */}
-              <div className="absolute left-0 top-0 bottom-0 w-0.5 rounded-full bg-gradient-to-b from-[#007AFF] to-cyan-500" />
-              <p className="pl-4 text-sm text-fg-secondary leading-relaxed font-serif">
-                {citation.snippet}
-                {citation.snippet.length >= 320 && (
-                  <span className="text-fg-muted italic"> …[excerpt]</span>
-                )}
-              </p>
-            </div>
-
-            {/* Section tag */}
-            <div className="mt-4 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[rgba(0,122,255,0.1)] text-[10px] text-[#007AFF] font-medium border border-[rgba(0,122,255,0.2)]">
-                <FileText className="w-2.5 h-2.5" />
-                {citation.section}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-32 gap-2 text-fg-muted">
-            <FileText className="w-8 h-8 opacity-30" />
-            <p className="text-xs">No excerpt available for this source</p>
-          </div>
-        )}
-
-        {/* Filing info card */}
-        <div className="mt-5 rounded-xl border border-line-subtle bg-surface-base p-3 space-y-2">
-          <p className="text-[10px] font-mono text-fg-muted uppercase tracking-wider mb-1">Filing details</p>
-          {[
-            ['Ticker', citation.ticker],
-            ['Form', citation.filing_type],
-            ['Fiscal year', String(citation.fiscal_year)],
-            ['Filed', citation.filed_date],
-          ].map(([label, val]) => (
-            <div key={label} className="flex justify-between items-center">
-              <span className="text-[11px] text-fg-muted">{label}</span>
-              <span className="text-[11px] font-semibold text-fg-primary">{val}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -965,7 +922,7 @@ function StockQuickPanel({
             <span className="text-[10px] text-fg-muted truncate max-w-[100px]">{fundamentals.company_name}</span>
           )}
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-raised/60 text-fg-muted hover:text-white transition-colors">
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-raised/60 text-fg-muted hover:text-fg-primary transition-colors">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -980,17 +937,22 @@ function StockQuickPanel({
             <span className="text-sm font-semibold tabular-nums" style={{ color: changeColor }}>
               {isUp ? '+' : ''}{quote.change?.toFixed(2)} ({isUp ? '+' : ''}{quote.change_percent?.toFixed(2)}%)
             </span>
-            {quote.data_source && <span className="text-[9px] text-fg-muted font-mono">{quote.data_source}</span>}
+            {quote.data_source && (
+              <span className="text-[9px] text-fg-muted font-mono text-right">
+                {quote.data_source}
+                {quote.timestamp ? ` · ${new Date(quote.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+              </span>
+            )}
           </div>
 
           {/* OHLV row */}
-          <div className="grid grid-cols-4 gap-1 mt-3 pt-3 border-t border-[rgba(255,255,255,0.06)]">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(64px,1fr))] gap-1 mt-3 pt-3 border-t border-line-subtle">
             {[
-              { l: 'O', v: quote.open },
-              { l: 'H', v: quote.high },
-              { l: 'L', v: quote.low },
-              { l: 'C', v: quote.previous_close },
-            ].map(({ l, v }) => (
+              { l: 'Open', v: quote.open },
+              { l: 'High', v: quote.high },
+              { l: 'Low', v: quote.low },
+              { l: 'Prev close', v: quote.previous_close },
+            ].filter(({ v }) => v != null && v > 0).map(({ l, v }) => (
               <div key={l} className="text-center">
                 <p className="text-[9px] text-fg-muted">{l}</p>
                 <p className="text-[11px] font-semibold text-fg-secondary tabular-nums">
@@ -1002,12 +964,12 @@ function StockQuickPanel({
 
           {/* 52W range bar */}
           {fundamentals?.week_52_high && fundamentals?.week_52_low && quote.price && (
-            <div className="mt-3 pt-3 border-t border-[rgba(255,255,255,0.06)]">
+            <div className="mt-3 pt-3 border-t border-line-subtle">
               <div className="flex justify-between text-[9px] text-fg-muted mb-1">
                 <span>52W Low ${fundamentals.week_52_low.toFixed(0)}</span>
                 <span>52W High ${fundamentals.week_52_high.toFixed(0)}</span>
               </div>
-              <div className="h-1.5 rounded-full bg-[rgba(255,255,255,0.06)] relative overflow-hidden">
+              <div className="h-1.5 rounded-full bg-line-subtle relative overflow-hidden">
                 <div className="h-full rounded-full bg-gradient-to-r from-red-500 via-[#007AFF] to-emerald-500 opacity-30" style={{ width: '100%' }} />
                 <div className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white border border-[#007AFF]"
                   style={{ left: `${((quote.price - fundamentals.week_52_low) / (fundamentals.week_52_high - fundamentals.week_52_low) * 100).toFixed(1)}%`, transform: 'translate(-50%,-50%)' }} />
@@ -1077,9 +1039,9 @@ function StockQuickPanel({
                 { label: 'P/B',           val: fundamentals.price_to_book?.toFixed(2) ?? '—' },
                 { label: 'EPS',           val: fundamentals.eps != null ? `$${fundamentals.eps.toFixed(2)}` : '—' },
                 { label: 'Beta',          val: fundamentals.beta?.toFixed(2) ?? '—' },
-                { label: 'ROE',           val: fundamentals.roe != null ? `${(fundamentals.roe * 100).toFixed(1)}%` : '—' },
+                { label: 'ROE',           val: formatPercentPoints(fundamentals.roe) ?? '—' },
                 { label: 'Debt/Equity',   val: fundamentals.debt_to_equity?.toFixed(2) ?? '—' },
-                { label: 'Profit Margin', val: fundamentals.profit_margin != null ? `${(fundamentals.profit_margin * 100).toFixed(1)}%` : '—' },
+                { label: 'Profit Margin', val: formatPercentPoints(fundamentals.profit_margin) ?? '—' },
                 { label: 'Target Price',  val: fmt(fundamentals.target_price) },
               ].filter(r => r.val !== '—').map(({ label, val }) => (
                 <div key={label}>
@@ -1096,7 +1058,7 @@ function StockQuickPanel({
                 <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
                   fundamentals.recommendation?.toLowerCase().includes('buy') ? 'bg-emerald-500/20 text-emerald-400' :
                   fundamentals.recommendation?.toLowerCase().includes('sell') ? 'bg-red-500/20 text-red-400' :
-                  'bg-[rgba(255,255,255,0.08)] text-fg-secondary'
+                  'bg-line-subtle text-fg-secondary'
                 }`}>
                   {fundamentals.recommendation}
                 </span>
@@ -1132,10 +1094,10 @@ function StockQuickPanel({
             </p>
             <div className="space-y-1.5">
               {relatedCitations.slice(0, 4).map((c) => (
-                <button key={c.source_n} onClick={() => onCitationClick?.(c)}
+                <button key={c.id} onClick={() => onCitationClick?.(c)}
                   className="w-full flex items-center gap-2 p-2 rounded-lg border border-[rgba(0,122,255,0.15)] bg-[rgba(0,122,255,0.04)] hover:bg-[rgba(0,122,255,0.1)] hover:border-[rgba(0,122,255,0.35)] transition-all text-left group"
                 >
-                  <span className="shrink-0 w-4 h-4 rounded bg-[#007AFF]/25 text-[#007AFF] flex items-center justify-center font-bold text-[9px]">{c.source_n}</span>
+                  <span className="shrink-0 w-4 h-4 rounded bg-[#007AFF]/25 text-[#007AFF] flex items-center justify-center font-bold text-[9px]">{c.n}</span>
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-semibold text-fg-secondary truncate">{c.filing_type} {c.fiscal_year} · {c.section}</p>
                     <p className="text-[9px] text-fg-muted">Filed {c.filed_date}</p>
@@ -1857,8 +1819,14 @@ function ConversationSidebar({
 
 // ─── Main Copilot ─────────────────────────────────────────────────────────────
 
-function CopilotInner() {
+function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
   const router = useRouter()
+  // Research -> Copilot handoff: /copilot?symbol=NVDA[&q=...]. The pinned symbol
+  // is sent with every message (the backend treats it as the primary ticker).
+  const [pinnedSymbol, setPinnedSymbol] = useState<string | null>(null)
+  const [tickerContext, setTickerContext] = useState<TickerContext | null>(null)
+  const [contextLoading, setContextLoading] = useState(false)
+  const autoAskedRef = useRef(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -2068,7 +2036,7 @@ function CopilotInner() {
   }, [activeConversationId, queryClient])
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, symbolOverride?: string | null) => {
       if (!text.trim() || streaming) return
 
       const userMsg: Message = {
@@ -2099,16 +2067,32 @@ function CopilotInner() {
       setStockIndicators(null)
       setCurrentIntent(undefined)
       setCurrentSymbol(null)
-      setActiveModel('claude-sonnet-4-6')
+      setActiveModel('claude-sonnet-5')
 
       abortRef.current = new AbortController()
+      const focus = symbolOverride ?? pinnedSymbol
 
       await streamCopilotAnalysis(
         {
           message: text.trim(),
+          symbol: focus,
           conversation_id: activeConversationId || undefined,
         },
         {
+          onContext: (ctx) => {
+            const pq = packQuoteToQuoteData(ctx)
+            if (pq) setQuickQuote((prev) => (!prev || prev.symbol === pq.symbol || ctx.ticker === focus ? pq : prev))
+            // The card follows the pinned symbol; otherwise the first ticker of this answer.
+            setTickerContext((prev) => (!focus || ctx.ticker === focus || !prev ? ctx : prev))
+          },
+
+          onFinalText: (finalText) => {
+            // Post-checks changed the streamed answer (removed bad citations, flagged numbers).
+            setMessages((prev) =>
+              prev.map((m) => (m.id === assistantMsgId ? { ...m, content: finalText } : m)),
+            )
+          },
+
           onIntent: (intent, symbol, symbols) => {
             setCurrentIntent(intent)
             setCurrentSymbol(symbol)
@@ -2120,12 +2104,12 @@ function CopilotInner() {
             )
             // Fetch quote + fundamentals + technicals in parallel when ticker detected
             if (symbol) {
+              // The quote comes from the context pack (onContext) so the side panel,
+              // the ticker card and the answer show one price / as-of.
               Promise.allSettled([
-                fetchQuote(symbol, 'high'),
                 fetchFundamentals(symbol),
                 fetchIndicators(symbol),
-              ]).then(([qRes, fRes, iRes]) => {
-                if (qRes.status === 'fulfilled') setQuickQuote(qRes.value)
+              ]).then(([fRes, iRes]) => {
                 if (fRes.status === 'fulfilled') setStockFundamentals(fRes.value)
                 if (iRes.status === 'fulfilled') setStockIndicators(iRes.value)
               })
@@ -2258,8 +2242,40 @@ function CopilotInner() {
         abortRef.current.signal
       )
     },
-    [streaming, activeConversationId, queryClient]
+    [streaming, activeConversationId, queryClient, pinnedSymbol]
   )
+
+  // Read ?symbol= / ?q= once; load the context card immediately (no LLM call).
+  useEffect(() => {
+    const { symbol, q } = parseCopilotParams(window.location.search)
+    if (!symbol) return
+    setPinnedSymbol(symbol)
+    setContextLoading(true)
+    fetchCopilotContext(symbol)
+      .then((ctx) => {
+        if (ctx) setTickerContext(ctx)
+      })
+      .finally(() => setContextLoading(false))
+    // Both layouts are mounted; only the visible one may auto-send the prefilled question.
+    const visible = window.matchMedia('(min-width: 768px)').matches === (variant === 'desktop')
+    if (q && visible && !autoAskedRef.current) {
+      autoAskedRef.current = true
+      sendMessage(q, symbol)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const clearPinnedSymbol = () => {
+    setPinnedSymbol(null)
+    setTickerContext(null)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('symbol')
+    url.searchParams.delete('q')
+    window.history.replaceState(null, '', url.pathname + url.search)
+  }
+
+  const cardSymbol = pinnedSymbol ?? tickerContext?.ticker ?? null
+  const cardSuggestions = suggestedQuestions(tickerContext, cardSymbol)
 
   const stopStreaming = () => {
     abortRef.current?.abort()
@@ -2430,10 +2446,38 @@ function CopilotInner() {
             aria-hidden
           />
           <GlassFilter />
-          {!hasMessages ? (
+          {!hasMessages && cardSymbol ? (
+            <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-1 flex-col justify-start gap-3 overflow-y-auto py-2 md:justify-center">
+              <TickerContextCard
+                symbol={cardSymbol}
+                ctx={tickerContext}
+                loading={contextLoading}
+                suggestions={cardSuggestions}
+                onAsk={(q) => sendMessage(q)}
+                onClear={clearPinnedSymbol}
+                compact={variant === 'mobile'}
+                disabled={streaming || isAtLimit}
+              />
+              <p className="text-center text-[11px] text-fg-muted">
+                Ask anything about {cardSymbol}. Every number in the answer is cited to its source.
+              </p>
+            </div>
+          ) : !hasMessages ? (
             <WelcomeScreen onPrompt={(p) => sendMessage(p)} />
           ) : (
             <div className="relative z-10 space-y-4">
+              {cardSymbol && (
+                <TickerContextCard
+                  symbol={cardSymbol}
+                  ctx={tickerContext}
+                  loading={contextLoading}
+                  suggestions={streaming ? [] : cardSuggestions.slice(0, variant === 'mobile' ? 2 : 4)}
+                  onAsk={(q) => sendMessage(q)}
+                  onClear={pinnedSymbol ? clearPinnedSymbol : undefined}
+                  compact
+                  disabled={streaming || isAtLimit}
+                />
+              )}
               {messages.map((msg) => {
                 // Show Unicorn WebGL loading scene for empty streaming messages
                 if (msg.role === 'assistant' && msg.streaming && !msg.content) {
@@ -2511,14 +2555,39 @@ function CopilotInner() {
 
           {!isAtLimit && (
             <p className="mt-2.5 text-center text-[10px] leading-relaxed text-fg-muted">
-              Enter to send · Shift+Enter for new line · Full pipeline: RAG → Quant → LLM · Not
+              Enter to send · Shift+Enter for new line
+              {pinnedSymbol ? ` · Focused on ${pinnedSymbol}` : ''} · Answers cite their sources · Not
               financial advice
             </p>
           )}
         </div>
       </div>
 
-      {/* ─── Right Info Panel (SEC doc > Analysis dashboard > Quick quote) ─── */}
+      {/* ─── Source sheet below lg (the side panel is lg+ only) ─── */}
+      <AnimatePresence>
+        {activeCitation && (
+          <motion.div
+            key="source-sheet"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-end bg-black/60 lg:hidden"
+            onClick={() => setActiveCitation(null)}
+          >
+            <motion.div
+              initial={{ y: 40 }}
+              animate={{ y: 0 }}
+              exit={{ y: 40 }}
+              className="max-h-[75dvh] w-full overflow-hidden rounded-t-2xl border-t border-line-subtle bg-white pb-safe dark:bg-[#0b1020]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <CitationSourcePanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Right Info Panel (source > Analysis dashboard > Quick quote) ─── */}
       <AnimatePresence mode="wait">
         {activeCitation ? (
           <motion.div
@@ -2527,9 +2596,9 @@ function CopilotInner() {
             animate={{ width: '42%', opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.28, ease: 'easeInOut' }}
-            className="hidden lg:flex flex-col border-l border-line-subtle bg-[#08091A] overflow-hidden"
+            className="hidden lg:flex flex-col border-l border-line-subtle bg-white dark:bg-[#0b1020] overflow-hidden"
           >
-            <SECDocPanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
+            <CitationSourcePanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
           </motion.div>
         ) : showDashboard && analysisData ? (
           <motion.div
@@ -2538,7 +2607,7 @@ function CopilotInner() {
             animate={{ width: '45%', opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="hidden lg:flex flex-col border-l border-line-subtle bg-[#0A0E1A] overflow-hidden"
+            className="hidden lg:flex flex-col border-l border-line-subtle bg-white dark:bg-[#0A0E1A] overflow-hidden"
           >
             <AnalysisDashboard data={analysisData} onClose={() => setShowDashboard(false)} />
           </motion.div>
@@ -2549,7 +2618,7 @@ function CopilotInner() {
             animate={{ width: '38%', opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.28, ease: 'easeInOut' }}
-            className="hidden lg:flex flex-col border-l border-line-subtle bg-[#08091A] overflow-hidden"
+            className="hidden lg:flex flex-col border-l border-line-subtle bg-white dark:bg-[#08091A] overflow-hidden"
           >
             <StockQuickPanel
               quote={quickQuote}
@@ -2557,7 +2626,7 @@ function CopilotInner() {
               indicators={stockIndicators}
               relatedCitations={messages
                 .flatMap((m) => m.citations ?? [])
-                .filter((c) => (currentSymbol ? c.ticker === currentSymbol : true))
+                .filter((c) => c.kind === 'filing' && (currentSymbol ? c.ticker === currentSymbol : true))
                 .slice(0, 4)}
               onClose={() => setQuickQuote(null)}
               onCitationClick={setActiveCitation}
@@ -2612,14 +2681,14 @@ export default function CopilotPage() {
     <>
       <div className="hidden md:block">
         <AppLayout hideFooter>
-          <CopilotInner />
+          <CopilotInner variant="desktop" />
         </AppLayout>
       </div>
-      <div className="md:hidden flex flex-col h-[100dvh] bg-[#0A0E1A] overflow-hidden text-white">
+      <div className="md:hidden flex flex-col h-[100dvh] bg-surface-base overflow-hidden text-fg-primary dark:bg-[#0A0E1A]">
         <div className="flex-1 overflow-hidden flex flex-col pt-safe">
-          <CopilotInner />
+          <CopilotInner variant="mobile" />
         </div>
-        <div className="shrink-0 h-[80px] pb-safe bg-[#0A0E1A]" />
+        <div className="shrink-0 h-[80px] pb-safe bg-surface-base dark:bg-[#0A0E1A]" />
         <BottomNav />
       </div>
     </>
