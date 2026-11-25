@@ -1476,6 +1476,11 @@ _STOCK_KEYWORDS = frozenset([
 ])
 
 
+def _matches_keywords(haystack: str, keywords: frozenset) -> bool:
+    """Whole-word keyword match ("stock" must not match "stockpile", "rate" not "pirates")."""
+    return any(re.search(rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])", haystack) for kw in keywords)
+
+
 def _format_volume(vol: Any) -> str:
     """Format numeric volume into human-readable string. None → '—'."""
     if vol is None:
@@ -1542,6 +1547,72 @@ def _parse_outcomes(first_market: dict) -> List[PolymarketOutcome]:
     return parsed[:5]
 
 
+def _is_open_market(m: dict) -> bool:
+    """True when a Gamma sub-market is still tradable (not closed / archived / inactive)."""
+    if not isinstance(m, dict):
+        return False
+    if m.get("closed") in (True, "true"):
+        return False
+    if m.get("archived") in (True, "true"):
+        return False
+    if m.get("active") in (False, "false"):
+        return False
+    return True
+
+
+def _market_yes_price(m: dict) -> Optional[float]:
+    """Yes price (0-1) of a binary Gamma market; outcomePrices is a JSON-encoded string array."""
+    names = [str(n).lower() for n in _safe_json_list(m.get("outcomes"))]
+    prices = _safe_json_list(m.get("outcomePrices"))
+    idx = names.index("yes") if "yes" in names else 0
+    if idx >= len(prices):
+        return None
+    try:
+        val = float(prices[idx])
+    except (ValueError, TypeError):
+        return None
+    if val != val or val < 0 or val > 1:  # NaN / out of range
+        return None
+    return val
+
+
+def _event_outcomes(ev: dict) -> tuple[List[PolymarketOutcome], Optional[float], Optional[float]]:
+    """
+    Resolve (outcomes, yes_price, no_price) for a Gamma event.
+
+    Single-market events are binary: outcomes come from that market's outcomePrices.
+    Multi-market events (e.g. "Fed decision in December?", date ladders "...by...?")
+    hold one binary market per option. Blindly reading markets[0] returned a
+    resolved/expired sub-market priced 0.0, so instead every OPEN sub-market
+    becomes an outcome labelled by groupItemTitle with its Yes price.
+    """
+    markets = [m for m in (ev.get("markets") or []) if isinstance(m, dict)]
+    if not markets:
+        return [], None, None
+
+    open_markets = [m for m in markets if _is_open_market(m)] or markets
+
+    if len(open_markets) == 1:
+        outcomes = _parse_outcomes(open_markets[0])
+        yes_price: Optional[float] = None
+        no_price: Optional[float] = None
+        if len(outcomes) == 2:
+            outcome_map = {o.name.lower(): o.price for o in outcomes}
+            yes_price = outcome_map.get("yes")
+            no_price = outcome_map.get("no")
+        return outcomes, yes_price, no_price
+
+    multi: List[PolymarketOutcome] = []
+    for m in open_markets:
+        yp = _market_yes_price(m)
+        if yp is None:
+            continue
+        label = str(m.get("groupItemTitle") or m.get("question") or "Option").strip()
+        multi.append(PolymarketOutcome(name=label[:80], price=round(yp, 4)))
+    multi.sort(key=lambda o: o.price, reverse=True)
+    return multi[:5], None, None
+
+
 def _parse_polymarket_event(ev: dict, category: str) -> Optional[PolymarketFinanceItem]:
     """Parse a single Gamma event into a PolymarketFinanceItem. Returns None on failure."""
     try:
@@ -1549,20 +1620,9 @@ def _parse_polymarket_event(ev: dict, category: str) -> Optional[PolymarketFinan
         if not question:
             return None
 
-        markets = ev.get("markets") or []
-        first_market = markets[0] if isinstance(markets, list) and markets else {}
-        if not isinstance(first_market, dict):
-            first_market = {}
-
-        outcomes = _parse_outcomes(first_market) if first_market else []
-
-        # Extract Yes/No shorthand for binary markets
-        yes_price: Optional[float] = None
-        no_price: Optional[float] = None
-        if len(outcomes) == 2:
-            outcome_map = {o.name.lower(): o.price for o in outcomes}
-            yes_price = outcome_map.get("yes")
-            no_price = outcome_map.get("no")
+        outcomes, yes_price, no_price = _event_outcomes(ev)
+        if not outcomes:
+            return None
 
         vol_24h = _extract_volume_24h(ev)
 
@@ -1581,21 +1641,18 @@ def _parse_polymarket_event(ev: dict, category: str) -> Optional[PolymarketFinan
 
 
 def _yes_price_from_gamma_event(ev: dict) -> float:
-    """Implied Yes price 0–1 from first market (Gamma uses JSON strings; use _parse_outcomes)."""
-    markets = ev.get("markets") or []
-    if not markets or not isinstance(markets[0], dict):
-        return 0.0
-    parsed = _parse_outcomes(markets[0])
-    for o in parsed:
-        if str(o.name).lower() == "yes":
-            return float(o.price)
-    return float(parsed[0].price) if parsed else 0.0
+    """Implied Yes price 0–1: binary Yes, or the leading option of a multi-market event."""
+    outcomes, yes_price, _ = _event_outcomes(ev)
+    if yes_price is not None:
+        return float(yes_price)
+    return float(outcomes[0].price) if outcomes else 0.0
 
 
 def _normalize_event_for_stock_card(ev: dict) -> dict:
     """JSON shape expected by copilot PolymarketStockCard (outcomes as [{name, price}])."""
     eid = str(ev.get("id") or ev.get("slug") or "")
     markets_raw = ev.get("markets") or []
+    markets_raw = [m for m in markets_raw if _is_open_market(m)] or markets_raw
     markets_out: List[dict] = []
     vol_event = _extract_volume_24h(ev)
 
@@ -1693,10 +1750,10 @@ async def get_polymarket_finance():
                     title = item.question.lower()
                     haystack = f"{title} {tag_str}"
 
-                    if any(kw in haystack for kw in _STOCK_KEYWORDS):
+                    if _matches_keywords(haystack, _STOCK_KEYWORDS):
                         item.category = "stocks"
                         stocks.append(item)
-                    elif any(kw in haystack for kw in _MACRO_KEYWORDS):
+                    elif _matches_keywords(haystack, _MACRO_KEYWORDS):
                         item.category = "macro"
                         macro.append(item)
                     else:
@@ -1803,7 +1860,8 @@ async def get_polymarket_events_browse(
                 params={
                     "active": "true",
                     "closed": "false",
-                    "order": "volume_24hr",
+                    # Gamma field is camelCase; "volume_24hr" returns 422 "order fields are not valid".
+                    "order": "volume24hr",
                     "ascending": "false",
                     "limit": str(limit),
                 },

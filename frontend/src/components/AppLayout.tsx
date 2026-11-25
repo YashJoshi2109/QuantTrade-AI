@@ -592,7 +592,9 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
 
       {/* Main Content Area */}
       <main 
-        className={`pt-14 md:pt-[6.25rem] min-h-screen transition-all duration-300 ${hideSidebar ? 'lg:ml-0' : sidebarCollapsed ? 'lg:ml-[5rem]' : 'lg:ml-[14rem]'}`}
+        data-main-content=""
+        tabIndex={-1}
+        className={`pt-14 md:pt-[6.25rem] min-h-screen focus:outline-none transition-all duration-300 ${hideSidebar ? 'lg:ml-0' : sidebarCollapsed ? 'lg:ml-[5rem]' : 'lg:ml-[14rem]'}`}
       >
         <div className="h-full overflow-y-auto px-4 md:px-6 py-4 md:py-6">
           {children}

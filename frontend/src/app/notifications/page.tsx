@@ -33,11 +33,9 @@ import {
   deleteNotification,
   type Notification,
 } from '@/lib/api'
+import { filterNotificationsByCategory, type NotificationCategory } from '@/lib/notification-feed'
 
-const SOCIAL_TYPES = new Set(['reply', 'upvote', 'mention', 'follow', 'dm', 'follow_post', 'community_post'])
-const TRADING_TYPES = new Set(['alert', 'price_alert', 'portfolio', 'trade'])
-
-type Category = 'all' | 'unread' | 'social' | 'trading' | 'system'
+type Category = NotificationCategory
 
 const CATEGORIES: { id: Category; label: string; icon: typeof Bell }[] = [
   { id: 'all',     label: 'All',     icon: Bell },
@@ -115,21 +113,13 @@ function playNotificationSound() {
   } catch { /* AudioContext not available */ }
 }
 
-function filterByCategory(notifications: Notification[], category: Category): Notification[] {
-  switch (category) {
-    case 'unread':  return notifications.filter((n) => !n.is_read)
-    case 'social':  return notifications.filter((n) => SOCIAL_TYPES.has(n.type))
-    case 'trading': return notifications.filter((n) => TRADING_TYPES.has(n.type))
-    case 'system':  return notifications.filter((n) => !SOCIAL_TYPES.has(n.type) && !TRADING_TYPES.has(n.type))
-    default:        return notifications
-  }
-}
+const filterByCategory = filterNotificationsByCategory
 
 const PAGE_SIZE = 20
 
 export default function NotificationsPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const [allNotifications, setAllNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -155,8 +145,15 @@ export default function NotificationsPage() {
   }, [])
 
   useEffect(() => {
+    // Signed-out visitors would get a 401 from /api/v1/notifications.
+    if (authLoading) return
+    if (!isAuthenticated) {
+      setAllNotifications([])
+      setLoading(false)
+      return
+    }
     load(limit)
-  }, [load, limit])
+  }, [load, limit, isAuthenticated, authLoading])
 
   const handleLoadMore = () => {
     setLoadingMore(true)

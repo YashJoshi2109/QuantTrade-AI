@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import SourceUnavailableNotice from '@/components/monitor/SourceUnavailableNotice'
 import { Activity, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { fetchMarketRadar, type MarketRadarData } from '@/lib/monitor-extended-api'
 
@@ -24,7 +25,7 @@ function getOverallColor(signal: string) {
 }
 
 export default function MarketRadarPanel() {
-  const { data, isLoading } = useQuery<MarketRadarData>({
+  const { data, isLoading, isError } = useQuery<MarketRadarData>({
     queryKey: ['market-radar'],
     queryFn: fetchMarketRadar,
     refetchInterval: 120_000,
@@ -40,7 +41,11 @@ export default function MarketRadarPanel() {
         </span>
       </div>
 
-      {isLoading || !data ? (
+      {!isLoading && (isError || !data || !data.signals?.length) ? (
+        <div className="p-3">
+          <SourceUnavailableNotice detail="Market radar signals are unavailable right now. Retrying every 2 minutes." />
+        </div>
+      ) : isLoading || !data ? (
         <div className="p-4 space-y-2">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="h-16 bg-surface-hover rounded-lg animate-pulse" />

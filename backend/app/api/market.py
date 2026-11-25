@@ -732,10 +732,20 @@ async def get_ipo_calendar(
     ),
 ) -> List[dict]:
     """
-    Upcoming IPOs from Finnhub calendar when FINNHUB_API_KEY is set; otherwise [].
+    Upcoming IPOs. Finnhub calendar first (when FINNHUB_API_KEY is set); Finnhub's
+    free tier often returns an empty forward window, so fall back to the free
+    Nasdaq IPO calendar (upcoming + recently priced + filed, cached 30 min).
     """
-    if not settings.FINNHUB_API_KEY:
-        return []
+    rows = await _finnhub_ipo_calendar(from_date, to_date) if settings.FINNHUB_API_KEY else []
+    if rows:
+        return rows
+    from app.services.ipo_calendar import fetch_nasdaq_ipo_calendar
+
+    return await fetch_nasdaq_ipo_calendar()
+
+
+async def _finnhub_ipo_calendar(from_date: Optional[str], to_date: Optional[str]) -> List[dict]:
+    """Finnhub /calendar/ipo normalized rows; [] on any failure or empty window."""
 
     start = from_date or datetime.utcnow().strftime("%Y-%m-%d")
     end = to_date or (datetime.utcnow() + timedelta(days=90)).strftime("%Y-%m-%d")

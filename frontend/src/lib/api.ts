@@ -1165,7 +1165,12 @@ export async function fetchIpoCalendar(): Promise<IpoCalendarEntry[]> {
       exchange: row.exchange != null ? String(row.exchange) : null,
       status: row.status != null ? String(row.status) : null,
       price: row.price != null ? String(row.price) : null,
-      shares: typeof row.numberOfShares === 'number' ? row.numberOfShares : null,
+      shares:
+        typeof row.shares === 'number'
+          ? row.shares
+          : typeof row.numberOfShares === 'number'
+            ? row.numberOfShares
+            : null,
     }))
   } catch {
     return []

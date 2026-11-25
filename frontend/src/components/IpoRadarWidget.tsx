@@ -33,6 +33,32 @@ function filterIposByScope(
   return filtered.length > 0 ? filtered : rows
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  expected: 'Expected',
+  priced: 'Priced',
+  filed: 'Filed',
+  withdrawn: 'Withdrawn',
+}
+
+/** Human label for a pipeline status (Finnhub/Nasdaq lowercase codes). */
+export function ipoStatusLabel(status?: string | null): string {
+  const s = (status || '').trim()
+  if (!s) return ''
+  return STATUS_LABEL[s.toLowerCase()] ?? s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function statusLine(ipo: IpoCalendarEntry): string {
+  return [ipoStatusLabel(ipo.status), ipo.price ? `$${ipo.price}` : ''].filter(Boolean).join(' · ')
+}
+
+/** Only priced/expected rows link to research; filed tickers are not trading yet. */
+function researchHref(ipo: IpoCalendarEntry): string | undefined {
+  const sym = ipo.symbol?.trim()
+  if (!sym) return undefined
+  if ((ipo.status || '').toLowerCase() === 'filed') return undefined
+  return `/research?symbol=${encodeURIComponent(sym)}`
+}
+
 export default function IpoRadarWidget({
   continent,
   exchangeId,
@@ -94,7 +120,7 @@ export default function IpoRadarWidget({
       </span>
       {allScoped[0]?.date && (
         <span>
-          Next:{' '}
+          {(allScoped[0].status || '').toLowerCase() === 'expected' ? 'Next' : 'Latest'}:{' '}
           <span className="font-mono text-fg-primary">{allScoped[0].date}</span>
           {allScoped[0].symbol?.trim() && (
             <span className="ml-1.5 font-mono text-fuchsia-200/90">{allScoped[0].symbol.trim()}</span>
@@ -129,8 +155,8 @@ export default function IpoRadarWidget({
   ) : rows.length === 0 ? (
     <p className="text-[11px] leading-relaxed text-fg-muted">
       {variant === 'inline'
-        ? 'No IPO rows in scope. Calendar fills when the data feed returns listings.'
-        : 'No upcoming IPO rows returned. When the backend has a Finnhub API key, the next listings appear here automatically.'}
+        ? 'IPO calendar unavailable right now: no listings returned by Finnhub or Nasdaq. Retrying hourly.'
+        : 'IPO calendar unavailable right now: no listings returned by Finnhub or Nasdaq. Retrying hourly.'}
     </p>
   ) : variant === 'inline' ? (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -138,7 +164,7 @@ export default function IpoRadarWidget({
       <div className="min-h-0 max-h-[420px] space-y-1.5 overflow-y-auto py-2 pr-0.5 scrollbar-thin">
         {rows.map((ipo, idx) => {
           const sym = ipo.symbol?.trim()
-          const href = sym ? `/research?symbol=${encodeURIComponent(sym)}` : undefined
+          const href = researchHref(ipo)
           const Inner = (
             <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-line-default bg-surface-raised/55 px-2.5 py-2 transition-colors hover:border-fuchsia-500/35 sm:grid-cols-[5rem_minmax(0,1fr)_minmax(0,7rem)]">
               <span className="font-mono text-[9px] tabular-nums text-fg-muted">{ipo.date || '—'}</span>
@@ -149,7 +175,7 @@ export default function IpoRadarWidget({
               <div className="min-w-0 text-right">
                 <div className="line-clamp-1 text-[9px] text-fg-muted">{ipo.exchange || '—'}</div>
                 <div className="line-clamp-1 text-[9px] font-medium text-fuchsia-400/90">
-                  {ipo.status || ipo.price || 'IPO'}
+                  {statusLine(ipo) || 'IPO'}
                 </div>
               </div>
             </div>
@@ -168,7 +194,7 @@ export default function IpoRadarWidget({
     <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-thin">
       {rows.map((ipo, idx) => {
         const sym = ipo.symbol?.trim()
-        const href = sym ? `/research?symbol=${encodeURIComponent(sym)}` : undefined
+        const href = researchHref(ipo)
         const Inner = (
           <div className="min-w-[155px] rounded-lg border border-line-default bg-surface-raised/70 px-3 py-2.5 hover:border-fuchsia-500/40 transition-colors">
             <div className="text-[10px] text-fg-muted font-mono">{ipo.date || '—'}</div>
@@ -176,8 +202,11 @@ export default function IpoRadarWidget({
               {sym || ipo.name}
             </div>
             <div className="text-[10px] text-fg-secondary mt-1 line-clamp-1">
-              {sym ? ipo.name : ipo.exchange || ipo.status || 'IPO'}
+              {sym ? ipo.name : ipo.exchange || 'IPO'}
             </div>
+            {statusLine(ipo) && (
+              <div className="text-[9px] font-medium text-fuchsia-400/90 mt-0.5 line-clamp-1">{statusLine(ipo)}</div>
+            )}
           </div>
         )
         return href ? (

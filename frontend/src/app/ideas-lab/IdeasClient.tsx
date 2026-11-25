@@ -1041,10 +1041,12 @@ function DesktopIdeasLab() {
             {/* Filters Bar */}
             <div className="flex items-center gap-3 flex-wrap">
               {/* Sentiment */}
-              <div className="flex items-center gap-1 bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1">
+              <div role="group" aria-label="Filter by sentiment" className="flex items-center gap-1 bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1">
                 {(['all', 'bullish', 'bearish'] as const).map(s => (
                   <button
                     key={s}
+                    type="button"
+                    aria-pressed={sentiment === s}
                     onClick={() => setSentiment(s)}
                     className={`px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
                       sentiment === s
@@ -1060,10 +1062,12 @@ function DesktopIdeasLab() {
               </div>
 
               {/* Timeframe */}
-              <div className="flex items-center gap-1 bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1">
+              <div role="group" aria-label="Filter by timeframe" className="flex items-center gap-1 bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl p-1">
                 {(['all', 'intraday', 'swing', 'position'] as const).map(t => (
                   <button
                     key={t}
+                    type="button"
+                    aria-pressed={timeframe === t}
                     onClick={() => setTimeframe(t)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
                       timeframe === t
@@ -1078,6 +1082,7 @@ function DesktopIdeasLab() {
 
               {/* Sector dropdown */}
               <select
+                aria-label="Filter by sector"
                 value={sector}
                 onChange={e => setSector(e.target.value)}
                 className="bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-xs font-bold text-fg-primary outline-none focus:border-cyan-500/30 cursor-pointer appearance-none"
