@@ -8,7 +8,7 @@ Exit codes:
     0 = success
     1 = data error (bad manifest, no valid symbols)
     2 = training error (model training failed)
-    3 = infrastructure error (S3, Neon, etc.)
+    3 = infrastructure error (S3, DB, etc.)
 
 Usage:
     # With manifest from S3
@@ -112,7 +112,7 @@ def run_shard(config: BatchConfig) -> tuple[int, int]:
         if config.parsed_horizons:
             train_config.horizons = config.parsed_horizons
 
-        # ── Notify FastAPI so Neon records exist for live dashboard ──
+        # ── Notify FastAPI so DB records exist for live dashboard ──
         _post_start_callback(config, symbol_count=len(symbols), horizons=train_config.horizons)
 
         # ── Execute training ──────────────────────────────────────────
@@ -239,7 +239,7 @@ def _upload_artifacts(config: BatchConfig, results: list[dict], slog) -> None:
 
 
 def _post_start_callback(config: BatchConfig, symbol_count: int, horizons: list[int]) -> None:
-    """POST training start to FastAPI so Neon records exist for live dashboard. Non-fatal."""
+    """POST training start to FastAPI so DB records exist for live dashboard. Non-fatal."""
     import os as _os
     import urllib.request
     import json as _json
@@ -349,7 +349,7 @@ def main():
         config.shard_id = str(uuid.uuid4())
 
     # SIGTERM handler — AWS Batch sends SIGTERM before killing the container at timeout.
-    # Fire the callback so Neon records get updated even on forced termination.
+    # Fire the callback so DB records get updated even on forced termination.
     _start_time = _time.monotonic()
     def _sigterm_handler(signum, frame):
         duration_s = int(_time.monotonic() - _start_time)

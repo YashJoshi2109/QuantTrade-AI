@@ -66,7 +66,7 @@ async def universal_search(
     Universal symbol search with ranked results.
     
     Uses symbols_master table with pg_trgm trigram indexes for fast fuzzy search.
-    NO external API calls - all data from Neon PostgreSQL.
+    NO external API calls - all data from PostgreSQL.
     
     Ranking priority:
     1. Exact symbol match (AAPL)

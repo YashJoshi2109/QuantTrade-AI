@@ -1,5 +1,5 @@
 """
-Quote Snapshot model - Neon-backed cache for real-time quotes
+Quote Snapshot model - PostgreSQL-backed cache for real-time quotes
 
 Implementation Notes:
 - Table: quote_snapshots

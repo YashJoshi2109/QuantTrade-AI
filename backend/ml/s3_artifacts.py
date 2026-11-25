@@ -226,7 +226,7 @@ def get_latest_checkpoint_uri(symbol: str, horizon: int) -> str | None:
     """Find the most recent checkpoint for a symbol+horizon across all runs."""
     # List all checkpoints matching the pattern
     prefix = "checkpoints/"
-    # This is expensive for large buckets; in production, query Neon metadata instead
+    # This is expensive for large buckets; in production, query PostgreSQL metadata instead
     keys = list_keys(prefix, max_keys=10000)
     matching = [k for k in keys if f"/{symbol}/h{horizon}/model.pt" in k]
     if not matching:

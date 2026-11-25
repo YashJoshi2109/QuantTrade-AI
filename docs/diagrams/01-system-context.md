@@ -13,7 +13,7 @@ C4Context
 
     System_Ext(cloudflare, "Cloudflare", "CDN · WAF · TLS · DNS · Turnstile · R2")
     System_Ext(aws, "AWS", "EC2 compute · Bedrock LLM (Claude Sonnet 4.6 / Haiku 4.5 · Titan Embed v2)")
-    System_Ext(neon, "Neon", "Serverless PostgreSQL — primary database")
+    System_Ext(rds, "AWS RDS PostgreSQL", "PostgreSQL 17 + pgvector — primary database")
     System_Ext(qdrant, "Qdrant Cloud", "Vector DB — 36,627 SEC filing chunks")
     System_Ext(redis, "Redis", "Cache · session · Celery broker")
 
@@ -35,7 +35,7 @@ C4Context
     Rel(admin, qt, "Admin panel HTTPS")
     Rel(qt, cloudflare, "All traffic via")
     Rel(qt, aws, "Bedrock API")
-    Rel(qt, neon, "SQL / psycopg3")
+    Rel(qt, rds, "SQL / psycopg3")
     Rel(qt, qdrant, "Vector search API")
     Rel(qt, redis, "TCP 6379")
     Rel(qt, finnhub, "REST · WebSocket")

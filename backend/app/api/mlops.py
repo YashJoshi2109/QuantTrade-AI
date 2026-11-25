@@ -159,7 +159,7 @@ async def get_performance(
     window_days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
 ):
-    """Get model performance from Neon DB training artifacts."""
+    """Get model performance from PostgreSQL training artifacts."""
     from datetime import datetime, timezone, timedelta
     from app.models.ml_training import TrainingArtifact
 
@@ -216,7 +216,7 @@ async def get_performance(
 
 @router.get("/mlops/monitoring/alerts")
 async def get_alerts(level: Optional[str] = Query(None), db: Session = Depends(get_db)):
-    """Get alerts from live run status in Neon DB."""
+    """Get alerts from live run status in PostgreSQL."""
     from datetime import datetime, timezone
     import uuid as _uuid
     from app.services import ml_metadata_service as mds
@@ -264,7 +264,7 @@ async def get_alerts(level: Optional[str] = Query(None), db: Session = Depends(g
 
 @router.get("/mlops/features/symbols")
 async def list_feature_symbols(db: Session = Depends(get_db)):
-    """List symbols with training artifacts in Neon DB."""
+    """List symbols with training artifacts in PostgreSQL."""
     from app.models.ml_training import TrainingArtifact
     rows = db.query(TrainingArtifact.symbol).distinct().all()
     symbols = [r[0] for r in rows if r[0]]

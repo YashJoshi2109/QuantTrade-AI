@@ -7,9 +7,9 @@ import { useAuth } from '@/contexts/AuthContext'
 import { ArrowLeft, User } from 'lucide-react'
 
 function MobileProfile() {
-  const { user, neonUser, isAuthenticated, isLoading } = useAuth()
-  const displayName = user?.full_name || user?.username || neonUser?.name || 'Trader'
-  const email = user?.email || neonUser?.email || '—'
+  const { user, isAuthenticated, isLoading } = useAuth()
+  const displayName = user?.full_name || user?.username || 'Trader'
+  const email = user?.email || '—'
 
   if (!isLoading && !isAuthenticated) {
     return (
@@ -72,9 +72,9 @@ function MobileProfile() {
 }
 
 function DesktopProfile() {
-  const { user, neonUser, isAuthenticated, isLoading } = useAuth()
-  const displayName = user?.full_name || user?.username || neonUser?.name || 'Trader'
-  const email = user?.email || neonUser?.email || '—'
+  const { user, isAuthenticated, isLoading } = useAuth()
+  const displayName = user?.full_name || user?.username || 'Trader'
+  const email = user?.email || '—'
   const username = user?.username || ''
 
   if (!isLoading && !isAuthenticated) {

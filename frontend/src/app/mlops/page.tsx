@@ -472,7 +472,7 @@ function PipelineFlowStrip({ sfn, batch, run, models, staging }: {
       detail: batch ? `${batch.running}R ${batch.succeeded}✓ ${batch.failed}✗` : '—',
     },
     {
-      label: 'Neon DB', icon: Database,
+      label: 'PostgreSQL (RDS)', icon: Database,
       status: ((batch?.running ?? 0) > 0
         ? 'running'
         : run

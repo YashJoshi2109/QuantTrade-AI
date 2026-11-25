@@ -1,362 +1,79 @@
-# 🚀 QuantTrade AI - AWS EC2 Deployment Guide
+# QuantTrade AI — Production Runbook (AWS EC2 + Docker)
 
-This guide walks you through deploying QuantTrade AI on an AWS EC2 instance.
+Production runs as Docker containers on one EC2 host behind nginx and Cloudflare.
+Deploys are fully automated by GitHub Actions — there is no manual deploy path.
 
-## 📋 Prerequisites
+## Topology
 
-- AWS Account with EC2 access
-- Domain name (optional, but recommended for SSL)
-- Your existing Neon PostgreSQL database
-- API keys (Finnhub, Alpha Vantage, NewsAPI, Anthropic)
+| Component | Resource |
+|---|---|
+| AWS account / region | `208638972407` / `us-east-2` |
+| App host | EC2 `quanttrade-prod` (t3.small, Ubuntu 24.04, 2 GB swap), Elastic IP `3.128.176.85` |
+| Containers | `nginx`, `frontend` (Next.js), `backend` (FastAPI/gunicorn), `celery-worker` (worker + beat) — see `docker-compose.prod.yml` |
+| Database | RDS PostgreSQL 17 `quanttrade-prod` (db.t4g.micro, pgvector, `rds.force_ssl=1`) — `infra/rds-stack.yaml` |
+| Cache / broker | ElastiCache Redis `quanttrade-redis` (cache.t4g.micro) |
+| Secrets | Secrets Manager `quanttrade/backend` (JSON). Backend + Celery load it at startup via `app/config_aws.py` → `inject_aws_secrets()`; EC2 role `QuantTradeEC2Role` grants read |
+| DNS / TLS edge | Cloudflare (proxied, SSL mode Full). Origin cert: Let's Encrypt at `/etc/letsencrypt/live/quanttrade.us/` |
+| Monitoring | CloudWatch dashboard `QuantTrade-Production` + alarms → SNS `quanttrade-alerts` — `infra/monitoring-stack.yaml` |
+| ML | Batch / Step Functions / Lambdas / S3 `quanttrade-ml-artifacts-208638972407` — `infra/ml-pipeline-stack.yaml` |
 
----
+## How a deploy works
 
-## 🖥️ Step 1: Launch EC2 Instance
+Push to `main` → `.github/workflows/deploy.yml`:
 
-### Recommended Instance Specs
+1. Builds `quanttrade-backend` and `quanttrade-frontend` images, pushes to GHCR.
+2. Copies `docker-compose.prod.yml` + `nginx/` to `/opt/quanttrade` over SSH.
+3. Writes `/opt/quanttrade/.env` from GitHub Secrets (API keys; **not** `DATABASE_URL`, which comes from Secrets Manager).
+4. `docker compose pull` → `up -d --wait`, runs idempotent DB column migrations, prunes old images.
 
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| Instance Type | t3.small | t3.medium |
-| vCPUs | 2 | 2 |
-| Memory | 2 GB | 4 GB |
-| Storage | 20 GB SSD | 30 GB SSD |
-| OS | Ubuntu 22.04 LTS | Ubuntu 24.04 LTS |
+The ssh step runs with `script_stop: true`: **any command that exits non-zero aborts the deploy**. Append `|| true` to diagnostic commands that may legitimately fail.
 
-### Launch Steps
+GitHub secrets the deploy needs: `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`, plus the API keys listed in `deploy.yml`.
 
-1. **Go to EC2 Dashboard** → Click "Launch Instance"
-
-2. **Name**: `quanttrade-ai-production`
-
-3. **AMI**: Ubuntu Server 22.04 LTS (HVM), SSD Volume Type
-
-4. **Instance Type**: `t3.small` or `t3.medium`
-
-5. **Key Pair**: Create or select existing key pair
-   - Download the `.pem` file and keep it safe!
-
-6. **Network Settings**:
-   - Create security group with these rules:
-   
-   | Type | Port | Source | Description |
-   |------|------|--------|-------------|
-   | SSH | 22 | Your IP | SSH access |
-   | HTTP | 80 | 0.0.0.0/0 | Web traffic |
-   | HTTPS | 443 | 0.0.0.0/0 | Secure web traffic |
-   | Custom TCP | 8000 | 0.0.0.0/0 | API (optional) |
-
-7. **Storage**: 30 GB gp3 SSD
-
-8. Click **Launch Instance**
-
----
-
-## 🔗 Step 2: Connect to Your Instance
+## New host from scratch
 
 ```bash
-# Set permissions on your key file
-chmod 400 your-key.pem
-
-# Connect via SSH
-ssh -i your-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
+# 1. Launch Ubuntu 24.04 t3.small with instance profile QuantTradeEC2Role,
+#    app security group (80/443 public, 22 for GitHub Actions), user-data = deploy/docker-setup-ec2.sh
+# 2. Associate the Elastic IP, then point Cloudflare A records (@, www) at it.
+# 3. Issue the origin certificate (port 80 must be free — run before the first deploy):
+sudo certbot certonly --standalone --non-interactive --agree-tos \
+  -m <you@example.com> -d quanttrade.us -d www.quanttrade.us
+# 4. Switch renewal to webroot so it works while nginx owns port 80:
+sudo sed -i 's/^authenticator = standalone/authenticator = webroot/' /etc/letsencrypt/renewal/quanttrade.us.conf
+echo 'webroot_path = /opt/quanttrade/nginx/certbot,' | sudo tee -a /etc/letsencrypt/renewal/quanttrade.us.conf
+# 5. Update GitHub secrets EC2_HOST / EC2_SSH_KEY, then: gh workflow run deploy.yml
 ```
 
----
-
-## ⚙️ Step 3: Initial Server Setup
-
-### Run the setup script:
+## Database
 
 ```bash
-# Clone your repository
-cd /var/www
-sudo mkdir -p quanttrade
-sudo chown ubuntu:ubuntu quanttrade
-git clone https://github.com/YashJoshi2109/QuantTrade-AI.git quanttrade
-
-# Run the EC2 setup script
-cd quanttrade/deploy
-chmod +x *.sh
-sudo ./ec2-setup.sh
+# Create schema + pgvector, then seed symbol tables (run from backend/ with DATABASE_URL set)
+python scripts/init_rds_database.py
+python scripts/seed_stock_universe.py
+python scripts/seed_global_universe.py
+python scripts/seed_symbols_master.py
 ```
 
-This installs:
-- Node.js 20 LTS
-- Python 3.11
-- nginx
-- Redis
-- PM2 (process manager)
-- Certbot (for SSL)
+Rotate the connection string by updating `DATABASE_URL` in Secrets Manager `quanttrade/backend`, then restart containers (`docker compose -f docker-compose.prod.yml restart backend celery-worker`).
 
----
+## Operating the host
 
-## 🔐 Step 4: Configure Environment Variables
-
-### Backend Environment
+Shell access without SSH keys: `aws ssm start-session --target <instance-id> --region us-east-2`.
 
 ```bash
-# Copy the template
-cp deploy/.env.production.template backend/.env
-
-# Edit with your values
-nano backend/.env
+cd /opt/quanttrade
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs --tail=200 backend
+curl -s localhost/health            # {"status": ..., "checks": {...}}
 ```
 
-**Critical values to update:**
-```env
-# Your Neon database URL (from your local .env)
-DATABASE_URL=postgresql://neondb_owner:npg_XXX@ep-XXX.neon.tech/neondb?sslmode=require
-
-# Generate a new JWT secret for production
-JWT_SECRET_KEY=$(openssl rand -hex 32)
-
-# Your API keys
-FINNHUB_API_KEY=your_key
-ALPHA_VANTAGE_API_KEY=your_key
-NEWSAPI_KEY=your_key
-ANTHROPIC_API_KEY=your_key
-
-# Update CORS for your domain
-CORS_ORIGINS=["https://yourdomain.com"]
-```
-
-### Frontend Environment
-
-```bash
-# Create frontend .env.local
-cat > frontend/.env.local << EOF
-NEXT_PUBLIC_API_URL=https://yourdomain.com/api/v1
-# Or if no domain yet:
-# NEXT_PUBLIC_API_URL=http://YOUR_EC2_IP/api/v1
-EOF
-```
-
----
-
-## 🚀 Step 5: Deploy the Application
-
-```bash
-cd /var/www/quanttrade/deploy
-./deploy-app.sh
-```
-
-This will:
-1. Create Python virtual environment
-2. Install Python dependencies
-3. Install Node.js dependencies
-4. Build the Next.js frontend
-5. Start both services with PM2
-
----
-
-## 🌐 Step 6: Configure Nginx
-
-### Without a domain (IP access only):
-
-```bash
-sudo ./setup-nginx.sh
-```
-
-### With a domain:
-
-```bash
-# First, point your domain's DNS A record to your EC2 public IP
-# Then run:
-sudo ./setup-nginx.sh yourdomain.com
-```
-
-This will:
-- Configure nginx as reverse proxy
-- Setup SSL certificate (if domain provided)
-- Enable automatic certificate renewal
-
----
-
-## ✅ Step 7: Verify Deployment
-
-### Check services are running:
-
-```bash
-# View PM2 processes
-pm2 list
-
-# Check logs
-pm2 logs
-
-# Monitor resources
-pm2 monit
-```
-
-### Test endpoints:
-
-```bash
-# Health check
-curl http://localhost:8000/health
-
-# API test
-curl http://localhost:8000/api/v1/market/status
-
-# Frontend (via nginx)
-curl http://YOUR_EC2_IP
-```
-
-### Access your app:
-
-- **Without domain**: `http://YOUR_EC2_PUBLIC_IP`
-- **With domain**: `https://yourdomain.com`
-
----
-
-## 🔧 Management Commands
-
-### PM2 Process Management
-
-```bash
-# View all processes
-pm2 list
-
-# View logs
-pm2 logs                    # All logs
-pm2 logs quanttrade-backend # Backend only
-pm2 logs quanttrade-frontend # Frontend only
-
-# Restart services
-pm2 restart all
-pm2 restart quanttrade-backend
-pm2 restart quanttrade-frontend
-
-# Stop services
-pm2 stop all
-
-# Monitor
-pm2 monit
-```
-
-### Update Application
-
-```bash
-cd /var/www/quanttrade
-
-# Pull latest changes
-git pull origin main
-
-# Reinstall dependencies if needed
-cd backend && source venv/bin/activate && pip install -r requirements.txt
-cd ../frontend && npm ci
-
-# Rebuild frontend
-npm run build
-
-# Restart services
-pm2 restart all
-```
-
-### View Logs
-
-```bash
-# Nginx logs
-sudo tail -f /var/log/nginx/quanttrade_access.log
-sudo tail -f /var/log/nginx/quanttrade_error.log
-
-# Application logs
-tail -f /var/log/quanttrade/backend-out.log
-tail -f /var/log/quanttrade/backend-error.log
-```
-
----
-
-## 🔒 Security Checklist
-
-- [ ] Change default SSH port (optional)
-- [ ] Disable password authentication for SSH
-- [ ] Keep system updated: `sudo apt update && sudo apt upgrade`
-- [ ] Use strong JWT secret (32+ characters)
-- [ ] Enable SSL with Let's Encrypt
-- [ ] Restrict security group to necessary ports only
-- [ ] Setup automated backups (optional)
-- [ ] Configure CloudWatch monitoring (optional)
-
----
-
-## 🐛 Troubleshooting
-
-### Backend won't start
-
-```bash
-# Check logs
-pm2 logs quanttrade-backend
-
-# Common issues:
-# - Missing .env file
-# - Invalid DATABASE_URL
-# - Missing API keys
-# - Port 8000 already in use
-```
-
-### Frontend build fails
-
-```bash
-# Check Node.js version
-node --version  # Should be 20.x
-
-# Clear cache and rebuild
-cd frontend
-rm -rf .next node_modules
-npm ci
-npm run build
-```
-
-### Nginx errors
-
-```bash
-# Test configuration
-sudo nginx -t
-
-# Check error log
-sudo tail -f /var/log/nginx/error.log
-
-# Common issues:
-# - Upstream server not responding (backend/frontend not running)
-# - SSL certificate issues
-```
-
-### Database connection issues
-
-```bash
-# Test from EC2
-cd /var/www/quanttrade/backend
-source venv/bin/activate
-python -c "from app.db.database import engine; print('OK')"
-
-# Common issues:
-# - Wrong DATABASE_URL
-# - Neon IP allowlist (check Neon dashboard)
-# - SSL mode issues
-```
-
----
-
-## 💰 Cost Estimation
-
-| Resource | Monthly Cost |
-|----------|--------------|
-| t3.small EC2 | ~$15 |
-| t3.medium EC2 | ~$30 |
-| 30GB EBS Storage | ~$3 |
-| Data Transfer (50GB) | ~$5 |
-| **Total (t3.small)** | **~$23/month** |
-
-**Free tier eligible** for the first 12 months (t2.micro)
-
----
-
-## 📞 Support
-
-If you encounter issues:
-1. Check the logs (`pm2 logs`)
-2. Verify environment variables
-3. Test individual services
-4. Check security group rules
-
-Your QuantTrade AI is now live! 🎉
+## Troubleshooting
+
+| Symptom | Likely cause |
+|---|---|
+| Cloudflare **522** | EC2 unreachable / stopped, or security group blocks 80/443 |
+| Cloudflare **521** | Host up, nginx container not running (usually backend failed its healthcheck → `depends_on` held nginx back) |
+| Deploy fails `dial tcp …:22: i/o timeout` | Security group does not allow SSH from GitHub Actions runners |
+| Deploy exits 1 right after a step with no error | `script_stop` tripped on a non-zero diagnostic command |
+| Backend `Worker failed to boot` | Import-time error — read `docker logs quanttrade-backend` |

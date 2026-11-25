@@ -1,5 +1,5 @@
 """
-Quote Cache Service - Neon-backed caching for real-time quotes
+Quote Cache Service - PostgreSQL-backed caching for real-time quotes
 
 Implementation Notes:
 - Fetches quotes from multiple providers with fallback chain:
@@ -7,7 +7,7 @@ Implementation Notes:
   2. yfinance library (fallback - uses Yahoo's data)
   3. Finnhub API (tertiary - requires API key)
   4. TradingView API (final fallback - ensures data availability, handles null values)
-- Caches results in Neon PostgreSQL (quote_snapshots table)
+- Caches results in PostgreSQL (quote_snapshots table)
 - TTL-based expiration: 60s market hours, 300s after hours, 600s weekends
 - PARALLEL fetching for bulk operations (critical for performance)
 - TradingView fallback automatically handles null/zero values from other sources
@@ -40,7 +40,7 @@ from app.config import settings
 class QuoteCacheService:
     """
     Service for fetching and caching real-time quotes.
-    Uses Neon PostgreSQL as the cache store with PARALLEL fetching.
+    Uses PostgreSQL as the cache store with PARALLEL fetching.
     
     Data Provider Priority:
     1. Yahoo Finance Direct API (primary - free, unlimited, real-time)

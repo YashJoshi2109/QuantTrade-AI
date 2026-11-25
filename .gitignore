@@ -100,8 +100,16 @@ frontend/test-results/
 test-results/
 playwright-report/
 .rds-migration.secret
-*.neon.bak
-backend/.env.neon.bak
 .ml-secrets.local
 .gh-aws-ml-key.local
 .gh-secrets-update.local
+
+# Local scratch / tool output (never commit)
+/*.png
+/*.log
+backend_log.txt
+.playwright-mcp/
+.remember/
+.tmp*
+infra/lambdas/*/package/
+infra/lambdas/*/function.zip

@@ -17,7 +17,7 @@ C4Context
 
     System_Ext(cloudflare, "Cloudflare", "CDN · WAF · TLS · DNS · Turnstile CAPTCHA · R2 storage")
     System_Ext(aws, "AWS", "EC2 compute · Bedrock LLM (Claude Sonnet 4.6 / Haiku 4.5 · Titan Embed v2)")
-    System_Ext(neon, "Neon", "Serverless PostgreSQL — primary database")
+    System_Ext(rds, "AWS RDS PostgreSQL", "PostgreSQL 17 + pgvector — primary database")
     System_Ext(qdrant, "Qdrant Cloud", "Vector DB — 36,627 SEC filing chunks")
     System_Ext(redis, "Redis", "Cache · session · Celery broker")
 
@@ -39,7 +39,7 @@ C4Context
     Rel(admin, qt, "Admin panel HTTPS")
     Rel(qt, cloudflare, "All traffic via")
     Rel(qt, aws, "Bedrock API calls")
-    Rel(qt, neon, "SQL via psycopg3")
+    Rel(qt, rds, "SQL via psycopg3")
     Rel(qt, qdrant, "Vector search API")
     Rel(qt, redis, "TCP 6379")
     Rel(qt, finnhub, "REST · WebSocket")
@@ -88,7 +88,7 @@ C4Container
     }
 
     Container_Boundary(data, "Data Layer") {
-        ContainerDb(postgres, "Neon PostgreSQL", "PostgreSQL (serverless)", "Users, portfolios, watchlists, posts, game state, theme prefs, passkeyss, billing, alerts")
+        ContainerDb(postgres, "AWS RDS PostgreSQL", "PostgreSQL (serverless)", "Users, portfolios, watchlists, posts, game state, theme prefs, passkeyss, billing, alerts")
         ContainerDb(redis_db, "Redis", "Redis", "Hot cache (~1ms), conversation history, Celery queue, rate limit counters")
         ContainerDb(qdrant_db, "Qdrant Cloud", "Vector DB", "36,627 SEC filing chunks. Collections: sec_filings (HNSW + BM42 sparse, 1536-dim)")
         ContainerDb(r2, "Cloudflare R2", "S3-compatible object store", "User uploads, media, profile images")
@@ -188,7 +188,7 @@ flowchart TD
     subgraph STORAGE["⑦ DATA LAYER (Hot → Warm → Cold)"]
         direction LR
         HOT["⚡ Redis\nHOT ~1ms\ncache · sessions\nCelery broker"]
-        WARM["🐘 Neon PostgreSQL\nWARM ~10ms\nusers · portfolios\nposts · game"]
+        WARM["🐘 AWS RDS PostgreSQL\nWARM ~10ms\nusers · portfolios\nposts · game"]
         COLD["🔮 Qdrant Cloud\nCOLD RAG\n36K SEC chunks\nvector search"]
         OBJ["☁️ R2\nOBJECT STORE\nuploads · media"]
     end
@@ -425,7 +425,7 @@ flowchart TD
     end
 
     subgraph EXTERNAL_SVC["☁️ External Managed Services"]
-        NEON["Neon PostgreSQL\nServerless · auto-scale"]
+        RDS["AWS RDS PostgreSQL\nServerless · auto-scale"]
         QDRANT_C["Qdrant Cloud\nManaged vector DB"]
         COHERE_C["Cohere API\nrerank-v3-5"]
         STRIPE_C["Stripe\nPayments API"]
@@ -445,7 +445,7 @@ flowchart TD
     SVC_NGINX --> SVC_BACKEND
     SVC_BACKEND --> SVC_REDIS
     SVC_BACKEND --> AWS_BEDROCK
-    SVC_BACKEND --> NEON
+    SVC_BACKEND --> RDS
     SVC_BACKEND --> QDRANT_C
     SVC_BACKEND --> COHERE_C
     SVC_BACKEND --> STRIPE_C
@@ -784,7 +784,7 @@ mindmap
       Docker Compose
       GitHub Actions CI/CD
       Cloudflare CDN/WAF/TLS
-      Neon PostgreSQL
+      AWS RDS PostgreSQL
       Qdrant Cloud
       Redis
       Cloudflare R2
@@ -798,9 +798,9 @@ mindmap
 |---------------------|---------|---------------------------|
 | ① EDGE | ✅ Cloudflare CDN+WAF+TLS | Add Cloudflare Workers for edge auth |
 | ② ROUTING | ❌ Single EC2 | Add NLB + Route 53 health routing |
-| ③ REGION | ❌ us-east-1 only | Add us-west-2 read replica (Neon branching) |
+| ③ REGION | ❌ us-east-1 only | Add us-west-2 read replica (PostgreSQL branching) |
 | ④ CELLS | ❌ Monolith | Split Copilot + Markets into separate services |
 | ⑤ CLUSTER | ⚠️ Nginx only | Migrate to ECS Fargate or k8s (EKS) |
 | ⑥ SERVICE MESH | ❌ Direct Docker network | Add Envoy or use AWS App Mesh |
-| ⑦ DATA LAYER | ✅ Hot/Warm/Cold | Add Neon read replica for heavy read traffic |
+| ⑦ DATA LAYER | ✅ Hot/Warm/Cold | Add PostgreSQL read replica for heavy read traffic |
 

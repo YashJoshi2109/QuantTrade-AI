@@ -19,7 +19,7 @@ if settings.DATABASE_URL:
         pool_pre_ping=True,
         pool_size=10,
         max_overflow=20,
-        pool_recycle=1800,  # Recycle connections after 30min (Neon idle timeout)
+        pool_recycle=1800,  # Recycle connections after 30min (PostgreSQL idle timeout)
         pool_timeout=30,
         echo=settings.DEBUG,
     )

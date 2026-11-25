@@ -1,7 +1,7 @@
 """
 Quotes API - MVP Lean Implementation
 
-Real-time quotes with Neon-backed caching.
+Real-time quotes with PostgreSQL-backed caching.
 NO fake data - returns "unavailable" if provider fails.
 
 Endpoints:

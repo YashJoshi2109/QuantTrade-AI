@@ -1,5 +1,5 @@
 """
-One-off / scheduled job to log basic prediction statistics into Neon.
+One-off / scheduled job to log basic prediction statistics into PostgreSQL.
 
 - Calls the prediction microservice for a small universe of symbols
 - Aggregates per-horizon confidence / expected_return

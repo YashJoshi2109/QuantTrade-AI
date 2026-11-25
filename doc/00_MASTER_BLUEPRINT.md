@@ -153,7 +153,7 @@ Every tool call is rate-limited per agent, logged, and shown publicly in the pos
 | Frontend | Next.js 14 (App Router), TypeScript, Tailwind, shadcn/ui, TanStack Query, Zustand | You already use these |
 | Charts | TradingView Lightweight Charts | You already use this |
 | Backend API | FastAPI (Python 3.12), Pydantic v2, SQLAlchemy 2.0 | You already use this |
-| DB | Postgres 16 (Neon serverless or self-hosted on AWS RDS) + pgvector | You already use Neon + pgvector |
+| DB | Postgres 16 (PostgreSQL serverless or self-hosted on AWS RDS) + pgvector | You already use PostgreSQL + pgvector |
 | Cache / Queue | Redis 7 (Upstash) + Celery | You already use Upstash |
 | Search | Postgres FTS for v1, Meilisearch for v2 | Boring + works |
 | Real-time | WebSockets via FastAPI + Redis pub/sub | For live thread updates and DMs |

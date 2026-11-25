@@ -2,9 +2,6 @@
   "plugins": {
     "stripe": {
       "enabled": true
-    },
-    "neon-postgres": {
-      "enabled": true
     }
   }
 }

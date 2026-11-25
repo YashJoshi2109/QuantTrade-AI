@@ -42,7 +42,7 @@ Webhook Events Mapping:
 
 Important:
 - Never trust client for subscription status.
-- Stripe is the source of truth; only webhooks update billing state in Neon.
+- Stripe is the source of truth; only webhooks update billing state in PostgreSQL.
 """
 
 from datetime import datetime

@@ -177,7 +177,7 @@ Use this checklist to track your deployment progress.
 
 ### Infrastructure
 - [ ] Production server provisioned (EC2, DigitalOcean, etc.)
-- [ ] PostgreSQL database set up (or Neon/Supabase)
+- [ ] PostgreSQL database set up (or PostgreSQL/Supabase)
 - [ ] Redis instance running (Upstash, AWS ElastiCache, etc.)
 - [ ] SSL certificate obtained (Let's Encrypt)
 - [ ] Domain name configured

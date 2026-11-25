@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  QuantTrade-AI primary database — AWS RDS PostgreSQL 17 (migrated from Neon, 2026-06-23).
+  QuantTrade-AI primary database — AWS RDS PostgreSQL 17 (account 208638972407, us-east-2).
   Codifies the live `quanttrade-prod` instance: t4g.small, single-AZ, gp3, pgvector, force_ssl.
   Master password is managed by RDS in Secrets Manager (ManageMasterUserPassword).
 
@@ -97,8 +97,6 @@ Resources:
       Tags:
         - Key: Project
           Value: QuantTrade-AI
-        - Key: MigratedFrom
-          Value: Neon
 
 Outputs:
   Endpoint:

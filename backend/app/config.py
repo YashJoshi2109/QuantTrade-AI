@@ -20,9 +20,8 @@ class Settings(BaseSettings):
     )
 
     # Database (use postgresql+psycopg:// for psycopg3)
-    # Priority: DATABASE_URL (from environment) > NEON_DATABASE_URL
+    # Sourced from env / AWS Secrets Manager (quanttrade/backend)
     DATABASE_URL: Optional[str] = None
-    NEON_DATABASE_URL: Optional[str] = None
     
     # JWT Auth (should be set via environment variable in production)
     # Default secret key (override with SECRET_KEY env var for production)
@@ -129,11 +128,6 @@ class Settings(BaseSettings):
     RESEND_API_KEY: Optional[str] = None
     RESEND_FROM_EMAIL: Optional[str] = None  # e.g. QuantTrade AI <notify@yourdomain.com>
     
-    # Neon Auth
-    NEON_AUTH_URL: Optional[str] = None
-    NEON_AUTH_JWKS_URL: Optional[str] = None
-    NEON_AUTH_AUDIENCE: Optional[str] = None
-    
     # Data sources
     DEFAULT_SYMBOLS: str = "AAPL,MSFT,GOOGL,AMZN,TSLA,META,NVDA,JPM,V,JNJ"
 
@@ -187,7 +181,7 @@ class Settings(BaseSettings):
 
     def __init__(self, **values):
         super().__init__(**values)
-        db_url = self.DATABASE_URL or self.NEON_DATABASE_URL or ""
+        db_url = self.DATABASE_URL or ""
 
         if db_url and not db_url.startswith("postgresql+psycopg://"):
             if db_url.startswith("postgresql://"):
@@ -196,7 +190,7 @@ class Settings(BaseSettings):
         if not db_url:
             # Don't crash at startup - allow /health to respond for container probes.
             # DB-dependent routes will fail with a clear error when first used.
-            print("⚠️ WARNING: DATABASE_URL/NEON_DATABASE_URL not set - DB features will fail. Set in .env on EC2.")
+            print("⚠️ WARNING: DATABASE_URL not set - DB features will fail (expected from AWS Secrets Manager quanttrade/backend).")
 
         self.DATABASE_URL = db_url or ""
 

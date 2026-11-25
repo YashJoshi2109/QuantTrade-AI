@@ -38,7 +38,7 @@ from app.models.ml_training import TrainingRun, TrainingShard, TrainingArtifact,
 from app.models.messaging import DMConversation, ConversationParticipant, Message, UserBlock
 from app.models.sec_usage import SecAPIUsage
 
-# MVP Lean models (Neon-backed caches)
+# MVP Lean models (PostgreSQL-backed caches)
 from app.models.quote_snapshot import QuoteSnapshot
 from app.models.news_cache import NewsCache
 from app.models.symbols_master import SymbolsMaster

@@ -1,5 +1,5 @@
 -- Community Platform V2 columns (Week 1)
--- Run against Neon PostgreSQL
+-- Run against PostgreSQL
 
 -- Post model additions
 ALTER TABLE posts ADD COLUMN IF NOT EXISTS source_url TEXT;
