@@ -530,11 +530,15 @@ function LiveIndicator({ status, sources }: { status: 'connected' | 'connecting'
   const colors = {
     connected: { dot: 'bg-emerald-500', ping: 'bg-emerald-400', text: 'text-emerald-400', label: 'LIVE' },
     connecting: { dot: 'bg-amber-500', ping: 'bg-amber-400', text: 'text-amber-400', label: 'CONNECTING' },
-    disconnected: { dot: 'bg-surface-overlay', ping: 'bg-fg-muted', text: 'text-fg-muted', label: 'POLLING' },
+    // Live stream unavailable: data still refreshes over REST every 60s.
+    disconnected: { dot: 'bg-surface-overlay', ping: 'bg-fg-muted', text: 'text-fg-muted', label: 'DELAYED · 60s POLL' },
   }
   const c = colors[status]
   return (
-    <div className="flex items-center gap-1.5">
+    <div
+      className="flex items-center gap-1.5"
+      title={status === 'disconnected' ? 'Live stream unavailable. Refreshing every 60 seconds.' : undefined}
+    >
       <span className="relative flex h-2.5 w-2.5">
         {status === 'connected' && (
           <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${c.ping} opacity-75`} />
@@ -542,7 +546,7 @@ function LiveIndicator({ status, sources }: { status: 'connected' | 'connecting'
         <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${c.dot}`} />
       </span>
       <span className={`text-[10px] font-mono font-bold ${c.text}`}>{c.label}</span>
-      {sources && sources.length > 0 && (
+      {status !== 'connecting' && sources && sources.length > 0 && (
         <span className="text-[9px] text-fg-muted font-mono">
           via {sources.join(', ')}
         </span>

@@ -480,7 +480,36 @@ def get_monitor_stats(db: Session = Depends(get_db)):
         "total_hotspots": db.query(func.count(GeographicCluster.id)).filter(
             GeographicCluster.is_hotspot == True
         ).scalar(),
+        # Lets the UI say "event ingestion offline" instead of rendering bare zeros
+        # when the Celery worker/beat has not written anything recently.
+        **_ingestion_status(db, now),
         "last_updated": now.isoformat()
+    }
+
+
+def _ingestion_status(db: Session, now: datetime) -> dict:
+    from app.models.global_monitor import DataIngestionLog
+
+    last_ok = None
+    try:
+        last_ok = db.query(func.max(DataIngestionLog.ingestion_timestamp)).filter(
+            DataIngestionLog.status == "success"
+        ).scalar()
+    except Exception:
+        last_ok = None
+    if last_ok is not None and last_ok.tzinfo is not None:
+        # Column is timezone-aware; `now` is naive UTC.
+        from datetime import timezone as _tz
+        last_ok = last_ok.astimezone(_tz.utc).replace(tzinfo=None)
+    if last_ok is None:
+        status = "offline"
+    elif now - last_ok > timedelta(hours=24):
+        status = "stale"
+    else:
+        status = "ok"
+    return {
+        "ingestion_status": status,
+        "last_successful_ingestion": last_ok.isoformat() if last_ok else None,
     }
 
 

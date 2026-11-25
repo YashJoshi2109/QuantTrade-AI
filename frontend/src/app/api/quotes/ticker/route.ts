@@ -425,16 +425,20 @@ async function fetchFmpFullProfile(sym: string): Promise<TickerInfo | null> {
       volume: n(q?.volume) || n(p?.volume),
       avg_volume: n(q?.avgVolume) || n(p?.averageVolume),
       // Fundamentals from ratios-ttm
-      pe_ratio: r ? (n(r.earningsYieldTTM) > 0 ? 1 / n(r.earningsYieldTTM) : 0) : 0,
-      forward_pe: r ? n(r.forwardPriceToEarningsGrowthRatioTTM) : 0,
+      // FMP /stable/ratios-ttm field names (verified against a live NVDA response).
+      // ratios-ttm has no forward P/E: forward_pe is left 0 here and filled from
+      // Finnhub `forwardPE` in enrichWithFinnhub. forwardPriceToEarningsGrowthRatioTTM
+      // is a forward PEG, never a P/E.
+      pe_ratio: r ? n(r.priceToEarningsRatioTTM) || (n(r.earningsYieldTTM) > 0 ? 1 / n(r.earningsYieldTTM) : 0) : 0,
+      forward_pe: 0,
       eps: r ? n(r.netIncomePerShareTTM) : 0,
       forward_eps: 0,
       dividend_yield: r ? n(r.dividendYieldTTM) * 100 : n(p?.lastDividend) > 0 && price > 0 ? (n(p.lastDividend) / price) * 100 : 0,
       dividend_rate: n(r?.dividendPerShareTTM) || n(p?.lastDividend),
-      peg_ratio: r ? n(r.forwardPriceToEarningsGrowthRatioTTM) : 0,
+      peg_ratio: r ? n(r.priceToEarningsGrowthRatioTTM) || n(r.forwardPriceToEarningsGrowthRatioTTM) : 0,
       price_to_book: r ? n(r.priceToBookRatioTTM) : 0,
       price_to_sales: r ? n(r.priceToSalesRatioTTM) : 0,
-      debt_to_equity: r ? n(r.debtEquityRatioTTM) * 100 : 0,
+      debt_to_equity: r ? (n(r.debtToEquityRatioTTM) || n(r.debtEquityRatioTTM)) * 100 : 0,
       return_on_equity: r ? n(r.returnOnEquityTTM) * 100 : 0,
       return_on_assets: r ? n(r.returnOnAssetsTTM) * 100 : 0,
       revenue: r ? n(r.revenuePerShareTTM) * n(q?.sharesOutstanding || 0) : 0,
@@ -452,8 +456,13 @@ async function fetchFmpFullProfile(sym: string): Promise<TickerInfo | null> {
       total_debt: 0,
       beta: n(p?.beta),
       enterprise_value: r ? n(r.enterpriseValueTTM) : 0,
-      enterprise_to_revenue: r ? n(r.evToSalesTTM) : 0,
-      enterprise_to_ebitda: r ? n(r.enterpriseValueMultipleTTM) : 0,
+      enterprise_to_revenue: r
+        ? n(r.evToSalesTTM) ||
+          (n(r.enterpriseValueTTM) > 0 && n(r.revenuePerShareTTM) > 0 && n(q?.sharesOutstanding) > 0
+            ? n(r.enterpriseValueTTM) / (n(r.revenuePerShareTTM) * n(q?.sharesOutstanding))
+            : 0)
+        : 0,
+      enterprise_to_ebitda: r ? n(r.enterpriseValueMultipleTTM) || n(r.evToEBITDATTM) : 0,
       shares_outstanding: n(q?.sharesOutstanding),
       float_shares: 0,
       held_percent_insiders: 0,
@@ -501,6 +510,11 @@ async function enrichWithFinnhub(data: TickerInfo): Promise<TickerInfo> {
 
     // Enrich with Finnhub metrics where FMP was zero
     if (!data.pe_ratio && n(m.peTTM)) data.pe_ratio = n(m.peTTM)
+    if (!data.forward_pe && n(m.forwardPE)) data.forward_pe = n(m.forwardPE)
+    if (!data.forward_eps && data.forward_pe > 0 && data.price > 0) data.forward_eps = data.price / data.forward_pe
+    if (!data.peg_ratio && n(m.pegTTM)) data.peg_ratio = n(m.pegTTM)
+    // Finnhub returns yields/returns already in percent units.
+    if (!data.dividend_yield && n(m.currentDividendYieldTTM)) data.dividend_yield = n(m.currentDividendYieldTTM)
     if (!data.eps && n(m.epsTTM)) data.eps = n(m.epsTTM)
     if (!data.beta && n(m.beta)) data.beta = n(m.beta)
     if (!data.week_52_high && n(m['52WeekHigh'])) data.week_52_high = n(m['52WeekHigh'])
@@ -508,6 +522,7 @@ async function enrichWithFinnhub(data: TickerInfo): Promise<TickerInfo> {
     if (!data.gross_margins && n(m.grossMarginTTM)) data.gross_margins = n(m.grossMarginTTM)
     if (!data.profit_margins && n(m.netProfitMarginTTM)) data.profit_margins = n(m.netProfitMarginTTM)
     if (!data.return_on_equity && n(m.roeTTM)) data.return_on_equity = n(m.roeTTM)
+    if (!data.return_on_assets && n(m.roaTTM)) data.return_on_assets = n(m.roaTTM)
     if (!data.revenue_growth && n(m.revenueGrowthQuarterlyYoy)) data.revenue_growth = n(m.revenueGrowthQuarterlyYoy)
 
     // Price target

@@ -48,6 +48,8 @@ export interface ResearchChartHeaderProps {
     volume?: number | null
     dataSource?: string
     latency?: number
+    /** false until some source returned a real (> 0) price. */
+    hasPrice?: boolean
   }
   quoteLoading: boolean
   priceTick: 'up' | 'down' | null
@@ -259,7 +261,12 @@ export function ResearchChartHeader({
           </div>
           </div>
 
-          {(priceInfo.price > 0 || quoteLoading || priceDataLength > 0) && (
+          {!(priceInfo.hasPrice ?? priceInfo.price > 0) ? (
+            <div className="flex flex-wrap items-end gap-3" aria-busy="true" aria-label="Loading quote">
+              <span className="h-8 w-32 animate-pulse rounded-lg bg-surface-raised sm:h-9" />
+              <span className="h-7 w-20 animate-pulse rounded-lg bg-surface-raised" />
+            </div>
+          ) : (
             <div className="flex flex-wrap items-end gap-3">
               <span
                 className={cn(

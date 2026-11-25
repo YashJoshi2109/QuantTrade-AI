@@ -44,6 +44,8 @@ import FundamentalsPanel from '@/components/FundamentalsPanel'
 import SecEdgarPanel from '@/components/research/SecEdgarPanel'
 import ForecastPanel from '@/components/research/ForecastPanel'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
+import { pickMetric, resolvePriceInfo } from '@/lib/researchQuote'
+import OptionChainPanel from '@/components/research/OptionChainPanel'
 
 const TIMEFRAMES = ['1D', '1W', '1M', '3M', '1Y', 'All'] as const
 type Timeframe = (typeof TIMEFRAMES)[number]
@@ -172,6 +174,7 @@ export default function MobileResearch() {
         ? fetchIntradayPrices(symbolFromUrl, timeframe === '1D' ? '1m' : '5m', timeframe === '1D' ? 1 : 5)
         : fetchPrices(symbolFromUrl, startIso, endIso),
     staleTime: isIntraday ? 30_000 : 60_000,
+    retry: 1,
   })
 
   const { data: indicators, isLoading: indicatorsLoading } =
@@ -179,17 +182,32 @@ export default function MobileResearch() {
       queryKey: ['mobile.indicators', symbolFromUrl],
       queryFn: () => fetchIndicators(symbolFromUrl),
       staleTime: 60 * 1000,
+      retry: 1,
     })
 
-  const price = realtimeQuote?.price ?? 0
-  const pct = realtimeQuote?.change_percent ?? 0
-  const change = realtimeQuote?.change ?? 0
+  // Same source as desktop (/api/quotes/ticker, shared React Query cache key).
+  const { data: tickerInfo } = useQuery<TickerInfo>({
+    queryKey: ['tickerInfo', symbolFromUrl],
+    queryFn: async () => {
+      const res = await fetch(`/api/quotes/ticker?symbol=${encodeURIComponent(symbolFromUrl)}`)
+      if (!res.ok) throw new Error('Not found')
+      return res.json()
+    },
+    staleTime: 300_000,
+    retry: 1,
+  })
+
+  // Realtime -> ticker profile -> daily bars; never show a placeholder $0.00.
+  const priceInfo = resolvePriceInfo(realtimeQuote, tickerInfo, prices)
+  const price = priceInfo.price
+  const pct = priceInfo.percent
+  const change = priceInfo.change
   const isUp = isNumber(pct) && pct >= 0
 
-  const marketCap = fundamentals?.market_cap
-  const pe = fundamentals?.pe_ratio
-  const eps = fundamentals?.eps
-  const high52 = fundamentals?.week_52_high
+  const marketCap = pickMetric(tickerInfo?.market_cap, fundamentals?.market_cap)
+  const pe = pickMetric(tickerInfo?.pe_ratio, fundamentals?.pe_ratio)
+  const eps = isNumber(tickerInfo?.eps) && tickerInfo.eps !== 0 ? tickerInfo.eps : fundamentals?.eps
+  const high52 = pickMetric(tickerInfo?.week_52_high, fundamentals?.week_52_high)
 
   const aiReport = useMemo(() => {
     const rsi = indicators?.indicators?.rsi
@@ -372,9 +390,14 @@ export default function MobileResearch() {
       <section className="px-1 space-y-3">
         <div className="flex items-end justify-between">
           <div>
-            <div className="text-[28px] font-bold text-fg-primary font-mono">
-              ${formatNumber(price, 2)}
-            </div>
+            {priceInfo.hasPrice ? (
+              <div className="text-[28px] font-bold text-fg-primary font-mono">
+                ${formatNumber(price, 2)}
+              </div>
+            ) : (
+              <div className="h-9 w-32 animate-pulse rounded-lg bg-surface-raised" aria-busy="true" aria-label="Loading quote" />
+            )}
+            {priceInfo.hasPrice && (
             <div className="mt-1 flex items-center gap-1">
               <span
                 className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full font-mono ${
@@ -395,10 +418,11 @@ export default function MobileResearch() {
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-[#00D9FF] ml-1" />
               )}
             </div>
+            )}
           </div>
           <div className="text-right text-[10px] text-fg-muted">
             <p>Real-time quote</p>
-            <p>{realtimeQuote?.data_source || 'multi-source'}</p>
+            <p>{priceInfo.dataSource || (quoteLoading ? 'connecting…' : 'unavailable')}</p>
           </div>
         </div>
 
@@ -687,6 +711,12 @@ export default function MobileResearch() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+        {/* Same option chain panel as desktop, incl. its "Options data unavailable" state */}
+        {activeTab === 'technicals' && symbolFromUrl && (
+          <div className="mt-4">
+            <OptionChainPanel symbol={symbolFromUrl} />
           </div>
         )}
 

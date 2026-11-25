@@ -7,6 +7,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
 const WS_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/^http/, 'ws') || 'ws://localhost:8000'
+const CONNECT_TIMEOUT_MS = 10_000
+const MAX_VISIBLE_CONNECT_ATTEMPTS = 2
 
 interface UseMarketWSOptions {
   channel: 'ideas' | 'pulse' | 'scanner'
@@ -46,7 +48,11 @@ export function useMarketWebSocket({
     if (!enabledRef.current) return
     if (wsRef.current?.readyState === WebSocket.OPEN) return
 
-    setConnectionStatus('connecting')
+    // Only the first attempts show "connecting". Once the stream has failed a few
+    // times in a row (e.g. the proxy never upgrades the socket), keep retrying in
+    // the background but report 'disconnected' so the UI shows its polling
+    // fallback instead of a badge stuck on "CONNECTING".
+    if (retryRef.current < MAX_VISIBLE_CONNECT_ATTEMPTS) setConnectionStatus('connecting')
 
     const params = token ? `?token=${token}` : ''
     const url = `${WS_BASE}/api/v1/ws/${channel}${params}`
@@ -54,8 +60,13 @@ export function useMarketWebSocket({
     try {
       const ws = new WebSocket(url)
       wsRef.current = ws
+      // A socket that never opens (no error, no close) would otherwise hang here.
+      const openTimeout = setTimeout(() => {
+        if (ws.readyState === WebSocket.CONNECTING) ws.close()
+      }, CONNECT_TIMEOUT_MS)
 
       ws.onopen = () => {
+        clearTimeout(openTimeout)
         setIsConnected(true)
         setConnectionStatus('connected')
         retryRef.current = 0
@@ -81,6 +92,7 @@ export function useMarketWebSocket({
       }
 
       ws.onclose = () => {
+        clearTimeout(openTimeout)
         setIsConnected(false)
         setConnectionStatus('disconnected')
         if (pingTimerRef.current) clearInterval(pingTimerRef.current)

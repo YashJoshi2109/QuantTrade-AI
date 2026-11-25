@@ -114,6 +114,9 @@ export interface MonitorStats {
   category_distribution: Record<string, number>
   total_countries_monitored: number
   total_hotspots: number
+  /** 'offline' = ingestion never succeeded, 'stale' = nothing in 24h. Older backends omit it. */
+  ingestion_status?: 'ok' | 'stale' | 'offline'
+  last_successful_ingestion?: string | null
   last_updated: string
 }
 

@@ -37,6 +37,7 @@ import { QuoteActivityFlash } from '@/components/QuoteActivityFlash'
 import { useToast } from '@/components/Toast'
 import { SkeletonChart, SkeletonIndicators, SkeletonText, Skeleton } from '@/components/Skeleton'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
+import { resolvePriceInfo } from '@/lib/researchQuote'
 import { ResearchChartHeader, type ResearchChartPeriod } from '@/components/research/ResearchChartHeader'
 import { CompanyFolioPanel } from '@/components/research/CompanyFolioPanel'
 import EarningsShortInterestPanel from '@/components/research/EarningsShortInterestPanel'
@@ -161,9 +162,21 @@ function ResearchContent() {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [advancedOpen])
 
+  // Each load gets an id; a slower response for a previous symbol/period must not
+  // overwrite the current one (first-load race when the URL symbol arrives).
+  const loadSeqRef = useRef(0)
+  const loadedSymbolRef = useRef<string | null>(null)
   const loadSymbolData = useCallback(async () => {
+    const seq = ++loadSeqRef.current
+    const isStale = () => seq !== loadSeqRef.current
     setLoading(true)
     setError(null)
+    if (loadedSymbolRef.current !== selectedSymbol) {
+      // New symbol: drop the previous symbol's bars/indicators instead of showing them.
+      loadedSymbolRef.current = selectedSymbol
+      setPriceData([])
+      setIndicators(null)
+    }
 
     try {
       const { start: startDate, end: endDate, barLimit } = chartPeriodRange(chartPeriod)
@@ -203,11 +216,28 @@ function ResearchContent() {
         }
       }
       
-      const [ind, fund] = await Promise.all([
+      let [ind, fund] = await Promise.all([
         fetchIndicators(selectedSymbol).catch(() => null),
         fetchFundamentals(selectedSymbol).catch(() => null)
       ])
-      
+
+      // Cold backend / first sync of a new symbol: retry once before showing empty panels.
+      if (!isStale() && (prices.length === 0 || !ind)) {
+        await new Promise((resolve) => setTimeout(resolve, 2500))
+        if (isStale()) return
+        const [retryPrices, retryInd] = await Promise.all([
+          prices.length === 0
+            ? isIntradayPeriod(chartPeriod)
+              ? fetchIntradayPrices(selectedSymbol, chartPeriod === '1D' ? '1m' : '5m', chartPeriod === '1D' ? 1 : 5, extendedHours).catch(() => [])
+              : fetchPrices(selectedSymbol, startDate.toISOString(), endDate.toISOString(), barLimit).catch(() => [])
+            : Promise.resolve(prices),
+          ind ? Promise.resolve(ind) : fetchIndicators(selectedSymbol).catch(() => null),
+        ])
+        prices = retryPrices
+        ind = retryInd
+      }
+      if (isStale()) return
+
       setPriceData(prices)
       setIndicators(ind)
       setFundamentals(fund)
@@ -216,10 +246,11 @@ function ResearchContent() {
         setError('No price data available. Click "Sync Data" to fetch.')
       }
     } catch (err) {
+      if (isStale()) return
       console.error('Error loading symbol data:', err)
       setError('Failed to load data. Please try again.')
     } finally {
-      setLoading(false)
+      if (!isStale()) setLoading(false)
     }
   }, [selectedSymbol, chartPeriod, extendedHours])
 
@@ -314,29 +345,9 @@ function ResearchContent() {
     }
   }
 
-  const getPriceInfo = () => {
-    // Ignore realtime rows that are placeholders (fetchQuote returns zeros on failure)
-    if (realtimeQuote && isNumber(realtimeQuote.price) && realtimeQuote.price > 0) {
-      return {
-        price: realtimeQuote.price,
-        change: realtimeQuote.change ?? 0,
-        percent: realtimeQuote.change_percent ?? 0,
-        volume: realtimeQuote.volume,
-        high: realtimeQuote.high,
-        low: realtimeQuote.low,
-        dataSource: realtimeQuote.data_source,
-        latency: realtimeQuote.latency_ms,
-      }
-    }
-    if (priceData.length < 2) return { price: 0, change: 0, percent: 0, volume: undefined as number | undefined }
-    const latest = priceData[priceData.length - 1]
-    const previous = priceData[priceData.length - 2]
-    const change = latest.close - previous.close
-    const percent = previous.close !== 0 ? (change / previous.close) * 100 : 0
-    return { price: latest.close, change, percent, volume: latest.volume }
-  }
-
-  const priceInfo = getPriceInfo()
+  // Realtime quote -> ticker profile price -> last daily bars. hasPrice=false means
+  // no source has a real price yet (render a skeleton, never "$0.00").
+  const priceInfo = resolvePriceInfo(realtimeQuote, tickerInfo, priceData)
   const pricePrevRef = useRef<number | null>(null)
   const [priceTick, setPriceTick] = useState<'up' | 'down' | null>(null)
 
@@ -700,7 +711,7 @@ function ResearchContent() {
                 </p>
               </div>
 
-              {priceData.length > 0 && (
+              {priceData.length > 0 && priceInfo.hasPrice && (
                 <div className="grid grid-cols-3 gap-3 mt-auto">
                   <div className="hud-stat p-3 text-center">
                     <div

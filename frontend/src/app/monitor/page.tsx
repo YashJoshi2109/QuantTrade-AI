@@ -25,6 +25,8 @@ import {
   type GeographicCluster, type CountryInstability,
 } from '@/lib/global-monitor-api'
 import { fetchACLEDConflicts, type ACLEDEvent } from '@/lib/monitor-extended-api'
+import { eventFeedState, EVENT_FEED_MESSAGE } from '@/lib/monitorStatus'
+import SourceUnavailableNotice from '@/components/monitor/SourceUnavailableNotice'
 
 // ── Country code lookup ──────────────────────────────────────────────
 const COUNTRY_CODE_MAP: Record<string, string> = {
@@ -231,7 +233,7 @@ function MonitorDesktop() {
     staleTime: 25000,
   })
 
-  useQuery({ queryKey: ['monitor-stats'], queryFn: fetchMonitorStats, refetchInterval: 300_000 })
+  const { data: monitorStats } = useQuery({ queryKey: ['monitor-stats'], queryFn: fetchMonitorStats, refetchInterval: 300_000 })
 
   const needsAcledFallback = !isLoading && (!rawMapData?.events || rawMapData.events.length === 0)
   const { data: acledData } = useQuery({
@@ -248,6 +250,8 @@ function MonitorDesktop() {
   }, [rawMapData, acledData])
 
   const isUsingFallback = !!acledData && (!rawMapData?.events || rawMapData.events.length === 0)
+  // Zero counters with no successful ingestion = "unavailable", not "quiet world".
+  const feedState = eventFeedState(monitorStats?.ingestion_status, mapData?.stats.total_events)
 
   const toggleThreat = (val: string) => { const n = new Set(activeThreats); n.has(val) ? n.delete(val) : n.add(val); setActiveThreats(n) }
   const toggleCategory = (val: string) => { const n = new Set(activeCategories); n.has(val) ? n.delete(val) : n.add(val); setActiveCategories(n) }
@@ -375,7 +379,12 @@ function MonitorDesktop() {
             </div>
 
             {/* Stat strip */}
-            {mapData && (
+            {mapData && (feedState === 'offline' || feedState === 'stale') && (
+              <div className="mt-3">
+                <SourceUnavailableNotice title="Event feed unavailable" detail={EVENT_FEED_MESSAGE[feedState]} />
+              </div>
+            )}
+            {mapData && feedState !== 'offline' && feedState !== 'stale' && (
               <motion.div
                 className="mt-3 grid grid-cols-6 gap-2"
                 initial={{ opacity: 0, y: -8 }}
@@ -706,6 +715,9 @@ function MonitorMobile() {
   })
 
   const events = mapData?.events || []
+  const { data: monitorStats } = useQuery({ queryKey: ['monitor-stats'], queryFn: fetchMonitorStats, refetchInterval: 300_000 })
+  const feedState = eventFeedState(monitorStats?.ingestion_status, mapData?.stats.total_events)
+  const feedDown = feedState === 'offline' || feedState === 'stale'
 
   const sections: { id: string; label: string; Icon: LucideIcon }[] = [
     { id: 'live', label: 'Live', Icon: Radio },
@@ -737,7 +749,7 @@ function MonitorMobile() {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                     </span>
-                    <p className="text-[10px] text-fg-secondary font-mono">{isLoading ? 'SYNCING...' : `LIVE · ${events.length} EVENTS`}</p>
+                    <p className="text-[10px] text-fg-secondary font-mono">{isLoading ? 'SYNCING...' : feedDown ? 'EVENT FEED OFFLINE' : `LIVE · ${events.length} EVENTS`}</p>
                   </div>
                 </div>
               </div>
@@ -747,7 +759,12 @@ function MonitorMobile() {
             </div>
 
             {/* Stat pills */}
-            {mapData && (
+            {mapData && feedDown && (feedState === 'offline' || feedState === 'stale') && (
+              <div className="mt-3">
+                <SourceUnavailableNotice compact title="Event feed unavailable" detail={EVENT_FEED_MESSAGE[feedState]} />
+              </div>
+            )}
+            {mapData && !feedDown && (
               <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar pb-1">
                 {[
                   { label: 'Events', value: mapData.stats.total_events, color: 'text-fg-primary' },
