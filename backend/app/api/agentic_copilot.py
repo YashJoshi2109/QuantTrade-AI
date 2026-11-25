@@ -10,7 +10,7 @@ import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
-from app.api.auth import require_auth
+from app.api.auth import is_admin_user, require_auth
 from app.config import settings
 from app.models.user import User
 
@@ -21,11 +21,9 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/copilot", tags=["agentic-copilot"])
 
-ADMIN_EMAILS = set(e.strip() for e in settings.ADMIN_EMAILS.split(",") if e.strip())
-
 
 def _require_admin(user: User = Depends(require_auth)) -> User:
-    if user.email not in ADMIN_EMAILS:
+    if not is_admin_user(user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
     return user
 

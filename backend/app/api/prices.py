@@ -2,6 +2,7 @@
 Price data API endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from app.services.sync_rate_limit import sync_rate_limit
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
@@ -367,7 +368,7 @@ async def get_intraday_prices(
     return bars
 
 
-@router.post("/prices/{symbol}/sync")
+@router.post("/prices/{symbol}/sync", dependencies=[Depends(sync_rate_limit)])
 def sync_prices(
     symbol: str,
     start: Optional[datetime] = Query(None),
@@ -402,7 +403,8 @@ def sync_prices(
         raise
     except Exception as e:
         logger.error(f"Error syncing price data for {symbol}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to sync price data: {str(e)}")
+        logger.exception("Failed to sync price data")
+        raise HTTPException(status_code=500, detail="Failed to sync price data")
 
 
 @router.get("/prices/{symbol}/quote")
@@ -485,4 +487,5 @@ async def get_quote(symbol: str, db: Session = Depends(get_db)):
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch quote: {str(e)}")
+        logger.exception("Failed to fetch quote")
+        raise HTTPException(status_code=500, detail="Failed to fetch quote")

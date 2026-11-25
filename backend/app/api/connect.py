@@ -111,14 +111,19 @@ class ProductCreateRequest(BaseModel):
 
 class StorefrontCheckoutRequest(BaseModel):
     account_id: str
-    product_name: str
-    amount_cents: int = Field(gt=0)
-    currency: str = "usd"
+    product_id: Optional[str] = None
     quantity: int = Field(default=1, gt=0)
+    # Legacy client-priced fields: accepted for backward compatibility but
+    # IGNORED — price is always resolved server-side from the product.
+    product_name: Optional[str] = None
+    amount_cents: Optional[int] = None
+    currency: Optional[str] = None
 
 
 class AccountSubscriptionCheckoutRequest(BaseModel):
-    connected_account_id: str
+    # Optional and only used as a consistency check; the account is resolved
+    # from the authenticated user.
+    connected_account_id: Optional[str] = None
     price_id: Optional[str] = None
 
 
@@ -292,11 +297,33 @@ def create_product_on_connected_account(
         raise HTTPException(status_code=502, detail="Failed to create product")
 
 
+def _require_known_account(db: Session, account_id: str) -> ConnectedAccount:
+    """Only allow storefront operations on connected accounts this platform created."""
+    if not account_id or not account_id.startswith("acct_") or len(account_id) > 255:
+        raise HTTPException(status_code=404, detail="Storefront not found")
+    row = db.query(ConnectedAccount).filter(ConnectedAccount.stripe_account_id == account_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Storefront not found")
+    return row
+
+
+def _own_connected_account(db: Session, user: User, claimed_account_id: Optional[str]) -> ConnectedAccount:
+    """Resolve the caller's connected account server-side; never trust a client-supplied ID."""
+    row = db.query(ConnectedAccount).filter(ConnectedAccount.user_id == user.id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="No connected account found. Create one first.")
+    if claimed_account_id and claimed_account_id != row.stripe_account_id:
+        raise HTTPException(status_code=403, detail="Connected account does not belong to you")
+    return row
+
+
 @router.get("/storefront/{account_id}/products")
-def list_connected_account_products(account_id: str):
+def list_connected_account_products(account_id: str, db: Session = Depends(get_db)):
     """
+    Public, read-only product listing for a platform-created connected account.
     NOTE: demo uses account ID in URL. In production, use a public seller slug instead.
     """
+    _require_known_account(db, account_id)
     client = _stripe_client()
     try:
         products = client.products.list(
@@ -309,22 +336,41 @@ def list_connected_account_products(account_id: str):
         raise HTTPException(status_code=502, detail="Failed to list products")
 
 
+MAX_STOREFRONT_QUANTITY = 10
+
+
 @router.post("/storefront/checkout")
-def create_storefront_checkout(req: StorefrontCheckoutRequest):
+def create_storefront_checkout(
+    req: StorefrontCheckoutRequest,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """
+    Direct-charge checkout for a product on a connected account.
+    Price is looked up server-side from the product's default price; any
+    client-sent name/amount/currency is ignored.
+    """
+    _require_known_account(db, req.account_id)
+    if not req.product_id:
+        raise HTTPException(status_code=400, detail="product_id is required")
+    if req.quantity > MAX_STOREFRONT_QUANTITY:
+        raise HTTPException(status_code=400, detail=f"quantity must be at most {MAX_STOREFRONT_QUANTITY}")
     client = _stripe_client()
     try:
+        product = _coerce_response_dict(
+            client.products.retrieve(
+                req.product_id,
+                {"expand": ["default_price"]},
+                {"stripe_account": req.account_id},
+            )
+        )
+        default_price = product.get("default_price")
+        price_id = default_price.get("id") if isinstance(default_price, dict) else default_price
+        if not product.get("active") or not price_id:
+            raise HTTPException(status_code=404, detail="Product not available")
         session = client.checkout.sessions.create(
             {
-                "line_items": [
-                    {
-                        "price_data": {
-                            "currency": req.currency.lower(),
-                            "product_data": {"name": req.product_name},
-                            "unit_amount": req.amount_cents,
-                        },
-                        "quantity": req.quantity,
-                    }
-                ],
+                "line_items": [{"price": price_id, "quantity": req.quantity}],
                 "payment_intent_data": {
                     "application_fee_amount": 123,
                 },
@@ -336,6 +382,11 @@ def create_storefront_checkout(req: StorefrontCheckoutRequest):
         )
         s = _coerce_response_dict(session)
         return {"url": s.get("url")}
+    except HTTPException:
+        raise
+    except stripe.error.InvalidRequestError as exc:
+        logger.info("Stripe storefront product lookup failed: %s", exc)
+        raise HTTPException(status_code=404, detail="Product not available")
     except stripe.error.StripeError as exc:
         logger.error("Stripe checkout create error: %s", exc)
         raise HTTPException(status_code=502, detail="Failed to create checkout session")
@@ -344,21 +395,24 @@ def create_storefront_checkout(req: StorefrontCheckoutRequest):
 @router.post("/subscription/checkout")
 def create_connected_account_subscription_checkout(
     req: AccountSubscriptionCheckoutRequest,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
 ):
     """
-    Charge subscription at platform level using connected account as customer_account.
+    Charge subscription at platform level using the caller's connected account as customer_account.
+    Only the server-configured STRIPE_CONNECT_SUBSCRIPTION_PRICE_ID is accepted.
     """
-    if not (req.price_id or settings.STRIPE_CONNECT_SUBSCRIPTION_PRICE_ID):
-        raise HTTPException(
-            status_code=400,
-            detail="Missing price_id. Set STRIPE_CONNECT_SUBSCRIPTION_PRICE_ID or pass price_id.",
-        )
-    price_id = req.price_id or settings.STRIPE_CONNECT_SUBSCRIPTION_PRICE_ID
+    row = _own_connected_account(db, user, req.connected_account_id)
+    price_id = settings.STRIPE_CONNECT_SUBSCRIPTION_PRICE_ID
+    if not price_id:
+        raise HTTPException(status_code=503, detail="Connected-account subscriptions are not configured.")
+    if req.price_id and req.price_id != price_id:
+        raise HTTPException(status_code=400, detail="Unsupported price")
     client = _stripe_client()
     try:
         session = client.checkout.sessions.create(
             {
-                "customer_account": req.connected_account_id,
+                "customer_account": row.stripe_account_id,
                 "mode": "subscription",
                 "line_items": [{"price": price_id, "quantity": 1}],
                 "success_url": f"{settings.APP_URL}/connect?subscription=success&session_id={{CHECKOUT_SESSION_ID}}",
@@ -374,13 +428,16 @@ def create_connected_account_subscription_checkout(
 
 @router.post("/subscription/portal")
 def create_connected_account_billing_portal(
-    connected_account_id: str,
+    connected_account_id: Optional[str] = None,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
 ):
+    row = _own_connected_account(db, user, connected_account_id)
     client = _stripe_client()
     try:
         session = client.billing_portal.sessions.create(
             {
-                "customer_account": connected_account_id,
+                "customer_account": row.stripe_account_id,
                 "return_url": f"{settings.APP_URL}/connect",
             }
         )

@@ -6,6 +6,8 @@ from fastapi import APIRouter, HTTPException
 
 from app.services.ticker_validation import normalize_ticker
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
 

@@ -3,6 +3,7 @@ Backtest API — Pro-level backtesting endpoints
 Supports single backtest, multi-strategy comparison, and market scanning.
 Fallback chain: yfinance -> Alpaca -> FMP -> Finnhub when DB has no price data.
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -18,6 +19,8 @@ from app.services.backtest_engine import (
 from pydantic import BaseModel, Field
 import pandas as pd
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -376,7 +379,8 @@ def run_backtest(request: BacktestRequest, db: Session = Depends(get_db)):
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Backtest engine error: {str(e)}")
+        logger.exception("Backtest engine error")
+        raise HTTPException(status_code=500, detail="Backtest engine error")
 
 
 @router.post("/backtest/compare")

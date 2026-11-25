@@ -1,6 +1,7 @@
 """
 Enhanced API endpoints for real-time quotes, fundamentals, and portfolio management
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -20,12 +21,14 @@ from app.services.realtime_news_fetcher import RealtimeNewsFetcher, _is_likely_t
 from app.services.finnhub_fetcher import FinnhubFetcher
 from app.services.ticker_validation import normalize_ticker, UnknownTickerError
 from app.services.rate_limiter import get_api_stats
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, require_admin
 from app.models.user import User
 from app.models.watchlist import Watchlist
 from app.services.stock_analysis_client import fetch_stock_prediction_payload
 from app.services.quote_cache import QuoteCacheService
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -150,7 +153,8 @@ def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         print(f"Quote error for {symbol}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch quote: {str(e)}")
+        logger.exception("Failed to fetch quote")
+        raise HTTPException(status_code=500, detail="Failed to fetch quote")
 
 
 @router.get("/market-indices", response_model=List[dict])
@@ -389,7 +393,8 @@ def get_realtime_news(
         
     except Exception as e:
         print(f"Error fetching real-time news: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch news: {str(e)}")
+        logger.exception("Failed to fetch news")
+        raise HTTPException(status_code=500, detail="Failed to fetch news")
 
 
 @router.get("/news/{symbol}/yfinance", response_model=List[NewsArticleResponse])
@@ -400,7 +405,8 @@ def get_yfinance_news(symbol: str, limit: int = Query(20, ge=1, le=50)):
         return [NewsArticleResponse(**article) for article in articles]
     except Exception as e:
         print(f"Error fetching yfinance news: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/news/market/breaking")
@@ -622,7 +628,8 @@ def get_breaking_market_news(limit: int = Query(10, ge=1, le=50)):
 
     except Exception as e:
         print(f"Error fetching breaking news: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/fundamentals/{symbol}")
@@ -704,9 +711,9 @@ def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/fundamentals/{symbol}/sync")
+@router.post("/fundamentals/{symbol}/sync", dependencies=[Depends(require_admin)])
 def sync_fundamentals(symbol: str, db: Session = Depends(get_db)):
-    """Force refresh fundamentals from Finviz"""
+    """Force refresh fundamentals from Finviz (admin only; not called by the UI)"""
     try:
         fundamentals = EnhancedDataFetcher.sync_fundamentals(symbol.upper(), db)
         return {
@@ -715,12 +722,13 @@ def sync_fundamentals(symbol: str, db: Session = Depends(get_db)):
             "fetched_at": fundamentals.fetched_at
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ============= BULK SYNC =============
 
-@router.post("/sync/sp500")
+@router.post("/sync/sp500", dependencies=[Depends(require_admin)])
 def sync_sp500_stocks(
     limit: Optional[int] = Query(None, description="Limit number of stocks to sync"),
     db: Session = Depends(get_db)
@@ -730,10 +738,11 @@ def sync_sp500_stocks(
         EnhancedDataFetcher.bulk_sync_sp500(db, limit)
         return {"message": f"S&P 500 sync initiated (limit: {limit or 'all'})"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.post("/sync/nasdaq")
+@router.post("/sync/nasdaq", dependencies=[Depends(require_admin)])
 def sync_nasdaq_stocks(
     limit: Optional[int] = Query(None, description="Limit number of stocks to sync"),
     db: Session = Depends(get_db)
@@ -743,7 +752,8 @@ def sync_nasdaq_stocks(
         EnhancedDataFetcher.bulk_sync_nasdaq(db, limit)
         return {"message": f"NASDAQ sync initiated (limit: {limit or 'all'})"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ============= PORTFOLIO MANAGEMENT =============
@@ -838,7 +848,8 @@ def execute_trade(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/portfolio/{portfolio_id}/positions")
@@ -966,7 +977,8 @@ async def get_finnhub_quote(symbol: str, priority: str = Query('high', pattern='
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Finnhub error: {str(e)}")
+        logger.exception("Finnhub error")
+        raise HTTPException(status_code=500, detail="Finnhub error")
 
 
 @router.get("/news/{symbol}/finnhub")
@@ -990,7 +1002,8 @@ def get_finnhub_company_news(symbol: str, limit: int = Query(20, le=50), priorit
         
         return articles
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Finnhub news error: {str(e)}")
+        logger.exception("Finnhub news error")
+        raise HTTPException(status_code=500, detail="Finnhub news error")
 
 
 @router.get("/news/market/finnhub")
@@ -1014,7 +1027,8 @@ def get_finnhub_market_news(category: str = "general", limit: int = Query(20, le
         
         return articles
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Finnhub market news error: {str(e)}")
+        logger.exception("Finnhub market news error")
+        raise HTTPException(status_code=500, detail="Finnhub market news error")
 
 
 def _millions_to_units(value):
@@ -1059,7 +1073,8 @@ def get_company_profile(symbol: str, priority: str = Query('normal', pattern='^(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Company profile error: {str(e)}")
+        logger.exception("Company profile error")
+        raise HTTPException(status_code=500, detail="Company profile error")
 
 
 @router.get("/sentiment/{symbol}")
@@ -1069,7 +1084,8 @@ def get_market_sentiment(symbol: str):
         sentiment_data = FinnhubFetcher.get_sentiment(symbol.upper())
         return sentiment_data
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Sentiment error: {str(e)}")
+        logger.exception("Sentiment error")
+        raise HTTPException(status_code=500, detail="Sentiment error")
 
 
 @router.get("/recommendations/{symbol}")
@@ -1084,7 +1100,8 @@ def get_recommendations(symbol: str, priority: str = Query('normal', pattern='^(
             "price_target": target
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Recommendations error: {str(e)}")
+        logger.exception("Recommendations error")
+        raise HTTPException(status_code=500, detail="Recommendations error")
 
 
 @router.get("/api-stats")

@@ -17,6 +17,7 @@ Ranking priority:
 """
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.services.sync_rate_limit import sync_rate_limit
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, case, func, literal, text
 from typing import List, Optional
@@ -26,6 +27,8 @@ from app.models.symbols_master import SymbolsMaster
 from app.services.data_fetcher import DataFetcher
 from app.services.ticker_validation import normalize_ticker
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -272,7 +275,7 @@ def get_symbol(symbol: str, db: Session = Depends(get_db)):
     return db_symbol
 
 
-@router.post("/symbols/{symbol}/sync")
+@router.post("/symbols/{symbol}/sync", dependencies=[Depends(sync_rate_limit)])
 def sync_symbol(symbol: str, db: Session = Depends(get_db)):
     """Sync symbol data from external source"""
     try:
@@ -287,4 +290,5 @@ def sync_symbol(symbol: str, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error")
