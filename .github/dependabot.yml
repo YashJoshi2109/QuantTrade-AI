@@ -1,0 +1,139 @@
+# Dependabot — the only automation bot on this repo.
+#
+# Grouping strategy (keeps PR count low, each PR is reviewable as one unit):
+#   * security-*        : every security fix in an ecosystem ships as ONE PR, opened immediately
+#   * <topic> groups    : related packages that must move together (e.g. next + react, langchain-*)
+#   * *-minor-patch     : everything else, minor/patch only, one weekly PR per directory
+#   * major versions    : NOT grouped — each major bump gets its own PR so breaking changes are isolated
+#
+# Schedule: Mondays 06:00 America/Chicago. Labels let you filter PRs by area.
+
+version: 2
+updates:
+  # ───────────────────────────── npm: frontend (Next.js app) ─────────────────────────────
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/Chicago }
+    open-pull-requests-limit: 8
+    labels: [dependencies, frontend]
+    commit-message: { prefix: "deps(frontend)" }
+    groups:
+      frontend-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      nextjs-react:
+        patterns: [next, eslint-config-next, react, react-dom, react-is, "@types/react", "@types/react-dom"]
+        update-types: [minor, patch]
+      ui-radix-styling:
+        patterns: ["@radix-ui/*", radix-ui, tailwindcss, tailwind-merge, postcss, autoprefixer, class-variance-authority, clsx, lucide-react, styled-components, "@types/styled-components", next-themes]
+        update-types: [minor, patch]
+      animation-3d-charts:
+        patterns: [gsap, "@gsap/*", framer-motion, motion, three, "@types/three", "@react-three/*", globe.gl, cobe, lightweight-charts, recharts, remotion, "@remotion/*", unicornstudio-react]
+        update-types: [minor, patch]
+      testing-lint:
+        dependency-type: development
+        patterns: [vitest, "@vitejs/*", jsdom, "@testing-library/*", "@playwright/*", eslint]
+        update-types: [minor, patch]
+      frontend-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # ───────────────────────────── npm: Cloudflare workers ─────────────────────────────
+  - package-ecosystem: npm
+    directory: /workers/ml-inference   # live-visitors has no dependencies / lockfile
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/Chicago }
+    open-pull-requests-limit: 3
+    labels: [dependencies, workers]
+    commit-message: { prefix: "deps(workers)" }
+    groups:
+      workers-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      workers-cloudflare-tooling:
+        patterns: [wrangler, "@cloudflare/*", typescript, vitest]
+        update-types: [minor, patch]
+
+  # ───────────────────────────── pip: backend (FastAPI + ML) ─────────────────────────────
+  - package-ecosystem: pip
+    directory: /backend
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/Chicago }
+    open-pull-requests-limit: 8
+    labels: [dependencies, backend]
+    commit-message: { prefix: "deps(backend)" }
+    groups:
+      backend-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      api-web:
+        patterns: [fastapi, uvicorn*, starlette, pydantic*, python-multipart, httpx, requests, websockets, email-validator]
+        update-types: [minor, patch]
+      database-cache-queue:
+        patterns: [sqlalchemy*, psycopg*, alembic, pgvector, redis, celery, APScheduler, qdrant-client]
+        update-types: [minor, patch]
+      auth-security-libs:
+        patterns: [python-jose, passlib, bcrypt, PyJWT, webauthn, google-auth*, defusedxml]
+        update-types: [minor, patch]
+      ml-stack:
+        patterns: [torch*, scikit-learn, xgboost, lightgbm, shap, numpy, pandas, pyarrow, ta, sentence-transformers, fastembed]
+        update-types: [minor, patch]
+      llm-langchain:
+        patterns: [langchain*, langgraph*, openai, anthropic, cohere, elevenlabs]
+        update-types: [minor, patch]
+      market-data:
+        patterns: [yfinance, finviz, alpaca-py, robin_stocks, publicdotcom-py, asyncpraw, feedparser, beautifulsoup4, lxml, pdfplumber]
+        update-types: [minor, patch]
+      aws-cloud:
+        patterns: [boto3, botocore, langchain-aws, minio, stripe]
+        update-types: [minor, patch]
+      backend-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # ───────────────────────────── pip: RAG service ─────────────────────────────
+  - package-ecosystem: pip
+    directory: /rag
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/Chicago }
+    open-pull-requests-limit: 3
+    labels: [dependencies, rag]
+    commit-message: { prefix: "deps(rag)" }
+    groups:
+      rag-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      rag-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # ───────────────────────────── pip: ML Lambdas ─────────────────────────────
+  - package-ecosystem: pip
+    directories: [/infra/lambdas/ml_auto_promote, /infra/lambdas/ml_result_aggregator, /infra/lambdas/ml_runner_launcher]
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/Chicago }
+    open-pull-requests-limit: 3
+    labels: [dependencies, ml, infra]
+    commit-message: { prefix: "deps(lambdas)" }
+    groups:
+      lambdas-all:
+        patterns: ["*"]
+
+  # ───────────────────────────── Docker base images ─────────────────────────────
+  - package-ecosystem: docker
+    directories: [/backend, /backend/ml, /frontend]
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/Chicago }
+    open-pull-requests-limit: 3
+    labels: [dependencies, docker]
+    commit-message: { prefix: "deps(docker)" }
+    groups:
+      docker-base-images:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # ───────────────────────────── GitHub Actions ─────────────────────────────
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/Chicago }
+    open-pull-requests-limit: 3
+    labels: [dependencies, ci]
+    commit-message: { prefix: "deps(ci)" }
+    groups:
+      github-actions:
+        patterns: ["*"]
