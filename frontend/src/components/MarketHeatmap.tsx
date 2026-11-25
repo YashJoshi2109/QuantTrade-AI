@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { SectorPerformance, StockPerformance } from '@/lib/api'
 import { useStockSnapshot } from '@/context/StockSnapshotContext'
+import { computeBreadth, FLAT_THRESHOLD_PCT } from '@/lib/marketBreadth'
 
 interface MarketHeatmapProps {
   sectors?: SectorPerformance[] | null
@@ -14,8 +15,8 @@ function getColorForChange(change: number): string {
   if (change >= 2) return 'bg-green-500'
   if (change >= 1) return 'bg-green-500/80'
   if (change >= 0.5) return 'bg-green-500/60'
-  if (change > 0.1) return 'bg-green-500/40'
-  if (change >= -0.1) return 'bg-slate-600/50'   // flat / stale data → neutral gray
+  if (change > FLAT_THRESHOLD_PCT) return 'bg-green-500/40'
+  if (change >= -FLAT_THRESHOLD_PCT) return 'bg-slate-600/50'   // flat → neutral gray
   if (change >= -0.5) return 'bg-red-500/40'
   if (change >= -1) return 'bg-red-500/60'
   if (change >= -2) return 'bg-red-500/80'
@@ -62,23 +63,8 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
   
   // Calculate total market stats
   const marketStats = useMemo(() => {
-    let gainers = 0
-    let losers = 0
-    let unchanged = 0
-    
-    safeSectors.forEach(sector => {
-      if (!sector || !sector.stocks || !Array.isArray(sector.stocks)) {
-        return
-      }
-      sector.stocks.forEach(stock => {
-        if (!stock) return
-        if (stock.change_percent > 0.1) gainers++
-        else if (stock.change_percent < -0.1) losers++
-        else unchanged++
-      })
-    })
-    
-    return { gainers, losers, unchanged, total: gainers + losers + unchanged }
+    const { total, gainers, losers, flat } = computeBreadth(safeSectors)
+    return { gainers, losers, unchanged: flat, total }
   }, [safeSectors])
 
   return (

@@ -46,6 +46,7 @@ import type { IndexQuote } from '@/app/api/quotes/indices/route'
 import type { ExchangeSector } from '@/app/api/exchange/heatmap/route'
 import { useStockSnapshot } from '@/context/StockSnapshotContext'
 import { useExchangeHeatmap } from '@/hooks/useExchangeHeatmap'
+import { computeBreadth, FLAT_THRESHOLD_PCT } from '@/lib/marketBreadth'
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 function useWorldIndices(continent: Continent) {
@@ -530,8 +531,8 @@ function getHeatColor(pct: number): string {
   if (pct >= 2) return '#15803d'
   if (pct >= 1) return '#16a34a'
   if (pct >= 0.5) return '#22c55e'
-  if (pct > 0.1) return '#4ade80'
-  if (pct >= -0.1) return '#475569'   // flat / 0% → slate neutral, not red
+  if (pct > FLAT_THRESHOLD_PCT) return '#4ade80'
+  if (pct >= -FLAT_THRESHOLD_PCT) return '#475569'   // flat → slate neutral, not red
   if (pct >= -0.5) return '#f87171'
   if (pct >= -1) return '#ef4444'
   if (pct >= -2) return '#dc2626'
@@ -799,11 +800,9 @@ function DesktopMarketsPage() {
 
   // Calculate market stats from actual heatmap data (consistent source)
   const marketStats = useMemo(() => {
-    const totalStocks = sectors?.reduce((acc, s) => acc + s.stocks.length, 0) || 0
-    const gainers = sectors?.reduce((acc, s) => acc + s.stocks.filter(st => st.change_percent > 0.01).length, 0) || 0
-    const losers = sectors?.reduce((acc, s) => acc + s.stocks.filter(st => st.change_percent < -0.01).length, 0) || 0
-    const flat = totalStocks - gainers - losers
-    return { totalStocks, gainers, losers, flat }
+    // Same classifier as MarketHeatmap + mobile, so every counter agrees.
+    const { total, gainers, losers, flat } = computeBreadth(sectors)
+    return { totalStocks: total, gainers, losers, flat }
   }, [sectors])
 
   return (

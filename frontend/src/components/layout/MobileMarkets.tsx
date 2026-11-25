@@ -17,6 +17,7 @@ import MarketHeatmap from '@/components/MarketHeatmap'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSectorPerformance } from '@/lib/api'
 import { useExchangeHeatmap } from '@/hooks/useExchangeHeatmap'
+import { computeBreadth } from '@/lib/marketBreadth'
 
 function MarketPulse({ continent }: { continent: Continent }) {
   const { data, isLoading } = useExchangeHeatmap(continent)
@@ -26,16 +27,8 @@ function MarketPulse({ continent }: { continent: Continent }) {
   }
 
   const sectors = data?.sectors ?? []
-  let gainers = 0, losers = 0, flat = 0, total = 0
-  
-  sectors.forEach(s => {
-    s.stocks.forEach(stock => {
-      total++
-      if (stock.change_percent > 0) gainers++
-      else if (stock.change_percent < 0) losers++
-      else flat++
-    })
-  })
+  // Same classifier as the desktop cards + heatmap.
+  const { total, gainers, losers, flat } = computeBreadth(sectors)
 
   if (total === 0) return null
 

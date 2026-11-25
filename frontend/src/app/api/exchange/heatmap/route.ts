@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isStaleTradeTime } from '@/lib/marketBreadth'
 import {
   EXCHANGE_HEATMAP_STOCKS,
   getExchangesByContinent,
@@ -62,7 +63,7 @@ async function fetchYahooBulk(symbols: string[]): Promise<Map<string, QuoteResul
       try {
         const encoded = chunk.map(encodeURIComponent).join(',')
         const res = await fetch(
-          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encoded}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketVolume,marketCap,currency&formatted=false`,
+          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encoded}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketVolume,regularMarketTime,marketCap,currency&formatted=false`,
           { headers: YF_HEADERS, next: { revalidate: 120 } }
         )
         if (!res.ok) return
@@ -72,6 +73,7 @@ async function fetchYahooBulk(symbols: string[]): Promise<Map<string, QuoteResul
           const sym = String(q.symbol ?? '')
           const price = Number(q.regularMarketPrice ?? 0)
           if (!sym || price <= 0) continue
+          if (isStaleTradeTime(q.regularMarketTime)) continue // delisted: frozen price
           map.set(sym, {
             price,
             change: Number(q.regularMarketChange ?? 0),
@@ -98,6 +100,7 @@ async function fetchYahooQuote(symbol: string): Promise<QuoteResult | null> {
     if (!meta) return null
     const price = Number(meta.regularMarketPrice ?? 0)
     if (price <= 0) return null
+    if (isStaleTradeTime(meta.regularMarketTime)) return null // delisted: frozen price
     const prev = Number(meta.chartPreviousClose ?? meta.previousClose ?? 0)
     const change = price - prev
     const change_percent = prev > 0 ? (change / prev) * 100 : 0
@@ -139,6 +142,7 @@ async function fetchFMPBatch(symbols: string[]): Promise<Map<string, QuoteResult
           if (!sym) continue
           const price = Number(q.price ?? 0)
           if (price <= 0) continue
+          if (isStaleTradeTime(q.timestamp)) continue // delisted: frozen price
           const prev = Number(q.previousClose ?? price)
           map.set(sym, {
             price,

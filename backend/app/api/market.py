@@ -19,6 +19,7 @@ from app.models.symbol import Symbol
 from app.models.quote_snapshot import QuoteSnapshot
 from app.config import settings
 from app.services.quote_cache import QuoteCacheService
+from app.services.market_breadth import classify_change, is_stale_quote
 from pydantic import BaseModel
 import httpx
 
@@ -434,7 +435,7 @@ async def fetch_stock_performance(
     try:
         quote = await cache_service.get_quote(symbol)
         
-        if not quote or quote.get("unavailable"):
+        if not quote or quote.get("unavailable") or is_stale_quote(quote):
             return None
         
         return StockPerformance(
@@ -477,6 +478,8 @@ async def fetch_bulk_quotes(
         failed_symbols = []
         
         for symbol, quote in quotes.items():
+            if is_stale_quote(quote):
+                continue  # delisted/halted: frozen price, not a real 0% day
             if quote and not quote.get("unavailable"):
                 price = quote.get("price", 0)
                 # Only include stocks with valid prices
@@ -504,7 +507,7 @@ async def fetch_bulk_quotes(
                 tv_quotes = await TradingViewFetcher.get_quotes_bulk(failed_symbols)
                 
                 for symbol, quote in tv_quotes.items():
-                    if quote and quote.get("price") and quote.get("price") > 0:
+                    if quote and quote.get("price") and quote.get("price") > 0 and not is_stale_quote(quote):
                         name, sector = symbol_map.get(symbol, (symbol, None))
                         results.append(StockPerformance(
                             symbol=symbol,
@@ -571,7 +574,7 @@ def _load_cached_mover_rows(
     for snap in snapshots:
         payload = snap.payload or {}
         price = float(payload.get("price", 0) or 0)
-        if price <= 0:
+        if price <= 0 or is_stale_quote(payload):
             continue
         name, sector = symbol_meta.get(snap.symbol, (snap.symbol, None))
         out.append(
@@ -855,7 +858,7 @@ async def get_sector_performance(db: Session = Depends(get_db)) -> List[SectorPe
     for sector_name, stock_list in SP500_STOCKS.items():
         for symbol, name in stock_list:
             quote = cached_map.get(symbol)
-            if not quote or quote.get("unavailable"):
+            if not quote or quote.get("unavailable") or is_stale_quote(quote):
                 continue
             price = float(quote.get("price", 0) or 0)
             if price <= 0:
@@ -936,9 +939,10 @@ async def get_heatmap_data(
 
     for sector_name, stocks in sector_data:
         for perf in stocks:
-            if perf.change_percent > 0.1:
+            direction = classify_change(perf.change_percent)
+            if direction == "up":
                 total_gainers += 1
-            elif perf.change_percent < -0.1:
+            elif direction == "down":
                 total_losers += 1
             else:
                 total_unchanged += 1
