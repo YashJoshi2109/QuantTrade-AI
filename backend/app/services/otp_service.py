@@ -3,7 +3,7 @@ OTP (One-Time Password) service for email verification.
 Uses Redis when available, with an in-memory fallback for local dev.
 Email delivery via Brevo with optional Resend fallback / dual send for account deletion.
 """
-import random
+import secrets
 import string
 import time
 from datetime import timedelta
@@ -21,6 +21,9 @@ OTP_EXPIRY_MINUTES = 10
 OTP_REDIS_PREFIX = "otp:"
 OTP_RATE_LIMIT_PREFIX = "otp_limit:"
 OTP_RATE_LIMIT_SECONDS = 30  # 1 OTP per 30 seconds per email
+OTP_MAX_ATTEMPTS = 5  # wrong guesses before the OTP is burned
+OTP_ATTEMPTS_PREFIX = "otp_attempts:"
+_memory_attempts: Dict[str, int] = {}
 
 _redis_client: Optional[redis.Redis] = None
 
@@ -48,7 +51,7 @@ def _get_redis() -> Optional[redis.Redis]:
 
 def generate_otp() -> str:
     """Generate a 6-digit numeric OTP."""
-    return "".join(random.choices(string.digits, k=OTP_LENGTH))
+    return "".join(secrets.choice(string.digits) for _ in range(OTP_LENGTH))
 
 
 def store_otp(email: str, otp: str) -> bool:
@@ -75,16 +78,48 @@ def store_otp(email: str, otp: str) -> bool:
     return True
 
 
+def _register_failed_attempt(key: str, r) -> None:
+    """Count wrong guesses; burn the OTP after OTP_MAX_ATTEMPTS (brute-force guard)."""
+    attempts = None
+    if r:
+        try:
+            akey = f"{OTP_ATTEMPTS_PREFIX}{key}"
+            attempts = r.incr(akey)
+            r.expire(akey, OTP_EXPIRY_MINUTES * 60)
+            if attempts >= OTP_MAX_ATTEMPTS:
+                r.delete(f"{OTP_REDIS_PREFIX}{key}", akey)
+        except Exception:
+            attempts = None
+    if attempts is None:
+        _memory_attempts[key] = _memory_attempts.get(key, 0) + 1
+        if _memory_attempts[key] >= OTP_MAX_ATTEMPTS:
+            _memory_otp_store.pop(key, None)
+            _memory_attempts.pop(key, None)
+
+
 def verify_otp(email: str, otp: str) -> bool:
-    """Verify OTP and delete from store if valid."""
+    """Verify OTP and delete from store if valid. Wrong guesses are counted."""
     key = email.lower()
     r = _get_redis()
+    if _verify_otp_inner(key, otp, r):
+        _memory_attempts.pop(key, None)
+        if r:
+            try:
+                r.delete(f"{OTP_ATTEMPTS_PREFIX}{key}")
+            except Exception:
+                pass
+        return True
+    _register_failed_attempt(key, r)
+    return False
+
+
+def _verify_otp_inner(key: str, otp: str, r) -> bool:
 
     if r:
         try:
             redis_key = f"{OTP_REDIS_PREFIX}{key}"
             stored = r.get(redis_key)
-            if stored and stored == otp:
+            if stored and secrets.compare_digest(str(stored), str(otp)):
                 r.delete(redis_key)
                 return True
         except Exception:
@@ -102,7 +137,7 @@ def verify_otp(email: str, otp: str) -> bool:
         _memory_otp_store.pop(key, None)
         return False
 
-    if stored_otp == otp:
+    if secrets.compare_digest(str(stored_otp), str(otp)):
         _memory_otp_store.pop(key, None)
         return True
 
@@ -248,7 +283,7 @@ def verify_delete_account_otp(user_id: int, otp: str) -> bool:
         try:
             redis_key = f"{DELETE_OTP_REDIS_PREFIX}{key}"
             stored = r.get(redis_key)
-            if stored and stored == otp:
+            if stored and secrets.compare_digest(str(stored), str(otp)):
                 r.delete(redis_key)
                 return True
             return False
@@ -261,7 +296,7 @@ def verify_delete_account_otp(user_id: int, otp: str) -> bool:
     if time.time() > expiry:
         _memory_delete_otp_store.pop(key, None)
         return False
-    if stored_otp == otp:
+    if secrets.compare_digest(str(stored_otp), str(otp)):
         _memory_delete_otp_store.pop(key, None)
         return True
     return False

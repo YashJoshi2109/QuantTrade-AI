@@ -133,7 +133,10 @@ def subscription_entitled(subscription: Optional[Subscription]) -> bool:
         return False
     if subscription.current_period_end is None:
         return True
-    return subscription.current_period_end > datetime.now(timezone.utc)
+    end = subscription.current_period_end
+    if end.tzinfo is None:  # column is naive DateTime storing UTC
+        end = end.replace(tzinfo=timezone.utc)
+    return end > datetime.now(timezone.utc)
 
 
 def plan_label_for_price_id(price_id: Optional[str]) -> str:

@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.api.auth import require_auth
+from app.api.auth import require_admin, require_auth
 from app.models.user import User
 from app.services import ml_metadata_service as mds
 
@@ -104,7 +104,7 @@ class BatchCallbackRequest(BaseModel):
 
 # ── Training Run Management ───────────────────────────────────────────
 
-@router.post("/internal/ml/runs/nightly/trigger")
+@router.post("/internal/ml/runs/nightly/trigger", dependencies=[Depends(require_admin)])
 async def trigger_nightly_run(
     req: TriggerNightlyRequest,
     db: Session = Depends(get_db),
@@ -164,7 +164,7 @@ async def trigger_nightly_run(
     }
 
 
-@router.post("/internal/ml/runs/backfill")
+@router.post("/internal/ml/runs/backfill", dependencies=[Depends(require_admin)])
 async def trigger_backfill(
     req: BackfillRequest,
     db: Session = Depends(get_db),
@@ -336,7 +336,7 @@ async def get_run_artifacts(run_id: str, request: Request, db: Session = Depends
     }
 
 
-@router.post("/internal/ml/runs/{run_id}/retry-failed-shards")
+@router.post("/internal/ml/runs/{run_id}/retry-failed-shards", dependencies=[Depends(require_admin)])
 async def retry_failed_shards(
     run_id: str,
     db: Session = Depends(get_db),
@@ -422,7 +422,7 @@ async def get_model_version(version: str, db: Session = Depends(get_db)):
 
 # ── Model Version Lifecycle ──────────────────────────────────────────
 
-@router.post("/internal/ml/models/versions/{version}/promote")
+@router.post("/internal/ml/models/versions/{version}/promote", dependencies=[Depends(require_admin)])
 async def promote_db_model_version(
     version: str,
     db: Session = Depends(get_db),
@@ -441,7 +441,7 @@ async def promote_db_model_version(
     }
 
 
-@router.post("/internal/ml/models/versions/{version}/archive")
+@router.post("/internal/ml/models/versions/{version}/archive", dependencies=[Depends(require_admin)])
 async def archive_db_model_version(
     version: str,
     db: Session = Depends(get_db),
@@ -501,7 +501,7 @@ async def get_symbol_training_history(
 
 # ── Shard Planning ───────────────────────────────────────────────────
 
-@router.post("/internal/ml/shards/plan")
+@router.post("/internal/ml/shards/plan", dependencies=[Depends(require_admin)])
 async def plan_shards_dryrun(req: ShardPlanRequest):
     """Dry-run shard planner — inspect generated shard assignments."""
     from ml.shard_planner import plan_shards_by_tier
@@ -793,7 +793,7 @@ async def promote_run_model(
     return {"status": "accepted", "model_version": req.model_version, "promotion_status": req.promotion_status}
 
 
-@router.post("/internal/ml/runs/{run_id}/register-staging")
+@router.post("/internal/ml/runs/{run_id}/register-staging", dependencies=[Depends(require_admin)])
 async def register_staging_for_run(
     run_id: str,
     db: Session = Depends(get_db),
