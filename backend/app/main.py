@@ -1,7 +1,10 @@
 """
 Main FastAPI application entry point
 """
+import asyncio
 import logging
+import os
+import sys
 import threading
 from contextlib import asynccontextmanager
 
@@ -302,7 +305,16 @@ async def lifespan(app: FastAPI):
     warm_t = threading.Thread(target=_warm_caches, daemon=True)
     warm_t.start()
 
+    # Pre-compute statistical forecasts for popular tickers (runs on this loop,
+    # where the async Redis client lives). FORECAST_WARM=0 disables it.
+    forecast_warm_task = None
+    if os.environ.get("FORECAST_WARM", "1") != "0" and "pytest" not in sys.modules:
+        from app.api.forecast import forecast_warm_loop
+        forecast_warm_task = asyncio.create_task(forecast_warm_loop())
+
     yield
+    if forecast_warm_task:
+        forecast_warm_task.cancel()
     # Shutdown
     if _scheduler and _scheduler.running:
         _scheduler.shutdown(wait=False)

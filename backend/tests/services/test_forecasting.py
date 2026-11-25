@@ -141,3 +141,31 @@ def test_api_caches_and_validates(monkeypatch, random_walk):
     monkeypatch.setattr(api, "_load_closes", lambda t: random_walk.iloc[:50])
     r = c.get("/api/v1/forecast/NEWIPO")
     assert r.status_code == 422 and "needs at least" in r.json()["detail"]
+
+
+def test_warm_skips_cached_and_survives_errors(monkeypatch, random_walk):
+    import asyncio
+
+    from app.api import forecast as api
+
+    store: dict = {f"forecast:{api._CACHE_VERSION}:AAPL": {"cached": True}}
+
+    async def fake_get(key):
+        return store.get(key)
+
+    async def fake_set(key, value, ttl=60):
+        store[key] = value
+
+    def fake_load(t):
+        if t == "BAD":
+            raise RuntimeError("provider down")
+        return random_walk
+
+    monkeypatch.setattr(api, "_load_closes", fake_load)
+    monkeypatch.setattr(api.cache_service, "get", fake_get)
+    monkeypatch.setattr(api.cache_service, "set", fake_set)
+
+    n = asyncio.run(api.warm_forecasts(("AAPL", "BAD", "MSFT"), pause=0))
+    assert n == 1  # AAPL cached, BAD failed, MSFT fitted
+    assert store[f"forecast:{api._CACHE_VERSION}:MSFT"]["ticker"] == "MSFT"
+    assert all(api._TICKER_RE.match(t) for t in api.WARM_TICKERS)
