@@ -641,7 +641,8 @@ async def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
     
     # Refresh if older than 1 hour or doesn't exist
     needs_refresh = False
-    if fundamentals is None or fundamentals.fetched_at is None:
+    if fundamentals is None or fundamentals.fetched_at is None or fundamentals.market_cap is None:
+        # Empty rows were cached while Finviz returned 403 — don't serve them for an hour.
         needs_refresh = True
     else:
         # Handle timezone-aware vs naive datetimes safely

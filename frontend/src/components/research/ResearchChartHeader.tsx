@@ -10,7 +10,8 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react'
-import type { Ref } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from 'react'
+import { createPortal } from 'react-dom'
 import { QuoteActivityFlash } from '@/components/QuoteActivityFlash'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -62,6 +63,40 @@ export interface ResearchChartHeaderProps {
   syncing: boolean
 }
 
+/**
+ * Renders the Chart Settings panel on document.body, anchored under its button.
+ * Rendering it inline left it clipped: the header lives inside a transformed
+ * `motion.div` (own stacking context) and a clipping card, so no z-index could
+ * lift it above the chart. Marked with data-chart-settings-portal so the
+ * page's outside-click handler treats clicks inside it as "inside".
+ */
+function AnchoredPopover({ anchor, children }: { anchor: HTMLElement | null; children: ReactNode }) {
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  useLayoutEffect(() => {
+    if (!anchor) return
+    const update = () => {
+      const r = anchor.getBoundingClientRect()
+      setPos({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [anchor])
+  if (!mounted || !pos) return null
+  return createPortal(
+    <div data-chart-settings-portal style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 1000 }}>
+      {children}
+    </div>,
+    document.body,
+  )
+}
+
 export function ResearchChartHeader({
   selectedSymbol,
   tickerInfo,
@@ -94,6 +129,7 @@ export function ResearchChartHeader({
   syncing,
 }: ResearchChartHeaderProps) {
   const isPositive = isNumber(priceInfo.percent) ? priceInfo.percent >= 0 : false
+  const advancedButtonRef = useRef<HTMLButtonElement>(null)
 
   const rawCompany =
     tickerInfo?.name?.trim() ||
@@ -310,6 +346,7 @@ export function ResearchChartHeader({
             </button>
             <div className="relative shrink-0" ref={advancedRef}>
             <button
+              ref={advancedButtonRef}
               type="button"
               onClick={() => setAdvancedOpen((o) => !o)}
               className={cn(
@@ -325,8 +362,9 @@ export function ResearchChartHeader({
               Advanced
             </button>
               {advancedOpen ? (
+              <AnchoredPopover anchor={advancedButtonRef.current}>
               <div
-                className="absolute right-0 top-full z-[200] mt-2 w-[min(100vw-2rem,22rem)] max-h-[70vh] overflow-y-auto space-y-4 rounded-xl border border-line-default bg-surface-overlay backdrop-blur-xl p-4 text-left shadow-theme-lg"
+                className="w-[min(100vw-2rem,22rem)] max-h-[70vh] overflow-y-auto space-y-4 rounded-xl border border-line-default bg-surface-overlay backdrop-blur-xl p-4 text-left shadow-theme-lg"
                 role="dialog"
                 aria-label="Chart options"
               >
@@ -453,6 +491,7 @@ export function ResearchChartHeader({
                   </div>
                 </div>
               </div>
+              </AnchoredPopover>
               ) : null}
             </div>
           </div>

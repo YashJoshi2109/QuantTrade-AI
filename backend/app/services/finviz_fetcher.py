@@ -121,6 +121,79 @@ class FinvizFetcher:
             }
     
     @staticmethod
+    def fetch_yfinance_fundamentals(symbol: str) -> Dict:
+        """Same shape and units as fetch_stock_fundamentals, sourced from yfinance.
+
+        Finviz now answers scrapers with 403, which left every fundamentals field
+        null. Units match the Finviz parser: margins/returns/ownership are percent
+        numbers (55.6 = 55.6%), debt_to_equity is a plain ratio.
+        """
+        try:
+            import yfinance as yf
+            info = yf.Ticker(symbol.upper()).info or {}
+        except Exception as e:
+            print(f"yfinance fundamentals error for {symbol}: {e}")
+            return {"symbol": symbol.upper(), "error": str(e), "fetched_at": datetime.utcnow().isoformat()}
+
+        def num(key):
+            v = info.get(key)
+            try:
+                v = float(v)
+            except (TypeError, ValueError):
+                return None
+            return v if v == v else None  # drop NaN
+
+        def pct(key):
+            v = num(key)
+            return None if v is None else round(v * 100, 2)
+
+        de = num("debtToEquity")
+        rec = num("recommendationMean")
+        ets = info.get("earningsTimestamp")
+        return {
+            "symbol": symbol.upper(),
+            "company_name": info.get("longName") or info.get("shortName"),
+            "sector": info.get("sector"),
+            "industry": info.get("industry"),
+            "country": info.get("country"),
+            "price": num("currentPrice") or num("regularMarketPrice"),
+            "volume": num("volume"),
+            "avg_volume": num("averageVolume"),
+            "market_cap": num("marketCap"),
+            "pe_ratio": num("trailingPE"),
+            "forward_pe": num("forwardPE"),
+            "peg_ratio": num("trailingPegRatio") or num("pegRatio"),
+            "price_to_sales": num("priceToSalesTrailing12Months"),
+            "price_to_book": num("priceToBook"),
+            "dividend_yield": pct("trailingAnnualDividendYield"),
+            "profit_margin": pct("profitMargins"),
+            "operating_margin": pct("operatingMargins"),
+            "gross_margin": pct("grossMargins"),
+            "roa": pct("returnOnAssets"),
+            "roe": pct("returnOnEquity"),
+            "roi": None,
+            "debt_to_equity": None if de is None else round(de / 100, 3),  # yfinance reports percent
+            "current_ratio": num("currentRatio"),
+            "quick_ratio": num("quickRatio"),
+            "52w_high": num("fiftyTwoWeekHigh"),
+            "52w_low": num("fiftyTwoWeekLow"),
+            "beta": num("beta"),
+            "eps": num("trailingEps"),
+            "eps_next_year": num("forwardEps"),
+            "earnings_date": datetime.utcfromtimestamp(ets).strftime("%b %d") if isinstance(ets, (int, float)) else "",
+            "shares_outstanding": num("sharesOutstanding"),
+            "shares_float": num("floatShares"),
+            "short_float": pct("shortPercentOfFloat"),
+            "short_ratio": num("shortRatio"),
+            "insider_ownership": pct("heldPercentInsiders"),
+            "institutional_ownership": pct("heldPercentInstitutions"),
+            "target_price": num("targetMeanPrice"),
+            "recommendation": f"{rec:.1f}" if rec is not None else "",
+            "fetched_at": datetime.utcnow().isoformat(),
+            "data_source": "yfinance",
+        }
+
+    @staticmethod
     def _extract_company_name(soup) -> str:
         """Extract company name from page"""
         try:

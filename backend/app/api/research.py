@@ -14,7 +14,7 @@ from app.models.edgar import CompanyEDGAR, FinancialStatement
 from app.models.symbol import Symbol
 from app.services.sec_edgar_service import (
     sync_edgar_data, get_cik, parse_filings_list, get_submissions,
-    generate_filing_insights,
+    generate_filing_insights, stored_parser_version, PARSER_VERSION,
 )
 
 router = APIRouter(prefix="/api/v1/research", tags=["research"])
@@ -95,6 +95,10 @@ async def get_financials(
         q = q.filter(FinancialStatement.fiscal_quarter != None)
 
     rows = q.order_by(FinancialStatement.period_end_date.desc()).limit(limit).all()
+
+    # Rows written by an older parser hold year-to-date sums / calendar labels: re-sync.
+    if rows and stored_parser_version(rows[0]) < PARSER_VERSION:
+        rows = []
 
     if not rows:
         # Auto-sync if no data
@@ -196,24 +200,28 @@ async def get_ai_insights(
     """AI-generated analysis of company financials and filings."""
     sym = _get_symbol(ticker, db)
 
-    # Get financial data
-    rows = db.query(FinancialStatement).filter(
-        FinancialStatement.symbol_id == sym.id
-    ).order_by(FinancialStatement.period_end_date.desc()).limit(8).all()
+    def _load_rows():
+        return db.query(FinancialStatement).filter(
+            FinancialStatement.symbol_id == sym.id
+        ).order_by(FinancialStatement.period_end_date.desc()).limit(12).all()
 
-    financials = []
-    for r in rows:
-        financials.append({
-            "period": r.period,
-            "form": r.form,
-            "period_end_date": r.period_end_date,
-            "revenue": r.revenue,
-            "net_income": r.net_income,
-            "operating_cash_flow": r.operating_cash_flow,
-            "free_cash_flow": r.free_cash_flow,
-            "total_assets": r.total_assets,
-            "long_term_debt": r.long_term_debt,
-        })
+    rows = _load_rows()
+    # Never feed the model numbers from the old (YTD-mixing) parser.
+    if not rows or stored_parser_version(rows[0]) < PARSER_VERSION:
+        if sync_edgar_data(ticker, db).get("status") == "ok":
+            rows = _load_rows()
+
+    fields = (
+        "revenue", "gross_profit", "operating_income", "net_income", "eps_diluted",
+        "operating_cash_flow", "capital_expenditures", "free_cash_flow",
+        "cash_and_equivalents", "total_assets", "total_liabilities", "current_assets",
+        "current_liabilities", "long_term_debt", "stockholders_equity",
+    )
+    financials = [
+        {"period": r.period, "form": r.form, "period_end_date": r.period_end_date,
+         **{f: getattr(r, f) for f in fields}}
+        for r in rows
+    ]
 
     edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym.id).first()
     company_info = {
