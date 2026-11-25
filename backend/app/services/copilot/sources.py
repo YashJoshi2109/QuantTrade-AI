@@ -382,17 +382,12 @@ class LiveSources:
 
 
 def fundamentals_fact(ticker: str, r: Dict[str, Any]) -> FundamentalsFact:
-    # The table holds finviz-style percents (27.6) or yfinance-style ratios (0.276)
-    # depending on which fetcher wrote the row; decide per row from the margins.
-    margins = [fnum(r.get(k)) for k in ("profit_margin", "operating_margin", "gross_margin", "roe")]
-    margins = [m for m in margins if m]
-    ratio_row = bool(margins) and all(abs(m) <= 1.0 for m in margins)
+    from app.services.fundamental_units import normalize_fundamental_units
+    r = normalize_fundamental_units(r)      # percentage points + D/E ratio, whichever fetcher wrote it
 
     def pct(k: str) -> Optional[float]:
         v = fnum(r.get(k))
-        if v is None:
-            return None
-        return round(v * 100, 2) if ratio_row else round(v, 2)
+        return None if v is None else round(v, 2)
 
     return FundamentalsFact(
         id=f"fund:{ticker}", source="fundamentals table (finviz / yfinance / FMP)",

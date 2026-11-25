@@ -89,7 +89,8 @@ def structured_compat(pack: TickerContextPack) -> Optional[Dict[str, Any]]:
         out["fundamentals"] = {k: v for k, v in {
             "market_cap": f.market_cap, "pe_ratio": f.pe_ratio, "forward_pe": f.forward_pe,
             "peg_ratio": f.peg_ratio, "price_to_book": f.price_to_book, "eps": f.eps_ttm, "beta": f.beta,
-            "dividend_yield": (f.dividend_yield_pct / 100) if f.dividend_yield_pct is not None else None,
+            # percentage points, like /enhanced/fundamentals (27.6 == 27.6 %)
+            "dividend_yield": f.dividend_yield_pct,
             "week_52_high": f.week_52_high,
             "week_52_low": f.week_52_low, "profit_margin": f.profit_margin_pct,
             "operating_margin": f.operating_margin_pct, "roe": f.roe_pct, "debt_to_equity": f.debt_to_equity,

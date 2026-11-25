@@ -664,7 +664,14 @@ def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
 
     if needs_refresh:
         fundamentals = EnhancedDataFetcher.sync_fundamentals(symbol.upper(), db)
-    
+
+    # Rows come from finviz (percents) or yfinance (ratios); serve one unit.
+    from app.services.fundamental_units import normalize_fundamental_units
+    units = normalize_fundamental_units({
+        k: getattr(fundamentals, k, None) for k in (
+            "profit_margin", "operating_margin", "gross_margin", "roe", "roa", "roi",
+            "dividend_yield", "debt_to_equity")})
+
     return {
         "symbol": db_symbol.symbol,
         "asset_type": classify_asset_type(db_symbol.symbol, db_symbol.asset_type),
@@ -681,19 +688,19 @@ def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
         "price_to_sales": fundamentals.price_to_sales,
         "price_to_book": fundamentals.price_to_book,
         
-        # Profitability
-        "profit_margin": fundamentals.profit_margin,
-        "operating_margin": fundamentals.operating_margin,
-        "gross_margin": fundamentals.gross_margin,
-        "roe": fundamentals.roe,
-        "roa": fundamentals.roa,
-        "roi": fundamentals.roi,
+        # Profitability (percentage points: 27.6 == 27.6 %)
+        "profit_margin": units["profit_margin"],
+        "operating_margin": units["operating_margin"],
+        "gross_margin": units["gross_margin"],
+        "roe": units["roe"],
+        "roa": units["roa"],
+        "roi": units["roi"],
         
         # Dividends (percent number, 0.45 = 0.45%)
-        "dividend_yield": fundamentals.dividend_yield,
+        "dividend_yield": units["dividend_yield"],
 
         # Financial health — debt_to_equity is a plain ratio (0.84), never percent
-        "debt_to_equity": fundamentals.debt_to_equity,
+        "debt_to_equity": units["debt_to_equity"],
         "current_ratio": fundamentals.current_ratio,
         "quick_ratio": fundamentals.quick_ratio,
         
