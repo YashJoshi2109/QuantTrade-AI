@@ -102,3 +102,6 @@ playwright-report/
 .rds-migration.secret
 *.neon.bak
 backend/.env.neon.bak
+.ml-secrets.local
+.gh-aws-ml-key.local
+.gh-secrets-update.local

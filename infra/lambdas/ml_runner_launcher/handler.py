@@ -13,7 +13,7 @@ REPO = "YashJoshi2109/QuantTrade-AI"
 PAT_SECRET_NAME = os.environ.get("PAT_SECRET_NAME", "quanttrade/github-pat")
 LAUNCH_TEMPLATE_ID = os.environ.get("LAUNCH_TEMPLATE_ID", "")
 SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
-S3_BUCKET = os.environ.get("S3_BUCKET", "quanttrade-ml-artifacts")
+S3_BUCKET = os.environ.get("S3_BUCKET", "quanttrade-ml-artifacts-208638972407")
 # Set USE_SPOT=true once Spot vCPU quota is approved; false = On-Demand (works immediately)
 USE_SPOT = os.environ.get("USE_SPOT", "false").lower() == "true"
 

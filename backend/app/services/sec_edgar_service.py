@@ -56,7 +56,7 @@ def _s3_get(key: str) -> Optional[dict]:
     try:
         import boto3, botocore
         s3 = boto3.client("s3")
-        obj = s3.get_object(Bucket="quanttrade-ml-artifacts", Key=key)
+        obj = s3.get_object(Bucket="quanttrade-ml-artifacts-208638972407", Key=key)
         return json.loads(obj["Body"].read())
     except Exception:
         return None
@@ -68,7 +68,7 @@ def _s3_put(key: str, data: dict) -> None:
         import boto3
         s3 = boto3.client("s3")
         s3.put_object(
-            Bucket="quanttrade-ml-artifacts",
+            Bucket="quanttrade-ml-artifacts-208638972407",
             Key=key,
             Body=json.dumps(data).encode(),
             ContentType="application/json",

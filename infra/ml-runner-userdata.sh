@@ -12,7 +12,7 @@ trap 'echo "[bootstrap] SIGTERM received — Spot interrupted, shutting down"; s
 # export JIT_TOKEN="<github-jit-registration-token>"
 # export RUNNER_INDEX="<0..N-1>"
 # export TOKEN_ISSUED_AT="<unix-timestamp>"
-# export S3_BUCKET="quanttrade-ml-artifacts"
+# export S3_BUCKET="quanttrade-ml-artifacts-208638972407"
 
 # ── Token expiry guard ────────────────────────────────────────────────────────
 NOW=$(date +%s)
