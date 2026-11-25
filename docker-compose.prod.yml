@@ -179,8 +179,8 @@ services:
   # FinBERT/MiniLM classification + capped Claude Haiku notes. Writes news_items
   # and publishes qt:ws:news; the API only reads/bridges and never loads models.
   # Memory budget (t3.small, 2 GB): nginx 128M + frontend 512M + backend 768M +
-  # news-worker 512M = 1920M (limits are caps). celery-worker (640M) is defined
-  # below too; if it actually runs, the caps sum past 2 GB.
+  # news-worker 512M = 1920M (limits are caps). celery-worker (640M) is behind
+  # the "celery" profile and off by default; enabling it pushes caps past 2 GB.
   news-worker:
     image: ghcr.io/yashjoshi2109/quanttrade-backend:latest
     container_name: quanttrade-news-worker
@@ -218,7 +218,14 @@ services:
   # ── Celery Worker + Beat — task executor and periodic scheduler combined ──
   # Beat runs as embedded thread (-B flag); safe for single-node deployments.
   # Saves ~350MB vs separate beat container (eliminates duplicate app import).
+  # Disabled by default (profile "celery"): it crash-looped in prod (29 restarts
+  # in ~50 min on 2026-11-25) while the 2 GB host was swapping ~1 GB. News
+  # ingestion moved to news-worker; the app's APScheduler covers market jobs.
+  # Global-monitor syncs (GDELT/ACLED) still live here — re-enable with
+  #   docker compose -f docker-compose.prod.yml --profile celery up -d celery-worker
+  # once the crash is fixed (or on a 4 GB instance).
   celery-worker:
+    profiles: ["celery"]
     image: ghcr.io/yashjoshi2109/quanttrade-backend:latest
     container_name: quanttrade-celery-worker
     restart: unless-stopped

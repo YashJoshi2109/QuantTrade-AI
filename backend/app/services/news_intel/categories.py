@@ -40,6 +40,8 @@ CATEGORIES: List[Dict[str, str]] = [
      "description": "Tariffs, sanctions, trade wars, conflicts and elections that move markets."},
     {"key": "product_business", "label": "Products & Business",
      "description": "Product launches, partnerships, contracts, layoffs, executive changes."},
+    {"key": "market_moves", "label": "Market Moves",
+     "description": "Index and stock price moves, market wraps, sector rotations and movers lists."},
     {"key": "other", "label": "Other",
      "description": "Market news that does not fit another category."},
 ]
@@ -68,11 +70,12 @@ RULES: List[Tuple[str, Pattern[str]]] = [
         r"\b(?:to|will) (?:report|announce|release) (?:its )?(?:Q[1-4]|quarterly|fiscal|first|second|third|fourth|financial results|earnings)",
         r"\bfinancial results\b",
         r"\bsame[- ]store sales\b",
+        r"\bto (?:report|announce|release|host)\b[^.]{0,40}\b(?:results|earnings)\b",
     )),
     ("guidance", _rx(
         r"\b(?:raises?|raised|lifts?|lifted|boosts?|boosted|hikes?|hiked|cuts?|lowers?|lowered|slashes|slashed|trims?|trimmed|reaffirms?|reaffirmed|reiterates?|reiterated|maintains?|withdraws?|withdrew|pulls?|suspends?|ups)\b[^.]{0,40}\b(?:guidance|outlook|forecast|full[- ]year|annual (?:profit|revenue|sales)|(?<!price )(?:margin|sales|revenue|profit|growth|financial) targets?)",
         r"\b(?:guidance|outlook|forecast) (?:raise|cut|beats?|misses?|tops?|disappoints?|above|below|ahead)",
-        r"\b(?:weak|soft|strong|upbeat|downbeat|gloomy|bleak|rosy|disappointing|cautious|lackluster|tepid)\b (?:full[- ]year |annual |quarterly |Q[1-4] |\w+ )?(?:guidance|outlook|forecast)",
+        r"\b(?:weak|soft|strong|upbeat|downbeat|gloomy|bleak|rosy|disappointing|cautious|lackluster|tepid)\b (?:full[- ]year |annual |quarterly |Q[1-4] |[\w-]+ )?(?:guidance|outlook|forecast)",
         r"\bprofit warning\b",
         r"\bwarns? (?:on|of) (?:profit|revenue|sales|earnings)",
     )),
@@ -97,6 +100,7 @@ RULES: List[Tuple[str, Pattern[str]]] = [
         r"\bSPAC\b|\bblank[- ]check\b",
         r"\b(?:sells?|issues?|raises?|prices?)\s+\$?[\d.,]+\s*(?:billion|million|bn|B|M)?\s+(?:of |in )?(?:bonds|notes|debt|convertibles?)\b|\bbond (?:sale|offering|deal|issue)\b",
         r"\bS-1\b|\bF-1\b",
+        r"\b(?:below|above|under) (?:its |their )?(?:IPO|listing|offer) price\b|\bfirst (?:day|week) of trading\b|\bnewly (?:listed|public)\b",
     )),
     ("analyst", _rx(
         r"\b(?:upgrades?|upgraded|downgrades?|downgraded)\b",
@@ -164,6 +168,19 @@ RULES: List[Tuple[str, Pattern[str]]] = [
         r"\b(?:opens? new|expands? (?:into|its|production|capacity|partnership)|new (?:plant|factory|facility|stores?|data cent(?:er|re)s?)|production (?:halt|ramp))\b",
     )),
 ]
+
+
+# Market moves: price action of indexes / stocks / sectors and market wraps.
+# Lowest priority before "other": only primary when no event category fired.
+RULES.append(("market_moves", _rx(
+    r"\b(?:stocks?|shares|equities|Wall Street|Dow(?: Jones)?|S&P(?: 500)?|Nasdaq|Russell 2000|small[- ]caps|blue chips|futures|indexes|indices|market)\b[^.]{0,60}\b(?:rall(?:y|ies|ied)|rises?|rose|rising|rebound(?:s|ed)?|slump(?:s|ed)?|slides?|slid|tumbles?|tumbled|plunges?|plunged|sinks?|sank|surges?|surged|soars?|soared|jumps?|jumped|climbs?|climbed|gains?|gained|falls?|fell|drops?|dropped|declines?|declined|retreats?|recovers?|recovered|erases?|erased|swoons?|sell[- ]?off|selloff|end(?:s|ed)? (?:mixed|higher|lower|flat|mostly)|close[sd]? (?:mixed|higher|lower|flat|up|down)|finish(?:es|ed)? (?:higher|lower|mixed)|opens? (?:higher|lower|over|up|down)|bounce|comeback|wild (?:ride|session)|record high|all-time high|correction|bear market|bull market)\b",
+    r"\bmarkets? (?:wrap|today|close|recap|update)\b|\bstock market today\b|\bhow major (?:US )?stock indexes fared\b",
+    r"\b(?:stocks?|shares) (?:moving|movers|to watch)\b|\bbiggest (?:gainers|losers|movers)\b|\b(?:top )?(?:gainers|losers)\b",
+    r"\b(?:why is|why are)\b[^.]{0,40}\b(?:stock|shares)\b[^.]{0,20}\b(?:up|down|going up|going down|falling|rising|soaring|plunging)\b",
+    r"\b(?:up|down|higher|lower|rose|fell|gained|lost)\s+\d+(?:\.\d+)?\s?%",
+    r"\b\d[\d,]*[- ]point (?:gain|loss|drop|rally|swing|decline)\b",
+    r"\b(?:sell[- ]?off|selloff|rout|short squeeze|meltdown)\b|\brally (?:fizzles|fades|stalls|extends)\b|\b(?:rally|rebound) in\b[^.]{0,30}\b(?:stocks|shares)\b",
+)))
 
 
 def rule_categories(text: str) -> List[str]:
@@ -336,12 +353,22 @@ SEEDS: Dict[str, List[str]] = {
         "Boeing resumes 737 MAX deliveries after strike ends",
         "OpenAI releases new reasoning model",
     ],
+    "market_moves": [
+        "Wall Street closes lower after a choppy session",
+        "Tech shares lead the Nasdaq to a fresh record",
+        "Small caps outpace blue chips in midweek trade",
+        "Chipmakers slide as investors rotate out of AI winners",
+        "Traders pile into defensive sectors as volatility spikes",
+        "Futures point to a weaker open on Wall Street",
+        "The biggest stock movers after the bell",
+        "Dow swings hundreds of points before recovering",
+        "Retail names rally ahead of the holiday shopping season",
+        "Energy stocks lag as crude retreats",
+    ],
     "other": [
         "Stocks to watch this week",
         "What to know before the market opens",
         "Five things to start your day",
-        "Dow, S&P 500 and Nasdaq end mixed in quiet trading",
-        "Market wrap: stocks close higher",
         "Here's how to invest for retirement",
         "Top movers in midday trading",
         "Stock market today: live updates",

@@ -7,8 +7,8 @@ clusters, under a hard daily cap (NEWS_AI_DAILY_LIMIT, default 50).
 - Notes are stored on the cluster row and never regenerated (cache per cluster).
 - Runs in its own loop; ingestion never waits on it.
 
-Provider: Anthropic API when ANTHROPIC_API_KEY is set (model NEWS_AI_MODEL,
-default claude-haiku-4-5), else get_llm_haiku() (Bedrock/OpenAI chain).
+Provider: guarded get_llm_anthropic() when ANTHROPIC_API_KEY is set, else
+get_llm_haiku() (Bedrock/OpenAI chain); always under ai_guard.system_context.
 """
 from __future__ import annotations
 
@@ -130,29 +130,22 @@ def parse_note(text: str) -> Optional[Dict[str, Any]]:
 
 
 def _call_llm(prompt: str) -> str:
-    key = os.environ.get("ANTHROPIC_API_KEY")
-    if not key:
-        try:
-            from app.config import settings
-            key = settings.ANTHROPIC_API_KEY
-        except Exception:
-            key = None
-    if key:
-        import anthropic
+    """One guarded Haiku call charged to the system AI budget (ai_guard).
 
-        client = anthropic.Anthropic(api_key=key, timeout=30.0, max_retries=1)
-        msg = client.messages.create(
-            model=os.environ.get("NEWS_AI_MODEL", "claude-haiku-4-5"),
-            max_tokens=300,
-            temperature=0,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return "".join(getattr(b, "text", "") for b in msg.content)
-    from app.services.agentic.bedrock_client import get_llm_haiku
+    Goes through the guarded factories so the call is reserved/reconciled
+    against LLM_SYSTEM_DAILY_BUDGET_USD and the per-provider caps, on top of
+    the NEWS_AI_DAILY_LIMIT count cap above.
+    """
+    from app.services.ai_guard import system_context
+    from app.services.agentic.bedrock_client import get_llm_anthropic, get_llm_haiku
+    from app.config import settings
 
-    llm = get_llm_haiku()
-    resp = llm.invoke([("system", SYSTEM_PROMPT), ("human", prompt)])
+    with system_context("news_notes"):
+        llm = None
+        if os.environ.get("ANTHROPIC_API_KEY") or getattr(settings, "ANTHROPIC_API_KEY", None):
+            llm = get_llm_anthropic(max_tokens=300)  # None if langchain_anthropic missing
+        llm = llm or get_llm_haiku(max_tokens=300)
+        resp = llm.invoke([("system", SYSTEM_PROMPT), ("human", prompt)])
     content = getattr(resp, "content", resp)
     if isinstance(content, list):
         content = "".join(c.get("text", "") if isinstance(c, dict) else str(c) for c in content)

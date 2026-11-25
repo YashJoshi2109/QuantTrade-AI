@@ -120,7 +120,44 @@ def test_rules_precision_guards():
     assert "mna" not in rule_categories("Is now a good time to buy stocks?")
     assert "regulatory_legal" not in rule_categories("Oil settles higher after volatile session")
     assert "guidance" not in rule_categories("UBS raises Nvidia price target to $250")
-    assert rule_categories("Stocks open higher on Wall Street") == []
+    # Pure price action is its own category, never an event category.
+    assert rule_categories("Stocks open higher on Wall Street") == ["market_moves"]
+    assert rule_categories("Morgan Stanley downgrades Tesla to Equal-Weight")[0] == "analyst"
+    assert rule_categories("Fed holds rates steady; stocks rally")[0] == "macro_fed"
+    assert rule_categories("NVIDIA beats third-quarter estimates as revenue jumps 94%")[0] == "earnings"
+
+
+def test_market_moves_and_language_filter_on_real_headlines():
+    from app.services.news_intel.language import is_english
+
+    moves = [
+        "Stocks Finish Lower After Wild Session",
+        "Dow closes higher after erasing 1,100-point loss as S&P 500, Nasdaq slip",
+        "Nvidia leads tech sell-off as Huang comeback rally fizzles and AI concerns mount",
+        "12 Health Care Stocks Moving In Wednesday's After-Market Session",
+        "Why Is Credo Stock Going Up?",
+        "Stocks mixed as Wall Street erases sharp decline: Nvidia down 6%",
+    ]
+    for t in moves:
+        assert rule_categories(t)[:1] == ["market_moves"], t
+    assert "earnings" in rule_categories("Kewaunee Scientific to Report Results for Second Quarter Fiscal Year 2027")
+
+    foreign = [
+        "Resumen: BTS y Veridas se asocian para reforzar la identidad digital y prevenir el fraude",
+        "BTS und Veridas stärken gemeinsam die digitale Identitätsprüfung und Betrugsprävention",
+        "Hurricane Electric étend son réseau mondial avec un nouveau point de présence à iXAfrica NBOX1",
+        "IQM Quantum Computers與南韓量子—人工智慧公司QAI將合作",
+        "Útgerðarfélag Reykjavíkur hf.: Útgáfa á víxlum",
+    ]
+    english = [
+        "Nestlé raises outlook as Café sales jump",
+        "L'Oréal shares fall after results",
+        "Société Générale to cut jobs",
+        "BRK.B up 2%",
+        "Anthropic’s stock slide tests Wall Street’s AI profit expectations",
+    ]
+    assert not any(is_english(t) for t in foreign)
+    assert all(is_english(t) for t in english)
 
 
 def test_categorizer_rules_only_falls_back_to_other():

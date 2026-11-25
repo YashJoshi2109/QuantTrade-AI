@@ -36,7 +36,7 @@ ALLOWED_BACKEND = {
     "app/api/agentic_stream.py": "only reads the class name of a guarded LLM (no construction)",
 }
 # Another agent owns this package (PR #72); it must use reserve_system / the factories.
-EXCLUDED_DIRS = ("app/services/news_intel/",)
+EXCLUDED_DIRS: tuple = ()
 
 ALLOWED_FRONTEND = {
     # Each relay calls the backend /api/v1/ai-usage/reserve before spending.
