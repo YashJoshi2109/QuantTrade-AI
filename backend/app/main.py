@@ -549,6 +549,10 @@ app.include_router(ml_runs.internal_router, prefix="/api/v1", tags=["ml-internal
 from app.api import predictions
 app.include_router(predictions.router, prefix="/api/v1", tags=["predictions"])
 
+# Statistical forecasting — ARIMA/ETS/Theta ensemble + calibrated GARCH bands
+from app.api import forecast as forecast_api
+app.include_router(forecast_api.router, prefix="/api/v1", tags=["forecast"])
+
 # Static files — serve locally-uploaded community media (fallback when R2 is not configured)
 import pathlib as _pathlib
 _storage_root = _pathlib.Path(os.getenv("LOCAL_STORAGE_PATH", "./storage"))

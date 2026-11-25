@@ -1,6 +1,7 @@
 """Research page API — SEC EDGAR financials, company overview, filings, AI insights."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Optional
@@ -44,7 +45,8 @@ def _parse_val(json_str: Optional[str]) -> Optional[float]:
 # ── Company overview ──────────────────────────────────────────────────
 
 @router.get("/{ticker}/company-overview")
-async def company_overview(
+def company_overview(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpool
+    
     ticker: str,
     db: Session = Depends(get_db),
 ):
@@ -78,7 +80,8 @@ async def company_overview(
 # ── Financial statements ───────────────────────────────────────────────
 
 @router.get("/{ticker}/financials")
-async def get_financials(
+def get_financials(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpool
+    
     ticker: str,
     period_type: str = Query("quarterly", pattern="^(annual|quarterly|all)$"),
     limit: int = Query(12, ge=1, le=40),
@@ -166,7 +169,8 @@ async def get_financials(
 # ── Filings list ───────────────────────────────────────────────────────
 
 @router.get("/{ticker}/filings")
-async def get_filings(
+def get_filings(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpool
+    
     ticker: str,
     form_types: str = Query("10-K,10-Q,8-K", description="Comma-separated form types"),
     limit: int = Query(20, ge=1, le=50),
@@ -207,11 +211,12 @@ async def get_ai_insights(
             FinancialStatement.symbol_id == sym.id
         ).order_by(FinancialStatement.period_end_date.desc()).limit(12).all()
 
-    rows = _load_rows()
+    rows = await asyncio.to_thread(_load_rows)
     # Never feed the model numbers from the old (YTD-mixing) parser.
     if not rows or stored_parser_version(rows[0]) < PARSER_VERSION:
-        if sync_edgar_data(ticker, db).get("status") == "ok":
-            rows = _load_rows()
+        synced = await asyncio.to_thread(sync_edgar_data, ticker, db)
+        if synced.get("status") == "ok":
+            rows = await asyncio.to_thread(_load_rows)
 
     fields = (
         "revenue", "gross_profit", "operating_income", "net_income", "eps_diluted",
@@ -232,10 +237,10 @@ async def get_ai_insights(
     }
 
     # Get recent filings
-    cik = get_cik(ticker)
+    cik = await asyncio.to_thread(get_cik, ticker)
     filings = []
     if cik:
-        submissions = get_submissions(cik)
+        submissions = await asyncio.to_thread(get_submissions, cik)
         if submissions:
             filings = parse_filings_list(submissions, limit=5)
 

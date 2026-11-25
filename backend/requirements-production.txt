@@ -59,3 +59,7 @@ numpy>=1.26.2,<2.0.0
 # - Advanced ML models (not used in API)
 # - Local development/analysis
 # Use requirements.txt for full development environment
+
+# Statistical forecasting (app/services/forecasting)
+statsmodels>=0.14.5
+arch>=7.0

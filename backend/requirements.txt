@@ -98,3 +98,7 @@ webauthn>=2.1.0
 APScheduler>=3.10.0
 elevenlabs>=2.42.0
 defusedxml>=0.7.1
+
+# Statistical forecasting (app/services/forecasting)
+statsmodels>=0.14.5
+arch>=7.0

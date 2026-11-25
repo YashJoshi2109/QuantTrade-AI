@@ -43,6 +43,7 @@ import EarningsShortInterestPanel from '@/components/research/EarningsShortInter
 import FullscreenChartModal from '@/components/research/FullscreenChartModal'
 import OptionChainPanel from '@/components/research/OptionChainPanel'
 import SecEdgarPanel from '@/components/research/SecEdgarPanel'
+import ForecastPanel from '@/components/research/ForecastPanel'
 import IndicatorToolbar from '@/components/research/IndicatorToolbar'
 import TickerLogo from '@/components/TickerLogo'
 import { getExchangeTimezone } from '@/lib/world-exchanges'
@@ -780,6 +781,9 @@ function ResearchContent() {
 
           {/* Option Chain with Greeks (Public.com) */}
           <OptionChainPanel symbol={selectedSymbol} />
+
+          {/* Statistical price forecast (fan chart + out-of-sample accuracy) */}
+          <ForecastPanel symbol={selectedSymbol} />
 
           {/* SEC EDGAR Fundamentals & Filings */}
           <SecEdgarPanel symbol={selectedSymbol} />
