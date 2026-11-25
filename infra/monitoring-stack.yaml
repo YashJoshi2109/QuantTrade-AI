@@ -1,0 +1,347 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  QuantTrade-AI production monitoring — CloudWatch alarms for RDS (quanttrade-prod),
+  SNS email alerting, and a CloudWatch dashboard covering RDS, EC2 and ElastiCache.
+  Thresholds sized for db.t4g.micro (1 GiB RAM, max_connections ~85).
+
+Parameters:
+  AlertEmail:
+    Type: String
+    Description: Email address that receives alarm notifications (must confirm SNS subscription)
+  DBInstanceIdentifier:
+    Type: String
+    Default: quanttrade-prod
+  EC2InstanceId:
+    Type: String
+    Default: i-01af5c8de530e7fd9
+  CacheClusterId:
+    Type: String
+    Default: quanttrade-redis
+  DashboardName:
+    Type: String
+    Default: QuantTrade-Production
+
+Resources:
+  # ── Alerting ──────────────────────────────────────────────────────────
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: quanttrade-alerts
+      DisplayName: QuantTrade Alerts
+
+  AlertEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlertTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  # ── RDS alarms ────────────────────────────────────────────────────────
+  RdsCpuCritical:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${DBInstanceIdentifier}-CPUUtilization-critical'
+      AlarmDescription: 'CRITICAL: RDS CPU > 90% for 3 consecutive 5-min periods. Sustained high CPU causes query timeouts and instance instability.'
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DBInstanceIdentifier
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 90
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  RdsFreeStorageCritical:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${DBInstanceIdentifier}-FreeStorageSpace-critical'
+      AlarmDescription: 'CRITICAL: RDS free storage < 2 GiB. RDS sets the instance to read-only when storage is exhausted.'
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DBInstanceIdentifier
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2147483648   # 2 GiB in bytes
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  RdsFreeableMemoryHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${DBInstanceIdentifier}-FreeableMemory-high'
+      AlarmDescription: 'HIGH: RDS freeable memory < 128 MiB for 2 periods. Low memory on db.t4g.micro causes swapping and severe performance degradation.'
+      Namespace: AWS/RDS
+      MetricName: FreeableMemory
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DBInstanceIdentifier
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 134217728    # 128 MiB in bytes
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  RdsConnectionsHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${DBInstanceIdentifier}-DatabaseConnections-high'
+      AlarmDescription: 'HIGH: RDS connections > 80 for 2 periods. db.t4g.micro max_connections is ~85; exhausting it causes connection refused errors.'
+      Namespace: AWS/RDS
+      MetricName: DatabaseConnections
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DBInstanceIdentifier
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  RdsReadLatencyHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${DBInstanceIdentifier}-ReadLatency-high'
+      AlarmDescription: 'HIGH: RDS read latency > 20 ms for 3 periods. Indicates I/O pressure or missing indexes.'
+      Namespace: AWS/RDS
+      MetricName: ReadLatency
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DBInstanceIdentifier
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 0.02         # seconds
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  RdsWriteLatencyHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${DBInstanceIdentifier}-WriteLatency-high'
+      AlarmDescription: 'HIGH: RDS write latency > 20 ms for 3 periods. Causes application timeouts and transaction backlogs.'
+      Namespace: AWS/RDS
+      MetricName: WriteLatency
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DBInstanceIdentifier
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 0.02         # seconds
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  RdsDiskQueueDepthMedium:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${DBInstanceIdentifier}-DiskQueueDepth-medium'
+      AlarmDescription: 'MEDIUM: RDS disk queue depth > 1 for 3 periods. I/O is saturating; early warning before latency spikes.'
+      Namespace: AWS/RDS
+      MetricName: DiskQueueDepth
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DBInstanceIdentifier
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 1
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  # ── EC2 / Redis alarms (app tier) ─────────────────────────────────────
+  Ec2StatusCheckCritical:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'quanttrade-ec2-${EC2InstanceId}-StatusCheckFailed-critical'
+      AlarmDescription: 'CRITICAL: EC2 instance or system status check failing for 2 periods. The site is down or the host is unhealthy.'
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref EC2InstanceId
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  Ec2CpuHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'quanttrade-ec2-${EC2InstanceId}-CPUUtilization-high'
+      AlarmDescription: 'HIGH: EC2 CPU > 85% for 3 periods. t3.small will exhaust CPU credits and throttle.'
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref EC2InstanceId
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  RedisMemoryHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${CacheClusterId}-DatabaseMemoryUsagePercentage-high'
+      AlarmDescription: 'HIGH: Redis memory > 85% for 2 periods. cache.t4g.micro has ~0.5 GiB; evictions will start.'
+      Namespace: AWS/ElastiCache
+      MetricName: DatabaseMemoryUsagePercentage
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Ref CacheClusterId
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  # ── Dashboard ─────────────────────────────────────────────────────────
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Ref DashboardName
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {"type":"text","x":0,"y":0,"width":24,"height":1,
+             "properties":{"markdown":"# QuantTrade Production — RDS `${DBInstanceIdentifier}` (db.t4g.micro) · EC2 `${EC2InstanceId}` (t3.small) · Redis `${CacheClusterId}` (cache.t4g.micro) · ${AWS::Region}"}},
+
+            {"type":"alarm","x":0,"y":1,"width":24,"height":3,
+             "properties":{"title":"Alarm status","alarms":[
+               "${RdsCpuCritical.Arn}","${RdsFreeStorageCritical.Arn}","${RdsFreeableMemoryHigh.Arn}",
+               "${RdsConnectionsHigh.Arn}","${RdsReadLatencyHigh.Arn}","${RdsWriteLatencyHigh.Arn}",
+               "${RdsDiskQueueDepthMedium.Arn}","${Ec2StatusCheckCritical.Arn}","${Ec2CpuHigh.Arn}","${RedisMemoryHigh.Arn}"]}},
+
+            {"type":"text","x":0,"y":4,"width":24,"height":1,"properties":{"markdown":"## RDS PostgreSQL"}},
+
+            {"type":"metric","x":0,"y":5,"width":8,"height":6,
+             "properties":{"title":"CPUUtilization (%)","region":"${AWS::Region}","view":"timeSeries","stat":"Average","period":300,
+               "metrics":[["AWS/RDS","CPUUtilization","DBInstanceIdentifier","${DBInstanceIdentifier}"]],
+               "yAxis":{"left":{"min":0,"max":100}},
+               "annotations":{"horizontal":[{"label":"critical 90%","value":90,"color":"#d62728"}]}}},
+
+            {"type":"metric","x":8,"y":5,"width":8,"height":6,
+             "properties":{"title":"FreeableMemory (bytes)","region":"${AWS::Region}","view":"timeSeries","stat":"Minimum","period":300,
+               "metrics":[["AWS/RDS","FreeableMemory","DBInstanceIdentifier","${DBInstanceIdentifier}"]],
+               "annotations":{"horizontal":[{"label":"high 128 MiB","value":134217728,"color":"#ff7f0e"}]}}},
+
+            {"type":"metric","x":16,"y":5,"width":8,"height":6,
+             "properties":{"title":"FreeStorageSpace (bytes)","region":"${AWS::Region}","view":"timeSeries","stat":"Minimum","period":300,
+               "metrics":[["AWS/RDS","FreeStorageSpace","DBInstanceIdentifier","${DBInstanceIdentifier}"]],
+               "annotations":{"horizontal":[{"label":"critical 2 GiB","value":2147483648,"color":"#d62728"}]}}},
+
+            {"type":"metric","x":0,"y":11,"width":8,"height":6,
+             "properties":{"title":"DatabaseConnections","region":"${AWS::Region}","view":"timeSeries","stat":"Maximum","period":300,
+               "metrics":[["AWS/RDS","DatabaseConnections","DBInstanceIdentifier","${DBInstanceIdentifier}"]],
+               "annotations":{"horizontal":[{"label":"high 80","value":80,"color":"#ff7f0e"}]}}},
+
+            {"type":"metric","x":8,"y":11,"width":8,"height":6,
+             "properties":{"title":"Read / Write latency (s)","region":"${AWS::Region}","view":"timeSeries","stat":"Average","period":60,
+               "metrics":[["AWS/RDS","ReadLatency","DBInstanceIdentifier","${DBInstanceIdentifier}"],
+                          ["AWS/RDS","WriteLatency","DBInstanceIdentifier","${DBInstanceIdentifier}"]],
+               "annotations":{"horizontal":[{"label":"high 20 ms","value":0.02,"color":"#ff7f0e"}]}}},
+
+            {"type":"metric","x":16,"y":11,"width":8,"height":6,
+             "properties":{"title":"DiskQueueDepth · IOPS","region":"${AWS::Region}","view":"timeSeries","stat":"Average","period":60,
+               "metrics":[["AWS/RDS","DiskQueueDepth","DBInstanceIdentifier","${DBInstanceIdentifier}"],
+                          ["AWS/RDS","ReadIOPS","DBInstanceIdentifier","${DBInstanceIdentifier}",{"yAxis":"right"}],
+                          ["AWS/RDS","WriteIOPS","DBInstanceIdentifier","${DBInstanceIdentifier}",{"yAxis":"right"}]],
+               "annotations":{"horizontal":[{"label":"medium 1","value":1,"color":"#ffbb78"}]}}},
+
+            {"type":"metric","x":0,"y":17,"width":12,"height":6,
+             "properties":{"title":"Burst balance · CPU credit balance","region":"${AWS::Region}","view":"timeSeries","stat":"Average","period":300,
+               "metrics":[["AWS/RDS","BurstBalance","DBInstanceIdentifier","${DBInstanceIdentifier}"],
+                          ["AWS/RDS","CPUCreditBalance","DBInstanceIdentifier","${DBInstanceIdentifier}",{"yAxis":"right"}]]}},
+
+            {"type":"metric","x":12,"y":17,"width":12,"height":6,
+             "properties":{"title":"Network throughput (bytes/s)","region":"${AWS::Region}","view":"timeSeries","stat":"Average","period":300,
+               "metrics":[["AWS/RDS","NetworkReceiveThroughput","DBInstanceIdentifier","${DBInstanceIdentifier}"],
+                          ["AWS/RDS","NetworkTransmitThroughput","DBInstanceIdentifier","${DBInstanceIdentifier}"]]}},
+
+            {"type":"text","x":0,"y":23,"width":24,"height":1,"properties":{"markdown":"## EC2 app host"}},
+
+            {"type":"metric","x":0,"y":24,"width":8,"height":6,
+             "properties":{"title":"EC2 CPUUtilization (%) · CPUCreditBalance","region":"${AWS::Region}","view":"timeSeries","stat":"Average","period":300,
+               "metrics":[["AWS/EC2","CPUUtilization","InstanceId","${EC2InstanceId}"],
+                          ["AWS/EC2","CPUCreditBalance","InstanceId","${EC2InstanceId}",{"yAxis":"right"}]],
+               "annotations":{"horizontal":[{"label":"high 85%","value":85,"color":"#ff7f0e"}]}}},
+
+            {"type":"metric","x":8,"y":24,"width":8,"height":6,
+             "properties":{"title":"EC2 Network (bytes)","region":"${AWS::Region}","view":"timeSeries","stat":"Sum","period":300,
+               "metrics":[["AWS/EC2","NetworkIn","InstanceId","${EC2InstanceId}"],
+                          ["AWS/EC2","NetworkOut","InstanceId","${EC2InstanceId}"]]}},
+
+            {"type":"metric","x":16,"y":24,"width":8,"height":6,
+             "properties":{"title":"EC2 StatusCheckFailed","region":"${AWS::Region}","view":"timeSeries","stat":"Maximum","period":60,
+               "metrics":[["AWS/EC2","StatusCheckFailed","InstanceId","${EC2InstanceId}"],
+                          ["AWS/EC2","StatusCheckFailed_Instance","InstanceId","${EC2InstanceId}"],
+                          ["AWS/EC2","StatusCheckFailed_System","InstanceId","${EC2InstanceId}"]],
+               "yAxis":{"left":{"min":0,"max":1}}}},
+
+            {"type":"text","x":0,"y":30,"width":24,"height":1,"properties":{"markdown":"## ElastiCache Redis"}},
+
+            {"type":"metric","x":0,"y":31,"width":8,"height":6,
+             "properties":{"title":"Redis memory usage (%) · evictions","region":"${AWS::Region}","view":"timeSeries","stat":"Average","period":300,
+               "metrics":[["AWS/ElastiCache","DatabaseMemoryUsagePercentage","CacheClusterId","${CacheClusterId}"],
+                          ["AWS/ElastiCache","Evictions","CacheClusterId","${CacheClusterId}",{"yAxis":"right","stat":"Sum"}]],
+               "annotations":{"horizontal":[{"label":"high 85%","value":85,"color":"#ff7f0e"}]}}},
+
+            {"type":"metric","x":8,"y":31,"width":8,"height":6,
+             "properties":{"title":"Redis CPU (%) · connections","region":"${AWS::Region}","view":"timeSeries","stat":"Average","period":300,
+               "metrics":[["AWS/ElastiCache","EngineCPUUtilization","CacheClusterId","${CacheClusterId}"],
+                          ["AWS/ElastiCache","CurrConnections","CacheClusterId","${CacheClusterId}",{"yAxis":"right"}]]}},
+
+            {"type":"metric","x":16,"y":31,"width":8,"height":6,
+             "properties":{"title":"Redis cache hits / misses","region":"${AWS::Region}","view":"timeSeries","stat":"Sum","period":300,
+               "metrics":[["AWS/ElastiCache","CacheHits","CacheClusterId","${CacheClusterId}"],
+                          ["AWS/ElastiCache","CacheMisses","CacheClusterId","${CacheClusterId}"]]}}
+          ]
+        }
+
+Outputs:
+  AlertTopicArn:
+    Value: !Ref AlertTopic
+  DashboardUrl:
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${DashboardName}'
