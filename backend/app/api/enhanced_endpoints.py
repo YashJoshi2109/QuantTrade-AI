@@ -182,7 +182,7 @@ async def get_market_indices(db: Session = Depends(get_db)):
         """Synchronous index fetch for thread pool"""
         try:
             ticker = yf.Ticker(config["symbol"])
-            hist = ticker.history(period="2d")
+            hist = ticker.history(period="2d", timeout=10)
             
             if not hist.empty and len(hist) >= 2:
                 current_price = float(hist['Close'].iloc[-1])
@@ -216,7 +216,15 @@ async def get_market_indices(db: Session = Depends(get_db)):
         futures = [loop.run_in_executor(executor, fetch_index_sync, config) for config in indices_config]
         fetched = await asyncio.gather(*futures)
     
-    # Process results and handle fallbacks
+    # DB cache write / fallback read is blocking: run it in a worker thread,
+    # not on the event loop (it froze every request when the pool was busy).
+    return await asyncio.to_thread(_merge_indices_with_db_cache, db, fetched)
+
+
+def _merge_indices_with_db_cache(db: Session, fetched: list) -> list:
+    from app.models.realtime_quote import MarketIndex
+
+    results = []
     for result in fetched:
         if result.get("success"):
             # Cache to database (async-safe)

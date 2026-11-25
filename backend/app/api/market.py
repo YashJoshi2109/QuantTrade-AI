@@ -10,41 +10,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
-import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
 from app.db.database import get_db
-from app.models.symbol import Symbol
-from app.models.quote_snapshot import QuoteSnapshot
 from app.config import settings
-from app.services.quote_cache import QuoteCacheService
-from app.services.market_breadth import (
-    classify_change,
-    is_implausible_move,
-    is_usable_quote,
-    robust_sector_change,
-)
+from app.services.market_snapshot import MarketSnapshot, MarketSnapshotService, SnapshotRow
 from pydantic import BaseModel
 import httpx
 
 router = APIRouter()
-
-
-def _usable(symbol: str, quote: Optional[Dict[str, Any]]) -> bool:
-    """Shared quote gate for movers / sectors / heatmap (see market_breadth.is_usable_quote).
-
-    Logs rows dropped for an implausible one-day move so bad previous_close data
-    (delisted / renamed tickers such as PARA, SBNY) is visible in logs.
-    """
-    if not is_usable_quote(quote):
-        if quote and not quote.get("unavailable") and is_implausible_move(quote.get("change_percent")):
-            logger.warning(
-                "Dropping implausible quote %s: change_percent=%s price=%s",
-                symbol, quote.get("change_percent"), quote.get("price"),
-            )
-        return False
-    return True
 
 
 def _heatmap_sample_symbol_count() -> int:
@@ -437,119 +412,6 @@ SP500_STOCKS = {
 }
 
 
-async def fetch_stock_performance(
-    symbol: str, 
-    name: str, 
-    sector: str, 
-    db: Session
-) -> Optional[StockPerformance]:
-    """
-    Fetch real stock performance using QuoteCacheService.
-    Returns None if quote is unavailable (NO FAKE DATA).
-    """
-    cache_service = QuoteCacheService(db)
-    
-    try:
-        quote = await cache_service.get_quote(symbol)
-        
-        if not _usable(symbol, quote):
-            return None
-        
-        return StockPerformance(
-            symbol=symbol,
-            name=name,
-            price=round(quote.get("price", 0), 2),
-            change=round(quote.get("change", 0), 2),
-            change_percent=round(quote.get("change_percent", 0), 2),
-            volume=int(quote.get("volume", 0)),
-            market_cap=quote.get("market_cap"),
-            sector=sector
-        )
-    except Exception as e:
-        print(f"Error fetching quote for {symbol}: {e}")
-        return None
-
-
-async def fetch_bulk_quotes(
-    symbols_info: List[tuple], 
-    db: Session,
-    force_refresh: bool = False
-) -> List[StockPerformance]:
-    """
-    Fetch quotes for multiple symbols using cache service.
-    Returns list of StockPerformance (only available quotes).
-    Uses TradingView as final fallback to ensure we have data.
-    """
-    cache_service = QuoteCacheService(db)
-    results = []
-    
-    # Extract just symbols for bulk fetch
-    symbols = [s[0] for s in symbols_info]
-    symbol_map = {s[0]: (s[1], s[2]) for s in symbols_info}  # symbol -> (name, sector)
-    
-    try:
-        # Use force_refresh to bypass stale cache when needed
-        quotes = await cache_service.get_quotes(symbols, force_refresh=force_refresh)
-        
-        # Track symbols that failed to get quotes
-        failed_symbols = []
-        
-        for symbol, quote in quotes.items():
-            if quote and not quote.get("unavailable") and float(quote.get("price") or 0) > 0:
-                if not _usable(symbol, quote):
-                    continue  # stale (delisted/halted) or implausible move: drop, no fallback
-            if quote and not quote.get("unavailable"):
-                price = quote.get("price", 0)
-                # Only include stocks with valid prices
-                if price and price > 0:
-                    name, sector = symbol_map.get(symbol, (symbol, None))
-                    results.append(StockPerformance(
-                        symbol=symbol,
-                        name=name,
-                        price=round(price, 2),
-                        change=round(quote.get("change", 0), 2),
-                        change_percent=round(quote.get("change_percent", 0), 2),
-                        volume=int(quote.get("volume", 0)),
-                        market_cap=quote.get("market_cap"),
-                        sector=sector
-                    ))
-                else:
-                    failed_symbols.append(symbol)
-            else:
-                failed_symbols.append(symbol)
-        
-        # If we have failed symbols, try TradingView as final fallback
-        if failed_symbols:
-            try:
-                from app.services.tradingview_fetcher import TradingViewFetcher
-                tv_quotes = await TradingViewFetcher.get_quotes_bulk(failed_symbols)
-                
-                for symbol, quote in tv_quotes.items():
-                    if _usable(symbol, quote):
-                        name, sector = symbol_map.get(symbol, (symbol, None))
-                        results.append(StockPerformance(
-                            symbol=symbol,
-                            name=name,
-                            price=round(quote.get("price", 0), 2),
-                            change=round(quote.get("change", 0), 2),
-                            change_percent=round(quote.get("change_percent", 0), 2),
-                            volume=int(quote.get("volume", 0)),
-                            market_cap=quote.get("market_cap"),
-                            sector=sector
-                        ))
-            except Exception as e:
-                print(f"TradingView fallback error: {e}")
-                import traceback
-                traceback.print_exc()
-                
-    except Exception as e:
-        print(f"Error fetching bulk quotes: {e}")
-        import traceback
-        traceback.print_exc()
-    
-    return results
-
-
 def _flatten_sp500_symbol_rows() -> List[tuple]:
     """All (symbol, name, sector) rows for one bulk quote fetch."""
     rows: List[tuple] = []
@@ -559,165 +421,37 @@ def _flatten_sp500_symbol_rows() -> List[tuple]:
     return rows
 
 
-def _fast_mover_symbol_rows(limit: int = 140) -> List[Tuple[str, str, str]]:
-    """
-    Fast subset used when full-universe movers are slow.
-    Keeps broad sector coverage while returning quickly.
-    """
-    rows = _flatten_sp500_symbol_rows()
-    return [(s[0], s[1], s[2]) for s in rows[:limit]]
+# One snapshot for movers / sectors / heatmap / breadth (see app.services.market_snapshot).
+# Requests never fan out to quote providers; a single background task refreshes
+# expired quote_snapshots rows, so these endpoints cannot hold DB connections
+# or the event loop hostage while Yahoo/Public are slow.
+market_snapshots = MarketSnapshotService(_flatten_sp500_symbol_rows())
 
 
-def _load_cached_mover_rows(
-    db: Session,
-    max_symbols: Optional[int] = None,
-) -> List[StockPerformance]:
-    """
-    Fastest path for movers: use cached quote_snapshots only (no network).
-    By default loads the full heatmap universe (all SP500_STOCKS rows).
-    """
-    flat = _flatten_sp500_symbol_rows()
-    if max_symbols is not None:
-        flat = flat[:max_symbols]
-    rows = flat
-    symbol_meta = {s[0]: (s[1], s[2]) for s in rows}
-    symbols = list(symbol_meta.keys())
-    snapshots = (
-        db.query(QuoteSnapshot)
-        .filter(QuoteSnapshot.symbol.in_(symbols))
-        .all()
+def _perf(row: SnapshotRow) -> StockPerformance:
+    return StockPerformance(
+        symbol=row.symbol,
+        name=row.name,
+        price=row.price,
+        change=row.change,
+        change_percent=row.change_percent,
+        volume=row.volume,
+        market_cap=row.market_cap,
+        sector=row.sector,
     )
 
-    out: List[StockPerformance] = []
-    for snap in snapshots:
-        payload = snap.payload or {}
-        price = float(payload.get("price", 0) or 0)
-        if not _usable(snap.symbol, payload):
-            continue
-        name, sector = symbol_meta.get(snap.symbol, (snap.symbol, None))
-        out.append(
-            StockPerformance(
-                symbol=snap.symbol,
-                name=name,
-                price=round(price, 2),
-                change=round(float(payload.get("change", 0) or 0), 2),
-                change_percent=round(float(payload.get("change_percent", 0) or 0), 2),
-                volume=int(payload.get("volume", 0) or 0),
-                market_cap=payload.get("market_cap"),
-                sector=sector,
-            )
-        )
-    return out
+
+async def _snapshot(force_refresh: bool = False) -> MarketSnapshot:
+    # `is True`: chat/copilot call get_top_gainers(10, db) positionally, which
+    # used to pass the Session as force_refresh and force a live refetch.
+    return await market_snapshots.get(force_refresh=force_refresh is True)
 
 
-async def _yfinance_fallback_performances(
-    db: Session,
-    symbols_info: List[Tuple[str, str, str]],
-    max_symbols: int = 72,
-) -> List[StockPerformance]:
-    """
-    When cache + TradingView return nothing (cold cache, provider outages), pull a
-    slice of the universe directly via yfinance so gainers/losers stay populated.
-    """
-    cache_service = QuoteCacheService(db)
-    batch = symbols_info[:max_symbols]
-    sem = asyncio.Semaphore(12)
-
-    async def one(row: Tuple[str, str, str]) -> Optional[StockPerformance]:
-        symbol, name, sector = row
-        try:
-            quote = await cache_service._fetch_from_yfinance(symbol)
-            if not _usable(symbol, quote):
-                return None
-            price = float(quote.get("price", 0) or 0)
-            return StockPerformance(
-                symbol=symbol,
-                name=name,
-                price=round(price, 2),
-                change=round(float(quote.get("change", 0) or 0), 2),
-                change_percent=round(float(quote.get("change_percent", 0) or 0), 2),
-                volume=int(quote.get("volume", 0) or 0),
-                market_cap=quote.get("market_cap"),
-                sector=sector,
-            )
-        except Exception as e:
-            print(f"yfinance fallback error for {symbol}: {e}")
-            return None
-
-    async def guarded(row: Tuple[str, str, str]) -> Optional[StockPerformance]:
-        async with sem:
-            return await one(row)
-
-    results = await asyncio.gather(*[guarded(r) for r in batch])
-    return [r for r in results if r is not None]
-
-
-async def load_sp500_performances(
-    db: Session,
-    force_refresh: bool = False,
-) -> List[StockPerformance]:
-    """
-    Load the full S&P watchlist in a single fetch_bulk_quotes call.
-
-    The previous implementation looped every sector and called fetch_bulk_quotes
-    once per sector, and get_market_movers called get_top_gainers + get_top_losers
-    which duplicated the entire pass — often timing out or returning empty lists.
-    """
-    symbols_info = [(s[0], s[1], s[2]) for s in _flatten_sp500_symbol_rows()]
-    stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=force_refresh)
-    if not stocks and not force_refresh:
-        stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=True)
-    if not stocks:
-        stocks = await _yfinance_fallback_performances(db, symbols_info)
-    return stocks
-
-
-async def _load_movers_universe(
-    db: Session,
-    force_refresh: bool = False,
-) -> List[StockPerformance]:
-    """
-    Robust movers loader:
-    1) Full S&P pass with timeout guard
-    2) Fast subset (cached + force refresh)
-    3) yfinance subset fallback
-    """
-    try:
-        return await asyncio.wait_for(
-            load_sp500_performances(db, force_refresh=force_refresh),
-            timeout=22.0,
-        )
-    except asyncio.TimeoutError:
-        print("load_sp500_performances timed out; using fast movers subset")
-    except Exception as e:
-        print(f"load_sp500_performances failed; using fast movers subset: {e}")
-
-    fast_rows = _fast_mover_symbol_rows()
-    try:
-        stocks = await asyncio.wait_for(
-            fetch_bulk_quotes(fast_rows, db, force_refresh=force_refresh),
-            timeout=12.0,
-        )
-        if not stocks and not force_refresh:
-            stocks = await asyncio.wait_for(
-                fetch_bulk_quotes(fast_rows, db, force_refresh=True),
-                timeout=12.0,
-            )
-    except asyncio.TimeoutError:
-        print("fetch_bulk_quotes (fast subset) timed out")
-        stocks = []
-    if stocks:
-        return stocks
-
-    try:
-        stocks = await asyncio.wait_for(
-            _yfinance_fallback_performances(db, fast_rows, max_symbols=90),
-            timeout=15.0,
-        )
-    except asyncio.TimeoutError:
-        print("_yfinance_fallback_performances timed out")
-        stocks = []
-    return stocks
+def _sector_performances(snap: MarketSnapshot) -> List[SectorPerformance]:
+    return [
+        SectorPerformance(sector=name, change_percent=chg, stocks=[_perf(r) for r in rows])
+        for name, chg, rows in snap.sector_changes()
+    ]
 
 
 @router.get("/market/ipo-calendar")
@@ -793,7 +527,8 @@ class MarketCoverageStats(BaseModel):
 
 
 @router.get("/market/coverage", response_model=MarketCoverageStats)
-async def get_market_coverage(db: Session = Depends(get_db)) -> MarketCoverageStats:
+def get_market_coverage(  # sync: DB counts run in the threadpool
+    db: Session = Depends(get_db)) -> MarketCoverageStats:
     """
     Heatmap and movers use a curated US large-cap sample (fast quote batching).
     Autocomplete search uses `symbols_master` when seeded (can be 10k+ rows).
@@ -827,155 +562,40 @@ async def get_market_coverage(db: Session = Depends(get_db)) -> MarketCoverageSt
 async def get_all_stocks(
     sector: Optional[str] = Query(None, description="Filter by sector"),
     limit: int = Query(100, ge=1, le=500),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),  # unused; kept for direct callers
 ) -> List[StockPerformance]:
-    """
-    Get all stocks with real performance data from QuoteCacheService.
-    NO FAKE DATA - only returns stocks with available quotes.
-    """
-    # Build list of symbols to fetch
-    symbols_to_fetch = []
-    
-    for sec, stock_list in SP500_STOCKS.items():
-        if sector and sec.lower() != sector.lower():
-            continue
-            
-        for symbol, name in stock_list:
-            symbols_to_fetch.append((symbol, name, sec))
-    
-    # Fetch real quotes using cache service
-    stocks = await fetch_bulk_quotes(symbols_to_fetch[:limit], db)
-    
-    return stocks[:limit]
+    """Universe stocks with real quotes (shared snapshot). NO FAKE DATA."""
+    snap = await _snapshot()
+    rows = [r for r in snap.rows if not sector or r.sector.lower() == sector.lower()]
+    return [_perf(r) for r in rows[:limit]]
 
 
 @router.get("/market/sectors")
 async def get_sector_performance(db: Session = Depends(get_db)) -> List[SectorPerformance]:
+    """Sector performance (median member move) from the shared market snapshot.
+
+    Same rows as /market/heatmap and /market/movers, so breadth derived from any
+    of them agrees. NO FAKE DATA - only stocks with usable quotes.
     """
-    Get sector performance with real stock data.
-    Fast path: reads cached quote_snapshots from DB (no network calls).
-    Fallback: if cache has < 50 stocks, fetches a fast subset live.
-    NO FAKE DATA - only includes stocks with available quotes.
-    """
-    from app.models.quote_snapshot import QuoteSnapshot
-    from datetime import datetime, timezone, timedelta
-
-    # Fast path: read all cached snapshots from DB (no network calls)
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=12)
-    cached = (
-        db.query(QuoteSnapshot)
-        .filter(QuoteSnapshot.fetched_at >= cutoff)
-        .all()
-    )
-    cached_map = {s.symbol: s.payload for s in cached if s.payload}
-
-    # Build sector performances from cached data
-    sector_map: dict[str, list[StockPerformance]] = {}
-    for sector_name, stock_list in SP500_STOCKS.items():
-        for symbol, name in stock_list:
-            quote = cached_map.get(symbol)
-            if not _usable(symbol, quote):
-                continue
-            price = float(quote.get("price", 0) or 0)
-            perf = StockPerformance(
-                symbol=symbol,
-                name=name,
-                price=round(price, 2),
-                change=round(float(quote.get("change", 0) or 0), 2),
-                change_percent=round(float(quote.get("change_percent", 0) or 0), 2),
-                volume=int(quote.get("volume", 0) or 0),
-                market_cap=quote.get("market_cap"),
-                sector=sector_name,
-            )
-            sector_map.setdefault(sector_name, []).append(perf)
-
-    total_cached = sum(len(v) for v in sector_map.values())
-
-    # Fallback: if cache is cold (< 50 stocks), fetch a fast subset live
-    if total_cached < 50:
-        try:
-            fast_rows = _fast_mover_symbol_rows(140)
-            live_stocks = await asyncio.wait_for(
-                fetch_bulk_quotes(fast_rows, db, force_refresh=True),
-                timeout=20.0,
-            )
-            for stock in live_stocks:
-                sec = stock.sector or "Unknown"
-                sector_map.setdefault(sec, []).append(stock)
-        except (asyncio.TimeoutError, Exception) as e:
-            logger.warning(f"Sector fallback fetch failed: {e}")
-
-    sectors = []
-    for sector_name, stocks in sector_map.items():
-        if not stocks:
-            continue
-        # Median, not mean: one bad row must not skew the whole sector.
-        sector_change = robust_sector_change(s.change_percent for s in stocks)
-        sectors.append(SectorPerformance(
-            sector=sector_name,
-            change_percent=round(sector_change, 2),
-            stocks=stocks,
-        ))
-
+    snap = await _snapshot()
+    sectors = _sector_performances(snap)
     sectors.sort(key=lambda x: x.change_percent, reverse=True)
     return sectors
 
 
 @router.get("/market/heatmap")
 async def get_heatmap_data(
-    force_refresh: bool = Query(False, description="Force fresh data from yfinance"),
-    db: Session = Depends(get_db),
+    force_refresh: bool = Query(False, description="Refresh quotes before answering (bounded wait)"),
+    db: Session = Depends(get_db),  # unused; kept for direct callers
 ) -> HeatmapData:
-    """
-    Get market heatmap data with real quotes.
-    NO FAKE DATA - only includes stocks with available quotes.
-    """
-    sectors = []
-    total_gainers = 0
-    total_losers = 0
-    total_unchanged = 0
-
-    # First pass (use cache unless force_refresh requested)
-    sector_data: list = []
-    for sector_name, stock_list in SP500_STOCKS.items():
-        symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
-        stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=force_refresh)
-        sector_data.append((sector_name, stocks))
-
-    # Detect stale cache: if >60% of stocks have exactly 0% change, auto force-refresh
-    all_stocks_flat = [s for _, stocks in sector_data for s in stocks]
-    nonzero_count = sum(1 for s in all_stocks_flat if abs(s.change_percent) > 0.01)
-    if not force_refresh and all_stocks_flat and nonzero_count / len(all_stocks_flat) < 0.4:
-        sector_data = []
-        for sector_name, stock_list in SP500_STOCKS.items():
-            symbols_info = [(symbol, name, sector_name) for symbol, name in stock_list]
-            stocks = await fetch_bulk_quotes(symbols_info, db, force_refresh=True)
-            sector_data.append((sector_name, stocks))
-
-    for sector_name, stocks in sector_data:
-        for perf in stocks:
-            direction = classify_change(perf.change_percent)
-            if direction == "up":
-                total_gainers += 1
-            elif direction == "down":
-                total_losers += 1
-            else:
-                total_unchanged += 1
-
-        if stocks:
-            sector_change = robust_sector_change(s.change_percent for s in stocks)
-            sectors.append(SectorPerformance(
-                sector=sector_name,
-                change_percent=round(sector_change, 2),
-                stocks=stocks
-            ))
-
+    """Market heatmap from the shared snapshot; breadth via market_breadth.breadth_counts."""
+    snap = await _snapshot(force_refresh)
     return HeatmapData(
-        sectors=sectors,
-        total_stocks=total_gainers + total_losers + total_unchanged,
-        gainers=total_gainers,
-        losers=total_losers,
-        unchanged=total_unchanged
+        sectors=_sector_performances(snap),
+        total_stocks=snap.breadth["total"],
+        gainers=snap.breadth["up"],
+        losers=snap.breadth["down"],
+        unchanged=snap.breadth["flat"],
     )
 
 
@@ -983,48 +603,22 @@ async def get_heatmap_data(
 async def get_top_gainers(
     limit: int = Query(10, ge=1, le=50),
     force_refresh: bool = Query(False, description="Force refresh quotes"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),  # unused; kept for direct callers
 ) -> List[StockPerformance]:
-    """
-    Get top gaining stocks with real data.
-    NO FAKE DATA - returns only stocks with available quotes.
-    """
-    if not force_refresh:
-        cached = _load_cached_mover_rows(db)
-        if cached:
-            cached.sort(key=lambda x: x.change_percent, reverse=True)
-            gainers = [s for s in cached if s.change_percent > 0]
-            if gainers:
-                return gainers[:limit]
-
-    all_stocks = await _load_movers_universe(db, force_refresh=force_refresh)
-    all_stocks.sort(key=lambda x: x.change_percent, reverse=True)
-    gainers = [s for s in all_stocks if s.change_percent > 0]
-    return gainers[:limit]
+    """Top gainers from the shared snapshot. NO FAKE DATA."""
+    snap = await _snapshot(force_refresh)
+    return [_perf(r) for r in snap.gainers(limit)]
 
 
 @router.get("/market/losers")
 async def get_top_losers(
     limit: int = Query(10, ge=1, le=50),
     force_refresh: bool = Query(False, description="Force refresh quotes"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),  # unused; kept for direct callers
 ) -> List[StockPerformance]:
-    """
-    Get top losing stocks with real data.
-    NO FAKE DATA - returns only stocks with available quotes.
-    """
-    if not force_refresh:
-        cached = _load_cached_mover_rows(db)
-        if cached:
-            cached.sort(key=lambda x: x.change_percent)
-            losers = [s for s in cached if s.change_percent < 0]
-            if losers:
-                return losers[:limit]
-
-    all_stocks = await _load_movers_universe(db, force_refresh=force_refresh)
-    all_stocks.sort(key=lambda x: x.change_percent)
-    losers = [s for s in all_stocks if s.change_percent < 0]
-    return losers[:limit]
+    """Top losers from the shared snapshot. NO FAKE DATA."""
+    snap = await _snapshot(force_refresh)
+    return [_perf(r) for r in snap.losers(limit)]
 
 
 @router.get("/market/yahoo-screener")
@@ -1116,33 +710,20 @@ async def get_market_movers(
         le=500,
         description="Max gainers and max losers to return (each list is capped separately)",
     ),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db),  # unused; kept for direct callers
 ) -> dict:
+    """Gainers + losers + breadth, all from ONE snapshot (same one as heatmap/sectors).
+
+    Gainers are strictly > 0% and losers strictly < 0% (never abs()-padded:
+    that turned the heatmap all-green). `breadth` uses the ±0.1% flat band.
     """
-    Get market movers (gainers and losers combined) with real data.
-    Uses a single quote pass over the universe (fast); do not call gainers+losers endpoints twice.
-    """
-    # First try cached snapshots only (fast, no provider calls).
-    all_stocks = _load_cached_mover_rows(db)
-
-    # Force refresh if: cache thin, forced by caller, or >60% stocks have 0% change (stale cache).
-    nonzero = sum(1 for s in all_stocks if abs(s.change_percent) > 0.01)
-    stale = len(all_stocks) > 0 and nonzero / len(all_stocks) < 0.4
-    if len(all_stocks) < 12 or force_refresh or stale:
-        all_stocks = await _load_movers_universe(db, force_refresh=True)
-
-    sorted_up = sorted(all_stocks, key=lambda x: x.change_percent, reverse=True)
-    gainers = [s for s in sorted_up if s.change_percent > 0][:limit]
-    # Do NOT fall back to abs() for gainers — returning negatives as "gainers" breaks the heatmap color logic
-
-    sorted_down = sorted(all_stocks, key=lambda x: x.change_percent)
-    losers = [s for s in sorted_down if s.change_percent < 0][:limit]
-    # Do NOT fall back to abs() for losers — returning positive-change stocks as "losers" causes all-green heatmap
-
+    snap = await _snapshot(force_refresh)
     return {
-        "gainers": gainers,
-        "losers": losers,
-        "updated_at": datetime.utcnow().isoformat()
+        "gainers": [_perf(r) for r in snap.gainers(limit)],
+        "losers": [_perf(r) for r in snap.losers(limit)],
+        "breadth": snap.breadth,
+        "updated_at": snap.built_at.isoformat(),
+        **snap.meta(),
     }
 
 
@@ -1153,7 +734,8 @@ _VALID_EXCHANGE_KEYS = {
 }
 
 @router.get("/market/universe")
-async def get_exchange_universe(
+def get_exchange_universe(  # sync: DB + blocking FMP sync run in the threadpool
+    
     exchange: str = Query("us", description="Exchange key: us | india | uk | canada | germany | france | japan | hongkong | china | korea | australia | brazil"),
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),

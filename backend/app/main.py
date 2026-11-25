@@ -242,8 +242,21 @@ def _start_scheduler():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize Redis connection for API caching
     import os
+    # asyncio's default executor is min(32, cpu+4) = 6 threads on the 2-vCPU host.
+    # It runs every asyncio.to_thread / run_in_executor(None) (yfinance, forecast
+    # fits, Public.com prev-close fills) AND the getaddrinfo DNS lookups behind
+    # every httpx request. wait_for() timeouts do not free those threads, so six
+    # slow yfinance calls stalled all outbound HTTP (monitor/commodities 55s+).
+    from concurrent.futures import ThreadPoolExecutor
+    asyncio.get_running_loop().set_default_executor(
+        ThreadPoolExecutor(
+            max_workers=int(os.environ.get("ASYNCIO_EXECUTOR_THREADS", "32")),
+            thread_name_prefix="asyncio-default",
+        )
+    )
+
+    # Initialize Redis connection for API caching
     redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
     try:
         import redis.asyncio as aioredis

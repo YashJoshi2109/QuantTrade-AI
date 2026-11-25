@@ -14,13 +14,26 @@ if settings.DATABASE_URL:
     database_url = settings.DATABASE_URL
     if database_url.startswith("postgresql://") and "+psycopg" not in database_url:
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    import os
+
+    _connect_args = {}
+    # Server-side cap per statement (ms; 0 disables). One runaway query must not
+    # pin a pooled connection for minutes while every other request queues.
+    _stmt_timeout_ms = int(os.environ.get("DB_STATEMENT_TIMEOUT_MS", "60000") or 0)
+    # PgBouncer-style poolers (Neon "-pooler" hosts) reject the `options` startup parameter.
+    if _stmt_timeout_ms > 0 and database_url.startswith("postgresql") and "pooler" not in database_url:
+        _connect_args["options"] = f"-c statement_timeout={_stmt_timeout_ms}"
     engine = create_engine(
         database_url,
         pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20,
+        # 10 + 30 = 40 = anyio's default threadpool size: every sync handler
+        # thread can hold a session without starving the others.
+        pool_size=int(os.environ.get("DB_POOL_SIZE", "10")),
+        max_overflow=int(os.environ.get("DB_MAX_OVERFLOW", "30")),
         pool_recycle=1800,  # Recycle connections after 30min (PostgreSQL idle timeout)
-        pool_timeout=30,
+        # Fail fast when the pool is exhausted instead of stacking 30s waits.
+        pool_timeout=int(os.environ.get("DB_POOL_TIMEOUT", "10")),
+        connect_args=_connect_args,
         echo=settings.DEBUG,
     )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

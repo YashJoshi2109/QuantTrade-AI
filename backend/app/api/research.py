@@ -4,6 +4,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
@@ -32,6 +35,75 @@ def _get_symbol(ticker: str, db: Session) -> Symbol:
     return sym
 
 
+# ── Single-flight EDGAR sync ──────────────────────────────────────────
+# A sync downloads + parses the full XBRL companyfacts JSON (tens of MB for
+# JPM/BAC) and holds the GIL while parsing. The research page fires
+# overview + quarterly + annual + insights at once, and after a PARSER_VERSION
+# bump EVERY request re-synced inline with the request's DB session open, so
+# several copies of the same 30-90s sync ran in parallel and pinned pool
+# connections. Now: one sync per ticker at a time, in its own session; callers
+# with stale rows get them immediately while the re-sync runs in background.
+_SYNC_WAIT_S = 25.0
+_SYNC_FRESH_S = 600.0
+_sync_guard = threading.Lock()
+_sync_locks: dict = {}
+_sync_ok_at: dict = {}
+_sync_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="edgar-sync")
+
+
+def _sync_lock(ticker: str) -> threading.Lock:
+    with _sync_guard:
+        return _sync_locks.setdefault(ticker, threading.Lock())
+
+
+def _sync_once(ticker: str, wait: float = _SYNC_WAIT_S) -> dict:
+    """Run sync_edgar_data for ticker unless one is running / just finished.
+
+    Returns the sync result, {"status": "ok"} when a recent sync already
+    succeeded, or {"status": "pending"} if another sync is still running
+    after ``wait`` seconds.
+    """
+    ticker = ticker.upper()
+    lock = _sync_lock(ticker)
+    acquired = lock.acquire(timeout=wait) if wait > 0 else lock.acquire(blocking=False)
+    if not acquired:
+        return {"status": "pending", "message": f"EDGAR sync for {ticker} in progress"}
+    try:
+        if time.monotonic() - _sync_ok_at.get(ticker, -1e9) < _SYNC_FRESH_S:
+            return {"status": "ok", "message": "synced recently"}
+        if _database.SessionLocal is None:
+            return {"status": "error", "message": "Database not configured"}
+        db = _database.SessionLocal()
+        try:
+            result = sync_edgar_data(ticker, db)
+        except Exception as e:
+            db.rollback()
+            logger.exception("EDGAR sync failed for %s", ticker)
+            result = {"status": "error", "message": str(e)}
+        finally:
+            db.close()
+        if result.get("status") == "ok":
+            _sync_ok_at[ticker] = time.monotonic()
+        return result
+    finally:
+        lock.release()
+
+
+def _sync_in_background(ticker: str) -> None:
+    ticker = ticker.upper()
+    if _sync_lock(ticker).locked():
+        return  # already syncing
+    _sync_pool.submit(_sync_once, ticker, 0.0)
+
+
+def _end_read_txn(db: Session) -> None:
+    """Return the request's pooled connection before a long sync (reads only)."""
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
 def _parse_val(json_str: Optional[str]) -> Optional[float]:
     """Parse stored JSON value string → float."""
     if not json_str:
@@ -55,11 +127,14 @@ def company_overview(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpoo
     edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym.id).first()
 
     if not edgar:
-        # Trigger sync in background
-        result = sync_edgar_data(ticker, db)
+        sym_id = sym.id
+        _end_read_txn(db)
+        result = _sync_once(ticker)
         if result["status"] == "error":
             raise HTTPException(status_code=404, detail=result["message"])
-        edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym.id).first()
+        if result["status"] == "pending":
+            raise HTTPException(status_code=503, detail=result["message"], headers={"Retry-After": "10"})
+        edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym_id).first()
 
     if not edgar:
         raise HTTPException(status_code=404, detail="EDGAR data not available")
@@ -91,30 +166,33 @@ def get_financials(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpool
     Income statement, balance sheet, cash flow.
     period_type: annual | quarterly | all
     """
-    sym = _get_symbol(ticker, db)
+    sym_id = _get_symbol(ticker, db).id
 
-    q = db.query(FinancialStatement).filter(FinancialStatement.symbol_id == sym.id)
-    if period_type == "annual":
-        q = q.filter(FinancialStatement.fiscal_quarter == None)
-    elif period_type == "quarterly":
-        q = q.filter(FinancialStatement.fiscal_quarter != None)
+    def _query_rows():
+        q = db.query(FinancialStatement).filter(FinancialStatement.symbol_id == sym_id)
+        if period_type == "annual":
+            q = q.filter(FinancialStatement.fiscal_quarter == None)
+        elif period_type == "quarterly":
+            q = q.filter(FinancialStatement.fiscal_quarter != None)
+        return q.order_by(FinancialStatement.period_end_date.desc()).limit(limit).all()
 
-    rows = q.order_by(FinancialStatement.period_end_date.desc()).limit(limit).all()
+    rows = _query_rows()
+    stale = False
+    syncing = False
 
-    # Rows written by an older parser hold year-to-date sums / calendar labels: re-sync.
     if rows and stored_parser_version(rows[0]) < PARSER_VERSION:
-        rows = []
-
-    if not rows:
-        # Auto-sync if no data
-        result = sync_edgar_data(ticker, db)
+        # Rows from an older parser (YTD sums / calendar labels): serve them now,
+        # flagged stale, and re-sync once in the background.
+        stale = True
+        syncing = True
+        _sync_in_background(ticker)
+    elif not rows:
+        # First view of this ticker: sync inline (single-flight, bounded wait).
+        _end_read_txn(db)
+        result = _sync_once(ticker)
         if result["status"] == "ok":
-            q2 = db.query(FinancialStatement).filter(FinancialStatement.symbol_id == sym.id)
-            if period_type == "annual":
-                q2 = q2.filter(FinancialStatement.fiscal_quarter == None)
-            elif period_type == "quarterly":
-                q2 = q2.filter(FinancialStatement.fiscal_quarter != None)
-            rows = q2.order_by(FinancialStatement.period_end_date.desc()).limit(limit).all()
+            rows = _query_rows()
+        syncing = result["status"] == "pending"
 
     def _row_to_dict(r):
         return {
@@ -163,6 +241,8 @@ def get_financials(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpool
         "period_type": period_type,
         "count": len(rows),
         "periods": [_row_to_dict(r) for r in rows],
+        "stale": stale,
+        "syncing": syncing,
     }
 
 
@@ -214,7 +294,7 @@ async def get_ai_insights(
     rows = await asyncio.to_thread(_load_rows)
     # Never feed the model numbers from the old (YTD-mixing) parser.
     if not rows or stored_parser_version(rows[0]) < PARSER_VERSION:
-        synced = await asyncio.to_thread(sync_edgar_data, ticker, db)
+        synced = await asyncio.to_thread(_sync_once, ticker)
         if synced.get("status") == "ok":
             rows = await asyncio.to_thread(_load_rows)
 
@@ -230,7 +310,9 @@ async def get_ai_insights(
         for r in rows
     ]
 
-    edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym.id).first()
+    edgar = await asyncio.to_thread(
+        lambda: db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym.id).first()
+    )
     company_info = {
         "company_name": edgar.company_name if edgar else ticker,
         "sic_description": edgar.sic_description if edgar else "",
