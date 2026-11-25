@@ -72,15 +72,30 @@ export interface ResearchChartHeaderProps {
  * lift it above the chart. Marked with data-chart-settings-portal so the
  * page's outside-click handler treats clicks inside it as "inside".
  */
-function AnchoredPopover({ anchor, children }: { anchor: HTMLElement | null; children: ReactNode }) {
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
+export function AnchoredPopover({
+  anchor,
+  children,
+  align = 'right',
+}: {
+  anchor: HTMLElement | null
+  children: ReactNode
+  /** Which anchor edge the popover lines up with. */
+  align?: 'left' | 'right'
+}) {
+  const [pos, setPos] = useState<{ top: number; left?: number; right?: number; maxHeight: number } | null>(null)
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   useLayoutEffect(() => {
     if (!anchor) return
     const update = () => {
       const r = anchor.getBoundingClientRect()
-      setPos({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) })
+      const top = r.bottom + 8
+      const maxHeight = Math.max(160, window.innerHeight - top - 8)
+      setPos(
+        align === 'left'
+          ? { top, left: Math.max(8, Math.min(r.left, window.innerWidth - 8 - 224)), maxHeight }
+          : { top, right: Math.max(8, window.innerWidth - r.right), maxHeight },
+      )
     }
     update()
     window.addEventListener('resize', update)
@@ -89,10 +104,22 @@ function AnchoredPopover({ anchor, children }: { anchor: HTMLElement | null; chi
       window.removeEventListener('resize', update)
       window.removeEventListener('scroll', update, true)
     }
-  }, [anchor])
+  }, [anchor, align])
   if (!mounted || !pos) return null
   return createPortal(
-    <div data-chart-settings-portal style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 1000 }}>
+    <div
+      data-chart-settings-portal
+      style={{
+        position: 'fixed',
+        top: pos.top,
+        left: pos.left,
+        right: pos.right,
+        maxHeight: pos.maxHeight,
+        display: 'flex',
+        flexDirection: 'column',
+        zIndex: 1000,
+      }}
+    >
       {children}
     </div>,
     document.body,

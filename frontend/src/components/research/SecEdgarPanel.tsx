@@ -97,15 +97,54 @@ function fmtEPS(val: number | null | undefined): string {
   return `$${val.toFixed(2)}`
 }
 
-function fyEndLabel(code: string): string {
-  const months: Record<string, string> = {
-    '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
-    '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Aug',
-    '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec',
-  }
-  if (!code || code.length < 4) return code || '—'
-  return `${months[code.slice(0, 2)] ?? code.slice(0, 2)} ${code.slice(2, 4)}`
+const MONTHS: Record<string, string> = {
+  '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
+  '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Aug',
+  '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec',
 }
+
+/** SEC `fiscalYearEnd` is MMDD (AAPL "0925" = fiscal year ends late September).
+ *  The last two digits are a day, not a year, so render the month only. */
+export function fyEndLabel(code: string): string {
+  if (!code || code.length < 4) return code || '—'
+  return `FY ends ${MONTHS[code.slice(0, 2)] ?? code.slice(0, 2)}`
+}
+
+/** SEC fy/fp label for a period: "Q3 FY26" (10-Q) or "FY25" (10-K). */
+export function periodLabel(p: { fiscal_year: number; fiscal_quarter: number | null }): string {
+  const fy = `FY${String(p.fiscal_year).slice(-2)}`
+  return p.fiscal_quarter ? `Q${p.fiscal_quarter} ${fy}` : fy
+}
+
+function fmtDate(iso: string | undefined): string {
+  if (!iso || iso.length < 10) return iso || ''
+  const [y, m, d] = iso.slice(0, 10).split('-')
+  return `${MONTHS[m] ?? m} ${Number(d)}, ${y}`
+}
+
+/** Banks, insurers, brokers and REITs (SIC 6000-6799) report no CapEx line, so
+ *  free cash flow (OCF − CapEx) is not meaningful for them. */
+export function isFinancialSic(sic: string | null | undefined): boolean {
+  if (!sic) return false
+  const n = Number(sic)
+  return Number.isFinite(n) && n >= 6000 && n <= 6799
+}
+
+/** FCF text: the derived value when CapEx exists, otherwise an explicit reason, never a bare blank. */
+export function fcfDisplay(
+  cf: { free_cash_flow: number | null; capital_expenditures: number | null; operating_cash_flow: number | null },
+  financial: boolean,
+): string {
+  if (cf.free_cash_flow != null) return fmtUSD(cf.free_cash_flow)
+  if (cf.capital_expenditures == null && cf.operating_cash_flow != null) {
+    return financial ? 'n/a for banks' : 'n/a (no CapEx)'
+  }
+  return '—'
+}
+
+export const NO_COMPANY_FINANCIALS = (symbol: string) =>
+  `${symbol} has no SEC company financial statements. ETFs, index funds and indices do not file 10-K/10-Q ` +
+  `income statements or balance sheets (funds file N-CSR/N-PORT reports instead), and foreign issuers file 20-F/40-F.`
 
 function formBadge(form: string) {
   if (form === '10-K' || form === '10-K/A')
@@ -169,11 +208,12 @@ function SummaryChip({ label, value, positive }: { label: string; value: string;
 /* ── PeriodCard ─────────────────────────────────────────────────────── */
 
 function PeriodCard({
-  p, expanded, onToggle,
+  p, expanded, onToggle, financial,
 }: {
   p: FinancialPeriod
   expanded: boolean
   onToggle: () => void
+  financial: boolean
 }) {
   const is = p.income_statement
   const bs = p.balance_sheet
@@ -195,8 +235,8 @@ function PeriodCard({
         <span className={`shrink-0 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border ${formBadge(p.form)}`}>
           {p.form}
         </span>
-        <span className="text-sm font-bold text-fg-primary">{p.period}</span>
-        <span className="text-xs text-fg-muted">{p.period_end_date}</span>
+        <span className="text-sm font-bold text-fg-primary">{periodLabel(p)}</span>
+        <span className="text-xs text-fg-muted">ended {fmtDate(p.period_end_date)}</span>
 
         <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           <span className="text-fg-muted">
@@ -211,7 +251,7 @@ function PeriodCard({
           <span className="text-fg-muted">
             FCF:{' '}
             <span className={`font-mono font-medium ${cf.free_cash_flow != null ? (cf.free_cash_flow >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-fg-muted'}`}>
-              {fmtUSD(cf.free_cash_flow)}
+              {fcfDisplay(cf, financial)}
             </span>
           </span>
           <span className="text-fg-muted">
@@ -271,7 +311,12 @@ function PeriodCard({
               <FinRow label="Investing CF" value={fmtUSD(cf.investing_cash_flow)} />
               <FinRow label="Financing CF" value={fmtUSD(cf.financing_cash_flow)} />
               <FinRow label="CapEx" value={fmtUSD(cf.capital_expenditures)} />
-              <FinRow label="Free Cash Flow" value={fmtUSD(cf.free_cash_flow)} highlight colorField="free_cash_flow" />
+              <FinRow label="Free Cash Flow" value={fcfDisplay(cf, financial)} highlight colorField="free_cash_flow" />
+              {financial && cf.free_cash_flow == null && (
+                <p className="px-4 pt-1 text-[10px] text-fg-muted">
+                  Banks report no CapEx line, so OCF − CapEx is not meaningful. Use Operating CF.
+                </p>
+              )}
               <FinRow label="Dividends Paid" value={fmtUSD(cf.dividends_paid)} />
               <FinRow label="Share Repurchases" value={fmtUSD(cf.share_repurchases)} />
             </div>
@@ -388,6 +433,7 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
   const filteredFilings = filingFilter === 'all' ? filings : filings.filter(f => f.form_type === filingFilter)
 
   const noEdgar = overviewError && (overviewError as Error)?.message === 'no-edgar'
+  const financial = isFinancialSic(overview?.sic)
 
   // Most recent period for summary chips
   const latest = periods[0]
@@ -403,10 +449,8 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
             <Building2 className="w-5 h-5 text-amber-400" />
           </div>
           <div>
-            <p className="text-sm font-bold text-fg-primary">SEC EDGAR — Not Available</p>
-            <p className="text-xs text-fg-muted mt-0.5">
-              {symbol} is an ETF or foreign-listed security — no EDGAR fundamental filings.
-            </p>
+            <p className="text-sm font-bold text-fg-primary">SEC EDGAR Fundamentals: not applicable</p>
+            <p className="text-xs text-fg-muted mt-0.5">{NO_COMPANY_FINANCIALS(symbol)}</p>
           </div>
         </div>
       </div>
@@ -453,7 +497,7 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
                 { label: `CIK ${overview.cik}` },
                 { label: overview.sic_description || `SIC ${overview.sic}` },
                 { label: `Inc. ${overview.state_of_incorporation}` },
-                { label: `FY ${fyEndLabel(overview.fiscal_year_end)}` },
+                { label: fyEndLabel(overview.fiscal_year_end) },
               ].filter(m => m.label).map((m, i) => (
                 <span
                   key={i}
@@ -480,6 +524,12 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
 
             {/* ── Summary chips (most recent period) ─────────────────── */}
             {latest && (
+              <div className="space-y-2">
+              <p className="text-[11px] text-fg-muted" data-testid="edgar-latest-period">
+                Latest {latest.form === '10-K' ? 'fiscal year' : 'quarter'}:{' '}
+                <span className="font-semibold text-fg-secondary">{periodLabel(latest)}</span>
+                {' '}({latest.form}, ended {fmtDate(latest.period_end_date)})
+              </p>
               <div className="flex flex-wrap gap-2">
                 <SummaryChip label="Revenue" value={fmtUSD(latestIS?.revenue)} />
                 <SummaryChip
@@ -490,13 +540,14 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
                 <SummaryChip label="EPS (Diluted)" value={fmtEPS(latestIS?.eps_diluted)} />
                 <SummaryChip
                   label="Free Cash Flow"
-                  value={fmtUSD(latestCF?.free_cash_flow)}
+                  value={latestCF ? fcfDisplay(latestCF, financial) : '—'}
                   positive={latestCF?.free_cash_flow != null ? latestCF.free_cash_flow >= 0 : null}
                 />
                 <SummaryChip label="Total Assets" value={fmtUSD(latestBS?.total_assets)} />
                 <SummaryChip label="Cash" value={fmtUSD(latestBS?.cash_and_equivalents)} />
                 <SummaryChip label="Long-term Debt" value={fmtUSD(latestBS?.long_term_debt)} />
                 <SummaryChip label="Equity" value={fmtUSD(latestBS?.stockholders_equity)} />
+              </div>
               </div>
             )}
 
@@ -580,22 +631,31 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
                 </div>
               </div>
             ) : periods.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-24 rounded-2xl border border-white/[0.06] bg-white/[0.02] gap-2">
+              <div className="flex flex-col items-center justify-center text-center rounded-2xl border border-white/[0.06] bg-white/[0.02] gap-2 px-4 py-5">
                 <DollarSign className="w-6 h-6 text-fg-muted" />
-                <p className="text-sm text-fg-muted">
-                  No {periodType} data for {symbol} — try syncing below.
-                </p>
+                <p className="text-sm text-fg-secondary">No {periodType} SEC financial statements for {symbol}</p>
+                <p className="text-xs text-fg-muted max-w-xl">{NO_COMPANY_FINANCIALS(symbol)}</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {periods.map(p => (
-                  <PeriodCard
-                    key={`${p.period}-${p.form}`}
-                    p={p}
-                    expanded={expandedPeriods.has(p.period)}
-                    onToggle={() => togglePeriod(p.period)}
-                  />
-                ))}
+              <div
+                data-testid="edgar-periods-scroll"
+                className="max-h-[26rem] md:max-h-[32rem] overflow-y-auto overscroll-contain rounded-2xl"
+              >
+                <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 py-1.5 mb-1 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-overlay backdrop-blur-md border-b border-white/[0.06]">
+                  <span>{periods.length} {periodType === 'annual' ? 'fiscal years' : 'quarters'} · newest first</span>
+                  <span className="hidden sm:inline">Click a period for full statements</span>
+                </div>
+                <div className="space-y-2">
+                  {periods.map(p => (
+                    <PeriodCard
+                      key={`${p.period}-${p.form}`}
+                      p={p}
+                      financial={financial}
+                      expanded={expandedPeriods.has(p.period)}
+                      onToggle={() => togglePeriod(p.period)}
+                    />
+                  ))}
+                </div>
               </div>
             )}
 

@@ -1,10 +1,14 @@
 """
 Options API — Option chain, expirations, and Greeks via Public.com
 
-Public.com (needs PUBLIC_API_SECRET_KEY) is the primary source and is the only
-one with Greeks. When it is not configured or fails, both endpoints fall back
-to yfinance (free, no key; bid/ask/last/volume/OI/IV only, Greeks are null).
+Public.com (needs PUBLIC_API_SECRET_KEY) is the primary source. When it is not
+configured or fails, both endpoints fall back to yfinance (free, no key).
 The response `source` field says which one answered.
+
+Neither provider reliably supplies everything the UI shows: Public.com returns
+bid/ask/last/volume/OI only and yfinance adds IV but no Greeks. Missing mid,
+implied volatility and Greeks are computed here (Black-Scholes, see
+app/services/option_greeks.py) from the underlying spot price.
 
 Endpoints:
 - GET /api/v1/options/{symbol}/expirations → Available expiration dates
@@ -53,6 +57,8 @@ class OptionChainResponse(BaseModel):
     puts: List[Dict[str, Any]]
     source: str = "public.com"
     fetched_at: str
+    # Spot used for computed Greeks; the UI centres the chain on it.
+    underlying_price: Optional[float] = None
 
 
 @router.get("/options/{symbol}/expirations", response_model=OptionExpirationsResponse)
@@ -107,12 +113,14 @@ async def get_option_chain(
     if chain is None:
         fallback = await asyncio.to_thread(_yf_chain, symbol, expiration)
         if fallback is not None:
-            calls, puts = fallback
+            calls, puts, spot = fallback
+            _enrich(calls, puts, spot, expiration)
             return OptionChainResponse(
                 symbol=symbol,
                 expiration=expiration,
                 calls=calls,
                 puts=puts,
+                underlying_price=spot,
                 source="yfinance",
                 fetched_at=datetime.utcnow().isoformat(),
             )
@@ -184,23 +192,65 @@ async def get_option_chain(
         # handing the UI an empty chain.
         fallback = await asyncio.to_thread(_yf_chain, symbol, expiration)
         if fallback is not None:
-            calls, puts = fallback
+            calls, puts, spot = fallback
+            _enrich(calls, puts, spot, expiration)
             return OptionChainResponse(
                 symbol=symbol,
                 expiration=expiration,
                 calls=calls,
                 puts=puts,
+                underlying_price=spot,
                 source="yfinance",
                 fetched_at=datetime.utcnow().isoformat(),
             )
 
+    spot = await _spot_price(symbol)
+    _enrich(calls, puts, spot, expiration)
     return OptionChainResponse(
         symbol=symbol,
         expiration=expiration,
         calls=calls,
         puts=puts,
+        underlying_price=spot,
         fetched_at=datetime.utcnow().isoformat(),
     )
+
+
+def _enrich(calls: List[Dict[str, Any]], puts: List[Dict[str, Any]],
+            spot: Optional[float], expiration: str) -> None:
+    """Fill mid / IV / Greeks the provider left null (never overwrites)."""
+    from app.services.option_greeks import enrich_contracts
+
+    try:
+        enrich_contracts(calls, spot=spot, expiration=expiration, is_call=True)
+        enrich_contracts(puts, spot=spot, expiration=expiration, is_call=False)
+    except Exception as exc:  # display enrichment must never fail the endpoint
+        logger.warning("option greeks enrichment failed (%s): %s", expiration, exc)
+
+
+async def _spot_price(symbol: str) -> Optional[float]:
+    """Underlying price for Greeks: Public.com quote, then yfinance."""
+    try:
+        from app.services.public_client import public_client
+
+        quote = await public_client.get_quote(symbol)
+        price = _safe_float((quote or {}).get("price"))
+        if price and price > 0:
+            return price
+    except Exception as exc:
+        logger.debug("spot quote via Public.com failed for %s: %s", symbol, exc)
+    return await asyncio.to_thread(_yf_spot, symbol)
+
+
+def _yf_spot(symbol: str) -> Optional[float]:
+    try:
+        import yfinance as yf
+
+        price = _safe_float(yf.Ticker(symbol).fast_info.get("lastPrice"))
+        return price if price and price > 0 else None
+    except Exception as exc:
+        logger.debug("yfinance spot failed for %s: %s", symbol, exc)
+        return None
 
 
 def _safe_float(val) -> Optional[float]:
@@ -239,6 +289,7 @@ def yf_rows_to_contracts(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for row in rows:
         bid = _safe_float(row.get("bid"))
         ask = _safe_float(row.get("ask"))
+        # mid / Greeks are filled by option_greeks.enrich_contracts afterwards.
         mid = round((bid + ask) / 2, 4) if bid and ask else None
         iv = _safe_float(row.get("impliedVolatility"))
         out.append({
@@ -271,7 +322,11 @@ def _yf_chain(symbol: str, expiration: str):
         puts = yf_rows_to_contracts(chain.puts.to_dict("records"))
         if not calls and not puts:
             return None
-        return calls, puts
+        underlying = getattr(chain, "underlying", None) or {}
+        spot = _safe_float(underlying.get("regularMarketPrice")) if isinstance(underlying, dict) else None
+        if not spot:
+            spot = _yf_spot(symbol)
+        return calls, puts, spot
     except Exception as exc:
         logger.warning("yfinance option chain failed for %s %s: %s", symbol, expiration, exc)
         return None

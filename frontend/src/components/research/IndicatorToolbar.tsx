@@ -9,6 +9,7 @@ import {
   type OverlayIndicatorId,
   type PaneIndicatorId,
 } from '@/lib/indicators'
+import { AnchoredPopover } from './ResearchChartHeader'
 
 interface IndicatorToolbarProps {
   activeOverlays: OverlayIndicatorId[]
@@ -30,14 +31,24 @@ export default function IndicatorToolbar({
   const [menuOpen, setMenuOpen] = useState(false)
   const [search, setSearch] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!menuOpen) return
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+      const target = e.target as Node
+      // The menu renders in a portal on <body>, so it is outside menuRef.
+      if (menuRef.current?.contains(target) || popoverRef.current?.contains(target)) return
+      setMenuOpen(false)
     }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [menuOpen])
 
   const allActive = [
@@ -57,7 +68,10 @@ export default function IndicatorToolbar({
       {/* Add indicator button */}
       <div ref={menuRef} className="relative shrink-0">
         <button
+          ref={buttonRef}
           type="button"
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
           onClick={() => setMenuOpen((v) => !v)}
           className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-fg-muted hover:text-cyan-300 hover:bg-surface-hover border border-line-default transition-colors"
         >
@@ -66,8 +80,15 @@ export default function IndicatorToolbar({
           <ChevronDown className={`w-3 h-3 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
         </button>
 
+        {/* Portal: the toolbar is overflow-x:auto (38px tall), which clipped an
+            absolutely positioned menu down to its search box. */}
         {menuOpen && (
-          <div className="absolute left-0 top-full mt-1 w-56 rounded-lg border border-line-default bg-surface-overlay shadow-theme-lg z-50 overflow-hidden">
+          <AnchoredPopover anchor={buttonRef.current} align="left">
+          <div
+            ref={popoverRef}
+            data-testid="indicator-menu"
+            className="w-56 min-h-0 flex flex-col rounded-lg border border-line-default bg-surface-overlay backdrop-blur-xl shadow-theme-lg overflow-hidden"
+          >
             {/* Search */}
             <div className="px-2 py-2 border-b border-line-subtle">
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-raised border border-line-subtle">
@@ -83,7 +104,7 @@ export default function IndicatorToolbar({
               </div>
             </div>
 
-            <div className="max-h-64 overflow-y-auto py-1">
+            <div className="max-h-80 min-h-0 flex-1 overflow-y-auto py-1">
               {overlayItems.length > 0 && (
                 <>
                   <div className="px-3 pt-1.5 pb-0.5 text-[9px] uppercase tracking-wider text-fg-muted font-semibold">Overlays</div>
@@ -130,6 +151,7 @@ export default function IndicatorToolbar({
               )}
             </div>
           </div>
+          </AnchoredPopover>
         )}
       </div>
 

@@ -521,31 +521,39 @@ function ResearchContent() {
                 syncing={syncing}
               />
 
-              {/* Indicator Toolbar */}
-              <IndicatorToolbar
-                activeOverlays={activeOverlays}
-                activePanes={activePanes}
-                onToggleOverlay={(id) => setActiveOverlays((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
-                onTogglePane={(id) => setActivePanes((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
-                extendedHours={extendedHours}
-                onToggleExtendedHours={() => setExtendedHours((v) => !v)}
-              />
+              {/* Indicator Toolbar + fullscreen. The fullscreen button sits in the
+                  toolbar row: absolutely positioned over the chart it covered the
+                  right price-axis labels. */}
+              <div className="flex items-stretch">
+                <div className="min-w-0 flex-1">
+                  <IndicatorToolbar
+                    activeOverlays={activeOverlays}
+                    activePanes={activePanes}
+                    onToggleOverlay={(id) => setActiveOverlays((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
+                    onTogglePane={(id) => setActivePanes((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
+                    extendedHours={extendedHours}
+                    onToggleExtendedHours={() => setExtendedHours((v) => !v)}
+                  />
+                </div>
+                {!loading && !error && priceData.length > 0 && (
+                  <div className="flex shrink-0 items-center border-b border-l border-line-subtle bg-surface-glass px-2">
+                    <button
+                      type="button"
+                      onClick={() => setFullscreenChart(true)}
+                      className="p-1 rounded-md border border-line-default text-fg-muted hover:text-white hover:bg-surface-active transition-colors"
+                      title="Fullscreen chart"
+                      aria-label="Fullscreen chart"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5h-4m4 0v-4m0 4l-5-5" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Chart Area */}
               <div className="flex-1 relative min-h-[300px]">
-                {/* Fullscreen button */}
-                {!loading && !error && priceData.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setFullscreenChart(true)}
-                    className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-surface-raised border border-line-default text-fg-muted hover:text-white hover:bg-surface-active transition-colors"
-                    title="Fullscreen chart"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5h-4m4 0v-4m0 4l-5-5" />
-                    </svg>
-                  </button>
-                )}
                 {loading ? (
                   <SkeletonChart />
                 ) : error ? (
