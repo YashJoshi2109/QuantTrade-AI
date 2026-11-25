@@ -23,6 +23,8 @@ from app.services.sec_edgar_service import (
 router = APIRouter(prefix="/api/v1/research", tags=["research"])
 logger = logging.getLogger(__name__)
 
+_NON_COMPANY_ASSET_TYPES = {"ETF", "ETN", "INDEX", "FUND", "MUTUALFUND", "MUTUAL FUND", "CRYPTO", "CRYPTOCURRENCY"}
+
 
 def _get_symbol(ticker: str, db: Session) -> Symbol:
     # Symbol model uses .symbol column (not .ticker)
@@ -52,6 +54,10 @@ def company_overview(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpoo
 ):
     """Company facts from SEC EDGAR — CIK, SIC, incorporation state, fiscal year."""
     sym = _get_symbol(ticker, db)
+    # ETFs / funds / indices file no 10-K/10-Q company financials (SPY's trust has
+    # a CIK but no XBRL company facts). Answer immediately instead of hitting SEC.
+    if (sym.asset_type or "").strip().upper() in _NON_COMPANY_ASSET_TYPES or ticker.startswith("^"):
+        raise HTTPException(status_code=404, detail=f"{ticker.upper()} is a fund/index: no SEC company financials")
     edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym.id).first()
 
     if not edgar:

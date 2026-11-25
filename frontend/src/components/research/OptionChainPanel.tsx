@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useLayoutEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   fetchOptionExpirations,
@@ -29,11 +29,53 @@ function formatInt(val: number | null): string {
   return val.toLocaleString()
 }
 
-function ContractRow({ c, type }: { c: OptionContract; type: 'call' | 'put' }) {
+/**
+ * Strike nearest the money. Uses the underlying price when the API supplies
+ * it; otherwise the strike where call and put mids are closest (put-call
+ * parity puts that at roughly the forward price).
+ */
+export function atmStrike(
+  calls: OptionContract[] | undefined,
+  puts: OptionContract[] | undefined,
+  spot?: number | null,
+): number | null {
+  const strikes = [...(calls ?? []), ...(puts ?? [])]
+    .map((c) => c.strike)
+    .filter((k): k is number => k != null)
+  if (strikes.length === 0) return null
+  if (spot != null && spot > 0) {
+    return strikes.reduce((best, k) => (Math.abs(k - spot) < Math.abs(best - spot) ? k : best), strikes[0])
+  }
+  const putMid = new Map<number, number>()
+  for (const p of puts ?? []) if (p.strike != null && p.mid != null) putMid.set(p.strike, p.mid)
+  let best: number | null = null
+  let bestGap = Infinity
+  for (const c of calls ?? []) {
+    if (c.strike == null || c.mid == null || !putMid.has(c.strike)) continue
+    const gap = Math.abs(c.mid - (putMid.get(c.strike) as number))
+    if (gap < bestGap) { bestGap = gap; best = c.strike }
+  }
+  if (best != null) return best
+  const sorted = [...strikes].sort((a, b) => a - b)
+  return sorted[Math.floor(sorted.length / 2)]
+}
+
+function ContractRow({
+  c, type, atm, spot,
+}: { c: OptionContract; type: 'call' | 'put'; atm: boolean; spot: number | null }) {
   const ivPct = c.implied_volatility != null ? (c.implied_volatility * 100).toFixed(1) + '%' : '—'
+  const itm = spot != null && c.strike != null && (type === 'call' ? c.strike < spot : c.strike > spot)
   return (
-    <tr className="border-b border-line-subtle hover:bg-surface-hover transition-colors text-xs">
-      <td className="py-1.5 px-2 font-mono text-fg-primary">{formatPrice(c.strike)}</td>
+    <tr
+      data-atm={atm ? 'true' : undefined}
+      className={`border-b border-line-subtle hover:bg-surface-hover transition-colors text-xs ${
+        atm ? 'bg-cyan-500/10 outline outline-1 outline-cyan-500/30' : itm ? 'bg-white/[0.025]' : ''
+      }`}
+    >
+      <td className="py-1.5 px-2 font-mono text-fg-primary whitespace-nowrap">
+        {formatPrice(c.strike)}
+        {atm && <span className="ml-1 text-[8px] font-bold text-cyan-400 align-middle">ATM</span>}
+      </td>
       <td className="py-1.5 px-2 text-fg-secondary">{formatPrice(c.bid)}</td>
       <td className="py-1.5 px-2 text-fg-secondary">{formatPrice(c.ask)}</td>
       <td className="py-1.5 px-2 text-fg-secondary">{formatPrice(c.mid)}</td>
@@ -45,16 +87,33 @@ function ContractRow({ c, type }: { c: OptionContract; type: 'call' | 'put' }) {
           ? (c.delta && c.delta > 0 ? 'text-emerald-400' : 'text-fg-muted')
           : (c.delta && c.delta < 0 ? 'text-red-400' : 'text-fg-muted')
       }`}>
-        {formatGreek(c.delta)}
+        {formatGreek(c.delta, 3)}
       </td>
       <td className="py-1.5 px-2 font-mono text-fg-muted">{formatGreek(c.gamma)}</td>
-      <td className="py-1.5 px-2 font-mono text-red-400/70">{formatGreek(c.theta)}</td>
-      <td className="py-1.5 px-2 font-mono text-blue-400/70">{formatGreek(c.vega)}</td>
+      <td className="py-1.5 px-2 font-mono text-red-400/70">{formatGreek(c.theta, 3)}</td>
+      <td className="py-1.5 px-2 font-mono text-blue-400/70">{formatGreek(c.vega, 3)}</td>
     </tr>
   )
 }
 
-function ContractTable({ contracts, type }: { contracts: OptionContract[]; type: 'call' | 'put' }) {
+const TH = 'sticky top-0 z-10 bg-surface-overlay backdrop-blur-md py-2 px-2 font-semibold shadow-[inset_0_-1px_0_var(--line-default,rgba(0,0,0,0.1))]'
+
+function ContractTable({
+  contracts, type, atm, spot,
+}: { contracts: OptionContract[]; type: 'call' | 'put'; atm: number | null; spot: number | null }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Centre the at-the-money strike on first render of each chain. Scroll the
+  // container itself (not scrollIntoView) so the page never jumps.
+  useLayoutEffect(() => {
+    const box = scrollRef.current
+    if (!box) return
+    const row = box.querySelector<HTMLTableRowElement>('tr[data-atm="true"]')
+    if (!row) return
+    const head = box.querySelector('thead')?.getBoundingClientRect().height ?? 0
+    box.scrollTop = Math.max(0, row.offsetTop - head - (box.clientHeight - head - row.offsetHeight) / 2)
+  }, [contracts, atm])
+
   if (!contracts || contracts.length === 0) {
     return (
       <div className="text-center text-fg-muted text-xs py-6">
@@ -63,26 +122,36 @@ function ContractTable({ contracts, type }: { contracts: OptionContract[]; type:
     )
   }
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
+    <div
+      ref={scrollRef}
+      data-testid={`option-chain-scroll-${type}`}
+      className="max-h-[22rem] md:max-h-[28rem] overflow-auto overscroll-contain rounded-lg border border-line-subtle"
+    >
+      <table className="w-full min-w-[620px] text-left">
         <thead>
-          <tr className="text-[10px] uppercase tracking-wider text-fg-muted border-b border-line-default">
-            <th className="py-2 px-2">Strike</th>
-            <th className="py-2 px-2">Bid</th>
-            <th className="py-2 px-2">Ask</th>
-            <th className="py-2 px-2">Mid</th>
-            <th className="py-2 px-2">Vol</th>
-            <th className="py-2 px-2">OI</th>
-            <th className="py-2 px-2">IV</th>
-            <th className="py-2 px-2">&delta;</th>
-            <th className="py-2 px-2">&gamma;</th>
-            <th className="py-2 px-2">&theta;</th>
-            <th className="py-2 px-2">V</th>
+          <tr className="text-[10px] uppercase tracking-wider text-fg-muted">
+            <th className={TH}>Strike</th>
+            <th className={TH}>Bid</th>
+            <th className={TH}>Ask</th>
+            <th className={TH}>Mid</th>
+            <th className={TH}>Vol</th>
+            <th className={TH}>OI</th>
+            <th className={TH}>IV</th>
+            <th className={TH} title="Delta">&Delta;</th>
+            <th className={TH} title="Gamma">&Gamma;</th>
+            <th className={TH} title="Theta (per day)">&Theta;</th>
+            <th className={TH} title="Vega (per 1 vol point)">V</th>
           </tr>
         </thead>
         <tbody>
           {contracts.map((c, i) => (
-            <ContractRow key={`${c.strike}-${i}`} c={c} type={type} />
+            <ContractRow
+              key={`${c.strike}-${i}`}
+              c={c}
+              type={type}
+              spot={spot}
+              atm={atm != null && c.strike === atm}
+            />
           ))}
         </tbody>
       </table>
@@ -125,6 +194,15 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
     [chainData],
   )
   const pcRatio = totalCallVol > 0 ? (totalPutVol / totalCallVol).toFixed(2) : '—'
+  const spot = chainData?.underlying_price ?? null
+  const atm = useMemo(
+    () => atmStrike(chainData?.calls, chainData?.puts, spot),
+    [chainData, spot],
+  )
+  const greeksComputed = useMemo(
+    () => [...(chainData?.calls ?? []), ...(chainData?.puts ?? [])].some((c) => c.delta != null),
+    [chainData],
+  )
 
   const noExpirations = !expLoading && !expError && (expData?.expirations?.length ?? 0) === 0
   if (expError || chainError || noExpirations) {
@@ -150,19 +228,27 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
     <div className="col-span-12">
       <div className="hud-panel overflow-hidden">
         {/* Header */}
-        <div className="p-4 border-b border-blue-500/10 flex flex-wrap items-center justify-between gap-3">
+        <div className="p-3 sm:p-4 border-b border-blue-500/10 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-cyan-400" />
             <h3 className="font-bold text-sm text-fg-primary">Option Chain</h3>
             <span className="text-[9px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded">
               {chainData?.source || expData?.source || 'Public.com'}
             </span>
-            {(chainData?.source || expData?.source) === 'yfinance' && (
-              <span className="text-[9px] text-fg-muted">Greeks unavailable</span>
+            {chainData && (
+              <span
+                className="text-[9px] text-fg-muted"
+                title="Mid = (bid+ask)/2. Missing IV is solved from the mid; Greeks use Black-Scholes with the provider IV."
+              >
+                {greeksComputed ? 'Greeks: Black-Scholes' : 'Greeks unavailable'}
+              </span>
+            )}
+            {spot != null && (
+              <span className="text-[10px] font-mono text-fg-secondary">Spot ${spot.toFixed(2)}</span>
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {/* P/C Ratio badge */}
             {chainData && (
               <div className="flex items-center gap-2 text-[10px]">
@@ -234,7 +320,7 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
         </div>
 
         {/* Content */}
-        <div className="p-4">
+        <div className="p-3 sm:p-4">
           {chainLoading || expLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-5 h-5 animate-spin text-cyan-400 mr-2" />
@@ -245,21 +331,21 @@ export default function OptionChainPanel({ symbol }: OptionChainPanelProps) {
               Select an expiration date to view the option chain
             </div>
           ) : (
-            <div className={activeTab === 'all' ? 'grid grid-cols-1 lg:grid-cols-2 gap-4' : ''}>
+            <div className={activeTab === 'all' ? 'grid grid-cols-1 xl:grid-cols-2 gap-4' : ''}>
               {(activeTab === 'all' || activeTab === 'calls') && (
-                <div>
+                <div className="min-w-0">
                   <div className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold mb-2 px-2">
                     Calls
                   </div>
-                  <ContractTable contracts={chainData.calls} type="call" />
+                  <ContractTable contracts={chainData.calls} type="call" atm={atm} spot={spot} />
                 </div>
               )}
               {(activeTab === 'all' || activeTab === 'puts') && (
-                <div>
+                <div className="min-w-0">
                   <div className="text-[10px] uppercase tracking-wider text-red-400 font-bold mb-2 px-2">
                     Puts
                   </div>
-                  <ContractTable contracts={chainData.puts} type="put" />
+                  <ContractTable contracts={chainData.puts} type="put" atm={atm} spot={spot} />
                 </div>
               )}
             </div>

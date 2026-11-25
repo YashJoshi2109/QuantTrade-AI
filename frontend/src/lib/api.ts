@@ -2009,6 +2009,8 @@ export interface OptionChainData {
   puts: OptionContract[]
   source: string
   fetched_at: string
+  /** Underlying spot used for computed Greeks (null when no quote was available). */
+  underlying_price?: number | null
 }
 
 export interface OptionExpirationsData {

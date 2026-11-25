@@ -46,6 +46,9 @@ import ForecastPanel from '@/components/research/ForecastPanel'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 import { pickMetric, resolvePriceInfo } from '@/lib/researchQuote'
 import OptionChainPanel from '@/components/research/OptionChainPanel'
+import EarningsShortInterestPanel from '@/components/research/EarningsShortInterestPanel'
+import { CompanyFolioPanel } from '@/components/research/CompanyFolioPanel'
+import TechnicalAnalysisGauge from '@/components/TechnicalAnalysisGauge'
 
 const TIMEFRAMES = ['1D', '1W', '1M', '3M', '1Y', 'All'] as const
 type Timeframe = (typeof TIMEFRAMES)[number]
@@ -57,9 +60,7 @@ export default function MobileResearch() {
   const symbolFromUrl = (searchParams?.get('symbol') || 'NVDA').toUpperCase()
 
   const [timeframe, setTimeframe] = useState<Timeframe>('3M')
-  const [activeTab, setActiveTab] = useState<
-    'overview' | 'financials' | 'news' | 'technicals'
-  >('overview')
+  const [activeTab, setActiveTab] = useState<MobileResearchTab>('overview')
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
 
@@ -186,7 +187,7 @@ export default function MobileResearch() {
     })
 
   // Same source as desktop (/api/quotes/ticker, shared React Query cache key).
-  const { data: tickerInfo } = useQuery<TickerInfo>({
+  const { data: tickerInfo, isPending: tickerInfoLoading } = useQuery<TickerInfo>({
     queryKey: ['tickerInfo', symbolFromUrl],
     queryFn: async () => {
       const res = await fetch(`/api/quotes/ticker?symbol=${encodeURIComponent(symbolFromUrl)}`)
@@ -520,24 +521,22 @@ export default function MobileResearch() {
 
       {/* ── Tabs ── */}
       <section className="px-1 space-y-3">
-        <div className="flex border-b border-line-subtle">
-          {['overview', 'financials', 'news', 'technicals'].map((tabKey) => {
-            const label =
-              tabKey === 'overview'
-                ? 'Overview'
-                : tabKey === 'financials'
-                  ? 'Financials'
-                  : tabKey === 'news'
-                    ? 'News'
-                    : 'Technicals'
-            const key = tabKey as typeof activeTab
+        <div
+          role="tablist"
+          aria-label="Research sections"
+          className="sticky top-0 z-20 -mx-1 flex overflow-x-auto border-b border-line-subtle bg-surface-base/95 px-1 backdrop-blur"
+        >
+          {MOBILE_RESEARCH_TABS.map(({ key, label }) => {
             const isActive = activeTab === key
             return (
               <button
-                key={tabKey}
+                key={key}
                 type="button"
+                role="tab"
+                aria-selected={isActive}
+                data-testid={`mobile-research-tab-${key}`}
                 onClick={() => setActiveTab(key)}
-                className={`flex-1 py-2 text-[12px] font-medium border-b-2 ${
+                className={`flex-1 shrink-0 whitespace-nowrap px-2 py-2.5 text-[12px] font-medium border-b-2 ${
                   isActive
                     ? 'border-[#00D9FF] text-[#00D9FF]'
                     : 'border-transparent text-fg-muted'
@@ -639,6 +638,8 @@ export default function MobileResearch() {
               onSync={handleSync}
               syncing={syncing}
             />
+            {/* Key Statistics, earnings and short interest (desktop parity) */}
+            <EarningsShortInterestPanel symbol={symbolFromUrl} tickerInfo={tickerInfo} />
             {/* Same SEC EDGAR statements + AI analysis as desktop */}
             {symbolFromUrl && <SecEdgarPanel symbol={symbolFromUrl} />}
           </div>
@@ -713,17 +714,27 @@ export default function MobileResearch() {
             </div>
           </div>
         )}
-        {/* Same option chain panel as desktop, incl. its "Options data unavailable" state */}
-        {activeTab === 'technicals' && symbolFromUrl && (
-          <div className="mt-4">
-            <OptionChainPanel symbol={symbolFromUrl} />
-          </div>
+        {activeTab === 'technicals' && (
+          <TechnicalAnalysisGauge
+            indicators={indicators ?? null}
+            price={price}
+            loading={indicatorsLoading}
+          />
         )}
 
-        {/* === NEWS TAB === */}
-        {activeTab === 'news' && (
+        {/* === OPTIONS TAB === same option chain panel as desktop, incl. its "Options data unavailable" state */}
+        {activeTab === 'options' && symbolFromUrl && (
+          <OptionChainPanel symbol={symbolFromUrl} />
+        )}
+
+        {/* === COMPANY & NEWS TAB === desktop Company Folio, then live news */}
+        {activeTab === 'company' && (
           <div className="space-y-3">
-            <MobileCompanyProfile symbol={symbolFromUrl} />
+            <CompanyFolioPanel
+              symbol={symbolFromUrl}
+              info={tickerInfo}
+              isLoading={tickerInfoLoading}
+            />
           <div className="rounded-2xl bg-surface-raised border border-line-subtle p-3 text-[12px] text-fg-primary">
             <div className="space-y-2">
               <div className="flex items-center gap-2 mb-1">
@@ -748,114 +759,20 @@ export default function MobileResearch() {
   )
 }
 
-// ─── Mobile Company Profile ───────────────────────────────────────────────────
+/**
+ * Mobile tabs. Each desktop research panel is reachable from exactly one tab:
+ * overview  - chart (above), AI snapshot, Price Forecast Range, Key Factors
+ * financials - Fundamentals, Key Statistics/earnings/short interest, SEC EDGAR
+ * options   - Option Chain
+ * technicals - Technical Indicators, Technical Analysis gauges
+ * company   - Company Folio, Live News
+ */
+export type MobileResearchTab = 'overview' | 'financials' | 'options' | 'technicals' | 'company'
 
-function MobileCompanyProfile({ symbol }: { symbol: string }) {
-  const { data: info, isLoading } = useQuery<TickerInfo>({
-    queryKey: ['tickerInfo', symbol],
-    queryFn: async () => {
-      const res = await fetch(`/api/quotes/ticker?symbol=${encodeURIComponent(symbol)}`)
-      if (!res.ok) throw new Error('Not found')
-      return res.json()
-    },
-    staleTime: 300_000,
-    retry: 1,
-  })
-
-  if (isLoading) {
-    return (
-      <div className="rounded-2xl bg-surface-raised border border-line-subtle p-4 animate-pulse space-y-2">
-        <div className="h-4 bg-surface-raised rounded w-40" />
-        <div className="h-3 bg-surface-raised rounded w-64" />
-        <div className="grid grid-cols-2 gap-2 mt-3">
-          {[0,1,2,3].map(i => <div key={i} className="h-10 bg-surface-raised rounded-lg" />)}
-        </div>
-      </div>
-    )
-  }
-
-  if (!info?.name) return null
-
-  const fmtBig = (n: number) => {
-    if (!n || !isFinite(n)) return '—'
-    if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`
-    if (n >= 1e9)  return `$${(n / 1e9).toFixed(2)}B`
-    if (n >= 1e6)  return `$${(n / 1e6).toFixed(2)}M`
-    return `$${n.toFixed(0)}`
-  }
-  const fmtN = (n: number, d = 2) => (n && isFinite(n) ? formatNumber(n, d) : '—')
-  const fmtP = (n: number) => (n && isFinite(n) ? `${n.toFixed(2)}%` : '—')
-
-  const recColor = (r: string) =>
-    r === 'buy' || r === 'strongBuy'
-      ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-      : r === 'sell' || r === 'strongSell'
-        ? 'text-red-400 bg-red-500/10 border-red-500/20'
-        : 'text-amber-300 bg-amber-500/10 border-amber-500/20'
-
-  return (
-    <div className="rounded-2xl bg-surface-raised border border-line-subtle p-4 space-y-3">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-[14px] font-bold text-fg-primary truncate">{info.name}</h3>
-          <div className="flex flex-wrap items-center gap-1.5 mt-1">
-            {info.sector && (
-              <span className="text-[10px] text-fg-secondary bg-surface-raised/60 px-2 py-0.5 rounded-full border border-line-default/40">
-                {info.sector}
-              </span>
-            )}
-            {info.exchange_display && (
-              <span className="text-[10px] font-mono text-fg-muted bg-surface-raised/40 px-2 py-0.5 rounded-full">
-                {info.exchange_display}
-              </span>
-            )}
-            {info.recommendation && (
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${recColor(info.recommendation)}`}>
-                {info.recommendation.replace('strongBuy', 'Strong Buy').replace('strongSell', 'Strong Sell').replace('buy','Buy').replace('sell','Sell').replace('hold','Hold')}
-              </span>
-            )}
-          </div>
-        </div>
-        {info.website && (
-          <a href={info.website} target="_blank" rel="noopener noreferrer"
-            className="shrink-0 p-2 rounded-xl bg-surface-raised/60 border border-line-default/40 text-fg-secondary">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
-        )}
-      </div>
-
-      {info.description && (
-        <p className="text-[11px] text-fg-secondary leading-relaxed line-clamp-3">{info.description}</p>
-      )}
-
-      {/* Key metrics */}
-      <div className="grid grid-cols-2 gap-2">
-        {[
-          { label: 'Market Cap', value: fmtBig(info.market_cap) },
-          { label: 'P/E Ratio',  value: fmtN(info.pe_ratio) },
-          { label: 'EPS',        value: info.eps ? `$${fmtN(info.eps)}` : '—' },
-          { label: 'Beta',       value: fmtN(info.beta) },
-          { label: '52W High',   value: info.week_52_high ? `$${fmtN(info.week_52_high)}` : '—' },
-          { label: '52W Low',    value: info.week_52_low  ? `$${fmtN(info.week_52_low)}`  : '—' },
-          { label: 'Div Yield',  value: fmtP(info.dividend_yield) },
-          { label: 'ROE',        value: fmtP(info.return_on_equity) },
-        ].map((m) => (
-          <div key={m.label} className="rounded-xl bg-surface-base border border-line-subtle px-3 py-2">
-            <div className="text-[9px] text-fg-muted uppercase tracking-wider mb-0.5">{m.label}</div>
-            <div className="text-[13px] font-mono font-semibold text-fg-primary">{m.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {info.target_price && (
-        <div className="flex items-center justify-between bg-[#007AFF]/8 border border-[#007AFF]/20 rounded-xl px-3 py-2">
-          <span className="text-[11px] text-fg-secondary">Analyst target</span>
-          <span className="text-[13px] font-mono font-bold text-[#007AFF]">${fmtN(info.target_price)}</span>
-        </div>
-      )}
-    </div>
-  )
-}
+export const MOBILE_RESEARCH_TABS: { key: MobileResearchTab; label: string }[] = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'financials', label: 'Financials' },
+  { key: 'options', label: 'Options' },
+  { key: 'technicals', label: 'Technicals' },
+  { key: 'company', label: 'Company' },
+]
