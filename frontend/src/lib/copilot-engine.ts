@@ -231,6 +231,24 @@ export interface CopilotStreamRequest {
 
 // ─── Stream Client ──────────────────────────────────────────────────────────
 
+/** Human-readable message for a failed copilot request (quota / budget aware). */
+export async function copilotErrorMessage(response: Response): Promise<string> {
+  const text = await response.text().catch(() => '')
+  let detail = ''
+  try {
+    const parsed = JSON.parse(text) as { detail?: unknown; error?: unknown }
+    if (typeof parsed.detail === 'string') detail = parsed.detail
+    else if (typeof parsed.error === 'string') detail = parsed.error
+  } catch {
+    detail = text
+  }
+  if (response.status === 401) return detail || 'Sign in to use the AI copilot.'
+  if (response.status === 403 || response.status === 413 || response.status === 429 || response.status === 503) {
+    return detail || 'AI is temporarily unavailable. Please try again later.'
+  }
+  return `API error: ${response.status}${detail ? ` — ${detail}` : ''}`
+}
+
 export async function streamCopilotAnalysis(
   request: CopilotStreamRequest,
   callbacks: CopilotStreamCallbacks,
@@ -255,8 +273,7 @@ export async function streamCopilotAnalysis(
   })
 
   if (!response.ok) {
-    const errText = await response.text().catch(() => response.statusText)
-    callbacks.onError?.(`API error: ${response.status} — ${errText}`)
+    callbacks.onError?.(await copilotErrorMessage(response))
     callbacks.onDone?.()
     return
   }

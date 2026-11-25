@@ -38,7 +38,7 @@ async def get_hyde_embedding(query: str) -> list[float] | None:
     try:
         hypo_doc = await generate_hypothetical_document(query)
         loop = asyncio.get_running_loop()
-        vector = await loop.run_in_executor(None, embed_query, hypo_doc)
+        vector = await asyncio.to_thread(embed_query, hypo_doc)  # to_thread keeps the ai_guard context
         return vector
     except Exception as exc:
         logger.warning("HyDE failed for query %r: %s", query[:60], exc)

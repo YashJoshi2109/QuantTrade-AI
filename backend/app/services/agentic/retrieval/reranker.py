@@ -38,7 +38,7 @@ async def rerank_results(
 
     try:
         loop = asyncio.get_running_loop()
-        ranked = await loop.run_in_executor(None, rerank, query, texts, top_n)
+        ranked = await asyncio.to_thread(rerank, query, texts, top_n)  # keeps ai_guard context
     except Exception as exc:
         logger.warning("Cohere rerank failed (%s) — using original order", exc)
         return results[:top_n]

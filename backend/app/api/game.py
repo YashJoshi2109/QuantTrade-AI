@@ -17,10 +17,13 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
-import httpx
 
 from app.db.database import get_db
 from app.api.auth import require_auth
+from app.api.ai_quota import require_media_quota
+from app.services import ai_guard
+from app.services.ai_guard import GuardContext
+from app.services.tts_service import TTSUnavailable, synthesize
 from app.models.user import User
 from app.config import settings
 from app.models.game import (
@@ -251,12 +254,12 @@ def complete_mission(
 @router.post("/audio/voiceover")
 def game_voiceover(
     req: VoiceoverRequest,
-    user: User = Depends(require_auth),
+    guard_ctx: GuardContext = Depends(require_media_quota("game_voice")),
 ):
     """
     Generate speech audio via ElevenLabs for in-game narration and character voice lines.
+    Guarded: verified user, chars/request + chars/day caps, cached per line, budget-capped.
     """
-    _ = user  # authenticated endpoint; user context may be used for quotas later
     if not settings.ELEVENLABS_API_KEY:
         raise HTTPException(status_code=503, detail="ElevenLabs is not configured on the server")
     voice_id = _resolve_voice_id(req.role, req.avatar_style)
@@ -266,31 +269,18 @@ def game_voiceover(
     text = (req.text or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Text is required")
-    if len(text) > 1500:
-        text = text[:1500]
-
-    endpoint = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-    payload = {
-        "text": text,
-        "model_id": settings.ELEVENLABS_MODEL_ID,
-        "voice_settings": {"stability": 0.45, "similarity_boost": 0.75},
-    }
-    headers = {
-        "xi-api-key": settings.ELEVENLABS_API_KEY,
-        "accept": "audio/mpeg",
-        "content-type": "application/json",
-    }
 
     try:
-        with httpx.Client(timeout=20.0) as client:
-            resp = client.post(endpoint, json=payload, headers=headers)
-        if resp.status_code != 200:
-            raise HTTPException(status_code=502, detail="Voice generation failed")
-        return Response(content=resp.content, media_type="audio/mpeg")
-    except HTTPException:
-        raise
-    except Exception:
+        with ai_guard.use_context(guard_ctx):
+            audio = synthesize(
+                text,
+                voice_id,
+                model_id=settings.ELEVENLABS_MODEL_ID,
+                voice_settings={"stability": 0.45, "similarity_boost": 0.75},
+            )
+    except TTSUnavailable:
         raise HTTPException(status_code=502, detail="Voice generation failed")
+    return Response(content=audio, media_type="audio/mpeg")
 
 
 # ── Community ─────────────────────────────────────────────────────────────────

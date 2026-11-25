@@ -14,18 +14,25 @@ interface GenerateOptions {
 
 export async function falGenerate(
   prompt: string,
-  opts: GenerateOptions = {}
+  opts: GenerateOptions = {},
+  onError?: (message: string) => void
 ): Promise<string | null> {
   try {
     const res = await fetch('/api/fal', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt, ...opts }),
     })
-    if (!res.ok) return null
-    const data = await res.json()
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      // 401 sign-in, 403 verify email, 429 daily image limit, 503 AI budget paused
+      onError?.(typeof data.error === 'string' ? data.error : 'Image generation failed')
+      return null
+    }
     return data.url || null
   } catch {
+    onError?.('Image generation failed')
     return null
   }
 }
@@ -35,7 +42,8 @@ export async function falGenerate(
 export async function generateStockVisual(
   symbol: string,
   companyName: string,
-  sentiment: 'bullish' | 'bearish' | 'neutral' = 'neutral'
+  sentiment: 'bullish' | 'bearish' | 'neutral' = 'neutral',
+  onError?: (message: string) => void
 ): Promise<string | null> {
   const sentimentDesc = {
     bullish: 'upward trending green glowing stock chart, rising candlesticks, bull, green neon',
@@ -50,7 +58,7 @@ export async function generateStockVisual(
     `"${symbol}" ticker prominent, "${companyName}" caption, ` +
     `cinematic neon lighting, ultra-detailed, no people, photorealistic`
 
-  return falGenerate(prompt, { width: 1200, height: 630, steps: 4 })
+  return falGenerate(prompt, { width: 1200, height: 630, steps: 4 }, onError)
 }
 
 export async function generateGameAsset(

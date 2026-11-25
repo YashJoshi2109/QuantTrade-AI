@@ -18,7 +18,7 @@ def test_get_llm_sonnet_uses_bedrock_when_creds_available():
         assert isinstance(llm, ChatBedrock)
         assert llm.model_id == bc.BEDROCK_SONNET_MODEL
         assert llm.temperature == 0.1
-        assert llm.max_tokens == 4096
+        assert llm.max_tokens == 2048  # LLM_MAX_TOKENS_SONNET default (ai_guard)
 
 
 def test_get_llm_sonnet_falls_back_to_openai():

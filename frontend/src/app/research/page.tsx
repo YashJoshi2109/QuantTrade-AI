@@ -288,7 +288,15 @@ function ResearchContent() {
         body: JSON.stringify(body),
         signal: aiAbortRef.current.signal,
       })
-      if (!res.ok || !res.body) { setAiLoading(false); return }
+      if (!res.ok || !res.body) {
+        // 401 sign in, 403 verify email, 429 limit, 503 AI budget paused
+        const err = await res.json().catch(() => ({}))
+        if (res.status === 401 || res.status === 403 || res.status === 429 || res.status === 503) {
+          setAiText(typeof err.error === 'string' ? err.error : 'AI analysis is unavailable right now.')
+        }
+        setAiLoading(false)
+        return
+      }
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       while (true) {

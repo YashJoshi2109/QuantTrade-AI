@@ -3,7 +3,7 @@
 POST /api/v1/copilot/stream  (replaces old GROQ-based endpoint)
 
 Flow:
-  1. Auth + budget guard
+  1. Auth + AI usage guard (require_llm_quota: tier limits, IP cap, global budget)
   2. CopilotRouter.route() → RoutingDecision
   3. Load Redis memory
   4. Run LangGraph prep graph (supervisor → agents → merge → context)
@@ -15,6 +15,7 @@ Flow:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import uuid
@@ -26,9 +27,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.ai_quota import require_llm_quota
 from app.api.auth import require_auth
 from app.db.database import get_db
 from app.models.user import User
+from app.services import ai_guard
+from app.services.ai_guard import AIQuotaError, GuardContext, StreamMeter
 from app.services.agentic.bedrock_client import get_llm_sonnet
 from app.services.agentic.memory import (
     ConversationMemory,
@@ -42,7 +46,6 @@ from app.services.copilot.router import CopilotRouter
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/copilot", tags=["agentic-copilot"])
 
-FREE_TIER_DAILY_LIMIT = 5
 
 DISCLAIMER = (
     "\n\n*This is AI-generated analysis for informational purposes only. "
@@ -73,35 +76,9 @@ class AgenticStreamRequest(BaseModel):
 
 
 # ── Budget guard ───────────────────────────────────────────────────────────────
-def _check_budget(user_id: int, db: Session, daily_count: int, daily_limit: int) -> None:
-    if daily_count >= daily_limit:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Daily copilot limit reached ({daily_limit} requests/day on free tier). "
-                   f"Upgrade to Pro for unlimited access.",
-        )
-
-
-def _get_daily_count(user_id: int, db: Session) -> int:
-    """Count today's copilot requests for this user from chat history."""
-    try:
-        from app.models.chat_history import ChatHistory
-        from sqlalchemy import func
-        today_start = datetime.now(timezone.utc).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
-        count = (
-            db.query(func.count(ChatHistory.id))
-            .filter(
-                ChatHistory.user_id   == user_id,
-                ChatHistory.role      == "user",
-                ChatHistory.created_at >= today_start,
-            )
-            .scalar()
-        )
-        return count or 0
-    except Exception:
-        return 0
+# Per-user / per-IP / global limits are enforced by the require_llm_quota
+# dependency (app.services.ai_guard) before the stream starts; every model call
+# inside the pipeline is reserved + reconciled by the guarded LLM factories.
 
 
 # ── Guardrails ─────────────────────────────────────────────────────────────────
@@ -202,18 +179,16 @@ async def _stream_generator(
     req: AgenticStreamRequest,
     db: Session,
     user: User,
+    guard_ctx: Optional[GuardContext] = None,
 ) -> AsyncGenerator[str, None]:
     """Main SSE generator: prep graph → Sonnet stream → guardrails → persist."""
     request_id      = str(uuid.uuid4())
     conversation_id = req.conversation_id or str(uuid.uuid4())
 
-    # ── 1. Budget guard ────────────────────────────────────────────────────────
-    daily_count = _get_daily_count(user.id, db)
-    try:
-        _check_budget(user.id, db, daily_count, FREE_TIER_DAILY_LIMIT)
-    except HTTPException as e:
-        yield _sse("error", {"message": e.detail})
-        return
+    # ── 1. Bind the AI-guard context (quota was admitted by the dependency) ────
+    if guard_ctx is not None:
+        ai_guard.set_context(guard_ctx)
+    caps = ai_guard.io_caps()
 
     # ── 2. Route ───────────────────────────────────────────────────────────────
     copilot_router   = CopilotRouter(db)
@@ -245,7 +220,7 @@ async def _stream_generator(
     initial_state: CopilotState = {
         "message":              req.message,
         "routing_decision":     rd_dict,
-        "conversation_history": memory.turns[-8:],
+        "conversation_history": memory.turns[-caps["max_turns"]:],
         "active_agents":        [],
         "agent_results":        {},
         "all_chunks":           [],
@@ -314,6 +289,7 @@ async def _stream_generator(
 
     full_response = ""
     model_used    = "claude-sonnet-4-6"  # default; updated on fallback
+    meter         = StreamMeter(caps["max_tokens_sonnet"])
 
     try:
         llm = get_llm_sonnet()
@@ -322,11 +298,17 @@ async def _stream_generator(
             model_used = getattr(llm, "model_id", None) or "bedrock"
         elif "ChatOpenAI" in llm_cls:
             model_used = getattr(llm, "model_name", None) or "gpt-4o"
-        async for chunk in llm.astream(messages):
-            token = chunk.content if hasattr(chunk, "content") else str(chunk)
-            if token:
-                full_response += token
-                yield _sse("token", {"text": token})
+        async with contextlib.aclosing(llm.astream(messages)) as stream:
+            async for chunk in stream:
+                token = chunk.content if hasattr(chunk, "content") else str(chunk)
+                if token:
+                    full_response += token
+                    yield _sse("token", {"text": token})
+                    if not meter.add(token):  # hard output cap; the partial stream is still billed
+                        break
+    except AIQuotaError as exc:
+        yield _sse("error", {"message": exc.detail, "status": exc.status_code})
+        return
     except Exception as exc:
         # If Bedrock failed (model not enabled, auth error, throttle), retry with
         # OpenAI/OpenRouter by temporarily forcing PREFER_OPENAI=1 for this call.
@@ -357,11 +339,17 @@ async def _stream_generator(
                 model_used = getattr(llm_fallback, "model_name", None) or (
                     "gpt-4o" if "OpenAI" in fb_cls else "openrouter"
                 )
-                async for chunk in llm_fallback.astream(messages):
-                    token = chunk.content if hasattr(chunk, "content") else str(chunk)
-                    if token:
-                        full_response += token
-                        yield _sse("token", {"text": token})
+                async with contextlib.aclosing(llm_fallback.astream(messages)) as fb_stream:
+                    async for chunk in fb_stream:
+                        token = chunk.content if hasattr(chunk, "content") else str(chunk)
+                        if token:
+                            full_response += token
+                            yield _sse("token", {"text": token})
+                            if not meter.add(token):
+                                break
+            except AIQuotaError as quota_exc:
+                yield _sse("error", {"message": quota_exc.detail, "status": quota_exc.status_code})
+                return
             except Exception as fallback_exc:
                 logger.error("LLM fallback also failed (%s): %s", type(fallback_exc).__name__, fallback_exc, exc_info=True)
                 yield _sse("error", {"message": f"LLM unavailable ({type(fallback_exc).__name__}). Check API keys or model access."})
@@ -509,10 +497,18 @@ def agentic_stream(
     req: AgenticStreamRequest,
     db: Session   = Depends(get_db),
     user: User    = Depends(require_auth),
+    guard_ctx: GuardContext = Depends(require_llm_quota("copilot")),
 ):
-    """Agentic RAG copilot streaming endpoint. Returns Server-Sent Events."""
+    """Agentic RAG copilot streaming endpoint. Returns Server-Sent Events.
+
+    Anonymous → 401, unverified → 403, per-user/IP limit → 429,
+    AI budget exhausted → 503 {"detail": "AI features are paused for today (budget reached)."}
+    """
+    max_chars = ai_guard.io_caps()["max_prompt_chars"]
+    if len(req.message or "") > max_chars:
+        raise HTTPException(status_code=413, detail=f"Message too long (max {max_chars} characters).")
     return StreamingResponse(
-        _stream_generator(req, db, user),
+        _stream_generator(req, db, user, guard_ctx),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

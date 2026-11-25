@@ -417,12 +417,21 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
     setAiLoading(true)
     setAiInsights(null)
     try {
-      const res = await fetch(`${API_BASE}/api/v1/research/${symbol}/ai-insights`)
-      if (!res.ok) throw new Error('failed')
-      const data = await res.json()
-      setAiInsights(data.insights ?? null)
+      const { getAuthHeaders } = await import('@/lib/auth')
+      const res = await fetch(`${API_BASE}/api/v1/research/${symbol}/ai-insights`, {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        // 429 daily limit, 503 "AI features are paused for today (budget reached)."
+        setAiInsights(typeof data.detail === 'string' ? data.detail : 'AI insights unavailable right now.')
+        return
+      }
+      const note = data.requires_login ? '\n\n_Sign in for the full AI analysis._' : ''
+      setAiInsights(data.insights ? `${data.insights}${note}` : null)
     } catch {
-      setAiInsights('AI insights unavailable. Check API key configuration.')
+      setAiInsights('AI insights unavailable right now.')
     } finally {
       setAiLoading(false)
     }

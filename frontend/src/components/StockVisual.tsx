@@ -20,12 +20,13 @@ export default function StockVisual({ symbol, companyName, sentiment = 'neutral'
   async function generate() {
     setLoading(true)
     setError(null)
-    const url = await generateStockVisual(symbol, companyName, sentiment)
+    let failure = 'Generation failed — try again'
+    const url = await generateStockVisual(symbol, companyName, sentiment, (msg) => { failure = msg })
     setLoading(false)
     if (url) {
       setImageUrl(url)
     } else {
-      setError('Generation failed — check FAL_API_KEY or try again')
+      setError(failure)
     }
   }
 

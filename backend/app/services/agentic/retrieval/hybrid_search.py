@@ -206,7 +206,7 @@ async def _search_one_variant(
     loop: asyncio.AbstractEventLoop,
 ) -> list[list[SearchResult]]:
     """Run the 3 search types for a single query variant. Returns list of ranked lists."""
-    dense_vec = await loop.run_in_executor(None, embed_query, variant)
+    dense_vec = await asyncio.to_thread(embed_query, variant)  # keeps ai_guard context
     if hyde_embedding:
         dense_vec = [(a + b) / 2 for a, b in zip(dense_vec, hyde_embedding)]
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { clampMaxTokens, COPILOT_LIMITS, parseFalRequest, sanitizeMessages } from './proxy-guards'
-import { createRateLimiter, getAuthToken, getSessionUser } from './server-auth'
+import { createRateLimiter, getAuthToken, getSessionUser, reserveAiQuota } from './server-auth'
 
 function fakeReq(opts: { cookie?: string; auth?: string; origin?: string } = {}) {
   const headers = new Headers()
@@ -108,5 +108,32 @@ describe('server auth', () => {
     expect(check('k', 2)).toBe(false)
     expect(check('other', 2)).toBe(true)
     expect(check('k', 1001)).toBe(true)
+  })
+})
+
+describe('AI quota reservation (backend ai_guard)', () => {
+  const body = { feature: 'ai_analysis' as const, model: 'm', inputChars: 10, maxTokens: 100 }
+
+  it('fails closed without a session token (no backend call)', async () => {
+    const f = vi.fn()
+    const r = await reserveAiQuota(fakeReq(), body, f as unknown as typeof fetch)
+    expect(r).toEqual({ ok: false, status: 401, detail: 'Sign in to use AI features.' })
+    expect(f).not.toHaveBeenCalled()
+  })
+
+  it('surfaces the budget-paused 503 detail', async () => {
+    const f = vi.fn(async () => new Response(
+      JSON.stringify({ detail: 'AI features are paused for today (budget reached).' }), { status: 503 }))
+    const r = await reserveAiQuota(fakeReq({ cookie: 'tok' }), body, f as unknown as typeof fetch)
+    expect(r).toEqual({ ok: false, status: 503, detail: 'AI features are paused for today (budget reached).' })
+  })
+
+  it('returns the server-clamped max_tokens on success and fails closed on network error', async () => {
+    const ok = vi.fn(async () => new Response(JSON.stringify({ ok: true, max_tokens: 64 }), { status: 200 }))
+    expect(await reserveAiQuota(fakeReq({ cookie: 'tok' }), body, ok as unknown as typeof fetch))
+      .toEqual({ ok: true, maxTokens: 64 })
+    const boom = vi.fn(async () => { throw new Error('down') })
+    const r = await reserveAiQuota(fakeReq({ cookie: 'tok' }), body, boom as unknown as typeof fetch)
+    expect(r.ok).toBe(false)
   })
 })

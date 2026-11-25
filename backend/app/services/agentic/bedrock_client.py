@@ -89,8 +89,23 @@ COHERE_RERANK_MODEL = "rerank-v3-5"
 
 
 # ─── Provider helpers ─────────────────────────────────────────────────────────
+# Every chat model is built here and ONLY here (tests/test_ai_guard_coverage.py
+# enforces it).  Each one carries a GuardCallbackHandler that reserves budget
+# before the call and reconciles from the provider's usage metadata after,
+# plus a hard max_tokens and request timeout.
+
+def _guard(provider: str, model: str, max_tokens: int):
+    from app.services.ai_guard import GuardCallbackHandler, current_context
+    return [GuardCallbackHandler(provider, model, max_tokens, ctx=current_context())]
+
+
+def _timeout() -> int:
+    from app.services.ai_guard import io_caps
+    return io_caps()["timeout_s"]
+
 
 def _bedrock_llm(model_id: str, temperature: float, max_tokens: int, streaming: bool):
+    from botocore.config import Config
     from langchain_aws import ChatBedrock
     return ChatBedrock(
         model=model_id,
@@ -98,6 +113,8 @@ def _bedrock_llm(model_id: str, temperature: float, max_tokens: int, streaming: 
         temperature=temperature,
         max_tokens=max_tokens,
         streaming=streaming,
+        config=Config(read_timeout=_timeout(), connect_timeout=10, retries={"max_attempts": 2}),
+        callbacks=_guard("bedrock", model_id, max_tokens),
     )
 
 
@@ -109,6 +126,10 @@ def _openai_llm(model: str, temperature: float, max_tokens: int, streaming: bool
         temperature=temperature,
         max_tokens=max_tokens,
         streaming=streaming,
+        stream_usage=True,
+        timeout=_timeout(),
+        max_retries=1,
+        callbacks=_guard("openai", model, max_tokens),
     )
 
 
@@ -131,6 +152,10 @@ def _openrouter_llm(model: str, temperature: float, max_tokens: int, streaming: 
         temperature=temperature,
         max_tokens=max_tokens,
         streaming=streaming,
+        stream_usage=True,
+        timeout=_timeout(),
+        max_retries=1,
+        callbacks=_guard("openrouter", model, max_tokens),
         default_headers={
             "HTTP-Referer": "https://quanttrade.ai",
             "X-Title": "QuantTrade AI Copilot",
@@ -166,9 +191,14 @@ def _pick_llm(
 
 # ─── Public LLM factories ─────────────────────────────────────────────────────
 
+def _caps() -> dict:
+    from app.services.ai_guard import io_caps
+    return io_caps()
+
+
 def get_llm_sonnet(streaming: bool = True):
     """Primary LLM — Claude Sonnet 4.6 via Bedrock (or Nova Pro if USE_NOVA_PRO=1),
-    GPT-4o or OpenRouter as fallback."""
+    GPT-4o or OpenRouter as fallback.  max_tokens = LLM_MAX_TOKENS_SONNET (2048)."""
     # Nova Pro is a solid Bedrock-native alternative when Sonnet is blocked/throttled
     bedrock_model = BEDROCK_NOVA_PRO_MODEL if USE_NOVA_PRO else BEDROCK_SONNET_MODEL
     return _pick_llm(
@@ -176,14 +206,14 @@ def get_llm_sonnet(streaming: bool = True):
         openai_model=OPENAI_SONNET_EQUIV,
         openrouter_model=OPENROUTER_SONNET_MODEL,
         temperature=0.1,
-        max_tokens=4096,
+        max_tokens=_caps()["max_tokens_sonnet"],
         streaming=streaming,
     )
 
 
-def get_llm_haiku(streaming: bool = False):
+def get_llm_haiku(streaming: bool = False, max_tokens: int | None = None):
     """Fast LLM — Claude Haiku 4.5 via Bedrock (or Nova Micro/Lite if USE_NOVA_MICRO/LITE=1),
-    GPT-4o-mini or OpenRouter as fallback.
+    GPT-4o-mini or OpenRouter as fallback.  max_tokens <= LLM_MAX_TOKENS_HAIKU (1024).
     Priority: USE_NOVA_MICRO > USE_NOVA_LITE > Haiku 4.5"""
     if USE_NOVA_MICRO:
         bedrock_model = BEDROCK_NOVA_MICRO_MODEL
@@ -191,26 +221,63 @@ def get_llm_haiku(streaming: bool = False):
         bedrock_model = BEDROCK_NOVA_LITE_MODEL
     else:
         bedrock_model = BEDROCK_HAIKU_MODEL
+    cap = _caps()["max_tokens_haiku"]
     return _pick_llm(
         bedrock_model=bedrock_model,
         openai_model=OPENAI_HAIKU_EQUIV,
         openrouter_model=OPENROUTER_HAIKU_MODEL,
         temperature=0.0,
-        max_tokens=1024,
+        max_tokens=min(max_tokens or cap, cap),
         streaming=streaming,
     )
 
 
+ANTHROPIC_HAIKU_MODEL = "claude-haiku-4-5-20251001"
+
+
+def get_llm_anthropic(model: str = ANTHROPIC_HAIKU_MODEL, max_tokens: int | None = None,
+                      temperature: float = 0.0):
+    """Direct Anthropic API (ANTHROPIC_API_KEY), guarded like the factories above.
+    Returns None when no key / package is available."""
+    from app.config import settings
+    api_key = settings.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return None
+    try:
+        from langchain_anthropic import ChatAnthropic
+    except ImportError:
+        return None
+    caps = _caps()
+    cap = caps["max_tokens_sonnet"] if "sonnet" in model else caps["max_tokens_haiku"]
+    mt = min(max_tokens or cap, cap)
+    return ChatAnthropic(
+        model=model,
+        api_key=api_key,
+        temperature=temperature,
+        max_tokens=mt,
+        timeout=_timeout(),
+        max_retries=1,
+        callbacks=_guard("anthropic", model, mt),
+    )
+
+
 # ─── Embeddings ───────────────────────────────────────────────────────────────
+
+_embedder_cache: Any = None
+
 
 def get_embedder():
     """
     Embedding provider chain: Bedrock Titan v2 → OpenAI text-embedding-3-small → zero stub.
     All return 1536-dim vectors so Qdrant collection schema stays consistent.
 
-    NOT cached with lru_cache — avoids baking in _FallbackEmbedder if credentials
-    are not yet available at first import. Called only at embed time.
+    The first real provider is cached for the process (no per-call warm-up
+    embedding).  The zero stub is never cached, so a provider that becomes
+    available later is picked up.
     """
+    global _embedder_cache
+    if _embedder_cache is not None:
+        return _embedder_cache
     prefer_openai = os.getenv("PREFER_OPENAI", "0").lower() in ("1", "true", "yes")
 
     # 1. Bedrock Titan v2 — uses boto3 credential chain (IAM role, env, ~/.aws)
@@ -218,9 +285,9 @@ def get_embedder():
         try:
             from langchain_aws import BedrockEmbeddings
             embedder = BedrockEmbeddings(model_id=BEDROCK_TITAN_MODEL, region_name=REGION)
-            # Warm-test — raises immediately if Bedrock model access is blocked
-            embedder.embed_query("ping")
+            _EMBED_PROVIDER[id(embedder)] = ("bedrock", BEDROCK_TITAN_MODEL)
             logger.info("Embedder: Bedrock Titan v2")
+            _embedder_cache = embedder
             return embedder
         except Exception as exc:
             logger.warning("Bedrock embedder unavailable (%s), trying OpenAI", exc)
@@ -234,7 +301,9 @@ def get_embedder():
                 api_key=os.getenv("OPENAI_API_KEY", ""),
                 dimensions=1536,
             )
+            _EMBED_PROVIDER[id(embedder)] = ("openai", "text-embedding-3-small")
             logger.info("Embedder: OpenAI text-embedding-3-small")
+            _embedder_cache = embedder
             return embedder
         except Exception as exc:
             logger.warning("OpenAI embedder unavailable (%s), using zero stub", exc)
@@ -247,6 +316,9 @@ def get_embedder():
     return _FallbackEmbedder()
 
 
+_EMBED_PROVIDER: dict[int, tuple[str, str]] = {}
+
+
 class _FallbackEmbedder:
     """Zero-vector stub — last resort when no embedding provider available."""
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
@@ -256,12 +328,51 @@ class _FallbackEmbedder:
         return [0.0] * 1536
 
 
+def _guarded_embed(texts: list[str], query: bool) -> list[list[float]]:
+    """Cap input size, serve from the content-hash cache, reserve budget for the rest."""
+    import json as _json
+    from app.services import ai_guard
+
+    caps = ai_guard.io_caps()
+    if len(texts) > caps["embed_max_texts"]:
+        raise ValueError(f"Too many texts to embed in one call (max {caps['embed_max_texts']})")
+    texts = [(t or " ")[: caps["embed_max_chars"]] for t in texts]
+    embedder = get_embedder()
+    provider = _EMBED_PROVIDER.get(id(embedder))
+    if provider is None:  # zero stub / test double: nothing billable
+        return [embedder.embed_query(t) for t in texts] if query else embedder.embed_documents(texts)
+    prov, model = provider
+    keys = [ai_guard.cache_key("emb", model, t) for t in texts]
+    out: list = [None] * len(texts)
+    missing: list[int] = []
+    for i, k in enumerate(keys):
+        hit = ai_guard.cache_get(k)
+        if hit is not None:
+            out[i] = _json.loads(hit)
+        else:
+            missing.append(i)
+    if missing:
+        todo = [texts[i] for i in missing]
+        est = sum(ai_guard.estimate_tokens(t) for t in todo)
+        res = ai_guard.reserve(prov, model, est_input_tokens=est, units=est, unit_kind="embed_tokens")
+        try:
+            vecs = [embedder.embed_query(todo[0])] if query and len(todo) == 1 else embedder.embed_documents(todo)
+        except Exception:
+            res.release()
+            raise
+        res.commit(input_tokens=est, units=est)
+        for i, v in zip(missing, vecs):
+            out[i] = v
+            ai_guard.cache_set(keys[i], _json.dumps(v), 30 * 86400)
+    return out
+
+
 def embed_texts(texts: list[str]) -> list[list[float]]:
-    return get_embedder().embed_documents(texts)
+    return _guarded_embed(list(texts), query=False)
 
 
 def embed_query(text: str) -> list[float]:
-    return get_embedder().embed_query(text)
+    return _guarded_embed([text], query=True)[0]
 
 
 # ─── Cohere rerank ────────────────────────────────────────────────────────────
@@ -278,13 +389,22 @@ def rerank(
     documents: list[str],
     top_n: int = 10,
 ) -> list[dict[str, Any]]:
-    """Rerank documents using Cohere Rerank v3. Returns {index, score} list."""
-    result = _cohere_client().rerank(
-        model=COHERE_RERANK_MODEL,
-        query=query,
-        documents=documents,
-        top_n=top_n,
-    )
+    """Rerank documents using Cohere Rerank v3. Returns {index, score} list.
+    One search unit per call (<=100 docs); guarded by ai_guard."""
+    from app.services import ai_guard
+    documents = [d[:4000] for d in documents[:100]]
+    res = ai_guard.reserve("cohere", COHERE_RERANK_MODEL, units=1, unit_kind="searches")
+    try:
+        result = _cohere_client().rerank(
+            model=COHERE_RERANK_MODEL,
+            query=query[:2000],
+            documents=documents,
+            top_n=top_n,
+        )
+    except Exception:
+        res.release()
+        raise
+    res.commit(units=1)
     return [
         {"index": r.index, "score": r.relevance_score}
         for r in result.results
