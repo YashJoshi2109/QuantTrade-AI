@@ -243,9 +243,7 @@ async def lifespan(app: FastAPI):
         cache_service.init_redis(redis_client)
         print(f"✅ Redis connected + cache service initialized: {redis_url.split('@')[-1] if '@' in redis_url else redis_url}")
 
-        # Register Redis cache middleware
-        from app.middleware.redis_cache import RedisCacheMiddleware
-        app.add_middleware(RedisCacheMiddleware, redis_client=redis_client)
+        # RedisCacheMiddleware is registered at import time and reads app.state.redis.
     except Exception as e:
         app.state.redis = None
         print(f"⚠️ Redis cache disabled: {e}")
@@ -427,6 +425,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(RateLimitMiddleware, requests_per_minute=300)
 app.add_middleware(CacheControlMiddleware)
+
+# Redis GET-response cache. Registered here (not in lifespan) because Starlette
+# rejects add_middleware after startup; it no-ops until lifespan sets app.state.redis.
+# Added before CORS so CORS wraps it and cache HITs still get CORS headers.
+from app.middleware.redis_cache import RedisCacheMiddleware  # noqa: E402
+app.add_middleware(RedisCacheMiddleware)
 
 # CORS middleware
 # Get allowed origins from environment or use defaults
