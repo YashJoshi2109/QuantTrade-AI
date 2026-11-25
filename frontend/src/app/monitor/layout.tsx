@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
-  title: 'Global Monitor — Geopolitical Intelligence | QuantTrade AI',
+  title: 'Global Monitor — Geopolitical Intelligence',
   description:
     'Bloomberg-grade global geopolitical monitor. Live conflict tracking (ACLED), maritime AIS, aviation ADS-B, cyber threats, natural disasters, sanctions, trade routes, pipelines, and waterways on a real-time 3D globe.',
   keywords: [

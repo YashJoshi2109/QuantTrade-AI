@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
-  title: 'Backtest — Strategy Engine | QuantTrade AI',
+  title: 'Backtest — Strategy Engine',
   description:
     'Rule-based strategy backtesting engine. Sharpe ratio, max drawdown, Monte Carlo simulations, and trade logs. Test any trading strategy against historical OHLCV data from NYSE, NASDAQ, and AMEX.',
   keywords: [

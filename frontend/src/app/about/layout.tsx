@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Fraunces, DM_Sans } from 'next/font/google'
 
 export const metadata: Metadata = {
-  title: 'About — QuantTrade AI',
+  title: 'About',
   description:
     'QuantTrade AI is built by Yash Joshi — a single engineer delivering institutional-grade stock research, geopolitical intelligence, and AI backtesting at retail price. 14+ live data integrations, 12,000+ US stocks.',
   openGraph: {

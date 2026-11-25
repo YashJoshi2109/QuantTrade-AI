@@ -42,6 +42,7 @@ import {
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import Link from 'next/link'
 import { CONTINENTS, DISPLAY_CURRENCIES, type Continent } from '@/lib/world-exchanges'
+import { isIndexLevel, formatLevelOrPrice, displaySymbol } from '@/lib/quoteDisplay'
 import type { IndexQuote } from '@/app/api/quotes/indices/route'
 import type { ExchangeSector } from '@/app/api/exchange/heatmap/route'
 import { useStockSnapshot } from '@/context/StockSnapshotContext'
@@ -232,7 +233,12 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
 
   const renderCard = (q: IndexQuote, idx: number) => {
     const up = q.change_percent >= 0
-    const displayPrice = convertPrice(q.price, q.currency)
+    const level = isIndexLevel(q)
+    // Index levels are points: never FX-converted or given a currency symbol.
+    const displayPrice = level ? q.price : convertPrice(q.price, q.currency)
+    // Headline is the index itself (NASDAQ Composite vs NASDAQ 100), not the venue —
+    // two indices on one exchange used to render as two identical "NASDAQ" cards.
+    const headline = q.is_proxy ? displaySymbol(q) : q.name || q.shortName
     const neon = up ? '#34d399' : '#f87171'
     const neonBg = up ? 'rgba(52,211,153,' : 'rgba(248,113,113,'
 
@@ -241,7 +247,7 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
         key={`${q.symbol}-${idx}`}
         onClick={() => openSnapshot({
           symbol: q.symbol,
-          name: q.shortName || q.exchangeName,
+          name: q.is_proxy ? q.name : q.name || q.shortName || q.exchangeName,
           price: displayPrice,
           change: (displayPrice * (q.change_percent ?? 0)) / 100,
           change_percent: q.change_percent,
@@ -285,7 +291,9 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1.5">
             {q.countryCode && <span className="text-sm leading-none">{countryFlag(q.countryCode)}</span>}
-            <span className="text-[10px] font-black uppercase tracking-wider text-fg-primary">{q.exchangeName}</span>
+            <span className="text-[10px] font-black uppercase tracking-wider text-fg-primary truncate max-w-[110px]" title={q.name}>
+              {headline}
+            </span>
           </div>
           <span
             className="text-[10px] font-black font-mono tabular-nums px-1.5 py-0.5 rounded-md"
@@ -301,15 +309,12 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
 
         {/* Price */}
         <div className="text-xl font-black font-mono tabular-nums text-fg-primary leading-tight transition-colors">
-          {displayPrice > 0
-            ? `${currSymbol}${formatNumber(displayPrice, displayPrice > 1000 ? 0 : 2)}`
-            : '—'
-          }
+          {formatLevelOrPrice(displayPrice, level, currSymbol, displayPrice > 1000 ? 0 : 2)}
         </div>
 
         {/* Index name */}
         <div className="text-[10px] text-fg-muted mt-0.5 truncate font-medium group-hover:text-fg-secondary transition-colors">
-          {q.shortName}
+          {q.is_proxy ? q.name : `${q.shortName} · ${q.exchangeName}`}
         </div>
       </motion.button>
     )
@@ -926,12 +931,14 @@ function DesktopMarketsPage() {
               const hasValidPrice = isNumber(index.price) && index.price > 0
               const changePositive = isNumber(index.change_percent) ? index.change_percent >= 0 : false
               const label = (index.name && index.name.trim()) || 'Market index'
+              const level = isIndexLevel(index)
+              const shownSymbol = displaySymbol(index)
               return (
                 <div key={index.symbol || `index-${idx}`} className="hud-panel p-3 sm:p-4 relative group flex flex-col min-h-[120px]">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0 flex-1">
-                      <div className="text-[10px] font-mono text-fg-muted uppercase tracking-wide truncate" title={index.symbol}>
-                        {index.symbol}
+                      <div className="text-[10px] font-mono text-fg-muted uppercase tracking-wide truncate" title={shownSymbol}>
+                        {shownSymbol}
                       </div>
                       <div className="text-[11px] sm:text-xs font-semibold text-fg-primary mt-0.5 line-clamp-2 leading-snug" title={label}>
                         {label}
@@ -950,9 +957,7 @@ function DesktopMarketsPage() {
                     )}
                   </div>
                   <div className="text-lg sm:text-xl font-bold text-white font-mono mt-auto">
-                    {hasValidPrice
-                      ? Number(index.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                      : '—'}
+                    {hasValidPrice ? formatLevelOrPrice(Number(index.price), level) : '—'}
                   </div>
                   {hasValidPrice ? (
                     <div className={`text-xs sm:text-sm font-mono flex items-center gap-1 mt-1 ${

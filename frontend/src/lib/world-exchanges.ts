@@ -469,11 +469,14 @@ export function getExchangeTimezone(exchangeNameOrCode?: string | null): string 
 export const ALWAYS_ON_MACRO_SYMBOLS = ['GC=F', 'CL=F', 'TLT', 'XLF', 'XLE'] as const
 
 export const MACRO_SYMBOL_LABELS: Record<string, { name: string; shortName: string }> = {
-  'GC=F': { name: 'Gold (futures)', shortName: 'GOLD' },
-  'CL=F': { name: 'WTI Crude Oil', shortName: 'OIL' },
+  'GC=F': { name: 'Gold futures (COMEX)', shortName: 'GOLD' },
+  'CL=F': { name: 'WTI Crude Oil futures', shortName: 'OIL' },
   TLT: { name: '20+ Year Treasury ETF', shortName: 'TLT' },
   XLF: { name: 'Financial Sector SPDR', shortName: 'XLF' },
   XLE: { name: 'Energy Sector SPDR', shortName: 'XLE' },
+  // ETF tickers are labelled as ETFs, never as the commodity itself.
+  GLD: { name: 'SPDR Gold ETF', shortName: 'GLD' },
+  USO: { name: 'US Oil Fund ETF', shortName: 'USO' },
 }
 
 /** Continent headline benchmarks for the 1D performance card row (+ macros appended in UI) */

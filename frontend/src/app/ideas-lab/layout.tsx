@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
-  title: 'Ideas Lab — AI Trading Ideas | QuantTrade AI',
+  title: 'Ideas Lab — AI Trading Ideas',
   description:
     'AI-generated trading ideas scored by confidence. Bullish, bearish, and neutral setups across sectors — semiconductors, cloud, biotech, fixed income, consumer. Filter by sentiment, timeframe, and sector.',
   keywords: [
