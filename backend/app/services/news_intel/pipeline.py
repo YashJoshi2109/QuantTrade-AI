@@ -28,6 +28,7 @@ from app.services.news_intel import ai_notes, store
 from app.services.news_intel.categorizer import get_categorizer, order_categories
 from app.services.news_intel.dedupe import Clusterer
 from app.services.news_intel.impact import impact_score
+from app.services.news_intel.language import is_english
 from app.services.news_intel.sentiment import get_sentiment_classifier, sentiment_text
 from app.services.news_intel.sources import AlpacaNewsStream, PollerSpec, RawItem, default_pollers
 from app.services.news_intel.tickers import get_ticker_index
@@ -187,6 +188,9 @@ class NewsIntelService:
         for it in items:
             self.stats["processed"] += 1
             if not it.title:
+                continue
+            if not is_english(it.title):
+                self.stats["non_english"] = self.stats.get("non_english", 0) + 1
                 continue
             pub = it.published_at or it.received_at
             if pub > now + timedelta(minutes=10):

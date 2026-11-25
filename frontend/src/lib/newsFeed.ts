@@ -39,6 +39,7 @@ export const NEWS_CATEGORY_KEYS = [
   'energy_commodities',
   'crypto',
   'geopolitics',
+  'market_moves',
   'other',
 ] as const
 
@@ -192,6 +193,12 @@ export const NEWS_CATEGORY_META: Record<NewsCategoryKey, CategoryMeta> = {
     short: 'Crypto',
     chip: 'bg-lime-500/10 text-lime-700 dark:text-lime-300 border-lime-500/25',
     description: 'Digital assets and exchanges',
+  },
+  market_moves: {
+    label: 'Market Moves',
+    short: 'Moves',
+    chip: 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/25',
+    description: 'Index and stock moves, market wraps',
   },
   geopolitics: {
     label: 'Geopolitics',

@@ -135,12 +135,12 @@
 {"title": "Starbucks union baristas strike at dozens of stores", "primary": "product_business", "categories": ["product_business"]}
 {"title": "Microsoft and Anthropic announce Azure partnership with Nvidia", "primary": "product_business", "categories": ["product_business"]}
 {"title": "Boeing to build new 737 production line in Everett", "primary": "product_business", "categories": ["product_business"]}
-{"title": "Stock market today: Dow, S&P 500, Nasdaq futures edge higher ahead of holiday week", "primary": "other", "categories": ["other"]}
+{"title": "Stock market today: Dow, S&P 500, Nasdaq futures edge higher ahead of holiday week", "primary": "market_moves", "categories": ["market_moves"]}
 {"title": "5 things to know before the stock market opens Tuesday", "primary": "other", "categories": ["other"]}
-{"title": "Here are the biggest stock movers in midday trading", "primary": "other", "categories": ["other"]}
+{"title": "Here are the biggest stock movers in midday trading", "primary": "market_moves", "categories": ["market_moves"]}
 {"title": "Is now a good time to buy dividend stocks? Here's what experts say", "primary": "other", "categories": ["other"]}
 {"title": "Best CD rates today: lock in up to 4.3% APY", "primary": "other", "categories": ["other"]}
-{"title": "S&P 500 posts best day since May as tech rebounds", "primary": "other", "categories": ["other"]}
+{"title": "S&P 500 posts best day since May as tech rebounds", "primary": "market_moves", "categories": ["market_moves"]}
 {"title": "Why one fund manager is loading up on small caps", "primary": "other", "categories": ["other"]}
 {"title": "The AI bubble debate: what investors need to know", "primary": "other", "categories": ["other"]}
 {"title": "Week ahead: Nvidia, Walmart and a flood of delayed data", "primary": "other", "categories": ["other"]}
