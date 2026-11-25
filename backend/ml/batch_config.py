@@ -27,7 +27,7 @@ class BatchConfig:
     config_path: str = "configs/train_default.yaml"
 
     # ── AWS / Storage ─────────────────────────────────────────────────
-    s3_bucket: str = "quanttrade-ml-artifacts"
+    s3_bucket: str = "quanttrade-ml-artifacts-208638972407"
     aws_region: str = "us-east-2"
 
     # ── Database ──────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ class BatchConfig:
             manifest_s3_uri=os.environ.get("MANIFEST_S3_URI", ""),
             symbol_tier=os.environ.get("ML_SYMBOL_TIER", ""),
             config_path=os.environ.get("ML_CONFIG_PATH", "configs/train_default.yaml"),
-            s3_bucket=os.environ.get("ML_S3_BUCKET", "quanttrade-ml-artifacts"),
+            s3_bucket=os.environ.get("ML_S3_BUCKET", "quanttrade-ml-artifacts-208638972407"),
             aws_region=os.environ.get("AWS_REGION", "us-east-2"),
             neon_database_url=os.environ.get("DATABASE_URL", os.environ.get("NEON_DATABASE_URL", "")),
             cloudwatch_namespace=os.environ.get("CLOUDWATCH_NAMESPACE", "QuantTrade/ML"),

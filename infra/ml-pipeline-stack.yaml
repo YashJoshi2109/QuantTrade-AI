@@ -11,7 +11,7 @@ Parameters:
     AllowedValues: [production, staging]
   MLBucketName:
     Type: String
-    Default: quanttrade-ml-artifacts
+    Default: quanttrade-ml-artifacts-208638972407
   ECRRepositoryName:
     Type: String
     Default: quanttrade-ml-training

@@ -43,7 +43,7 @@ def _get_s3_client():
 
 
 def _get_bucket() -> str:
-    return os.environ.get("ML_S3_BUCKET", "quanttrade-ml-artifacts")
+    return os.environ.get("ML_S3_BUCKET", "quanttrade-ml-artifacts-208638972407")
 
 
 # ── Path builders ─────────────────────────────────────────────────────

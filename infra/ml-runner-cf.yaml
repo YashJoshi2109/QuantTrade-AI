@@ -50,8 +50,8 @@ Resources:
                 Effect: Allow
                 Action: [s3:GetObject, s3:PutObject, s3:ListBucket, s3:DeleteObject]
                 Resource:
-                  - arn:aws:s3:::quanttrade-ml-artifacts
-                  - arn:aws:s3:::quanttrade-ml-artifacts/*
+                  - arn:aws:s3:::quanttrade-ml-artifacts-208638972407
+                  - arn:aws:s3:::quanttrade-ml-artifacts-208638972407/*
               - Sid: SecretsMLPipeline
                 Effect: Allow
                 Action: secretsmanager:GetSecretValue
@@ -182,7 +182,7 @@ Resources:
         Variables:
           LAUNCH_TEMPLATE_ID: !Ref MLRunnerLaunchTemplate
           SNS_TOPIC_ARN: !Ref MLRunnerAlertsTopic
-          S3_BUCKET: quanttrade-ml-artifacts
+          S3_BUCKET: quanttrade-ml-artifacts-208638972407
           USE_SPOT: 'false'
 
   # ── EventBridge Rules ─────────────────────────────────────────────────────
