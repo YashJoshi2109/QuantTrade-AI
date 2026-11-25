@@ -675,4 +675,7 @@ async def health():
 
     status = "healthy" if all(v == "ok" for v in checks.values()) else "degraded"
     # Always 200 — the API is alive. Degraded dependencies don't block startup.
-    return JSONResponse(content={"status": status, "checks": checks}, status_code=200)
+    return JSONResponse(
+        content={"status": status, "checks": checks, "version": os.environ.get("GIT_SHA", "unknown")},
+        status_code=200,
+    )

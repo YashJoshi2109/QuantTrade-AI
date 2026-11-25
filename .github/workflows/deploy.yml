@@ -29,6 +29,15 @@ on:
       - main
   workflow_dispatch:  # Allow manual trigger
 
+# One production deploy at a time, in push order. Two overlapping runs used to
+# race twice: both pushed the same :latest tag (an older build could land last
+# and roll prod back) and both ran `docker compose up` on the same host.
+# A newer queued run replaces an older *pending* one (main is cumulative); a
+# run that is already deploying is never cancelled mid-way.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/quanttrade-frontend
@@ -93,6 +102,8 @@ jobs:
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
           platforms: linux/amd64
+          build-args: |
+            GIT_SHA=${{ github.sha }}
 
       - name: Extract metadata for Frontend
         id: meta-frontend
@@ -459,12 +470,20 @@ jobs:
       - name: Wait for services to stabilize
         run: sleep 30
 
-      - name: Check Backend Health
+      - name: Verify prod runs this commit
+        # /health reports the git SHA baked into the backend image. Fail the
+        # run if prod does not serve exactly this commit within 5 minutes:
+        # catches out-of-order image pushes and half-applied deploys.
         run: |
-          curl -L -f https://quanttrade.us/health || \
-          curl -L -f http://quanttrade.us/health || \
-          curl -L -f http://${{ secrets.EC2_HOST }}:8000/health || \
-          echo "::warning::Backend health check inconclusive"
+          want="${{ github.sha }}"
+          for i in $(seq 1 30); do
+            got=$(curl -sL -m 10 https://quanttrade.us/health | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',''))" 2>/dev/null || true)
+            echo "attempt $i: prod=${got:-unreachable} want=${want:0:12}"
+            if [ "$got" = "$want" ]; then echo "✅ prod is serving ${want:0:12}"; exit 0; fi
+            sleep 10
+          done
+          echo "::error::prod is not serving ${want:0:12} (last seen: ${got:-unreachable})"
+          exit 1
 
       - name: Check Frontend Health
         run: |
