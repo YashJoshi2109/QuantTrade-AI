@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchNasdaqIpoPipeline } from '@/lib/ipo-nasdaq'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,12 +46,13 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  if (!FINNHUB_KEY) {
-    return NextResponse.json({ error: 'FINNHUB_API_KEY not configured' }, { status: 503 })
-  }
-
   const { searchParams } = req.nextUrl
   const type = searchParams.get('type') || ''
+
+  // IPO calendar works without a Finnhub key: Nasdaq's free calendar is the fallback.
+  if (!FINNHUB_KEY && type !== 'ipo-calendar') {
+    return NextResponse.json({ error: 'FINNHUB_API_KEY not configured' }, { status: 503 })
+  }
   const symbol = (searchParams.get('symbol') || '').toUpperCase()
 
   // Date helpers
@@ -121,8 +123,20 @@ export async function GET(req: NextRequest) {
 
       // ── IPO Calendar ─────────────────────────────────────────────────────────
       case 'ipo-calendar': {
-        const data = await fhFetch(`/calendar/ipo?from=${today}&to=${future90}`)
-        return NextResponse.json(data?.ipoCalendar ?? [])
+        // Finnhub's free tier often returns an empty forward window → Nasdaq fallback.
+        let rows: unknown[] = []
+        if (FINNHUB_KEY) {
+          try {
+            const data = await fhFetch(`/calendar/ipo?from=${today}&to=${future90}`)
+            rows = Array.isArray(data?.ipoCalendar) ? data.ipoCalendar : []
+          } catch {
+            rows = []
+          }
+        }
+        if (rows.length === 0) rows = await fetchNasdaqIpoPipeline()
+        return NextResponse.json(rows, {
+          headers: { 'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600' },
+        })
       }
 
       // ── Country Metadata ─────────────────────────────────────────────────────

@@ -107,3 +107,17 @@ def robust_sector_change(changes: Iterable[Optional[float]]) -> float:
     if len(vals) % 2:
         return vals[mid]
     return (vals[mid - 1] + vals[mid]) / 2.0
+
+
+def breadth_counts(changes: Iterable[Optional[float]]) -> dict:
+    """Up / down / flat tally using the shared FLAT_THRESHOLD_PCT band.
+
+    Every breadth number the API returns (heatmap, sectors, movers) must come
+    from this function applied to ONE snapshot (app.services.market_snapshot),
+    so the cards and the heatmap can never disagree.
+    """
+    counts = {"up": 0, "down": 0, "flat": 0}
+    for c in changes:
+        counts[classify_change(c)] += 1
+    counts["total"] = counts["up"] + counts["down"] + counts["flat"]
+    return counts

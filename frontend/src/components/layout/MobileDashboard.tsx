@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import TickerLogo from '@/components/TickerLogo'
+import { useClientNow } from '@/lib/use-client-now'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   fetchMarketStatus,
@@ -43,17 +44,21 @@ import MiniWorldMonitorSnapshot from '@/components/MiniWorldMonitorSnapshot'
 import IpoRadarWidget from '@/components/IpoRadarWidget'
 import { useToast } from '@/components/Toast'
 
+// Time-dependent strings render only after mount: the server's clock and zone
+// differ from the browser's, which caused hydration error #418.
 function useGreeting(name?: string | null) {
-  const now = new Date()
+  const now = useClientNow(60_000)
+  const username = name?.split(' ')[0] || 'Trader'
+  if (!now) return `Welcome, ${username}`
   const hour = now.getHours()
   const base =
     hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
-  const username = name?.split(' ')[0] || 'Trader'
   return `${base}, ${username}`
 }
 
 function useCurrentTime() {
-  const now = new Date()
+  const now = useClientNow(30_000)
+  if (!now) return '--:--'
   return now.toLocaleTimeString(undefined, {
     hour: 'numeric',
     minute: '2-digit',
@@ -210,14 +215,15 @@ export default function MobileDashboard() {
     }
   }, [predictionAlerts, warning])
 
+  const clientNow = useClientNow()
   const dateString = useMemo(() => {
-    const now = new Date()
-    return now.toLocaleDateString(undefined, {
+    if (!clientNow) return '\u00a0'
+    return clientNow.toLocaleDateString(undefined, {
       weekday: 'long',
       month: 'short',
       day: 'numeric',
     })
-  }, [])
+  }, [clientNow])
 
   const indexMap = useMemo(() => {
     const map: Record<string, MarketIndex | undefined> = {}
@@ -225,13 +231,13 @@ export default function MobileDashboard() {
     if (indices && indices.length > 0) {
       indices.forEach((idx) => {
         const key = idx.symbol.toUpperCase()
-        // Same symbols the desktop tiles use; ETF rows (SPY/QQQ/DIA) only appear as
-        // labelled proxies when no index level is available.
-        if (key.includes('GSPC') || key.includes('SPX') || key === 'SPY') {
+        // Same symbols the desktop tiles use. ETF rows (SPY/QQQ/DIA) are never
+        // mapped onto an index card: a missing level renders as "—".
+        if (key.includes('GSPC') || key.includes('SPX')) {
           map.sp500 ??= idx
-        } else if (key.includes('IXIC') || key === 'QQQ') {
+        } else if (key.includes('IXIC')) {
           map.nasdaq ??= idx
-        } else if (key.includes('DJI') || key === 'DIA') {
+        } else if (key.includes('DJI')) {
           map.dow ??= idx
         }
       })
@@ -273,15 +279,17 @@ export default function MobileDashboard() {
             <button
               type="button"
               onClick={() => setShowSearch(true)}
+              aria-label="Search stocks"
               className="h-8 w-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center active:scale-95"
             >
-              <Search className="w-4 h-4 text-fg-primary" />
+              <Search className="w-4 h-4 text-fg-primary" aria-hidden />
             </button>
             <Link
               href="/settings"
+              aria-label="Account settings"
               className="h-8 w-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center active:scale-95"
             >
-              <User className="w-4 h-4 text-fg-primary" />
+              <User className="w-4 h-4 text-fg-primary" aria-hidden />
             </Link>
           </div>
         </div>
@@ -294,6 +302,7 @@ export default function MobileDashboard() {
             <button
               type="button"
               onClick={() => setShowSearch(false)}
+              aria-label="Close search"
               className="p-2 -ml-2 rounded-full hover:bg-surface-hover active:scale-95"
             >
               <ArrowRight className="w-5 h-5 text-fg-secondary rotate-180" />
@@ -305,6 +314,7 @@ export default function MobileDashboard() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search stocks, ETFs, crypto..."
+                aria-label="Search stocks, ETFs, crypto"
                 className="w-full h-10 rounded-full bg-surface-raised border border-line-subtle pl-9 pr-4 text-[13px] text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
               />
             </div>

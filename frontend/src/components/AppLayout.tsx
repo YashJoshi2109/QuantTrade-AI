@@ -37,6 +37,7 @@ import SiteFooter from './SiteFooter'
 import HelpDialog from './HelpDialog'
 import { fetchSymbols, Symbol, syncSymbol, fetchMarketStatus, MarketStatus, getSubscriptionStatus } from '@/lib/api'
 import { fetchLiveVisitors } from '@/lib/monitor-extended-api'
+import { formatMarketCap } from '@/lib/valuation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useQuery } from '@tanstack/react-query'
 import LiveVisitorCounter from '@/components/ui/live-visitor'
@@ -358,9 +359,10 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                             <div className="font-bold text-white text-sm">{sym.symbol}</div>
                             <div className="text-xs text-fg-muted truncate">{sym.name}</div>
                           </div>
-                          {sym.market_cap && (
+                          {/* Same source (fundamentals row) and formatter as Research */}
+                          {sym.market_cap != null && sym.market_cap > 0 && (
                             <div className="text-[#007AFF] font-mono text-xs">
-                              ${(sym.market_cap / 1e9).toFixed(1)}B
+                              {formatMarketCap(sym.market_cap)}
                             </div>
                           )}
                         </button>
@@ -592,7 +594,9 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
 
       {/* Main Content Area */}
       <main 
-        className={`pt-14 md:pt-[6.25rem] min-h-screen transition-all duration-300 ${hideSidebar ? 'lg:ml-0' : sidebarCollapsed ? 'lg:ml-[5rem]' : 'lg:ml-[14rem]'}`}
+        data-main-content=""
+        tabIndex={-1}
+        className={`pt-14 md:pt-[6.25rem] min-h-screen focus:outline-none transition-all duration-300 ${hideSidebar ? 'lg:ml-0' : sidebarCollapsed ? 'lg:ml-[5rem]' : 'lg:ml-[14rem]'}`}
       >
         <div className="h-full overflow-y-auto px-4 md:px-6 py-4 md:py-6">
           {children}

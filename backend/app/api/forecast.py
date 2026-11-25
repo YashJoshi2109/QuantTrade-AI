@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import threading
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -24,6 +25,10 @@ router = APIRouter()
 _TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,9}$")
 _locks: dict[str, asyncio.Lock] = {}
 _CACHE_VERSION = "v1"
+# Fits are CPU-bound and hold the GIL; on the 2-vCPU host more than two at once
+# just slows every other request. (The asyncio default executor used to cap this
+# implicitly at 6 threads; main.py now sizes it for I/O, so cap fits explicitly.)
+_FIT_SLOTS = threading.BoundedSemaphore(2)
 
 
 def _seconds_to_next_close(now: datetime | None = None) -> int:
@@ -54,6 +59,11 @@ def _load_closes(ticker: str) -> pd.Series:
 
 
 def _compute(ticker: str) -> dict:
+    with _FIT_SLOTS:
+        return _compute_unlimited(ticker)
+
+
+def _compute_unlimited(ticker: str) -> dict:
     closes = _load_closes(ticker)
     need = MIN_HISTORY + max(DEFAULT_HORIZONS) + 10
     if len(closes) < need:

@@ -37,6 +37,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
+import { isCompanyAsset } from '@/lib/assetType'
+import { formatMarketCap } from '@/lib/valuation'
 import Chart from '@/components/Chart'
 import LiveNews from '@/components/LiveNews'
 import KeyFactorsPanel from '@/components/KeyFactorsPanel'
@@ -197,6 +199,9 @@ export default function MobileResearch() {
     staleTime: 300_000,
     retry: 1,
   })
+
+  // Index / ETF symbols hide company-only panels (same helper as desktop).
+  const showCompanyPanels = isCompanyAsset(symbolFromUrl, tickerInfo?.asset_type)
 
   // Realtime -> ticker profile -> daily bars; never show a placeholder $0.00.
   const priceInfo = resolvePriceInfo(realtimeQuote, tickerInfo, prices)
@@ -477,21 +482,7 @@ export default function MobileResearch() {
           <div className="rounded-xl bg-surface-raised border border-line-subtle p-3">
             <p className="text-[10px] text-fg-secondary mb-1">Market Cap</p>
             <p className="text-[14px] font-semibold text-fg-primary">
-              {isNumber(marketCap)
-                ? formatNumber(
-                    marketCap >= 1e12
-                      ? marketCap / 1e12
-                      : marketCap >= 1e9
-                        ? marketCap / 1e9
-                        : marketCap / 1e6,
-                    2,
-                  ) +
-                  (marketCap >= 1e12
-                    ? 'T'
-                    : marketCap >= 1e9
-                      ? 'B'
-                      : 'M')
-                : 'N/A'}
+              {formatMarketCap(marketCap, 'N/A')}
             </p>
           </div>
           <div className="rounded-xl bg-surface-raised border border-line-subtle p-3">
@@ -629,7 +620,12 @@ export default function MobileResearch() {
         )}
 
         {/* === FINANCIALS TAB === */}
-        {activeTab === 'financials' && (
+        {activeTab === 'financials' && !showCompanyPanels && (
+          <p className="rounded-2xl bg-surface-raised border border-line-subtle p-4 text-[12px] text-fg-muted">
+            Company financials and SEC filings do not apply to {symbolFromUrl} (not an operating company).
+          </p>
+        )}
+        {activeTab === 'financials' && showCompanyPanels && (
           <div className="space-y-4">
             <FundamentalsPanel
               fundamentals={fundamentals ?? null}
@@ -730,11 +726,13 @@ export default function MobileResearch() {
         {/* === COMPANY & NEWS TAB === desktop Company Folio, then live news */}
         {activeTab === 'company' && (
           <div className="space-y-3">
-            <CompanyFolioPanel
-              symbol={symbolFromUrl}
-              info={tickerInfo}
-              isLoading={tickerInfoLoading}
-            />
+            {showCompanyPanels && (
+              <CompanyFolioPanel
+                symbol={symbolFromUrl}
+                info={tickerInfo}
+                isLoading={tickerInfoLoading}
+              />
+            )}
           <div className="rounded-2xl bg-surface-raised border border-line-subtle p-3 text-[12px] text-fg-primary">
             <div className="space-y-2">
               <div className="flex items-center gap-2 mb-1">

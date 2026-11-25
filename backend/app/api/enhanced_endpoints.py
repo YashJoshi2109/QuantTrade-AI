@@ -19,7 +19,8 @@ from app.services.enhanced_data_fetcher import EnhancedDataFetcher
 from app.services.portfolio_service import PortfolioService
 from app.services.realtime_news_fetcher import RealtimeNewsFetcher, _is_likely_ticker_symbol
 from app.services.finnhub_fetcher import FinnhubFetcher
-from app.services.ticker_validation import normalize_ticker, UnknownTickerError
+from app.services.finviz_fetcher import meaningful_peg, normalize_earnings_date
+from app.services.ticker_validation import normalize_ticker, UnknownTickerError, classify_asset_type
 from app.services.rate_limiter import get_api_stats
 from app.api.auth import get_current_user, require_admin
 from app.models.user import User
@@ -81,7 +82,7 @@ def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
         db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol.upper()).first()
         if not db_symbol:
             fallback_data = EnhancedDataFetcher.fetch_realtime_quote(symbol.upper(), db)
-            if fallback_data.get("error"):
+            if fallback_data.get("error") or _to_float(fallback_data.get("last_price")) <= 0:
                 raise HTTPException(status_code=404, detail=f"Symbol {symbol} not found")
 
             return QuoteResponse(
@@ -99,14 +100,17 @@ def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
             )
         
         # Get latest price from database
+        # Bars with a NULL close (partial ingests, delisted tickers) must not be
+        # served as a quote: PARA returned last_price=null with a volume.
         latest_price = db.query(PriceBar).filter(
-            PriceBar.symbol_id == db_symbol.id
+            PriceBar.symbol_id == db_symbol.id,
+            PriceBar.close.isnot(None),
         ).order_by(PriceBar.timestamp.desc()).first()
         
         if not latest_price:
             fallback_data = EnhancedDataFetcher.fetch_realtime_quote(symbol.upper(), db)
-            if fallback_data.get("error"):
-                raise HTTPException(status_code=404, detail=f"No price data for {symbol}")
+            if fallback_data.get("error") or _to_float(fallback_data.get("last_price")) <= 0:
+                raise HTTPException(status_code=404, detail=f"No current price for {symbol} (ticker may be delisted)")
 
             return QuoteResponse(
                 symbol=symbol.upper(),
@@ -125,23 +129,25 @@ def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
         # Get previous price for change calculation
         prev_price = db.query(PriceBar).filter(
             PriceBar.symbol_id == db_symbol.id,
+            PriceBar.close.isnot(None),
             PriceBar.timestamp < latest_price.timestamp
         ).order_by(PriceBar.timestamp.desc()).first()
         
-        change = latest_price.close - (prev_price.close if prev_price else latest_price.open)
-        change_percent = (change / (prev_price.close if prev_price else latest_price.open)) * 100
+        base = prev_price.close if prev_price else latest_price.open
+        change = (latest_price.close - base) if base else None
+        change_percent = (change / base) * 100 if base and change is not None else None
         
         latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
         
         quote_data = {
             "symbol": symbol.upper(),
             "last_price": float(latest_price.close),
-            "change": float(change),
-            "change_percent": float(change_percent),
+            "change": float(change) if change is not None else None,
+            "change_percent": float(change_percent) if change_percent is not None else None,
             "volume": int(latest_price.volume) if latest_price.volume else 0,
-            "high": float(latest_price.high),
-            "low": float(latest_price.low),
-            "open": float(latest_price.open),
+            "high": float(latest_price.high) if latest_price.high is not None else None,
+            "low": float(latest_price.low) if latest_price.low is not None else None,
+            "open": float(latest_price.open) if latest_price.open is not None else None,
             "data_source": "database",
             "latency_ms": latency_ms,
             "timestamp": latest_price.timestamp
@@ -182,7 +188,7 @@ async def get_market_indices(db: Session = Depends(get_db)):
         """Synchronous index fetch for thread pool"""
         try:
             ticker = yf.Ticker(config["symbol"])
-            hist = ticker.history(period="2d")
+            hist = ticker.history(period="2d", timeout=10)
             
             if not hist.empty and len(hist) >= 2:
                 current_price = float(hist['Close'].iloc[-1])
@@ -216,7 +222,15 @@ async def get_market_indices(db: Session = Depends(get_db)):
         futures = [loop.run_in_executor(executor, fetch_index_sync, config) for config in indices_config]
         fetched = await asyncio.gather(*futures)
     
-    # Process results and handle fallbacks
+    # DB cache write / fallback read is blocking: run it in a worker thread,
+    # not on the event loop (it froze every request when the pool was busy).
+    return await asyncio.to_thread(_merge_indices_with_db_cache, db, fetched)
+
+
+def _merge_indices_with_db_cache(db: Session, fetched: list) -> list:
+    from app.models.realtime_quote import MarketIndex
+
+    results = []
     for result in fetched:
         if result.get("success"):
             # Cache to database (async-safe)
@@ -656,8 +670,10 @@ def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
     else:
         # Handle timezone-aware vs naive datetimes safely
         from datetime import timezone
-        now = datetime.now(tz=fundamentals.fetched_at.tzinfo or timezone.utc)
-        age_seconds = (now - fundamentals.fetched_at).total_seconds()
+        fetched = fundamentals.fetched_at
+        if fetched.tzinfo is None:  # naive timestamps are stored as UTC
+            fetched = fetched.replace(tzinfo=timezone.utc)
+        age_seconds = (datetime.now(timezone.utc) - fetched).total_seconds()
         needs_refresh = age_seconds > 3600
 
     if needs_refresh:
@@ -665,7 +681,8 @@ def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
     
     return {
         "symbol": db_symbol.symbol,
-        "company_name": fundamentals.company_name,
+        "asset_type": classify_asset_type(db_symbol.symbol, db_symbol.asset_type),
+        "company_name": fundamentals.company_name or db_symbol.name,
         "sector": fundamentals.sector,
         "industry": fundamentals.industry,
         "country": fundamentals.country,
@@ -674,7 +691,7 @@ def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
         "market_cap": fundamentals.market_cap,
         "pe_ratio": fundamentals.pe_ratio,
         "forward_pe": fundamentals.forward_pe,
-        "peg_ratio": fundamentals.peg_ratio,
+        "peg_ratio": meaningful_peg(fundamentals.peg_ratio),
         "price_to_sales": fundamentals.price_to_sales,
         "price_to_book": fundamentals.price_to_book,
         
@@ -686,7 +703,10 @@ def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
         "roa": fundamentals.roa,
         "roi": fundamentals.roi,
         
-        # Financial health
+        # Dividends (percent number, 0.45 = 0.45%)
+        "dividend_yield": fundamentals.dividend_yield,
+
+        # Financial health — debt_to_equity is a plain ratio (0.84), never percent
         "debt_to_equity": fundamentals.debt_to_equity,
         "current_ratio": fundamentals.current_ratio,
         "quick_ratio": fundamentals.quick_ratio,
@@ -701,7 +721,8 @@ def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
         # Earnings
         "eps": fundamentals.eps,
         "eps_next_quarter": fundamentals.eps_next_quarter,
-        "earnings_date": fundamentals.earnings_date,
+        # ISO date (YYYY-MM-DD); rows cached before normalisation held "Nov 02"
+        "earnings_date": normalize_earnings_date(fundamentals.earnings_date),
         
         # Analyst
         "target_price": fundamentals.target_price,

@@ -3,6 +3,7 @@
 import { useId, useMemo } from 'react'
 import { FundamentalsData } from '@/lib/api'
 import { isNumber, formatNumber } from '@/lib/format'
+import { formatMarketCap, meaningfulPeg } from '@/lib/valuation'
 import { Zap, RefreshCw, Loader2 } from 'lucide-react'
 
 /* ────────────────── Health Score Computation ────────────────── */
@@ -29,7 +30,7 @@ function computeHealthScore(f: FundamentalsData | null): HealthScore {
     const pe = f.pe_ratio as number
     valuation += pe < 15 ? 12 : pe < 25 ? 9 : pe < 40 ? 5 : 2
   }
-  if (isNumber(f.peg_ratio)) {
+  if (meaningfulPeg(f.peg_ratio) !== null) {
     const peg = f.peg_ratio as number
     valuation += peg < 1 ? 13 : peg < 2 ? 8 : 3
   }
@@ -521,23 +522,11 @@ export default function FundamentalsPanel({
   const marketCap = f?.market_cap
   const pe = f?.pe_ratio
   const forwardPe = f?.forward_pe
-  const peg = f?.peg_ratio
+  const peg = meaningfulPeg(f?.peg_ratio) // ≤ 0 is not meaningful (SOFI −12.62)
   const priceToSales = f?.price_to_sales
   const priceToBook = f?.price_to_book
 
-  const fmtMarketCap = (() => {
-    if (!isNumber(marketCap)) return '\u2014'
-    const mc = marketCap as number
-    const [val, suffix] =
-      mc >= 1e12
-        ? [mc / 1e12, 'T']
-        : mc >= 1e9
-          ? [mc / 1e9, 'B']
-          : mc >= 1e6
-            ? [mc / 1e6, 'M']
-            : [mc, '']
-    return `$${formatNumber(val, 2)}${suffix}`
-  })()
+  const fmtMarketCap = formatMarketCap(marketCap)
 
   return (
     <div className="hud-panel p-5 h-full flex flex-col">

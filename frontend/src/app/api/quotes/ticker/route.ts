@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sanitizeQuoteSummaryCompanyName } from '@/lib/company-display-name'
 import { incrementFmpUsage } from '@/lib/fmp-usage'
+import { assetTypeFromSymbol, isCompanyAsset, normalizeAssetType, toYahooSymbol } from '@/lib/assetType'
+import { reconcileTickerFundamentals, type BackendFundamentals } from '@/lib/valuation'
 
 /**
  * Universal Ticker Info API
@@ -97,6 +99,8 @@ export interface TickerInfo {
   earnings_date: string
   /** Year or label when available from Yahoo asset profile */
   founded: string
+  /** equity | etf | fund | index | … (see lib/assetType). Gates company-only panels. */
+  asset_type?: string
 }
 
 const YAHOO_QUOTE_MODULES = [
@@ -195,6 +199,7 @@ function parseYahooQuoteSummaryJson(payload: unknown, symbol: string): TickerInf
 
     return {
       symbol: String(price.symbol ?? symbol),
+      asset_type: normalizeAssetType(price.quoteType) ?? undefined,
       name: displayName,
       exchange: String(price.exchange ?? ''),
       exchange_display: String(price.exchangeName ?? price.exchange ?? ''),
@@ -395,6 +400,7 @@ async function fetchFmpFullProfile(sym: string): Promise<TickerInfo | null> {
 
     return {
       symbol: sym,
+      asset_type: p?.isEtf ? 'etf' : p?.isFund ? 'fund' : 'equity',
       name: displayName,
       exchange: s(p?.exchange) || s(q?.exchange),
       exchange_display: s(p?.exchangeFullName) || s(q?.exchange),
@@ -548,6 +554,24 @@ async function enrichWithFinnhub(data: TickerInfo): Promise<TickerInfo> {
   return data
 }
 
+// ─── Backend fundamentals (source of truth for overlapping metrics) ─────────
+
+async function fetchBackendFundamentals(sym: string): Promise<BackendFundamentals | null> {
+  const base = (process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+  if (!base) return null
+  try {
+    const res = await fetch(`${base}/api/v1/enhanced/fundamentals/${encodeURIComponent(sym)}`, {
+      headers: { Accept: 'application/json' },
+      next: { revalidate: 300 },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    return (await res.json()) as BackendFundamentals
+  } catch {
+    return null
+  }
+}
+
 // ─── GET handler ────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -558,24 +582,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing symbol parameter' }, { status: 400 })
   }
 
+  // Share classes: BRK.B is "BRK-B" on FMP and Yahoo (the dot form returned nothing).
+  const providerSymbol = toYahooSymbol(symbol)
+
   // Strategy: FMP (primary, stable API) → Yahoo (fallback) → Finnhub enrichment
-  let data = await fetchFmpFullProfile(symbol)
+  let data = await fetchFmpFullProfile(providerSymbol)
 
   // Fallback to Yahoo if FMP fails
   if (!data) {
     data =
-      (await fetchYahooQuoteSummaryDirect(symbol)) ??
-      (await fetchYahooQuoteSummaryViaBackend(symbol))
+      (await fetchYahooQuoteSummaryDirect(providerSymbol)) ??
+      (await fetchYahooQuoteSummaryViaBackend(providerSymbol))
   }
 
   if (!data) {
     return NextResponse.json({ error: `No data found for ${symbol}` }, { status: 404 })
   }
 
+  // Keep the app's spelling (BRK.B) for links / caches / Finnhub (which uses the dot).
+  data.symbol = symbol
+  // Symbol shape beats provider labels: ^GSPC is an index even if a provider says otherwise.
+  data.asset_type = assetTypeFromSymbol(symbol) ?? normalizeAssetType(data.asset_type) ?? data.asset_type
+
   // If FMP returned zero OHLC fields, fill from Yahoo chart data (fast, single call)
   if (!data.open || !data.day_high || !data.day_low || !data.prev_close) {
     try {
-      const yUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`
+      const yUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(providerSymbol)}?interval=1d&range=2d`
       const yRes = await fetch(yUrl, { headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://finance.yahoo.com/' }, cache: 'no-store' }).catch(() => null)
       if (yRes?.ok) {
         const yJson = await yRes.json().catch(() => null)
@@ -598,6 +630,16 @@ export async function GET(request: NextRequest) {
 
   // Enrich with Finnhub (analyst targets, earnings, metrics gaps)
   data = await enrichWithFinnhub(data)
+
+  // One source of truth per Research page: the backend fundamentals row (also used
+  // by Key Factors and the Fundamentals panel) wins for every overlapping metric,
+  // with D/E as a ratio, PEG ≤ 0 dropped and past earnings dates removed.
+  const backend = isCompanyAsset(symbol, data.asset_type) ? await fetchBackendFundamentals(symbol) : null
+  data = reconcileTickerFundamentals(data, backend)
+  // Keep Fwd EPS consistent with the Fwd P/E shown beside it.
+  if (typeof backend?.forward_pe === 'number' && backend.forward_pe > 0 && data.price > 0) {
+    data.forward_eps = data.price / backend.forward_pe
+  }
 
   return NextResponse.json(data, {
     headers: {

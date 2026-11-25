@@ -24,9 +24,16 @@ from app.db.database import get_db
 from app.models.symbols_master import SymbolsMaster
 from app.models.symbol import Symbol as SymbolModel
 
+from app.services.swr_cache import SWRCache
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/monitor", tags=["Global Monitor Extended"])
+
+# Last-good responses for slow upstreams (Yahoo, FRED, Guardian): stale data is
+# served instantly while one background refresh runs, instead of every request
+# waiting 60s+ on a struggling provider.
+_monitor_cache = SWRCache()
 
 # ─── Guardian API Config ────────────────────────────────────────
 _GUARDIAN_BASE = "https://content.guardianapis.com/search"
@@ -268,6 +275,89 @@ async def _yahoo_search_symbol(client: httpx.AsyncClient, query: str) -> List[st
     return symbols[:5]
 
 
+# phrase (lower) -> symbol or None. Each miss costs up to 4 LIKE '%x%' scans that
+# cannot use an index, and headlines repeat the same phrases every refresh.
+_PHRASE_SYMBOL_CACHE: Dict[str, Optional[str]] = {}
+
+
+def _lookup_phrase_symbol(db: Session, phrase: str) -> Optional[str]:
+    pl = phrase.lower()
+    if pl in _PHRASE_SYMBOL_CACHE:
+        return _PHRASE_SYMBOL_CACHE[pl]
+    found: Optional[str] = None
+    try:
+        row = (
+            db.query(SymbolsMaster)
+            .filter(SymbolsMaster.is_active == "Y")
+            .filter(
+                func.lower(SymbolsMaster.name).like(f"{pl}%")
+                | (func.upper(SymbolsMaster.symbol) == phrase.upper())
+            )
+            .order_by(SymbolsMaster.symbol)
+            .first()
+        )
+        if not row:
+            row = (
+                db.query(SymbolsMaster)
+                .filter(SymbolsMaster.is_active == "Y")
+                .filter(func.lower(SymbolsMaster.name).like(f"%{pl}%"))
+                .order_by(SymbolsMaster.symbol)
+                .first()
+            )
+        found = row.symbol if row else None
+    except Exception:
+        db.rollback()  # aborted transaction would fail the fallback query too
+        # Fallback to the smaller symbols table
+        try:
+            row2 = (
+                db.query(SymbolModel)
+                .filter(
+                    func.lower(SymbolModel.name).like(f"{pl}%")
+                    | (func.upper(SymbolModel.symbol) == phrase.upper())
+                )
+                .order_by(SymbolModel.symbol)
+                .first()
+            )
+            if not row2:
+                row2 = (
+                    db.query(SymbolModel)
+                    .filter(func.lower(SymbolModel.name).like(f"%{pl}%"))
+                    .order_by(SymbolModel.symbol)
+                    .first()
+                )
+            found = row2.symbol if row2 else None
+        except Exception:
+            db.rollback()
+            return None  # DB trouble: do not cache
+    if len(_PHRASE_SYMBOL_CACHE) > 5000:
+        _PHRASE_SYMBOL_CACHE.clear()
+    _PHRASE_SYMBOL_CACHE[pl] = found
+    return found
+
+
+def _resolve_tickers_batch(titles: List[str], limit: int = 5) -> List[List[str]]:
+    """Sync (worker thread): resolve tickers for many headlines with ONE short-lived session.
+
+    continent-news used to run these lookups on the event loop with the request
+    session - hundreds of sequential queries that froze every other request.
+    """
+    from app.db import database
+
+    if database.SessionLocal is None:
+        return [[] for _ in titles]
+    db = database.SessionLocal()
+    try:
+        out: List[List[str]] = []
+        for t in titles:
+            try:
+                out.append(_resolve_tickers_from_db(db, t, limit=limit))
+            except Exception:
+                out.append([])
+        return out
+    finally:
+        db.close()
+
+
 def _resolve_tickers_from_db(db: Session, title: str, limit: int = 5) -> List[str]:
     """
     Resolve related tickers using the local symbol database (symbols_master preferred).
@@ -317,51 +407,7 @@ def _resolve_tickers_from_db(db: Session, title: str, limit: int = 5) -> List[st
     for phrase in phrases:
         if len(out) >= limit:
             break
-        pl = phrase.lower()
-        try:
-            row = (
-                db.query(SymbolsMaster)
-                .filter(SymbolsMaster.is_active == "Y")
-                .filter(
-                    func.lower(SymbolsMaster.name).like(f"{pl}%")
-                    | (func.upper(SymbolsMaster.symbol) == phrase.upper())
-                )
-                .order_by(SymbolsMaster.symbol)
-                .first()
-            )
-            if not row:
-                row = (
-                    db.query(SymbolsMaster)
-                    .filter(SymbolsMaster.is_active == "Y")
-                    .filter(func.lower(SymbolsMaster.name).like(f"%{pl}%"))
-                    .order_by(SymbolsMaster.symbol)
-                    .first()
-                )
-            if row:
-                add_symbol(row.symbol)
-        except Exception:
-            # Fallback to the smaller symbols table
-            try:
-                row2 = (
-                    db.query(SymbolModel)
-                    .filter(
-                        func.lower(SymbolModel.name).like(f"{pl}%")
-                        | (func.upper(SymbolModel.symbol) == phrase.upper())
-                    )
-                    .order_by(SymbolModel.symbol)
-                    .first()
-                )
-                if not row2:
-                    row2 = (
-                        db.query(SymbolModel)
-                        .filter(func.lower(SymbolModel.name).like(f"%{pl}%"))
-                        .order_by(SymbolModel.symbol)
-                        .first()
-                    )
-                if row2:
-                    add_symbol(row2.symbol)
-            except Exception:
-                pass
+        add_symbol(_lookup_phrase_symbol(db, phrase))
 
     return out[:limit]
 
@@ -712,9 +758,30 @@ async def get_economic_indicators(
     Tabs: Indicators, Oil, Gov, Central Banks
     """
     series_list = FRED_SERIES.get(tab, FRED_SERIES["indicators"])
-    indicators: List[EconomicIndicator] = []
+    try:
+        # FRED series are daily at best: 10 min fresh, then last-good while refreshing.
+        return await _monitor_cache.get(
+            f"economic-indicators:{tab}",
+            lambda: _build_economic_indicators(tab, series_list),
+            fresh_for=600,
+            wait=12,
+            is_good=lambda r: any(i.value != "N/A" for i in r.indicators),
+        )
+    except asyncio.TimeoutError:
+        return EconomicIndicatorsResponse(
+            tab=tab,
+            indicators=[
+                EconomicIndicator(name=name, series_id=sid.split(":", 1)[-1], value="N/A", date="—")
+                for name, sid, _kind in series_list
+            ],
+            updated_at=datetime.now(timezone.utc).isoformat(),
+        )
 
-    async with httpx.AsyncClient(timeout=15) as client:
+
+async def _build_economic_indicators(tab: str, series_list) -> "EconomicIndicatorsResponse":
+    indicators: List[EconomicIndicator] = []
+    # connect=5: a stalled DNS/TLS handshake must not eat the whole budget.
+    async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
         tasks = []
         for name, series_id, kind in series_list:
             if series_id.startswith("yahoo:"):
@@ -1138,11 +1205,30 @@ _GDELT_CONTINENT_QUERIES = {
 }
 
 @router.get("/continent-news", response_model=ContinentNewsResponse)
-async def get_continent_news(db: Session = Depends(get_db)):
+async def get_continent_news():
     """
     Continent-wise news feed — like the Bloomberg/WorldMonitor grid.
     Primary: The Guardian Open Platform. Per-column GDELT when a category is empty.
+    Served stale-while-revalidate: a slow Guardian/GDELT never blocks the response
+    once one good feed has been cached.
     """
+    try:
+        return await _monitor_cache.get(
+            "continent-news",
+            _build_continent_news,
+            fresh_for=300,
+            wait=30,
+            is_good=lambda r: any(f.count for f in r.feeds),
+        )
+    except asyncio.TimeoutError:
+        return ContinentNewsResponse(
+            feeds=[ContinentNewsFeed(continent=c, live=True, count=0, articles=[]) for c in _GUARDIAN_CONTINENT_QUERIES],
+            updated_at=datetime.now(timezone.utc).isoformat(),
+            source_status="unavailable",
+        )
+
+
+async def _build_continent_news() -> ContinentNewsResponse:
     feeds_by_continent: Dict[str, ContinentNewsFeed] = {}
 
     continent_order = list(_GUARDIAN_CONTINENT_QUERIES.keys())
@@ -1198,20 +1284,24 @@ async def get_continent_news(db: Session = Depends(get_db)):
     feeds.sort(key=lambda f: order.index(f.continent) if f.continent in order else 99)
 
     # Enrich with DB-resolved tickers (up to 5), keeping any existing tickers first.
-    for f in feeds:
-        for a in f.articles:
-            try:
-                existing = a.tickers or []
-                resolved = _resolve_tickers_from_db(db, a.title, limit=5)
-                merged: List[str] = []
-                for t in existing + resolved:
-                    if t and t not in merged:
-                        merged.append(t)
-                    if len(merged) >= 5:
-                        break
-                a.tickers = merged
-            except Exception:
-                continue
+    # All lookups run in ONE worker thread with its own session (never on the loop).
+    articles = [a for f in feeds for a in f.articles]
+    try:
+        resolved_all = await asyncio.wait_for(
+            asyncio.to_thread(_resolve_tickers_batch, [a.title for a in articles], 5),
+            timeout=10,
+        )
+    except Exception as e:
+        logger.warning("continent-news ticker resolution skipped: %s", e)
+        resolved_all = [[] for _ in articles]
+    for a, resolved in zip(articles, resolved_all):
+        merged: List[str] = []
+        for t in (a.tickers or []) + resolved:
+            if t and t not in merged:
+                merged.append(t)
+            if len(merged) >= 5:
+                break
+        a.tickers = merged
 
     # Yahoo fallback (only if still empty) — strict per-request cap + caching
     yahoo_calls = 0
@@ -1476,6 +1566,11 @@ _STOCK_KEYWORDS = frozenset([
 ])
 
 
+def _matches_keywords(haystack: str, keywords: frozenset) -> bool:
+    """Whole-word keyword match ("stock" must not match "stockpile", "rate" not "pirates")."""
+    return any(re.search(rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])", haystack) for kw in keywords)
+
+
 def _format_volume(vol: Any) -> str:
     """Format numeric volume into human-readable string. None → '—'."""
     if vol is None:
@@ -1542,6 +1637,72 @@ def _parse_outcomes(first_market: dict) -> List[PolymarketOutcome]:
     return parsed[:5]
 
 
+def _is_open_market(m: dict) -> bool:
+    """True when a Gamma sub-market is still tradable (not closed / archived / inactive)."""
+    if not isinstance(m, dict):
+        return False
+    if m.get("closed") in (True, "true"):
+        return False
+    if m.get("archived") in (True, "true"):
+        return False
+    if m.get("active") in (False, "false"):
+        return False
+    return True
+
+
+def _market_yes_price(m: dict) -> Optional[float]:
+    """Yes price (0-1) of a binary Gamma market; outcomePrices is a JSON-encoded string array."""
+    names = [str(n).lower() for n in _safe_json_list(m.get("outcomes"))]
+    prices = _safe_json_list(m.get("outcomePrices"))
+    idx = names.index("yes") if "yes" in names else 0
+    if idx >= len(prices):
+        return None
+    try:
+        val = float(prices[idx])
+    except (ValueError, TypeError):
+        return None
+    if val != val or val < 0 or val > 1:  # NaN / out of range
+        return None
+    return val
+
+
+def _event_outcomes(ev: dict) -> tuple[List[PolymarketOutcome], Optional[float], Optional[float]]:
+    """
+    Resolve (outcomes, yes_price, no_price) for a Gamma event.
+
+    Single-market events are binary: outcomes come from that market's outcomePrices.
+    Multi-market events (e.g. "Fed decision in December?", date ladders "...by...?")
+    hold one binary market per option. Blindly reading markets[0] returned a
+    resolved/expired sub-market priced 0.0, so instead every OPEN sub-market
+    becomes an outcome labelled by groupItemTitle with its Yes price.
+    """
+    markets = [m for m in (ev.get("markets") or []) if isinstance(m, dict)]
+    if not markets:
+        return [], None, None
+
+    open_markets = [m for m in markets if _is_open_market(m)] or markets
+
+    if len(open_markets) == 1:
+        outcomes = _parse_outcomes(open_markets[0])
+        yes_price: Optional[float] = None
+        no_price: Optional[float] = None
+        if len(outcomes) == 2:
+            outcome_map = {o.name.lower(): o.price for o in outcomes}
+            yes_price = outcome_map.get("yes")
+            no_price = outcome_map.get("no")
+        return outcomes, yes_price, no_price
+
+    multi: List[PolymarketOutcome] = []
+    for m in open_markets:
+        yp = _market_yes_price(m)
+        if yp is None:
+            continue
+        label = str(m.get("groupItemTitle") or m.get("question") or "Option").strip()
+        multi.append(PolymarketOutcome(name=label[:80], price=round(yp, 4)))
+    multi.sort(key=lambda o: o.price, reverse=True)
+    return multi[:5], None, None
+
+
 def _parse_polymarket_event(ev: dict, category: str) -> Optional[PolymarketFinanceItem]:
     """Parse a single Gamma event into a PolymarketFinanceItem. Returns None on failure."""
     try:
@@ -1549,20 +1710,9 @@ def _parse_polymarket_event(ev: dict, category: str) -> Optional[PolymarketFinan
         if not question:
             return None
 
-        markets = ev.get("markets") or []
-        first_market = markets[0] if isinstance(markets, list) and markets else {}
-        if not isinstance(first_market, dict):
-            first_market = {}
-
-        outcomes = _parse_outcomes(first_market) if first_market else []
-
-        # Extract Yes/No shorthand for binary markets
-        yes_price: Optional[float] = None
-        no_price: Optional[float] = None
-        if len(outcomes) == 2:
-            outcome_map = {o.name.lower(): o.price for o in outcomes}
-            yes_price = outcome_map.get("yes")
-            no_price = outcome_map.get("no")
+        outcomes, yes_price, no_price = _event_outcomes(ev)
+        if not outcomes:
+            return None
 
         vol_24h = _extract_volume_24h(ev)
 
@@ -1581,21 +1731,18 @@ def _parse_polymarket_event(ev: dict, category: str) -> Optional[PolymarketFinan
 
 
 def _yes_price_from_gamma_event(ev: dict) -> float:
-    """Implied Yes price 0–1 from first market (Gamma uses JSON strings; use _parse_outcomes)."""
-    markets = ev.get("markets") or []
-    if not markets or not isinstance(markets[0], dict):
-        return 0.0
-    parsed = _parse_outcomes(markets[0])
-    for o in parsed:
-        if str(o.name).lower() == "yes":
-            return float(o.price)
-    return float(parsed[0].price) if parsed else 0.0
+    """Implied Yes price 0–1: binary Yes, or the leading option of a multi-market event."""
+    outcomes, yes_price, _ = _event_outcomes(ev)
+    if yes_price is not None:
+        return float(yes_price)
+    return float(outcomes[0].price) if outcomes else 0.0
 
 
 def _normalize_event_for_stock_card(ev: dict) -> dict:
     """JSON shape expected by copilot PolymarketStockCard (outcomes as [{name, price}])."""
     eid = str(ev.get("id") or ev.get("slug") or "")
     markets_raw = ev.get("markets") or []
+    markets_raw = [m for m in markets_raw if _is_open_market(m)] or markets_raw
     markets_out: List[dict] = []
     vol_event = _extract_volume_24h(ev)
 
@@ -1693,10 +1840,10 @@ async def get_polymarket_finance():
                     title = item.question.lower()
                     haystack = f"{title} {tag_str}"
 
-                    if any(kw in haystack for kw in _STOCK_KEYWORDS):
+                    if _matches_keywords(haystack, _STOCK_KEYWORDS):
                         item.category = "stocks"
                         stocks.append(item)
-                    elif any(kw in haystack for kw in _MACRO_KEYWORDS):
+                    elif _matches_keywords(haystack, _MACRO_KEYWORDS):
                         item.category = "macro"
                         macro.append(item)
                     else:
@@ -1803,7 +1950,8 @@ async def get_polymarket_events_browse(
                 params={
                     "active": "true",
                     "closed": "false",
-                    "order": "volume_24hr",
+                    # Gamma field is camelCase; "volume_24hr" returns 422 "order fields are not valid".
+                    "order": "volume24hr",
                     "ascending": "false",
                     "limit": str(limit),
                 },
@@ -2138,88 +2286,102 @@ class CommoditiesResponse(BaseModel):
 # Yahoo Finance v8 quote endpoint (public, no key required)
 _YF_QUOTE = "https://query1.finance.yahoo.com/v8/finance/chart"
 
+_COMMODITY_SYMBOLS = [
+    ("^VIX", "VIX", "VIX", "macro"),
+    ("GC=F", "Gold", "XAUUSD", "commodities"),
+    ("CL=F", "Crude Oil", "CL", "commodities"),
+    ("NG=F", "Nat Gas", "NG", "commodities"),
+    ("DX-Y.NYB", "DXY", "DXY", "forex"),
+    ("BTC-USD", "Bitcoin", "BTC", "crypto"),
+    ("ETH-USD", "Ethereum", "ETH", "crypto"),
+    ("EURUSD=X", "EUR/USD", "EURUSD", "forex"),
+    ("JPY=X", "USD/JPY", "USDJPY", "forex"),
+    ("GBPUSD=X", "GBP/USD", "GBPUSD", "forex"),
+    ("DAL", "Delta Air", "DAL", "airlines"),
+    ("UAL", "United Air", "UAL", "airlines"),
+    ("AAL", "American Air", "AAL", "airlines"),
+    ("LUV", "Southwest", "LUV", "airlines"),
+]
+
+
+def _commodity_placeholder(display_name: str, display_sym: str, quote_group: str) -> CommodityQuote:
+    return CommodityQuote(
+        name=display_name, symbol=display_sym, group=quote_group,
+        price="--", change="--", change_pct="", direction="flat",
+    )
+
+
+async def _fetch_commodity(client: httpx.AsyncClient, yf_sym: str, display_name: str,
+                           display_sym: str, quote_group: str) -> CommodityQuote:
+    try:
+        resp = await client.get(
+            f"{_YF_QUOTE}/{yf_sym}",
+            params={"interval": "1d", "range": "2d"},
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        if resp.status_code == 200:
+            chart = resp.json().get("chart", {}).get("result", [])
+            if chart:
+                meta = chart[0].get("meta", {})
+                price = meta.get("regularMarketPrice", 0)
+                prev = meta.get("chartPreviousClose") or meta.get("previousClose") or price
+
+                if price and prev and prev != 0:
+                    chg = price - prev
+                    chg_pct = (chg / prev) * 100
+                    direction = "up" if chg > 0 else "down" if chg < 0 else "flat"
+
+                    # Format price based on magnitude
+                    if price >= 1000:
+                        p_str = f"${price:,.0f}"
+                    elif price >= 10:
+                        p_str = f"${price:,.2f}"
+                    else:
+                        p_str = f"${price:,.3f}"
+                    if display_name == "VIX" or display_name == "DXY":
+                        p_str = f"{price:,.2f}"
+
+                    return CommodityQuote(
+                        name=display_name,
+                        symbol=display_sym,
+                        group=quote_group,
+                        price=p_str,
+                        change=f"{'+' if chg > 0 else ''}{chg:.2f}",
+                        change_pct=f"{'+' if chg_pct > 0 else ''}{chg_pct:.2f}%",
+                        direction=direction,
+                    )
+    except Exception as exc:
+        logger.debug("YF fetch failed for %s: %s", yf_sym, exc)
+    return _commodity_placeholder(display_name, display_sym, quote_group)
+
+
+async def _build_commodities() -> CommoditiesResponse:
+    # Parallel, not sequential: 14 requests x 10s timeout used to take up to 140s
+    # (55.8s observed) whenever Yahoo was slow.
+    async with httpx.AsyncClient(timeout=httpx.Timeout(8.0, connect=4.0)) as client:
+        quotes = await asyncio.gather(*[
+            _fetch_commodity(client, *row) for row in _COMMODITY_SYMBOLS
+        ])
+    return CommoditiesResponse(commodities=list(quotes), updated_at=datetime.now(timezone.utc).isoformat())
+
+
 @router.get("/commodities", response_model=CommoditiesResponse)
 async def get_commodities():
-    """Live commodity, volatility & crypto quotes via Yahoo Finance."""
-    symbols = [
-        ("^VIX", "VIX", "VIX", "macro"),
-        ("GC=F", "Gold", "XAUUSD", "commodities"),
-        ("CL=F", "Crude Oil", "CL", "commodities"),
-        ("NG=F", "Nat Gas", "NG", "commodities"),
-        ("DX-Y.NYB", "DXY", "DXY", "forex"),
-        ("BTC-USD", "Bitcoin", "BTC", "crypto"),
-        ("ETH-USD", "Ethereum", "ETH", "crypto"),
-        ("EURUSD=X", "EUR/USD", "EURUSD", "forex"),
-        ("JPY=X", "USD/JPY", "USDJPY", "forex"),
-        ("GBPUSD=X", "GBP/USD", "GBPUSD", "forex"),
-        ("DAL", "Delta Air", "DAL", "airlines"),
-        ("UAL", "United Air", "UAL", "airlines"),
-        ("AAL", "American Air", "AAL", "airlines"),
-        ("LUV", "Southwest", "LUV", "airlines"),
-    ]
-    quotes: List[CommodityQuote] = []
-
-    async with httpx.AsyncClient(timeout=10) as client:
-        for yf_sym, display_name, display_sym, quote_group in symbols:
-            try:
-                resp = await client.get(
-                    f"{_YF_QUOTE}/{yf_sym}",
-                    params={"interval": "1d", "range": "2d"},
-                    headers={"User-Agent": "Mozilla/5.0"},
-                )
-                if resp.status_code == 200:
-                    chart = resp.json().get("chart", {}).get("result", [])
-                    if chart:
-                        meta = chart[0].get("meta", {})
-                        price = meta.get("regularMarketPrice", 0)
-                        prev = meta.get("chartPreviousClose") or meta.get("previousClose") or price
-
-                        if price and prev and prev != 0:
-                            chg = price - prev
-                            chg_pct = (chg / prev) * 100
-                            direction = "up" if chg > 0 else "down" if chg < 0 else "flat"
-
-                            # Format price based on magnitude
-                            if price >= 1000:
-                                p_str = f"${price:,.0f}"
-                            elif price >= 10:
-                                p_str = f"${price:,.2f}"
-                            else:
-                                p_str = f"${price:,.3f}"
-                            if display_name == "VIX" or display_name == "DXY":
-                                p_str = f"{price:,.2f}"
-
-                            c_str = f"{'+' if chg > 0 else ''}{chg:.2f}"
-                            cp_str = f"{'+' if chg_pct > 0 else ''}{chg_pct:.2f}%"
-
-                            quotes.append(CommodityQuote(
-                                name=display_name,
-                                symbol=display_sym,
-                                group=quote_group,
-                                price=p_str,
-                                change=c_str,
-                                change_pct=cp_str,
-                                direction=direction,
-                            ))
-                            continue
-            except Exception as exc:
-                logger.debug("YF fetch failed for %s: %s", yf_sym, exc)
-
-            # fallback placeholder for this symbol
-            quotes.append(CommodityQuote(
-                name=display_name,
-                symbol=display_sym,
-                group=quote_group,
-                price="--",
-                change="--",
-                change_pct="",
-                direction="flat",
-            ))
-
-    return CommoditiesResponse(
-        commodities=quotes,
-        updated_at=datetime.now(timezone.utc).isoformat(),
-    )
+    """Live commodity, volatility & crypto quotes via Yahoo Finance (last-good while refreshing)."""
+    try:
+        return await _monitor_cache.get(
+            "commodities",
+            _build_commodities,
+            fresh_for=60,
+            wait=12,
+            # Keep the last-good board unless at least half the quotes came back.
+            is_good=lambda r: sum(q.price != "--" for q in r.commodities) * 2 >= len(r.commodities),
+        )
+    except asyncio.TimeoutError:
+        return CommoditiesResponse(
+            commodities=[_commodity_placeholder(n, d, g) for _y, n, d, g in _COMMODITY_SYMBOLS],
+            updated_at=datetime.now(timezone.utc).isoformat(),
+        )
 
 
 # ─── Energy Data (EIA API) ────────────────────────────────────

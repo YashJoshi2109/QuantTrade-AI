@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import SourceUnavailableNotice from '@/components/monitor/SourceUnavailableNotice'
 import { BarChart3, TrendingUp, TrendingDown } from 'lucide-react'
 import { fetchEconomicIndicators, type EconomicIndicatorsData } from '@/lib/monitor-extended-api'
 
@@ -15,7 +16,7 @@ const TABS = [
 export default function EconomicIndicatorsPanel() {
   const [activeTab, setActiveTab] = useState('indicators')
   
-  const { data, isLoading } = useQuery<EconomicIndicatorsData>({
+  const { data, isLoading, isError } = useQuery<EconomicIndicatorsData>({
     queryKey: ['economic-indicators', activeTab],
     queryFn: () => fetchEconomicIndicators(activeTab),
     refetchInterval: 300_000,
@@ -36,6 +37,8 @@ export default function EconomicIndicatorsPanel() {
         {TABS.map(tab => (
           <button
             key={tab.key}
+            type="button"
+            aria-pressed={activeTab === tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`flex-1 px-3 py-2.5 text-[11px] font-medium transition-all flex items-center justify-center gap-1.5 ${
               activeTab === tab.key
@@ -57,7 +60,11 @@ export default function EconomicIndicatorsPanel() {
               <div key={i} className="h-16 bg-surface-hover rounded animate-pulse" />
             ))}
           </div>
-        ) : data?.indicators.map((ind, i) => (
+        ) : isError || !data?.indicators?.length ? (
+          <div className="p-3">
+            <SourceUnavailableNotice detail="Economic indicator data (FRED) is unavailable right now. Retrying every 5 minutes." />
+          </div>
+        ) : data.indicators.map((ind, i) => (
           <div key={ind.series_id + i} className="px-4 py-3.5 hover:bg-surface-hover transition-colors">
             <div className="flex items-start justify-between">
               <div>

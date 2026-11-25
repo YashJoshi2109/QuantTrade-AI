@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import SourceUnavailableNotice from '@/components/monitor/SourceUnavailableNotice'
 import { Shield, Wifi, WifiOff, Flame, Satellite, AlertOctagon } from 'lucide-react'
 import { fetchInternetOutages, fetchEnergyData, type OutageData, type EnergyData } from '@/lib/monitor-extended-api'
 
@@ -118,6 +119,9 @@ export default function SecurityAdvisoriesPanel() {
               <span className="text-[9px] text-fg-muted uppercase tracking-wider font-bold">ENERGY MARKETS</span>
             </div>
             <div className="space-y-1">
+              {!(energyData?.data || []).length && (
+                <SourceUnavailableNotice compact detail="EIA energy prices are unavailable right now." />
+              )}
               {(energyData?.data || []).slice(0, 5).map((e) => (
                 <div key={e.series_id} className="flex items-center justify-between px-2 py-1.5 rounded-md bg-surface-raised/60 border border-line-subtle">
                   <span className="text-[10px] text-fg-secondary truncate max-w-[55%]">{e.name}</span>

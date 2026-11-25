@@ -1165,7 +1165,12 @@ export async function fetchIpoCalendar(): Promise<IpoCalendarEntry[]> {
       exchange: row.exchange != null ? String(row.exchange) : null,
       status: row.status != null ? String(row.status) : null,
       price: row.price != null ? String(row.price) : null,
-      shares: typeof row.numberOfShares === 'number' ? row.numberOfShares : null,
+      shares:
+        typeof row.shares === 'number'
+          ? row.shares
+          : typeof row.numberOfShares === 'number'
+            ? row.numberOfShares
+            : null,
     }))
   } catch {
     return []
@@ -1184,34 +1189,6 @@ export interface MarketIndex {
   proxy_symbol?: string
   /** Price is an index level in points (render without a currency symbol). */
   is_index_level?: boolean
-}
-
-/**
- * Last-resort ETF fallback when no index levels are available. The ETF price is
- * labelled as the ETF (e.g. "SPY (S&P 500 ETF)"), never as the index level.
- */
-async function fetchEtfProxyIndices(): Promise<MarketIndex[]> {
-  const proxies = [
-    { etf: 'SPY', label: 'S&P 500 ETF' },
-    { etf: 'QQQ', label: 'Nasdaq-100 ETF' },
-    { etf: 'DIA', label: 'Dow Jones ETF' },
-  ]
-  try {
-    const quotes = await Promise.all(proxies.map((p) => fetchQuote(p.etf, 'normal')))
-    return quotes.map((q, i) => ({
-      symbol: proxies[i].etf,
-      name: `${proxies[i].etf} (${proxies[i].label})`,
-      price: q.price,
-      change: q.change,
-      change_percent: q.change_percent,
-      timestamp: q.timestamp,
-      is_proxy: true,
-      proxy_symbol: proxies[i].etf,
-      is_index_level: false,
-    }))
-  } catch {
-    return []
-  }
 }
 
 const MARKETS_OVERVIEW_INDEX_SYMBOLS =
@@ -1264,17 +1241,16 @@ export async function fetchMarketIndices(): Promise<MarketIndex[]> {
     const response = await fetch(`${API_URL}/api/v1/enhanced/market-indices`)
     const data = await parseJsonSafe<MarketIndex[]>(response)
     if (data && Array.isArray(data) && data.length > 0) {
-      // If upstream returns zeros (common when yfinance blocks), fallback to liquid ETFs via quote endpoint
+      // The backend serves its DB-cached level when yfinance is blocked; all zeros = unavailable.
       const allZero = data.every((i) => !isFiniteNumber(i.price) || i.price === 0)
       if (!allZero) return data
     }
     console.error('Failed to fetch market indices:', response.status)
-    // Last resort: ETF proxies, labelled as the ETFs (never as index levels)
-    return fetchEtfProxyIndices()
+    // No ETF substitutes (SPY/QQQ/DIA) for index levels: empty renders as "—".
+    return []
   } catch (error) {
     console.error('Error fetching market indices:', error)
-    // Last resort: ETF proxies, labelled as the ETFs (never as index levels)
-    return fetchEtfProxyIndices()
+    return []
   }
 }
 

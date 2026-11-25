@@ -7,6 +7,7 @@
  * Pure (no JSX) so it is unit-testable and shared by desktop + mobile.
  */
 import type { FundamentalsData, Indicators } from '@/lib/api'
+import { earningsTiming } from '@/lib/valuation'
 
 export type FactorBias = 'Bullish' | 'Bearish' | 'Neutral'
 export type FactorImpact = 'High' | 'Medium' | 'Low'
@@ -35,6 +36,7 @@ export function generateKeyFactors(
   indicators: Indicators | null | undefined,
   fundamentals: FundamentalsData | null | undefined,
   price: number | null | undefined,
+  now: Date = new Date(),
 ): KeyFactor[] {
   const out: KeyFactor[] = []
   const ind = indicators?.indicators
@@ -197,10 +199,15 @@ export function generateKeyFactors(
     })
   }
 
-  // ── Event: upcoming earnings ──────────────────────────────────────────
-  if (fd?.earnings_date) {
-    out.push({ id: 'earnings', category: 'Event', icon: 'event', title: 'Earnings Event', impact: 'High', bias: 'Neutral', strength: 60,
-      description: `Next earnings: ${fd.earnings_date}. Expect larger price moves around the report.` })
+  // ── Event: earnings (only a future date is "next"; a past one is "last reported") ─
+  const et = earningsTiming(fd?.earnings_date, now)
+  if (et?.kind === 'upcoming') {
+    const soon = et.days <= 14
+    out.push({ id: 'earnings', category: 'Event', icon: 'event', title: 'Earnings Event', impact: soon ? 'High' : 'Medium', bias: 'Neutral', strength: clamp(soon ? 75 - et.days : 40),
+      description: `Next earnings: ${et.label}${et.days === 0 ? ' (today)' : ` (in ${et.days} day${et.days === 1 ? '' : 's'})`}. Expect larger price moves around the report.` })
+  } else if (et?.kind === 'reported' && et.days <= 100) {
+    out.push({ id: 'earnings', category: 'Event', icon: 'event', title: 'Earnings Reported', impact: 'Low', bias: 'Neutral', strength: 20,
+      description: `Last reported: ${et.label} (${et.days} day${et.days === 1 ? '' : 's'} ago). Next date not yet confirmed.` })
   }
 
   return out.sort((a, b) => IMPACT_RANK[a.impact] - IMPACT_RANK[b.impact] || b.strength - a.strength)
