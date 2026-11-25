@@ -329,7 +329,7 @@ jobs:
             echo "DEBUG=false" >> .env
             echo "LOG_LEVEL=INFO" >> .env
             echo "PREFER_OPENAI=1" >> .env
-            echo "AWS_REGION=us-east-1" >> .env
+            echo "AWS_REGION=us-east-2" >> .env
             echo "# === WebAuthn / Passkey (required for production verification) ===" >> .env
             echo "WEBAUTHN_RP_ID=quanttrade.us" >> .env
             echo "WEBAUTHN_ORIGIN=https://www.quanttrade.us" >> .env
@@ -343,11 +343,9 @@ jobs:
             echo "✅ .env written with $(wc -l < .env) lines"
             
             # Debug: verify critical secrets arrived
-            if grep -q "^DATABASE_URL=" .env; then
-              echo "✅ DATABASE_URL is present in .env"
-            else
-              echo "❌ DATABASE_URL is MISSING from .env — check GitHub Secrets!"
-            fi
+            # DATABASE_URL is NOT expected in .env — backend/celery load it from AWS Secrets Manager.
+            # Single line that always exits 0: script_stop aborts on any non-zero command.
+            echo "ℹ️ DATABASE_URL source: AWS Secrets Manager (quanttrade/backend); in .env: $(grep -c '^DATABASE_URL=' .env || true)"
             
             # ===== STOP SYSTEM SERVICES THAT MAY USE PORT 80/443 =====
             echo "🛑 Stopping any system nginx/apache..."
