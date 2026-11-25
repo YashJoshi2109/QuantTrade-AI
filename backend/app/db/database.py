@@ -15,6 +15,23 @@ if settings.DATABASE_URL:
     if database_url.startswith("postgresql://") and "+psycopg" not in database_url:
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
     import os
+    from urllib.parse import urlsplit
+
+    # Local development must never talk to a shared/prod database: a local run
+    # would hold prod connections and write prod rows. APP_ENV=development
+    # (set by docker-compose.dev.yml and backend/.env.local.example) enforces it.
+    _LOCAL_DB_HOSTS = {"localhost", "127.0.0.1", "::1", "postgres", "db", "host.docker.internal"}
+    _db_host = (urlsplit(database_url).hostname or "").lower()
+    if (
+        os.environ.get("APP_ENV", "").lower() in {"development", "dev", "local"}
+        and _db_host not in _LOCAL_DB_HOSTS
+        and os.environ.get("ALLOW_REMOTE_DB") != "1"
+    ):
+        raise RuntimeError(
+            f"APP_ENV=development but DATABASE_URL points at remote host {_db_host!r}. "
+            "Use the local Postgres from docker-compose.dev.yml (see docs/LOCAL_DEV.md), "
+            "or set ALLOW_REMOTE_DB=1 if you really mean it."
+        )
 
     _connect_args = {}
     # Server-side cap per statement (ms; 0 disables). One runaway query must not
