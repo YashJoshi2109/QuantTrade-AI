@@ -1,0 +1,598 @@
+{
+  "feed": {
+    "items": [
+      {
+        "id": "1000",
+        "cluster_id": "c-1000",
+        "title": "NVIDIA beats third-quarter estimates as data-center revenue jumps 94%",
+        "summary": "Revenue of $35.1B topped consensus of $33.2B; guidance implies further acceleration.",
+        "url": "https://example.com/news/1000",
+        "source": "Reuters",
+        "sources_count": 4,
+        "sources": [
+          "Reuters",
+          "Bloomberg",
+          "CNBC",
+          "MarketWatch"
+        ],
+        "published_at": "2026-11-25T14:54:00Z",
+        "ingested_at": "2026-11-25T14:54:04Z",
+        "tickers": [
+          "NVDA"
+        ],
+        "categories": [
+          "earnings",
+          "guidance"
+        ],
+        "primary_category": "earnings",
+        "sentiment": {
+          "label": "bullish",
+          "score": 0.78,
+          "confidence": 0.91
+        },
+        "impact": 88,
+        "ai": {
+          "why_it_matters": "Data-center demand is still outrunning supply, which supports AI-capex names and semiconductor suppliers into next quarter.",
+          "direction": "bullish",
+          "horizon": "days",
+          "affected_tickers": [
+            "NVDA",
+            "AMD",
+            "TSM",
+            "SMCI"
+          ]
+        },
+        "image_url": "https://picsum.photos/seed/qtnews1000/800/450"
+      },
+      {
+        "id": "1001",
+        "cluster_id": "c-1001",
+        "title": "Fed minutes show officials split on pace of December cut",
+        "summary": "Several participants favored pausing; others saw room for another 25bp reduction.",
+        "url": "https://example.com/news/1001",
+        "source": "Bloomberg",
+        "sources_count": 3,
+        "sources": [
+          "Bloomberg",
+          "WSJ",
+          "Financial Times"
+        ],
+        "published_at": "2026-11-25T14:46:00Z",
+        "ingested_at": "2026-11-25T14:46:04Z",
+        "tickers": [],
+        "categories": [
+          "macro_fed"
+        ],
+        "primary_category": "macro_fed",
+        "sentiment": {
+          "label": "bearish",
+          "score": -0.34,
+          "confidence": 0.72
+        },
+        "impact": 76,
+        "ai": {
+          "why_it_matters": "A hawkish tilt raises the odds of higher-for-longer rates, pressuring long-duration growth stocks and lifting the dollar.",
+          "direction": "bearish",
+          "horizon": "weeks",
+          "affected_tickers": [
+            "TLT",
+            "QQQ"
+          ]
+        },
+        "image_url": "https://picsum.photos/seed/qtnews1001/800/450"
+      },
+      {
+        "id": "1002",
+        "cluster_id": "c-1002",
+        "title": "Broadcom agrees to acquire networking startup for $4.2B in cash",
+        "summary": "Deal expands custom AI-networking portfolio; expected to close in Q2.",
+        "url": "https://example.com/news/1002",
+        "source": "WSJ",
+        "sources_count": 2,
+        "sources": [
+          "WSJ",
+          "Reuters"
+        ],
+        "published_at": "2026-11-25T14:38:00Z",
+        "ingested_at": "2026-11-25T14:38:04Z",
+        "tickers": [
+          "AVGO"
+        ],
+        "categories": [
+          "mna"
+        ],
+        "primary_category": "mna",
+        "sentiment": {
+          "label": "bullish",
+          "score": 0.41,
+          "confidence": 0.8
+        },
+        "impact": 64,
+        "ai": {
+          "why_it_matters": "Adds in-house switching IP that could widen Broadcom's lead in custom AI silicon.",
+          "direction": "bullish",
+          "horizon": "weeks",
+          "affected_tickers": [
+            "AVGO",
+            "ANET"
+          ]
+        },
+        "image_url": "https://picsum.photos/seed/qtnews1002/800/450"
+      },
+      {
+        "id": "1003",
+        "cluster_id": "c-1003",
+        "title": "Morgan Stanley downgrades Tesla to Equal-Weight, cuts target to $310",
+        "summary": "Analyst cites slowing EV demand and margin pressure from price cuts.",
+        "url": "https://example.com/news/1003",
+        "source": "CNBC",
+        "sources_count": 2,
+        "sources": [
+          "CNBC",
+          "Barron's"
+        ],
+        "published_at": "2026-11-25T14:29:00Z",
+        "ingested_at": "2026-11-25T14:29:04Z",
+        "tickers": [
+          "TSLA"
+        ],
+        "categories": [
+          "analyst"
+        ],
+        "primary_category": "analyst",
+        "sentiment": {
+          "label": "bearish",
+          "score": -0.56,
+          "confidence": 0.86
+        },
+        "impact": 58,
+        "ai": {
+          "why_it_matters": "A top-tier downgrade often triggers model rebalancing; watch for follow-on target cuts this week.",
+          "direction": "bearish",
+          "horizon": "days",
+          "affected_tickers": [
+            "TSLA"
+          ]
+        },
+        "image_url": "https://picsum.photos/seed/qtnews1003/800/450"
+      },
+      {
+        "id": "1004",
+        "cluster_id": "c-1004",
+        "title": "US jobless claims fall to 213,000, below forecasts",
+        "summary": "Continuing claims also declined, pointing to a resilient labor market.",
+        "url": "https://example.com/news/1004",
+        "source": "MarketWatch",
+        "sources_count": 1,
+        "sources": [
+          "MarketWatch"
+        ],
+        "published_at": "2026-11-25T14:22:00Z",
+        "ingested_at": "2026-11-25T14:22:04Z",
+        "tickers": [],
+        "categories": [
+          "economic_data",
+          "macro_fed"
+        ],
+        "primary_category": "economic_data",
+        "sentiment": {
+          "label": "neutral",
+          "score": 0.05,
+          "confidence": 0.64
+        },
+        "impact": 47,
+        "ai": null,
+        "image_url": null
+      },
+      {
+        "id": "1005",
+        "cluster_id": "c-1005",
+        "title": "Apple unveils on-device AI features for enterprise customers",
+        "summary": "New management tools aim at corporate fleets; rollout begins in January.",
+        "url": "https://example.com/news/1005",
+        "source": "The Verge",
+        "sources_count": 2,
+        "sources": [
+          "The Verge",
+          "TechCrunch"
+        ],
+        "published_at": "2026-11-25T14:15:00Z",
+        "ingested_at": "2026-11-25T14:15:04Z",
+        "tickers": [
+          "AAPL"
+        ],
+        "categories": [
+          "product_business"
+        ],
+        "primary_category": "product_business",
+        "sentiment": {
+          "label": "bullish",
+          "score": 0.22,
+          "confidence": 0.66
+        },
+        "impact": 35,
+        "ai": null,
+        "image_url": "https://picsum.photos/seed/qtnews1005/800/450"
+      },
+      {
+        "id": "1006",
+        "cluster_id": "c-1006",
+        "title": "Oil slides 3% as OPEC+ signals output increase in January",
+        "summary": "Brent fell below $72 after delegates indicated a gradual unwinding of cuts.",
+        "url": "https://example.com/news/1006",
+        "source": "Reuters",
+        "sources_count": 2,
+        "sources": [
+          "Reuters",
+          "Bloomberg"
+        ],
+        "published_at": "2026-11-25T14:08:00Z",
+        "ingested_at": "2026-11-25T14:08:04Z",
+        "tickers": [
+          "XOM",
+          "CVX"
+        ],
+        "categories": [
+          "energy_commodities",
+          "geopolitics"
+        ],
+        "primary_category": "energy_commodities",
+        "sentiment": {
+          "label": "bearish",
+          "score": -0.47,
+          "confidence": 0.79
+        },
+        "impact": 61,
+        "ai": {
+          "why_it_matters": "Lower crude is a headwind for integrated majors but eases input costs for airlines and transports.",
+          "direction": "mixed",
+          "horizon": "days",
+          "affected_tickers": [
+            "XOM",
+            "CVX",
+            "DAL",
+            "UAL"
+          ]
+        },
+        "image_url": "https://picsum.photos/seed/qtnews1006/800/450"
+      },
+      {
+        "id": "1007",
+        "cluster_id": "c-1007",
+        "title": "Microsoft raises quarterly dividend 10% and authorizes $60B buyback",
+        "summary": "Board approved the program with no expiration date.",
+        "url": "https://example.com/news/1007",
+        "source": "Yahoo Finance",
+        "sources_count": 1,
+        "sources": [
+          "Yahoo Finance"
+        ],
+        "published_at": "2026-11-25T13:57:00Z",
+        "ingested_at": "2026-11-25T13:57:04Z",
+        "tickers": [
+          "MSFT"
+        ],
+        "categories": [
+          "capital_return"
+        ],
+        "primary_category": "capital_return",
+        "sentiment": {
+          "label": "bullish",
+          "score": 0.36,
+          "confidence": 0.83
+        },
+        "impact": 44,
+        "ai": null,
+        "image_url": "https://picsum.photos/seed/qtnews1007/800/450"
+      },
+      {
+        "id": "1008",
+        "cluster_id": "c-1008",
+        "title": "SEC sues crypto lender over unregistered securities offering",
+        "summary": "Complaint alleges misleading statements to retail investors.",
+        "url": "https://example.com/news/1008",
+        "source": "Bloomberg",
+        "sources_count": 2,
+        "sources": [
+          "Bloomberg",
+          "CoinDesk"
+        ],
+        "published_at": "2026-11-25T13:43:00Z",
+        "ingested_at": "2026-11-25T13:43:04Z",
+        "tickers": [
+          "COIN"
+        ],
+        "categories": [
+          "regulatory_legal",
+          "crypto"
+        ],
+        "primary_category": "regulatory_legal",
+        "sentiment": {
+          "label": "bearish",
+          "score": -0.29,
+          "confidence": 0.7
+        },
+        "impact": 39,
+        "ai": null,
+        "image_url": null
+      },
+      {
+        "id": "1009",
+        "cluster_id": "c-1009",
+        "title": "Bitcoin tops $98,000 as ETF inflows extend record streak",
+        "summary": "Spot ETFs drew $1.1B in a single session.",
+        "url": "https://example.com/news/1009",
+        "source": "CoinDesk",
+        "sources_count": 2,
+        "sources": [
+          "CoinDesk",
+          "The Block"
+        ],
+        "published_at": "2026-11-25T13:36:00Z",
+        "ingested_at": "2026-11-25T13:36:04Z",
+        "tickers": [
+          "IBIT",
+          "COIN",
+          "MSTR"
+        ],
+        "categories": [
+          "crypto"
+        ],
+        "primary_category": "crypto",
+        "sentiment": {
+          "label": "bullish",
+          "score": 0.52,
+          "confidence": 0.75
+        },
+        "impact": 55,
+        "ai": null,
+        "image_url": "https://picsum.photos/seed/qtnews1009/800/450"
+      },
+      {
+        "id": "1010",
+        "cluster_id": "c-1010",
+        "title": "Fintech firm files for Nasdaq IPO targeting $6B valuation",
+        "summary": "Plans to list; Goldman and JPMorgan lead underwriters.",
+        "url": "https://example.com/news/1010",
+        "source": "Reuters",
+        "sources_count": 1,
+        "sources": [
+          "Reuters"
+        ],
+        "published_at": "2026-11-25T13:24:00Z",
+        "ingested_at": "2026-11-25T13:24:04Z",
+        "tickers": [],
+        "categories": [
+          "ipo_offering"
+        ],
+        "primary_category": "ipo_offering",
+        "sentiment": {
+          "label": "neutral",
+          "score": 0.08,
+          "confidence": 0.6
+        },
+        "impact": 30,
+        "ai": null,
+        "image_url": null
+      },
+      {
+        "id": "1011",
+        "cluster_id": "c-1011",
+        "title": "Walmart lifts full-year outlook on strong holiday traffic",
+        "summary": "Comparable sales rose 5.3%, beating estimates; e-commerce grew 22%.",
+        "url": "https://example.com/news/1011",
+        "source": "CNBC",
+        "sources_count": 3,
+        "sources": [
+          "CNBC",
+          "Reuters",
+          "Bloomberg"
+        ],
+        "published_at": "2026-11-25T13:10:00Z",
+        "ingested_at": "2026-11-25T13:10:04Z",
+        "tickers": [
+          "WMT"
+        ],
+        "categories": [
+          "earnings",
+          "guidance"
+        ],
+        "primary_category": "guidance",
+        "sentiment": {
+          "label": "bullish",
+          "score": 0.61,
+          "confidence": 0.88
+        },
+        "impact": 72,
+        "ai": {
+          "why_it_matters": "A guidance raise from the largest US retailer signals healthy consumer spending into the holidays.",
+          "direction": "bullish",
+          "horizon": "weeks",
+          "affected_tickers": [
+            "WMT",
+            "TGT",
+            "COST"
+          ]
+        },
+        "image_url": "https://picsum.photos/seed/qtnews1011/800/450"
+      }
+    ],
+    "category_counts": {
+      "all": 12,
+      "analyst": 1,
+      "capital_return": 1,
+      "crypto": 2,
+      "earnings": 2,
+      "economic_data": 1,
+      "energy_commodities": 1,
+      "geopolitics": 1,
+      "guidance": 2,
+      "ipo_offering": 1,
+      "macro_fed": 2,
+      "mna": 1,
+      "product_business": 1,
+      "regulatory_legal": 1
+    },
+    "as_of": "2026-11-25T15:00:00Z"
+  },
+  "categories": [
+    {
+      "key": "earnings",
+      "label": "Earnings",
+      "description": "Earnings"
+    },
+    {
+      "key": "guidance",
+      "label": "Guidance",
+      "description": "Guidance"
+    },
+    {
+      "key": "mna",
+      "label": "M&A",
+      "description": "M&A"
+    },
+    {
+      "key": "analyst",
+      "label": "Analyst",
+      "description": "Analyst"
+    },
+    {
+      "key": "macro_fed",
+      "label": "Macro / Fed",
+      "description": "Macro / Fed"
+    },
+    {
+      "key": "economic_data",
+      "label": "Economic Data",
+      "description": "Economic Data"
+    },
+    {
+      "key": "regulatory_legal",
+      "label": "Regulatory / Legal",
+      "description": "Regulatory / Legal"
+    },
+    {
+      "key": "ipo_offering",
+      "label": "IPO / Offering",
+      "description": "IPO / Offering"
+    },
+    {
+      "key": "capital_return",
+      "label": "Buybacks / Dividends",
+      "description": "Buybacks / Dividends"
+    },
+    {
+      "key": "product_business",
+      "label": "Product / Business",
+      "description": "Product / Business"
+    },
+    {
+      "key": "energy_commodities",
+      "label": "Energy / Commodities",
+      "description": "Energy / Commodities"
+    },
+    {
+      "key": "crypto",
+      "label": "Crypto",
+      "description": "Crypto"
+    },
+    {
+      "key": "geopolitics",
+      "label": "Geopolitics",
+      "description": "Geopolitics"
+    },
+    {
+      "key": "other",
+      "label": "Other",
+      "description": "Other"
+    }
+  ],
+  "push": {
+    "type": "news",
+    "item": {
+      "id": "2001",
+      "cluster_id": "c-2001",
+      "title": "AMD wins multi-year AI accelerator deal with hyperscaler",
+      "summary": "Agreement covers MI350 deployments starting mid-2027.",
+      "url": "https://example.com/news/2001",
+      "source": "Bloomberg",
+      "sources_count": 2,
+      "sources": [
+        "Bloomberg",
+        "Reuters"
+      ],
+      "published_at": "2026-11-25T15:01:00Z",
+      "ingested_at": "2026-11-25T15:01:03Z",
+      "tickers": [
+        "AMD"
+      ],
+      "categories": [
+        "product_business"
+      ],
+      "primary_category": "product_business",
+      "sentiment": {
+        "label": "bullish",
+        "score": 0.66,
+        "confidence": 0.84
+      },
+      "impact": 69,
+      "ai": {
+        "why_it_matters": "A hyperscaler commitment validates AMD's roadmap as a second source to NVIDIA.",
+        "direction": "bullish",
+        "horizon": "weeks",
+        "affected_tickers": [
+          "AMD",
+          "NVDA"
+        ]
+      },
+      "image_url": "https://picsum.photos/seed/qtnews2001/800/450"
+    }
+  },
+  "legacy_breaking": [
+    {
+      "id": 1,
+      "title": "Stocks edge higher as Treasury yields ease",
+      "content": "The S&P 500 rose 0.4% in early trading.",
+      "source": "Yahoo Finance",
+      "url": "https://example.com/legacy/1",
+      "published_at": "2026-11-25T14:50:00Z",
+      "sentiment": "Bullish",
+      "thumbnail": "https://picsum.photos/seed/qtlegacy1/400/300",
+      "related_tickers": [
+        "SPY"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Retail sales miss forecasts in October",
+      "content": null,
+      "source": "MarketWatch",
+      "url": "https://example.com/legacy/2",
+      "published_at": "2026-11-25T14:55:00Z",
+      "sentiment": "Bearish",
+      "related_tickers": []
+    },
+    {
+      "id": 3,
+      "title": "Retail sales miss forecasts in October",
+      "content": null,
+      "source": "MarketWatch",
+      "url": "https://example.com/legacy/2",
+      "published_at": "2026-11-25T14:55:00Z",
+      "sentiment": "Bearish",
+      "related_tickers": []
+    },
+    {
+      "id": 4,
+      "title": "Gold steady near record",
+      "content": null,
+      "source": "Reuters",
+      "url": "https://example.com/legacy/4",
+      "published_at": "2026-11-25T14:30:00Z",
+      "sentiment": null,
+      "related_tickers": [
+        "GLD"
+      ]
+    }
+  ]
+}

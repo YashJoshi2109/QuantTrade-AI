@@ -11,7 +11,6 @@ import {
   TrendingUp,
   TrendingDown,
   ArrowRight,
-  FileText,
   BarChart3,
   Zap,
 } from 'lucide-react'
@@ -33,7 +32,9 @@ import {
   SectorPerformance,
   SearchResult,
 } from '@/lib/api'
-import { useBreakingNews } from '@/hooks/useRealtimeNews'
+import { useNewsFeed } from '@/hooks/useNewsFeed'
+import NewsFeedCard from '@/components/news/NewsFeedCard'
+import { NewsLiveStatus } from '@/components/news/NewsLiveStatus'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { computeBreadth } from '@/lib/marketBreadth'
 import { formatLevelOrPrice, isIndexLevel } from '@/lib/quoteDisplay'
@@ -197,7 +198,9 @@ export default function MobileDashboard() {
     staleTime: 30000,
   })
 
-  const { data: breakingNews, isLoading: newsLoading } = useBreakingNews(10, 45000)
+  // Same cache entry as desktop home + MarketNewsGrid (unified feed, latest, limit 50).
+  const breakingFeed = useNewsFeed({ limit: 50 })
+  const newsLoading = breakingFeed.isLoading
   const { data: predictionAlerts = [] } = useQuery({
     queryKey: ['predictionAlerts'],
     queryFn: () => fetchPredictionAlerts(0.65, 2.0),
@@ -590,6 +593,7 @@ export default function MobileDashboard() {
               <p className="text-[10px] text-fg-muted">Live stories moving the market</p>
             </div>
           </div>
+          <NewsLiveStatus feed={breakingFeed} />
         </div>
         <div className="space-y-2">
           {newsLoading &&
@@ -600,57 +604,19 @@ export default function MobileDashboard() {
               />
             ))}
           {!newsLoading &&
-            breakingNews?.slice(0, 6).map((article, idx) => {
-              const sentiment = (article.sentiment || '').toLowerCase()
-              const sentimentColor =
-                sentiment === 'bullish'
-                  ? 'text-emerald-400'
-                  : sentiment === 'bearish'
-                  ? 'text-red-400'
-                  : 'text-fg-secondary'
-              const dotColor =
-                sentiment === 'bullish'
-                  ? 'bg-emerald-400'
-                  : sentiment === 'bearish'
-                  ? 'bg-red-400'
-                  : 'bg-line-default'
-
-              return (
-                <a
-                  key={article.url || `${article.title}-${idx}`}
-                  href={article.url || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 rounded-2xl bg-surface-raised border border-line-subtle p-3 active:scale-[0.98] transition-transform"
-                >
-                  <div className="h-8 w-8 rounded-xl bg-surface-base flex items-center justify-center border border-line-subtle">
-                    <FileText className="w-4 h-4 text-fg-secondary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 text-[9px] mb-0.5">
-                      {article.source && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-surface-base text-[#00D9FF] border border-[#00D9FF]/30">
-                          {article.source}
-                        </span>
-                      )}
-                      <span className="text-fg-muted">
-                        {new Date(article.published_at).toLocaleTimeString(undefined, {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-                    <p className="text-[12px] text-fg-primary line-clamp-2">{article.title}</p>
-                    <div className="mt-1 flex items-center gap-1.5 text-[10px]">
-                      <span className={`flex items-center gap-1 ${sentimentColor}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
-                        {sentiment ? sentiment.charAt(0).toUpperCase() + sentiment.slice(1) : 'Neutral'}
-                      </span>
-                    </div>
-                  </div>
-                </a>
-              )
-            })}
+            breakingFeed.items.slice(0, 6).map((item) => (
+              <NewsFeedCard
+                key={item.cluster_id}
+                item={item}
+                variant="compact"
+                isNew={breakingFeed.newIds.has(item.cluster_id)}
+              />
+            ))}
+          {!newsLoading && breakingFeed.items.length === 0 && (
+            <p className="rounded-2xl border border-line-subtle bg-surface-raised p-3 text-[11px] text-fg-muted">
+              {breakingFeed.isError ? 'News is temporarily unavailable.' : 'No stories right now.'}
+            </p>
+          )}
         </div>
       </section>
 

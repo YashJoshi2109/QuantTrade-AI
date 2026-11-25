@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 import {
   TrendingUp, TrendingDown, Minus, FileText, Calendar, Users, Globe,
-  BarChart2, Newspaper, ExternalLink, ChevronDown, ChevronUp, Clock,
+  BarChart2, ExternalLink, ChevronDown, ChevronUp, Clock,
   AlertCircle, Loader2,
 } from 'lucide-react'
 
@@ -310,52 +310,6 @@ export function InsiderTransactionsPanel({ symbol }: { symbol: string }) {
               </div>
             )
           })}
-        </div>
-      )}
-    </PanelShell>
-  )
-}
-
-// ─── Company News Panel ───────────────────────────────────────────────────────
-interface FinnhubNews {
-  id: number; headline: string; summary: string; source: string
-  datetime: number; url: string; image?: string; category?: string
-}
-
-export function CompanyNewsPanel({ symbol }: { symbol: string }) {
-  const { data = [], isLoading } = useFinnh<FinnhubNews[]>('company-news', symbol)
-
-  return (
-    <PanelShell
-      icon={<Newspaper className="w-4 h-4 text-cyan-400" />}
-      title="Company News"
-      badge="Finnhub · 7d"
-    >
-      {isLoading ? <Spinner /> : !data.length ? <Empty msg="No recent news" /> : (
-        <div className="divide-y divide-slate-800/40">
-          {data.slice(0, 15).map((n) => (
-            <a
-              key={n.id}
-              href={n.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block px-4 py-3 hover:bg-surface-raised/30 transition-colors group"
-            >
-              <div className="flex items-start gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-slate-200 group-hover:text-white leading-snug line-clamp-2">
-                    {n.headline}
-                  </div>
-                  <div className="flex items-center gap-2 mt-1 text-[10px] text-fg-muted font-mono">
-                    <span>{n.source}</span>
-                    <span>·</span>
-                    <span>{new Date(n.datetime * 1000).toLocaleDateString()}</span>
-                  </div>
-                </div>
-                <ExternalLink className="w-3 h-3 shrink-0 text-fg-muted group-hover:text-blue-400 mt-0.5" />
-              </div>
-            </a>
-          ))}
         </div>
       )}
     </PanelShell>

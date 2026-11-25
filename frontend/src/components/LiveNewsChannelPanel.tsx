@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Radio,
@@ -16,8 +15,9 @@ import {
   Filter,
   ChevronDown,
 } from 'lucide-react'
-import { fetchLiveMarketHeadlines, type NewsArticle } from '@/lib/api'
-import { useBreakingNews } from '@/hooks/useRealtimeNews'
+import type { NewsArticle } from '@/lib/api'
+import { useNewsFeed } from '@/hooks/useNewsFeed'
+import { feedItemToNewsArticle } from '@/lib/newsFeed'
 import type { Continent } from '@/lib/world-exchanges'
 import Link from 'next/link'
 
@@ -192,33 +192,26 @@ function NewsCardItem({ item, index }: { item: NewsArticle; index: number }) {
   )
 }
 
-function normalizeNewsData(data: unknown): NewsArticle[] {
-  if (Array.isArray(data)) return data as NewsArticle[]
-  if (data && typeof data === 'object' && Array.isArray((data as { articles?: unknown }).articles)) {
-    return (data as { articles: NewsArticle[] }).articles
-  }
-  return []
-}
-
 export default function LiveNewsChannelPanel({ continent }: { continent?: Continent }) {
   const [sentimentFilter, setSentimentFilter] = useState<SentimentFilter>('all')
   const [filterOpen, setFilterOpen] = useState(false)
 
-  const headlineContext = useMemo(
-    () => (continent ? { continent } : undefined),
-    [continent]
-  )
+  // Unified feed: sentiment is the model label and the filter runs server-side.
+  // `continent` is kept for API compatibility; the unified feed is global.
+  void continent
+  const allFeed = useNewsFeed({ limit: 50 })
+  const filteredFeed = useNewsFeed({
+    limit: 50,
+    sentiment: sentimentFilter === 'all' ? null : (sentimentFilter.toLowerCase() as 'bullish' | 'bearish' | 'neutral'),
+    enabled: sentimentFilter !== 'all',
+  })
+  const activeFeed = sentimentFilter === 'all' ? allFeed : filteredFeed
+  const { isLoading, isFetching, refetch } = activeFeed
 
-  const { data, isLoading, isFetching, refetch } = useBreakingNews(25, 45_000, headlineContext)
+  const news = useMemo(() => allFeed.items.map(feedItemToNewsArticle), [allFeed.items])
+  const filteredNews = useMemo(() => activeFeed.items.map(feedItemToNewsArticle), [activeFeed.items])
 
-  const news = useMemo(() => normalizeNewsData(data), [data])
-
-  const filteredNews = useMemo(() => {
-    if (sentimentFilter === 'all') return news
-    return news.filter((n) => n.sentiment === sentimentFilter)
-  }, [news, sentimentFilter])
-
-  // Sentiment counts for filter badges
+  // Sentiment counts for filter badges (model labels)
   const sentimentCounts = useMemo(() => {
     const counts = { Bullish: 0, Bearish: 0, Neutral: 0 }
     news.forEach((n) => {
@@ -261,7 +254,7 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
               {continent && continent !== 'global'
                 ? `${continent.charAt(0).toUpperCase() + continent.slice(1)} market news`
                 : 'Global breaking market news'}{' '}
-              · {news.length} articles · auto-refresh 45s
+              · {news.length} articles · {allFeed.isLive ? 'live' : 'auto-refresh 60s'}
             </span>
           </div>
         </div>
@@ -408,7 +401,7 @@ export default function LiveNewsChannelPanel({ continent }: { continent?: Contin
                 : 'No news available'}
             </p>
             <p className="text-[11px] text-fg-muted mt-1">
-              Auto-refresh in 45s or click refresh
+              Updates arrive automatically, or click refresh
             </p>
           </div>
         )}

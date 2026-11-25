@@ -87,12 +87,18 @@ module.exports = {
           '0%': { transform: 'translateX(-100%) skewX(-12deg)' },
           '100%': { transform: 'translateX(200%) skewX(-12deg)' },
         },
+        newsArrive: {
+          '0%': { opacity: '0', transform: 'translateY(-6px)', boxShadow: '0 0 0 1px rgba(56,189,248,0.55), 0 0 24px -6px rgba(56,189,248,0.45)' },
+          '15%': { opacity: '1', transform: 'translateY(0)' },
+          '100%': { boxShadow: '0 0 0 1px rgba(56,189,248,0), 0 0 0 0 rgba(56,189,248,0)' },
+        },
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-out',
         'slide-up': 'slideUp 0.4s ease-out',
         'research-flow': 'researchFlow 16s ease-in-out infinite',
         'research-sheen': 'researchSheen 4.5s ease-in-out infinite',
+        'news-arrive': 'newsArrive 6s ease-out both',
       },
     },
   },
