@@ -126,35 +126,6 @@ export async function login(email: string, password: string, turnstileToken?: st
   return data
 }
 
-export async function googleLogin(
-  googleId: string,
-  email: string,
-  name: string,
-  avatarUrl?: string
-): Promise<AuthResponse> {
-  const response = await fetch(`${API_URL}/api/v1/auth/google`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({
-      google_id: googleId,
-      email,
-      name,
-      avatar_url: avatarUrl
-    })
-  })
-  
-  if (!response.ok) {
-    const error = await parseErrorJson(response)
-    throw new Error(error.detail || 'Google login failed')
-  }
-  
-  const data: AuthResponse = await response.json()
-  setToken(data.access_token)
-  setUser(data.user)
-  return data
-}
-
 export async function googleVerify(credential: string): Promise<AuthResponse> {
   const response = await fetch(`${API_URL}/api/v1/auth/google/verify`, {
     method: 'POST',
