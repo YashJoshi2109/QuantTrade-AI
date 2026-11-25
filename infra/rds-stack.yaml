@@ -30,6 +30,10 @@ Parameters:
   MasterUsername:
     Type: String
     Default: quantadmin
+  BackupRetentionPeriod:
+    Type: Number
+    Default: 7
+    Description: Days of automated backups (AWS Free Tier accounts allow at most 1)
 
 Resources:
   DBSubnetGroup:
@@ -83,7 +87,7 @@ Resources:
       MultiAZ: false
       PubliclyAccessible: true
       Port: 5432
-      BackupRetentionPeriod: 7
+      BackupRetentionPeriod: !Ref BackupRetentionPeriod
       CopyTagsToSnapshot: true
       DeletionProtection: true
       DBSubnetGroupName: !Ref DBSubnetGroup

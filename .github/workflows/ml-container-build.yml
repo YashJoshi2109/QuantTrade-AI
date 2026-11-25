@@ -16,7 +16,7 @@ permissions:
 
 env:
   AWS_REGION: us-east-2
-  ECR_REGISTRY: 688282503628.dkr.ecr.us-east-2.amazonaws.com
+  ECR_REGISTRY: 208638972407.dkr.ecr.us-east-2.amazonaws.com
   ECR_REPOSITORY: quanttrade-ml-training
 
 jobs:
