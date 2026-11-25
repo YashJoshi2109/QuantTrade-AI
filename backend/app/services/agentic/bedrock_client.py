@@ -81,6 +81,9 @@ COPILOT_MODEL_PRIMARY   = _env("COPILOT_MODEL_PRIMARY", "us.anthropic.claude-son
 COPILOT_MODEL_FALLBACK  = _env("COPILOT_MODEL_FALLBACK", "us.anthropic.claude-sonnet-4-6")
 COPILOT_MODEL_ANTHROPIC = _env("COPILOT_MODEL_ANTHROPIC", "claude-sonnet-5")
 COPILOT_MODEL_OPENAI    = _env("COPILOT_MODEL_OPENAI", "gpt-4o")
+# Direct Anthropic API fallbacks for the helper factories (accept temperature).
+ANTHROPIC_HAIKU_MODEL   = _env("ANTHROPIC_HAIKU_MODEL", "claude-haiku-4-5-20251001")
+ANTHROPIC_SONNET_MODEL  = _env("ANTHROPIC_SONNET_MODEL", "claude-sonnet-4-6")
 
 # Amazon Nova — opt-in Bedrock-native alternatives
 BEDROCK_NOVA_MICRO_MODEL = "amazon.nova-micro-v1:0"
@@ -112,6 +115,105 @@ def _guard(provider: str, model: str, max_tokens: int):
     return [GuardCallbackHandler(provider, model, max_tokens, ctx=current_context())]
 
 
+# ─── Bedrock circuit breaker ──────────────────────────────────────────────────
+# "Model use case details have not been submitted", AccessDenied, an unknown /
+# non-profile model id ... are not transient: every request would pay a failed
+# Bedrock round-trip before falling back.  Such a model is marked unavailable
+# for BEDROCK_BREAKER_TTL_S (default 600s) in-process and in Redis (via the
+# ai_guard cache), and the chains skip it.  Throttling only falls back.
+
+BREAKER_TTL_S = int(os.getenv("BEDROCK_BREAKER_TTL_S", "600"))
+_breaker: dict[str, float] = {}
+_NOT_ENABLED_MARKERS = (
+    "resourcenotfoundexception", "accessdeniedexception", "use case details", "model access",
+    "not authorized", "don't have access", "do not have access", "on-demand throughput",
+    "model identifier is invalid", "invalid model identifier", "unrecognizedclientexception",
+)
+
+
+def _breaker_key(model_id: str) -> str:
+    return f"bedrock_down:{model_id}"
+
+
+def is_model_not_enabled_error(exc: BaseException) -> bool:
+    code = ""
+    resp = getattr(exc, "response", None)
+    if isinstance(resp, dict):
+        code = str((resp.get("Error") or {}).get("Code") or "")
+    text = f"{type(exc).__name__} {code} {exc}".lower()
+    if code == "ValidationException" or "validationexception" in text:
+        return any(m in text for m in ("model", "inference profile", "on-demand"))
+    return any(m in text for m in _NOT_ENABLED_MARKERS)
+
+
+def mark_bedrock_unavailable(model_id: str, exc: BaseException | None = None) -> None:
+    import time as _t
+    already = _breaker.get(model_id, 0) > _t.monotonic()
+    _breaker[model_id] = _t.monotonic() + BREAKER_TTL_S
+    try:
+        from app.services import ai_guard
+        ai_guard.cache_set(_breaker_key(model_id), str(exc)[:200] if exc else "down", BREAKER_TTL_S)
+    except Exception:
+        pass
+    if not already:
+        logger.error("Bedrock model %s unavailable (%s); skipping it for %ss",
+                     model_id, (str(exc) or type(exc).__name__)[:200] if exc else "marked", BREAKER_TTL_S)
+
+
+def bedrock_model_available(model_id: str) -> bool:
+    import time as _t
+    until = _breaker.get(model_id)
+    if until is not None:
+        if until > _t.monotonic():
+            return False
+        _breaker.pop(model_id, None)
+    try:
+        from app.services import ai_guard
+        if ai_guard.cache_get(_breaker_key(model_id)) is not None:   # another worker tripped it
+            _breaker[model_id] = _t.monotonic() + 60
+            return False
+    except Exception:
+        pass
+    return True
+
+
+def reset_breaker() -> None:
+    _breaker.clear()
+
+
+try:
+    from langchain_core.callbacks import BaseCallbackHandler as _BreakerBase
+except Exception:  # pragma: no cover
+    _BreakerBase = object  # type: ignore[assignment,misc]
+
+
+class BedrockBreakerCallback(_BreakerBase):  # type: ignore[misc,valid-type]
+    """Trips the breaker when a Bedrock call fails with a not-enabled error
+    (invoke and stream both report through on_llm_error)."""
+
+    def __init__(self, model_id: str) -> None:
+        self.model_id = model_id
+
+    def on_llm_error(self, error, **kwargs):  # noqa: D401
+        if is_model_not_enabled_error(error):
+            mark_bedrock_unavailable(self.model_id, error)
+
+
+def fallback_exceptions() -> tuple:
+    """Provider errors that should fall over to the next provider.  AIQuotaError
+    (budget / rate limit) is deliberately NOT included: it must surface."""
+    out: list = [TimeoutError, ConnectionError]
+    for mod, names in (("botocore.exceptions", ("ClientError", "BotoCoreError")),
+                       ("anthropic", ("APIError",)), ("openai", ("APIError",)),
+                       ("httpx", ("HTTPError",))):
+        try:
+            m = __import__(mod, fromlist=list(names))
+            out += [getattr(m, n) for n in names if hasattr(m, n)]
+        except Exception:
+            pass
+    return tuple(out)
+
+
 def _timeout() -> int:
     from app.services.ai_guard import io_caps
     return io_caps()["timeout_s"]
@@ -128,7 +230,7 @@ def _bedrock_llm(model_id: str, temperature: float | None, max_tokens: int, stre
         temperature=temperature,
         max_tokens=max_tokens,
         config=Config(read_timeout=_timeout(), connect_timeout=10, retries={"max_attempts": 2}),
-        callbacks=_guard("bedrock", model_id, max_tokens),
+        callbacks=_guard("bedrock", model_id, max_tokens) + [BedrockBreakerCallback(model_id)],
     )
 
 
@@ -185,22 +287,41 @@ def _pick_llm(
     temperature: float,
     max_tokens: int,
     streaming: bool,
+    anthropic_model: str | None = None,
 ):
-    """
-    Bedrock → OpenAI → OpenRouter fallback chain.
-    PREFER_OPENAI=1 skips Bedrock.
-    Bedrock uses the boto3 credential chain (IAM role, env vars, ~/.aws).
-    """
-    prefer_openai = os.getenv("PREFER_OPENAI", "0").lower() in ("1", "true", "yes")
+    """Bedrock -> Anthropic API -> OpenAI -> OpenRouter, failing over at CALL time.
 
-    if not prefer_openai and _aws_credentials_available():
-        return _bedrock_llm(bedrock_model, temperature, max_tokens, streaming)
-
+    The first available provider is primary; the rest are attached with
+    ``with_fallbacks`` so a Bedrock ResourceNotFound/AccessDenied/throttle on
+    invoke OR on the first streamed chunk falls over to the next provider.
+    Every model in the chain carries its own GuardCallbackHandler, so each
+    attempt is reserved/reconciled against the right provider (a failed
+    attempt is released).  PREFER_OPENAI=1 skips Bedrock; Bedrock models
+    tripped by the circuit breaker are skipped for BEDROCK_BREAKER_TTL_S.
+    """
+    chain = []
+    if not _flag("PREFER_OPENAI") and _aws_credentials_available() and bedrock_model_available(bedrock_model):
+        chain.append(lambda: _bedrock_llm(bedrock_model, temperature, max_tokens, streaming))
+    if anthropic_model:
+        chain.append(lambda: get_llm_anthropic(anthropic_model, max_tokens=max_tokens, temperature=temperature))
     if os.getenv("OPENAI_API_KEY"):
-        return _openai_llm(openai_model, temperature, max_tokens, streaming)
-
-    # Last resort: OpenRouter
-    return _openrouter_llm(openrouter_model, temperature, max_tokens, streaming)
+        chain.append(lambda: _openai_llm(openai_model, temperature, max_tokens, streaming))
+    if os.getenv("OPENROUTER_API_KEY") or os.getenv("NEXT_PUBLIC_OPENROUTER_API_KEY") or not chain:
+        chain.append(lambda: _openrouter_llm(openrouter_model, temperature, max_tokens, streaming))
+    models = []
+    for build in chain:
+        try:
+            m = build()
+        except Exception as exc:  # e.g. missing key / package: skip this provider
+            logger.warning("LLM provider unavailable at build: %s", exc)
+            m = None
+        if m is not None:
+            models.append(m)
+    if not models:
+        raise RuntimeError("No LLM provider configured (Bedrock, ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY).")
+    if len(models) == 1:
+        return models[0]
+    return models[0].with_fallbacks(models[1:], exceptions_to_handle=fallback_exceptions())
 
 
 # ─── Public LLM factories ─────────────────────────────────────────────────────
@@ -222,6 +343,7 @@ def get_llm_sonnet(streaming: bool = True):
         temperature=0.1,
         max_tokens=_caps()["max_tokens_sonnet"],
         streaming=streaming,
+        anthropic_model=ANTHROPIC_SONNET_MODEL,
     )
 
 
@@ -243,36 +365,51 @@ def get_llm_haiku(streaming: bool = False, max_tokens: int | None = None):
         temperature=0.0,
         max_tokens=min(max_tokens or cap, cap),
         streaming=streaming,
+        anthropic_model=ANTHROPIC_HAIKU_MODEL,
     )
 
 
-ANTHROPIC_HAIKU_MODEL = "claude-haiku-4-5-20251001"
+
+
+def _anthropic_llm(model: str, max_tokens: int, temperature: float | None, streaming: bool = False):
+    """The one place a direct-Anthropic chat model is constructed (guarded)."""
+    from app.config import settings
+    from langchain_anthropic import ChatAnthropic
+    kw = {} if temperature is None else {"temperature": temperature}
+    return ChatAnthropic(
+        model=model,
+        api_key=settings.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", ""),
+        max_tokens=max_tokens,
+        timeout=_timeout(),
+        max_retries=1,
+        streaming=streaming,
+        stream_usage=True,
+        callbacks=_guard("anthropic", model, max_tokens),
+        **kw,
+    )
+
+
+def anthropic_configured() -> bool:
+    from app.config import settings
+    return bool(settings.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY"))
 
 
 def get_llm_anthropic(model: str = ANTHROPIC_HAIKU_MODEL, max_tokens: int | None = None,
                       temperature: float = 0.0):
     """Direct Anthropic API (ANTHROPIC_API_KEY), guarded like the factories above.
     Returns None when no key / package is available."""
-    from app.config import settings
-    api_key = settings.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", "")
-    if not api_key:
+    if not anthropic_configured():
         return None
     try:
-        from langchain_anthropic import ChatAnthropic
+        import langchain_anthropic  # noqa: F401
     except ImportError:
         return None
     caps = _caps()
     cap = caps["max_tokens_sonnet"] if "sonnet" in model else caps["max_tokens_haiku"]
     mt = min(max_tokens or cap, cap)
-    return ChatAnthropic(
-        model=model,
-        api_key=api_key,
-        temperature=temperature,
-        max_tokens=mt,
-        timeout=_timeout(),
-        max_retries=1,
-        callbacks=_guard("anthropic", model, mt),
-    )
+    # Sonnet 5 / newer models reject sampling params; only send temperature where accepted.
+    temp = None if any(x in model for x in ("sonnet-5", "opus-5", "haiku-5")) else temperature
+    return _anthropic_llm(model, mt, temp)
 
 
 # ─── Copilot answer-model chain ───────────────────────────────────────────────
@@ -292,10 +429,10 @@ def copilot_llm_candidates() -> list[LLMCandidate]:
     from app.config import settings
     out: list[LLMCandidate] = []
     if not _flag("PREFER_OPENAI") and _aws_credentials_available():
-        out.append(LLMCandidate("bedrock", COPILOT_MODEL_PRIMARY))
-        if COPILOT_MODEL_FALLBACK and COPILOT_MODEL_FALLBACK != COPILOT_MODEL_PRIMARY:
-            out.append(LLMCandidate("bedrock", COPILOT_MODEL_FALLBACK))
-    if settings.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY"):
+        for mid in dict.fromkeys(m for m in (COPILOT_MODEL_PRIMARY, COPILOT_MODEL_FALLBACK) if m):
+            if bedrock_model_available(mid):        # circuit breaker
+                out.append(LLMCandidate("bedrock", mid))
+    if anthropic_configured():
         out.append(LLMCandidate("anthropic", COPILOT_MODEL_ANTHROPIC))
     if os.getenv("OPENAI_API_KEY"):
         out.append(LLMCandidate("openai", COPILOT_MODEL_OPENAI))
@@ -310,18 +447,7 @@ def build_copilot_llm(candidate: LLMCandidate, max_tokens: int | None = None):
     if candidate.provider == "bedrock":
         return _bedrock_llm(candidate.model, None, mt, True)
     if candidate.provider == "anthropic":
-        from app.config import settings
-        from langchain_anthropic import ChatAnthropic
-        return ChatAnthropic(
-            model=candidate.model,
-            api_key=settings.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", ""),
-            max_tokens=mt,
-            timeout=_timeout(),
-            max_retries=1,
-            streaming=True,
-            stream_usage=True,
-            callbacks=_guard("anthropic", candidate.model, mt),
-        )
+        return _anthropic_llm(candidate.model, mt, None, streaming=True)
     if candidate.provider == "openai":
         return _openai_llm(candidate.model, 0.1, mt, True)
     raise ValueError(f"unknown provider {candidate.provider}")

@@ -13,6 +13,25 @@ FAKE_AWS = {"AWS_ACCESS_KEY_ID": "AKIAFAKE", "AWS_SECRET_ACCESS_KEY": "fake", "A
             "PREFER_OPENAI": "0"}
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_keys(monkeypatch):
+    """No real provider keys leak in; breaker starts closed."""
+    from app.config import settings
+    from app.services.agentic import bedrock_client as bc
+    for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "NEXT_PUBLIC_OPENROUTER_API_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", None)
+    monkeypatch.setattr(bc, "bedrock_model_available", lambda m: True)
+    bc.reset_breaker()
+    yield
+    bc.reset_breaker()
+
+
+def chain(llm):
+    """[primary, *fallbacks] of a factory result (plain model when single provider)."""
+    return [llm.runnable, *llm.fallbacks] if hasattr(llm, "fallbacks") else [llm]
+
+
 @pytest.fixture
 def aws(monkeypatch):
     for k, v in FAKE_AWS.items():
@@ -35,7 +54,8 @@ def test_model_ids_are_inference_profiles():
 def test_copilot_chain_order_and_bedrock_profile_used(aws, monkeypatch):
     """Sonnet 5 profile -> Sonnet 4.6 profile -> Anthropic direct -> OpenAI; the built
     Bedrock model is Converse with the profile id and NO sampling params (Sonnet 5 rejects them)."""
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    from app.config import settings
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "sk-ant-test")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     from app.services.agentic import bedrock_client as bc
     chain = bc.copilot_llm_candidates()
@@ -75,7 +95,7 @@ def test_prefer_openai_is_emergency_switch(aws, monkeypatch):
 def test_get_llm_sonnet_uses_bedrock_profile_when_creds_available(aws):
     from app.services.agentic import bedrock_client as bc
     from langchain_aws import ChatBedrockConverse
-    llm = bc.get_llm_sonnet(streaming=False)
+    llm = chain(bc.get_llm_sonnet(streaming=False))[0]
     assert isinstance(llm, ChatBedrockConverse)
     assert llm.model_id == bc.BEDROCK_SONNET_MODEL
     assert llm.temperature == 0.1
@@ -85,7 +105,7 @@ def test_get_llm_sonnet_uses_bedrock_profile_when_creds_available(aws):
 def test_get_llm_haiku_bedrock_profile(aws):
     from app.services.agentic import bedrock_client as bc
     from langchain_aws import ChatBedrockConverse
-    llm = bc.get_llm_haiku()
+    llm = chain(bc.get_llm_haiku())[0]
     assert isinstance(llm, ChatBedrockConverse)
     assert llm.model_id == "us.anthropic.claude-haiku-4-5-20251001-v1:0"
     assert llm.temperature == 0.0

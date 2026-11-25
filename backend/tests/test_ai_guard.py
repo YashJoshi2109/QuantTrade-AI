@@ -376,8 +376,13 @@ def test_anthropic_direct_factory_is_capped_and_guarded(monkeypatch):
 
 
 def test_openai_and_openrouter_factories_are_guarded(monkeypatch):
+    from app.config import settings
     from app.services.agentic import bedrock_client as bc
     monkeypatch.setattr(bc, "_aws_credentials_available", lambda: False)
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", None)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("NEXT_PUBLIC_OPENROUTER_API_KEY", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     llm = bc.get_llm_sonnet(streaming=False)
     assert llm.max_tokens == 2048
