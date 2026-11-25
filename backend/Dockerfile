@@ -17,11 +17,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy requirements and install dependencies
+# Copy requirements and install dependencies.
+# CPU-only torch wheel (the default PyPI wheel bundles CUDA libs we never use on
+# a t3.small): the extra index serves "+cpu" builds, which pip prefers.
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt && \
     pip install --no-cache-dir gunicorn
+
+# News-intelligence models: export ProsusAI/finbert + all-MiniLM-L6-v2 to int8
+# ONNX at build time (torch/transformers are only needed here). The runtime
+# (news-worker) uses onnxruntime + tokenizers. `onnx` is build-only.
+COPY app/services/news_intel/export_models.py /tmp/export_models.py
+RUN pip install --no-cache-dir onnx && \
+    HF_HOME=/tmp/hf python /tmp/export_models.py --out /opt/news-models && \
+    pip uninstall -y onnx && \
+    rm -rf /tmp/hf /tmp/export_models.py
 
 # Stage 2: Production
 FROM python:3.11-slim AS production
@@ -37,6 +48,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+
+# int8 ONNX news models (~135 MB) exported in the builder stage.
+COPY --from=builder /opt/news-models /opt/news-models
+ENV NEWS_MODELS_DIR=/opt/news-models
 
 # Copy application code
 COPY --chown=appuser:appuser . .

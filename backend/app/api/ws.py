@@ -5,6 +5,7 @@ Channels:
 - /ws/ideas     — Live trade ideas + market pulse updates
 - /ws/pulse     — Market pulse sidebar updates only
 - /ws/scanner   — Market scanner real-time results
+- /ws/news      — News intelligence clusters (new/updated)
 - /ws/community/{channel} — Community real-time updates:
     - feed:{community_slug} — new posts in a community
     - post:{post_id}        — new comments, votes on a post
@@ -57,6 +58,38 @@ async def _redis_listener(channel: str, ws_channel: str):
         logger.debug(f"Redis listener error: {e}")
 
 
+# ── Shared Redis -> WebSocket fan-out ───────────────────────────────────────
+# Exactly one Redis listener per (process, channel), ref-counted by connected
+# sockets. Each listener broadcasts to every socket on its ws channel, so the
+# old one-listener-per-socket pattern delivered every message N times to each
+# of N clients.
+
+_listeners: dict = {}       # redis channel -> asyncio.Task
+_listener_refs: dict = {}   # redis channel -> connected sockets
+
+
+def _listener_acquire(redis_channel: str, ws_channel: str) -> None:
+    _listener_refs[redis_channel] = _listener_refs.get(redis_channel, 0) + 1
+    task = _listeners.get(redis_channel)
+    if task is None or task.done() or task.get_loop() is not asyncio.get_running_loop():
+        _listeners[redis_channel] = asyncio.create_task(_redis_listener(redis_channel, ws_channel))
+
+
+def _listener_release(redis_channel: str) -> None:
+    n = max(0, _listener_refs.get(redis_channel, 0) - 1)
+    _listener_refs[redis_channel] = n
+    if n == 0:
+        task = _listeners.pop(redis_channel, None)
+        if task is not None:
+            task.cancel()
+
+
+def listener_count(redis_channel: str) -> int:
+    """Test/diagnostic helper: live listener tasks for a channel (0 or 1)."""
+    t = _listeners.get(redis_channel)
+    return int(t is not None and not t.done())
+
+
 @router.websocket("/ws/ideas")
 async def ideas_websocket(
     websocket: WebSocket,
@@ -66,8 +99,8 @@ async def ideas_websocket(
     channel = "ideas"
     await ws_manager.connect(websocket, channel)
 
-    # Start Redis listener if this is the first connection
-    listener_task = asyncio.create_task(_redis_listener("qt:ws:ideas", channel))
+    # Shared Redis listener (one per process for this channel)
+    _listener_acquire("qt:ws:ideas", channel)
 
     try:
         # Send initial data from cache
@@ -96,7 +129,7 @@ async def ideas_websocket(
     except Exception as e:
         logger.debug(f"WS ideas error: {e}")
     finally:
-        listener_task.cancel()
+        _listener_release("qt:ws:ideas")
         await ws_manager.disconnect(websocket, channel)
 
 
@@ -106,7 +139,7 @@ async def pulse_websocket(websocket: WebSocket):
     channel = "pulse"
     await ws_manager.connect(websocket, channel)
 
-    listener_task = asyncio.create_task(_redis_listener("qt:ws:pulse", channel))
+    _listener_acquire("qt:ws:pulse", channel)
 
     try:
         # Send current pulse from cache
@@ -132,7 +165,7 @@ async def pulse_websocket(websocket: WebSocket):
     except Exception as e:
         logger.debug(f"WS pulse error: {e}")
     finally:
-        listener_task.cancel()
+        _listener_release("qt:ws:pulse")
         await ws_manager.disconnect(websocket, channel)
 
 
@@ -142,7 +175,7 @@ async def scanner_websocket(websocket: WebSocket):
     channel = "scanner"
     await ws_manager.connect(websocket, channel)
 
-    listener_task = asyncio.create_task(_redis_listener("qt:ws:scanner", channel))
+    _listener_acquire("qt:ws:scanner", channel)
 
     try:
         while True:
@@ -160,7 +193,42 @@ async def scanner_websocket(websocket: WebSocket):
     except Exception as e:
         logger.debug(f"WS scanner error: {e}")
     finally:
-        listener_task.cancel()
+        _listener_release("qt:ws:scanner")
+        await ws_manager.disconnect(websocket, channel)
+
+
+# ── News intelligence WebSocket ─────────────────────────────────────────────
+
+NEWS_REDIS_CHANNEL = "qt:ws:news"
+
+
+@router.websocket("/ws/news")
+async def news_websocket(websocket: WebSocket):
+    """Live news clusters: {"type":"news","item":{...same shape as /news/feed items...}}.
+
+    Sent for every new cluster and whenever a cluster gains a source or an AI
+    note. Clients reply "ping" -> "pong"; server sends {"type":"heartbeat"}
+    after 30s of silence."""
+    channel = "news"
+    await ws_manager.connect(websocket, channel)
+    _listener_acquire(NEWS_REDIS_CHANNEL, channel)
+    try:
+        while True:
+            try:
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30)
+                if data == "ping":
+                    await websocket.send_text("pong")
+            except asyncio.TimeoutError:
+                try:
+                    await websocket.send_text(json.dumps({"type": "heartbeat"}))
+                except Exception:
+                    break
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.debug(f"WS news error: {e}")
+    finally:
+        _listener_release(NEWS_REDIS_CHANNEL)
         await ws_manager.disconnect(websocket, channel)
 
 

@@ -121,6 +121,7 @@ from app.models.ml_training import (
     ModelVersion as _MLModelVersion,
 )
 from app.models.edgar import CompanyEDGAR, FinancialStatement
+from app.models.news_item import NewsItem as _NewsItem  # noqa: F401  (news_items table)
 
 
 def _create_db_tables():
@@ -331,9 +332,27 @@ async def lifespan(app: FastAPI):
         from app.api.forecast import forecast_warm_loop
         forecast_warm_task = asyncio.create_task(forecast_warm_loop())
 
+    # News intelligence ingestion runs in the separate news-worker container
+    # (python -m app.services.news_intel.worker) so the API never loads the
+    # models. NEWS_INTEL_IN_API=1 runs it in-process instead (single-process dev
+    # only; also needs NEWS_INTEL_MODELS=1 for FinBERT/MiniLM).
+    news_intel_task = None
+    if (background_jobs and os.environ.get("NEWS_INTEL_IN_API", "0") == "1"
+            and "pytest" not in sys.modules):
+        try:
+            from app.services.news_intel.pipeline import start_news_intel
+            news_intel_task = start_news_intel(redis=getattr(app.state, "redis", None))
+        except Exception as e:
+            print(f"⚠️ News intelligence pipeline not started: {e}")
+
     yield
     if forecast_warm_task:
         forecast_warm_task.cancel()
+    if news_intel_task:
+        from app.services.news_intel.pipeline import get_service
+        svc = get_service()
+        if svc:
+            await svc.stop()
     # Shutdown
     if _scheduler and _scheduler.running:
         _scheduler.shutdown(wait=False)
@@ -494,6 +513,9 @@ app.include_router(symbols.router, prefix="/api/v1", tags=["symbols"])
 app.include_router(prices.router, prefix="/api/v1", tags=["prices"])
 app.include_router(indicators.router, prefix="/api/v1", tags=["indicators"])
 app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
+# news_intel first: its /news/feed|categories|health must win over /news/{symbol}
+from app.api import news_intel as news_intel_api  # noqa: E402
+app.include_router(news_intel_api.router, prefix="/api/v1", tags=["news-intel"])
 app.include_router(news.router, prefix="/api/v1", tags=["news"])
 app.include_router(filings.router, prefix="/api/v1", tags=["filings"])
 app.include_router(risk.router, prefix="/api/v1", tags=["risk"])

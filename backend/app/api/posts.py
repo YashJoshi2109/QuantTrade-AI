@@ -411,21 +411,24 @@ async def create_post(
     asyncio.create_task(_moderate_post_bg())
 
     # ── Non-blocking sentiment scoring (fire-and-forget) ──────────────
-    async def _score_sentiment(post_id: int):
-        """Background task to score post sentiment."""
+    def _score_sentiment_sync(post_id: int):
+        from app.services.sentiment_service import sentiment_service
+        from app.db.database import SessionLocal as _SL
+        db_s = _SL()
         try:
-            from app.services.sentiment_service import sentiment_service
-            from app.db.database import SessionLocal as _SL
-            db_s = _SL()
-            try:
-                p = db_s.query(Post).filter(Post.id == post_id).first()
-                if p and not p.sentiment:
-                    result = sentiment_service.score_text(f"{p.title} {p.body or ''}")
-                    p.sentiment = result.label
-                    p.sentiment_confidence = result.confidence
-                    db_s.commit()
-            finally:
-                db_s.close()
+            p = db_s.query(Post).filter(Post.id == post_id).first()
+            if p and not p.sentiment:
+                result = sentiment_service.score_text(f"{p.title} {p.body or ''}")
+                p.sentiment = result.label
+                p.sentiment_confidence = result.confidence
+                db_s.commit()
+        finally:
+            db_s.close()
+
+    async def _score_sentiment(post_id: int):
+        """Background task to score post sentiment (DB + FinBERT off the event loop)."""
+        try:
+            await asyncio.to_thread(_score_sentiment_sync, post_id)
         except Exception as e:
             logger.error(f"Sentiment scoring failed for post {post_id}: {e}")
 

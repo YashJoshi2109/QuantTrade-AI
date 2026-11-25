@@ -91,6 +91,9 @@ services:
     environment:
       - DEBUG=false
       - LOG_LEVEL=INFO
+      # News pipeline runs in news-worker; the API must never load the models.
+      - NEWS_INTEL_IN_API=0
+      - NEWS_INTEL_MODELS=0
       - LOCAL_STORAGE_PATH=/tmp/storage
       - APP_URL=https://www.quanttrade.us
       - BILLING_PORTAL_RETURN_URL=https://www.quanttrade.us/settings
@@ -168,6 +171,47 @@ services:
       timeout: 10s
       start_period: 120s
       retries: 8
+    networks:
+      - quanttrade-network
+
+  # ── News intelligence worker ───────────────────────────────────────────────
+  # Ingestion (RSS/Finnhub/SEC pollers + Alpaca news stream) + int8 ONNX
+  # FinBERT/MiniLM classification + capped Claude Haiku notes. Writes news_items
+  # and publishes qt:ws:news; the API only reads/bridges and never loads models.
+  # Memory budget (t3.small, 2 GB): nginx 128M + frontend 512M + backend 768M +
+  # news-worker 512M = 1920M (limits are caps). celery-worker (640M) is defined
+  # below too; if it actually runs, the caps sum past 2 GB.
+  news-worker:
+    image: ghcr.io/yashjoshi2109/quanttrade-backend:latest
+    container_name: quanttrade-news-worker
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    env_file:
+      - .env
+    environment:
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://quanttrade-redis.zape9f.0001.use2.cache.amazonaws.com:6379/0
+      - AWS_REGION=us-east-2
+      - AWS_SECRET_NAME=quanttrade/backend
+      - NEWS_INTEL_ENABLED=1
+      - NEWS_INTEL_MODELS=1
+      - NEWS_INTEL_THREADS=1
+      - NEWS_AI_DAILY_LIMIT=50
+      - DB_POOL_SIZE=2
+      - DB_MAX_OVERFLOW=2
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
+      - ALPACA_API_KEY=${ALPACA_API_KEY:-}
+      - ALPACA_SECRET_KEY=${ALPACA_SECRET_KEY:-}
+    command: ["python", "-m", "app.services.news_intel.worker"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.news_intel.worker", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
     networks:
       - quanttrade-network
 

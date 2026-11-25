@@ -358,7 +358,7 @@ jobs:
             echo "🔻 Stopping existing containers..."
             docker compose -f docker-compose.prod.yml down --remove-orphans --timeout 30 || true
             # Force-remove any leftover containers from partial deploys
-            docker rm -f quanttrade-backend quanttrade-frontend quanttrade-nginx quanttrade-celery-worker 2>/dev/null || true
+            docker rm -f quanttrade-backend quanttrade-frontend quanttrade-nginx quanttrade-celery-worker quanttrade-news-worker 2>/dev/null || true
             
             # ===== KILL ANY CONTAINER USING PORT 80/443 =====
             echo "🔍 Checking for containers using port 80/443..."
@@ -401,7 +401,7 @@ jobs:
             # --wait blocks until all services with healthchecks are healthy.
             # --wait-timeout 600 = 10 min ceiling; prevents infinite hang if a
             # service never becomes healthy (e.g. Redis unreachable for Celery).
-            # All 5 services now have healthchecks so --wait tracks them all.
+            # All services (incl. news-worker, heartbeat-file healthcheck) have healthchecks so --wait tracks them all.
             echo "🚀 Starting containers (waiting for healthy, timeout 600s)..."
             if ! docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 600 --remove-orphans; then
               echo "❌ docker compose up --wait failed! Dumping diagnostics..."
@@ -412,6 +412,8 @@ jobs:
               docker compose -f docker-compose.prod.yml logs --tail=50 frontend || true
               echo "=== Celery worker+beat logs (last 50) ==="
               docker compose -f docker-compose.prod.yml logs --tail=50 celery-worker || true
+              echo "=== News worker logs (last 80) ==="
+              docker compose -f docker-compose.prod.yml logs --tail=80 news-worker || true
               echo "=== Nginx logs (last 30) ==="
               docker compose -f docker-compose.prod.yml logs --tail=30 nginx || true
               echo "=== Memory ==="
