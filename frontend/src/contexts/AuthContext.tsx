@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { User, checkSession, logout as authLogout, login as authLogin, register as authRegister, googleLogin as authGoogleLogin, googleVerify as authGoogleVerify, setToken, setUser as storeUser } from '@/lib/auth'
+import { User, checkSession, logout as authLogout, login as authLogin, register as authRegister, googleVerify as authGoogleVerify, setToken, setUser as storeUser } from '@/lib/auth'
 import { isNeonAuthConfigured, neonSignIn, neonSignUp, neonGetUser, neonSignOut, NeonUser } from '@/lib/neon-auth'
 
 export type AuthMethod = 'jwt' | 'neon-auth'
@@ -22,7 +22,6 @@ interface AuthContextType {
     fullName?: string,
     options?: { countryCode?: string; phoneNumber?: string; otp?: string; dateOfBirth?: string; gender?: string; turnstileToken?: string }
   ) => Promise<void>
-  googleLogin: (googleId: string, email: string, name: string, avatarUrl?: string) => Promise<void>
   googleVerify: (credential: string) => Promise<void>
   loginWithToken: (token: string) => Promise<void>
 
@@ -105,13 +104,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthMethod('jwt')
   }
 
-  const googleLogin = async (googleId: string, email: string, name: string, avatarUrl?: string) => {
-    const result = await authGoogleLogin(googleId, email, name, avatarUrl)
-    setUser(result.user)
-    setNeonUser(null)
-    setAuthMethod('jwt')
-  }
-
   const googleVerify = async (credential: string) => {
     const result = await authGoogleVerify(credential)
     setUser(result.user)
@@ -175,7 +167,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         authMethod,
         login,
         register,
-        googleLogin,
         googleVerify,
         loginWithToken,
         neonLogin,

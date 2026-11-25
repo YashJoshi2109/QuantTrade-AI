@@ -79,12 +79,6 @@ class UserLogin(BaseModel):
     turnstile_token: Optional[str] = None  # Cloudflare Turnstile CAPTCHA token
 
 
-class GoogleLogin(BaseModel):
-    google_id: str
-    email: str
-    name: str
-    avatar_url: Optional[str] = None
-
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -531,60 +525,8 @@ async def google_verify_token(
         )
 
 
-@router.post("/google", response_model=TokenResponse)
-async def google_auth(google_data: GoogleLogin, response: Response, db: Session = Depends(get_db)):
-    """Login or register with Google OAuth (legacy endpoint - use /google/verify instead)"""
-    # Check if user exists by Google ID
-    user = db.query(User).filter(User.google_id == google_data.google_id).first()
-    
-    if not user:
-        # Check if email exists (link accounts)
-        user = db.query(User).filter(User.email == google_data.email).first()
-        
-        if user:
-            # Link Google account to existing user
-            user.google_id = google_data.google_id
-            if google_data.avatar_url:
-                user.avatar_url = google_data.avatar_url
-        else:
-            # Create new user
-            # Generate unique username from email
-            base_username = google_data.email.split('@')[0]
-            username = base_username
-            counter = 1
-            while db.query(User).filter(User.username == username).first():
-                username = f"{base_username}{counter}"
-                counter += 1
-            
-            user = User(
-                email=google_data.email,
-                username=username,
-                google_id=google_data.google_id,
-                full_name=google_data.name,
-                avatar_url=google_data.avatar_url,
-                is_verified=True
-            )
-            db.add(user)
-    
-    # Update last login
-    user.last_login = datetime.utcnow()
-    db.commit()
-    db.refresh(user)
-
-    if WELCOME_PROMO_AVAILABLE:
-        try:
-            schedule_welcome_promo_email(user.id)
-        except Exception as exc:
-            logger.debug("welcome promo schedule skipped: %s", exc)
-    
-    # Generate token
-    token = create_access_token(user.id)
-    set_auth_cookie(response, token)
-
-    return TokenResponse(
-        access_token=token,
-        user=user_to_dict(user)
-    )
+# NOTE: legacy POST /google (trusted client-supplied email/google_id with no
+# token verification -> account takeover) was removed. Use POST /google/verify.
 
 
 @router.get("/me", response_model=UserResponse)
