@@ -2,7 +2,7 @@
 # Excludes heavy ML libraries (torch, xgboost, etc.) that aren't needed for API
 
 # Web Framework
-fastapi>=0.115.0
+fastapi>=0.115.0,<0.166.0
 uvicorn[standard]>=0.32.0
 python-multipart>=0.0.9
 

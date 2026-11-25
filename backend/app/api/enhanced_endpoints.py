@@ -965,7 +965,7 @@ async def get_finnhub_quote(symbol: str, priority: str = Query('high', pattern='
 
 
 @router.get("/news/{symbol}/finnhub")
-async def get_finnhub_company_news(symbol: str, limit: int = Query(20, le=50), priority: str = Query('high', regex='^(high|normal)$')):
+async def get_finnhub_company_news(symbol: str, limit: int = Query(20, le=50), priority: str = Query('high', pattern='^(high|normal)$')):
     """Get company news from Finnhub with rate limiting"""
     try:
         news_data = FinnhubFetcher.get_company_news(symbol.upper(), priority=priority)
@@ -989,7 +989,7 @@ async def get_finnhub_company_news(symbol: str, limit: int = Query(20, le=50), p
 
 
 @router.get("/news/market/finnhub")
-async def get_finnhub_market_news(category: str = "general", limit: int = Query(20, le=50), priority: str = Query('high', regex='^(high|normal)$')):
+async def get_finnhub_market_news(category: str = "general", limit: int = Query(20, le=50), priority: str = Query('high', pattern='^(high|normal)$')):
     """Get market news from Finnhub with rate limiting"""
     try:
         news_data = FinnhubFetcher.get_market_news(category, limit, priority=priority)
@@ -1013,7 +1013,7 @@ async def get_finnhub_market_news(category: str = "general", limit: int = Query(
 
 
 @router.get("/company/{symbol}/profile")
-async def get_company_profile(symbol: str, priority: str = Query('normal', regex='^(high|normal)$')):
+async def get_company_profile(symbol: str, priority: str = Query('normal', pattern='^(high|normal)$')):
     """Get company profile from Finnhub with rate limiting"""
     try:
         profile = FinnhubFetcher.get_company_profile(symbol.upper(), priority=priority)
@@ -1048,7 +1048,7 @@ async def get_market_sentiment(symbol: str):
 
 
 @router.get("/recommendations/{symbol}")
-async def get_recommendations(symbol: str, priority: str = Query('normal', regex='^(high|normal)$')):
+async def get_recommendations(symbol: str, priority: str = Query('normal', pattern='^(high|normal)$')):
     """Get analyst recommendations from Finnhub with rate limiting"""
     try:
         recs = FinnhubFetcher.get_recommendation_trends(symbol.upper(), priority=priority)

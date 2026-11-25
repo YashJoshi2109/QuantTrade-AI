@@ -13,7 +13,7 @@ import httpx
 import asyncio
 import re
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Literal, Optional
 from fastapi import APIRouter, Query, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -694,7 +694,7 @@ FRED_SERIES = {
 
 @router.get("/economic-indicators", response_model=EconomicIndicatorsResponse)
 async def get_economic_indicators(
-    tab: str = Query("indicators", enum=["indicators", "oil", "gov", "central_banks"])
+    tab: Literal["indicators", "oil", "gov", "central_banks"] = Query("indicators")
 ):
     """
     FRED-powered Economic Indicators — exactly like the Bloomberg terminal screenshot.
