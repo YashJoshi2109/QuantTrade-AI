@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Any, Dict
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -16,6 +17,8 @@ from app.models.user import User
 from app.models.chat_history import Conversation, ChatHistory
 from app.api.auth import require_auth
 from app.services.ttl_cache import cache, DEFAULT_TTLS
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -255,7 +258,8 @@ async def refresh_message(
             payload["technical_signal"] = fresh["technical_signal"]
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Refresh failed: {str(e)}")
+        logger.exception("Refresh failed")
+        raise HTTPException(status_code=500, detail="Refresh failed")
 
     now = datetime.now(timezone.utc)
     min_ttl = min(DEFAULT_TTLS.get(p, 60) for p in refreshed) if refreshed else 60

@@ -65,7 +65,7 @@ def _load_model_for_horizon(horizon: int):
         logger.error("Failed to load checkpoint %s: %s", checkpoint_path, exc)
         raise HTTPException(
             status_code=503,
-            detail=f"Checkpoint load failed for horizon={horizon}: {exc}",
+            detail=f"Prediction model unavailable for horizon={horizon}",
         )
 
     _model_cache[horizon] = (model, scaler, metadata, calibration, current_mtime)
@@ -114,9 +114,10 @@ def _run_inference(symbol: str, horizon: int) -> dict:
     try:
         X_raw = features_df[feature_cols].values[-seq_len:]  # (seq_len, n_features)
     except KeyError as exc:
+        logger.error("Feature column mismatch for %s: %s", symbol, exc)
         raise HTTPException(
             status_code=503,
-            detail=f"Feature column mismatch for {symbol}: {exc}",
+            detail=f"Prediction features unavailable for {symbol}",
         )
 
     # Scale features using checkpoint scaler
@@ -124,7 +125,7 @@ def _run_inference(symbol: str, horizon: int) -> dict:
         X_scaled = scaler.transform(X_raw)  # (seq_len, n_features)
     except Exception as exc:
         logger.error("Scaler failed for %s: %s", symbol, exc)
-        raise HTTPException(status_code=503, detail=f"Feature scaling failed: {exc}")
+        raise HTTPException(status_code=503, detail="Prediction features unavailable")
 
     # Build tensor: (1, seq_len, n_features)
     X_tensor = torch.tensor(X_scaled, dtype=torch.float32).unsqueeze(0)

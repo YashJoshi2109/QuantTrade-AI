@@ -10,12 +10,13 @@ from pathlib import Path
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
-# Render Database Connection Strings
-# External (for local/outside Render): Use this for local development
-RENDER_EXTERNAL_DB = 'postgresql://finance_r6b5_user:DNNUZZVUJlIgWkSeRNJouFNt6Jo4boGX@dpg-d5jgvsvfte5s738ljoig-a.oregon-postgres.render.com/finance_r6b5'
-
-# Internal (for Render services): Use this when backend is deployed on Render
-RENDER_INTERNAL_DB = 'postgresql://finance_r6b5_user:DNNUZZVUJlIgWkSeRNJouFNt6Jo4boGX@dpg-d5jgvsvfte5s738ljoig-a/finance_r6b5'
+# Render Database Connection String
+# SECURITY: never commit credentials. Provide the URL via the environment, e.g.
+#   RENDER_DATABASE_URL='postgresql://...' python scripts/init_render_database.py
+# (A previously hardcoded URL exists in git history and must be rotated.)
+_raw_db_url = os.environ.get("RENDER_DATABASE_URL") or os.environ.get("DATABASE_URL")
+if not _raw_db_url:
+    sys.exit("Set RENDER_DATABASE_URL (or DATABASE_URL) to the target Postgres connection string.")
 
 # Convert to psycopg format for SQLAlchemy
 def convert_to_psycopg(url: str) -> str:
@@ -24,8 +25,7 @@ def convert_to_psycopg(url: str) -> str:
         return url.replace('postgresql://', 'postgresql+psycopg://', 1)
     return url
 
-# Use external for local initialization
-render_db_url = convert_to_psycopg(RENDER_EXTERNAL_DB)
+render_db_url = convert_to_psycopg(_raw_db_url)
 
 # Set database URL before importing models
 os.environ['DATABASE_URL'] = render_db_url
@@ -93,10 +93,6 @@ def init_render_database():
         print("   - Users can now register and login")
         print("   - Data will be stored in Render PostgreSQL")
         print("   - All tables are created and ready")
-        print("\n📝 Connection Info:")
-        print(f"   External URL: {RENDER_EXTERNAL_DB[:50]}...")
-        print(f"   Internal URL: {RENDER_INTERNAL_DB[:50]}...")
-        
     except Exception as e:
         print(f"\n❌ Error: {e}")
         print("\nTroubleshooting:")

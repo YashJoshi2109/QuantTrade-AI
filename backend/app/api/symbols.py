@@ -15,7 +15,9 @@ Ranking priority:
 4. Trigram similarity (name/symbol)
 5. Substring contains fallback
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.services.sync_rate_limit import sync_rate_limit
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, case, func, literal, text
 from typing import List, Optional
@@ -24,6 +26,8 @@ from app.models.symbol import Symbol
 from app.models.symbols_master import SymbolsMaster
 from app.services.data_fetcher import DataFetcher
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -250,7 +254,7 @@ async def get_symbol(symbol: str, db: Session = Depends(get_db)):
     return db_symbol
 
 
-@router.post("/symbols/{symbol}/sync")
+@router.post("/symbols/{symbol}/sync", dependencies=[Depends(sync_rate_limit)])
 async def sync_symbol(symbol: str, db: Session = Depends(get_db)):
     """Sync symbol data from external source"""
     try:
@@ -262,4 +266,5 @@ async def sync_symbol(symbol: str, db: Session = Depends(get_db)):
             "message": "Symbol synced successfully"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error")

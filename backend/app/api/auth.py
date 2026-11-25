@@ -5,6 +5,7 @@ import asyncio
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from pydantic import BaseModel, EmailStr
@@ -192,10 +193,49 @@ def require_auth(
 
 
 
+def normalize_email(email: Optional[str]) -> str:
+    """Canonical form used for storing and comparing emails (strip + lowercase)."""
+    return (email or "").strip().lower()
+
+
+def find_user_by_email(db: Session, email: Optional[str]) -> Optional[User]:
+    """Case-insensitive email lookup."""
+    norm = normalize_email(email)
+    if not norm:
+        return None
+    return db.query(User).filter(func.lower(User.email) == norm).first()
+
+
+def email_verification_configured() -> bool:
+    """True when a transactional email provider is configured, so OTP can be required."""
+    return bool(getattr(settings, "BREVO_API_KEY", None) or getattr(settings, "RESEND_API_KEY", None))
+
+
+def _admin_emails() -> set:
+    return {normalize_email(e) for e in (getattr(settings, "ADMIN_EMAILS", "") or "").split(",") if e.strip()}
+
+
+def is_admin_user(user: Optional[User]) -> bool:
+    """Admin = verified account whose STORED email is exactly a lowercase ADMIN_EMAILS entry.
+
+    Requiring the stored value to already be canonical (no case/whitespace variants)
+    prevents registering e.g. "Admin@x.com" alongside the real "admin@x.com" and
+    inheriting admin rights; requiring is_verified prevents claiming an admin
+    address that was never proven to belong to the registrant.
+    """
+    if not user or not user.email:
+        return False
+    if not getattr(user, "is_verified", False):
+        return False
+    stored = user.email
+    if stored != stored.strip().lower():
+        return False
+    return stored in _admin_emails()
+
+
 def require_admin(user: User = Depends(require_auth)) -> User:
-    """Require an authenticated user whose email is in ADMIN_EMAILS (comma-separated)."""
-    admins = {e.strip().lower() for e in (getattr(settings, "ADMIN_EMAILS", "") or "").split(",") if e.strip()}
-    if not user.email or user.email.lower() not in admins:
+    """Require an authenticated, verified user whose email is in ADMIN_EMAILS (comma-separated)."""
+    if not is_admin_user(user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
     return user
 
@@ -252,8 +292,9 @@ async def send_otp_endpoint(
     For registration: rejects if email is already registered.
     For password reset: rejects if email is NOT registered.
     """
+    email = normalize_email(req.email)
     # Check email existence based on purpose
-    existing_user = db.query(User).filter(User.email == req.email).first()
+    existing_user = find_user_by_email(db, email)
     if purpose == "register" and existing_user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -263,8 +304,8 @@ async def send_otp_endpoint(
         # Anti-enumeration: still return 200-like response
         return {"message": "Verification code sent to your email"}
 
-    if not check_rate_limit(req.email):
-        wait_seconds = get_rate_limit_remaining_seconds(req.email)
+    if not check_rate_limit(email):
+        wait_seconds = get_rate_limit_remaining_seconds(email)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=(
@@ -274,18 +315,18 @@ async def send_otp_endpoint(
             ),
         )
     otp = generate_otp()
-    if not store_otp(req.email, otp):
+    if not store_otp(email, otp):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OTP service temporarily unavailable"
         )
-    sent, mail_error = await asyncio.to_thread(send_otp_email, req.email, otp)
+    sent, mail_error = await asyncio.to_thread(send_otp_email, email, otp)
     if not sent:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=mail_error or "Failed to send verification email.",
         )
-    set_rate_limit(req.email)
+    set_rate_limit(email)
     return {"message": "Verification code sent to your email"}
 
 
@@ -305,49 +346,81 @@ async def verify_otp_endpoint(req: VerifyOtpRequest):
     )
 
 
+async def _require_turnstile(token: Optional[str], request: Request) -> None:
+    """Enforce Cloudflare Turnstile when TURNSTILE_SECRET_KEY is configured.
+
+    With a secret configured a token is mandatory (omitting it no longer
+    bypasses the CAPTCHA). Without a secret, a supplied token is still checked
+    (verify_turnstile no-ops) so local dev keeps working.
+    """
+    secret_configured = bool(getattr(settings, "TURNSTILE_SECRET_KEY", None))
+    if not token:
+        if secret_configured:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="CAPTCHA verification failed. Please try again.",
+            )
+        return
+    ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (request.client.host if request.client else None)
+    if not await verify_turnstile(token, ip):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="CAPTCHA verification failed. Please try again.")
+
+
 # Endpoints
 @router.post("/register", response_model=TokenResponse)
 async def register(user_data: UserRegister, request: Request, response: Response, db: Session = Depends(get_db)):
-    """Register a new user with optional email verification and phone"""
-    # Cloudflare Turnstile verification
-    if user_data.turnstile_token:
-        ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (request.client.host if request.client else None)
-        if not await verify_turnstile(user_data.turnstile_token, ip):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="CAPTCHA verification failed. Please try again.")
+    """Register a new user.
 
-    # Optional: require OTP verification if OTP provided
-    if user_data.otp:
-        if not verify_otp(user_data.email, user_data.otp):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or expired verification code. Please request a new one."
-            )
+    When an email provider is configured, a valid OTP (from /send-otp) is
+    required and the account is created verified. Without a provider (local
+    dev) registration still works, but the account stays unverified unless a
+    valid OTP was supplied.
+    """
+    await _require_turnstile(user_data.turnstile_token, request)
 
-    # Check if email exists
-    if db.query(User).filter(User.email == user_data.email).first():
+    email = normalize_email(user_data.email)
+
+    # Check if email exists (case-insensitive)
+    if find_user_by_email(db, email):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
         )
-    
+
     # Check if username exists
     if db.query(User).filter(User.username == user_data.username).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already taken"
         )
-    
+
+    # OTP is checked after the cheap duplicate checks so a taken username
+    # doesn't burn the user's one-time code.
+    otp_ok = False
+    if user_data.otp:
+        if not verify_otp(email, user_data.otp):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired verification code. Please request a new one."
+            )
+        otp_ok = True
+    elif email_verification_configured():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email verification code is required. Please request a code and try again."
+        )
+
     # Create user
     user = User(
-        email=user_data.email,
+        email=email,
         username=user_data.username,
         hashed_password=hash_password(user_data.password),
         full_name=user_data.full_name,
         country_code=user_data.country_code,
         phone_number=user_data.phone_number,
-        is_verified=True,
-        otp_verified=bool(user_data.otp),
-        email_verified_at=datetime.utcnow() if user_data.otp else None,
+        is_verified=otp_ok,
+        otp_verified=otp_ok,
+        email_verified_at=datetime.utcnow() if otp_ok else None,
         date_of_birth=user_data.date_of_birth,
         gender=user_data.gender,
     )
@@ -375,13 +448,9 @@ async def register(user_data: UserRegister, request: Request, response: Response
 @router.post("/login", response_model=TokenResponse)
 async def login(credentials: UserLogin, request: Request, response: Response, db: Session = Depends(get_db)):
     """Login with email and password"""
-    # Cloudflare Turnstile verification
-    if credentials.turnstile_token:
-        ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (request.client.host if request.client else None)
-        if not await verify_turnstile(credentials.turnstile_token, ip):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="CAPTCHA verification failed. Please try again.")
+    await _require_turnstile(credentials.turnstile_token, request)
 
-    user = db.query(User).filter(User.email == credentials.email).first()
+    user = find_user_by_email(db, credentials.email)
     
     if not user or not user.hashed_password:
         raise HTTPException(
@@ -464,26 +533,43 @@ async def google_verify_token(
         
         # Extract user info
         google_id = idinfo.get('sub')
-        email = idinfo.get('email')
+        email = normalize_email(idinfo.get('email'))
         name = idinfo.get('name', '')
         picture = idinfo.get('picture')
-        
+        ev = idinfo.get('email_verified')
+        google_email_verified = ev is True or (isinstance(ev, str) and ev.lower() == "true")
+
         if not google_id or not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid Google token"
             )
-        
+
         # Check if user exists by Google ID
         user = db.query(User).filter(User.google_id == google_id).first()
-        
+
         if not user:
-            # Check if email exists (link accounts)
-            user = db.query(User).filter(User.email == email).first()
-            
+            # Check if email exists (link accounts) — case-insensitive
+            user = find_user_by_email(db, email)
+
             if user:
-                # Link Google account to existing user
+                # Only link when Google asserts the address is verified;
+                # otherwise anyone controlling an unverified Google identity
+                # with the victim's address could take over the account.
+                if not google_email_verified:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="An account with this email already exists. Please sign in with your password.",
+                    )
+                if not user.is_verified:
+                    # The existing account never proved ownership of this
+                    # address; drop its password so a squatter who pre-registered
+                    # the address cannot keep access (owner can reset it).
+                    user.hashed_password = None
                 user.google_id = google_id
+                user.is_verified = True
+                if not user.email_verified_at:
+                    user.email_verified_at = datetime.utcnow()
                 if picture:
                     user.avatar_url = picture
             else:
@@ -502,7 +588,8 @@ async def google_verify_token(
                     google_id=google_id,
                     full_name=name,
                     avatar_url=picture,
-                    is_verified=True
+                    is_verified=google_email_verified,
+                    email_verified_at=datetime.utcnow() if google_email_verified else None,
                 )
                 db.add(user)
         
@@ -930,16 +1017,17 @@ async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_
     Always returns 200 to prevent email enumeration (OWASP A07).
     Uses the same OTP service as registration verification.
     """
-    user = db.query(User).filter(User.email == req.email.lower()).first()
+    email = normalize_email(req.email)
+    user = find_user_by_email(db, email)
     if user:
-        if not check_rate_limit(req.email):
+        if not check_rate_limit(email):
             # Still return 200 for anti-enumeration
             return {"message": "If that email is registered, you'll receive a verification code shortly."}
 
         otp = generate_otp()
-        store_otp(req.email, otp)
-        await asyncio.to_thread(send_otp_email, req.email, otp)
-        set_rate_limit(req.email)
+        store_otp(email, otp)
+        await asyncio.to_thread(send_otp_email, user.email, otp)
+        set_rate_limit(email)
 
     return {"message": "If that email is registered, you'll receive a verification code shortly."}
 
@@ -948,11 +1036,14 @@ async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_
 async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
     """Verify OTP and update the user's password."""
     # Support both legacy token-based and new OTP-based reset
+    otp_reset = False
     if req.otp and req.email:
         # OTP-based reset
-        if not verify_otp(req.email, req.otp):
+        email = normalize_email(req.email)
+        if not verify_otp(email, req.otp):
             raise HTTPException(status_code=400, detail="Invalid or expired verification code. Please request a new one.")
-        user = db.query(User).filter(User.email == req.email).first()
+        user = find_user_by_email(db, email)
+        otp_reset = True
     elif req.token:
         # Legacy token-based reset
         _clean_reset_tokens()
@@ -960,7 +1051,7 @@ async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db
         if not entry or _pw_time.time() > entry[1]:
             raise HTTPException(status_code=400, detail="Reset link is invalid or has expired. Please request a new one.")
         email, _ = entry
-        user = db.query(User).filter(User.email == email).first()
+        user = find_user_by_email(db, email)
         del _reset_tokens[req.token]
     else:
         raise HTTPException(status_code=400, detail="Verification code or reset token required.")
@@ -972,6 +1063,12 @@ async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
 
     user.hashed_password = hash_password(req.new_password)
+    if otp_reset and not user.is_verified:
+        # A valid emailed OTP proves ownership of the address.
+        user.is_verified = True
+        user.otp_verified = True
+        if not user.email_verified_at:
+            user.email_verified_at = datetime.utcnow()
     db.commit()
 
     return {"message": "Password updated successfully. You can now sign in with your new password."}

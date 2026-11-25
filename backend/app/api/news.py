@@ -7,7 +7,9 @@ Enhanced with:
 - Image extraction fallback for missing images
 - Caching in news_cache table
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.api.auth import require_admin
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
@@ -19,6 +21,8 @@ from app.services.news_image_extractor import extract_og_image
 from app.config import settings
 from pydantic import BaseModel
 import httpx
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 news_fetcher = NewsFetcher()
@@ -112,7 +116,7 @@ async def get_news(
     return articles
 
 
-@router.post("/news/{symbol}/sync")
+@router.post("/news/{symbol}/sync", dependencies=[Depends(require_admin)])
 async def sync_news(
     symbol: str,
     use_mock: bool = Query(False, description="Use mock data for testing (default: use real Alpha Vantage data)"),
@@ -128,11 +132,12 @@ async def sync_news(
             "source": "mock" if use_mock else "alpha_vantage"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # GET endpoint for easy browser testing
-@router.get("/news/{symbol}/sync")
+@router.get("/news/{symbol}/sync", dependencies=[Depends(require_admin)])
 async def sync_news_get(
     symbol: str,
     use_mock: bool = Query(False, description="Use mock data for testing"),
@@ -148,7 +153,8 @@ async def sync_news_get(
             "source": "mock" if use_mock else "alpha_vantage"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/news/live/market")
@@ -210,7 +216,8 @@ async def get_live_market_news(
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch live news: {str(e)}")
+        logger.exception("Failed to fetch live news")
+        raise HTTPException(status_code=500, detail="Failed to fetch live news")
 
 
 @router.get("/news/live/{symbol}")
@@ -266,7 +273,8 @@ async def get_live_symbol_news(
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch live news: {str(e)}")
+        logger.exception("Failed to fetch live news")
+        raise HTTPException(status_code=500, detail="Failed to fetch live news")
 
 
 @router.get("/news/finnhub/{symbol}")

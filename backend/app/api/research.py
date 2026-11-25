@@ -9,7 +9,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.db import database as _database
 from app.db.database import get_db
+from app.services.sync_rate_limit import sync_rate_limit
 from app.models.edgar import CompanyEDGAR, FinancialStatement
 from app.models.symbol import Symbol
 from app.services.sec_edgar_service import (
@@ -243,12 +245,32 @@ async def get_ai_insights(
 
 # ── Sync trigger ───────────────────────────────────────────────────────
 
-@router.post("/{ticker}/sync")
+def _sync_edgar_in_own_session(ticker: str, force_refresh: bool = True) -> None:
+    """Background job: open a dedicated DB session.
+
+    The request-scoped session from get_db() is closed as soon as the response
+    is sent, so it must never be handed to a BackgroundTasks job.
+    """
+    if _database.SessionLocal is None:
+        logger.warning("EDGAR background sync skipped for %s: database not configured", ticker)
+        return
+    db = _database.SessionLocal()
+    try:
+        sync_edgar_data(ticker, db, force_refresh)
+    except Exception:
+        logger.exception("EDGAR background sync failed for %s", ticker)
+        db.rollback()
+    finally:
+        db.close()
+
+
+@router.post("/{ticker}/sync", dependencies=[Depends(sync_rate_limit)])
 async def sync_ticker(
     ticker: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """Trigger EDGAR data sync for a ticker (runs in background)."""
-    background_tasks.add_task(sync_edgar_data, ticker, db, True)
+    _get_symbol(ticker, db)  # 404 for unknown tickers instead of queueing work
+    background_tasks.add_task(_sync_edgar_in_own_session, ticker.upper(), True)
     return {"status": "sync_started", "ticker": ticker.upper()}

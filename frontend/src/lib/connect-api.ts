@@ -62,9 +62,9 @@ export async function listStorefrontProducts(accountId: string) {
 
 export async function createStorefrontCheckout(input: {
   account_id: string
-  product_name: string
-  amount_cents: number
-  currency?: string
+  /** Stripe product id; the price is resolved server-side from its default price. */
+  product_id: string
+  quantity?: number
 }) {
   const res = await authFetch('/api/v1/connect/storefront/checkout', {
     method: 'POST',
@@ -74,7 +74,7 @@ export async function createStorefrontCheckout(input: {
 }
 
 export async function createConnectedSubscriptionCheckout(input: {
-  connected_account_id: string
+  connected_account_id?: string
   price_id?: string
 }) {
   const res = await authFetch('/api/v1/connect/subscription/checkout', {

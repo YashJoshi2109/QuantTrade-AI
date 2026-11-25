@@ -1,6 +1,9 @@
+import logging
 from fastapi import APIRouter, HTTPException
 from typing import Dict
 import finviz
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -15,4 +18,5 @@ def get_finviz_data(symbol: str) -> Dict:
             raise HTTPException(status_code=404, detail="Symbol not found on Finviz")
         return data
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Finviz error: {str(e)}")
+        logger.exception("Finviz error")
+        raise HTTPException(status_code=500, detail="Finviz error")
