@@ -1,5 +1,6 @@
 """
 news-worker entry point: ingestion + classification + AI notes, outside the API.
+Also runs the copilot SEC filing index refresh (app.services.copilot.sec_refresh).
 
   python -m app.services.news_intel.worker               # run the worker
   python -m app.services.news_intel.worker --healthcheck # exit 0 if heartbeat < 120s old
@@ -68,6 +69,13 @@ async def _amain() -> None:
     status = asyncio.create_task(svc.status_loop(), name="news-status")
     runner = svc.start()
 
+    # Copilot SEC filing index refresh lives here, not in the API process.
+    sec_task = None
+    if os.environ.get("COPILOT_SEC_REFRESH", "1") != "0":
+        from app.services.copilot.sec_refresh import refresh_loop
+
+        sec_task = asyncio.create_task(refresh_loop(redis), name="copilot-sec-refresh")
+
     stop = asyncio.Event()
     for sig in (signal.SIGTERM, signal.SIGINT):
         try:
@@ -78,6 +86,8 @@ async def _amain() -> None:
     await stop.wait()
     log.info("news-worker stopping")
     status.cancel()
+    if sec_task is not None:
+        sec_task.cancel()
     await svc.stop()
     if not runner.done():
         runner.cancel()

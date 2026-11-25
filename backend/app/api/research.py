@@ -133,6 +133,10 @@ def company_overview(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpoo
     """
     upper = ticker.upper()
     sym = db.query(Symbol).filter(Symbol.symbol == upper).first()
+    if sym is not None:
+        # Research views drive which tickers the copilot SEC index refreshes.
+        from app.services.copilot.viewed import record_view
+        record_view(upper)
     asset_type = classify_asset_type(upper, sym.asset_type if sym else None)
     if asset_type != "equity":
         return {
