@@ -151,6 +151,7 @@ def io_caps() -> Dict[str, int]:
 # substring of the lower-cased model id.  Override/extend with
 # AI_PRICES_JSON='{"claude-haiku-4-5": [1, 5], "flux/schnell": 0.003}'.
 TOKEN_PRICES: Dict[str, Tuple[float, float]] = {
+    "claude-sonnet-5": (2.0, 10.0),
     "claude-sonnet-4": (3.0, 15.0),
     "claude-3.5-sonnet": (3.0, 15.0),
     "claude-3-5-sonnet": (3.0, 15.0),

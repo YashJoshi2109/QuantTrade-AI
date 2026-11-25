@@ -27,7 +27,6 @@ from app.api import (
     symbols,
     prices,
     indicators,
-    chat,
     news,
     filings,
     risk,
@@ -51,7 +50,7 @@ from app.api import (
 )
 from app.api import options
 from app.api import monitor_extended
-from app.api import copilot_stream
+from app.api import copilot as copilot_api
 from app.api import ideas
 from app.api import model_index as model_index_api
 from app.api import community, posts, comments, notifications, users, search
@@ -214,7 +213,6 @@ def _start_scheduler():
         from app.services.idea_scheduler import (
             rescore_ideas, update_market_pulse,
             news_sentiment_check, market_open_scan,
-            ingest_rag_data,
         )
         # Re-score ideas every 5 minutes with real market data
         sched.add_job(rescore_ideas, IntervalTrigger(minutes=5),
@@ -228,9 +226,8 @@ def _start_scheduler():
         # Market open full scan at 9:30 AM ET (13:30 UTC)
         sched.add_job(market_open_scan, CronTrigger(hour=13, minute=30),
                       id="market_open_scan", replace_existing=True)
-        # RAG data ingestion every 6 hours for copilot retrieval
-        sched.add_job(ingest_rag_data, IntervalTrigger(hours=6),
-                      id="rag_data_ingestion", replace_existing=True)
+        # (SEC filing index refresh for the copilot runs in the news-worker:
+        #  app.services.copilot.sec_refresh — never in the API process.)
 
         sched.start()
         _scheduler = sched
@@ -512,7 +509,6 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(symbols.router, prefix="/api/v1", tags=["symbols"])
 app.include_router(prices.router, prefix="/api/v1", tags=["prices"])
 app.include_router(indicators.router, prefix="/api/v1", tags=["indicators"])
-app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
 # news_intel first: its /news/feed|categories|health must win over /news/{symbol}
 from app.api import news_intel as news_intel_api  # noqa: E402
 app.include_router(news_intel_api.router, prefix="/api/v1", tags=["news-intel"])
@@ -552,12 +548,8 @@ app.include_router(ideas.router, prefix="/api/v1/ideas", tags=["ideas"])
 # Model Index Engine — AI basket intelligence
 app.include_router(model_index_api.router, prefix="/api/v1/model-index", tags=["model-index"])
 
-# AI Copilot — Streaming SSE endpoint (RAG + Quant + LLM pipeline)
-app.include_router(copilot_stream.router, prefix="/api/v1", tags=["copilot"])
-
-# Agentic RAG Copilot — new LangGraph + Bedrock SSE streaming endpoint
-from app.api.agentic_stream import router as agentic_stream_router
-app.include_router(agentic_stream_router, prefix="/api/v1")
+# AI Copilot — /copilot/stream (SSE, tool-use + ticker context pack), usage, admin
+app.include_router(copilot_api.router, prefix="/api/v1")
 
 # AI usage guard — /me/ai-usage, /admin/llm-usage, /ai-usage/reserve (Next.js relays)
 from app.api.ai_quota import router as ai_quota_router
@@ -602,8 +594,6 @@ app.include_router(mlops.router, prefix="/api/v1", tags=["mlops"])
 app.include_router(research_api.router)
 
 # Agentic RAG Copilot — ingest trigger, status, health check (admin)
-from app.api.agentic_copilot import router as agentic_router
-app.include_router(agentic_router, prefix="/api/v1")
 
 # ML Training Pipeline — internal operator API
 from app.api import ml_runs

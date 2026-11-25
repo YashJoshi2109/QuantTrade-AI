@@ -397,44 +397,47 @@ def test_embeddings_capped_cached_and_counted(monkeypatch, events):
     class FakeEmb:
         def embed_documents(self, texts):
             calls.append(list(texts))
-            return [[float(len(t))] for t in texts]
+            return [[float(len(t)), 1.0, 1.0] for t in texts]
 
         def embed_query(self, text):
             calls.append([text])
-            return [float(len(text))]
+            return [float(len(text)), 1.0, 1.0]
 
     fake = FakeEmb()
-    monkeypatch.setattr(bc, "_embedder_cache", fake)
-    monkeypatch.setitem(bc._EMBED_PROVIDER, id(fake), ("bedrock", bc.BEDROCK_TITAN_MODEL))
+    monkeypatch.setenv("EMBED_MODEL", "bedrock:amazon.titan-embed-text-v2:0:3")
+    monkeypatch.setitem(bc._embedder_cache, "bedrock:amazon.titan-embed-text-v2:0:3", fake)
     monkeypatch.setenv("AI_EMBED_MAX_CHARS", "100")
     with ai_guard.use_context(_user(feature="copilot")):
         v1 = bc.embed_query("x" * 500)
         v2 = bc.embed_query("x" * 500)  # identical → cache, no second call
-    assert v1 == v2 == [100.0] and len(calls) == 1
+    assert v1 == v2 == [100.0, 1.0, 1.0] and len(calls) == 1
     assert events[-1]["provider"] == "bedrock" and events[-1]["input_tokens"] == 25
     monkeypatch.setenv("AI_EMBED_TOKENS_PER_DAY", "10")
     with pytest.raises(AIQuotaError):
         bc.embed_texts(["y" * 100])
 
 
-def test_openai_embedding_service_guarded(monkeypatch, events):
-    from app.services.embedding_service import EmbeddingService
+def test_embedder_fails_closed_never_zero_vectors(monkeypatch):
+    """No silent zero-vector fallback; wrong-dimension vectors are rejected."""
+    from app.services.agentic import bedrock_client as bc
 
-    class FakeClient:
-        n = 0
+    monkeypatch.setenv("EMBED_MODEL", "openai:text-embedding-3-small:1536")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    bc._embedder_cache.clear()
+    with pytest.raises(bc.EmbeddingUnavailable):
+        bc.embed_query("hello")
 
-        class embeddings:  # noqa: N801
-            @staticmethod
-            def create(model, input):
-                FakeClient.n += 1
-                return SimpleNamespace(data=[SimpleNamespace(embedding=[0.5]) for _ in input],
-                                       usage=SimpleNamespace(prompt_tokens=9))
+    class Zero:
+        def embed_query(self, t):
+            return [0.0] * 1536
 
-    svc = EmbeddingService(use_openai=True)
-    svc._openai_client = FakeClient()
-    assert svc.embed_text("hello world") == [0.5]
-    assert svc.embed_text("hello world") == [0.5]
-    assert FakeClient.n == 1 and events[-1]["provider"] == "openai" and events[-1]["input_tokens"] == 9
+        def embed_documents(self, ts):
+            return [[0.0] * 1536 for _ in ts]
+
+    monkeypatch.setitem(bc._embedder_cache, "openai:text-embedding-3-small:1536", Zero())
+    with ai_guard.use_context(_user(feature="copilot")):
+        with pytest.raises(bc.EmbeddingUnavailable):
+            bc.embed_query("zero vectors are refused")
 
 
 def test_cohere_rerank_counted_per_call(monkeypatch, events):

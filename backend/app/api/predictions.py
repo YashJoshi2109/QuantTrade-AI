@@ -14,14 +14,25 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
 from fastapi import APIRouter, HTTPException, Query
 
-from ml.checkpoint import find_latest_checkpoint, load_checkpoint
 from ml.constants import DEFAULT_CHECKPOINT_DIR, DEFAULT_SEQ_LEN, DEFAULT_HORIZONS
-from ml.feature_store import feature_store
 
 logger = logging.getLogger(__name__)
+
+# torch (and ml.checkpoint, which imports it) are loaded lazily on the first
+# prediction request: importing the API must not pull ~300MB of torch into the
+# 768M API container (tests/copilot/test_no_torch_import.py).
+
+
+def find_latest_checkpoint(*a, **kw):
+    from ml.checkpoint import find_latest_checkpoint as _f
+    return _f(*a, **kw)
+
+
+def load_checkpoint(*a, **kw):
+    from ml.checkpoint import load_checkpoint as _f
+    return _f(*a, **kw)
 
 router = APIRouter()
 
@@ -101,6 +112,8 @@ def _run_inference(symbol: str, horizon: int) -> dict:
 
     # Fetch features
     seq_len = metadata.seq_len if metadata.seq_len else DEFAULT_SEQ_LEN
+    from ml.feature_store import feature_store  # lazy: imports torch via ml.dataset
+
     features_df = feature_store.get_features(symbol, lookback=seq_len)
     if features_df is None or len(features_df) < seq_len:
         raise HTTPException(
@@ -128,6 +141,8 @@ def _run_inference(symbol: str, horizon: int) -> dict:
         raise HTTPException(status_code=503, detail="Prediction features unavailable")
 
     # Build tensor: (1, seq_len, n_features)
+    import torch
+
     X_tensor = torch.tensor(X_scaled, dtype=torch.float32).unsqueeze(0)
 
     # Inference

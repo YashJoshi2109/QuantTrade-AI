@@ -29,11 +29,9 @@ PATTERNS = [
 # file (relative to backend/) → how it is guarded
 ALLOWED_BACKEND = {
     "app/services/agentic/bedrock_client.py": "guarded factories (GuardCallbackHandler) + guarded embed/rerank",
-    "app/services/embedding_service.py": "OpenAI embeddings via _openai_embed → ai_guard.reserve",
     "app/services/fal_service.py": "_generate → ai_guard.reserve (images / og_images)",
     "app/services/tts_service.py": "synthesize → ai_guard.reserve (tts_chars)",
     "app/services/threat_classification.py": "Groq call gated by ai_guard.reserve_system",
-    "app/api/agentic_stream.py": "only reads the class name of a guarded LLM (no construction)",
 }
 # Another agent owns this package (PR #72); it must use reserve_system / the factories.
 EXCLUDED_DIRS = ("app/services/news_intel/",)
@@ -90,7 +88,5 @@ def test_allowlisted_relays_reserve_quota_first():
 
 def test_guarded_modules_actually_reference_the_guard():
     for rel in ALLOWED_BACKEND:
-        if rel == "app/api/agentic_stream.py":
-            continue
         text = (BACKEND / rel).read_text()
         assert "ai_guard" in text or "GuardCallbackHandler" in text, f"{rel} is allowlisted but not guarded"

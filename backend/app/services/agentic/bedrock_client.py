@@ -1,34 +1,41 @@
 """
-LLM client factory.
-Fallback chain: Bedrock → OpenAI → OpenRouter.
+LLM / embedding / rerank client factory — the ONLY place paid AI clients are built
+(tests/test_ai_guard_coverage.py enforces it).  Every client carries a
+GuardCallbackHandler (or reserves through ai_guard) so usage is budgeted.
 
-Priority rules:
-  1. Bedrock   — AWS credentials available via credential chain (IAM role, env, ~/.aws)
-                 and PREFER_OPENAI != 1
-  2. OpenAI    — OPENAI_API_KEY set
-  3. OpenRouter— OPENROUTER_API_KEY or NEXT_PUBLIC_OPENROUTER_API_KEY set
-     (uses OpenAI-compatible API at https://openrouter.ai/api/v1)
+Chat fallback chain for the generic factories: Bedrock -> OpenAI -> OpenRouter.
+  1. Bedrock    — AWS credentials resolvable via the boto3 chain and PREFER_OPENAI != 1
+  2. OpenAI     — OPENAI_API_KEY set
+  3. OpenRouter — OPENROUTER_API_KEY (OpenAI-compatible API)
 
-Override: PREFER_OPENAI=1 skips Bedrock and goes straight to OpenAI/OpenRouter.
+Copilot answer chain (copilot_llm_candidates):
+  Bedrock Claude Sonnet 5 (inference profile) -> Bedrock Sonnet 4.6 (profile)
+  -> direct Anthropic API -> OpenAI.
 
-Bedrock credentials: boto3 standard chain — env vars (AWS_ACCESS_KEY_ID/SECRET_ACCESS_KEY),
-  ~/.aws/credentials, or EC2 instance metadata (IAM role). No custom env var needed.
+Bedrock model ids MUST be cross-region inference profiles (``us.``/``global.``
+prefix).  Bare ``anthropic.claude-*`` ids are rejected for on-demand
+throughput by the newer Claude models — that was why prod forced
+PREFER_OPENAI=1.  All ids are env-configurable:
 
-Bedrock model IDs (auto-enabled on first invocation in account):
-  - anthropic.claude-sonnet-4-6
-  - anthropic.claude-haiku-4-5-20251001-v1:0
-  - amazon.titan-embed-text-v2:0
+  BEDROCK_SONNET_MODEL      (default us.anthropic.claude-sonnet-4-6)
+  BEDROCK_HAIKU_MODEL       (default us.anthropic.claude-haiku-4-5-20251001-v1:0)
+  COPILOT_MODEL_PRIMARY     (default us.anthropic.claude-sonnet-5)
+  COPILOT_MODEL_FALLBACK    (default us.anthropic.claude-sonnet-4-6)
+  COPILOT_MODEL_ANTHROPIC   (default claude-sonnet-5, direct API)
+  COPILOT_MODEL_OPENAI      (default gpt-4o)
 
-cohere 5.x: cohere.Client still exists and exposes .rerank().
+Embeddings: ONE pinned model (EMBED_MODEL, default
+``openai:text-embedding-3-small:1536``; ``bedrock:amazon.titan-embed-text-v2:0:1024``
+also supported).  There is no silent zero-vector fallback — when the pinned
+provider is unavailable, embed_* raise EmbeddingUnavailable and callers
+degrade to lexical (BM25) retrieval.
 """
 from __future__ import annotations
 
 import logging
 import os
 from functools import lru_cache
-from typing import Any
-
-import cohere
+from typing import Any, NamedTuple
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +46,7 @@ _aws_creds_cache: bool | None = None
 def _aws_credentials_available() -> bool:
     """True if boto3 can resolve AWS credentials via the standard credential chain.
 
-    Result is cached for the process lifetime — avoids repeated boto3 I/O on
-    every LLM call (instance metadata lookups can be slow / unreachable on EC2).
+    Cached for the process lifetime (instance-metadata lookups can be slow).
     """
     global _aws_creds_cache
     if _aws_creds_cache is not None:
@@ -54,32 +60,39 @@ def _aws_credentials_available() -> bool:
         _aws_creds_cache = False
     return _aws_creds_cache
 
-# ─── Model constants ─────────────────────────────────────────────────────────
 
-BEDROCK_SONNET_MODEL    = "anthropic.claude-sonnet-4-6"
-BEDROCK_HAIKU_MODEL     = "anthropic.claude-haiku-4-5-20251001-v1:0"
+def _env(name: str, default: str) -> str:
+    v = os.getenv(name, "").strip()
+    return v or default
+
+
+def _flag(name: str) -> bool:
+    return os.getenv(name, "0").lower() in ("1", "true", "yes")
+
+
+# ─── Model constants ─────────────────────────────────────────────────────────
+# Inference-profile ids (on-demand invocation of current Claude models on
+# Bedrock requires a profile, not the bare foundation-model id).
+BEDROCK_SONNET_MODEL    = _env("BEDROCK_SONNET_MODEL", "us.anthropic.claude-sonnet-4-6")
+BEDROCK_HAIKU_MODEL     = _env("BEDROCK_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
 BEDROCK_TITAN_MODEL     = "amazon.titan-embed-text-v2:0"
 
-# Amazon Nova — cost-effective Bedrock-native models
-# Nova Micro: text-only, ~20x cheaper than Sonnet; ideal for routing/intent/HyDE
-# Nova Lite:  text+image+video, ~10x cheaper than Sonnet; multimodal haiku-class
-# Nova Pro:   most capable Nova, mid-tier between Haiku and Sonnet
+COPILOT_MODEL_PRIMARY   = _env("COPILOT_MODEL_PRIMARY", "us.anthropic.claude-sonnet-5")
+COPILOT_MODEL_FALLBACK  = _env("COPILOT_MODEL_FALLBACK", "us.anthropic.claude-sonnet-4-6")
+COPILOT_MODEL_ANTHROPIC = _env("COPILOT_MODEL_ANTHROPIC", "claude-sonnet-5")
+COPILOT_MODEL_OPENAI    = _env("COPILOT_MODEL_OPENAI", "gpt-4o")
+
+# Amazon Nova — opt-in Bedrock-native alternatives
 BEDROCK_NOVA_MICRO_MODEL = "amazon.nova-micro-v1:0"
 BEDROCK_NOVA_LITE_MODEL  = "amazon.nova-lite-v1:0"
 BEDROCK_NOVA_PRO_MODEL   = "amazon.nova-pro-v1:0"
-
-# USE_NOVA_MICRO=1 → Nova Micro for haiku-class calls (text-only, cheapest)
-# USE_NOVA_LITE=1  → Nova Lite for haiku-class calls (multimodal, cheap)
-# USE_NOVA_PRO=1   → Nova Pro for sonnet-class calls (mid-tier)
-# Priority for haiku-class: MICRO > LITE > Haiku 4.5
-USE_NOVA_MICRO = os.getenv("USE_NOVA_MICRO", "0").lower() in ("1", "true", "yes")
-USE_NOVA_LITE  = os.getenv("USE_NOVA_LITE",  "0").lower() in ("1", "true", "yes")
-USE_NOVA_PRO   = os.getenv("USE_NOVA_PRO",   "0").lower() in ("1", "true", "yes")
+USE_NOVA_MICRO = _flag("USE_NOVA_MICRO")
+USE_NOVA_LITE  = _flag("USE_NOVA_LITE")
+USE_NOVA_PRO   = _flag("USE_NOVA_PRO")
 
 OPENAI_SONNET_EQUIV     = "gpt-4o"
 OPENAI_HAIKU_EQUIV      = "gpt-4o-mini"
 
-# OpenRouter model slugs (routed to best available provider)
 OPENROUTER_SONNET_MODEL = "anthropic/claude-3.5-sonnet"
 OPENROUTER_HAIKU_MODEL  = "anthropic/claude-3-haiku"
 OPENROUTER_BASE_URL     = "https://openrouter.ai/api/v1"
@@ -104,15 +117,16 @@ def _timeout() -> int:
     return io_caps()["timeout_s"]
 
 
-def _bedrock_llm(model_id: str, temperature: float, max_tokens: int, streaming: bool):
+def _bedrock_llm(model_id: str, temperature: float | None, max_tokens: int, streaming: bool):
+    """Bedrock Converse API (tool use + streaming for every Claude model).
+    ``streaming`` is accepted for signature parity; Converse streams on astream()."""
     from botocore.config import Config
-    from langchain_aws import ChatBedrock
-    return ChatBedrock(
+    from langchain_aws import ChatBedrockConverse
+    return ChatBedrockConverse(
         model=model_id,
         region_name=REGION,
         temperature=temperature,
         max_tokens=max_tokens,
-        streaming=streaming,
         config=Config(read_timeout=_timeout(), connect_timeout=10, retries={"max_attempts": 2}),
         callbacks=_guard("bedrock", model_id, max_tokens),
     )
@@ -261,88 +275,130 @@ def get_llm_anthropic(model: str = ANTHROPIC_HAIKU_MODEL, max_tokens: int | None
     )
 
 
+# ─── Copilot answer-model chain ───────────────────────────────────────────────
+
+
+class LLMCandidate(NamedTuple):
+    provider: str   # bedrock | anthropic | openai
+    model: str
+
+
+def copilot_llm_candidates() -> list[LLMCandidate]:
+    """Ordered answer-model chain for the copilot, filtered by what is configured.
+
+    Bedrock Sonnet 5 (profile) -> Bedrock Sonnet 4.6 (profile) -> Anthropic API -> OpenAI.
+    PREFER_OPENAI=1 is honoured as an emergency switch (skips Bedrock).
+    """
+    from app.config import settings
+    out: list[LLMCandidate] = []
+    if not _flag("PREFER_OPENAI") and _aws_credentials_available():
+        out.append(LLMCandidate("bedrock", COPILOT_MODEL_PRIMARY))
+        if COPILOT_MODEL_FALLBACK and COPILOT_MODEL_FALLBACK != COPILOT_MODEL_PRIMARY:
+            out.append(LLMCandidate("bedrock", COPILOT_MODEL_FALLBACK))
+    if settings.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY"):
+        out.append(LLMCandidate("anthropic", COPILOT_MODEL_ANTHROPIC))
+    if os.getenv("OPENAI_API_KEY"):
+        out.append(LLMCandidate("openai", COPILOT_MODEL_OPENAI))
+    return out
+
+
+def build_copilot_llm(candidate: LLMCandidate, max_tokens: int | None = None):
+    """Guarded chat model for one chain entry.  No temperature is sent to
+    Claude: Sonnet 5 rejects sampling parameters."""
+    cap = _caps()["max_tokens_sonnet"]
+    mt = min(max_tokens or cap, cap)
+    if candidate.provider == "bedrock":
+        return _bedrock_llm(candidate.model, None, mt, True)
+    if candidate.provider == "anthropic":
+        from app.config import settings
+        from langchain_anthropic import ChatAnthropic
+        return ChatAnthropic(
+            model=candidate.model,
+            api_key=settings.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", ""),
+            max_tokens=mt,
+            timeout=_timeout(),
+            max_retries=1,
+            streaming=True,
+            stream_usage=True,
+            callbacks=_guard("anthropic", candidate.model, mt),
+        )
+    if candidate.provider == "openai":
+        return _openai_llm(candidate.model, 0.1, mt, True)
+    raise ValueError(f"unknown provider {candidate.provider}")
+
+
 # ─── Embeddings ───────────────────────────────────────────────────────────────
 
-_embedder_cache: Any = None
+
+class EmbeddingUnavailable(RuntimeError):
+    """The pinned embedding provider is not configured / reachable."""
+
+
+class EmbeddingSpec(NamedTuple):
+    provider: str   # openai | bedrock
+    model: str
+    dim: int
+
+    @property
+    def key(self) -> str:
+        return f"{self.provider}:{self.model}:{self.dim}"
+
+
+def embedding_spec() -> EmbeddingSpec:
+    """The single pinned embedding model (EMBED_MODEL=provider:model:dim)."""
+    raw = _env("EMBED_MODEL", "openai:text-embedding-3-small:1536")
+    provider, _, rest = raw.partition(":")
+    model, _, dim = rest.rpartition(":")
+    try:
+        return EmbeddingSpec(provider, model, int(dim))
+    except ValueError:
+        raise EmbeddingUnavailable(f"bad EMBED_MODEL={raw!r} (want provider:model:dim)")
+
+
+_embedder_cache: dict[str, Any] = {}
 
 
 def get_embedder():
-    """
-    Embedding provider chain: Bedrock Titan v2 → OpenAI text-embedding-3-small → zero stub.
-    All return 1536-dim vectors so Qdrant collection schema stays consistent.
+    """Embedder for the pinned spec, cached per process (no warm-up call).
 
-    The first real provider is cached for the process (no per-call warm-up
-    embedding).  The zero stub is never cached, so a provider that becomes
-    available later is picked up.
-    """
-    global _embedder_cache
-    if _embedder_cache is not None:
-        return _embedder_cache
-    prefer_openai = os.getenv("PREFER_OPENAI", "0").lower() in ("1", "true", "yes")
-
-    # 1. Bedrock Titan v2 — uses boto3 credential chain (IAM role, env, ~/.aws)
-    if not prefer_openai and _aws_credentials_available():
-        try:
-            from langchain_aws import BedrockEmbeddings
-            embedder = BedrockEmbeddings(model_id=BEDROCK_TITAN_MODEL, region_name=REGION)
-            _EMBED_PROVIDER[id(embedder)] = ("bedrock", BEDROCK_TITAN_MODEL)
-            logger.info("Embedder: Bedrock Titan v2")
-            _embedder_cache = embedder
-            return embedder
-        except Exception as exc:
-            logger.warning("Bedrock embedder unavailable (%s), trying OpenAI", exc)
-
-    # 2. OpenAI text-embedding-3-small — 1536d, same dim as Titan v2
-    if os.getenv("OPENAI_API_KEY"):
-        try:
-            from langchain_openai import OpenAIEmbeddings
-            embedder = OpenAIEmbeddings(
-                model="text-embedding-3-small",
-                api_key=os.getenv("OPENAI_API_KEY", ""),
-                dimensions=1536,
-            )
-            _EMBED_PROVIDER[id(embedder)] = ("openai", "text-embedding-3-small")
-            logger.info("Embedder: OpenAI text-embedding-3-small")
-            _embedder_cache = embedder
-            return embedder
-        except Exception as exc:
-            logger.warning("OpenAI embedder unavailable (%s), using zero stub", exc)
-
-    # 3. Zero stub — OpenRouter doesn't provide embeddings
-    logger.error(
-        "No embedding provider available (no AWS credentials, no OPENAI_API_KEY). "
-        "Falling back to zero vectors — RAG search will be degraded!"
-    )
-    return _FallbackEmbedder()
-
-
-_EMBED_PROVIDER: dict[int, tuple[str, str]] = {}
-
-
-class _FallbackEmbedder:
-    """Zero-vector stub — last resort when no embedding provider available."""
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return [[0.0] * 1536 for _ in texts]
-
-    def embed_query(self, text: str) -> list[float]:
-        return [0.0] * 1536
+    Raises EmbeddingUnavailable when the pinned provider is not configured —
+    never substitutes another model or zero vectors (that silently poisons
+    the index and makes every query match nothing)."""
+    spec = embedding_spec()
+    hit = _embedder_cache.get(spec.key)
+    if hit is not None:
+        return hit
+    if spec.provider == "openai":
+        if not os.getenv("OPENAI_API_KEY"):
+            raise EmbeddingUnavailable("EMBED_MODEL is OpenAI but OPENAI_API_KEY is not set")
+        from langchain_openai import OpenAIEmbeddings
+        embedder = OpenAIEmbeddings(model=spec.model, api_key=os.getenv("OPENAI_API_KEY", ""),
+                                    dimensions=spec.dim)
+    elif spec.provider == "bedrock":
+        if not _aws_credentials_available():
+            raise EmbeddingUnavailable("EMBED_MODEL is Bedrock but no AWS credentials")
+        from langchain_aws import BedrockEmbeddings
+        embedder = BedrockEmbeddings(model_id=spec.model, region_name=REGION,
+                                     model_kwargs={"dimensions": spec.dim})
+    else:
+        raise EmbeddingUnavailable(f"unsupported embedding provider {spec.provider!r}")
+    logger.info("Embedder pinned: %s", spec.key)
+    _embedder_cache[spec.key] = embedder
+    return embedder
 
 
 def _guarded_embed(texts: list[str], query: bool) -> list[list[float]]:
-    """Cap input size, serve from the content-hash cache, reserve budget for the rest."""
+    """Cap input size, serve from the content-hash cache, reserve budget for the rest.
+    Output dimension is verified against the pinned spec (fail closed)."""
     import json as _json
     from app.services import ai_guard
 
+    spec = embedding_spec()
     caps = ai_guard.io_caps()
     if len(texts) > caps["embed_max_texts"]:
         raise ValueError(f"Too many texts to embed in one call (max {caps['embed_max_texts']})")
     texts = [(t or " ")[: caps["embed_max_chars"]] for t in texts]
-    embedder = get_embedder()
-    provider = _EMBED_PROVIDER.get(id(embedder))
-    if provider is None:  # zero stub / test double: nothing billable
-        return [embedder.embed_query(t) for t in texts] if query else embedder.embed_documents(texts)
-    prov, model = provider
-    keys = [ai_guard.cache_key("emb", model, t) for t in texts]
+    keys = [ai_guard.cache_key("emb", spec.key, t) for t in texts]
     out: list = [None] * len(texts)
     missing: list[int] = []
     for i, k in enumerate(keys):
@@ -352,9 +408,11 @@ def _guarded_embed(texts: list[str], query: bool) -> list[list[float]]:
         else:
             missing.append(i)
     if missing:
+        embedder = get_embedder()
         todo = [texts[i] for i in missing]
         est = sum(ai_guard.estimate_tokens(t) for t in todo)
-        res = ai_guard.reserve(prov, model, est_input_tokens=est, units=est, unit_kind="embed_tokens")
+        res = ai_guard.reserve(spec.provider, spec.model, est_input_tokens=est, units=est,
+                               unit_kind="embed_tokens")
         try:
             vecs = [embedder.embed_query(todo[0])] if query and len(todo) == 1 else embedder.embed_documents(todo)
         except Exception:
@@ -362,6 +420,9 @@ def _guarded_embed(texts: list[str], query: bool) -> list[list[float]]:
             raise
         res.commit(input_tokens=est, units=est)
         for i, v in zip(missing, vecs):
+            if len(v) != spec.dim or not any(v):
+                raise EmbeddingUnavailable(
+                    f"embedder returned dim={len(v)} (zero={not any(v)}), expected {spec.dim}")
             out[i] = v
             ai_guard.cache_set(keys[i], _json.dumps(v), 30 * 86400)
     return out
@@ -377,8 +438,15 @@ def embed_query(text: str) -> list[float]:
 
 # ─── Cohere rerank ────────────────────────────────────────────────────────────
 
+
+def rerank_configured() -> bool:
+    from app.config import settings
+    return bool(settings.COHERE_API_KEY or os.getenv("COHERE_API_KEY"))
+
+
 @lru_cache(maxsize=1)
-def _cohere_client() -> cohere.Client:
+def _cohere_client():
+    import cohere
     from app.config import settings
     api_key = settings.COHERE_API_KEY or os.getenv("COHERE_API_KEY", "")
     return cohere.Client(api_key=api_key)
@@ -389,7 +457,7 @@ def rerank(
     documents: list[str],
     top_n: int = 10,
 ) -> list[dict[str, Any]]:
-    """Rerank documents using Cohere Rerank v3. Returns {index, score} list.
+    """Rerank documents using Cohere Rerank v3.5. Returns {index, score} list.
     One search unit per call (<=100 docs); guarded by ai_guard."""
     from app.services import ai_guard
     documents = [d[:4000] for d in documents[:100]]

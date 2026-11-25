@@ -321,7 +321,10 @@ jobs:
             echo "# === App Settings ===" >> .env
             echo "DEBUG=false" >> .env
             echo "LOG_LEVEL=INFO" >> .env
-            echo "PREFER_OPENAI=1" >> .env
+            # Bedrock now uses cross-region inference profiles (us.anthropic.*), so the
+            # hard PREFER_OPENAI=1 is gone; set it in Secrets Manager only as an emergency switch.
+            # Embeddings stay pinned to one model regardless of LLM provider.
+            echo "EMBED_MODEL=openai:text-embedding-3-small:1536" >> .env
             echo "AWS_REGION=us-east-2" >> .env
             echo "# === WebAuthn / Passkey (required for production verification) ===" >> .env
             echo "WEBAUTHN_RP_ID=quanttrade.us" >> .env

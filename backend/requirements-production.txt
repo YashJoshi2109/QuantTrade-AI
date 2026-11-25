@@ -27,8 +27,7 @@ numpy>=1.26.0
 # AI/LLM (Claude + embeddings)
 langchain-anthropic>=0.3.0
 anthropic>=0.75.0
-# Local embeddings for RAG (uses sentence-transformers)
-sentence-transformers>=2.2.2,<3.0.0
+# (copilot embeddings use the guarded OpenAI API; no local sentence-transformers)
 
 # Configuration
 pydantic>=2.9.0

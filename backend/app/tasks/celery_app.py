@@ -16,7 +16,7 @@ celery_app = Celery(
     "trading_copilot",
     broker=settings.CELERY_BROKER_URL if hasattr(settings, 'CELERY_BROKER_URL') else "redis://localhost:6379/0",
     backend=settings.CELERY_RESULT_BACKEND if hasattr(settings, 'CELERY_RESULT_BACKEND') else "redis://localhost:6379/0",
-    include=["app.tasks.data_sync", "app.tasks.embeddings", "app.tasks.global_monitor_tasks", "app.tasks.community_sync", "app.tasks.ml_tasks"]
+    include=["app.tasks.data_sync", "app.tasks.global_monitor_tasks", "app.tasks.community_sync", "app.tasks.ml_tasks"]
 )
 
 celery_app.conf.update(

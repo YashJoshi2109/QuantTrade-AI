@@ -48,20 +48,6 @@ def sync_news_and_filings():
             filings_count = filings_fetcher.sync_filings_for_symbol(db, symbol, use_mock=True)
             print(f"  ✓ Filings: {filings_count} filings")
             
-            # Generate embeddings for filing chunks (in background)
-            from app.models.filing import Filing
-            
-            if db_symbol:
-                filings = db.query(Filing).filter(Filing.symbol_id == db_symbol.id).all()
-                for filing in filings:
-                    # Process embeddings (can be done async if Celery is running)
-                    try:
-                        from app.tasks.embeddings import process_filing_chunks_task
-                        process_filing_chunks_task.delay(filing.id)
-                        print(f"  ✓ Queued embeddings for filing {filing.id}")
-                    except Exception:
-                        # Celery not running, skip async processing
-                        pass
             
         except Exception as e:
             print(f"  ✗ Error: {e}")
