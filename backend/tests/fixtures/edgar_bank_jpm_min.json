@@ -1,0 +1,49 @@
+{
+  "_comment": "Trimmed from SEC companyfacts CIK0000019617 (JPMorgan Chase), values as filed. Only the tags the bank cash/debt fallbacks touch, plus revenue/net income so periods are discovered. Generic cash/debt tags stop in 2018/2014, which is what left JPM's cash and long-term debt blank.",
+  "cik": 19617,
+  "entityName": "JPMORGAN CHASE & CO",
+  "facts": {
+    "us-gaap": {
+      "RevenuesNetOfInterestExpense": {"units": {"USD": [
+        {"start": "2025-01-01", "end": "2025-12-31", "val": 182447000000, "fy": 2025, "fp": "FY", "form": "10-K", "filed": "2026-02-13"},
+        {"start": "2026-01-01", "end": "2026-09-30", "val": 157355000000, "fy": 2026, "fp": "Q3", "form": "10-Q", "filed": "2026-11-03"},
+        {"start": "2026-07-01", "end": "2026-09-30", "val": 50172000000, "fy": 2026, "fp": "Q3", "form": "10-Q", "filed": "2026-11-03"}
+      ]}},
+      "NetIncomeLoss": {"units": {"USD": [
+        {"start": "2025-01-01", "end": "2025-12-31", "val": 57048000000, "fy": 2025, "fp": "FY", "form": "10-K", "filed": "2026-02-13"},
+        {"start": "2026-01-01", "end": "2026-09-30", "val": 52954000000, "fy": 2026, "fp": "Q3", "form": "10-Q", "filed": "2026-11-03"},
+        {"start": "2026-07-01", "end": "2026-09-30", "val": 15305000000, "fy": 2026, "fp": "Q3", "form": "10-Q", "filed": "2026-11-03"}
+      ]}},
+      "Assets": {"units": {"USD": [
+        {"end": "2025-12-31", "val": 4424900000000, "fy": 2025, "fp": "FY", "form": "10-K", "filed": "2026-02-13"},
+        {"end": "2026-09-30", "val": 5091545000000, "fy": 2026, "fp": "Q3", "form": "10-Q", "filed": "2026-11-03"}
+      ]}},
+      "CashAndCashEquivalentsAtCarryingValue": {"units": {"USD": [
+        {"end": "2018-12-31", "val": 278793000000, "fy": 2018, "fp": "FY", "form": "10-K", "filed": "2019-02-26"}
+      ]}},
+      "CashAndDueFromBanks": {"units": {"USD": [
+        {"end": "2025-12-31", "val": 21742000000, "fy": 2025, "fp": "FY", "form": "10-K", "filed": "2026-02-13"},
+        {"end": "2026-09-30", "val": 21259000000, "fy": 2026, "fp": "Q3", "form": "10-Q", "filed": "2026-11-03"}
+      ]}},
+      "InterestBearingDepositsInBanks": {"units": {"USD": [
+        {"end": "2025-12-31", "val": 321596000000, "fy": 2025, "fp": "FY", "form": "10-K", "filed": "2026-02-13"},
+        {"end": "2026-09-30", "val": 305012000000, "fy": 2026, "fp": "Q3", "form": "10-Q", "filed": "2026-11-03"}
+      ]}},
+      "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents": {"units": {"USD": [
+        {"end": "2025-12-31", "val": 343338000000, "fy": 2025, "fp": "FY", "form": "10-K", "filed": "2026-02-13"},
+        {"end": "2026-09-30", "val": 326271000000, "fy": 2026, "fp": "Q3", "form": "10-Q", "filed": "2026-11-03"}
+      ]}},
+      "LongTermDebt": {"units": {"USD": [
+        {"end": "2014-06-30", "val": 269929000000, "fy": 2014, "fp": "Q2", "form": "10-Q", "filed": "2014-08-01"}
+      ]}},
+      "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities": {"units": {"USD": [
+        {"end": "2025-12-31", "val": 435206000000, "fy": 2025, "fp": "FY", "form": "10-K", "filed": "2026-02-13"},
+        {"end": "2026-09-30", "val": 460160000000, "fy": 2026, "fp": "Q3", "form": "10-Q", "filed": "2026-11-03"}
+      ]}},
+      "ShortTermBorrowings": {"units": {"USD": [
+        {"end": "2025-12-31", "val": 64776000000, "fy": 2025, "fp": "FY", "form": "10-K", "filed": "2026-02-13"},
+        {"end": "2026-09-30", "val": 71339000000, "fy": 2026, "fp": "Q3", "form": "10-Q", "filed": "2026-11-03"}
+      ]}}
+    }
+  }
+}
