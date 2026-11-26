@@ -132,3 +132,51 @@ def test_identity_endpoint(db):
 
     unknown = client.get("/api/v1/research/NOPE/identity").json()
     assert unknown["status"] == "ok" and unknown["known_symbol"] is False
+
+
+# --- CLI: runnable as a module in the prod image, guarded by DB host ---------
+
+import pytest
+
+from app.services import symbol_identity_refresh as sir
+
+
+@pytest.mark.parametrize("host,remote", [
+    ("localhost", False), ("127.0.0.1", False), ("db", False), (None, False),
+    ("quanttrade-prod.cza20sq2wktv.us-east-2.rds.amazonaws.com", True), ("10.0.0.5", True),
+])
+def test_is_remote_db_host(host, remote):
+    assert sir.is_remote_db_host(host) is remote
+
+
+def test_main_refuses_remote_db_without_flag(monkeypatch, capsys):
+    """APP_ENV is unset in the prod container, so the guard must key off the DB host."""
+    monkeypatch.delenv("APP_ENV", raising=False)
+
+    class _URL:
+        host = "quanttrade-prod.example.rds.amazonaws.com"
+
+    class _Bind:
+        url = _URL()
+
+    class _Session:
+        def get_bind(self):
+            return _Bind()
+
+        def close(self):
+            pass
+
+    import app.config_aws as config_aws
+    import app.db.database as database
+
+    monkeypatch.setattr(config_aws, "inject_aws_secrets", lambda: None)
+    monkeypatch.setattr(database, "SessionLocal", lambda: _Session())
+    monkeypatch.setattr(sir, "fetch_sec_ticker_map", lambda path=None: {})
+    assert sir.main(["--apply"]) == 2
+    assert "--allow-production" in capsys.readouterr().err
+
+
+def test_module_is_executable():
+    import runpy  # noqa: F401  (python -m entry point exists)
+
+    assert callable(sir.main)

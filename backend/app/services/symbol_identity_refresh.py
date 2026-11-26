@@ -7,14 +7,22 @@ after the Skydance merger; the company traded as PSKY and, since its Oct 2026
 rename to Skydance Corp, as SKYD) our name and the
 cached EDGAR filings silently describe different companies.
 
-``plan_refresh`` is pure (rows in, actions out) so it is unit-tested; the CLI
-wrapper is ``scripts/refresh_symbol_identity.py`` (dry-run by default).
+``plan_refresh`` is pure (rows in, actions out) so it is unit-tested; run it as a
+module (``scripts/`` is not shipped in the image)::
+
+    docker exec quanttrade-backend python -m app.services.symbol_identity_refresh            # dry run
+    docker exec quanttrade-backend python -m app.services.symbol_identity_refresh --apply --allow-production
+
+Dry-run by default. Any non-local database requires ``--allow-production``.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import logging
+import os
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Optional
@@ -190,3 +198,72 @@ def apply_plan(db, plan: Plan, purge_edgar: bool = True) -> dict:
                 done["purge_edgar"] += 1
     db.commit()
     return done
+
+
+_LOCAL_DB_HOSTS = {"local", "localhost", "127.0.0.1", "::1", "db", "postgres", "host.docker.internal"}
+
+
+def is_remote_db_host(host: Optional[str]) -> bool:
+    """True for anything that is not a local/dev-compose Postgres."""
+    return (host or "local").lower() not in _LOCAL_DB_HOSTS
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(prog="python -m app.services.symbol_identity_refresh", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--apply", action="store_true", help="write changes (default: dry run)")
+    ap.add_argument("--tickers", help="comma-separated subset to check")
+    ap.add_argument("--sec-json", help="local copy of https://www.sec.gov/files/company_tickers.json")
+    ap.add_argument("--no-purge-edgar", action="store_true", help="do not delete stale cached EDGAR rows")
+    ap.add_argument("--allow-production", action="store_true", help="required when APP_ENV=production")
+    args = ap.parse_args(argv)
+
+    # Prod gets DATABASE_URL etc. from AWS Secrets Manager, which the app loads
+    # at startup; a standalone run must load it too (no-op in development).
+    from app.config_aws import inject_aws_secrets
+
+    inject_aws_secrets()
+
+    from app.db.database import SessionLocal
+
+    if SessionLocal is None:
+        print("No database configured (DATABASE_URL).", file=sys.stderr)
+        return 2
+
+    sec_map = fetch_sec_ticker_map(args.sec_json)
+    print(f"SEC ticker map: {len(sec_map)} tickers")
+
+    db = SessionLocal()
+    try:
+        host = db.get_bind().url.host or "local"
+        env = os.environ.get("APP_ENV", "<unset>")
+        print(f"Database host: {host}  (APP_ENV={env})")
+        # Decide by the database actually connected, not APP_ENV: the prod
+        # container does not set APP_ENV, so an env-based guard never fired.
+        if is_remote_db_host(host) and not args.allow_production:
+            print(f"Refusing to touch remote database {host!r} without --allow-production.",
+                  file=sys.stderr)
+            return 2
+        rows = load_rows(db)
+        existing = {r.symbol.upper() for r in rows}
+        if args.tickers:
+            wanted = {t.strip().upper() for t in args.tickers.split(",") if t.strip()}
+            rows = [r for r in rows if r.symbol.upper() in wanted]
+        plan = plan_refresh(rows, sec_map, existing=existing)
+        print(f"Checked {plan.checked} equity symbols ({plan.not_in_sec} not in SEC map: "
+              "foreign listings, OTC, or delisted)")
+        for a in plan.actions:
+            print("  " + a.describe())
+        if not plan.actions:
+            print("No identity changes needed.")
+            return 0
+        if not args.apply:
+            print(f"\nDry run: {len(plan.actions)} action(s). Re-run with --apply to write.")
+            return 0
+        done = apply_plan(db, plan, purge_edgar=not args.no_purge_edgar)
+        print(f"Applied: {done}")
+        return 0
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
