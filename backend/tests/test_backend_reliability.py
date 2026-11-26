@@ -375,6 +375,62 @@ def test_prices_no_sync_when_fresh(market_db):
     sync.assert_not_called()
 
 
+def test_prices_explicit_range_refreshes_stale_tail(market_db):
+    """The research chart always sends start/end; a stale tail must still refresh."""
+    from app.api.prices import get_prices
+    from app.services.data_fetcher import DataFetcher
+    newest = datetime(2026, 11, 20)
+    _seed_bars(market_db, 120, newest)
+    with patch.object(DataFetcher, "sync_price_data_to_db", return_value=0) as sync, \
+         patch("app.api.prices._last_trading_day", return_value=datetime(2026, 11, 25).date()):
+        get_prices(symbol="AAPL", start=datetime(2026, 8, 28), end=datetime(2026, 11, 26, 5, 0),
+                   limit=500, auto_sync=True, db=market_db)
+    assert sync.call_count == 1
+    _, _, start, _ = sync.call_args.args
+    assert start == newest - timedelta(days=5)
+
+
+def test_prices_explicit_historical_range_does_not_refresh(market_db):
+    from app.api.prices import get_prices
+    from app.services.data_fetcher import DataFetcher
+    _seed_bars(market_db, 120, datetime(2026, 11, 20))
+    with patch.object(DataFetcher, "sync_price_data_to_db") as sync, \
+         patch("app.api.prices._last_trading_day", return_value=datetime(2026, 11, 25).date()):
+        get_prices(symbol="AAPL", start=datetime(2026, 8, 1), end=datetime(2026, 10, 1),
+                   limit=500, auto_sync=True, db=market_db)
+    sync.assert_not_called()
+
+
+def _daily_df(rows):
+    import pandas as pd
+    return pd.DataFrame([
+        {"timestamp": pd.Timestamp(d, tz="America/New_York"), "open": o, "high": h,
+         "low": lo, "close": c, "volume": v}
+        for d, o, h, lo, c, v in rows
+    ])
+
+
+def test_sync_skips_open_session_and_rewrites_partial_bar(market_db):
+    """A partial bar for a still-trading session is never stored, and a partial
+    bar already stored (pre-fix) is rewritten with the final values."""
+    from app.services import data_fetcher as df_mod
+    from app.services.data_fetcher import DataFetcher
+    sym = _seed_bars(market_db, 3, datetime(2026, 11, 24, 5, 0))  # newest stored: Tue 11-24
+    upstream = _daily_df([
+        ("2026-11-23", 1, 1, 1, 1.0, 1),            # unchanged older bar: left alone
+        ("2026-11-24", 715.15, 720.93, 712.14, 718.78, 64228000),  # final values for stored partial
+        ("2026-11-25", 703.2, 705.05, 695.45, 701.41, 31612338),   # session still open
+    ])
+    with patch.object(DataFetcher, "sync_symbol_to_db", return_value=sym), \
+         patch.object(DataFetcher, "fetch_historical_data", return_value=upstream), \
+         patch.object(df_mod, "last_completed_session_date", return_value=datetime(2026, 11, 24).date()):
+        changed = DataFetcher.sync_price_data_to_db(market_db, "AAPL")
+    assert changed == 1
+    bars = market_db.query(PriceBar).filter(PriceBar.symbol_id == sym.id).order_by(PriceBar.timestamp).all()
+    assert [b.timestamp.date() for b in bars][-1] == datetime(2026, 11, 24).date()  # 11-25 not stored
+    assert bars[-1].close == 718.78 and bars[-1].volume == 64228000
+
+
 def test_last_trading_day():
     from app.api.prices import _last_trading_day
     # Tue 2026-11-24 15:00 ET (20:00 UTC) -> session not closed -> Mon

@@ -47,19 +47,9 @@ def _last_trading_day(now_utc: Optional[datetime] = None):
     weekday is used. Exchange holidays are not modelled; on a holiday this
     asks for one extra refresh, which the retry throttle keeps cheap.
     """
-    from datetime import timedelta, timezone
-    import pytz
+    from app.services.data_fetcher import last_completed_session_date
 
-    now_utc = now_utc or datetime.now(timezone.utc)
-    if now_utc.tzinfo is None:
-        now_utc = now_utc.replace(tzinfo=timezone.utc)
-    et = now_utc.astimezone(pytz.timezone("America/New_York"))
-    day = et.date()
-    if et.hour < 16 or (et.hour == 16 and et.minute < 30):
-        day -= timedelta(days=1)
-    while day.weekday() >= 5:  # Sat/Sun -> Friday
-        day -= timedelta(days=1)
-    return day
+    return last_completed_session_date(now_utc)
 
 
 def _query_bars(db: Session, symbol_id: int, start, end, limit: int):
@@ -122,12 +112,21 @@ def get_prices(
     synced = False
     try:
         if start or end:
-            # Explicit range: only fill when nothing is stored for it.
+            # Explicit range: fill when nothing is stored for it.
             if not bars and _should_attempt((symbol_upper, "range", start, end)):
                 sync_start = start or (end or now) - timedelta(days=DEFAULT_BACKFILL_DAYS)
                 sync_end = end or now
                 synced = DataFetcher.sync_price_data_to_db(
                     db, symbol_upper, sync_start, sync_end + timedelta(days=1)) > 0
+            # The research chart always sends start/end, so a range reaching the
+            # last closed session must also refresh a stale tail — otherwise the
+            # chart's last candle lags the live quote until a background job runs.
+            elif bars and (end is None or end.date() >= _last_trading_day()):
+                newest = bars[-1].timestamp.replace(tzinfo=None)
+                if newest.date() < _last_trading_day() and _should_attempt(
+                        (symbol_upper, "refresh", _last_trading_day())):
+                    synced = DataFetcher.sync_price_data_to_db(
+                        db, symbol_upper, newest - timedelta(days=5), now + timedelta(days=1)) > 0
         else:
             # ~252 trading days/year -> calendar span needed for `limit` bars.
             want_days = min(MAX_BACKFILL_DAYS, max(DEFAULT_BACKFILL_DAYS, int(limit * 1.46) + 7))
