@@ -367,8 +367,27 @@ jobs:
             # containers in place; only fall back to a full reset if that fails.
             echo "🔐 Logging into GitHub Container Registry..."
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Free space BEFORE pulling. Pruning unused images/build cache is safe
+            # while the stack runs (images used by running containers are kept).
+            # Without this, failed deploys never reach the post-deploy prune and
+            # images pile up: 2026-11-26 the disk hit 89% (3.2 GB free) and the
+            # pull died with "failed to extract layer", taking prod down.
+            echo "Disk space before cleanup:"
+            df -h /
+            docker image prune -af --filter "until=24h" || true
+            docker builder prune -af || true
+            avail_kb=$(df --output=avail / | tail -1 | tr -d ' ')
+            if [ "${avail_kb:-0}" -lt 6000000 ]; then
+              echo "⚠️ <6 GB free after age-filtered prune — pruning all unused images"
+              docker image prune -af || true
+            fi
             echo "Disk space available:"
             df -h /
+            avail_kb=$(df --output=avail / | tail -1 | tr -d ' ')
+            if [ "${avail_kb:-0}" -lt 4000000 ]; then
+              echo "❌ Less than 4 GB free; refusing to pull (the old stack keeps serving)"
+              exit 1
+            fi
             echo "📥 Pulling latest images (old stack still serving)..."
             docker compose -f docker-compose.prod.yml pull
 
