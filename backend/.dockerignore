@@ -57,8 +57,12 @@ logs/
 *.sqlite3
 dump.rdb
 
-# Scripts not needed in container
-scripts/
+# Scripts are not shipped, EXCEPT idempotent schema migrations that
+# deploy.yml runs inside the backend container after `up`. Excluding the
+# whole directory made every post-deploy migration fail with "can't open file".
+scripts/*
+!scripts/add_*.py
+!scripts/create_*.py
 
 # Git
 .git/
