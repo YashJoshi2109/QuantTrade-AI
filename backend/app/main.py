@@ -663,6 +663,17 @@ async def health():
     except Exception:
         checks["redis"] = "degraded"
 
+    # Email provider keys (cached 15 min). A rejected key silently breaks signup
+    # OTP, password reset and login alerts, so surface it here.
+    try:
+        from app.services.email_service import email_provider_status
+
+        email_state = await asyncio.to_thread(email_provider_status)
+        if email_state != "not_configured":
+            checks["email"] = email_state
+    except Exception:
+        checks["email"] = "degraded"
+
     status = "healthy" if all(v == "ok" for v in checks.values()) else "degraded"
     # Always 200 — the API is alive. Degraded dependencies don't block startup.
     return JSONResponse(

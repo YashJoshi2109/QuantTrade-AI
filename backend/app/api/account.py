@@ -3,6 +3,8 @@ Account lifecycle: verified deletion via email OTP.
 """
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -17,6 +19,8 @@ from app.services.otp_service import (
     store_delete_account_otp,
     verify_delete_account_otp,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -39,9 +43,10 @@ def request_account_deletion(
     store_delete_account_otp(uid, otp)
     ok, err = send_delete_account_otp_email(user.email, otp)
     if not ok:
+        logger.error("delete-account OTP email delivery failed: %s", err)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=err or "Could not send verification email",
+            detail="We couldn't send the verification email right now. Please try again in a few minutes.",
         )
     return {"ok": True, "message": "Check your email for a verification code."}
 
