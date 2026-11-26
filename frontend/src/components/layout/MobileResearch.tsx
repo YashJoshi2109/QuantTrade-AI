@@ -345,6 +345,7 @@ export default function MobileResearch() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by ticker or company name..."
+                  aria-label="Search by ticker or company name"
                   className="w-full h-10 rounded-full bg-surface-raised border border-line-subtle pl-9 pr-3 text-[13px] text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
                 />
               </div>

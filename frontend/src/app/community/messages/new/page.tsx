@@ -232,6 +232,7 @@ function NewMessageContent() {
                     ref={searchInputRef}
                     type="text"
                     placeholder="Search by username..."
+                    aria-label="Search by username"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onFocus={() => searchResults.length > 0 && setShowDropdown(true)}

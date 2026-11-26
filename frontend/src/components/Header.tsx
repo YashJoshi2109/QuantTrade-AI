@@ -34,6 +34,7 @@ export default function Header({ onSymbolSelect }: HeaderProps) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search Ticker (e.g., NVDA)..."
+            aria-label="Search Ticker"
             className="block w-full pl-10 pr-3 py-2 border border-line-default rounded-md leading-5 bg-surface-base placeholder-fg-muted focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors text-fg-primary"
           />
           <div className="absolute right-2 top-2 hidden group-focus-within:block text-xs text-fg-muted border border-line-default px-1 rounded">
