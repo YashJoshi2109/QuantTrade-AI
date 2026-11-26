@@ -225,7 +225,11 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: SECRET_KEY,OPENAI_API_KEY,ANTHROPIC_API_KEY,NEWSAPI_KEY,ALPHA_VANTAGE_API_KEY,SEC_API_KEY,FINNHUB_API_KEY,FMP_API_KEY,EODHD_API_KEY,APILAYER_CURRENCY_KEY,MARKETSTACK_API_KEY,OPENFIGI_API_KEY,TWELVEDATA_API_KEY,PUBLIC_API_SECRET_KEY,STRIPE_SECRET_KEY,STRIPE_PUBLISHABLE_KEY,STRIPE_WEBHOOK_SECRET,STRIPE_CONNECT_THIN_WEBHOOK_SECRET,STRIPE_CONNECT_SUBSCRIPTION_PRICE_ID,STRIPE_PRICE_PLUS_MONTHLY,STRIPE_PRICE_PLUS_YEARLY,GUARDIAN_API_KEY,ACLED_API_KEY,ACLED_EMAIL,ACLED_PASSWORD,FRED_API_KEY,EIA_API_KEY,CLOUDFLARE_RADAR_TOKEN,GROQ_API_KEY,OPENROUTER_API_KEY,NEXT_PUBLIC_OPENROUTER_API_KEY,NASA_API_KEY,NASA_FIRMS_API_KEY,USGS_API_KEY,ELEVENLABS_API_KEY,ELEVENLABS_MODEL_ID,ELEVENLABS_VOICE_NARRATOR,ELEVENLABS_VOICE_KNIGHT,ELEVENLABS_VOICE_SCHOLAR,ELEVENLABS_VOICE_MERCHANT,ELEVENLABS_VOICE_NOBLE,ELEVENLABS_VOICE_SAGE,BREVO_API_KEY,BREVO_FROM_EMAIL,RESEND_API_KEY,RESEND_FROM_EMAIL,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,NEXT_PUBLIC_GOOGLE_CLIENT_ID,S3_ENDPOINT,S3_ACCESS_KEY,S3_SECRET_KEY,S3_BUCKET,S3_PUBLIC_URL,USE_LOCAL_STORAGE,COHERE_API_KEY,QDRANT_URL,QDRANT_API_KEY,ADMIN_EMAILS,ALPACA_API_KEY,ALPACA_SECRET_KEY,ML_CALLBACK_SECRET
-          script_stop: true
+          # No script_stop: it appends an exit-code check after every line, and the
+          # check placed after `else` sees the failed `if` test ($?=1) and exits.
+          # Every deploy where nginx.conf was unchanged died silently right after
+          # the container swap (skipping the nginx reload and all migrations).
+          # `set -e` below stops on real failures and handles if/else correctly.
           script: |
             set -e
             
@@ -351,7 +355,7 @@ jobs:
             
             # Debug: verify critical secrets arrived
             # DATABASE_URL is NOT expected in .env — backend/celery load it from AWS Secrets Manager.
-            # Single line that always exits 0: script_stop aborts on any non-zero command.
+            # Single line that always exits 0 (set -e aborts on any non-zero command).
             echo "ℹ️ DATABASE_URL source: AWS Secrets Manager (quanttrade/backend); in .env: $(grep -c '^DATABASE_URL=' .env || true)"
             
             # ===== STOP SYSTEM SERVICES THAT MAY USE PORT 80/443 =====
