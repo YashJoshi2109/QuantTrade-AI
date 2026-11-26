@@ -9,7 +9,7 @@ Order of precedence:
   6. conversation memory (follow-ups like "what about its margins?")
 
 Every resolved ticker carries an identity status: tickers that were reassigned
-after a delisting/merger (PARA -> Skydance/PSKY) or whose listed name disagrees
+after a delisting/merger (PARA -> PSKY -> SKYD) or whose listed name disagrees
 with the SEC filer are flagged so the answer does not present another
 company's data (or a stale price) as current.
 """
@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from app.models.symbol import Symbol
 from app.services.copilot.models import Identity
 from app.services.copilot.vocab import BLOCKED_AS_COMPANY_NAME, FINANCE_VOCAB_STOP, STOP_WORDS
-from app.services.instrument_identity import KNOWN_TICKER_CHANGES, identity_check
+from app.services.instrument_identity import KNOWN_TICKER_CHANGES, ticker_identity
 from app.services.ticker_validation import classify_asset_type
 
 MAX_TICKERS = 3
@@ -146,17 +146,13 @@ class TickerResolver:
         return rt
 
     def identity(self, sym: str, listed_name: Optional[str], symbol_id: Optional[int]) -> Identity:
-        known = KNOWN_TICKER_CHANGES.get(sym)
-        if known:
-            return Identity(status="changed", note=known["note"], former_name=known["former_name"],
-                            successor_symbol=known["successor"])
-        if symbol_id is not None:
-            chk = identity_check(sym, listed_name, self._filer_name(symbol_id))
-            if chk.get("identity_status") == "mismatch":
-                return Identity(status="mismatch", note=chk.get("identity_note"),
-                                former_name=chk.get("former_name"),
-                                successor_symbol=chk.get("successor_symbol"))
-        return Identity()
+        # Same verdict as the Research page's identity banner (one shared helper).
+        filer = None if sym in KNOWN_TICKER_CHANGES or symbol_id is None else self._filer_name(symbol_id)
+        out = ticker_identity(sym, listed_name, filer)
+        if out["status"] == "ok":
+            return Identity()
+        return Identity(status=out["status"], note=out["note"], former_name=out["former_name"],
+                        successor_symbol=out["successor_symbol"])
 
     # ── main entry ───────────────────────────────────────────────────────────
     def resolve(self, message: str, explicit_symbol: Optional[str] = None,

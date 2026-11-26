@@ -38,12 +38,25 @@ SOURCE_DATABASE_URL='<prod url>' python scripts/seed_local_db.py
 # custom: --tickers AAPL,NVDA,JPM --days 200
 ```
 
+## Refresh ticker identities (reassigned / renamed tickers)
+
+Checks the symbols table against SEC's ticker map (e.g. PARA now belongs to
+Parabolic Technologies; Paramount trades as SKYD). Dry-run by default; refuses
+`APP_ENV=production` without `--allow-production`.
+
+```bash
+cd backend
+APP_ENV=development python scripts/refresh_symbol_identity.py           # print plan
+APP_ENV=development python scripts/refresh_symbol_identity.py --apply   # write it
+```
+
 ## Guard rails
 
 | Setting | Local | Production |
 |---|---|---|
 | `APP_ENV` | `development` → backend refuses a non-local `DATABASE_URL` (override: `ALLOW_REMOTE_DB=1`) | unset |
 | `RUN_BACKGROUND_JOBS` | `0` → no APScheduler jobs, no forecast warm | `1` (default) |
+| `WARMUP_TIMEOUT_S` | n/a (warm-up skipped with jobs off) | `150`: `/health/ready` (healthcheck) is 503 until startup warm-up ends or this budget runs out |
 | `DB_POOL_SIZE` / `DB_MAX_OVERFLOW` | `2` / `3` | `10` / `30` |
 
 ## Reset

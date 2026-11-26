@@ -157,7 +157,7 @@ def test_names_match():
 def test_identity_check_flags_para_reassignment():
     out = identity_check("PARA", "Paramount Global", "Parabolic Technologies, Inc.")
     assert out["identity_status"] == "mismatch"
-    assert out["successor_symbol"] == "PSKY"
+    assert out["successor_symbol"] == "SKYD"
     assert "Parabolic Technologies" in out["identity_note"]
     assert identity_check("AAPL", "Apple Inc.", "Apple Inc.") == {"identity_status": "ok"}
 
@@ -172,7 +172,7 @@ def test_company_overview_reports_identity_mismatch(client, db):
     assert body["asset_type"] == "equity"
     assert body["identity_status"] == "mismatch"
     assert body["listed_name"] == "Paramount Global"
-    assert body["successor_symbol"] == "PSKY"
+    assert body["successor_symbol"] == "SKYD"
 
 
 def test_quote_404_when_no_price_anywhere(client, db):

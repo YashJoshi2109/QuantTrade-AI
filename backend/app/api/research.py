@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.db import database as _database
 from app.db.database import get_db
 from app.services.sync_rate_limit import sync_rate_limit
-from app.services.instrument_identity import identity_check
+from app.services.instrument_identity import identity_check, ticker_identity
 from app.services.ticker_validation import classify_asset_type
 from app.models.edgar import CompanyEDGAR, FinancialStatement
 from app.models.symbol import Symbol
@@ -116,6 +116,29 @@ def _parse_val(json_str: Optional[str]) -> Optional[float]:
         return json.loads(json_str).get("value")
     except Exception:
         return None
+
+
+# ── Ticker identity ───────────────────────────────────────────────────
+
+@router.get("/{ticker}/identity")
+def ticker_identity_endpoint(ticker: str, db: Session = Depends(get_db)):
+    """Is this ticker still the company we list? DB-only (no SEC call), cheap.
+
+    Drives the Research page's stale-identity warning on desktop and mobile:
+    ``changed`` (known delisting/merger/rename, with successor), ``mismatch``
+    (our name disagrees with the SEC filer cached for the ticker) or ``ok``.
+    """
+    upper = ticker.upper().strip()
+    sym = db.query(Symbol).filter(Symbol.symbol == upper).first()
+    filer_name = None
+    if sym is not None:
+        row = db.query(CompanyEDGAR.company_name).filter(CompanyEDGAR.symbol_id == sym.id).first()
+        filer_name = row[0] if row else None
+    out = ticker_identity(upper, sym.name if sym else None, filer_name)
+    succ = out.get("successor_symbol")
+    out["successor_listed"] = bool(succ) and db.query(Symbol.id).filter(Symbol.symbol == succ).first() is not None
+    out["known_symbol"] = sym is not None
+    return out
 
 
 # ── Company overview ──────────────────────────────────────────────────

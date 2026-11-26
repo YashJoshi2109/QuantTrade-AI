@@ -324,10 +324,22 @@ async def lifespan(app: FastAPI):
 
     # Pre-compute statistical forecasts for popular tickers (runs on this loop,
     # where the async Redis client lives). FORECAST_WARM=0 disables it.
+    # A bounded startup warm-up runs first and gates /health/ready (the Docker
+    # healthcheck), so `docker compose up --wait` only swaps in a container
+    # whose hottest forecasts are cached. WARMUP_TIMEOUT_S caps it so a
+    # provider outage can never block a deploy.
+    from app.services import warmup as _warmup
     forecast_warm_task = None
     if background_jobs and os.environ.get("FORECAST_WARM", "1") != "0" and "pytest" not in sys.modules:
-        from app.api.forecast import forecast_warm_loop
-        forecast_warm_task = asyncio.create_task(forecast_warm_loop())
+        from app.api.forecast import forecast_warm_loop, warm_forecasts
+
+        async def _warm_then_loop():
+            await _warmup.run_startup_warmup(lambda tickers: warm_forecasts(tickers, pause=0.0))
+            await forecast_warm_loop(initial_delay=30.0)
+
+        forecast_warm_task = asyncio.create_task(_warm_then_loop())
+    else:
+        _warmup.mark_skipped("background jobs or FORECAST_WARM disabled")
 
     # News intelligence ingestion runs in the separate news-worker container
     # (python -m app.services.news_intel.worker) so the API never loads the
@@ -458,7 +470,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Skip rate limiting for health/internal endpoints
         path = request.url.path
-        if path in ("/health", "/", "/docs", "/openapi.json"):
+        if path in ("/health", "/health/ready", "/", "/docs", "/openapi.json"):
             return await call_next(request)
 
         client_ip = request.client.host if request.client else "unknown"
@@ -675,8 +687,21 @@ async def health():
         checks["email"] = "degraded"
 
     status = "healthy" if all(v == "ok" for v in checks.values()) else "degraded"
+    from app.services import warmup as _warmup
     # Always 200 — the API is alive. Degraded dependencies don't block startup.
+    # `warm` is informational here; /health/ready is the readiness gate.
     return JSONResponse(
-        content={"status": status, "checks": checks, "version": os.environ.get("GIT_SHA", "unknown")},
+        content={"status": status, "checks": checks, "warm": _warmup.status(),
+                 "version": os.environ.get("GIT_SHA", "unknown")},
         status_code=200,
     )
+
+
+@app.get("/health/ready")
+async def health_ready():
+    """Readiness for the Docker healthcheck: 503 while the bounded startup
+    warm-up runs, 200 once it finished, timed out, failed or was skipped."""
+    from app.services import warmup as _warmup
+    body = {"ready": _warmup.is_ready(), "warm": _warmup.status(),
+            "version": os.environ.get("GIT_SHA", "unknown")}
+    return JSONResponse(content=body, status_code=200 if body["ready"] else 503)
