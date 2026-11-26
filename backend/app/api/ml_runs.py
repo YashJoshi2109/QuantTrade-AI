@@ -299,7 +299,7 @@ def get_run_shards(run_id: str, db: Session = Depends(get_db)):
 
 
 @internal_router.get("/internal/ml/runs/{run_id}/artifacts")
-async def get_run_artifacts(run_id: str, request: Request, db: Session = Depends(get_db)):
+def get_run_artifacts(run_id: str, request: Request, db: Session = Depends(get_db)):
     """List artifacts produced by a run."""
     expected_secret = _get_callback_secret()
     provided_secret = request.headers.get("X-ML-Callback-Secret", "")
@@ -550,7 +550,7 @@ def _emit_cloudwatch_metric(metric_name: str, value: float = 1.0, unit: str = "C
 
 
 @internal_router.post("/internal/ml/batch-start")
-async def batch_job_start(
+def batch_job_start(
     req: BatchStartRequest,
     request: Request,
     db: Session = Depends(get_db),
@@ -607,7 +607,7 @@ async def batch_job_start(
 
 
 @internal_router.post("/internal/ml/batch-callback")
-async def batch_job_callback(
+def batch_job_callback(
     req: BatchCallbackRequest,
     request: Request,
     db: Session = Depends(get_db),
@@ -695,7 +695,7 @@ class FinalizeRunRequest(BaseModel):
 
 
 @internal_router.post("/internal/ml/runs/{run_id}/finalize")
-async def finalize_run(
+def finalize_run(
     run_id: str,
     req: FinalizeRunRequest,
     request: Request,
@@ -737,7 +737,7 @@ class PromoteRunRequest(BaseModel):
 
 
 @internal_router.post("/internal/ml/runs/{run_id}/promote")
-async def promote_run_model(
+def promote_run_model(
     run_id: str,
     req: PromoteRunRequest,
     request: Request,
@@ -1067,82 +1067,88 @@ async def ml_stream(request: Request):
             if await request.is_disconnected():
                 break
 
-            # Open a fresh DB session per tick
-            db = SessionLocal()
-            try:
-                # PostgreSQL queries
-                runs = mds.list_runs(db, status="running", limit=1)
-                latest_run = runs[0] if runs else None
+            # Open a fresh DB session per tick. The queries are blocking, so
+            # they run in a worker thread instead of on the event loop.
+            def _read_db_tick():
+                db = SessionLocal()
+                try:
+                    # PostgreSQL queries
+                    runs = mds.list_runs(db, status="running", limit=1)
+                    latest_run = runs[0] if runs else None
 
-                if not latest_run:
-                    # Fall back to most recent run of any status
-                    all_runs = mds.list_runs(db, limit=1)
-                    latest_run = all_runs[0] if all_runs else None
+                    if not latest_run:
+                        # Fall back to most recent run of any status
+                        all_runs = mds.list_runs(db, limit=1)
+                        latest_run = all_runs[0] if all_runs else None
 
-                run_payload = None
-                shards_payload = []
-                running_shard_job_id = None
+                    run_payload = None
+                    shards_payload = []
+                    running_shard_job_id = None
 
-                if latest_run:
-                    run_payload = {
-                        "run_id": str(latest_run.run_id),
-                        "status": latest_run.status,
-                        "total_symbols": latest_run.total_symbols or 0,
-                        "total_shards": latest_run.total_shards or 0,
-                        "success_shards": latest_run.success_shards or 0,
-                        "failed_shards": latest_run.failed_shards or 0,
-                        "started_at": latest_run.started_at.isoformat() if latest_run.started_at else None,
-                    }
-                    shards = mds.get_shards_for_run(db, latest_run.run_id)
-                    shards_payload = [
-                        {
-                            "shard_id": str(s.shard_id),
-                            "shard_name": s.shard_name,
-                            "status": s.status,
-                            "batch_job_id": s.batch_job_id if hasattr(s, "batch_job_id") else None,
-                            "runtime_seconds": s.runtime_seconds,
+                    if latest_run:
+                        run_payload = {
+                            "run_id": str(latest_run.run_id),
+                            "status": latest_run.status,
+                            "total_symbols": latest_run.total_symbols or 0,
+                            "total_shards": latest_run.total_shards or 0,
+                            "success_shards": latest_run.success_shards or 0,
+                            "failed_shards": latest_run.failed_shards or 0,
+                            "started_at": latest_run.started_at.isoformat() if latest_run.started_at else None,
                         }
-                        for s in shards
-                    ]
-                    # Find a running shard with a batch_job_id for log tailing
-                    for s in shards:
-                        job_id = s.batch_job_id if hasattr(s, "batch_job_id") else None
-                        if s.status == "running" and job_id:
-                            running_shard_job_id = job_id
-                            break
+                        shards = mds.get_shards_for_run(db, latest_run.run_id)
+                        shards_payload = [
+                            {
+                                "shard_id": str(s.shard_id),
+                                "shard_name": s.shard_name,
+                                "status": s.status,
+                                "batch_job_id": s.batch_job_id if hasattr(s, "batch_job_id") else None,
+                                "runtime_seconds": s.runtime_seconds,
+                            }
+                            for s in shards
+                        ]
+                        # Find a running shard with a batch_job_id for log tailing
+                        for s in shards:
+                            job_id = s.batch_job_id if hasattr(s, "batch_job_id") else None
+                            if s.status == "running" and job_id:
+                                running_shard_job_id = job_id
+                                break
 
-                # Production models
-                prod_versions = mds.list_model_versions(db, status="production", limit=5)
-                models_payload = [
-                    {
-                        "model_version": v.model_version,
-                        "avg_da": v.avg_directional_accuracy,
-                        "avg_ic": v.avg_information_coefficient,
-                        "promoted_at": v.promoted_at.isoformat() if v.promoted_at else None,
-                    }
-                    for v in prod_versions
-                ]
-                # Staging models (for pipeline flow Lambda status)
-                staging_versions = mds.list_model_versions(db, status="staging", limit=5)
-                staging_payload = [
-                    {
-                        "model_version": v.model_version,
-                        "avg_da": v.avg_directional_accuracy,
-                        "avg_ic": v.avg_information_coefficient,
-                        "promoted_at": v.promoted_at.isoformat() if v.promoted_at else None,
-                        "symbol_count": v.symbol_count,
-                    }
-                    for v in staging_versions
-                ]
-            except Exception as e:
-                logger.warning("DB query in SSE tick failed (non-fatal): %s", e)
-                run_payload = None
-                shards_payload = []
-                running_shard_job_id = None
-                models_payload = []
-                staging_payload = []
-            finally:
-                db.close()
+                    # Production models
+                    prod_versions = mds.list_model_versions(db, status="production", limit=5)
+                    models_payload = [
+                        {
+                            "model_version": v.model_version,
+                            "avg_da": v.avg_directional_accuracy,
+                            "avg_ic": v.avg_information_coefficient,
+                            "promoted_at": v.promoted_at.isoformat() if v.promoted_at else None,
+                        }
+                        for v in prod_versions
+                    ]
+                    # Staging models (for pipeline flow Lambda status)
+                    staging_versions = mds.list_model_versions(db, status="staging", limit=5)
+                    staging_payload = [
+                        {
+                            "model_version": v.model_version,
+                            "avg_da": v.avg_directional_accuracy,
+                            "avg_ic": v.avg_information_coefficient,
+                            "promoted_at": v.promoted_at.isoformat() if v.promoted_at else None,
+                            "symbol_count": v.symbol_count,
+                        }
+                        for v in staging_versions
+                    ]
+                except Exception as e:
+                    logger.warning("DB query in SSE tick failed (non-fatal): %s", e)
+                    run_payload = None
+                    shards_payload = []
+                    running_shard_job_id = None
+                    models_payload = []
+                    staging_payload = []
+                finally:
+                    db.close()
+                return run_payload, shards_payload, running_shard_job_id, models_payload, staging_payload
+
+            (run_payload, shards_payload, running_shard_job_id,
+             models_payload, staging_payload) = await asyncio.to_thread(_read_db_tick)
 
             # AWS calls (parallel)
             batch_task = asyncio.create_task(_fetch_batch())

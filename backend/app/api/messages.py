@@ -2,6 +2,7 @@
 Messaging API — Reddit-style direct messages (Phase 1: DM only).
 """
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -125,6 +126,16 @@ async def create_conversation(
     user: User = Depends(require_auth),
 ):
     """Start a new DM conversation with another user."""
+    # DB work is blocking: run it in a worker thread, not on the event loop.
+    existing_convo, result = await asyncio.to_thread(_create_conversation_db, req, db, user)
+    if existing_convo is not None:
+        # Conversation already exists — just send the message
+        return await _send_message_to_convo(db, user, existing_convo, req.message)
+    return result
+
+
+def _create_conversation_db(req: NewConversationRequest, db: Session, user: User):
+    """Returns (existing_conversation, None) or (None, created-response dict)."""
     if req.recipient_id == user.id:
         raise HTTPException(400, "Cannot message yourself")
 
@@ -163,8 +174,7 @@ async def create_conversation(
             .first()
         )
         if other:
-            # Conversation already exists — just send the message
-            return await _send_message_to_convo(db, user, convo, req.message)
+            return convo, None
 
     # Create new conversation
     now = datetime.now(timezone.utc)
@@ -187,7 +197,7 @@ async def create_conversation(
     db.add(msg)
     db.commit()
 
-    return {
+    return None, {
         "conversation_id": convo.id,
         "message_id": msg.id,
         "message": "Conversation created",
@@ -261,6 +271,12 @@ async def send_message(
     user: User = Depends(require_auth),
 ):
     """Send a message in an existing conversation."""
+    # Blocking DB lookups run in a worker thread, not on the event loop.
+    convo = await asyncio.to_thread(_get_convo_for_participant, db, user, conversation_id)
+    return await _send_message_to_convo(db, user, convo, req.body, req.parent_id)
+
+
+def _get_convo_for_participant(db: Session, user: User, conversation_id: int) -> Conversation:
     # Verify participation
     participant = (
         db.query(ConversationParticipant)
@@ -276,8 +292,7 @@ async def send_message(
     convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not convo:
         raise HTTPException(404, "Conversation not found")
-
-    return await _send_message_to_convo(db, user, convo, req.body, req.parent_id)
+    return convo
 
 
 async def _send_message_to_convo(
@@ -288,6 +303,54 @@ async def _send_message_to_convo(
     parent_id: int | None = None,
 ) -> dict:
     """Internal: send message and update conversation metadata."""
+    # DB writes are blocking: run them in a worker thread. The WS broadcast
+    # tasks need the event loop, so they are scheduled here.
+    result, recipient_id, sender_id, sender_username = await asyncio.to_thread(
+        _persist_message, db, user, convo, body, parent_id
+    )
+    convo_id = result["conversation_id"]
+
+    # Broadcast via WebSocket (fire-and-forget)
+    try:
+        from app.services.ws_manager import ws_manager
+        # "community:dm:{id}" matches the WS endpoint's channel prefix
+        asyncio.create_task(ws_manager.broadcast(f"community:dm:{convo_id}", {
+            "type": "message.new",
+            "conversation_id": convo_id,
+            "message": {
+                "id": result["message_id"],
+                "sender_id": sender_id,
+                "sender_username": sender_username,
+                "body": body,
+                "created_at": result["created_at"],
+            },
+        }))
+        # Also notify the recipient's personal WS channel
+        if recipient_id:
+            asyncio.create_task(ws_manager.broadcast(f"community:user:{recipient_id}", {
+                "type": "dm.new",
+                "conversation_id": convo_id,
+                "sender_username": sender_username,
+                "preview": body[:80],
+            }))
+    except Exception:
+        pass  # WS broadcast is best-effort
+
+    return result
+
+
+def _persist_message(
+    db: Session,
+    user: User,
+    convo: Conversation,
+    body: str,
+    parent_id: int | None,
+):
+    """Blocking part of _send_message_to_convo.
+
+    Returns (response, recipient_id, sender_id, sender_username) as plain values so
+    the caller never lazy-loads expired ORM attributes on the event loop.
+    """
     now = datetime.now(timezone.utc)
     msg = Message(
         conversation_id=convo.id,
@@ -343,38 +406,12 @@ async def _send_message_to_convo(
     db.commit()
     db.refresh(msg)
 
-    # Broadcast via WebSocket (fire-and-forget)
-    try:
-        from app.services.ws_manager import ws_manager
-        import asyncio
-        # "community:dm:{id}" matches the WS endpoint's channel prefix
-        asyncio.create_task(ws_manager.broadcast(f"community:dm:{convo.id}", {
-            "type": "message.new",
-            "conversation_id": convo.id,
-            "message": {
-                "id": msg.id,
-                "sender_id": user.id,
-                "sender_username": user.username,
-                "body": body,
-                "created_at": msg.created_at.isoformat() if msg.created_at else None,
-            },
-        }))
-        # Also notify the recipient's personal WS channel
-        if recipient_id:
-            asyncio.create_task(ws_manager.broadcast(f"community:user:{recipient_id}", {
-                "type": "dm.new",
-                "conversation_id": convo.id,
-                "sender_username": user.username,
-                "preview": body[:80],
-            }))
-    except Exception:
-        pass  # WS broadcast is best-effort
-
-    return {
+    result = {
         "message_id": msg.id,
         "conversation_id": convo.id,
         "created_at": msg.created_at.isoformat() if msg.created_at else None,
     }
+    return result, recipient_id, user.id, user.username
 
 
 # ── Unread Count ──────────────────────────────────────────────────────

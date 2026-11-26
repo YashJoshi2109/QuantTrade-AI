@@ -279,6 +279,80 @@ async def create_comment(
     user: User = Depends(require_auth),
 ):
     """Create a comment on a post. Supports threaded replies via parent_id."""
+    # All DB work is blocking: run it in a worker thread, not on the event loop.
+    # Fire-and-forget tasks below need the loop, so they are scheduled here.
+    _comment_id, _account_age = await asyncio.to_thread(_create_comment_db, post_id, body, db, user)
+
+    # Broadcast new comment via WebSocket
+    try:
+        from app.services.ws_manager import ws_manager
+        asyncio.create_task(ws_manager.broadcast(
+            f"community:post:{post_id}",
+            {"type": "new_comment", "comment_id": _comment_id, "post_id": post_id}
+        ))
+    except Exception:
+        pass  # WebSocket broadcast is non-critical
+
+    # ── Non-blocking AI moderation (fire-and-forget) ────────────────────
+    _comment_body = body.body
+
+    def _apply_comment_moderation(result) -> None:
+        if SessionLocal is None:
+            return
+        bg_db = SessionLocal()
+        try:
+            c = bg_db.query(Comment).filter(Comment.id == _comment_id).first()
+            if not c:
+                return
+            if result.action == "remove":
+                c.is_removed = True
+            if result.action in ("review", "remove"):
+                report = ModerationReport(
+                    reporter_id=None,
+                    target_id=_comment_id,
+                    target_type="comment",
+                    reason="ai_flagged",
+                    description=result.explanation,
+                    ai_score=result.score,
+                    ai_flags=result.flags,
+                    status="pending" if result.action == "review" else "resolved",
+                )
+                bg_db.add(report)
+                bg_db.add(AuditLog(
+                    actor_id=None,
+                    actor_type="ai",
+                    action=f"auto_{result.action}",
+                    target_type="comment",
+                    target_id=_comment_id,
+                    extra_data={"score": result.score, "flags": result.flags},
+                ))
+            bg_db.commit()
+        except Exception as exc:
+            logger.error("Background comment moderation DB error: %s", exc)
+            bg_db.rollback()
+        finally:
+            bg_db.close()
+
+    async def _moderate_comment_bg():
+        try:
+            result = await moderation_service.moderate_comment(
+                body=_comment_body,
+                author_account_age_days=_account_age,
+            )
+            await asyncio.to_thread(_apply_comment_moderation, result)
+        except Exception as exc:
+            logger.error("Background comment moderation failed: %s", exc)
+
+    asyncio.create_task(_moderate_comment_bg())
+
+    # Reload with author
+    return await asyncio.to_thread(
+        lambda: _comment_to_response(_get_comment_or_404(db, _comment_id))
+    )
+
+
+def _create_comment_db(post_id: int, body: "CommentCreate", db: Session, user: User):
+    """Blocking part of create_comment. Returns (comment_id, author_account_age_days)."""
     post = _get_post_or_404(db, post_id)
 
     if post.is_locked:
@@ -335,74 +409,12 @@ async def create_comment(
     # Detect @mentions and create notifications
     _process_mentions(body.body, post_id, comment.id, user.id, db)
 
-    # Broadcast new comment via WebSocket
-    try:
-        from app.services.ws_manager import ws_manager
-        asyncio.create_task(ws_manager.broadcast(
-            f"community:post:{post_id}",
-            {"type": "new_comment", "comment_id": comment.id, "post_id": post_id}
-        ))
-    except Exception:
-        pass  # WebSocket broadcast is non-critical
-
     # Award reputation for creating a comment
     reputation_service.update_reputation(user.id, "comment_created", db)
 
-    # ── Non-blocking AI moderation (fire-and-forget) ────────────────────
-    _comment_id = comment.id
-    _comment_body = body.body
     _user_created = getattr(user, "created_at", None)
     _account_age = (datetime.utcnow() - _user_created).days if _user_created else 365
-
-    async def _moderate_comment_bg():
-        try:
-            result = await moderation_service.moderate_comment(
-                body=_comment_body,
-                author_account_age_days=_account_age,
-            )
-            if SessionLocal is None:
-                return
-            bg_db = SessionLocal()
-            try:
-                c = bg_db.query(Comment).filter(Comment.id == _comment_id).first()
-                if not c:
-                    return
-                if result.action == "remove":
-                    c.is_removed = True
-                if result.action in ("review", "remove"):
-                    report = ModerationReport(
-                        reporter_id=None,
-                        target_id=_comment_id,
-                        target_type="comment",
-                        reason="ai_flagged",
-                        description=result.explanation,
-                        ai_score=result.score,
-                        ai_flags=result.flags,
-                        status="pending" if result.action == "review" else "resolved",
-                    )
-                    bg_db.add(report)
-                    bg_db.add(AuditLog(
-                        actor_id=None,
-                        actor_type="ai",
-                        action=f"auto_{result.action}",
-                        target_type="comment",
-                        target_id=_comment_id,
-                        extra_data={"score": result.score, "flags": result.flags},
-                    ))
-                bg_db.commit()
-            except Exception as exc:
-                logger.error("Background comment moderation DB error: %s", exc)
-                bg_db.rollback()
-            finally:
-                bg_db.close()
-        except Exception as exc:
-            logger.error("Background comment moderation failed: %s", exc)
-
-    asyncio.create_task(_moderate_comment_bg())
-
-    # Reload with author
-    comment = _get_comment_or_404(db, comment.id)
-    return _comment_to_response(comment)
+    return comment.id, _account_age
 
 
 @router.get("/posts/{post_id}/comments", response_model=PaginatedComments)

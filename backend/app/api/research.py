@@ -325,7 +325,7 @@ async def get_ai_insights(
     an authenticated, verified user with AI quota (ai_guard); anonymous callers
     get the rule-based summary instead.
     """
-    sym = _get_symbol(ticker, db)
+    sym = await asyncio.to_thread(_get_symbol, ticker, db)
 
     def _load_rows():
         return db.query(FinancialStatement).filter(
@@ -408,7 +408,7 @@ def _sync_edgar_in_own_session(ticker: str, force_refresh: bool = True) -> None:
 
 
 @router.post("/{ticker}/sync", dependencies=[Depends(sync_rate_limit)])
-async def sync_ticker(
+def sync_ticker(
     ticker: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
