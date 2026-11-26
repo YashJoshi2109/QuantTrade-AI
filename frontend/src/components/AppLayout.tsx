@@ -336,6 +336,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search symbols, companies… (press /)"
+                  aria-label="Search symbols, companies"
                   className="flex-1 bg-transparent border-none outline-none text-sm py-2 text-white placeholder-slate-500"
                 />
               </div>

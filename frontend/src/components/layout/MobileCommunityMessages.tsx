@@ -112,6 +112,7 @@ function ConversationList({
           <input
             type="text"
             placeholder="Search conversations..."
+            aria-label="Search conversations"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2.5 bg-surface-raised border border-line-subtle rounded-xl text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-blue-500/40"

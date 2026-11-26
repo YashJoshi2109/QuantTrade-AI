@@ -357,6 +357,7 @@ export default function MobileWatchlist() {
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="Search watchlist..."
+                aria-label="Search watchlist"
                 className="w-full h-10 rounded-full bg-surface-raised border border-line-subtle pl-9 pr-3 text-[13px] text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
               />
             </div>

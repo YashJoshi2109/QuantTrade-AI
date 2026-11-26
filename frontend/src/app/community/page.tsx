@@ -692,6 +692,7 @@ function CommunityPageInner() {
                     <input
                       type="text"
                       placeholder="Search communities..."
+                      aria-label="Search communities"
                       value={communitySearch}
                       onChange={(e) => setCommunitySearch(e.target.value)}
                       className="w-full bg-surface-raised border border-line-subtle rounded-t-xl pl-9 pr-4 py-2 text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-blue-500/40"
@@ -880,6 +881,7 @@ function CommunityPageInner() {
                     <input
                       type="text"
                       placeholder="Extra tickers (e.g. AAPL, TSLA)"
+                      aria-label="Extra tickers"
                       value={createTickers}
                       onChange={(e) => setCreateTickers(e.target.value)}
                       className="w-full bg-surface-raised border border-line-subtle rounded-xl pl-9 pr-4 py-2.5 text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:border-blue-500/40"

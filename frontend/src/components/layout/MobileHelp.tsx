@@ -72,6 +72,7 @@ export default function MobileHelp() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search for help..."
+            aria-label="Search for help"
             className="w-full h-10 rounded-full bg-surface-raised border border-line-subtle pl-9 pr-3 text-[13px] text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
           />
         </div>

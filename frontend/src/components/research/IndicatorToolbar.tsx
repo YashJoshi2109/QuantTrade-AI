@@ -98,6 +98,7 @@ export default function IndicatorToolbar({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search indicators..."
+                  aria-label="Search indicators"
                   className="flex-1 bg-transparent text-[11px] text-fg-secondary placeholder:text-fg-muted outline-none"
                   autoFocus
                 />

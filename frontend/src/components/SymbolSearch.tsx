@@ -67,6 +67,7 @@ export default function SymbolSearch({ onSymbolSelect }: SymbolSearchProps) {
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => query.length >= 1 && setShowResults(true)}
           placeholder="Search symbols..."
+          aria-label="Search symbols"
           className="w-full pl-10 pr-4 py-2 bg-surface-raised border border-line-default rounded-lg text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         {loading && (
