@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
-import { Manrope, Inter } from 'next/font/google'
+import localFont from 'next/font/local'
 import './globals.css'
 import { ReactQueryProvider } from '@/lib/react-query'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -13,14 +13,18 @@ import { ThemeProvider } from '@/components/ThemeProvider'
 import { ThemeSyncProvider } from '@/components/ThemeSyncProvider'
 import VisitorHeartbeat from '@/components/VisitorHeartbeat'
 
-const manrope = Manrope({
-  subsets: ['latin'],
+// Self-hosted (src/fonts): next/font/google fetches at build time, which broke
+// the Docker build when Google's CSS response changed. Latin, variable weight.
+const manrope = localFont({
+  src: '../fonts/manrope-latin-var.woff2',
+  weight: '200 800',
   variable: '--font-manrope',
   display: 'swap',
 })
 
-const inter = Inter({
-  subsets: ['latin'],
+const inter = localFont({
+  src: '../fonts/inter-latin-var.woff2',
+  weight: '100 900',
   variable: '--font-inter',
   display: 'swap',
 })
