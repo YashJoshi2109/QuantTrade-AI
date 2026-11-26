@@ -32,6 +32,7 @@ const MORE_PATHS = [
   '/monitor',
   '/mlops',
   '/notifications',
+  '/alerts',
   '/game',
   '/pricing',
   '/about',

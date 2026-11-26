@@ -121,6 +121,7 @@ from app.models.ml_training import (
 )
 from app.models.edgar import CompanyEDGAR, FinancialStatement
 from app.models.news_item import NewsItem as _NewsItem  # noqa: F401  (news_items table)
+from app.models.price_alert import PriceAlert as _PriceAlert  # noqa: F401  (price_alerts table)
 
 
 def _create_db_tables():
@@ -207,6 +208,26 @@ def _start_scheduler():
             CronTrigger(minute="*/20"),
             id="pro_watchlist_alerts",
             replace_existing=True,
+        )
+        # User price / indicator alerts (in-app notifications; email for Pro) — every 5 minutes
+        def _user_price_alerts():
+            db = SessionLocal()
+            try:
+                from app.services.price_alert_service import run_price_alerts_sync
+
+                run_price_alerts_sync(db)
+            except Exception as e:
+                print(f"⚠️ User price alerts error: {e}")
+            finally:
+                db.close()
+
+        sched.add_job(
+            _user_price_alerts,
+            CronTrigger(minute="*/5"),
+            id="user_price_alerts",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
         )
         # ── Real-time Ideas Lab scheduler jobs ──
         from apscheduler.triggers.interval import IntervalTrigger
@@ -592,6 +613,10 @@ app.include_router(mlops.router, prefix="/api/v1", tags=["mlops"])
 
 # Research — SEC EDGAR financials, company overview, filings, AI insights
 app.include_router(research_api.router)
+
+# Price / indicator alerts — user-defined, evaluated by the user_price_alerts job
+from app.api import alerts as alerts_api  # noqa: E402
+app.include_router(alerts_api.router, prefix="/api/v1")
 
 # Agentic RAG Copilot — ingest trigger, status, health check (admin)
 
