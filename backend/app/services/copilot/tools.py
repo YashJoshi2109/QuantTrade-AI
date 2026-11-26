@@ -19,6 +19,7 @@ from app.services.copilot.registry import FactRegistry
 logger = logging.getLogger(__name__)
 
 TOOL_TIMEOUT_S = 8.0
+SYNC_BUDGET_S = 6.0          # a tool waiting on a fundamentals/SEC sync (inside TOOL_TIMEOUT_S)
 
 _T = {"type": "string", "description": "Ticker symbol, e.g. AAPL or BRK.B"}
 
@@ -99,6 +100,25 @@ class ToolExecutor:
         self.packs[rt.symbol] = pack
         return pack
 
+    async def _refill(self, pack: TickerContextPack, kind: str) -> None:
+        """The pack was built without this section (its sync may still be
+        running in the background): join/trigger the bounded sync, then
+        re-read the DB once.  Equities only."""
+        sync = getattr(self.sources, "sync", None)
+        if pack.asset_type != "equity" or sync is None:
+            return
+        if pack.errors.get(kind, "").startswith("not applicable"):
+            return
+        status = await sync(kind, pack.ticker, SYNC_BUDGET_S)
+        loader = self.sources.fundamentals if kind == "fundamentals" else self.sources.statements
+        val = await loader(pack.ticker)
+        if val:
+            setattr(pack, kind, val)
+            pack.errors.pop(kind, None)
+            self.registry.add_all([val] if kind == "fundamentals" else val)
+        elif status == "pending":
+            pack.errors[kind] = "not in data yet (data sync still running; ask again shortly)"
+
     async def run(self, name: str, args: Dict[str, Any]) -> tuple[str, List[Fact], bool]:
         """Returns (tool_result_text, facts, is_error)."""
         if name not in TOOL_NAMES:
@@ -153,9 +173,13 @@ class ToolExecutor:
             return [pack.quote], pack.quote.model_dump(exclude_none=True)
         if name == "get_fundamentals":
             if pack.fundamentals is None:
-                raise LookupError(f"no fundamentals for {t}")
+                await self._refill(pack, "fundamentals")
+            if pack.fundamentals is None:
+                raise LookupError(f"no fundamentals for {t}: {pack.errors.get('fundamentals', 'not in data')}")
             return [pack.fundamentals], pack.fundamentals.model_dump(exclude_none=True)
         if name == "get_financials":
+            if not pack.statements:
+                await self._refill(pack, "statements")
             if not pack.statements:
                 raise LookupError(f"no SEC financial statements for {t}: {pack.errors.get('statements', 'not in data')}")
             return list(pack.statements), [s.model_dump(exclude_none=True) for s in pack.statements]

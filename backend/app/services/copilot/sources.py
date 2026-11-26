@@ -240,6 +240,13 @@ class LiveSources:
             previous_close=fnum(q.get("previous_close") or q.get("prev_close")),
             day_high=fnum(q.get("high")), day_low=fnum(q.get("low")), market_session=session)
 
+    # on-demand sync (what the research page does on view) ────────────────
+    async def sync(self, kind: str, ticker: str, budget: Optional[float] = None) -> str:
+        """Bounded fundamentals / SEC statements sync in a worker thread with
+        its own DB session (app.services.copilot.data_sync)."""
+        from app.services.copilot import data_sync
+        return await data_sync.ensure(kind, ticker, budget)
+
     # fundamentals ─────────────────────────────────────────────────────────
     async def fundamentals(self, ticker: str) -> Optional[FundamentalsFact]:
         def load():
