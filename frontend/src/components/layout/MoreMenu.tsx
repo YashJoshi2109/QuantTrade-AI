@@ -9,6 +9,7 @@ import {
   ChevronRight,
   DollarSign,
   FileText,
+  Filter,
   Globe,
   HelpCircle,
   Info,
@@ -171,6 +172,12 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
               title="Watchlist"
               description="Track your favorite symbols in one place."
               href="/watchlist"
+            />
+            <MenuItem
+              icon={<Filter className="w-4 h-4 text-emerald-400" />}
+              title="Stock Screener"
+              description="Filter stocks by valuation, growth, dividends, RSI and trend."
+              href="/screener"
             />
             <MenuItem
               icon={<Briefcase className="w-4 h-4 text-indigo-400" />}

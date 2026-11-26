@@ -27,6 +27,7 @@ interface NavItem {
 const MORE_PATHS = [
   '/watchlist',
   '/portfolio',
+  '/screener',
   '/ideas-lab',
   '/community',
   '/backtest',
