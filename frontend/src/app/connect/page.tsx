@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import AppLayout from '@/components/AppLayout'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   createConnectedAccount,
   createConnectedProduct,
@@ -16,6 +17,7 @@ import {
 } from '@/lib/connect-api'
 
 export default function ConnectPage() {
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [status, setStatus] = useState<ConnectStatus | null>(null)
   const [error, setError] = useState<string>('')
   const [loading, setLoading] = useState(false)
@@ -35,8 +37,11 @@ export default function ConnectPage() {
   }
 
   useEffect(() => {
+    // Logged out, the status call is a guaranteed 401 that surfaced as an
+    // "Invalid or expired token" banner above enabled action buttons.
+    if (authLoading || !isAuthenticated) return
     refreshStatus()
-  }, [])
+  }, [authLoading, isAuthenticated])
 
   useEffect(() => {
     if (!accountId) return
@@ -56,6 +61,23 @@ export default function ConnectPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!authLoading && !isAuthenticated) {
+    return (
+      <AppLayout>
+        <div className="mx-auto max-w-md px-4 py-16 text-center">
+          <h1 className="text-xl font-bold text-fg-primary">Stripe Connect Control Center</h1>
+          <p className="mt-2 text-sm text-fg-muted">Sign in to manage your connected account, products and subscriptions.</p>
+          <Link
+            href="/auth?redirect=/connect"
+            className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-cyan-500 px-6 font-semibold text-slate-950"
+          >
+            Sign in
+          </Link>
+        </div>
+      </AppLayout>
+    )
   }
 
   return (

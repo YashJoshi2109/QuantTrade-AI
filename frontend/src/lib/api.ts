@@ -13,6 +13,18 @@ import type { TickerContext } from '@/lib/copilot-engine'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
+/**
+ * Absolute URL for a backend path. API_URL is '' when the API is same-origin
+ * (the documented default); `new URL('/api/v1/...')` throws "Invalid URL" without
+ * a base, which silently broke movers, breaking news and alerts in that setup.
+ */
+export function apiUrl(path: string): URL {
+  // Concatenate first so an API_URL with a path prefix keeps it; the base only
+  // matters when API_URL is empty.
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+  return new URL(`${API_URL}${path}`, origin)
+}
+
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
@@ -122,7 +134,7 @@ export interface Indicators {
 }
 
 export async function fetchSymbols(search?: string): Promise<Symbol[]> {
-  const url = new URL(`${API_URL}/api/v1/symbols`)
+  const url = apiUrl(`/api/v1/symbols`)
   if (search) {
     url.searchParams.append('search', search)
   }
@@ -147,7 +159,7 @@ export async function searchSymbols(
 ): Promise<SearchResult[]> {
   if (!query.trim()) return []
   
-  const url = new URL(`${API_URL}/api/v1/symbols/search`)
+  const url = apiUrl(`/api/v1/symbols/search`)
   url.searchParams.append('q', query.trim())
   url.searchParams.append('limit', limit.toString())
   
@@ -164,7 +176,7 @@ export async function fetchPrices(
   end?: string,
   limit: number = 500
 ): Promise<PriceBar[]> {
-  const url = new URL(`${API_URL}/api/v1/prices/${symbol}`)
+  const url = apiUrl(`/api/v1/prices/${symbol}`)
   
   // If no date range provided, default to last 3 months for chart display
   if (!start && !end) {
@@ -232,7 +244,7 @@ export async function fetchRealtimeNews(
   sources?: string
 ): Promise<NewsArticle[]> {
   try {
-    const url = new URL(`${API_URL}/api/v1/enhanced/news/${symbol}/realtime`)
+    const url = apiUrl(`/api/v1/enhanced/news/${symbol}/realtime`)
     url.searchParams.append('limit', limit.toString())
     if (sources) {
       url.searchParams.append('sources', sources)
@@ -257,7 +269,7 @@ export async function fetchYFinanceNews(
   limit: number = 20
 ): Promise<NewsArticle[]> {
   try {
-    const url = new URL(`${API_URL}/api/v1/enhanced/news/${symbol}/yfinance`)
+    const url = apiUrl(`/api/v1/enhanced/news/${symbol}/yfinance`)
     url.searchParams.append('limit', limit.toString())
     
     const response = await fetchWithTimeout(url.toString(), 12_000)
@@ -278,7 +290,7 @@ export async function fetchBreakingMarketNews(
   limit: number = 10
 ): Promise<NewsArticle[]> {
   try {
-    const url = new URL(`${API_URL}/api/v1/enhanced/news/market/breaking`)
+    const url = apiUrl(`/api/v1/enhanced/news/market/breaking`)
     url.searchParams.append('limit', limit.toString())
     
     const response = await fetchWithTimeout(url.toString(), 14_000)
@@ -361,7 +373,7 @@ export async function fetchPredictionAlerts(
   minAbsReturn: number = 2.0
 ): Promise<PredictionAlert[]> {
   try {
-    const url = new URL(`${API_URL}/api/v1/enhanced/alerts/predictions`)
+    const url = apiUrl(`/api/v1/enhanced/alerts/predictions`)
     url.searchParams.append('min_confidence', String(minConfidence))
     url.searchParams.append('min_abs_return', String(minAbsReturn))
     const headers: HeadersInit = { Accept: 'application/json' }
@@ -381,7 +393,7 @@ export async function fetchNews(
   limit?: number,
   sentiment?: string
 ): Promise<NewsArticle[]> {
-  const url = new URL(`${API_URL}/api/v1/news/${symbol}`)
+  const url = apiUrl(`/api/v1/news/${symbol}`)
   if (limit) url.searchParams.append('limit', limit.toString())
   if (sentiment) url.searchParams.append('sentiment', sentiment)
   
@@ -913,7 +925,7 @@ export async function fetchLiveMarketNews(
   topics: string = 'technology,earnings',
   limit: number = 20
 ): Promise<LiveNewsResponse> {
-  const url = new URL(`${API_URL}/api/v1/news/live/market`)
+  const url = apiUrl(`/api/v1/news/live/market`)
   url.searchParams.append('topics', topics)
   url.searchParams.append('limit', limit.toString())
   
@@ -928,7 +940,7 @@ export async function fetchLiveSymbolNews(
   symbol: string,
   limit: number = 10
 ): Promise<LiveNewsResponse> {
-  const url = new URL(`${API_URL}/api/v1/news/live/${symbol}`)
+  const url = apiUrl(`/api/v1/news/live/${symbol}`)
   url.searchParams.append('limit', limit.toString())
   
   const response = await fetch(url.toString())
@@ -1214,7 +1226,7 @@ export async function fetchMarketStocks(
   sector?: string,
   limit: number = 100
 ): Promise<StockPerformance[]> {
-  const url = new URL(`${API_URL}/api/v1/market/stocks`)
+  const url = apiUrl(`/api/v1/market/stocks`)
   if (sector) url.searchParams.append('sector', sector)
   url.searchParams.append('limit', limit.toString())
   
@@ -1282,7 +1294,7 @@ export async function fetchHeatmapData(): Promise<HeatmapData> {
 export async function fetchMarketMovers(forceRefresh: boolean = false): Promise<MarketMovers> {
   const updatedAt = () => new Date().toISOString()
   try {
-    const url = new URL(`${API_URL}/api/v1/market/movers`)
+    const url = apiUrl(`/api/v1/market/movers`)
     if (forceRefresh) {
       url.searchParams.append('force_refresh', 'true')
     }
@@ -1322,7 +1334,7 @@ export async function fetchBatchQuotes(
 }
 
 export async function fetchTopGainers(limit: number = 10, forceRefresh: boolean = false): Promise<StockPerformance[]> {
-  const url = new URL(`${API_URL}/api/v1/market/gainers`)
+  const url = apiUrl(`/api/v1/market/gainers`)
   url.searchParams.append('limit', limit.toString())
   if (forceRefresh) {
     url.searchParams.append('force_refresh', 'true')
@@ -1342,7 +1354,7 @@ export async function fetchTopGainers(limit: number = 10, forceRefresh: boolean 
 }
 
 export async function fetchTopLosers(limit: number = 10, forceRefresh: boolean = false): Promise<StockPerformance[]> {
-  const url = new URL(`${API_URL}/api/v1/market/losers`)
+  const url = apiUrl(`/api/v1/market/losers`)
   url.searchParams.append('limit', limit.toString())
   if (forceRefresh) {
     url.searchParams.append('force_refresh', 'true')
@@ -1495,7 +1507,7 @@ export async function createBillingPortalSession(): Promise<BillingPortalRespons
 export async function getBillingSessionStatus(
   sessionId: string
 ): Promise<BillingSessionStatus> {
-  const url = new URL(`${API_URL}/api/v1/billing/session-status`)
+  const url = apiUrl(`/api/v1/billing/session-status`)
   url.searchParams.append('session_id', sessionId)
 
   const response = await fetch(url.toString())
@@ -2506,7 +2518,7 @@ export interface CommunitySearchResult {
 }
 
 export async function searchCommunity(q: string, type?: string): Promise<{ posts: CommunityPost[], communities: Community[] }> {
-  const url = new URL(`${API_URL}/api/v1/search`)
+  const url = apiUrl(`/api/v1/search`)
   url.searchParams.append('q', q)
   if (type) url.searchParams.append('type', type)
   
