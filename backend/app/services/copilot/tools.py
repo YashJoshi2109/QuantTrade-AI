@@ -13,7 +13,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from app.services.copilot.models import Fact, TickerContextPack
+from app.services.copilot.models import Fact, TickerContextPack, compact_fact
 from app.services.copilot.registry import FactRegistry
 
 logger = logging.getLogger(__name__)
@@ -121,12 +121,12 @@ class ToolExecutor:
             facts = await self.sources.macro(list(a.get("indicators") or []))
             if not facts:
                 raise LookupError("macro data not available (FRED not configured or no observations)")
-            return facts, [f.model_dump(exclude_none=True) for f in facts]
+            return facts, [compact_fact(f) for f in facts]
         if name == "get_market_movers":
             f = await self.sources.movers(a.get("direction", "losers"), a.get("sector"), a.get("min_market_cap"))
             if f is None:
                 raise LookupError("market movers not available")
-            return [f], f.model_dump(exclude_none=True)
+            return [f], compact_fact(f)
         if name == "compare_tickers":
             packs = [await self._pack(t) for t in (a.get("tickers") or [])[:3]]
             missing = [t for t, p in zip(a.get("tickers") or [], packs) if p is None]
@@ -137,9 +137,9 @@ class ToolExecutor:
                 for f in (p.quote, p.fundamentals, p.statements[0] if p.statements else None):
                     if f is not None:
                         facts.append(f)
-                rows.append({"ticker": p.ticker, "quote": p.quote.model_dump(exclude_none=True) if p.quote else None,
-                             "fundamentals": p.fundamentals.model_dump(exclude_none=True) if p.fundamentals else None,
-                             "latest_statement": p.statements[0].model_dump(exclude_none=True) if p.statements else None})
+                rows.append({"ticker": p.ticker, "quote": compact_fact(p.quote) if p.quote else None,
+                             "fundamentals": compact_fact(p.fundamentals) if p.fundamentals else None,
+                             "latest_statement": compact_fact(p.statements[0]) if p.statements else None})
             return facts, rows
 
         ticker = a.get("ticker") or ""
@@ -150,28 +150,28 @@ class ToolExecutor:
         if name == "get_quote":
             if pack.quote is None:
                 raise LookupError(f"no quote for {t}: {pack.errors.get('quote', 'not in data')}")
-            return [pack.quote], pack.quote.model_dump(exclude_none=True)
+            return [pack.quote], compact_fact(pack.quote)
         if name == "get_fundamentals":
             if pack.fundamentals is None:
                 raise LookupError(f"no fundamentals for {t}")
-            return [pack.fundamentals], pack.fundamentals.model_dump(exclude_none=True)
+            return [pack.fundamentals], compact_fact(pack.fundamentals)
         if name == "get_financials":
             if not pack.statements:
                 raise LookupError(f"no SEC financial statements for {t}: {pack.errors.get('statements', 'not in data')}")
-            return list(pack.statements), [s.model_dump(exclude_none=True) for s in pack.statements]
+            return list(pack.statements), [compact_fact(s) for s in pack.statements]
         if name == "get_forecast":
             if pack.forecast is None:
                 raise LookupError(f"no forecast for {t} yet ({pack.errors.get('forecast', 'not computed')})")
-            return [pack.forecast], pack.forecast.model_dump(exclude_none=True)
+            return [pack.forecast], compact_fact(pack.forecast)
         if name == "get_news":
             days = int(a.get("days") or 7)
             news = pack.news if days == 7 else await self.sources.news(t, days=days)
-            return list(news), [n.model_dump(exclude_none=True) for n in news]
+            return list(news), [compact_fact(n) for n in news]
         if name == "search_filings":
             if pack.asset_type != "equity":
                 raise LookupError(f"{t} is an {pack.asset_type}; it has no SEC company filings")
             ft = [a["filing_type"]] if a.get("filing_type") else None
             chunks = await self.sources.filings(t, a.get("query") or "", filing_types=ft,
                                                 section=a.get("section"), limit=4)
-            return list(chunks), [c.model_dump(exclude_none=True) for c in chunks]
+            return list(chunks), [compact_fact(c) for c in chunks]
         raise LookupError(f"unhandled tool {name}")

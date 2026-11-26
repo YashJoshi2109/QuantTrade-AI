@@ -141,6 +141,10 @@ def is_model_not_enabled_error(exc: BaseException) -> bool:
     if isinstance(resp, dict):
         code = str((resp.get("Error") or {}).get("Code") or "")
     text = f"{type(exc).__name__} {code} {exc}".lower()
+    if "cachepoint" in text or "prompt cach" in text:
+        # The model is fine; only the cache breakpoints were rejected (the
+        # copilot retries uncached).  Never trip the breaker for that.
+        return False
     if code == "ValidationException" or "validationexception" in text:
         return any(m in text for m in ("model", "inference profile", "on-demand"))
     return any(m in text for m in _NOT_ENABLED_MARKERS)
