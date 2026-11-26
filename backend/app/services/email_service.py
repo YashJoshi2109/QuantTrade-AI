@@ -60,6 +60,72 @@ def _parse_json_id(data: Any) -> Optional[str]:
     return data.get("messageId") or data.get("id")
 
 
+def _failure_hint(provider: str, status_code: int, key_var: str, from_var: str) -> str:
+    """Operator hint that matches the failure class.
+
+    401/403 mean the API key itself was rejected (revoked, disabled or wrong),
+    so pointing at the sender address (the old fixed hint) sent debugging the
+    wrong way. Prod reads the key from the deploy-written .env (GitHub Actions
+    secret), which takes precedence over AWS Secrets Manager.
+    """
+    if status_code in (401, 403):
+        return (
+            f"{provider} rejected the API key: rotate {key_var} in the GitHub "
+            "Actions secret (it overrides AWS Secrets Manager) and redeploy."
+        )
+    if status_code == 400:
+        return f"Check that {from_var} is a verified sender/domain in {provider}."
+    if status_code == 429:
+        return f"{provider} rate limit or daily quota reached."
+    return f"{provider} returned an unexpected error."
+
+
+_KEY_CHECK_TTL = 900  # seconds
+_key_check_cache: dict[str, Any] = {"at": 0.0, "result": None}
+
+
+def _key_is_valid(provider: str, key: str) -> bool:
+    """Cheap read-only call that only succeeds with a valid, enabled key."""
+    if provider == "brevo":
+        url, headers = "https://api.brevo.com/v3/account", {"api-key": key}
+    else:
+        url, headers = "https://api.resend.com/domains", {"Authorization": f"Bearer {key}"}
+    try:
+        return httpx.get(url, headers=headers, timeout=3.0).status_code == 200
+    except Exception:
+        return False
+
+
+def email_provider_status() -> str:
+    """'ok' if at least one configured provider accepts its key, 'degraded' if
+    keys are configured but all are rejected, 'not_configured' otherwise.
+
+    Cached for 15 minutes so /health does not call the providers on every probe.
+    Never includes key material in the result.
+    """
+    import time
+
+    now = time.monotonic()
+    cached = _key_check_cache["result"]
+    if cached is not None and now - _key_check_cache["at"] < _KEY_CHECK_TTL:
+        return cached
+    keys = {
+        "brevo": _strip_key(getattr(settings, "BREVO_API_KEY", None)),
+        "resend": _strip_key(getattr(settings, "RESEND_API_KEY", None)),
+    }
+    configured = {name: key for name, key in keys.items() if key}
+    if not configured:
+        result = "not_configured"
+    else:
+        valid = [name for name, key in configured.items() if _key_is_valid(name, key)]
+        rejected = sorted(set(configured) - set(valid))
+        if rejected:
+            logger.warning("Email provider key(s) rejected: %s", ", ".join(rejected))
+        result = "ok" if valid else "degraded"
+    _key_check_cache.update(at=now, result=result)
+    return result
+
+
 def _send_brevo_sync(
     to: str,
     subject: str,
@@ -103,7 +169,7 @@ def _send_brevo_sync(
             logger.info("Email sent via Brevo to %s messageId=%s", to, mid or "n/a")
             return True, ""
         msg = _truncate_body(r.text)
-        detail = f"Brevo HTTP {r.status_code}: {msg}. Confirm BREVO_FROM_EMAIL is verified in Brevo."
+        detail = f"Brevo HTTP {r.status_code}: {msg}. {_failure_hint('Brevo', r.status_code, 'BREVO_API_KEY', 'BREVO_FROM_EMAIL')}"
         logger.warning("Brevo failed: %s", detail)
         return False, detail
     except Exception as exc:
@@ -149,7 +215,7 @@ def _send_resend_sync(
             logger.info("Email sent via Resend to %s id=%s", to, mid or "n/a")
             return True, ""
         msg = _truncate_body(r.text)
-        detail = f"Resend HTTP {r.status_code}: {msg}. Verify RESEND_FROM_EMAIL domain in Resend."
+        detail = f"Resend HTTP {r.status_code}: {msg}. {_failure_hint('Resend', r.status_code, 'RESEND_API_KEY', 'RESEND_FROM_EMAIL')}"
         logger.warning("Resend failed: %s", detail)
         return False, detail
     except Exception as exc:

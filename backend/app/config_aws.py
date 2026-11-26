@@ -62,9 +62,22 @@ def inject_aws_secrets():
 
     injected = 0
     total = len(loaded)
+    shadowed = []
     for key, value in loaded.items():
         if key not in os.environ:
             os.environ[key] = str(value)
             injected += 1
+        elif os.environ[key] != str(value):
+            shadowed.append(key)
+
+    if shadowed:
+        # The env (deploy-written .env from GitHub Actions secrets) wins. A key
+        # rotated only in Secrets Manager is silently ignored, so name them
+        # (names only, never values).
+        logger.warning(
+            "Env overrides a different AWS Secrets Manager value for: %s. "
+            "Update the GitHub Actions secret too, or rotations will not take effect.",
+            ", ".join(sorted(shadowed)),
+        )
 
     logger.info("Injected %d secrets from AWS (skipped %d already set)", injected, total - injected)

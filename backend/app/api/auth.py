@@ -322,9 +322,12 @@ async def send_otp_endpoint(
         )
     sent, mail_error = await asyncio.to_thread(send_otp_email, email, otp)
     if not sent:
+        logger.error("send-otp email delivery failed: %s", mail_error)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=mail_error or "Failed to send verification email.",
+            # Provider details (HTTP codes, which key failed) stay in the logs;
+            # they are operator information, not something to show visitors.
+            detail="We couldn't send the verification email right now. Please try again in a few minutes.",
         )
     set_rate_limit(email)
     return {"message": "Verification code sent to your email"}

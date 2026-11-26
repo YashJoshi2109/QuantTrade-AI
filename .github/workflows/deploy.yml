@@ -482,7 +482,13 @@ jobs:
           for i in $(seq 1 30); do
             got=$(curl -sL -m 10 https://quanttrade.us/health | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',''))" 2>/dev/null || true)
             echo "attempt $i: prod=${got:-unreachable} want=${want:0:12}"
-            if [ "$got" = "$want" ]; then echo "✅ prod is serving ${want:0:12}"; exit 0; fi
+            if [ "$got" = "$want" ]; then
+              echo "✅ prod is serving ${want:0:12}"
+              # Non-fatal: flag rejected email keys (signup OTP / password reset break silently).
+              email=$(curl -sL -m 15 https://quanttrade.us/health | python3 -c "import json,sys; print(json.load(sys.stdin).get('checks',{}).get('email',''))" 2>/dev/null || true)
+              if [ "$email" = "degraded" ]; then echo "::warning::email provider keys rejected — rotate BREVO_API_KEY/RESEND_API_KEY GitHub secrets"; fi
+              exit 0
+            fi
             sleep 10
           done
           echo "::error::prod is not serving ${want:0:12} (last seen: ${got:-unreachable})"
