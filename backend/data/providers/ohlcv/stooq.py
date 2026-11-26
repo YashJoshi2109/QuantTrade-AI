@@ -20,14 +20,16 @@ _REQUIRED_COLUMNS = {"symbol", "date", "open", "high", "low", "close", "volume",
 class StooqProvider(OHLCVProvider):
     """Download daily bars from Stooq free CSV endpoint.
 
-    Falls back to pandas_datareader if available; otherwise uses direct
-    Stooq CSV download with up to 3 retry attempts and exponential backoff.
+    Uses direct Stooq CSV download with up to 3 retry attempts and
+    exponential backoff.  pandas_datareader is intentionally NOT used —
+    it has no configurable timeout and can hang for many minutes.
     """
 
     name = "stooq"
 
-    def __init__(self, raw_dir: Optional[str] = None) -> None:
+    def __init__(self, raw_dir: Optional[str] = None, timeout: float = 5.0) -> None:
         self.raw_dir = Path(raw_dir) if raw_dir else None
+        self.timeout = timeout
 
     # ------------------------------------------------------------------
     # Public interface
@@ -58,22 +60,15 @@ class StooqProvider(OHLCVProvider):
     # ------------------------------------------------------------------
 
     def _fetch_with_retry(self, symbol: str) -> Optional[pd.DataFrame]:
-        """Try pandas_datareader first, then raw CSV.  3 attempts, exponential backoff."""
-        # Attempt 1: pandas_datareader (optional dependency)
-        try:
-            import pandas_datareader.data as web  # type: ignore
-            df = web.DataReader(symbol.lower(), "stooq")
-            if df is not None and not df.empty:
-                log.debug("stooq %s: loaded via pandas_datareader", symbol)
-                return df
-        except Exception as e:
-            log.debug("stooq %s: pandas_datareader failed (%s), falling back to CSV", symbol, e)
+        """Direct Stooq CSV download — 3 attempts, exponential backoff.
 
-        # Attempt 2-4: direct CSV download with retries
+        pandas_datareader intentionally omitted: it has no configurable
+        timeout and causes multi-minute hangs when stooq.com is unreachable.
+        """
         url = f"https://stooq.com/q/d/l/?s={symbol.lower()}.us&i=d"
         for attempt in range(3):
             try:
-                resp = requests.get(url, timeout=30)
+                resp = requests.get(url, timeout=self.timeout)
                 resp.raise_for_status()
                 df = pd.read_csv(StringIO(resp.text))
                 if df.empty or "No data" in resp.text:

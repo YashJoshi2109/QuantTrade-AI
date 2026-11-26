@@ -33,9 +33,9 @@ FAKE_SUBMISSIONS = {
             ],
             "form": ["10-K", "10-Q"],
             "filingDate": ["2022-01-10", "2022-04-15"],
-            "acceptanceDatetime": [
-                "20220110120000",
-                "20220415093000",
+            "acceptanceDateTime": [  # real EDGAR key + format
+                "2022-01-10T16:45:00.000Z",
+                "2022-04-15T09:30:00.000Z",
             ],
             "primaryDocument": ["form10k.htm", "form10q.htm"],
             "reportDate": ["2021-09-25", "2021-12-25"],  # period_of_report — must NOT be used
@@ -214,3 +214,32 @@ def test_raw_json_cached(tmp_path: Path):
     with open(cache_file) as f:
         cached = json.load(f)
     assert "filings" in cached
+
+
+# ---------------------------------------------------------------------------
+# acceptance timestamp is honoured (regression: key was misspelled)
+# ---------------------------------------------------------------------------
+
+
+def test_available_at_uses_acceptance_timestamp(tmp_path: Path):
+    """available_at must come from acceptanceDateTime, not filing-date midnight."""
+    provider = _make_provider(tmp_path)
+    with patch.object(provider, "fetch_submissions", return_value=FAKE_SUBMISSIONS):
+        df = provider.fetch_recent_filings("320193", ["10-K", "10-Q"])
+    got = sorted(df["available_at"].tolist())
+    assert got[0] == pd.Timestamp("2022-01-10 16:45:00")
+    assert got[1] == pd.Timestamp("2022-04-15 09:30:00")
+    # an after-close filing is NOT visible at the same day's midnight row
+    assert not (df["available_at"] <= pd.Timestamp("2022-01-10")).any()
+
+
+def test_available_at_without_acceptance_is_next_day(tmp_path: Path):
+    """No acceptance timestamp -> conservatively available the day after filing."""
+    provider = _make_provider(tmp_path)
+    subs = {"filings": {"recent": {
+        "accessionNumber": ["a-1"], "form": ["8-K"], "filingDate": ["2023-03-01"],
+        "primaryDocument": ["x.htm"],
+    }}}
+    with patch.object(provider, "fetch_submissions", return_value=subs):
+        df = provider.fetch_recent_filings("320193", ["8-K"])
+    assert df["available_at"].iloc[0] == pd.Timestamp("2023-03-02")
