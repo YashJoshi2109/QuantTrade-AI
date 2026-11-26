@@ -85,42 +85,34 @@ class QuoteCacheService:
         except Exception:
             self.db.rollback()
     
-    def _get_current_ttl(self) -> int:
-        """Determine TTL based on current market status"""
-        now_et = datetime.now(self.et_tz)
-        
-        # Check if weekend
-        if now_et.weekday() >= 5:  # Saturday = 5, Sunday = 6
-            return self.TTL_MARKET_CLOSED
-        
-        # Check market hours (9:30 AM - 4:00 PM ET)
-        market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
-        market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
-        
-        if market_open <= now_et <= market_close:
+    def _get_current_ttl(self, at: Optional[datetime] = None) -> int:
+        """TTL for the current session (exchange holidays count as closed)."""
+        from app.services import market_calendar as mc
+        session = mc.session_at(at)
+        if session == mc.REGULAR:
             return self.TTL_MARKET_OPEN
-        
-        # Extended hours (4:00 AM - 9:30 AM, 4:00 PM - 8:00 PM ET)
-        extended_open = now_et.replace(hour=4, minute=0, second=0, microsecond=0)
-        extended_close = now_et.replace(hour=20, minute=0, second=0, microsecond=0)
-        
-        if extended_open <= now_et <= extended_close:
+        if session in (mc.PRE_MARKET, mc.AFTER_HOURS):
             return self.TTL_EXTENDED_HOURS
-        
         return self.TTL_MARKET_CLOSED
-    
+
+    def _effective_ttl(self, stored_ttl: Optional[int]) -> int:
+        """A snapshot written while the market was closed carries a 600s TTL;
+        once the session opens it must not be served for longer than the
+        session's own TTL (that is how an overnight quote outlived the open)."""
+        return min(int(stored_ttl or 0), self._get_current_ttl())
+
     def _is_cache_fresh(self, snapshot: QuoteSnapshot) -> bool:
         """Check if cached snapshot is still fresh"""
         if not snapshot or not snapshot.fetched_at:
             return False
-        
+
         now = datetime.now(timezone.utc)
         fetched_at = snapshot.fetched_at
         if fetched_at.tzinfo is None:
             fetched_at = fetched_at.replace(tzinfo=timezone.utc)
-        
+
         age_seconds = (now - fetched_at).total_seconds()
-        return age_seconds < snapshot.ttl_seconds
+        return age_seconds < self._effective_ttl(snapshot.ttl_seconds)
     
     async def _fetch_from_yfinance(self, symbol: str) -> Optional[Dict[str, Any]]:
         """Fetch quote from yfinance - runs in thread pool to avoid blocking"""
@@ -651,6 +643,7 @@ class QuoteCacheService:
         self._release_connection()
         
         now = datetime.now(timezone.utc)
+        session_ttl = self._get_current_ttl()
         for symbol in upper_symbols:
             entry = payloads.get(symbol)
             if entry and entry[1] is not None:
@@ -658,7 +651,7 @@ class QuoteCacheService:
                 if fetched_at.tzinfo is None:
                     fetched_at = fetched_at.replace(tzinfo=timezone.utc)
                 age = (now - fetched_at).total_seconds()
-                if age < (ttl or 0):
+                if age < min(ttl or 0, session_ttl):
                     data['cached'] = True
                     data['cache_age_seconds'] = age
                     results[symbol] = data
