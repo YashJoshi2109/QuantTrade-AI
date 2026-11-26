@@ -167,19 +167,21 @@ class ToolExecutor:
         if pack is None:
             raise LookupError(f"ticker {ticker!r} not found in our symbol universe")
         t = pack.ticker
+        # section missing from the pack: join/trigger its sync, re-read once
+        if name == "get_fundamentals" and pack.fundamentals is None:
+            await self._refill(pack, "fundamentals")
+        elif name == "get_financials" and not pack.statements:
+            await self._refill(pack, "statements")
+
         if name == "get_quote":
             if pack.quote is None:
                 raise LookupError(f"no quote for {t}: {pack.errors.get('quote', 'not in data')}")
             return [pack.quote], pack.quote.model_dump(exclude_none=True)
         if name == "get_fundamentals":
             if pack.fundamentals is None:
-                await self._refill(pack, "fundamentals")
-            if pack.fundamentals is None:
-                raise LookupError(f"no fundamentals for {t}: {pack.errors.get('fundamentals', 'not in data')}")
+                raise LookupError(f"no fundamentals for {t}")
             return [pack.fundamentals], pack.fundamentals.model_dump(exclude_none=True)
         if name == "get_financials":
-            if not pack.statements:
-                await self._refill(pack, "statements")
             if not pack.statements:
                 raise LookupError(f"no SEC financial statements for {t}: {pack.errors.get('statements', 'not in data')}")
             return list(pack.statements), [s.model_dump(exclude_none=True) for s in pack.statements]
