@@ -28,6 +28,7 @@ export function usePortfolioController() {
   const [createOpen, setCreateOpen] = useState(false)
   const [trade, setTrade] = useState<TradePreset>(null)
   const [exporting, setExporting] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const selected = detail.data && detail.data.id === selectedId ? detail.data : null
 
@@ -101,6 +102,8 @@ export function usePortfolioController() {
     setTrade,
     exporting,
     exportCsv,
+    importOpen,
+    setImportOpen,
     rename,
     remove,
     reset,

@@ -231,6 +231,28 @@ def _start_scheduler():
             max_instances=1,
             coalesce=True,
         )
+        # Portfolio value history: one snapshot per portfolio after the US close
+        # (21:30 UTC is after 16:00 ET in both EST and EDT), Mon-Fri.
+        def _portfolio_snapshots():
+            db = SessionLocal()
+            try:
+                from app.services.portfolio_history import run_daily_snapshots_sync
+
+                res = run_daily_snapshots_sync(db)
+                print(f"📈 Portfolio snapshots: {res}")
+            except Exception as e:
+                print(f"⚠️ Portfolio snapshot job error: {e}")
+            finally:
+                db.close()
+
+        sched.add_job(
+            _portfolio_snapshots,
+            CronTrigger(day_of_week="mon-fri", hour=21, minute=30),
+            id="portfolio_daily_snapshots",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )
         # ── Real-time Ideas Lab scheduler jobs ──
         from apscheduler.triggers.interval import IntervalTrigger
         from app.services.idea_scheduler import (

@@ -126,7 +126,13 @@ class PortfolioSnapshot(Base):
     total_pnl_percent = Column(Float)
     daily_return = Column(Float)
     daily_return_percent = Column(Float)
-    
+
+    # Added for performance history (scripts/add_portfolio_snapshot_columns.py)
+    cost_basis = Column(Float)  # open-lot cost basis at the close
+    net_flow = Column(Float)  # external money in (+) / out (-) that day; TWR excludes it
+    source = Column(String(16))  # "job" (daily snapshot) | "backfill" (ledger + daily closes)
+    missing_symbols = Column(String(500))  # held symbols with no close yet: valued at cost
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
