@@ -187,8 +187,8 @@ services:
   # FinBERT/MiniLM classification + capped Claude Haiku notes. Writes news_items
   # and publishes qt:ws:news; the API only reads/bridges and never loads models.
   # Memory budget (t3.small, 2 GB): nginx 128M + frontend 512M + backend 768M +
-  # news-worker 512M = 1920M (limits are caps). celery-worker (640M) is behind
-  # the "celery" profile and off by default; enabling it pushes caps past 2 GB.
+  # news-worker 512M = 1920M (limits are caps). celery-worker (448M cap, ~275M
+  # measured peak) is behind the "celery" profile and off by default.
   news-worker:
     image: ghcr.io/yashjoshi2109/quanttrade-backend:latest
     container_name: quanttrade-news-worker
@@ -226,12 +226,17 @@ services:
   # ── Celery Worker + Beat — task executor and periodic scheduler combined ──
   # Beat runs as embedded thread (-B flag); safe for single-node deployments.
   # Saves ~350MB vs separate beat container (eliminates duplicate app import).
-  # Disabled by default (profile "celery"): it crash-looped in prod (29 restarts
-  # in ~50 min on 2026-11-25) while the 2 GB host was swapping ~1 GB. News
-  # ingestion moved to news-worker; the app's APScheduler covers market jobs.
-  # Global-monitor syncs (GDELT/ACLED) still live here — re-enable with
+  # Disabled by default (profile "celery"). It crash-looped in prod (29 restarts
+  # in ~50 min on 2026-11-25): the image resolved kombu 5.7.0 (celery 5.3.4
+  # leaves kombu unbounded below 6), whose Redis transport raises
+  # "VersionMismatch: Redis transport requires redis-py versions 6.1.0 or
+  # later. You have 5.0.1" at broker connect, so the process exited at once.
+  # Fixed by pinning kombu==5.6.2 in requirements.txt. News ingestion moved to
+  # news-worker; the app's APScheduler covers market jobs. Global-monitor syncs
+  # (GDELT/ACLED) still live here. Re-enable with
   #   docker compose -f docker-compose.prod.yml --profile celery up -d celery-worker
-  # once the crash is fixed (or on a 4 GB instance).
+  # Idle ~240M, peak ~275M during a GDELT sync; the pool child is recycled past
+  # 300 MB (worker_max_memory_per_child in app/tasks/celery_app.py).
   celery-worker:
     profiles: ["celery"]
     image: ghcr.io/yashjoshi2109/quanttrade-backend:latest
@@ -240,7 +245,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 640M
+          memory: 448M
     env_file:
       - .env
     environment:

@@ -15,6 +15,10 @@ pgvector==0.2.4  # Vector extension for PostgreSQL
 
 # Background jobs
 celery==5.3.4
+# kombu is pinned because celery 5.3.4 allows any kombu<6 and kombu>=5.7 refuses
+# redis-py<6.1 at broker connect (VersionMismatch), which crash-looped the
+# celery-worker. Bump kombu and redis together.
+kombu==5.6.2
 redis==5.0.1
 
 # Data fetching
