@@ -32,6 +32,7 @@ _SAFE_DEFAULT = {
     "evaluated_at": None,
     "reason": "No validation record found.",
     "research_candidate": None,
+    "benchmark_test": None,  # DM test of the served model vs ARIMA(0,1,0) (scripts/eval_lstm_vs_rw.py)
 }
 
 
@@ -47,10 +48,22 @@ def ml_model_status() -> dict:
         return dict(_SAFE_DEFAULT)
 
 
+def benchmark_edge() -> bool | None:
+    """Did the served model beat ARIMA(0,1,0) out of sample (Diebold-Mariano)?
+    None = never tested."""
+    bt = ml_model_status().get("benchmark_test")
+    if not isinstance(bt, dict) or "edge_any" not in bt:
+        return None
+    return bool(bt["edge_any"])
+
+
 def ml_model_promoted() -> bool:
+    """Promoted only with enough gates AND, when a benchmark test exists, a
+    significant edge over the ARIMA(0,1,0) random walk."""
     s = ml_model_status()
     passed = s.get("gates_passed")
-    return s["verdict"] == "READY" and passed is not None and passed >= s["gates_required"]
+    gates_ok = s["verdict"] == "READY" and passed is not None and passed >= s["gates_required"]
+    return gates_ok and benchmark_edge() is not False
 
 
 def ml_status_summary() -> dict:
@@ -68,8 +81,14 @@ def ml_status_summary() -> dict:
         note = (f"Our ML price model is experimental: it passed {passed} of "
                 f"{s['gates_total']} validation gates ({s['gates_required']} required), "
                 "so it is not used here and its output is never shown as a signal.")
+    bt = s.get("benchmark_test") if isinstance(s.get("benchmark_test"), dict) else None
+    if bt and not bt.get("edge_any") and bt.get("finding"):
+        note += " " + bt["finding"]
     return {
         "promoted": promoted,
+        "benchmark": (bt or {}).get("benchmark", "ARIMA(0,1,0)"),
+        "beats_benchmark": benchmark_edge(),
+        "benchmark_finding": (bt or {}).get("finding"),
         "verdict": s["verdict"],
         "gates_passed": passed,
         "gates_total": s["gates_total"],
@@ -85,12 +104,20 @@ def ml_status_summary() -> dict:
 # nominal level says. Tolerances allow for ~40 walk-forward origins of noise.
 COVERAGE_TOLERANCE = {"80": 0.10, "95": 0.07}
 MIN_ORIGINS_FOR_CALIBRATION = 20
+# Overlapping long-horizon tests (e.g. 60-day windows 5 days apart) carry far
+# fewer independent outcomes than origins; below this, coverage is not judged.
+MIN_EFFECTIVE_FOR_CALIBRATION = 8
 
 
-def band_calibration(coverage: dict | None, origins: int) -> dict:
-    """Return {'status': calibrated|under_covered|over_covered|insufficient_data, ...}."""
-    if not coverage or origins < MIN_ORIGINS_FOR_CALIBRATION:
-        return {"status": "insufficient_data", "origins": origins}
+def band_calibration(coverage: dict | None, origins: int, effective: float | None = None) -> dict:
+    """Return {'status': calibrated|under_covered|over_covered|insufficient_data, ...}.
+
+    ``origins`` = tests the coverage was measured on; ``effective`` = how many
+    of them are non-overlapping (defaults to ``origins``).
+    """
+    if (not coverage or origins < MIN_ORIGINS_FOR_CALIBRATION
+            or (effective is not None and effective < MIN_EFFECTIVE_FOR_CALIBRATION)):
+        return {"status": "insufficient_data", "origins": origins, "effective": effective}
     worst, status = 0.0, "calibrated"
     for lvl, tol in COVERAGE_TOLERANCE.items():
         c = coverage.get(lvl)
@@ -115,12 +142,15 @@ def annotate_forecast(out: dict) -> dict:
     """
     bt = out.get("backtest", {}) or {}
     origins = int(bt.get("origins") or 0)
+    holdout = bt.get("holdout_origins") or {}
+    effective = bt.get("effective_tests") or {}
     beats = out.get("beats_naive", {}) or {}
     cov = bt.get("band_coverage", {}) or {}
     for row in out.get("horizons", []):
         k = str(row["h"])
         row["reliability"] = "edge_in_backtest" if beats.get(k) else "no_edge"
-        row["calibration"] = band_calibration(cov.get(k), origins)
+        n = int(holdout[k]) if holdout.get(k) is not None else origins
+        row["calibration"] = band_calibration(cov.get(k), n, effective.get(k))
     out["status"] = "experimental"
     out["label"] = EXPERIMENTAL_LABEL
     out["investment_advice"] = False

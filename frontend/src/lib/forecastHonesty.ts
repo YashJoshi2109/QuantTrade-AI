@@ -73,3 +73,39 @@ export function mlStatusSentence(ml?: MlModelStatus | null): string {
   if (ml?.note) return ml.note
   return 'Our ML price model is experimental and is not used in this forecast.'
 }
+
+/* ── Benchmark + model selection (statistical forecast v3) ─────────────── */
+
+/** The one benchmark every forecast model is judged against. */
+export const BENCHMARK_NAME = 'ARIMA(0,1,0)'
+
+export const EDGE_TEXT: Record<Reliability, string> = {
+  edge_in_backtest: `Beat ${BENCHMARK_NAME} in tests`,
+  no_edge: `No edge vs ${BENCHMARK_NAME}`,
+}
+
+/** "3 months" style label for a horizon in trading days. */
+export function horizonLabel(h: number): string {
+  return ({ 1: '1 day', 5: '1 week', 20: '1 month', 60: '3 months' } as Record<number, string>)[h] ?? `${h} days`
+}
+
+/** p-value for display: "<0.01" below 0.01, else two decimals, "—" when missing. */
+export function fmtP(p: number | null | undefined): string {
+  if (p == null || !Number.isFinite(p)) return '—'
+  return p < 0.01 ? '<0.01' : p.toFixed(2)
+}
+
+export interface HorizonEval {
+  edge?: boolean
+  effective_tests?: number | null
+  rel_mae?: number | null
+  dm_pvalue_holm?: number | null
+}
+
+/** Why a horizon has no measured edge, in one short phrase (null when it has one). */
+export function noEdgeReason(ev?: HorizonEval | null): string | null {
+  if (!ev || ev.edge) return null
+  if ((ev.effective_tests ?? 0) < 8) return 'too few independent tests'
+  if (ev.rel_mae != null && ev.rel_mae >= 1) return `error not below ${BENCHMARK_NAME}`
+  return 'improvement not statistically significant'
+}

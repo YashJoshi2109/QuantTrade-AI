@@ -15,6 +15,10 @@ All routes require auth and only ever touch the caller's own portfolios
   POST   /api/v1/portfolios/{id}/orders             paper only: SIMULATED market order
   POST   /api/v1/portfolios/{id}/reset              paper only: wipe trades, restore cash
   GET    /api/v1/portfolios/{id}/export?type=holdings|transactions   CSV
+  GET    /api/v1/portfolios/{id}/history?range=1M|3M|YTD|1Y|ALL      equity curve vs SPY, TWR, drawdown
+  POST   /api/v1/portfolios/{id}/history/backfill   rebuild daily snapshots from ledger + stored closes
+  POST   /api/v1/portfolios/{id}/import/preview     tracked only: validate a trade CSV, write nothing
+  POST   /api/v1/portfolios/{id}/import/commit      tracked only: validate again, then write all rows or none
 
 Paper trading is a simulation. Orders fill instantly at the last price from
 the market-data cache; the client cannot choose the fill price. Nothing in this
@@ -42,7 +46,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import require_auth
 from app.db.database import get_db
-from app.models.portfolio import Portfolio, Position, Transaction, TransactionType
+from app.models.portfolio import Portfolio, PortfolioSnapshot, Position, Transaction, TransactionType
 from app.models.symbol import Symbol
 from app.models.user import User
 from app.services.portfolio_ledger import (
@@ -51,9 +55,12 @@ from app.services.portfolio_ledger import (
     LedgerError,
     LedgerState,
     LedgerTxn,
+    first_invalid,
     replay,
     summarize,
 )
+from app.services import portfolio_history
+from app.services.portfolio_import import ImportFormatError, dedupe_key, parse_csv
 from app.services.portfolio_pricing import fetch_quotes, to_quote
 
 logger = logging.getLogger(__name__)
@@ -222,7 +229,7 @@ def _check_capacity(db: Session, p: Portfolio) -> None:
 
 
 def _commit_with_ledger(db: Session, p: Portfolio, new_txn: Optional[Transaction], new_sym: Optional[str],
-                        exclude_id: Optional[int] = None) -> LedgerState:
+                        exclude_id: Optional[int] = None, affected_from: Optional[datetime] = None) -> LedgerState:
     """Validate the would-be ledger (with `new_txn` added and/or `exclude_id`
     removed), then write it and the derived rows in one commit. Nothing is
     written on LedgerError."""
@@ -247,6 +254,8 @@ def _commit_with_ledger(db: Session, p: Portfolio, new_txn: Optional[Transaction
             Transaction.id == exclude_id, Transaction.portfolio_id == p.id
         ).delete(synchronize_session=False)
     _persist_derived(db, p, state, symbol_ids)
+    if affected_from is not None:
+        portfolio_history.invalidate_from(db, p.id, affected_from)
     db.commit()
     return state
 
@@ -366,6 +375,7 @@ def delete_portfolio(portfolio_id: int, db: Session = Depends(get_db), user: Use
     p = _owned(db, user, portfolio_id)
     db.query(Transaction).filter(Transaction.portfolio_id == p.id).delete(synchronize_session=False)
     db.query(Position).filter(Position.portfolio_id == p.id).delete(synchronize_session=False)
+    db.query(PortfolioSnapshot).filter(PortfolioSnapshot.portfolio_id == p.id).delete(synchronize_session=False)
     db.delete(p)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -415,7 +425,7 @@ def add_transaction(portfolio_id: int, body: TransactionCreate, db: Session = De
         notes=(body.notes or "").strip() or None,
         transaction_date=when,
     )
-    _commit_with_ledger(db, p, txn, sym)
+    _commit_with_ledger(db, p, txn, sym, affected_from=when)
     db.refresh(txn)
     return _txn_out(txn, sym)
 
@@ -430,7 +440,7 @@ def delete_transaction(portfolio_id: int, txn_id: int, db: Session = Depends(get
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
     try:
-        _commit_with_ledger(db, p, None, None, exclude_id=txn.id)
+        _commit_with_ledger(db, p, None, None, exclude_id=txn.id, affected_from=_as_utc(txn.transaction_date))
     except HTTPException as e:
         if e.status_code == 400:
             raise HTTPException(status_code=409, detail=f"Deleting this would break later trades: {e.detail}")
@@ -467,7 +477,7 @@ def place_paper_order(portfolio_id: int, body: OrderCreate, db: Session = Depend
         notes="Simulated paper order",
         transaction_date=datetime.now(timezone.utc),
     )
-    state = _commit_with_ledger(db, p, txn, sym)
+    state = _commit_with_ledger(db, p, txn, sym, affected_from=txn.transaction_date)
     db.refresh(txn)
     return {
         "simulated": True,
@@ -491,6 +501,7 @@ def reset_paper_portfolio(portfolio_id: int, db: Session = Depends(get_db), user
     db.query(Transaction).filter(Transaction.portfolio_id == p.id).delete(synchronize_session=False)
     db.query(Position).filter(Position.portfolio_id == p.id).delete(synchronize_session=False)
     p.cash_balance = float(p.initial_cash or 0)
+    portfolio_history.invalidate_from(db, p.id, None)
     db.commit()
     return _build_summary(db, p, rows=[], quotes={})
 
@@ -545,3 +556,160 @@ def export_portfolio(portfolio_id: int, type: Literal["holdings", "transactions"
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{fname}"', "Cache-Control": "no-store"},
     )
+
+
+# ── performance history ──────────────────────────────────────────────────────
+
+@router.get("/{portfolio_id}/history")
+def portfolio_history_route(portfolio_id: int, range: Literal["1M", "3M", "YTD", "1Y", "ALL"] = "1Y",
+                            db: Session = Depends(get_db), user: User = Depends(require_auth)):
+    """Equity curve vs SPY (both as % from the range start), time-weighted return
+    and max drawdown. Built from daily snapshots; missing or stale snapshots are
+    rebuilt from the ledger and the daily closes already stored (no provider calls)."""
+    p = _owned(db, user, portfolio_id)
+    return portfolio_history.history(db, p, range)
+
+
+@router.post("/{portfolio_id}/history/backfill")
+def backfill_history(portfolio_id: int, db: Session = Depends(get_db), user: User = Depends(require_auth)):
+    p = _owned(db, user, portfolio_id)
+    return {"portfolio_id": p.id, **portfolio_history.backfill_portfolio(db, p)}
+
+
+# ── CSV trade import (tracked portfolios) ────────────────────────────────────
+
+IMPORT_ID_BASE = 10 ** 12  # temporary ledger ids for file rows: sort after saved rows, map back to lines
+
+
+class ImportBody(BaseModel):
+    csv: str = Field(..., min_length=1, max_length=600_000)
+
+
+def _import_plan(db: Session, p: Portfolio, text: str) -> dict:
+    """Parse + validate a CSV against the symbols table and the full ledger."""
+    if _kind(p) == KIND_PAPER:
+        raise HTTPException(status_code=400,
+                            detail="CSV import is only for tracked portfolios; paper trades are simulated orders")
+    try:
+        rows = parse_csv(text)
+    except ImportFormatError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    syms = sorted({r.symbol for r in rows if r.symbol})
+    known = {s.symbol: s.id for s in db.query(Symbol).filter(Symbol.symbol.in_(syms)).all()} if syms else {}
+    existing = _ledger_rows(db, p.id)
+    seen = set()
+    for t, s in existing:
+        lt = _to_ledger(t, s)
+        seen.add(dedupe_key(lt.date.date().isoformat(), s, lt.type, lt.quantity, lt.price, lt.amount))
+    for r in rows:
+        if r.symbol and r.symbol not in known and not any("symbol" in e for e in r.errors):
+            r.errors.append(f"unknown symbol {r.symbol} (add it once with Add transaction, then import)")
+        if r.ok:
+            k = dedupe_key(r.date, r.symbol, r.type, r.quantity, r.price, r.amount)
+            if k in seen:
+                r.warnings.append("looks like a duplicate of a transaction already in this portfolio or file")
+            seen.add(k)
+
+    if len(existing) + len(rows) > MAX_TRANSACTIONS_PER_PORTFOLIO:
+        raise HTTPException(status_code=409,
+                            detail=f"Import would exceed {MAX_TRANSACTIONS_PER_PORTFOLIO} transactions for this portfolio")
+
+    ledger_error = None
+    ok_rows = [r for r in rows if r.ok]
+    if ok_rows:
+        # Same replay validation as a single transaction, over the whole
+        # would-be ledger oldest first, so a sell before its buy is caught.
+        # Rows that already failed are left out, so every problem shows at once.
+        txns = [_to_ledger(t, s) for t, s in existing] + [
+            LedgerTxn(id=IMPORT_ID_BASE + r.row, symbol=r.symbol, type=r.type,
+                      quantity=float(r.quantity or 0), price=float(r.price or 0), fees=float(r.fees or 0),
+                      date=datetime.combine(date.fromisoformat(r.date), time(21, 0), tzinfo=timezone.utc),
+                      amount=float(r.amount or 0) if r.type == "DIVIDEND" else 0.0)
+            for r in ok_rows
+        ]
+        bad = first_invalid(txns)
+        if bad is not None:
+            t, msg = bad
+            if t.id is not None and t.id >= IMPORT_ID_BASE:
+                next(r for r in rows if r.row == t.id - IMPORT_ID_BASE).errors.append(msg)
+            else:
+                ledger_error = f"An existing transaction would break: {msg}"
+
+    errors = sum(1 for r in rows if not r.ok)
+    return {
+        "rows": rows,
+        "known": known,
+        "summary": {
+            "total": len(rows),
+            "valid": len(rows) - errors,
+            "errors": errors,
+            "warnings": sum(1 for r in rows if r.warnings),
+            "buys": sum(1 for r in rows if r.type == "BUY"),
+            "sells": sum(1 for r in rows if r.type == "SELL"),
+            "dividends": sum(1 for r in rows if r.type == "DIVIDEND"),
+            "symbols": syms,
+        },
+        "ledger_error": ledger_error,
+        "can_commit": errors == 0 and ledger_error is None,
+    }
+
+
+def _plan_out(plan: dict) -> dict:
+    return {
+        "rows": [r.out() for r in plan["rows"]],
+        "summary": plan["summary"],
+        "ledger_error": plan["ledger_error"],
+        "can_commit": plan["can_commit"],
+    }
+
+
+@router.post("/{portfolio_id}/import/preview")
+def import_preview(portfolio_id: int, body: ImportBody, db: Session = Depends(get_db),
+                   user: User = Depends(require_auth)):
+    p = _owned(db, user, portfolio_id)
+    return _plan_out(_import_plan(db, p, body.csv))
+
+
+@router.post("/{portfolio_id}/import/commit", status_code=status.HTTP_201_CREATED)
+def import_commit(portfolio_id: int, body: ImportBody, db: Session = Depends(get_db),
+                  user: User = Depends(require_auth)):
+    """All-or-nothing: any invalid row (or oversell) rejects the whole file."""
+    p = _owned(db, user, portfolio_id)
+    plan = _import_plan(db, p, body.csv)
+    if not plan["can_commit"]:
+        raise HTTPException(status_code=400, detail={"message": "Fix the rows marked as errors and try again",
+                                                     **_plan_out(plan)})
+    known = plan["known"]
+    new: List[Transaction] = []
+    for r in plan["rows"]:
+        when = datetime.combine(date.fromisoformat(r.date), time(21, 0), tzinfo=timezone.utc)
+        if r.type == "DIVIDEND":
+            qty, price, amount = 0.0, 0.0, float(r.amount)
+        else:
+            qty, price = float(r.quantity), float(r.price)
+            amount = qty * price + r.fees if r.type == "BUY" else qty * price - r.fees
+        txn = Transaction(
+            portfolio_id=p.id,
+            symbol_id=known[r.symbol],
+            transaction_type=TransactionType[r.type],
+            quantity=qty,
+            price=price,
+            fees=float(r.fees or 0),
+            total_amount=round(amount, 4),
+            notes=r.notes or "Imported from CSV",
+            transaction_date=when,
+        )
+        db.add(txn)
+        new.append(txn)
+    db.flush()
+    rows = _ledger_rows(db, p.id)
+    try:
+        state = _replay_portfolio(p, [_to_ledger(t, s) for t, s in rows])
+    except LedgerError as e:  # pragma: no cover - the plan already replayed this exact ledger
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    _persist_derived(db, p, state, {s: t.symbol_id for t, s in rows})
+    portfolio_history.invalidate_from(db, p.id, min(t.transaction_date for t in new))
+    db.commit()
+    return {"imported": len(new), "summary": plan["summary"]}

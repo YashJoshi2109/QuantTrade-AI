@@ -1,22 +1,32 @@
 """
-Backtest API — Pro-level backtesting endpoints
-Supports single backtest, multi-strategy comparison, and market scanning.
-Fallback chain: yfinance -> Alpaca -> FMP -> Finnhub when DB has no price data.
+Backtest API: named-strategy backtests (single, compare, scan) on the audited
+engine in ``app.services.backtesting``.
+
+Data: split/dividend-adjusted daily bars (yfinance -> Alpaca -> FMP ->
+Finnhub, see ``backtesting/data.py``), with an indicator warm-up fetched
+before ``start_date`` so the first tradable bar already has valid indicators.
+
+All handlers are plain ``def`` (run in the threadpool, never on the event
+loop) and every request is bounded (``backtesting/limits.py``).
 """
 import logging
+import time
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Dict, List
 from app.db.database import get_db
 from app.models.symbol import Symbol
 from app.services.backtest_engine import (
     BacktestEngine,
     STRATEGY_REGISTRY,
+    max_lookback,
     rsi_ma_crossover_strategy,
     ma_crossover_strategy,
 )
-from pydantic import BaseModel, Field
+from app.services.backtesting import data as bt_data
+from app.services.backtesting import limits as L
+from pydantic import BaseModel, Field, field_validator, model_validator
 import pandas as pd
 import numpy as np
 
@@ -24,202 +34,151 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+TICKER_PATTERN = r"^[A-Za-z0-9.\-^=]{1,15}$"
 
-# ── yfinance fallback ─────────────────────────────────────────────────
 
-def _fetch_yfinance_data(ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
-    """Fetch OHLCV data from yfinance when DB has no data."""
-    try:
-        import yfinance as yf
-        data = yf.download(
-            ticker, start=start.strftime("%Y-%m-%d"),
-            end=end.strftime("%Y-%m-%d"), progress=False, auto_adjust=True,
-        )
-        if data.empty:
-            return pd.DataFrame()
-        # Flatten multi-level columns if present
-        if isinstance(data.columns, pd.MultiIndex):
-            data.columns = [col[0] if isinstance(col, tuple) else col for col in data.columns]
-        df = data.rename(columns={
-            "Open": "open", "High": "high", "Low": "low",
-            "Close": "close", "Volume": "volume",
-        })
-        for col in ["open", "high", "low", "close"]:
-            if col not in df.columns:
-                return pd.DataFrame()
-        if "volume" not in df.columns:
-            df["volume"] = 0
-        df.index = pd.to_datetime(df.index)
-        if hasattr(df.index, 'tz') and df.index.tz is not None:
-            df.index = df.index.tz_localize(None)
-        return df[["open", "high", "low", "close", "volume"]]
-    except Exception as e:
-        print(f"[backtest] yfinance fallback failed for {ticker}: {e}")
-        return pd.DataFrame()
+# ── Price data (thin wrappers kept for tests / monkeypatching) ─────────
+
+def _fetch_alpaca_candles(ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
+    return bt_data.fetch_alpaca(ticker, start, end)
 
 
 def _fetch_fmp_candles(ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
-    """Fallback: FMP historical daily candles. Use sparingly (250 calls/day)."""
-    try:
-        from app.config import settings
-        if not settings.FMP_API_KEY:
-            return pd.DataFrame()
-        import requests
-        url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}"
-        resp = requests.get(url, params={
-            "apikey": settings.FMP_API_KEY,
-            "from": start.strftime("%Y-%m-%d"),
-            "to": end.strftime("%Y-%m-%d"),
-        }, timeout=15)
-        data = resp.json()
-        if "historical" not in data or not data["historical"]:
-            return pd.DataFrame()
-        rows = data["historical"]
-        df = pd.DataFrame(rows)
-        df["date"] = pd.to_datetime(df["date"])
-        df = df.sort_values("date").set_index("date")
-        df = df.rename(columns={"adjClose": "close"})
-        for col in ["open", "high", "low", "close"]:
-            if col not in df.columns:
-                return pd.DataFrame()
-        if "volume" not in df.columns:
-            df["volume"] = 0
-        return df[["open", "high", "low", "close", "volume"]]
-    except Exception as e:
-        print(f"[backtest] FMP fallback failed for {ticker}: {e}")
-        return pd.DataFrame()
-
-
-def _fetch_finnhub_candles(ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
-    """Fallback: Finnhub stock candles. Use sparingly (60 calls/min)."""
-    try:
-        from app.config import settings
-        if not settings.FINNHUB_API_KEY:
-            return pd.DataFrame()
-        import requests
-        url = "https://finnhub.io/api/v1/stock/candle"
-        resp = requests.get(url, params={
-            "symbol": ticker,
-            "resolution": "D",
-            "from": int(start.timestamp()),
-            "to": int(end.timestamp()),
-            "token": settings.FINNHUB_API_KEY,
-        }, timeout=15)
-        data = resp.json()
-        if data.get("s") != "ok" or not data.get("c"):
-            return pd.DataFrame()
-        df = pd.DataFrame({
-            "open": data["o"], "high": data["h"], "low": data["l"],
-            "close": data["c"], "volume": data["v"],
-        })
-        df.index = pd.to_datetime(data["t"], unit="s")
-        if hasattr(df.index, 'tz') and df.index.tz is not None:
-            df.index = df.index.tz_localize(None)
-        return df
-    except Exception as e:
-        print(f"[backtest] Finnhub fallback failed for {ticker}: {e}")
-        return pd.DataFrame()
-
-
-def _fetch_alpaca_candles(ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
-    """Fetch historical bars from Alpaca (free, unlimited for US stocks)."""
-    try:
-        from app.services.alpaca_client import alpaca_client
-        df = alpaca_client.get_historical_bars(ticker, start, end)
-        if not df.empty:
-            return df
-    except Exception as e:
-        print(f"[backtest] Alpaca fallback failed for {ticker}: {e}")
-    return pd.DataFrame()
+    return bt_data.fetch_fmp(ticker, start, end)
 
 
 def _fetch_price_data(ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
-    """Fetch price data with fallback chain: yfinance → Alpaca → FMP → Finnhub."""
-    # Primary: yfinance (unlimited, free)
-    df = _fetch_yfinance_data(ticker, start, end)
-    if not df.empty and len(df) >= 20:
-        return df
-    # Fallback 1: Alpaca (free historical bars, US stocks)
-    df = _fetch_alpaca_candles(ticker, start, end)
-    if not df.empty and len(df) >= 20:
-        print(f"[backtest] Using Alpaca fallback for {ticker}")
-        return df
-    # Fallback 2: FMP (250/day — use sparingly)
-    df = _fetch_fmp_candles(ticker, start, end)
-    if not df.empty and len(df) >= 20:
-        print(f"[backtest] Using FMP fallback for {ticker}")
-        return df
-    # Fallback 3: Finnhub (60/min — use sparingly)
-    df = _fetch_finnhub_candles(ticker, start, end)
-    if not df.empty and len(df) >= 20:
-        print(f"[backtest] Using Finnhub fallback for {ticker}")
-        return df
-    return pd.DataFrame()
+    ps = bt_data.load_prices(ticker, start, end)
+    return ps.df if ps is not None else pd.DataFrame()
 
 
 def _fetch_benchmark(ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
-    """Fetch benchmark data for alpha/beta calculation."""
-    return _fetch_yfinance_data(ticker, start, end)
+    return _fetch_price_data(ticker, start, end)
 
 
 # ── Request/Response Models ────────────────────────────────────────────
 
+def _check_params(strategy: str, params: Optional[Dict]) -> Optional[Dict]:
+    if params is None:
+        return None
+    if strategy not in STRATEGY_REGISTRY:
+        return params  # unknown strategy is reported by the endpoint
+    defaults = STRATEGY_REGISTRY[strategy]["default_params"]
+    out = {}
+    for k, v in params.items():
+        if k not in defaults:
+            raise ValueError(f"unknown parameter '{k}' for {strategy}")
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            raise ValueError(f"parameter '{k}' must be a number")
+        if isinstance(defaults[k], int) and not isinstance(defaults[k], bool):
+            if float(v) != int(v) or not 1 <= int(v) <= L.MAX_WINDOW:
+                raise ValueError(f"parameter '{k}' must be an integer between 1 and {L.MAX_WINDOW}")
+            v = int(v)
+        elif not -1e4 <= float(v) <= 1e4:
+            raise ValueError(f"parameter '{k}' is out of range")
+        out[k] = v
+    return out
+
+
+def _check_range(start: str, end: str):
+    s, e = _parse_iso(start), _parse_iso(end)
+    if s >= e:
+        raise ValueError("start_date must be before end_date")
+    if (e - s).days > L.MAX_YEARS * 366:
+        raise ValueError(f"date range is limited to {L.MAX_YEARS} years")
+    if s.year < 1970:
+        raise ValueError("start_date must be 1970 or later")
+
+
 class BacktestRequest(BaseModel):
-    symbol: str
+    symbol: str = Field(pattern=TICKER_PATTERN)
     start_date: str
     end_date: str
     strategy: str = "rsi_ma_crossover"
-    initial_capital: float = 10000.0
+    initial_capital: float = Field(10000.0, gt=0, le=L.MAX_CAPITAL)
     strategy_params: Optional[Dict] = None
-    position_sizing: str = "fixed"
-    commission_rate: float = 0.001
-    slippage_rate: float = 0.0005
-    stop_loss_pct: Optional[float] = None
-    take_profit_pct: Optional[float] = None
-    trailing_stop_pct: Optional[float] = None
-    max_pyramiding: int = 1
+    position_sizing: str = Field("fixed", pattern=r"^(fixed|kelly|volatility)$")
+    commission_rate: float = Field(0.001, ge=0, le=L.MAX_COST_BPS / 1e4)
+    slippage_rate: float = Field(0.0005, ge=0, le=L.MAX_COST_BPS / 1e4)
+    stop_loss_pct: Optional[float] = Field(None, gt=0, lt=100)
+    take_profit_pct: Optional[float] = Field(None, gt=0, le=1000)
+    trailing_stop_pct: Optional[float] = Field(None, gt=0, lt=100)
+    max_pyramiding: int = Field(1, ge=1, le=5)
     walk_forward: bool = False
-    walk_forward_train_pct: float = 0.7
+    walk_forward_train_pct: float = Field(0.7, ge=0.3, le=0.9)
     monte_carlo: bool = True
-    monte_carlo_sims: int = 1000
-    benchmark: str = "SPY"
+    monte_carlo_sims: int = Field(1000, ge=50, le=L.MAX_MC_SIMS)
+    benchmark: str = Field("SPY", pattern=TICKER_PATTERN)
+
+    @model_validator(mode="after")
+    def _bounds(self):
+        _check_range(self.start_date, self.end_date)
+        self.strategy_params = _check_params(self.strategy, self.strategy_params)
+        return self
 
 
 class CompareRequest(BaseModel):
-    symbol: str
+    symbol: str = Field(pattern=TICKER_PATTERN)
     start_date: str
     end_date: str
-    strategies: List[str]
-    initial_capital: float = 10000.0
-    commission_rate: float = 0.001
-    slippage_rate: float = 0.0005
-    stop_loss_pct: Optional[float] = None
-    take_profit_pct: Optional[float] = None
+    strategies: List[str] = Field(min_length=2, max_length=5)
+    initial_capital: float = Field(10000.0, gt=0, le=L.MAX_CAPITAL)
+    commission_rate: float = Field(0.001, ge=0, le=L.MAX_COST_BPS / 1e4)
+    slippage_rate: float = Field(0.0005, ge=0, le=L.MAX_COST_BPS / 1e4)
+    stop_loss_pct: Optional[float] = Field(None, gt=0, lt=100)
+    take_profit_pct: Optional[float] = Field(None, gt=0, le=1000)
     monte_carlo: bool = False
+
+    @model_validator(mode="after")
+    def _bounds(self):
+        _check_range(self.start_date, self.end_date)
+        return self
 
 
 class ScanRequest(BaseModel):
-    symbols: List[str]
+    symbols: List[str] = Field(min_length=1, max_length=L.MAX_SCAN_SYMBOLS)
     strategy: str = "rsi_ma_crossover"
     start_date: str
     end_date: str
-    initial_capital: float = 10000.0
+    initial_capital: float = Field(10000.0, gt=0, le=L.MAX_CAPITAL)
     strategy_params: Optional[Dict] = None
     min_sharpe: Optional[float] = None
     min_win_rate: Optional[float] = None
     min_return: Optional[float] = None
 
+    @field_validator("symbols")
+    @classmethod
+    def _syms(cls, v):
+        import re
+        for s in v:
+            if not re.match(TICKER_PATTERN, s):
+                raise ValueError(f"invalid symbol {s!r}")
+        return v
+
+    @model_validator(mode="after")
+    def _bounds(self):
+        _check_range(self.start_date, self.end_date)
+        self.strategy_params = _check_params(self.strategy, self.strategy_params)
+        return self
+
 
 # ── Parse dates helper ─────────────────────────────────────────────────
 
+def _parse_iso(value: str) -> datetime:
+    raw = value.replace("Z", "").replace("+00:00", "")
+    return datetime.fromisoformat(raw)
+
+
 def _parse_dates(start_str: str, end_str: str):
-    raw_start = start_str.replace("Z", "").replace("+00:00", "")
-    raw_end = end_str.replace("Z", "").replace("+00:00", "")
-    start_date = datetime.fromisoformat(raw_start)
-    end_date = datetime.fromisoformat(raw_end)
+    start_date = _parse_iso(start_str)
+    end_date = _parse_iso(end_str)
     if start_date >= end_date:
         raise HTTPException(status_code=400, detail="start_date must be before end_date")
     return start_date, end_date
+
+
+def warmup_start(start: datetime, bars: int) -> datetime:
+    return start - timedelta(days=int(bars * L.WARMUP_CALENDAR_FACTOR) + 10)
 
 
 # ── Core backtest runner (shared logic) ────────────────────────────────
@@ -244,156 +203,92 @@ def _run_single_backtest(
     monte_carlo: bool = True,
     monte_carlo_sims: int = 1000,
     benchmark_ticker: str = "SPY",
+    deadline: Optional[float] = None,
 ) -> dict:
-    """Run a single backtest, falling back to yfinance if DB lacks data."""
-
-    # Always use yfinance as primary — it has ALL US stocks, ETFs, crypto, forex
-    # DB is only used as cache optimization, never as primary
-    df = _fetch_price_data(ticker, start_date, end_date)
-    use_yfinance = True
-
-    if df.empty or len(df) < 20:
-        # Last resort: check DB
-        symbol_row = db.query(Symbol).filter(Symbol.symbol == ticker.upper()).first()
-        if symbol_row:
-            from app.services.indicators import IndicatorService
-            db_df = IndicatorService.get_price_dataframe(db, symbol_row.id, limit=5000)
-            if not db_df.empty:
-                if hasattr(db_df.index, 'tz') and db_df.index.tz is not None:
-                    db_df.index = db_df.index.tz_localize(None)
-                naive_start = start_date.replace(tzinfo=None) if start_date.tzinfo else start_date
-                naive_end = end_date.replace(tzinfo=None) if end_date.tzinfo else end_date
-                db_df = db_df[(db_df.index >= naive_start) & (db_df.index <= naive_end)].copy()
-                if len(db_df) >= 20:
-                    df = db_df
-                    use_yfinance = False
-
-    if df.empty or len(df) < 20:
+    """Fetch adjusted bars (with indicator warm-up) and run one named strategy."""
+    if strategy not in STRATEGY_REGISTRY:
+        return {"error": f"Unknown strategy: {strategy}"}
+    params = {**STRATEGY_REGISTRY[strategy]["default_params"], **(strategy_params or {})}
+    fetch_start = warmup_start(start_date, max_lookback(params) + 5)
+    df = _fetch_price_data(ticker, fetch_start, end_date)
+    if df.empty or len(df[df.index >= pd.Timestamp(start_date)]) < 20:
         return {"error": f"No price data for {ticker}. Check the ticker symbol or try a different date range."}
+    df, warns = bt_data.validate_ohlcv(df, ticker.upper())
 
-    engine = BacktestEngine()
-    result = engine.run_backtest_from_df(
-        df=df,
-        strategy_name=strategy,
-        strategy_params=strategy_params,
-        initial_capital=initial_capital,
-        position_sizing=position_sizing,
-        commission_rate=commission_rate,
-        slippage_rate=slippage_rate,
-        stop_loss_pct=stop_loss_pct,
-        take_profit_pct=take_profit_pct,
-        trailing_stop_pct=trailing_stop_pct,
-        max_pyramiding=max_pyramiding,
-        walk_forward=walk_forward,
-        walk_forward_train_pct=walk_forward_train_pct,
-        monte_carlo=monte_carlo,
-        monte_carlo_sims=monte_carlo_sims,
+    bench_close = None
+    try:
+        bdf = _fetch_benchmark(benchmark_ticker, start_date, end_date)
+        if bdf is not None and not bdf.empty:
+            bench_close = bt_data.validate_ohlcv(bdf, benchmark_ticker)[0]["close"]
+    except Exception:
+        bench_close = None
+
+    result = BacktestEngine().run_backtest_from_df(
+        df=df, strategy_name=strategy, strategy_params=strategy_params,
+        initial_capital=initial_capital, position_sizing=position_sizing,
+        commission_rate=commission_rate, slippage_rate=slippage_rate,
+        stop_loss_pct=stop_loss_pct, take_profit_pct=take_profit_pct,
+        trailing_stop_pct=trailing_stop_pct, max_pyramiding=max_pyramiding,
+        walk_forward=walk_forward, walk_forward_train_pct=walk_forward_train_pct,
+        monte_carlo=monte_carlo, monte_carlo_sims=monte_carlo_sims,
+        trade_start=pd.Timestamp(start_date), benchmark=bench_close, deadline=deadline,
+        symbol=ticker,
     )
-
     if "error" in result:
         return result
-
-    # Benchmark comparison (alpha/beta)
-    try:
-        bench_df = _fetch_benchmark(benchmark_ticker, start_date, end_date)
-        if not bench_df.empty and len(bench_df) > 20:
-            bench_returns = bench_df["close"].pct_change().dropna().values
-            # Align lengths
-            eq = np.array(result.get("equity_curve_raw", result.get("equity_curve", [])), dtype=float)
-            if len(eq) > 1:
-                strat_returns = np.diff(eq) / eq[:-1]
-                min_len = min(len(strat_returns), len(bench_returns))
-                if min_len > 10:
-                    sr = strat_returns[:min_len]
-                    br = bench_returns[:min_len]
-                    # Beta = Cov(strat, bench) / Var(bench)
-                    cov_matrix = np.cov(sr, br)
-                    beta = float(cov_matrix[0, 1] / cov_matrix[1, 1]) if cov_matrix[1, 1] > 0 else 0
-                    # Alpha (annualized)
-                    rf_daily = 0.04 / 252
-                    alpha = float((np.mean(sr) - rf_daily - beta * (np.mean(br) - rf_daily)) * 252 * 100)
-                    # Benchmark equity curve for overlay
-                    bench_eq = [initial_capital]
-                    for r in bench_returns[:min_len]:
-                        bench_eq.append(bench_eq[-1] * (1 + r))
-                    # Sample benchmark curve
-                    step = max(1, len(bench_eq) // 300)
-                    bench_sampled = [round(bench_eq[i], 2) for i in range(0, len(bench_eq), step)]
-
-                    result["beta"] = round(beta, 3)
-                    result["alpha"] = round(alpha, 2)
-                    result["benchmark_equity"] = bench_sampled
-                    result["benchmark_ticker"] = benchmark_ticker
-    except Exception:
-        pass
-
-    # Ensure benchmark fields exist
-    result.setdefault("beta", 0)
-    result.setdefault("alpha", 0)
-    result.setdefault("benchmark_equity", [])
-    result.setdefault("benchmark_ticker", benchmark_ticker)
-
+    result["benchmark_ticker"] = benchmark_ticker.upper()
     result["symbol"] = ticker.upper()
-    result["data_source"] = "yfinance" if use_yfinance else "database"
-
+    result["data_source"] = "adjusted_daily_bars"
+    result["warnings"] = warns + result.get("warnings", [])
+    result["disclaimer"] = "Hypothetical results; past performance does not guarantee future results."
     return result
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────
 
 @router.post("/backtest")
-def run_backtest(request: BacktestRequest, db: Session = Depends(get_db)):
-    """Run a pro-level backtest with advanced metrics and Monte Carlo validation."""
+def run_backtest(request: BacktestRequest):
+    """Backtest one named strategy on one symbol (next-bar-open fills)."""
     try:
         start_date, end_date = _parse_dates(request.start_date, request.end_date)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use ISO format.")
-
+    if request.strategy not in STRATEGY_REGISTRY:
+        raise HTTPException(status_code=400, detail=f"Unknown strategy: {request.strategy}")
     try:
         result = _run_single_backtest(
-            db=db,
-            ticker=request.symbol,
-            start_date=start_date,
-            end_date=end_date,
-            strategy=request.strategy,
-            initial_capital=request.initial_capital,
-            strategy_params=request.strategy_params,
-            position_sizing=request.position_sizing,
-            commission_rate=request.commission_rate,
-            slippage_rate=request.slippage_rate,
-            stop_loss_pct=request.stop_loss_pct,
-            take_profit_pct=request.take_profit_pct,
-            trailing_stop_pct=request.trailing_stop_pct,
-            max_pyramiding=request.max_pyramiding,
-            walk_forward=request.walk_forward,
-            walk_forward_train_pct=request.walk_forward_train_pct,
-            monte_carlo=request.monte_carlo,
-            monte_carlo_sims=request.monte_carlo_sims,
-            benchmark_ticker=request.benchmark,
+            db=None, ticker=request.symbol, start_date=start_date, end_date=end_date,
+            strategy=request.strategy, initial_capital=request.initial_capital,
+            strategy_params=request.strategy_params, position_sizing=request.position_sizing,
+            commission_rate=request.commission_rate, slippage_rate=request.slippage_rate,
+            stop_loss_pct=request.stop_loss_pct, take_profit_pct=request.take_profit_pct,
+            trailing_stop_pct=request.trailing_stop_pct, max_pyramiding=request.max_pyramiding,
+            walk_forward=request.walk_forward, walk_forward_train_pct=request.walk_forward_train_pct,
+            monte_carlo=request.monte_carlo, monte_carlo_sims=request.monte_carlo_sims,
+            benchmark_ticker=request.benchmark, deadline=time.monotonic() + L.RUN_TIME_BUDGET_S,
         )
-        if "error" in result:
-            raise HTTPException(status_code=400, detail=result["error"])
-        return result
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        from app.services.backtesting.engine import BacktestTimeout
+        if isinstance(e, BacktestTimeout):
+            raise HTTPException(status_code=408, detail="Backtest exceeded its time budget; shorten the date range.")
         logger.exception("Backtest engine error")
         raise HTTPException(status_code=500, detail="Backtest engine error")
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
 
 
 @router.post("/backtest/compare")
-def compare_strategies(request: CompareRequest, db: Session = Depends(get_db)):
-    """Run multiple strategies on the same symbol and return comparison data."""
+def compare_strategies(request: CompareRequest):
+    """Run several named strategies on the same symbol and data."""
     try:
         start_date, end_date = _parse_dates(request.start_date, request.end_date)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format.")
 
-    if len(request.strategies) < 2 or len(request.strategies) > 5:
-        raise HTTPException(status_code=400, detail="Provide 2-5 strategies for comparison.")
-
+    deadline = time.monotonic() + L.JOB_TIME_BUDGET_S
     results = []
     for strat_name in request.strategies:
         if strat_name not in STRATEGY_REGISTRY:
@@ -401,101 +296,109 @@ def compare_strategies(request: CompareRequest, db: Session = Depends(get_db)):
             continue
         try:
             r = _run_single_backtest(
-                db=db, ticker=request.symbol, start_date=start_date, end_date=end_date,
+                db=None, ticker=request.symbol, start_date=start_date, end_date=end_date,
                 strategy=strat_name, initial_capital=request.initial_capital,
                 commission_rate=request.commission_rate, slippage_rate=request.slippage_rate,
                 stop_loss_pct=request.stop_loss_pct, take_profit_pct=request.take_profit_pct,
-                monte_carlo=request.monte_carlo, monte_carlo_sims=500,
+                monte_carlo=request.monte_carlo, monte_carlo_sims=500, deadline=deadline,
             )
             r["strategy"] = strat_name
             results.append(r)
         except Exception as e:
-            results.append({"strategy": strat_name, "error": str(e)})
+            logger.info("compare: %s failed: %s", strat_name, e)
+            results.append({"strategy": strat_name, "error": "Backtest failed or ran out of time"})
 
-    # Correlation matrix between strategy returns
-    equity_curves = {}
+    # Correlation of daily strategy returns, aligned by date.
+    rets = {}
     for r in results:
-        if "error" not in r and "equity_curve" in r:
-            equity_curves[r["strategy"]] = r["equity_curve"]
-
-    correlation_matrix = {}
-    if len(equity_curves) >= 2:
-        strat_names = list(equity_curves.keys())
-        for i, s1 in enumerate(strat_names):
+        if "error" not in r and r.get("equity_curve_raw"):
+            eq = pd.Series(r["equity_curve_raw"], dtype=float)
+            rets[r["strategy"]] = eq.pct_change()
+    correlation_matrix: Dict[str, Dict[str, float]] = {}
+    if len(rets) >= 2:
+        frame = pd.DataFrame(rets).dropna()
+        corr = frame.corr() if len(frame) > 2 else None
+        for s1 in rets:
             correlation_matrix[s1] = {}
-            for j, s2 in enumerate(strat_names):
-                eq1 = np.array(equity_curves[s1], dtype=float)
-                eq2 = np.array(equity_curves[s2], dtype=float)
-                min_len = min(len(eq1), len(eq2))
-                if min_len > 2:
-                    r1 = np.diff(eq1[:min_len]) / eq1[:min_len - 1]
-                    r2 = np.diff(eq2[:min_len]) / eq2[:min_len - 1]
-                    corr = float(np.corrcoef(r1, r2)[0, 1]) if len(r1) > 1 else 0
-                    correlation_matrix[s1][s2] = round(corr, 3)
-                else:
-                    correlation_matrix[s1][s2] = 0
+            for s2 in rets:
+                v = float(corr.loc[s1, s2]) if corr is not None and pd.notna(corr.loc[s1, s2]) else 0.0
+                correlation_matrix[s1][s2] = round(v, 3)
 
     return {
         "symbol": request.symbol.upper(),
         "strategies": results,
         "correlation_matrix": correlation_matrix,
+        "warnings": ["Picking the best of several strategies on the same history overstates its future edge."],
+        "disclaimer": "Hypothetical results; past performance does not guarantee future results.",
     }
 
 
 @router.post("/backtest/scan")
-def scan_symbols(request: ScanRequest, db: Session = Depends(get_db)):
-    """Scan multiple symbols with a strategy and return ranked results."""
+def scan_symbols(request: ScanRequest):
+    """Run one strategy over a list of symbols and rank by Sharpe."""
     try:
         start_date, end_date = _parse_dates(request.start_date, request.end_date)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format.")
+    if request.strategy not in STRATEGY_REGISTRY:
+        raise HTTPException(status_code=400, detail=f"Unknown strategy: {request.strategy}")
 
-    if len(request.symbols) > 50:
-        raise HTTPException(status_code=400, detail="Max 50 symbols per scan.")
-
+    deadline = time.monotonic() + L.SCAN_TIME_BUDGET_S
     results = []
+    skipped = []
+    timed_out = False
     for ticker in request.symbols:
+        if time.monotonic() > deadline:
+            timed_out = True
+            skipped.append(ticker.upper())
+            continue
         try:
             r = _run_single_backtest(
-                db=db, ticker=ticker, start_date=start_date, end_date=end_date,
+                db=None, ticker=ticker, start_date=start_date, end_date=end_date,
                 strategy=request.strategy, initial_capital=request.initial_capital,
                 strategy_params=request.strategy_params,
-                monte_carlo=False, walk_forward=False,
+                monte_carlo=False, walk_forward=False, deadline=deadline,
             )
-            if "error" not in r:
-                # Apply filters
-                passes = True
-                if request.min_sharpe and r.get("sharpe_ratio", 0) < request.min_sharpe:
-                    passes = False
-                if request.min_win_rate and r.get("win_rate", 0) < request.min_win_rate:
-                    passes = False
-                if request.min_return and r.get("total_return", 0) < request.min_return:
-                    passes = False
-
-                results.append({
-                    "symbol": ticker.upper(),
-                    "total_return": r.get("total_return", 0),
-                    "sharpe_ratio": r.get("sharpe_ratio", 0),
-                    "sortino_ratio": r.get("sortino_ratio", 0),
-                    "win_rate": r.get("win_rate", 0),
-                    "max_drawdown": r.get("max_drawdown", 0),
-                    "total_trades": r.get("total_trades", 0),
-                    "profit_factor": r.get("profit_factor", 0),
-                    "calmar_ratio": r.get("calmar_ratio", 0),
-                    "equity_curve": r.get("equity_curve", [])[:50],  # Mini sparkline
-                    "passed_filters": passes,
-                })
+            if "error" in r:
+                skipped.append(ticker.upper())
+                continue
+            passes = True
+            if request.min_sharpe is not None and r.get("sharpe_ratio", 0) < request.min_sharpe:
+                passes = False
+            if request.min_win_rate is not None and r.get("win_rate", 0) < request.min_win_rate:
+                passes = False
+            if request.min_return is not None and r.get("total_return", 0) < request.min_return:
+                passes = False
+            results.append({
+                "symbol": ticker.upper(),
+                "total_return": r.get("total_return", 0),
+                "sharpe_ratio": r.get("sharpe_ratio", 0),
+                "sortino_ratio": r.get("sortino_ratio", 0),
+                "win_rate": r.get("win_rate", 0),
+                "max_drawdown": r.get("max_drawdown", 0),
+                "total_trades": r.get("total_trades", 0),
+                "profit_factor": r.get("profit_factor", 0),
+                "calmar_ratio": r.get("calmar_ratio", 0),
+                "equity_curve": r.get("equity_curve", [])[:50],
+                "passed_filters": passes,
+            })
         except Exception:
+            skipped.append(ticker.upper())
             continue
 
-    # Sort by Sharpe ratio descending
     results.sort(key=lambda x: x.get("sharpe_ratio", 0), reverse=True)
-
     return {
         "strategy": request.strategy,
         "total_scanned": len(request.symbols),
         "results_count": len(results),
         "results": results,
+        "skipped": skipped,
+        "timed_out": timed_out,
+        "warnings": [
+            "Survivorship bias: the list contains symbols that exist today; delisted companies are missing.",
+            "Ranking many symbols by Sharpe picks winners by luck as well as skill; expect the top rows to do worse going forward.",
+        ],
+        "disclaimer": "Hypothetical results; past performance does not guarantee future results.",
     }
 
 

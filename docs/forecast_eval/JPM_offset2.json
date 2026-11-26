@@ -1,0 +1,412 @@
+{
+ "ticker": "JPM",
+ "offset": 2,
+ "elapsed_s": 6.46,
+ "evaluation": {
+  "version": 1,
+  "as_of": "2026-11-23",
+  "origins": 100,
+  "origins_planned": 100,
+  "step": 5,
+  "window": 504,
+  "refit_every": 6,
+  "period": [
+   "2024-11-29",
+   "2026-11-20"
+  ],
+  "budget_hit": false,
+  "elapsed_s": 5.95,
+  "order": [
+   0,
+   0,
+   0
+  ],
+  "seasonal_order": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "order_label": "(0,1,0)",
+  "order_selection": {
+   "criterion": "BIC",
+   "tried": 10,
+   "score": 1796.68
+  },
+  "ets_damped_trend": false,
+  "exog": {
+   "1": [
+    "dow_mon",
+    "dow_tue",
+    "dow_wed",
+    "dow_thu",
+    "turn_of_month",
+    "january",
+    "vix_log_l1",
+    "rate_chg_l1",
+    "mkt_ret_l1",
+    "sector_ret_l1",
+    "earnings_session"
+   ],
+   "5": [
+    "dow_mon",
+    "dow_tue",
+    "dow_wed",
+    "dow_thu",
+    "turn_of_month",
+    "january",
+    "vix_log_l5",
+    "rate_chg_l5",
+    "mkt_ret_l5",
+    "sector_ret_l5",
+    "earnings_session"
+   ],
+   "20": [
+    "dow_mon",
+    "dow_tue",
+    "dow_wed",
+    "dow_thu",
+    "turn_of_month",
+    "january",
+    "vix_log_l20",
+    "rate_chg_l20",
+    "mkt_ret_l20",
+    "sector_ret_l20",
+    "earnings_session"
+   ],
+   "60": [
+    "dow_mon",
+    "dow_tue",
+    "dow_wed",
+    "dow_thu",
+    "turn_of_month",
+    "january",
+    "vix_log_l60",
+    "rate_chg_l60",
+    "mkt_ret_l60",
+    "sector_ret_l60"
+   ]
+  },
+  "horizons": {
+   "1": {
+    "h": 1,
+    "selection_origins": 50,
+    "holdout_origins": 50,
+    "effective_tests": 50.0,
+    "candidates": {
+     "rw": {
+      "selection_rel_mae": 1.0,
+      "holdout_rel_mae": 1.0,
+      "holdout_mae_logret": 0.01077
+     },
+     "drift": {
+      "selection_rel_mae": 0.9979,
+      "holdout_rel_mae": 1.0034,
+      "holdout_mae_logret": 0.01081
+     },
+     "arima": {
+      "selection_rel_mae": 0.9952,
+      "holdout_rel_mae": 1.0021,
+      "holdout_mae_logret": 0.01079
+     },
+     "sarimax": {
+      "selection_rel_mae": 0.9898,
+      "holdout_rel_mae": 0.9832,
+      "holdout_mae_logret": 0.01059
+     },
+     "ets": {
+      "selection_rel_mae": 0.9936,
+      "holdout_rel_mae": 0.9947,
+      "holdout_mae_logret": 0.01071
+     },
+     "ensemble": {
+      "selection_rel_mae": 0.9917,
+      "holdout_rel_mae": 0.9919,
+      "holdout_mae_logret": 0.01068
+     }
+    },
+    "primary": "sarimax",
+    "rel_mae": 0.9832,
+    "rmse_ratio": 1.0095,
+    "dm_stat": -0.411,
+    "dm_pvalue": 0.3414,
+    "dir_acc": 0.5102,
+    "dir_pvalue": 0.5266,
+    "up_rate": 0.5306,
+    "dir_binom_pvalue": 0.5,
+    "calibration": {
+     "rw": {
+      "scale": 0.728,
+      "coverage": {
+       "50": 0.52,
+       "80": 0.78,
+       "95": 0.92
+      }
+     },
+     "primary": {
+      "scale": 0.761,
+      "coverage": {
+       "50": 0.54,
+       "80": 0.78,
+       "95": 0.92
+      }
+     }
+    },
+    "dm_pvalue_holm": 1.0,
+    "edge": false,
+    "served": "rw",
+    "band_scale": 0.728,
+    "band_coverage": {
+     "50": 0.52,
+     "80": 0.78,
+     "95": 0.92
+    },
+    "why": "SARIMAX had the lowest error on the first 50 tests (0.99x ARIMA(0,1,0)). On the next 50 tests it scored 0.98x the error of ARIMA(0,1,0), the random walk (Diebold-Mariano p=1.00, Holm-adjusted). That is no edge over ARIMA(0,1,0), so the range is centred on no change."
+   },
+   "5": {
+    "h": 5,
+    "selection_origins": 49,
+    "holdout_origins": 50,
+    "effective_tests": 50.0,
+    "candidates": {
+     "rw": {
+      "selection_rel_mae": 1.0,
+      "holdout_rel_mae": 1.0,
+      "holdout_mae_logret": 0.02266
+     },
+     "drift": {
+      "selection_rel_mae": 0.9832,
+      "holdout_rel_mae": 0.9635,
+      "holdout_mae_logret": 0.02183
+     },
+     "arima": {
+      "selection_rel_mae": 0.9795,
+      "holdout_rel_mae": 0.9612,
+      "holdout_mae_logret": 0.02178
+     },
+     "sarimax": {
+      "selection_rel_mae": 0.9787,
+      "holdout_rel_mae": 1.0432,
+      "holdout_mae_logret": 0.02364
+     },
+     "ets": {
+      "selection_rel_mae": 1.0001,
+      "holdout_rel_mae": 0.9993,
+      "holdout_mae_logret": 0.02264
+     },
+     "ensemble": {
+      "selection_rel_mae": 0.9705,
+      "holdout_rel_mae": 0.9754,
+      "holdout_mae_logret": 0.0221
+     }
+    },
+    "primary": "ensemble",
+    "rel_mae": 0.9754,
+    "rmse_ratio": 1.0159,
+    "dm_stat": -0.832,
+    "dm_pvalue": 0.2048,
+    "dir_acc": 0.62,
+    "dir_pvalue": 1.0,
+    "up_rate": 0.62,
+    "dir_binom_pvalue": 0.0595,
+    "calibration": {
+     "rw": {
+      "scale": 1.042,
+      "coverage": {
+       "50": 0.74,
+       "80": 0.92,
+       "95": 0.98
+      }
+     },
+     "primary": {
+      "scale": 0.817,
+      "coverage": {
+       "50": 0.56,
+       "80": 0.9,
+       "95": 0.98
+      }
+     }
+    },
+    "dm_pvalue_holm": 0.8192,
+    "edge": false,
+    "served": "rw",
+    "band_scale": 1.042,
+    "band_coverage": {
+     "50": 0.74,
+     "80": 0.92,
+     "95": 0.98
+    },
+    "why": "Equal-weight ensemble had the lowest error on the first 49 tests (0.97x ARIMA(0,1,0)). On the next 50 tests it scored 0.98x the error of ARIMA(0,1,0), the random walk (Diebold-Mariano p=0.82, Holm-adjusted). That is no edge over ARIMA(0,1,0), so the range is centred on no change."
+   },
+   "20": {
+    "h": 20,
+    "selection_origins": 48,
+    "holdout_origins": 48,
+    "effective_tests": 12.0,
+    "candidates": {
+     "rw": {
+      "selection_rel_mae": 1.0,
+      "holdout_rel_mae": 1.0,
+      "holdout_mae_logret": 0.04845
+     },
+     "drift": {
+      "selection_rel_mae": 0.966,
+      "holdout_rel_mae": 1.0244,
+      "holdout_mae_logret": 0.04963
+     },
+     "arima": {
+      "selection_rel_mae": 0.9558,
+      "holdout_rel_mae": 1.0282,
+      "holdout_mae_logret": 0.04981
+     },
+     "sarimax": {
+      "selection_rel_mae": 0.9747,
+      "holdout_rel_mae": 1.1552,
+      "holdout_mae_logret": 0.05597
+     },
+     "ets": {
+      "selection_rel_mae": 0.998,
+      "holdout_rel_mae": 1.0006,
+      "holdout_mae_logret": 0.04848
+     },
+     "ensemble": {
+      "selection_rel_mae": 0.9458,
+      "holdout_rel_mae": 1.0227,
+      "holdout_mae_logret": 0.04955
+     }
+    },
+    "primary": "ensemble",
+    "rel_mae": 1.0227,
+    "rmse_ratio": 1.0346,
+    "dm_stat": 0.232,
+    "dm_pvalue": 0.5911,
+    "dir_acc": 0.5417,
+    "dir_pvalue": 1.0,
+    "up_rate": 0.5417,
+    "dir_binom_pvalue": 0.6128,
+    "calibration": {
+     "rw": {
+      "scale": 1.084,
+      "coverage": {
+       "50": 0.625,
+       "80": 0.979,
+       "95": 1.0
+      }
+     },
+     "primary": {
+      "scale": 0.887,
+      "coverage": {
+       "50": 0.438,
+       "80": 0.896,
+       "95": 1.0
+      }
+     }
+    },
+    "dm_pvalue_holm": 1.0,
+    "edge": false,
+    "served": "rw",
+    "band_scale": 1.084,
+    "band_coverage": {
+     "50": 0.625,
+     "80": 0.979,
+     "95": 1.0
+    },
+    "why": "Equal-weight ensemble had the lowest error on the first 48 tests (0.95x ARIMA(0,1,0)). On the next 48 tests it scored 1.02x the error of ARIMA(0,1,0), the random walk (Diebold-Mariano p=1.00, Holm-adjusted). That is no edge over ARIMA(0,1,0), so the range is centred on no change."
+   },
+   "60": {
+    "h": 60,
+    "selection_origins": 44,
+    "holdout_origins": 44,
+    "effective_tests": 3.7,
+    "candidates": {
+     "rw": {
+      "selection_rel_mae": 1.0,
+      "holdout_rel_mae": 1.0,
+      "holdout_mae_logret": 0.07281
+     },
+     "drift": {
+      "selection_rel_mae": 0.8698,
+      "holdout_rel_mae": 1.2457,
+      "holdout_mae_logret": 0.0907
+     },
+     "arima": {
+      "selection_rel_mae": 0.8456,
+      "holdout_rel_mae": 1.2916,
+      "holdout_mae_logret": 0.09405
+     },
+     "sarimax": {
+      "selection_rel_mae": 0.9131,
+      "holdout_rel_mae": 1.6886,
+      "holdout_mae_logret": 0.12296
+     },
+     "ets": {
+      "selection_rel_mae": 0.9978,
+      "holdout_rel_mae": 1.0007,
+      "holdout_mae_logret": 0.07286
+     },
+     "ensemble": {
+      "selection_rel_mae": 0.8274,
+      "holdout_rel_mae": 1.2557,
+      "holdout_mae_logret": 0.09143
+     }
+    },
+    "primary": "ensemble",
+    "rel_mae": 1.2557,
+    "rmse_ratio": 1.1608,
+    "dm_stat": 0.748,
+    "dm_pvalue": 0.7708,
+    "dir_acc": 0.5682,
+    "dir_pvalue": 1.0,
+    "up_rate": 0.5682,
+    "dir_binom_pvalue": 0.6875,
+    "calibration": {
+     "rw": {
+      "scale": 1.0,
+      "coverage": {
+       "50": 0.614,
+       "80": 0.955,
+       "95": 1.0
+      }
+     },
+     "primary": {
+      "scale": 1.0,
+      "coverage": {
+       "50": 0.5,
+       "80": 0.886,
+       "95": 1.0
+      }
+     }
+    },
+    "dm_pvalue_holm": 1.0,
+    "edge": false,
+    "served": "rw",
+    "band_scale": 1.0,
+    "band_coverage": {
+     "50": 0.614,
+     "80": 0.955,
+     "95": 1.0
+    },
+    "why": "Equal-weight ensemble had the lowest error on the first 44 tests (0.83x ARIMA(0,1,0)). On the next 44 tests it scored 1.26x the error of ARIMA(0,1,0), the random walk (Diebold-Mariano p=1.00, Holm-adjusted). Only ~3.7 independent 60-day outcomes were tested, too few to claim an edge; the range is centred on no change."
+   }
+  },
+  "benchmark": {
+   "key": "rw",
+   "name": "ARIMA(0,1,0)",
+   "description": "random walk on log price without drift (forecast = last close)"
+  },
+  "rules": {
+   "edge_alpha": 0.05,
+   "min_effective_tests": 8,
+   "multiple_testing": "Holm across horizons",
+   "split": "first half select, second half test"
+  }
+ },
+ "exog_sources": [
+  "mkt",
+  "sector",
+  "tnx",
+  "vix"
+ ],
+ "earnings_dates": true,
+ "leak_diagnostic_h1_rel_mae": 0.7840663371931598
+}
