@@ -361,71 +361,26 @@ jobs:
             sudo systemctl stop apache2 2>/dev/null || true
             sudo systemctl disable apache2 2>/dev/null || true
             
-            # ===== CLEANUP DISK SPACE =====
-            echo "🧹 Cleaning up disk space..."
-            docker system prune -af --volumes || true
-            sudo rm -rf /var/lib/containerd/io.containerd.content.v1.content/ingest/* || true
-            echo "Disk space available:"
-            df -h /
-            
-            # ===== STOP EXISTING DOCKER STACK =====
-            echo "🔻 Stopping existing containers..."
-            docker compose -f docker-compose.prod.yml down --remove-orphans --timeout 30 || true
-            # Force-remove any leftover containers from partial deploys
-            docker rm -f quanttrade-backend quanttrade-frontend quanttrade-nginx quanttrade-celery-worker quanttrade-news-worker 2>/dev/null || true
-            
-            # ===== KILL ANY CONTAINER USING PORT 80/443 =====
-            echo "🔍 Checking for containers using port 80/443..."
-            docker ps -q --filter "publish=80" | xargs -r docker stop || true
-            docker ps -q --filter "publish=443" | xargs -r docker stop || true
-            
-            # ===== FORCE-KILL ANY PROCESS ON PORT 80/443/6379 =====
-            echo "🔫 Force-killing any process on ports 80, 443, 6379..."
-            sudo fuser -k 80/tcp 2>/dev/null || true
-            sudo fuser -k 443/tcp 2>/dev/null || true
-            sudo fuser -k 6379/tcp 2>/dev/null || true
-            docker ps -q --filter "publish=6379" | xargs -r docker stop || true
-            sleep 2
-            
-            # ===== VERIFY PORTS ARE FREE =====
-            echo "✅ Verifying ports 80/443 are free..."
-            if sudo ss -lntp | grep -E ':80\s|:443\s'; then
-              echo "⚠️ Ports still occupied — showing what's there:"
-              sudo ss -lntp | grep -E ':80\s|:443\s'
-              echo "Attempting second kill..."
-              sudo fuser -k 80/tcp 2>/dev/null || true
-              sudo fuser -k 443/tcp 2>/dev/null || true
-              sleep 3
-            fi
-            echo "Ports 80/443 should be free now."
-            
-            # ===== LOGIN TO GHCR =====
+            # ===== PULL WHILE THE OLD STACK KEEPS SERVING =====
+            # Deploys used to `down` the stack first and pull ~1.5 GB of images
+            # while the site returned Cloudflare 521. Pull first, then swap
+            # containers in place; only fall back to a full reset if that fails.
             echo "🔐 Logging into GitHub Container Registry..."
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            # ===== PULL LATEST IMAGES =====
-            echo "📥 Pulling latest images..."
+            echo "Disk space available:"
+            df -h /
+            echo "📥 Pulling latest images (old stack still serving)..."
             docker compose -f docker-compose.prod.yml pull
-            
-            # ===== CHECK MEMORY BEFORE START =====
-            echo "💾 Memory before container start:"
+
+            echo "💾 Memory before swap:"
             free -m || true
 
-            # ===== START CONTAINERS + WAIT FOR HEALTH =====
-            # --wait blocks until all services with healthchecks are healthy.
-            # --wait-timeout 600 = 10 min ceiling; prevents infinite hang if a
-            # service never becomes healthy (e.g. Redis unreachable for Celery).
-            # All services (incl. news-worker, heartbeat-file healthcheck) have healthchecks so --wait tracks them all.
-            echo "🚀 Starting containers (waiting for healthy, timeout 600s)..."
-            if ! docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 600 --remove-orphans; then
-              echo "❌ docker compose up --wait failed! Dumping diagnostics..."
+            dump_diagnostics() {
               docker compose -f docker-compose.prod.yml ps || true
               echo "=== Backend logs (last 150) ==="
               docker compose -f docker-compose.prod.yml logs --tail=150 backend || true
               echo "=== Frontend logs (last 50) ==="
               docker compose -f docker-compose.prod.yml logs --tail=50 frontend || true
-              echo "=== Celery worker+beat logs (last 50) ==="
-              docker compose -f docker-compose.prod.yml logs --tail=50 celery-worker || true
               echo "=== News worker logs (last 80) ==="
               docker compose -f docker-compose.prod.yml logs --tail=80 news-worker || true
               echo "=== Nginx logs (last 30) ==="
@@ -435,19 +390,47 @@ jobs:
               docker stats --no-stream || true
               echo "=== dmesg OOM ==="
               sudo dmesg | grep -i "oom\|killed process\|out of memory" | tail -20 || true
-              exit 1
+            }
+
+            # ===== IN-PLACE SWAP (only changed services are recreated) =====
+            # --wait blocks until every service with a healthcheck is healthy
+            # (backend uses /health/ready, so it is warm before it counts).
+            echo "🚀 Swapping containers in place (timeout 600s)..."
+            if docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 600 --remove-orphans; then
+              echo "✅ In-place swap healthy"
+            else
+              echo "⚠️ In-place swap failed — diagnostics, then full reset"
+              dump_diagnostics
+              docker compose -f docker-compose.prod.yml down --remove-orphans --timeout 30 || true
+              docker rm -f quanttrade-backend quanttrade-frontend quanttrade-nginx quanttrade-celery-worker quanttrade-news-worker 2>/dev/null || true
+              sudo systemctl stop nginx apache2 2>/dev/null || true
+              sudo fuser -k 80/tcp 443/tcp 2>/dev/null || true
+              sleep 2
+              if ! docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 600 --remove-orphans; then
+                echo "❌ docker compose up --wait failed after full reset"
+                dump_diagnostics
+                exit 1
+              fi
             fi
+
+            # nginx resolves `backend`/`frontend` once at startup; a recreated
+            # container gets a new IP, so reload (graceful, no dropped requests).
+            docker exec quanttrade-nginx nginx -s reload \
+              || docker compose -f docker-compose.prod.yml restart nginx || true
             echo "✅ All services healthy!"
 
+            # Migration scripts import app.db.database directly; prod's DATABASE_URL
+            # comes from AWS Secrets Manager, which only the app loads at startup,
+            # so load it first and then run the script as __main__.
             # ===== DB: welcome promo dedupe column (idempotent; required for welcome email) =====
             echo "🧱 Applying DB migration welcome_promo_email_sent_at (if missing)..."
             docker compose -f docker-compose.prod.yml exec -T backend \
-              python scripts/add_welcome_promo_email_column.py \
+              python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/add_welcome_promo_email_column.py', run_name='__main__')" \
               || echo "⚠️ Migration script failed — run on PostgreSQL: ALTER TABLE users ADD COLUMN IF NOT EXISTS welcome_promo_email_sent_at TIMESTAMP;"
 
             echo "🧱 Applying DB migration preferences_json (if missing)..."
             docker compose -f docker-compose.prod.yml exec -T backend \
-              python scripts/add_user_preferences_column.py \
+              python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/add_user_preferences_column.py', run_name='__main__')" \
               || echo "⚠️ preferences_json migration failed — run on PostgreSQL: ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences_json TEXT;"
             
             # ===== POST-DEPLOY CLEANUP =====
