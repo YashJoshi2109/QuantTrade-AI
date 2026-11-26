@@ -443,6 +443,11 @@ jobs:
             docker compose -f docker-compose.prod.yml exec -T backend \
               python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/add_user_preferences_column.py', run_name='__main__')" \
               || echo "⚠️ preferences_json migration failed — run on PostgreSQL: ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences_json TEXT;"
+
+            echo "🧱 Applying DB migration portfolio_snapshots history columns (if missing)..."
+            docker compose -f docker-compose.prod.yml exec -T backend \
+              python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/add_portfolio_snapshot_columns.py', run_name='__main__')" \
+              || echo "⚠️ portfolio_snapshots migration failed — run scripts/add_portfolio_snapshot_columns.py manually"
             
             # ===== POST-DEPLOY CLEANUP =====
             echo "🧹 Post-deploy cleanup..."
