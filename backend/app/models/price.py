@@ -21,6 +21,9 @@ class PriceBar(Base):
     # Index for efficient queries
     __table_args__ = (
         Index('idx_symbol_timestamp', 'symbol_id', 'timestamp'),
+        # One bar per symbol per timestamp. Concurrent syncs (on-view refresh +
+        # scheduler) both passed the check-then-insert and stored duplicates.
+        Index('uq_price_bars_symbol_ts', 'symbol_id', 'timestamp', unique=True),
     )
     
     symbol = relationship("Symbol", backref="price_bars")
