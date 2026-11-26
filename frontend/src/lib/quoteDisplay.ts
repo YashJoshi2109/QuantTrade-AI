@@ -5,7 +5,6 @@
  * - An ETF proxy (SPY standing in for ^GSPC when only Finnhub answered) is a
  *   USD price and is labelled as the ETF, never as the index.
  */
-import { formatNumber } from '@/lib/format'
 import { isIndexLevelSymbol } from '@/lib/indexQuotes'
 
 export interface LevelLike {
@@ -36,11 +35,11 @@ export function formatLevelOrPrice(
   decimals = 2,
 ): string {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return '—'
-  if (isLevel) {
-    return value.toLocaleString('en-US', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    })
-  }
-  return `${currSymbol}${formatNumber(value, decimals)}`
+  const grouped = value.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })
+  // Prices group thousands too: gold futures rendered as "$3621.40" next to
+  // "7,182.78" on the dashboard macro strip.
+  return isLevel ? grouped : `${currSymbol}${grouped}`
 }

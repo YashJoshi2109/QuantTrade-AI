@@ -149,8 +149,8 @@ export default function MarketTicker() {
 
   return (
     <div className="w-full min-h-[2.75rem] py-1 bg-surface-base/80 backdrop-blur-xl border-b border-line-subtle overflow-hidden relative">
-      <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-12 lg:w-16 bg-gradient-to-r from-[#070a12] to-transparent z-10 pointer-events-none" />
-      <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-12 lg:w-16 bg-gradient-to-l from-[#070a12] to-transparent z-10 pointer-events-none" />
+      <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-12 lg:w-16 bg-gradient-to-r from-surface-base to-transparent z-10 pointer-events-none" />
+      <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-12 lg:w-16 bg-gradient-to-l from-surface-base to-transparent z-10 pointer-events-none" />
 
       <div className="flex items-center h-full animate-marquee hover:[animation-play-state:paused]">
         <div className="flex items-center gap-1.5 sm:gap-2 px-2">
