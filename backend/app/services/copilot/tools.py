@@ -80,13 +80,18 @@ class ToolExecutor:
         self.packs = packs                 # already-built packs, reused
         self.build_pack = build_pack       # async (ResolvedTicker) -> pack
         self.calls: List[Dict[str, Any]] = []
+        # Tool calls in one model turn run concurrently (asyncio.gather), but the
+        # resolver uses the request's single SQLAlchemy Session, which must never
+        # be used from two threads at once. Serialize the lookups.
+        self._db_lock = asyncio.Lock()
 
     async def _pack(self, ticker: str) -> Optional[TickerContextPack]:
         from app.services.copilot.resolver import normalize_symbol
         t = normalize_symbol(ticker)
         if t in self.packs:
             return self.packs[t]
-        row = await asyncio.to_thread(self.resolver.lookup, t)
+        async with self._db_lock:
+            row = await asyncio.to_thread(self.resolver.lookup, t)
         if row is None:
             return None
         rt = self.resolver._make(row, t, "tool")
