@@ -250,17 +250,21 @@ class PollerSpec:
 
 def default_pollers() -> List[PollerSpec]:
     interval = float(os.environ.get("NEWS_INTEL_POLL_SECONDS", "60"))
+    # Google News rate-limits one IP polling two feeds every 60s (429s in prod).
+    # It is an aggregator whose items already lag the original publisher by
+    # minutes to hours, so a slower poll loses nothing; the wires stay at 60s.
+    google_interval = max(interval, float(os.environ.get("NEWS_GOOGLE_POLL_SECONDS", "180")))
     return [
         PollerSpec("finnhub_general", "Finnhub general", finnhub_poller("general"), interval, "FINNHUB_API_KEY"),
         PollerSpec("finnhub_merger", "Finnhub merger", finnhub_poller("merger"), interval, "FINNHUB_API_KEY"),
         PollerSpec("google_business", "Google News business",
                    rss_poller("google_business",
                               "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en",
-                              "Google News", use_entry_source=True, keep_summary=False), interval),
+                              "Google News", use_entry_source=True, keep_summary=False), google_interval),
         PollerSpec("google_markets", "Google News markets",
                    rss_poller("google_markets",
                               "https://news.google.com/rss/search?q=%22stock+market%22+OR+stocks+OR+%22Wall+Street%22+when:1d&hl=en-US&gl=US&ceid=US:en",
-                              "Google News", use_entry_source=True, keep_summary=False), interval),
+                              "Google News", use_entry_source=True, keep_summary=False), google_interval),
         PollerSpec("yahoo_finance", "Yahoo Finance RSS",
                    rss_poller("yahoo_finance",
                               f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={YAHOO_SYMBOLS}&region=US&lang=en-US",
