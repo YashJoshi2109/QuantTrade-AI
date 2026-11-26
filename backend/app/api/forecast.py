@@ -17,6 +17,7 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException
 
 from app.services.forecasting.engine import DEFAULT_HORIZONS, FIT_WINDOW, MIN_HISTORY, forecast
+from app.services.model_status import annotate_forecast
 from app.services.redis_cache_service import cache_service
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ router = APIRouter()
 
 _TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,9}$")
 _locks: dict[str, asyncio.Lock] = {}
-_CACHE_VERSION = "v1"
+_CACHE_VERSION = "v2"  # v2: honesty fields (status, reliability, calibration, ml_model)
 # Fits are CPU-bound and hold the GIL; on the 2-vCPU host more than two at once
 # just slows every other request. (The asyncio default executor used to cap this
 # implicitly at 6 threads; main.py now sizes it for I/O, so cap fits explicitly.)
@@ -74,7 +75,7 @@ def _compute_unlimited(ticker: str) -> dict:
     out = forecast(closes.iloc[-(FIT_WINDOW + 260):])
     out["ticker"] = ticker
     out["generated_at"] = datetime.now(timezone.utc).isoformat()
-    return out
+    return annotate_forecast(out)
 
 
 async def _get_or_compute(t: str, refresh: bool = False) -> dict:

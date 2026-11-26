@@ -4,10 +4,16 @@
  * Statistical price forecast — fan chart + horizon cards + honest accuracy.
  * Shared by desktop research page and mobile research (same component, responsive).
  * Data: GET /api/v1/forecast/{ticker} (ARIMA/ETS/Theta ensemble, GJR-GARCH bands).
+ * Honesty rules live in lib/forecastHonesty (experimental label, no direction
+ * colour or P(up) without a tested edge, measured band calibration).
  */
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Info, LineChart, Loader2 } from 'lucide-react'
+import { AlertTriangle, FlaskConical, Info, LineChart, Loader2 } from 'lucide-react'
+import {
+  bandCalibration, CALIBRATION_TEXT, EXPERIMENTAL_LABEL, horizonReliability, mlStatusSentence,
+  type CalibrationStatus, type MlModelStatus, type Reliability,
+} from '@/lib/forecastHonesty'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -19,6 +25,8 @@ export interface ForecastPoint {
   exp_return_pct: number
   prob_up: number
   bands: Record<'50' | '80' | '95', Band>
+  reliability?: Reliability
+  calibration?: { status?: CalibrationStatus }
 }
 export interface ForecastResponse {
   ticker: string
@@ -39,6 +47,9 @@ export interface ForecastResponse {
   beats_naive: Record<string, boolean>
   method: string
   disclaimer: string
+  status?: 'experimental'
+  label?: string
+  ml_model?: MlModelStatus
 }
 
 async function fetchForecast(symbol: string): Promise<ForecastResponse> {
@@ -116,6 +127,13 @@ export default function ForecastPanel({ symbol }: { symbol: string }) {
           <LineChart className="w-4 h-4 text-blue-400" />
           <h3 className="font-bold text-sm text-white tracking-wide">Price Forecast Range</h3>
           <span className="text-[10px] px-1.5 py-0.5 rounded border border-line-subtle text-fg-muted">Statistical</span>
+          <span
+            className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-amber-400/40 bg-amber-400/10 text-amber-300"
+            data-testid="forecast-experimental-badge"
+          >
+            <FlaskConical className="w-3 h-3" />
+            {data?.label ?? EXPERIMENTAL_LABEL}
+          </span>
         </div>
         {data && <span className="text-[10px] text-fg-muted">As of close {data.as_of} · {data.vol_annualized_pct}% annualized volatility</span>}
       </div>
@@ -143,23 +161,32 @@ export default function ForecastPanel({ symbol }: { symbol: string }) {
             </div>
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2">
               {data.horizons.map((h) => {
-                const beats = data.beats_naive[String(h.h)]
+                // Without a tested edge the midpoint is noise: no up/down colour, no P(up).
+                const beats = horizonReliability(data, h.h) === 'edge_in_backtest'
+                const cal = CALIBRATION_TEXT[bandCalibration(data, h.h)]
+                const dirTone = !beats ? 'text-fg-muted' : h.exp_return_pct >= 0 ? 'text-emerald-400' : 'text-red-400'
                 return (
                   <div key={h.h} className="rounded-xl border border-line-subtle bg-surface-raised/40 p-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-semibold text-fg-secondary">{HLABEL[h.h] ?? `${h.h}d`} · {h.date}</span>
-                      <span className={`text-[10px] font-mono ${h.exp_return_pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <span className={`text-[10px] font-mono ${dirTone}`} title={beats ? undefined : 'No tested edge — treat as zero'}>
                         {h.exp_return_pct >= 0 ? '+' : ''}{h.exp_return_pct.toFixed(2)}%
                       </span>
                     </div>
                     <div className="mt-1 text-sm text-white font-mono">
                       80% range {money(h.bands['80'][0])} – {money(h.bands['80'][1])}
                     </div>
-                    <div className="mt-1 flex items-center justify-between text-[10px] text-fg-muted">
-                      <span>Midpoint {money(h.point)} · P(up) {pct(h.prob_up)}</span>
+                    <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 text-[10px] text-fg-muted">
+                      <span>
+                        Midpoint {money(h.point)}
+                        {beats ? <> · P(up) {pct(h.prob_up)}</> : <> · direction: no edge</>}
+                      </span>
                       <span className={beats ? 'text-emerald-400' : 'text-amber-400'}>
                         {beats ? 'Beat baseline in tests' : 'No edge vs baseline'}
                       </span>
+                    </div>
+                    <div className={`mt-1 text-[10px] ${cal.tone === 'warn' ? 'text-amber-400' : cal.tone === 'ok' ? 'text-fg-secondary' : 'text-fg-muted'}`}>
+                      {cal.label}
                     </div>
                   </div>
                 )
@@ -205,6 +232,8 @@ export default function ForecastPanel({ symbol }: { symbol: string }) {
           <div className="mt-3 flex items-start gap-2 text-[10px] text-fg-muted leading-relaxed">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-400/80 mt-0.5" />
             <span>
+              <strong className="text-fg-secondary">Experimental — not investment advice.</strong>{' '}
+              {mlStatusSentence(data.ml_model)}{' '}
               {data.disclaimer} Models: ARIMA{data.models.arima_order.length ? ` (${data.models.arima_order.join(',')})` : ''}, ETS, Theta and drift on log price, combined by past accuracy; ranges from {data.models.volatility} volatility, calibrated on the tests above.
             </span>
           </div>
