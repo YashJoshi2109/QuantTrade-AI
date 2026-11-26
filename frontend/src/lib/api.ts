@@ -1704,6 +1704,20 @@ export interface CopilotUsage {
   tokens_remaining?: number
 }
 
+/** `/api/v1/me/ai-usage`: the guard's own view, incl. tokens and resets_in_seconds.
+ *  null on any failure; read every field defensively (see lib/copilot-usage). */
+export async function getMyAiUsage(): Promise<import('./copilot-usage').MyAiUsage | null> {
+  try {
+    const headers = await getAuthHeadersClient()
+    const response = await apiFetch(`${API_URL}/api/v1/me/ai-usage`, { headers })
+    if (!response.ok) return null
+    const data = await response.json()
+    return data && typeof data === 'object' ? data : null
+  } catch {
+    return null
+  }
+}
+
 export async function getCopilotUsage(): Promise<CopilotUsage> {
   const headers = await getAuthHeadersClient()
   const response = await apiFetch(`${API_URL}/api/v1/copilot/usage`, { headers })
