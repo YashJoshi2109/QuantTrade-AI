@@ -21,6 +21,9 @@ import type { ChartSeriesType } from '@/components/Chart'
 import TickerLogo from '@/components/TickerLogo'
 import EarningsBadge from '@/components/earnings/EarningsBadge'
 import AskCopilotButton from '@/components/copilot/AskCopilotButton'
+import Link from 'next/link'
+import { GitCompareArrows } from 'lucide-react'
+import { compareHref } from '@/lib/compare'
 
 export type ResearchChartPeriod = '1D' | '5D' | '1M' | '3M' | '6M' | '1Y' | '2Y' | '5Y'
 
@@ -371,6 +374,13 @@ export function ResearchChartHeader({
             />
             {watchlistBusy ? 'Saving…' : inWatchlist ? 'In watchlist' : 'Watchlist'}
             </button>
+            <Link
+              href={compareHref([selectedSymbol])}
+              className="hud-card flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-fg-secondary transition-all hover:border-indigo-500/30 hover:text-fg-primary"
+            >
+              <GitCompareArrows className="h-4 w-4 shrink-0" aria-hidden />
+              Compare
+            </Link>
             <button
             type="button"
             onClick={onSyncData}
