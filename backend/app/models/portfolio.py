@@ -20,7 +20,7 @@ class Portfolio(Base):
     __tablename__ = "portfolios"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(100), nullable=False, default="Default Portfolio")
     description = Column(String(500))
     

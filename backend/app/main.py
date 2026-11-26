@@ -605,6 +605,10 @@ app.include_router(mlops.router, prefix="/api/v1", tags=["mlops"])
 # Research — SEC EDGAR financials, company overview, filings, AI insights
 app.include_router(research_api.router)
 
+# Portfolios — holdings tracking + simulated paper trading (never routes real orders)
+from app.api import portfolios as portfolios_api  # noqa: E402
+app.include_router(portfolios_api.router, prefix="/api/v1")
+
 # Agentic RAG Copilot — ingest trigger, status, health check (admin)
 
 # ML Training Pipeline — internal operator API
