@@ -80,9 +80,13 @@ class AlpacaClient:
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
         timeframe: str = "1Day",
+        adjustment: Optional[str] = None,
     ) -> pd.DataFrame:
         """
         Fetch historical OHLCV bars from Alpaca.
+
+        ``adjustment``: Alpaca's default is "raw" (no split/dividend adjustment).
+        Backtests pass "all" so a split is not a fake crash.
 
         Args:
             symbol: Stock ticker (US stocks only)
@@ -124,12 +128,10 @@ class AlpacaClient:
             if end.tzinfo is None:
                 end = end.replace(tzinfo=timezone.utc)
 
-            request = StockBarsRequest(
-                symbol_or_symbols=symbol.upper(),
-                timeframe=tf,
-                start=start,
-                end=end,
-            )
+            req_kwargs = dict(symbol_or_symbols=symbol.upper(), timeframe=tf, start=start, end=end)
+            if adjustment:
+                req_kwargs["adjustment"] = adjustment
+            request = StockBarsRequest(**req_kwargs)
 
             bars = client.get_stock_bars(request)
             df = bars.df
