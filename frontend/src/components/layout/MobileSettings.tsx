@@ -132,9 +132,11 @@ export default function MobileSettings() {
   }
 
   useEffect(() => {
-    // Auth is via httpOnly cookie; listPasskeys sends credentials: 'include'
+    // Auth is via httpOnly cookie; listPasskeys sends credentials: 'include'.
+    // Only ask once signed in: logged out it is a guaranteed 401 console error.
+    if (isLoading || !isAuthenticated) return
     listPasskeys('').then(setSavedPasskeys).catch(() => setSavedPasskeys([]))
-  }, [])
+  }, [isLoading, isAuthenticated])
 
   const openBillingPortal = async () => {
     setBillingError(null)

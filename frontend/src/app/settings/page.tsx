@@ -125,9 +125,14 @@ function SettingsPageContent() {
 
   useEffect(() => {
     isPasskeySupported().then(setPasskeySupported)
-    // Auth is via httpOnly cookie now; listPasskeys sends credentials: 'include'
-    listPasskeys('').then(setSavedPasskeys).catch(() => setSavedPasskeys([]))
   }, [])
+
+  useEffect(() => {
+    // Auth is via httpOnly cookie now; listPasskeys sends credentials: 'include'.
+    // Only ask once signed in: logged out it is a guaranteed 401 console error.
+    if (authLoading || !isAuthenticated) return
+    listPasskeys('').then(setSavedPasskeys).catch(() => setSavedPasskeys([]))
+  }, [authLoading, isAuthenticated])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
