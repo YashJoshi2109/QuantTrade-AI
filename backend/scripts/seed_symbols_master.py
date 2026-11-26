@@ -72,7 +72,7 @@ CORE_SYMBOLS = [
     ("PLTR", "Palantir Technologies Inc.", "NYSE", "Equity", "Technology"),
     ("NET", "Cloudflare Inc.", "NYSE", "Equity", "Technology"),
     ("SHOP", "Shopify Inc.", "NYSE", "Equity", "Technology"),
-    ("SQ", "Block Inc.", "NYSE", "Equity", "Technology"),
+    ("XYZ", "Block Inc.", "NYSE", "Equity", "Technology"),  # was SQ
     ("PYPL", "PayPal Holdings Inc.", "NASDAQ", "Equity", "Technology"),
     ("UBER", "Uber Technologies Inc.", "NYSE", "Equity", "Technology"),
     ("LYFT", "Lyft Inc.", "NASDAQ", "Equity", "Technology"),
@@ -177,7 +177,7 @@ CORE_SYMBOLS = [
     ("CHTR", "Charter Communications", "NASDAQ", "Equity", "Communication Services"),
     ("EA", "Electronic Arts Inc.", "NASDAQ", "Equity", "Communication Services"),
     ("WBD", "Warner Bros. Discovery", "NASDAQ", "Equity", "Communication Services"),
-    ("PARA", "Paramount Global", "NASDAQ", "Equity", "Communication Services"),
+    ("SKYD", "Skydance Corp", "NYSE", "Equity", "Communication Services"),  # was PARA (-> PSKY -> SKYD)
     ("TTWO", "Take-Two Interactive", "NASDAQ", "Equity", "Communication Services"),
     ("MTCH", "Match Group Inc.", "NASDAQ", "Equity", "Communication Services"),
     ("LYV", "Live Nation Entertainment", "NYSE", "Equity", "Communication Services"),

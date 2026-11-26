@@ -334,7 +334,7 @@ US_STOCKS = [
     ("VZ","Verizon Communications","Communication Services","Telecom","USD","NYSE"),
     ("TMUS","T-Mobile US","Communication Services","Telecom","USD","NASDAQ"),
     ("DIS","Walt Disney Co.","Communication Services","Entertainment","USD","NYSE"),
-    ("PARA","Paramount Global","Communication Services","Entertainment","USD","NASDAQ"),
+    ("SKYD","Skydance Corp","Communication Services","Entertainment","USD","NYSE"),  # was PARA (-> PSKY -> SKYD)
     ("WBD","Warner Bros. Discovery","Communication Services","Entertainment","USD","NASDAQ"),
     ("FOXA","Fox Corp. A","Communication Services","Broadcasting","USD","NASDAQ"),
     ("OMC","Omnicom Group","Communication Services","Advertising","USD","NYSE"),
