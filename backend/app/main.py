@@ -141,6 +141,11 @@ def _create_db_tables():
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
         print("✅ Database tables created/verified successfully")
+        try:
+            from app.models.price_alert import ensure_price_alert_columns
+            ensure_price_alert_columns(engine)
+        except Exception as e:
+            print(f"⚠️ price_alerts column migration failed (run scripts/add_price_alert_event_key_column.py): {e}")
     except Exception as e:
         error_msg = str(e)
         if "already exists" in error_msg or "DuplicateTable" in error_msg:
@@ -633,6 +638,10 @@ app.include_router(portfolios_api.router, prefix="/api/v1")
 # Price / indicator alerts — user-defined, evaluated by the user_price_alerts job
 from app.api import alerts as alerts_api  # noqa: E402
 app.include_router(alerts_api.router, prefix="/api/v1")
+
+# Earnings calendar (Finnhub + Nasdaq, Redis-cached) and the Research "earnings in N days" badge
+from app.api import earnings as earnings_api  # noqa: E402
+app.include_router(earnings_api.router, prefix="/api/v1")
 
 # Agentic RAG Copilot — ingest trigger, status, health check (admin)
 
