@@ -13,6 +13,7 @@ from app.services.data_fetcher import DataFetcher
 from app.services.ticker_validation import normalize_ticker
 from app.config import settings
 from pydantic import BaseModel
+import asyncio
 import httpx
 import logging
 
@@ -407,6 +408,56 @@ def sync_prices(
         raise HTTPException(status_code=500, detail="Failed to sync price data")
 
 
+def _db_fallback_quote(db: Session, symbol: str) -> dict:
+    """Quote from the latest stored price bars (or an empty quote)."""
+    # Fallback to database
+    db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol.upper()).first()
+    if db_symbol:
+        latest_bar = db.query(PriceBar).filter(
+            PriceBar.symbol_id == db_symbol.id
+        ).order_by(PriceBar.timestamp.desc()).first()
+        
+        if latest_bar:
+            # Get previous bar for change calculation
+            prev_bar = db.query(PriceBar).filter(
+                PriceBar.symbol_id == db_symbol.id,
+                PriceBar.timestamp < latest_bar.timestamp
+            ).order_by(PriceBar.timestamp.desc()).first()
+            
+            change = 0
+            change_pct = 0
+            if prev_bar:
+                change = latest_bar.close - prev_bar.close
+                change_pct = (change / prev_bar.close) * 100 if prev_bar.close else 0
+            
+            return {
+                "symbol": symbol.upper(),
+                "price": latest_bar.close,
+                "change": change,
+                "change_percent": change_pct,
+                "volume": latest_bar.volume,
+                "high": latest_bar.high,
+                "low": latest_bar.low,
+                "open": latest_bar.open,
+                "previous_close": prev_bar.close if prev_bar else latest_bar.open,
+                "timestamp": latest_bar.timestamp.isoformat()
+            }
+    
+    # Return empty quote
+    return {
+        "symbol": symbol.upper(),
+        "price": 0,
+        "change": 0,
+        "change_percent": 0,
+        "volume": 0,
+        "high": 0,
+        "low": 0,
+        "open": 0,
+        "previous_close": 0,
+        "timestamp": datetime.now().isoformat()
+    }
+
+
 @router.get("/prices/{symbol}/quote")
 async def get_quote(symbol: str, db: Session = Depends(get_db)):
     """Get live quote for a symbol from Alpha Vantage"""
@@ -439,52 +490,8 @@ async def get_quote(symbol: str, db: Session = Depends(get_db)):
                     "timestamp": quote.get("07. latest trading day", datetime.now().isoformat())
                 }
         
-        # Fallback to database
-        db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol.upper()).first()
-        if db_symbol:
-            latest_bar = db.query(PriceBar).filter(
-                PriceBar.symbol_id == db_symbol.id
-            ).order_by(PriceBar.timestamp.desc()).first()
-            
-            if latest_bar:
-                # Get previous bar for change calculation
-                prev_bar = db.query(PriceBar).filter(
-                    PriceBar.symbol_id == db_symbol.id,
-                    PriceBar.timestamp < latest_bar.timestamp
-                ).order_by(PriceBar.timestamp.desc()).first()
-                
-                change = 0
-                change_pct = 0
-                if prev_bar:
-                    change = latest_bar.close - prev_bar.close
-                    change_pct = (change / prev_bar.close) * 100 if prev_bar.close else 0
-                
-                return {
-                    "symbol": symbol.upper(),
-                    "price": latest_bar.close,
-                    "change": change,
-                    "change_percent": change_pct,
-                    "volume": latest_bar.volume,
-                    "high": latest_bar.high,
-                    "low": latest_bar.low,
-                    "open": latest_bar.open,
-                    "previous_close": prev_bar.close if prev_bar else latest_bar.open,
-                    "timestamp": latest_bar.timestamp.isoformat()
-                }
-        
-        # Return empty quote
-        return {
-            "symbol": symbol.upper(),
-            "price": 0,
-            "change": 0,
-            "change_percent": 0,
-            "volume": 0,
-            "high": 0,
-            "low": 0,
-            "open": 0,
-            "previous_close": 0,
-            "timestamp": datetime.now().isoformat()
-        }
+        # Fallback to database (blocking queries: run in a worker thread)
+        return await asyncio.to_thread(_db_fallback_quote, db, symbol)
         
     except Exception as e:
         logger.exception("Failed to fetch quote")

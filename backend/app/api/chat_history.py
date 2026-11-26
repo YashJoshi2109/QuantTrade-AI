@@ -2,6 +2,7 @@
 Conversation & chat history API.
 Provides CRUD for conversation threads and message history with snapshot support.
 """
+import asyncio
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Any, Dict
@@ -185,16 +186,10 @@ def delete_conversation(
 # Refresh endpoint
 # ---------------------------------------------------------------------------
 
-@router.post("/chat/refresh", response_model=RefreshResponse)
-async def refresh_message(
-    body: RefreshRequest,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_auth),
-):
-    """Re-compute specific data parts for a stored assistant message."""
+def _load_refreshable_message(body: "RefreshRequest", db: Session, user_id: int):
     conv = (
         db.query(Conversation)
-        .filter(Conversation.id == body.conversation_id, Conversation.user_id == user.id)
+        .filter(Conversation.id == body.conversation_id, Conversation.user_id == user_id)
         .first()
     )
     if not conv:
@@ -215,10 +210,29 @@ async def refresh_message(
     if not msg.payload_json or not msg.symbol:
         raise HTTPException(status_code=400, detail="Message has no refreshable payload")
 
+    return msg.id, dict(msg.payload_json), msg.symbol
+
+
+def _save_refreshed_message(db: Session, msg_id: int, payload: dict, now: datetime, ttl_expires: datetime) -> None:
+    msg = db.query(ChatHistory).filter(ChatHistory.id == msg_id).first()
+    msg.payload_json = payload
+    msg.as_of = now
+    msg.ttl_expires_at = ttl_expires
+    db.commit()
+
+
+@router.post("/chat/refresh", response_model=RefreshResponse)
+async def refresh_message(
+    body: RefreshRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Re-compute specific data parts for a stored assistant message."""
+    # Blocking DB reads run in a worker thread, not on the event loop.
+    msg_id, payload, symbol = await asyncio.to_thread(_load_refreshable_message, body, db, user.id)
+
     parts = body.refresh_parts or ["quote", "technicals", "risk", "regime", "sentiment"]
     refreshed: List[str] = []
-    payload = dict(msg.payload_json)
-    symbol = msg.symbol
 
     from app.services.quote_cache import QuoteCacheService
     from app.services.comprehensive_analysis import build_comprehensive_analysis
@@ -265,13 +279,10 @@ async def refresh_message(
     min_ttl = min(DEFAULT_TTLS.get(p, 60) for p in refreshed) if refreshed else 60
     ttl_expires = now + timedelta(seconds=min_ttl)
 
-    msg.payload_json = payload
-    msg.as_of = now
-    msg.ttl_expires_at = ttl_expires
-    db.commit()
+    await asyncio.to_thread(_save_refreshed_message, db, msg_id, payload, now, ttl_expires)
 
     return RefreshResponse(
-        message_id=msg.id,
+        message_id=msg_id,
         payload_json=payload,
         as_of=now,
         ttl_expires_at=ttl_expires,

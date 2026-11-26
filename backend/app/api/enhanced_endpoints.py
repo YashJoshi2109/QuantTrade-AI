@@ -1146,28 +1146,15 @@ def get_finnhub_api_stats():
     }
 
 
-@router.get("/alerts/predictions", response_model=List[PredictionAlertResponse])
-async def get_prediction_alerts(
-    min_confidence: float = Query(0.65, ge=0.0, le=1.0),
-    min_abs_return: float = Query(2.0, ge=0.0, le=100.0),
-    max_symbols: int = Query(12, ge=1, le=30),
-    current_user: Optional[User] = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Hybrid alerts: ML predictions when the prediction service is up, otherwise (or in addition
-    for symbols without ML) live quote “session pulse” from QuoteCacheService.
-
-    Works without authentication by scanning a default liquid universe; signed-in users with
-    a watchlist get those symbols first.
-    """
+def _alert_symbols_and_names(db: Session, user_id: Optional[int], max_symbols: int):
+    """Blocking part of get_prediction_alerts: watchlist symbols (or defaults) + display names."""
     symbols: List[str] = []
-    if current_user:
+    if user_id is not None:
         try:
             watch_items = (
                 db.query(Watchlist, Symbol)
                 .join(Symbol, Symbol.id == Watchlist.symbol_id)
-                .filter(Watchlist.user_id == current_user.id)
+                .filter(Watchlist.user_id == user_id)
                 .order_by(Watchlist.created_at.desc())
                 .limit(max_symbols)
                 .all()
@@ -1188,6 +1175,28 @@ async def get_prediction_alerts(
                 name_map[row.symbol.upper()] = nm or None
         except Exception:
             pass
+    return symbols, name_map
+
+
+@router.get("/alerts/predictions", response_model=List[PredictionAlertResponse])
+async def get_prediction_alerts(
+    min_confidence: float = Query(0.65, ge=0.0, le=1.0),
+    min_abs_return: float = Query(2.0, ge=0.0, le=100.0),
+    max_symbols: int = Query(12, ge=1, le=30),
+    current_user: Optional[User] = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Hybrid alerts: ML predictions when the prediction service is up, otherwise (or in addition
+    for symbols without ML) live quote “session pulse” from QuoteCacheService.
+
+    Works without authentication by scanning a default liquid universe; signed-in users with
+    a watchlist get those symbols first.
+    """
+    # Watchlist + symbol-name lookups are blocking: run them in a worker thread.
+    symbols, name_map = await asyncio.to_thread(
+        _alert_symbols_and_names, db, current_user.id if current_user else None, max_symbols
+    )
 
     cache = QuoteCacheService(db)
     alerts: List[PredictionAlertResponse] = []
