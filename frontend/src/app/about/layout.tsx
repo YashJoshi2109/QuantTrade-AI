@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
-import { Fraunces, DM_Sans } from 'next/font/google'
+import localFont from 'next/font/local'
 
 export const metadata: Metadata = {
   title: 'About',
@@ -14,14 +14,16 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://quanttrade.us/about' },
 }
 
-const aboutDisplay = Fraunces({
-  subsets: ['latin'],
+const aboutDisplay = localFont({
+  src: '../../fonts/fraunces-latin-var.woff2',
+  weight: '100 900',
   variable: '--font-about-display',
   display: 'swap',
 })
 
-const aboutBody = DM_Sans({
-  subsets: ['latin'],
+const aboutBody = localFont({
+  src: '../../fonts/dmsans-latin-var.woff2',
+  weight: '100 1000',
   variable: '--font-about-body',
   display: 'swap',
 })

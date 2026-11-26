@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Instrument_Serif, DM_Sans } from 'next/font/google'
+import localFont from 'next/font/local'
 import {
   Zap,
   RefreshCw,
@@ -18,16 +18,16 @@ import {
 import { QuoteActivityFlash } from '@/components/QuoteActivityFlash'
 import BrandedNewsLoading from '@/components/loading/BrandedNewsLoading'
 import type { DashboardNewsItem } from '@/lib/dashboard-continent-news'
-const magicDisplay = Instrument_Serif({
-  subsets: ['latin'],
-  weight: ['400'],
+const magicDisplay = localFont({
+  src: '../../fonts/instrumentserif-latin-400.woff2',
+  weight: '400',
   variable: '--font-magic-display',
   display: 'swap',
 })
 
-const magicSans = DM_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const magicSans = localFont({
+  src: '../../fonts/dmsans-latin-var.woff2',
+  weight: '100 1000',
   variable: '--font-magic-sans',
   display: 'swap',
 })
