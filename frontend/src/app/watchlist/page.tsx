@@ -1496,6 +1496,7 @@ function DesktopWatchlistPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
                   placeholder="Search by ticker or company name..."
+                  aria-label="Search by ticker or company name"
                   className="w-full pl-10 pr-10 py-3 bg-surface-raised border border-line-subtle rounded-lg text-white placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-blue-500"
                   autoFocus
                   autoComplete="off"

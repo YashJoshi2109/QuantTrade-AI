@@ -89,6 +89,7 @@ function MobileCommunitySearchContent() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search QuantTrade..."
+                aria-label="Search QuantTrade"
                 autoFocus
                 className="w-full h-10 bg-surface-raised border border-line-subtle rounded-full pl-9 pr-10 text-sm text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-blue-500/50"
               />
