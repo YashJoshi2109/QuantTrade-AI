@@ -32,6 +32,7 @@ from app.api import (
     risk,
     watchlist,
     backtest,
+    backtest_v2,
     auth,
     market,
     market_status,
@@ -550,6 +551,7 @@ app.include_router(filings.router, prefix="/api/v1", tags=["filings"])
 app.include_router(risk.router, prefix="/api/v1", tags=["risk"])
 app.include_router(watchlist.router, prefix="/api/v1", tags=["watchlist"])
 app.include_router(backtest.router, prefix="/api/v1", tags=["backtest"])
+app.include_router(backtest_v2.router, prefix="/api/v1", tags=["backtest"])
 app.include_router(market.router, prefix="/api/v1", tags=["market"])
 app.include_router(market_status.router, prefix="/api/v1", tags=["market-status"])
 app.include_router(chat_history.router, prefix="/api/v1", tags=["chat-history"])

@@ -12,6 +12,8 @@ MAX_SYMBOLS = 10
 MAX_SCAN_SYMBOLS = 25
 MAX_GRID_COMBOS = 60
 MAX_PARAM_VALUES = 12
+# symbols x trading days x parameter combinations; ~1.5M is ~40 s of engine time
+MAX_WORK_CELLS = 1_500_000
 MAX_WINDOW = 400  # longest indicator window, in bars
 MAX_CONDITIONS = 12
 MAX_RULE_DEPTH = 3
