@@ -614,6 +614,10 @@ app.include_router(mlops.router, prefix="/api/v1", tags=["mlops"])
 # Research — SEC EDGAR financials, company overview, filings, AI insights
 app.include_router(research_api.router)
 
+# Portfolios — holdings tracking + simulated paper trading (never routes real orders)
+from app.api import portfolios as portfolios_api  # noqa: E402
+app.include_router(portfolios_api.router, prefix="/api/v1")
+
 # Price / indicator alerts — user-defined, evaluated by the user_price_alerts job
 from app.api import alerts as alerts_api  # noqa: E402
 app.include_router(alerts_api.router, prefix="/api/v1")

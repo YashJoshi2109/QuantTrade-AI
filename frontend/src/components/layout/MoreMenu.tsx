@@ -5,6 +5,7 @@ import {
   Bell,
   BellRing,
   Bookmark,
+  Briefcase,
   ChevronRight,
   DollarSign,
   FileText,
@@ -170,6 +171,12 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
               title="Watchlist"
               description="Track your favorite symbols in one place."
               href="/watchlist"
+            />
+            <MenuItem
+              icon={<Briefcase className="w-4 h-4 text-indigo-400" />}
+              title="Portfolio"
+              description="Holdings, P&L, allocation and simulated paper trading."
+              href="/portfolio"
             />
             <MenuItem
               icon={<MessageCircle className="w-4 h-4 text-cyan-400" />}
