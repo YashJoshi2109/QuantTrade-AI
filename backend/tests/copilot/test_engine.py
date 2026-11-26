@@ -113,3 +113,33 @@ def test_offline_eval_passes_every_golden_case():
             failures[case["id"]] = [k for k, v in checks.items() if not v]
     assert not failures, json.dumps(failures)
     assert len(load_golden()) >= 25
+
+
+def test_concurrent_tool_lookups_never_share_the_session_across_threads():
+    """Regression: parallel tool calls ran resolver.lookup in two threads on one
+    Session, so one call intermittently failed ('error' instead of 'done')."""
+    import threading
+    import time
+
+    from app.services.copilot.tools import ToolExecutor
+
+    active = {"n": 0, "max": 0}
+    guard = threading.Lock()
+
+    class Resolver:
+        def lookup(self, t):
+            with guard:
+                active["n"] += 1
+                active["max"] = max(active["max"], active["n"])
+            time.sleep(0.05)  # widen the window a race would need
+            with guard:
+                active["n"] -= 1
+            return None
+
+    ex = ToolExecutor(sources=None, registry=None, resolver=Resolver(), packs={}, build_pack=None)
+
+    async def go():
+        await asyncio.gather(*[ex._pack(t) for t in ("MSFT", "NVDA", "AAPL", "NOPE")])
+
+    asyncio.run(go())
+    assert active["max"] == 1
