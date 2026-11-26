@@ -18,9 +18,12 @@ _KEEP_COLS = ["symbol", "date", "open", "high", "low", "close", "volume", "sourc
 class YFinanceProvider(OHLCVProvider):
     """Download adjusted daily bars via yfinance.
 
-    Uses ``yfinance.download(symbol, auto_adjust=True)`` with up to
-    3 retry attempts and a 2-second backoff.  Caches raw data to
-    ``raw_dir/<SYMBOL>_yf.parquet``.
+    Checks raw_dir cache before hitting the network.  If a cached parquet
+    for the symbol already covers the requested date range, returns it
+    immediately (no network call).  Otherwise downloads with up to 3
+    attempts and exponential backoff (2s, 4s, 8s + jitter).
+
+    Caches normalised data to ``raw_dir/<SYMBOL>_yf.parquet``.
     """
 
     name = "yfinance"
@@ -38,7 +41,14 @@ class YFinanceProvider(OHLCVProvider):
         start_date: str,
         end_date: str,
     ) -> pd.DataFrame:
-        """Return normalised OHLCV DataFrame for *symbol* in [start_date, end_date]."""
+        """Return normalised OHLCV DataFrame; serves from cache when available."""
+        # Cache-read: skip network if cached parquet covers the requested range
+        if self.raw_dir is not None:
+            cached = self._load_cache(symbol, start_date, end_date)
+            if cached is not None:
+                log.debug("yfinance %s: served from cache (%d rows)", symbol, len(cached))
+                return cached
+
         df = self._download_with_retry(symbol, start_date, end_date)
         if df is None or df.empty:
             log.warning("yfinance %s: no data returned", symbol)
@@ -55,13 +65,36 @@ class YFinanceProvider(OHLCVProvider):
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _load_cache(self, symbol: str, start_date: str, end_date: str) -> Optional[pd.DataFrame]:
+        """Return cached DataFrame if it covers [start_date, end_date], else None."""
+        cache_path = self.raw_dir / f"{symbol.upper()}_yf.parquet"
+        if not cache_path.exists():
+            return None
+        try:
+            df = pd.read_parquet(cache_path)
+            if df.empty:
+                return None
+            df["date"] = pd.to_datetime(df["date"])
+            start = pd.Timestamp(start_date)
+            end   = pd.Timestamp(end_date) if end_date else pd.Timestamp.now()
+            filtered = df[(df["date"] >= start) & (df["date"] <= end)].reset_index(drop=True)
+            # Accept cache if it has data and covers ≥90% of expected trading days
+            if len(filtered) == 0:
+                return None
+            expected_days = len(pd.bdate_range(start_date, end_date)) * 0.9
+            if len(filtered) >= expected_days:
+                return filtered
+        except Exception as e:
+            log.warning("yfinance %s: cache read failed (%s), re-fetching", symbol, e)
+        return None
+
     def _download_with_retry(
         self,
         symbol: str,
         start_date: str,
         end_date: str,
     ) -> Optional[pd.DataFrame]:
-        """Call yfinance.download with up to 3 attempts and 2s backoff."""
+        """Call yfinance.download with up to 3 attempts and exponential backoff."""
         try:
             import yfinance as yf  # type: ignore
         except ImportError:
@@ -83,7 +116,8 @@ class YFinanceProvider(OHLCVProvider):
                 log.warning("yfinance %s: empty response on attempt %d", symbol, attempt + 1)
             except Exception as e:
                 log.warning("yfinance %s attempt %d: %s", symbol, attempt + 1, e)
-            time.sleep(2)
+            # Exponential backoff: 2s, 4s, 8s — avoids hammering API on rate-limit
+            time.sleep(2 ** (attempt + 1))
         return None
 
     @staticmethod

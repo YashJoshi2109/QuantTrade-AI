@@ -120,10 +120,15 @@ class SECEdgarProvider(SECProvider):
             return pd.DataFrame()
 
         # Rename to canonical column names
+        # The SEC submissions JSON spells it ``acceptanceDateTime`` (capital T).
+        # An earlier mapping only knew ``acceptanceDatetime``, so every filing
+        # silently fell back to its filing date at midnight — an after-close
+        # filing then looked available on the same day's row (look-ahead).
         col_map = {
             "accessionNumber": "accessionNumber",
             "form": "form",
             "filingDate": "filingDate",
+            "acceptanceDateTime": "acceptedDatetime",
             "acceptanceDatetime": "acceptedDatetime",
             "primaryDocument": "primaryDocument",
         }
@@ -136,12 +141,14 @@ class SECEdgarProvider(SECProvider):
 
         # Convert dates
         df["filingDate"] = pd.to_datetime(df["filingDate"], errors="coerce")
-        df["acceptedDatetime"] = pd.to_datetime(
-            df["acceptedDatetime"], errors="coerce", utc=False
-        )
+        df["acceptedDatetime"] = _parse_acceptance(df["acceptedDatetime"])
 
-        # PIT-safe available_at: acceptedDatetime > filingDate > NaT
-        df["available_at"] = df["acceptedDatetime"].combine_first(df["filingDate"])
+        # PIT-safe available_at: acceptance timestamp when known. Without one,
+        # assume the filing landed after the close and make it available the
+        # next day (filing-date midnight would leak an after-close filing).
+        df["available_at"] = df["acceptedDatetime"].combine_first(
+            df["filingDate"] + pd.Timedelta(days=1)
+        )
 
         result_cols = [
             "accessionNumber", "form", "filingDate", "acceptedDatetime",
@@ -254,3 +261,18 @@ class SECEdgarProvider(SECProvider):
         with open(path, "w") as f:
             json.dump(data, f)
         log.debug("sec_edgar: saved JSON to %s", path)
+
+
+def _parse_acceptance(values: pd.Series) -> pd.Series:
+    """Parse SEC acceptance timestamps to naive wall-clock datetimes.
+
+    EDGAR serves ``2024-05-02T16:31:05.000Z``; despite the ``Z`` the clock is
+    US/Eastern, so the suffix is dropped rather than converted. Compact
+    ``YYYYMMDDHHMMSS`` strings are accepted too.
+    """
+    s = values.astype("string").str.strip().str.replace(r"(\.\d+)?Z$", "", regex=True)
+    compact = s.str.fullmatch(r"\d{14}").fillna(False).astype(bool)
+    out = pd.to_datetime(s.where(~compact), errors="coerce", format="ISO8601")
+    if compact.any():
+        out = out.fillna(pd.to_datetime(s.where(compact), errors="coerce", format="%Y%m%d%H%M%S"))
+    return out

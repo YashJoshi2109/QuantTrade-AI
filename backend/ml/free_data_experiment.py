@@ -321,21 +321,29 @@ def run_backtest(
     transaction_cost_bps: float = 10.0,
     slippage_bps: float = 5.0,
     spy_close: Optional[pd.Series] = None,
+    horizon: int = HORIZON,
 ) -> dict:
-    """Simple long-only equal-weight backtest from walk-forward predictions.
+    """Long-only equal-weight backtest on non-overlapping h-day rebalances.
 
-    Returns portfolio metrics dict.
+    Samples one rebalance every *horizon* trading days so the h-day forward
+    returns are non-overlapping (no look-ahead, no return double-counting).
+    Cumulative return is compounded; Sharpe annualised by sqrt(252/horizon).
     """
-    dates = sorted(set(all_preds.keys()) & set(all_actuals.keys()))
-    if not dates:
-        return {"cumulative_return": 0.0, "sharpe": 0.0, "max_drawdown": 0.0}
+    all_dates = sorted(set(all_preds.keys()) & set(all_actuals.keys()))
+    if not all_dates:
+        return {"cumulative_return": 0.0, "sharpe": 0.0, "max_drawdown": 0.0,
+                "max_symbol_frequency": 0.0, "n_rebalances": 0,
+                "spy_cumulative_return": None, "spy_sharpe": None, "spy_max_drawdown": None}
+
+    # Step by horizon to get non-overlapping return windows
+    rebalance_dates = all_dates[::max(1, horizon)]
 
     cost_per_trade = (transaction_cost_bps + slippage_bps) * BPS
     port_returns: list[float] = []
     prev_syms: set[str] = set()
     sym_counts: dict[str, int] = {}
 
-    for d_str in dates:
+    for d_str in rebalance_dates:
         preds_d = all_preds[d_str]
         actuals_d = all_actuals[d_str]
         ranked = sorted(preds_d.keys(), key=lambda s: -preds_d[s])
@@ -344,12 +352,10 @@ def run_backtest(
             port_returns.append(0.0)
             continue
 
-        n = len(long_syms)
-        w = 1.0 / n
         rets = np.array([actuals_d[s] for s in long_syms])
         gross = float(np.mean(np.expm1(rets)))
 
-        turnover = len(set(long_syms) - prev_syms) / max(n, 1)
+        turnover = len(set(long_syms) - prev_syms) / max(len(long_syms), 1)
         net = gross - turnover * cost_per_trade
         port_returns.append(net)
 
@@ -358,9 +364,12 @@ def run_backtest(
             sym_counts[s] = sym_counts.get(s, 0) + 1
 
     arr = np.array(port_returns)
-    cum = float(np.sum(arr))
-    vol = float(np.std(arr)) * np.sqrt(252)
-    sharpe = (float(np.mean(arr)) * 252) / (vol + 1e-9)
+    # Compound return across non-overlapping periods
+    cum = float(np.prod(1 + arr)) - 1
+    # Annualise: each period = horizon trading days
+    periods_per_year = 252.0 / horizon
+    vol = float(np.std(arr)) * np.sqrt(periods_per_year)
+    sharpe = (float(np.mean(arr)) * periods_per_year) / (vol + 1e-9)
 
     # Max drawdown
     wealth = np.cumprod(1 + arr)
@@ -369,13 +378,13 @@ def run_backtest(
     max_dd = float(np.min(drawdowns))
 
     # Symbol frequency
-    total_periods = len(dates)
+    total_periods = len(rebalance_dates)
     max_sym_freq = max((v / total_periods for v in sym_counts.values()), default=0.0)
 
     # SPY comparison
     spy_cum = spy_sharpe = spy_max_dd = None
     if spy_close is not None:
-        spy_dates = pd.DatetimeIndex([pd.Timestamp(d) for d in dates])
+        spy_dates = pd.DatetimeIndex([pd.Timestamp(d) for d in rebalance_dates])
         spy_rets = []
         for d_ts in spy_dates:
             if d_ts in spy_close.index:
@@ -388,9 +397,9 @@ def run_backtest(
             else:
                 spy_rets.append(0.0)
         spy_arr = np.array(spy_rets)
-        spy_cum = float(np.sum(spy_arr))
-        spy_vol = float(np.std(spy_arr)) * np.sqrt(252)
-        spy_sharpe = (float(np.mean(spy_arr)) * 252) / (spy_vol + 1e-9)
+        spy_cum = float(np.prod(1 + spy_arr)) - 1
+        spy_vol = float(np.std(spy_arr)) * np.sqrt(periods_per_year)
+        spy_sharpe = (float(np.mean(spy_arr)) * periods_per_year) / (spy_vol + 1e-9)
         spy_wealth = np.cumprod(1 + spy_arr)
         spy_dd = spy_wealth / np.maximum.accumulate(spy_wealth) - 1
         spy_max_dd = float(np.min(spy_dd))
@@ -400,7 +409,7 @@ def run_backtest(
         "sharpe": round(sharpe, 4),
         "max_drawdown": round(max_dd, 4),
         "max_symbol_frequency": round(max_sym_freq, 4),
-        "n_rebalances": len(dates),
+        "n_rebalances": len(rebalance_dates),
         "spy_cumulative_return": round(spy_cum, 4) if spy_cum is not None else None,
         "spy_sharpe": round(spy_sharpe, 4) if spy_sharpe is not None else None,
         "spy_max_drawdown": round(spy_max_dd, 4) if spy_max_dd is not None else None,

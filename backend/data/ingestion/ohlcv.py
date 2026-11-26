@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -42,7 +43,10 @@ class OHLCVIngestion:
 
         providers: list = []
         if self.config.use_stooq:
-            providers.append(StooqProvider(raw_dir=self.config.raw_ohlcv_stooq))
+            providers.append(StooqProvider(
+                raw_dir=self.config.raw_ohlcv_stooq,
+                timeout=getattr(self.config, "ohlcv_stooq_timeout", 5.0),
+            ))
         if self.config.use_yfinance:
             providers.append(YFinanceProvider(raw_dir=self.config.raw_ohlcv_yfinance))
         return providers
@@ -52,17 +56,36 @@ class OHLCVIngestion:
     # ------------------------------------------------------------------
 
     def fetch_symbol(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
-        """Try providers in order; return first non-empty result."""
-        for provider in self.providers:
+        """Try providers in order; return first non-empty result.
+
+        Enforces ``config.ohlcv_symbol_timeout`` total seconds per symbol so
+        a single hung provider (e.g. pandas_datareader, slow DNS) can't stall
+        the entire batch.
+        """
+        timeout = getattr(self.config, "ohlcv_symbol_timeout", 90.0)
+
+        def _try_providers() -> pd.DataFrame:
+            for provider in self.providers:
+                try:
+                    df = provider.fetch_daily_bars(symbol, start_date, end_date)
+                    if df is not None and not df.empty:
+                        log.info("ohlcv %s: fetched %d bars via %s", symbol, len(df), provider.name)
+                        return df
+                except Exception as e:
+                    log.warning("ohlcv %s: provider %s failed — %s", symbol, provider.name, e)
+            log.error("ohlcv %s: all providers failed", symbol)
+            return pd.DataFrame()
+
+        with ThreadPoolExecutor(max_workers=1) as ex:
+            fut = ex.submit(_try_providers)
             try:
-                df = provider.fetch_daily_bars(symbol, start_date, end_date)
-                if df is not None and not df.empty:
-                    log.info("ohlcv %s: fetched %d bars via %s", symbol, len(df), provider.name)
-                    return df
+                return fut.result(timeout=timeout)
+            except FuturesTimeoutError:
+                log.error("ohlcv %s: symbol timeout (%.0fs) exceeded — skipping", symbol, timeout)
+                return pd.DataFrame()
             except Exception as e:
-                log.warning("ohlcv %s: provider %s failed — %s", symbol, provider.name, e)
-        log.error("ohlcv %s: all providers failed", symbol)
-        return pd.DataFrame()
+                log.error("ohlcv %s: unexpected error — %s", symbol, e)
+                return pd.DataFrame()
 
     def fetch_batch(
         self,

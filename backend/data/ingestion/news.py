@@ -182,6 +182,7 @@ class NewsIngestion:
             "per_symbol": per_symbol,
         }
 
+        raw_dir.mkdir(parents=True, exist_ok=True)
         coverage_path = raw_dir / "gdelt_news_coverage.json"
         with open(coverage_path, "w") as f:
             json.dump(coverage, f, indent=2, default=str)
