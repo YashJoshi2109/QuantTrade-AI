@@ -31,6 +31,7 @@ import {
   Compass,
   Plus,
   Brain,
+  Coins,
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
 import UnifiedNotificationCenter from './UnifiedNotificationCenter'
@@ -201,6 +202,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
       { id: 'markets', label: 'Markets', icon: TrendingUp, href: '/markets' },
       { id: 'watchlist', label: 'Watchlist', icon: Bookmark, href: '/watchlist' },
       { id: 'portfolio', label: 'Portfolio', icon: Briefcase, href: '/portfolio' },
+      { id: 'dividends', label: 'Dividends', icon: Coins, href: '/dividends' },
       { id: 'research', label: 'Research', icon: FileText, href: '/research' },
       { id: 'backtest', label: 'Backtest', icon: Activity, href: '/backtest' },
       { id: 'ideas', label: 'Ideas Lab', icon: Lightbulb, href: '/ideas-lab' },

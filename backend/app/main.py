@@ -634,6 +634,10 @@ app.include_router(portfolios_api.router, prefix="/api/v1")
 from app.api import alerts as alerts_api  # noqa: E402
 app.include_router(alerts_api.router, prefix="/api/v1")
 
+# Dividend calendar (Nasdaq) + projected dividend income for tracked portfolios (yfinance history)
+from app.api import dividends as dividends_api  # noqa: E402
+app.include_router(dividends_api.router, prefix="/api/v1")
+
 # Agentic RAG Copilot — ingest trigger, status, health check (admin)
 
 # ML Training Pipeline — internal operator API

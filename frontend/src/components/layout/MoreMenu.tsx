@@ -7,6 +7,7 @@ import {
   Bookmark,
   Briefcase,
   ChevronRight,
+  Coins,
   DollarSign,
   FileText,
   Globe,
@@ -177,6 +178,12 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
               title="Portfolio"
               description="Holdings, P&L, allocation and simulated paper trading."
               href="/portfolio"
+            />
+            <MenuItem
+              icon={<Coins className="w-4 h-4 text-emerald-500" />}
+              title="Dividends"
+              description="Ex-dividend calendar and your projected dividend income."
+              href="/dividends"
             />
             <MenuItem
               icon={<MessageCircle className="w-4 h-4 text-cyan-400" />}

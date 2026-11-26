@@ -30,6 +30,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.85,
     },
     {
+      url: `${BASE}/dividends`,
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.75,
+    },
+    {
       url: `${BASE}/monitor`,
       lastModified: now,
       changeFrequency: 'daily',
