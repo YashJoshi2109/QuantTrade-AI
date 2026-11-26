@@ -388,6 +388,19 @@ jobs:
               echo "❌ Less than 4 GB free; refusing to pull (the old stack keeps serving)"
               exit 1
             fi
+            # nginx resolves the backend/frontend upstream names once, at
+            # (re)load. If a container is recreated it can get a new IP (on
+            # 2026-11-26 backend and frontend swapped .2/.4) and nginx keeps
+            # proxying to the stale address -> 502 everywhere, even though every
+            # container reports healthy. Always re-resolve on exit, including
+            # when a later step fails and the script exits early.
+            refresh_nginx() {
+              docker exec quanttrade-nginx nginx -s reload >/dev/null 2>&1 \
+                && echo "🔄 nginx reloaded (upstreams re-resolved)" \
+                || echo "⚠️ nginx reload on exit failed"
+            }
+            trap refresh_nginx EXIT
+
             echo "📥 Pulling latest images (old stack still serving)..."
             docker compose -f docker-compose.prod.yml pull
 
