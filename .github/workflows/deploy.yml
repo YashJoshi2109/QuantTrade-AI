@@ -413,10 +413,21 @@ jobs:
               fi
             fi
 
-            # nginx resolves `backend`/`frontend` once at startup; a recreated
-            # container gets a new IP, so reload (graceful, no dropped requests).
-            docker exec quanttrade-nginx nginx -s reload \
-              || docker compose -f docker-compose.prod.yml restart nginx || true
+            # nginx.conf is a single-file bind mount. The deploy replaces the host
+            # file (new inode), but a running container keeps the OLD inode, so
+            # `nginx -s reload` would re-read stale config (#93's WebSocket block
+            # never went live this way). Recreate nginx when the file changed;
+            # otherwise reload, since nginx resolves backend/frontend once at
+            # startup and recreated containers get new IPs.
+            host_sum=$(sha256sum nginx/nginx.conf | cut -d' ' -f1)
+            live_sum=$(docker exec quanttrade-nginx sha256sum /etc/nginx/nginx.conf 2>/dev/null | cut -d' ' -f1)
+            if [ "$host_sum" != "$live_sum" ]; then
+              echo "🔁 nginx.conf changed — recreating nginx"
+              docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate nginx || true
+            else
+              docker exec quanttrade-nginx nginx -s reload \
+                || docker compose -f docker-compose.prod.yml restart nginx || true
+            fi
             echo "✅ All services healthy!"
 
             # Migration scripts import app.db.database directly; prod's DATABASE_URL
