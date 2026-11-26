@@ -243,7 +243,9 @@ export function ResearchChartHeader({
         />
       </div>
 
-      <div className="relative z-10 flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+      {/* Side-by-side only from 1800px: the action column (4 buttons + quote strip) is
+          ~640px wide, so at lg/xl it squeezed the company name to "A…". */}
+      <div className="relative z-10 flex flex-col gap-4 p-4 sm:p-5 min-[1800px]:flex-row min-[1800px]:items-start min-[1800px]:justify-between min-[1800px]:gap-6">
         <motion.div
           className="min-w-0 flex-1 space-y-3"
           initial={{ opacity: 0, y: 8 }}
@@ -339,12 +341,12 @@ export function ResearchChartHeader({
         </motion.div>
 
         <motion.div
-          className="flex w-full flex-shrink-0 flex-col gap-2.5 lg:w-auto lg:min-w-[17.5rem] xl:min-w-[19rem]"
+          className="flex w-full flex-shrink-0 flex-col gap-2.5 min-[1800px]:w-auto min-[1800px]:min-w-[19rem]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.08, duration: 0.35 }}
         >
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-start gap-2 min-[1800px]:justify-end">
             <AskCopilotButton symbol={selectedSymbol} variant="desktop" />
             <button
             type="button"

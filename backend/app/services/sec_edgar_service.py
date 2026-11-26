@@ -186,6 +186,26 @@ _BALANCE_TAGS = {
     "intangible_assets": ["FiniteLivedIntangibleAssetsNet", "IntangibleAssetsNetExcludingGoodwill"],
 }
 
+# Per-period fallbacks when no primary tag reports the period. Banks file an
+# unclassified balance sheet with their own tags: JPM's last
+# CashAndCashEquivalentsAtCarryingValue fact is 2018 and its last LongTermDebt
+# fact is 2014, so cash and long-term debt came out blank for every recent
+# period. Each source is a tuple of tags that must ALL report the period and
+# are summed (bank cash = cash and due from banks + interest-bearing deposits
+# with banks, which equals the cash-flow statement's cash total for JPM).
+# Fed funds purchased / repos are secured funding, not debt, and are not used.
+_BALANCE_FALLBACKS: dict[str, list[tuple[str, ...]]] = {
+    "cash_and_equivalents": [
+        ("CashAndDueFromBanks", "InterestBearingDepositsInBanks"),
+        ("CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",),
+        ("CashAndDueFromBanks",),
+    ],
+    "long_term_debt": [
+        ("LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities",),
+        ("LongTermDebtAndCapitalLeaseObligations",),
+    ],
+}
+
 _CASHFLOW_TAGS = {
     "operating_cash_flow": ["NetCashProvidedByUsedInOperatingActivities"],
     "investing_cash_flow": ["NetCashProvidedByUsedInInvestingActivities"],
@@ -203,7 +223,7 @@ _CASHFLOW_TAGS = {
 _DA_TAGS = ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationAmortizationAndAccretionNet"]
 
 # Bump when parsing changes so rows stored by an older parser get re-synced.
-PARSER_VERSION = 3  # 3: bank revenue tag + period discovery from revenue ∪ net income
+PARSER_VERSION = 4  # 3: bank revenue tag + period discovery from revenue ∪ net income; 4: bank cash/debt fallbacks
 
 _QUARTER_DAYS = (75, 105)
 _ANNUAL_DAYS = (340, 390)
@@ -354,6 +374,15 @@ def _discover_periods(facts_data: dict) -> list[dict]:
     return sorted(periods.values(), key=lambda p: p["period_end_date"], reverse=True)
 
 
+def _fallback_value(field: str, series, period_end: str, is_annual: bool) -> Optional[float]:
+    """First fallback source (see _BALANCE_FALLBACKS) whose tags all report the period."""
+    for source in _BALANCE_FALLBACKS.get(field, ()):
+        parts = [_value_for(series([tag]), period_end, is_annual) for tag in source]
+        if parts and all(p is not None for p in parts):
+            return sum(parts)
+    return None
+
+
 def parse_financials(facts_data: dict, cik: str, symbol_id: int, ticker: str) -> list[dict]:
     """
     Parse EDGAR company_facts JSON into a list of FinancialStatement dicts.
@@ -393,6 +422,8 @@ def parse_financials(facts_data: dict, cik: str, symbol_id: int, ticker: str) ->
 
         for field, tags in _BALANCE_TAGS.items():
             vals[field] = _value_for(series(tags), end, annual)
+            if vals[field] is None:
+                vals[field] = _fallback_value(field, series, end, annual)
             row[field] = _fmt(vals[field])
 
         for field, tags in _CASHFLOW_TAGS.items():

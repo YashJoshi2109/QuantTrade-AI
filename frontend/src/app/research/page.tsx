@@ -49,6 +49,8 @@ import IndicatorToolbar from '@/components/research/IndicatorToolbar'
 import TickerLogo from '@/components/TickerLogo'
 import { getExchangeTimezone } from '@/lib/world-exchanges'
 import { isCompanyAsset } from '@/lib/assetType'
+import { displayCompanyName, identityWarning } from '@/lib/tickerIdentity'
+import { TickerIdentityBanner, useTickerIdentity } from '@/components/research/TickerIdentityBanner'
 
 type ChartPeriod = ResearchChartPeriod
 
@@ -126,6 +128,16 @@ function ResearchContent() {
 
   // Index / ETF symbols hide company-only panels (same helper as MobileResearch).
   const showCompanyPanels = isCompanyAsset(selectedSymbol, tickerInfo?.asset_type)
+
+  // Stale / reassigned ticker warning (same hook + banner as MobileResearch).
+  const { data: tickerIdentity } = useTickerIdentity(selectedSymbol)
+  const headerTickerInfo = useMemo(
+    () =>
+      tickerInfo && tickerIdentity
+        ? { ...tickerInfo, name: displayCompanyName(tickerInfo.name, tickerIdentity) ?? tickerInfo.name }
+        : tickerInfo,
+    [tickerInfo, tickerIdentity],
+  )
 
   const inWatchlist = useMemo(
     () => watchlistItems.some((i) => i.symbol.toUpperCase() === selectedSymbol.toUpperCase()),
@@ -493,14 +505,19 @@ function ResearchContent() {
       <div className="p-6 h-full">
         {/* Bento Grid Layout */}
         <div className="grid grid-cols-12 gap-4 h-full">
-          
+          {identityWarning(tickerIdentity) && (
+            <div className="col-span-12">
+              <TickerIdentityBanner identity={tickerIdentity} />
+            </div>
+          )}
+
           {/* Main Chart - Large Panel */}
           <div className="col-span-12 lg:col-span-9 row-span-2">
             <div className="hud-panel h-full flex flex-col overflow-hidden">
               <ResearchChartHeader
                 selectedSymbol={selectedSymbol}
-                tickerInfo={tickerInfo}
-                companyNameFallback={fundamentals?.company_name}
+                tickerInfo={headerTickerInfo}
+                companyNameFallback={displayCompanyName(fundamentals?.company_name, tickerIdentity)}
                 profileLoading={tickerInfoLoading}
                 chartPeriod={chartPeriod}
                 chartSeriesType={chartSeriesType}

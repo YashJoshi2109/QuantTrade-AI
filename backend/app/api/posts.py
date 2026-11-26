@@ -248,6 +248,122 @@ async def create_post(
     user: User = Depends(require_auth),
 ):
     """Create a new post. User must be a member of the community."""
+    # DB work is blocking: it runs in worker threads, not on the event loop.
+    # Fire-and-forget tasks need the loop, so they are scheduled here.
+    info = await asyncio.to_thread(_create_post_db, body, db, user)
+    _post_id = info["post_id"]
+
+    # Invalidate feed caches so new post appears immediately
+    try:
+        await cache_service.invalidate_pattern("qt:feed:*")
+    except Exception:
+        pass  # Cache invalidation is non-critical
+
+    await asyncio.to_thread(_after_post_created_db, db, user, info)
+
+    # Broadcast new post via WebSocket to community channel
+    try:
+        from app.services.ws_manager import ws_manager
+        asyncio.create_task(ws_manager.broadcast(
+            f"community:feed:{info['community_slug']}",
+            {"type": "new_post", "post_id": _post_id, "title": info["post_title"]}
+        ))
+    except Exception:
+        pass  # WebSocket broadcast is non-critical
+
+    # ── Non-blocking AI moderation (fire-and-forget) ────────────────────
+    _title = body.title
+    _body_text = body.body or ""
+    _tickers = info["tickers"]
+    _account_age = info["account_age"]
+
+    def _apply_post_moderation(result) -> None:
+        if SessionLocal is None:
+            return
+        bg_db = SessionLocal()
+        try:
+            p = bg_db.query(Post).filter(Post.id == _post_id).first()
+            if not p:
+                return
+            p.ai_mod_score = result.score
+            p.ai_risk_flags = result.flags
+            p.moderation_status = result.action
+
+            if result.action == "remove":
+                p.is_removed = True
+            if result.action in ("review", "remove"):
+                report = ModerationReport(
+                    reporter_id=None,
+                    target_id=_post_id,
+                    target_type="post",
+                    reason="ai_flagged",
+                    description=result.explanation,
+                    ai_score=result.score,
+                    ai_flags=result.flags,
+                    status="pending" if result.action == "review" else "resolved",
+                )
+                bg_db.add(report)
+                bg_db.add(AuditLog(
+                    actor_id=None,
+                    actor_type="ai",
+                    action=f"auto_{result.action}",
+                    target_type="post",
+                    target_id=_post_id,
+                    extra_data={"score": result.score, "flags": result.flags},
+                ))
+            bg_db.commit()
+        except Exception as exc:
+            logger.error("Background moderation DB error: %s", exc)
+            bg_db.rollback()
+        finally:
+            bg_db.close()
+
+    async def _moderate_post_bg():
+        try:
+            result = await moderation_service.moderate_post(
+                title=_title,
+                body=_body_text,
+                tickers=_tickers,
+                author_account_age_days=_account_age,
+            )
+            await asyncio.to_thread(_apply_post_moderation, result)
+        except Exception as exc:
+            logger.error("Background post moderation failed: %s", exc)
+
+    asyncio.create_task(_moderate_post_bg())
+
+    # ── Non-blocking sentiment scoring (fire-and-forget) ──────────────
+    def _score_sentiment_sync(post_id: int):
+        from app.services.sentiment_service import sentiment_service
+        from app.db.database import SessionLocal as _SL
+        db_s = _SL()
+        try:
+            p = db_s.query(Post).filter(Post.id == post_id).first()
+            if p and not p.sentiment:
+                result = sentiment_service.score_text(f"{p.title} {p.body or ''}")
+                p.sentiment = result.label
+                p.sentiment_confidence = result.confidence
+                db_s.commit()
+        finally:
+            db_s.close()
+
+    async def _score_sentiment(post_id: int):
+        """Background task to score post sentiment (DB + FinBERT off the event loop)."""
+        try:
+            await asyncio.to_thread(_score_sentiment_sync, post_id)
+        except Exception as e:
+            logger.error(f"Sentiment scoring failed for post {post_id}: {e}")
+
+    asyncio.create_task(_score_sentiment(_post_id))
+
+    # Reload with relationships
+    return await asyncio.to_thread(
+        lambda: _post_to_response(_get_post_or_404(db, _post_id), user_vote=None)
+    )
+
+
+def _create_post_db(body: PostCreate, db: Session, user: User) -> dict:
+    """Blocking part of create_post: validate, insert, commit. Returns plain values."""
     community = (
         db.query(Community)
         .filter(Community.slug == body.community_slug)
@@ -305,25 +421,21 @@ async def create_post(
     db.commit()
     db.refresh(post)
 
-    # Invalidate feed caches so new post appears immediately
-    try:
-        await cache_service.invalidate_pattern("qt:feed:*")
-    except Exception:
-        pass  # Cache invalidation is non-critical
+    _user_created = getattr(user, "created_at", None)
+    return {
+        "post_id": post.id,
+        "post_title": post.title,
+        "community_slug": community.slug if community else "general",
+        "community_name": community.name if community else "",
+        "tickers": tickers,
+        "account_age": (datetime.utcnow() - _user_created).days if _user_created else 365,
+    }
 
+
+def _after_post_created_db(db: Session, user: User, info: dict) -> None:
+    """Blocking follow-ups to create_post: reputation + follower notifications."""
     # Award reputation for creating a post
     reputation_service.update_reputation(user.id, "post_created", db)
-
-    # Broadcast new post via WebSocket to community channel
-    try:
-        from app.services.ws_manager import ws_manager
-        _slug = community.slug if community else "general"
-        asyncio.create_task(ws_manager.broadcast(
-            f"community:feed:{_slug}",
-            {"type": "new_post", "post_id": post.id, "title": post.title}
-        ))
-    except Exception:
-        pass  # WebSocket broadcast is non-critical
 
     # Notify followers of the author (capped at 100 to avoid spam)
     try:
@@ -339,9 +451,9 @@ async def create_post(
             follower_notifs.append(Notification(
                 user_id=f.follower_id,
                 type="follow_post",
-                title=f"{user.username} posted: {post.title[:80]}",
-                body=community.name if community else "",
-                action_url=f"/community/post/{post.id}",
+                title=f"{user.username} posted: {info['post_title'][:80]}",
+                body=info["community_name"],
+                action_url=f"/community/post/{info['post_id']}",
                 actor_id=user.id,
             ))
         if follower_notifs:
@@ -349,94 +461,6 @@ async def create_post(
             db.commit()
     except Exception:
         pass  # Notification creation is non-critical
-
-    # ── Non-blocking AI moderation (fire-and-forget) ────────────────────
-    _post_id = post.id
-    _title = body.title
-    _body_text = body.body or ""
-    _tickers = tickers
-    _user_created = getattr(user, "created_at", None)
-    _account_age = (datetime.utcnow() - _user_created).days if _user_created else 365
-
-    async def _moderate_post_bg():
-        try:
-            result = await moderation_service.moderate_post(
-                title=_title,
-                body=_body_text,
-                tickers=_tickers,
-                author_account_age_days=_account_age,
-            )
-            if SessionLocal is None:
-                return
-            bg_db = SessionLocal()
-            try:
-                p = bg_db.query(Post).filter(Post.id == _post_id).first()
-                if not p:
-                    return
-                p.ai_mod_score = result.score
-                p.ai_risk_flags = result.flags
-                p.moderation_status = result.action
-
-                if result.action == "remove":
-                    p.is_removed = True
-                if result.action in ("review", "remove"):
-                    report = ModerationReport(
-                        reporter_id=None,
-                        target_id=_post_id,
-                        target_type="post",
-                        reason="ai_flagged",
-                        description=result.explanation,
-                        ai_score=result.score,
-                        ai_flags=result.flags,
-                        status="pending" if result.action == "review" else "resolved",
-                    )
-                    bg_db.add(report)
-                    bg_db.add(AuditLog(
-                        actor_id=None,
-                        actor_type="ai",
-                        action=f"auto_{result.action}",
-                        target_type="post",
-                        target_id=_post_id,
-                        extra_data={"score": result.score, "flags": result.flags},
-                    ))
-                bg_db.commit()
-            except Exception as exc:
-                logger.error("Background moderation DB error: %s", exc)
-                bg_db.rollback()
-            finally:
-                bg_db.close()
-        except Exception as exc:
-            logger.error("Background post moderation failed: %s", exc)
-
-    asyncio.create_task(_moderate_post_bg())
-
-    # ── Non-blocking sentiment scoring (fire-and-forget) ──────────────
-    def _score_sentiment_sync(post_id: int):
-        from app.services.sentiment_service import sentiment_service
-        from app.db.database import SessionLocal as _SL
-        db_s = _SL()
-        try:
-            p = db_s.query(Post).filter(Post.id == post_id).first()
-            if p and not p.sentiment:
-                result = sentiment_service.score_text(f"{p.title} {p.body or ''}")
-                p.sentiment = result.label
-                p.sentiment_confidence = result.confidence
-                db_s.commit()
-        finally:
-            db_s.close()
-
-    async def _score_sentiment(post_id: int):
-        """Background task to score post sentiment (DB + FinBERT off the event loop)."""
-        try:
-            await asyncio.to_thread(_score_sentiment_sync, post_id)
-        except Exception as e:
-            logger.error(f"Sentiment scoring failed for post {post_id}: {e}")
-
-    asyncio.create_task(_score_sentiment(post.id))
-
-    # Reload with relationships
-    post = _get_post_or_404(db, post.id)
-    return _post_to_response(post, user_vote=None)
 
 
 @router.get("/posts/{post_id}", response_model=PostResponse)
@@ -627,7 +651,7 @@ async def popular_feed(
     # Cache the public (non-user-specific) feed data for 60 seconds
     cache_key = f"qt:feed:popular:{sort}:{time}:{cursor}"
 
-    async def _compute_popular():
+    def _compute_popular():
         q = (
             db.query(Post)
             .options(joinedload(Post.author), joinedload(Post.community))
@@ -641,12 +665,17 @@ async def popular_feed(
         nc = posts[-1].id if len(posts) == limit else None
         return {"items": [i.model_dump() for i in items], "next_cursor": nc}
 
-    cached = await cache_service.get_or_fetch(cache_key, 60, _compute_popular)
+    # The DB query is blocking: run it in a worker thread on a cache miss.
+    cached = await cache_service.get_or_fetch(
+        cache_key, 60, lambda: asyncio.to_thread(_compute_popular)
+    )
 
     # Overlay per-user votes on cached items (votes are user-specific, not cached)
     items = [PostResponse(**i) for i in cached["items"]]
     if current_user and items:
-        votes_map = _bulk_user_votes(db, current_user.id, [i.id for i in items])
+        votes_map = await asyncio.to_thread(
+            _bulk_user_votes, db, current_user.id, [i.id for i in items]
+        )
         for item in items:
             item.user_vote = votes_map.get(item.id)
 
@@ -662,7 +691,7 @@ async def trending_tickers(
     """Get trending tickers by mention count in recent posts."""
     cache_key = f"qt:feed:trending:{hours}"
 
-    async def _compute_trending():
+    def _compute_trending():
         from sqlalchemy import text
         from datetime import timedelta, timezone
 
@@ -686,7 +715,10 @@ async def trending_tickers(
         tickers = [{"symbol": row[0], "mention_count": row[1]} for row in rows]
         return {"tickers": tickers, "time_window_hours": hours}
 
-    return await cache_service.get_or_fetch(cache_key, 300, _compute_trending)
+    # The DB query is blocking: run it in a worker thread on a cache miss.
+    return await cache_service.get_or_fetch(
+        cache_key, 300, lambda: asyncio.to_thread(_compute_trending)
+    )
 
 
 @router.get("/feed/market-mood")
@@ -697,7 +729,7 @@ async def market_mood(
     """Aggregate sentiment across recent posts — market mood indicator."""
     cache_key = f"qt:feed:mood:{hours}"
 
-    async def _compute_mood():
+    def _compute_mood():
         from datetime import timedelta, timezone as tz
         cutoff = datetime.now(tz.utc) - timedelta(hours=hours)
 
@@ -726,7 +758,10 @@ async def market_mood(
             "bearish_pct": round(mood["bearish"] / max(total, 1) * 100, 1),
         }
 
-    return await cache_service.get_or_fetch(cache_key, 300, _compute_mood)
+    # The DB query is blocking: run it in a worker thread on a cache miss.
+    return await cache_service.get_or_fetch(
+        cache_key, 300, lambda: asyncio.to_thread(_compute_mood)
+    )
 
 
 def _tickers_contains(db: Session, ticker: str):

@@ -25,6 +25,15 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    # Keep retrying the broker at startup instead of exiting (and being
+    # restarted by Docker in a loop) when Redis is briefly unreachable.
+    broker_connection_retry_on_startup=True,
+    # 2 GB host: recycle the pool child once it grows past ~300 MB (KiB units)
+    # and after 100 tasks, so a leaky sync can't creep into the container cap.
+    # Measured peak with GDELT/ACLED/USGS syncs: ~275 MB for the whole container.
+    worker_max_memory_per_child=300_000,
+    worker_max_tasks_per_child=100,
+    worker_prefetch_multiplier=1,
     beat_schedule={
         "sync-gdelt-news": {
             "task": "sync_gdelt_news",

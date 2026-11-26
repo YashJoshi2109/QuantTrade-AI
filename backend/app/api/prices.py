@@ -13,6 +13,7 @@ from app.services.data_fetcher import DataFetcher
 from app.services.ticker_validation import normalize_ticker
 from app.config import settings
 from pydantic import BaseModel
+import asyncio
 import httpx
 import logging
 
@@ -46,19 +47,9 @@ def _last_trading_day(now_utc: Optional[datetime] = None):
     weekday is used. Exchange holidays are not modelled; on a holiday this
     asks for one extra refresh, which the retry throttle keeps cheap.
     """
-    from datetime import timedelta, timezone
-    import pytz
+    from app.services.data_fetcher import last_completed_session_date
 
-    now_utc = now_utc or datetime.now(timezone.utc)
-    if now_utc.tzinfo is None:
-        now_utc = now_utc.replace(tzinfo=timezone.utc)
-    et = now_utc.astimezone(pytz.timezone("America/New_York"))
-    day = et.date()
-    if et.hour < 16 or (et.hour == 16 and et.minute < 30):
-        day -= timedelta(days=1)
-    while day.weekday() >= 5:  # Sat/Sun -> Friday
-        day -= timedelta(days=1)
-    return day
+    return last_completed_session_date(now_utc)
 
 
 def _query_bars(db: Session, symbol_id: int, start, end, limit: int):
@@ -121,12 +112,21 @@ def get_prices(
     synced = False
     try:
         if start or end:
-            # Explicit range: only fill when nothing is stored for it.
+            # Explicit range: fill when nothing is stored for it.
             if not bars and _should_attempt((symbol_upper, "range", start, end)):
                 sync_start = start or (end or now) - timedelta(days=DEFAULT_BACKFILL_DAYS)
                 sync_end = end or now
                 synced = DataFetcher.sync_price_data_to_db(
                     db, symbol_upper, sync_start, sync_end + timedelta(days=1)) > 0
+            # The research chart always sends start/end, so a range reaching the
+            # last closed session must also refresh a stale tail — otherwise the
+            # chart's last candle lags the live quote until a background job runs.
+            elif bars and (end is None or end.date() >= _last_trading_day()):
+                newest = bars[-1].timestamp.replace(tzinfo=None)
+                if newest.date() < _last_trading_day() and _should_attempt(
+                        (symbol_upper, "refresh", _last_trading_day())):
+                    synced = DataFetcher.sync_price_data_to_db(
+                        db, symbol_upper, newest - timedelta(days=5), now + timedelta(days=1)) > 0
         else:
             # ~252 trading days/year -> calendar span needed for `limit` bars.
             want_days = min(MAX_BACKFILL_DAYS, max(DEFAULT_BACKFILL_DAYS, int(limit * 1.46) + 7))
@@ -407,6 +407,56 @@ def sync_prices(
         raise HTTPException(status_code=500, detail="Failed to sync price data")
 
 
+def _db_fallback_quote(db: Session, symbol: str) -> dict:
+    """Quote from the latest stored price bars (or an empty quote)."""
+    # Fallback to database
+    db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol.upper()).first()
+    if db_symbol:
+        latest_bar = db.query(PriceBar).filter(
+            PriceBar.symbol_id == db_symbol.id
+        ).order_by(PriceBar.timestamp.desc()).first()
+        
+        if latest_bar:
+            # Get previous bar for change calculation
+            prev_bar = db.query(PriceBar).filter(
+                PriceBar.symbol_id == db_symbol.id,
+                PriceBar.timestamp < latest_bar.timestamp
+            ).order_by(PriceBar.timestamp.desc()).first()
+            
+            change = 0
+            change_pct = 0
+            if prev_bar:
+                change = latest_bar.close - prev_bar.close
+                change_pct = (change / prev_bar.close) * 100 if prev_bar.close else 0
+            
+            return {
+                "symbol": symbol.upper(),
+                "price": latest_bar.close,
+                "change": change,
+                "change_percent": change_pct,
+                "volume": latest_bar.volume,
+                "high": latest_bar.high,
+                "low": latest_bar.low,
+                "open": latest_bar.open,
+                "previous_close": prev_bar.close if prev_bar else latest_bar.open,
+                "timestamp": latest_bar.timestamp.isoformat()
+            }
+    
+    # Return empty quote
+    return {
+        "symbol": symbol.upper(),
+        "price": 0,
+        "change": 0,
+        "change_percent": 0,
+        "volume": 0,
+        "high": 0,
+        "low": 0,
+        "open": 0,
+        "previous_close": 0,
+        "timestamp": datetime.now().isoformat()
+    }
+
+
 @router.get("/prices/{symbol}/quote")
 async def get_quote(symbol: str, db: Session = Depends(get_db)):
     """Get live quote for a symbol from Alpha Vantage"""
@@ -439,52 +489,8 @@ async def get_quote(symbol: str, db: Session = Depends(get_db)):
                     "timestamp": quote.get("07. latest trading day", datetime.now().isoformat())
                 }
         
-        # Fallback to database
-        db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol.upper()).first()
-        if db_symbol:
-            latest_bar = db.query(PriceBar).filter(
-                PriceBar.symbol_id == db_symbol.id
-            ).order_by(PriceBar.timestamp.desc()).first()
-            
-            if latest_bar:
-                # Get previous bar for change calculation
-                prev_bar = db.query(PriceBar).filter(
-                    PriceBar.symbol_id == db_symbol.id,
-                    PriceBar.timestamp < latest_bar.timestamp
-                ).order_by(PriceBar.timestamp.desc()).first()
-                
-                change = 0
-                change_pct = 0
-                if prev_bar:
-                    change = latest_bar.close - prev_bar.close
-                    change_pct = (change / prev_bar.close) * 100 if prev_bar.close else 0
-                
-                return {
-                    "symbol": symbol.upper(),
-                    "price": latest_bar.close,
-                    "change": change,
-                    "change_percent": change_pct,
-                    "volume": latest_bar.volume,
-                    "high": latest_bar.high,
-                    "low": latest_bar.low,
-                    "open": latest_bar.open,
-                    "previous_close": prev_bar.close if prev_bar else latest_bar.open,
-                    "timestamp": latest_bar.timestamp.isoformat()
-                }
-        
-        # Return empty quote
-        return {
-            "symbol": symbol.upper(),
-            "price": 0,
-            "change": 0,
-            "change_percent": 0,
-            "volume": 0,
-            "high": 0,
-            "low": 0,
-            "open": 0,
-            "previous_close": 0,
-            "timestamp": datetime.now().isoformat()
-        }
+        # Fallback to database (blocking queries: run in a worker thread)
+        return await asyncio.to_thread(_db_fallback_quote, db, symbol)
         
     except Exception as e:
         logger.exception("Failed to fetch quote")

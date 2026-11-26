@@ -30,15 +30,22 @@ class FreeDataConfig:
     ohlcv_start_date: str = "2018-01-01"
     ohlcv_end_date: str = ""  # empty = today
 
+    # OHLCV per-provider timeouts
+    ohlcv_stooq_timeout: float = 5.0       # connect+read timeout per Stooq request
+    ohlcv_yfinance_timeout: float = 60.0   # per yfinance.download call
+    ohlcv_symbol_timeout: float = 90.0     # total hard limit per symbol (all providers)
+
     # SEC
     sec_user_agent: str = "QuantTradeAI research@example.com"
     sec_forms: list = field(default_factory=lambda: ["10-K", "10-Q", "8-K"])
     sec_rate_limit_delay: float = 0.12  # ~8 req/s (SEC allows 10)
     sec_max_retries: int = 5
+    sec_request_timeout: float = 30.0   # per-request read timeout
 
     # GDELT
     gdelt_lookback_days: int = 365 * 3
     gdelt_max_articles_per_symbol: int = 10000
+    gdelt_request_timeout: float = 30.0  # per GDELT API request timeout
 
     # Features
     news_lookback_days: list = field(default_factory=lambda: [1, 7, 30])

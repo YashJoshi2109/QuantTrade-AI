@@ -37,6 +37,12 @@ def _format_prediction_summary(symbol: str, payload: Dict) -> str:
         "These are probabilistic scenarios based on historical price/volume and "
         "technical features; they are *not* guarantees or financial advice."
     )
+    from app.services.model_status import ml_model_promoted, ml_status_summary
+    if not ml_model_promoted():
+        lines.append(
+            "EXPERIMENTAL: " + ml_status_summary()["note"]
+            + " Do not describe these numbers as reliable or as a recommendation."
+        )
     return "\n".join(lines)
 
 

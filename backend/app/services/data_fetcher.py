@@ -14,6 +14,28 @@ from app.services.ticker_validation import yahoo_symbol
 from sqlalchemy.orm import Session
 
 
+def last_completed_session_date(now_utc: Optional[datetime] = None):
+    """Most recent US trading session whose daily bar is final.
+
+    Before ~16:30 ET the current session is still trading, so its daily bar is
+    partial and the previous weekday is returned. Exchange holidays are not
+    modelled (a holiday just yields a date with no upstream bar).
+    """
+    from datetime import timezone
+    import pytz
+
+    now_utc = now_utc or datetime.now(timezone.utc)
+    if now_utc.tzinfo is None:
+        now_utc = now_utc.replace(tzinfo=timezone.utc)
+    et = now_utc.astimezone(pytz.timezone("America/New_York"))
+    day = et.date()
+    if et.hour < 16 or (et.hour == 16 and et.minute < 30):
+        day -= timedelta(days=1)
+    while day.weekday() >= 5:  # Sat/Sun -> Friday
+        day -= timedelta(days=1)
+    return day
+
+
 class DataFetcher:
     """Fetches market data using Alpha Vantage (primary) and yfinance (fallback)"""
     
@@ -231,7 +253,6 @@ class DataFetcher:
         end_date: Optional[datetime] = None
     ) -> int:
         """Sync price data to database, returns number of bars inserted"""
-        from sqlalchemy import text
         
         # Get or create symbol
         db_symbol = DataFetcher.sync_symbol_to_db(db, symbol)
@@ -246,15 +267,20 @@ class DataFetcher:
         print(f"Got {len(df)} bars for {symbol}, inserting to DB...")
         
         # Get existing timestamps for this symbol to avoid duplicates
-        existing_result = db.execute(
-            text("SELECT timestamp FROM price_bars WHERE symbol_id = :sid"),
-            {"sid": db_symbol.id}
-        )
+        existing_result = db.query(PriceBar.timestamp).filter(PriceBar.symbol_id == db_symbol.id)
         existing_timestamps = {row[0].date() if hasattr(row[0], 'date') else row[0] for row in existing_result}
-        
+        newest_existing = max(existing_timestamps) if existing_timestamps else None
+
+        # Only store bars for sessions that have closed. A bar fetched while the
+        # session is still trading is partial (SPY 2026-11-25 was stored with
+        # ~40% of the day's volume and a mid-session close) and, because
+        # existing dates were never rewritten, the chart kept it for good.
+        closed_through = last_completed_session_date()
+
         # Insert new bars using bulk insert for speed
         count = 0
         bars_to_insert = []
+        refreshed = 0
         
         for _, row in df.iterrows():
             # Convert timestamp to datetime, normalize to UTC
@@ -269,8 +295,14 @@ class DataFetcher:
             # Make timezone-naive for comparison
             ts_date = ts.date() if hasattr(ts, 'date') else ts
             
-            # Skip if already exists
+            if ts_date > closed_through:
+                continue  # session still open: bar is not final yet
+
             if ts_date in existing_timestamps:
+                # Rewrite the newest stored bar: it may have been saved partial
+                # before this fix, or upstream revised it.
+                if newest_existing is not None and ts_date >= newest_existing:
+                    refreshed += DataFetcher._refresh_bar(db, db_symbol.id, ts_date, row)
                 continue
             
             bar = PriceBar(
@@ -287,9 +319,41 @@ class DataFetcher:
         
         if bars_to_insert:
             db.bulk_save_objects(bars_to_insert)
+        if bars_to_insert or refreshed:
             db.commit()
+        if bars_to_insert:
             print(f"Inserted {count} new bars for {symbol}")
         else:
             print(f"All {len(df)} bars already exist for {symbol}")
-        
-        return count
+
+        # Callers treat a non-zero return as "stored data changed, re-query".
+        return count + refreshed
+
+    @staticmethod
+    def _refresh_bar(db: Session, symbol_id: int, bar_date, row) -> int:
+        """Overwrite the stored daily bar for `bar_date` if upstream differs. Returns 1 when changed."""
+        day_start = datetime(bar_date.year, bar_date.month, bar_date.day)
+        candidates = (
+            db.query(PriceBar)
+            .filter(
+                PriceBar.symbol_id == symbol_id,
+                PriceBar.timestamp >= day_start,
+                PriceBar.timestamp < day_start + timedelta(days=1),
+            )
+            .all()
+        )
+        if not candidates:
+            return 0
+        bar = candidates[0]
+        fresh = {
+            "open": float(row["open"]),
+            "high": float(row["high"]),
+            "low": float(row["low"]),
+            "close": float(row["close"]),
+            "volume": int(row["volume"]),
+        }
+        if all(getattr(bar, k) == v for k, v in fresh.items()):
+            return 0
+        for k, v in fresh.items():
+            setattr(bar, k, v)
+        return 1

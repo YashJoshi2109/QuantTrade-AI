@@ -5,6 +5,7 @@ Exposes the AI basket intelligence engine via clean REST endpoints.
 All read endpoints are public. Write/refresh endpoints require auth.
 """
 
+import asyncio
 import json
 import logging
 from datetime import datetime
@@ -100,7 +101,7 @@ async def _run_pipeline_background(index_id: str):
         snapshot = await orchestrator.run_full_pipeline(index_id)
         if "error" not in snapshot:
             _snapshot_cache[index_id] = snapshot
-            _persist_snapshot(db, index_id, snapshot)
+            await asyncio.to_thread(_persist_snapshot, db, index_id, snapshot)
     except Exception as e:
         logger.error(f"Background pipeline failed for {index_id}: {e}", exc_info=True)
     finally:
@@ -252,7 +253,7 @@ async def refresh_index(
         )
         if "error" not in snapshot:
             _snapshot_cache[index_id] = snapshot
-            _persist_snapshot(db, index_id, snapshot)
+            await asyncio.to_thread(_persist_snapshot, db, index_id, snapshot)
         return snapshot
 
     # Run in background (full pipeline; uses its own DB session)

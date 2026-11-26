@@ -138,7 +138,7 @@ _TICKER_KEYWORDS: Dict[str, List[str]] = {
     "jpmorgan": ["JPM"], "jp morgan": ["JPM"], "goldman sachs": ["GS"], "goldman": ["GS"],
     "morgan stanley": ["MS"], "bank of america": ["BAC"], "citigroup": ["C"], "citi": ["C"],
     "wells fargo": ["WFC"], "blackrock": ["BLK"], "visa": ["V"], "mastercard": ["MA"],
-    "paypal": ["PYPL"], "square": ["SQ"], "block inc": ["SQ"],
+    "paypal": ["PYPL"], "square": ["XYZ"], "block inc": ["XYZ"],
     "berkshire": ["BRK.B"], "buffett": ["BRK.B"],
     "hsbc": ["HSBC"], "barclays": ["BCS"], "deutsche bank": ["DB"], "ubs": ["UBS"],
     "credit suisse": ["UBS"],

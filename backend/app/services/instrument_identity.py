@@ -1,7 +1,7 @@
 """Instrument identity checks.
 
 Tickers get reassigned. PARA was Paramount Global until the Skydance merger
-(the company now trades as PSKY); SEC's ticker map now points PARA at an
+(the company traded as PSKY, then SKYD after its Oct 2026 rename); SEC's ticker map now points PARA at an
 unrelated filer (Parabolic Technologies). Our symbols table still said
 "Paramount Global", so the Research page mixed one company's name with
 another's filings. These helpers detect that disagreement so endpoints can
@@ -12,13 +12,45 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-# Tickers whose previous holder was delisted / merged and that we know about.
-# Used only to annotate a detected mismatch with a pointer to the successor.
+# Tickers whose previous holder was delisted / merged / renamed and that we know
+# about. A hit always flags the ticker ("changed") and points at the successor;
+# scripts/refresh_symbol_identity.py also uses it to rename stale symbols rows
+# and to make sure the successor symbol exists.
 KNOWN_TICKER_CHANGES: dict[str, dict[str, str]] = {
+    # Chain per SEC submissions for CIK 0002041610: Paramount Global merged into
+    # Paramount Skydance Corp (PSKY) on 2025-08-07, which was renamed Skydance
+    # Corp (SKYD) on 2026-10-06. SEC's ticker map now gives PARA to Parabolic
+    # Technologies and no longer lists PSKY.
     "PARA": {
         "former_name": "Paramount Global",
-        "successor": "PSKY",
-        "note": "Paramount Global merged with Skydance in Aug 2025 and now trades as PSKY.",
+        "successor": "SKYD",
+        "successor_name": "Skydance Corp",
+        "note": ("Paramount Global merged with Skydance in Aug 2025 (traded as PSKY); "
+                 "the company was renamed Skydance Corp in Oct 2026 and trades as SKYD."),
+    },
+    "PSKY": {
+        "former_name": "Paramount Skydance Corp",
+        "successor": "SKYD",
+        "successor_name": "Skydance Corp",
+        "note": "Paramount Skydance Corp was renamed Skydance Corp in Oct 2026 and now trades as SKYD.",
+    },
+    "SQ": {
+        "former_name": "Block Inc",
+        "successor": "XYZ",
+        "successor_name": "Block Inc",
+        "note": "Block, Inc. changed its ticker from SQ to XYZ in Jan 2025.",
+    },
+    "FB": {
+        "former_name": "Meta Platforms Inc",
+        "successor": "META",
+        "successor_name": "Meta Platforms Inc",
+        "note": "Meta Platforms (formerly Facebook) changed its ticker from FB to META in Jun 2022.",
+    },
+    "ANTM": {
+        "former_name": "Anthem Inc",
+        "successor": "ELV",
+        "successor_name": "Elevance Health Inc",
+        "note": "Anthem renamed itself Elevance Health and changed its ticker from ANTM to ELV in Jun 2022.",
     },
 }
 
@@ -52,7 +84,10 @@ def names_match(a: Optional[str], b: Optional[str]) -> bool:
         return True
     acro_a = "".join(w[0] for w in ta)
     acro_b = "".join(w[0] for w in tb)
-    return joined_a == acro_b or joined_b == acro_a
+    if joined_a == acro_b or joined_b == acro_a:
+        return True
+    # Brand built on the acronym: "GE Aerospace" vs "General Electric Co".
+    return (len(acro_b) >= 2 and acro_b in ta) or (len(acro_a) >= 2 and acro_a in tb)
 
 
 def identity_check(ticker: str, listed_name: Optional[str], filer_name: Optional[str]) -> dict:
@@ -74,3 +109,24 @@ def identity_check(ticker: str, listed_name: Optional[str], filer_name: Optional
         out["successor_symbol"] = known["successor"]
         out["identity_note"] = f"{known['note']} {t} now refers to {filer_name}."
     return out
+
+
+def ticker_identity(ticker: str, listed_name: Optional[str], filer_name: Optional[str]) -> dict:
+    """Single identity verdict for a ticker, shared by the Research API and copilot.
+
+    status:
+      ok       - nothing contradicts our listing
+      changed  - a known delisting/merger/rename (KNOWN_TICKER_CHANGES)
+      mismatch - our listed name disagrees with the current SEC filer for the ticker
+    """
+    t = (ticker or "").upper()
+    base = {"ticker": t, "listed_name": listed_name, "filer_name": filer_name}
+    known = KNOWN_TICKER_CHANGES.get(t)
+    if known:
+        return {**base, "status": "changed", "note": known["note"],
+                "former_name": known["former_name"], "successor_symbol": known.get("successor")}
+    chk = identity_check(t, listed_name, filer_name)
+    if chk["identity_status"] == "mismatch":
+        return {**base, "status": "mismatch", "note": chk["identity_note"],
+                "former_name": chk.get("former_name"), "successor_symbol": chk.get("successor_symbol")}
+    return {**base, "status": "ok", "note": None, "former_name": None, "successor_symbol": None}

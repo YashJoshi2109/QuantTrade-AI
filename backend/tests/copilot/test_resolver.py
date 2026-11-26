@@ -54,7 +54,7 @@ def test_off_topic_detected(fixture_db):
 def test_reassigned_ticker_identity(fixture_db):
     res = TickerResolver(fixture_db).resolve("How is PARA stock doing?")
     t = res.tickers[0]
-    assert t.symbol == "PARA" and t.identity.status == "changed" and t.identity.successor_symbol == "PSKY"
+    assert t.symbol == "PARA" and t.identity.status == "changed" and t.identity.successor_symbol == "SKYD"
 
 
 def test_etf_asset_type(fixture_db):

@@ -283,7 +283,7 @@ class SendOtpRequest(BaseModel):
 
 
 @router.post("/send-otp")
-async def send_otp_endpoint(
+def send_otp_endpoint(
     req: SendOtpRequest,
     purpose: str = Query("register", pattern="^(register|reset)$"),
     db: Session = Depends(get_db),
@@ -320,7 +320,7 @@ async def send_otp_endpoint(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OTP service temporarily unavailable"
         )
-    sent, mail_error = await asyncio.to_thread(send_otp_email, email, otp)
+    sent, mail_error = send_otp_email(email, otp)
     if not sent:
         logger.error("send-otp email delivery failed: %s", mail_error)
         raise HTTPException(
@@ -381,6 +381,20 @@ async def register(user_data: UserRegister, request: Request, response: Response
     """
     await _require_turnstile(user_data.turnstile_token, request)
 
+    # Blocking DB work runs in a worker thread, not on the event loop.
+    user_id, token_response = await asyncio.to_thread(_register_sync, user_data, response, db)
+
+    # schedule_welcome_promo_email needs the running event loop, so it stays here.
+    if WELCOME_PROMO_AVAILABLE:
+        try:
+            schedule_welcome_promo_email(user_id)
+        except Exception as exc:
+            logger.debug("welcome promo schedule skipped: %s", exc)
+
+    return token_response
+
+
+def _register_sync(user_data: UserRegister, response: Response, db: Session):
     email = normalize_email(user_data.email)
 
     # Check if email exists (case-insensitive)
@@ -432,17 +446,11 @@ async def register(user_data: UserRegister, request: Request, response: Response
     db.commit()
     db.refresh(user)
 
-    if WELCOME_PROMO_AVAILABLE:
-        try:
-            schedule_welcome_promo_email(user.id)
-        except Exception as exc:
-            logger.debug("welcome promo schedule skipped: %s", exc)
-    
     # Generate token
     token = create_access_token(user.id)
     set_auth_cookie(response, token)
 
-    return TokenResponse(
+    return user.id, TokenResponse(
         access_token=token,
         user=user_to_dict(user)
     )
@@ -453,6 +461,35 @@ async def login(credentials: UserLogin, request: Request, response: Response, db
     """Login with email and password"""
     await _require_turnstile(credentials.turnstile_token, request)
 
+    # Blocking DB work (and bcrypt) runs in a worker thread, not on the event loop.
+    user_id, user_email, token_response = await asyncio.to_thread(_login_sync, credentials, response, db)
+
+    # OWASP A09: Security event — notify user of new sign-in with IP (fire-and-forget)
+    if LOGIN_NOTIFY_AVAILABLE:
+        ip_address = (
+            request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+            or request.headers.get("X-Real-IP", "")
+            or (request.client.host if request.client else "unknown")
+        )
+        user_agent = request.headers.get("User-Agent", "Unknown")
+        asyncio.create_task(
+            send_login_notification(
+                email=user_email,
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
+        )
+
+    if WELCOME_PROMO_AVAILABLE:
+        try:
+            schedule_welcome_promo_email(user_id)
+        except Exception as exc:
+            logger.debug("welcome promo schedule skipped: %s", exc)
+
+    return token_response
+
+
+def _login_sync(credentials: UserLogin, response: Response, db: Session):
     user = find_user_by_email(db, credentials.email)
     
     if not user or not user.hashed_password:
@@ -470,34 +507,12 @@ async def login(credentials: UserLogin, request: Request, response: Response, db
     # Update last login
     user.last_login = datetime.utcnow()
     db.commit()
-    
-    # OWASP A09: Security event — notify user of new sign-in with IP (fire-and-forget)
-    if LOGIN_NOTIFY_AVAILABLE:
-        ip_address = (
-            request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-            or request.headers.get("X-Real-IP", "")
-            or (request.client.host if request.client else "unknown")
-        )
-        user_agent = request.headers.get("User-Agent", "Unknown")
-        asyncio.create_task(
-            send_login_notification(
-                email=user.email,
-                ip_address=ip_address,
-                user_agent=user_agent,
-            )
-        )
 
-    if WELCOME_PROMO_AVAILABLE:
-        try:
-            schedule_welcome_promo_email(user.id)
-        except Exception as exc:
-            logger.debug("welcome promo schedule skipped: %s", exc)
-    
     # Generate token
     token = create_access_token(user.id)
     set_auth_cookie(response, token)
 
-    return TokenResponse(
+    return user.id, user.email, TokenResponse(
         access_token=token,
         user=user_to_dict(user)
     )
@@ -514,6 +529,21 @@ async def google_verify_token(
     db: Session = Depends(get_db)
 ):
     """Verify Google ID token and login/register user"""
+    # Token verification (HTTP cert fetch) and DB work are blocking: run them in
+    # a worker thread, not on the event loop.
+    user_id, token_response = await asyncio.to_thread(_google_verify_token_sync, token_data, response, db)
+
+    # schedule_welcome_promo_email needs the running event loop, so it stays here.
+    if WELCOME_PROMO_AVAILABLE:
+        try:
+            schedule_welcome_promo_email(user_id)
+        except Exception as exc:
+            logger.debug("welcome promo schedule skipped: %s", exc)
+
+    return token_response
+
+
+def _google_verify_token_sync(token_data: GoogleTokenVerify, response: Response, db: Session):
     if not GOOGLE_AUTH_AVAILABLE:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -601,17 +631,11 @@ async def google_verify_token(
         db.commit()
         db.refresh(user)
 
-        if WELCOME_PROMO_AVAILABLE:
-            try:
-                schedule_welcome_promo_email(user.id)
-            except Exception as exc:
-                logger.debug("welcome promo schedule skipped: %s", exc)
-        
         # Generate token
         token = create_access_token(user.id)
         set_auth_cookie(response, token)
 
-        return TokenResponse(
+        return user.id, TokenResponse(
             access_token=token,
             user=user_to_dict(user)
         )
@@ -695,9 +719,10 @@ def _b64url_decode(s: str) -> bytes:
 
 def _clean_challenges() -> None:
     now = _time.time()
-    expired = [k for k, (_, _, exp) in _passkey_challenges.items() if exp < now]
+    # Handlers run in the threadpool, so snapshot + pop() to tolerate concurrent use.
+    expired = [k for k, (_, _, exp) in list(_passkey_challenges.items()) if exp < now]
     for k in expired:
-        del _passkey_challenges[k]
+        _passkey_challenges.pop(k, None)
 
 
 class PasskeyRegisterChallengeRequest(BaseModel):
@@ -736,7 +761,7 @@ class PasskeyAuthVerifyRequest(BaseModel):
 
 
 @router.post("/passkey/register/challenge")
-async def passkey_register_challenge(
+def passkey_register_challenge(
     req: PasskeyRegisterChallengeRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_auth),
@@ -767,7 +792,7 @@ async def passkey_register_challenge(
 
 
 @router.post("/passkey/register/verify")
-async def passkey_register_verify(
+def passkey_register_verify(
     req: PasskeyRegisterVerifyRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_auth),
@@ -776,12 +801,11 @@ async def passkey_register_verify(
     if not WEBAUTHN_AVAILABLE:
         raise HTTPException(status_code=503, detail="WebAuthn library not installed. Run: pip install webauthn")
 
-    entry = _passkey_challenges.get(req.session_token)
+    entry = _passkey_challenges.pop(req.session_token, None)  # one-time; atomic consume
     if not entry or _time.time() > entry[2]:
         raise HTTPException(status_code=400, detail="Challenge expired or invalid — please try again")
 
     challenge_b64, user_id, _ = entry
-    del _passkey_challenges[req.session_token]
 
     if not user_id:
         raise HTTPException(status_code=400, detail="No user_id associated with this challenge")
@@ -868,7 +892,7 @@ async def passkey_status():
 
 
 @router.get("/passkey/list")
-async def passkey_list(
+def passkey_list(
     current_user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
@@ -910,17 +934,16 @@ async def passkey_auth_challenge():
 
 
 @router.post("/passkey/auth/verify", response_model=TokenResponse)
-async def passkey_auth_verify(req: PasskeyAuthVerifyRequest, response: Response, db: Session = Depends(get_db)):
+def passkey_auth_verify(req: PasskeyAuthVerifyRequest, response: Response, db: Session = Depends(get_db)):
     """Verify WebAuthn assertion and return a JWT if valid."""
     if not WEBAUTHN_AVAILABLE:
         raise HTTPException(status_code=503, detail="WebAuthn library not installed. Run: pip install webauthn")
 
-    entry = _passkey_challenges.get(req.session_token)
+    entry = _passkey_challenges.pop(req.session_token, None)  # one-time; atomic consume
     if not entry or _time.time() > entry[2]:
         raise HTTPException(status_code=400, detail="Challenge expired or invalid — please try again")
 
     challenge_b64, _, _ = entry
-    del _passkey_challenges[req.session_token]
 
     passkey = db.query(PasskeyCredential).filter(
         PasskeyCredential.credential_id == req.credential_id
@@ -997,9 +1020,9 @@ _RESET_TOKEN_TTL = 3600  # 1 hour
 
 def _clean_reset_tokens() -> None:
     now = _pw_time.time()
-    expired = [k for k, (_, exp) in _reset_tokens.items() if now > exp]
+    expired = [k for k, (_, exp) in list(_reset_tokens.items()) if now > exp]
     for k in expired:
-        del _reset_tokens[k]
+        _reset_tokens.pop(k, None)
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -1014,7 +1037,7 @@ class ResetPasswordRequest(BaseModel):
 
 
 @router.post("/forgot-password")
-async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     """
     Send OTP to email for password reset.
     Always returns 200 to prevent email enumeration (OWASP A07).
@@ -1029,14 +1052,14 @@ async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_
 
         otp = generate_otp()
         store_otp(email, otp)
-        await asyncio.to_thread(send_otp_email, user.email, otp)
+        send_otp_email(user.email, otp)
         set_rate_limit(email)
 
     return {"message": "If that email is registered, you'll receive a verification code shortly."}
 
 
 @router.post("/reset-password")
-async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
     """Verify OTP and update the user's password."""
     # Support both legacy token-based and new OTP-based reset
     otp_reset = False
@@ -1055,7 +1078,7 @@ async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db
             raise HTTPException(status_code=400, detail="Reset link is invalid or has expired. Please request a new one.")
         email, _ = entry
         user = find_user_by_email(db, email)
-        del _reset_tokens[req.token]
+        _reset_tokens.pop(req.token, None)
     else:
         raise HTTPException(status_code=400, detail="Verification code or reset token required.")
 
@@ -1085,7 +1108,7 @@ class TestEmailRequest(BaseModel):
 
 
 @router.post("/test-email", dependencies=[Depends(require_admin)])
-async def test_email(req: TestEmailRequest):
+def test_email(req: TestEmailRequest):
     """
     Diagnostic endpoint: send a test email via Brevo and return detailed result.
     Remove or gate behind admin check in production.

@@ -38,6 +38,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { isCompanyAsset } from '@/lib/assetType'
+import { displayCompanyName } from '@/lib/tickerIdentity'
+import { TickerIdentityBanner, useTickerIdentity } from '@/components/research/TickerIdentityBanner'
 import { formatMarketCap } from '@/lib/valuation'
 import Chart from '@/components/Chart'
 import LiveNews from '@/components/LiveNews'
@@ -204,6 +206,9 @@ export default function MobileResearch() {
   // Index / ETF symbols hide company-only panels (same helper as desktop).
   const showCompanyPanels = isCompanyAsset(symbolFromUrl, tickerInfo?.asset_type)
 
+  // Stale / reassigned ticker warning (same hook + banner as desktop).
+  const { data: tickerIdentity } = useTickerIdentity(symbolFromUrl)
+
   // Realtime -> ticker profile -> daily bars; never show a placeholder $0.00.
   const priceInfo = resolvePriceInfo(realtimeQuote, tickerInfo, prices)
   const price = priceInfo.price
@@ -273,7 +278,7 @@ export default function MobileResearch() {
                 </h1>
               </div>
               <p className="text-[11px] text-fg-secondary">
-                {fundamentals?.company_name || 'Company overview'}
+                {displayCompanyName(fundamentals?.company_name, tickerIdentity) || 'Company overview'}
               </p>
             </div>
           </div>
@@ -325,6 +330,8 @@ export default function MobileResearch() {
           </div>
         </div>
       </header>
+
+      <TickerIdentityBanner identity={tickerIdentity} compact />
 
       {/* ── Search Overlay ── */}
       {showSearch && (

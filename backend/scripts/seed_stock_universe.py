@@ -48,7 +48,7 @@ STOCK_UNIVERSE = [
     ("NOW", "ServiceNow Inc", "Technology", "Software - Application", 160),
     ("UBER", "Uber Technologies Inc", "Technology", "Software - Application", 150),
     ("SHOP", "Shopify Inc", "Technology", "Software - Application", 95),
-    ("SQ", "Block Inc", "Technology", "Software - Infrastructure", 40),
+    ("XYZ", "Block Inc", "Technology", "Software - Infrastructure", 40),  # was SQ (ticker change Jan 2025)
     ("PLTR", "Palantir Technologies", "Technology", "Software - Infrastructure", 55),
     ("SNOW", "Snowflake Inc", "Technology", "Software - Application", 55),
     ("NET", "Cloudflare Inc", "Technology", "Software - Infrastructure", 30),
@@ -407,7 +407,7 @@ STOCK_UNIVERSE = [
     ("TMUS", "T-Mobile US", "Communication", "Telecom Services", 200),
     ("CHTR", "Charter Communications", "Communication", "Telecom Services", 45),
     ("WBD", "Warner Bros Discovery", "Communication", "Entertainment", 20),
-    ("PARA", "Paramount Global", "Communication", "Entertainment", 8),
+    ("SKYD", "Skydance Corp", "Communication", "Entertainment", 12),  # was PARA (Paramount Global -> PSKY -> SKYD)
     ("EA", "Electronic Arts", "Communication", "Electronic Gaming & Multimedia", 35),
     ("TTWO", "Take-Two Interactive", "Communication", "Electronic Gaming & Multimedia", 30),
     ("MTCH", "Match Group", "Communication", "Internet Content & Information", 8),

@@ -4,6 +4,8 @@
  * Polymarket Finance, ACLED, Energy, Internet Outages
  */
 
+import { apiUrl } from '@/lib/api'
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 // ─── Market Radar ────────────────────────────────────────────
@@ -198,7 +200,7 @@ export async function fetchPolymarketStockEvents(
   symbol: string,
   companyName?: string,
 ): Promise<PolymarketStockEvent[]> {
-  const u = new URL(`${API_URL}/api/v1/monitor/polymarket-stock-events`)
+  const u = apiUrl(`/api/v1/monitor/polymarket-stock-events`)
   u.searchParams.set('symbol', symbol)
   if (companyName?.trim()) u.searchParams.set('company', companyName.trim())
   const res = await fetch(u.toString(), { headers: { Accept: 'application/json' } })
@@ -215,7 +217,7 @@ export interface PolymarketBrowseTile {
 }
 
 export async function fetchPolymarketBrowseTiles(limit = 24): Promise<PolymarketBrowseTile[]> {
-  const u = new URL(`${API_URL}/api/v1/monitor/polymarket-events-browse`)
+  const u = apiUrl(`/api/v1/monitor/polymarket-events-browse`)
   u.searchParams.set('limit', String(limit))
   const res = await fetch(u.toString(), { headers: { Accept: 'application/json' } })
   if (!res.ok) throw new Error('Failed to fetch Polymarket browse')

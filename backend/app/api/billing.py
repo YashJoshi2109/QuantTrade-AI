@@ -48,6 +48,7 @@ Important:
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+import asyncio
 import logging
 import stripe
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -705,6 +706,12 @@ async def stripe_webhook(
             detail="Missing Stripe-Signature header",
         )
 
+    # Signature check, Stripe API calls and DB writes are all blocking: run
+    # them in a worker thread, not on the event loop.
+    return await asyncio.to_thread(_process_stripe_webhook, payload, sig_header, db)
+
+
+def _process_stripe_webhook(payload: bytes, sig_header: str, db: Session) -> dict:
     try:
         event = stripe.Webhook.construct_event(
             payload=payload,
