@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # Most viewed tickers; a subset of forecast.WARM_TICKERS. The rest are warmed by
 # the background loop after the container is already serving.
 DEFAULT_STARTUP_TICKERS = ("SPY", "QQQ", "AAPL", "NVDA", "MSFT")
-DEFAULT_TIMEOUT_S = 150.0
+DEFAULT_TIMEOUT_S = 45.0  # deploys stop the old stack first, so this is added downtime
 
 # States: pending (not started), warming, ready, timeout, error, skipped.
 # Everything except pending/warming counts as "ready" for traffic.
