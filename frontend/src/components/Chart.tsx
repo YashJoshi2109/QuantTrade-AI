@@ -109,7 +109,7 @@ export default function Chart({
         get(tzParts, 'hour'), get(tzParts, 'minute'), get(tzParts, 'second'))
       return (tzD - utcD) / 60000
     }
-    return data.map((bar) => {
+    const mapped = data.map((bar) => {
       const d = new Date(bar.timestamp)
       const offsetMin = tzOffsetMinutes(d, exchangeTimezone)
       const utcSec = Math.floor(d.getTime() / 1000)
@@ -122,6 +122,11 @@ export default function Chart({
         volume: bar.volume || 0,
       }
     })
+    // lightweight-charts throws "data must be asc ordered" on duplicate or
+    // out-of-order times (prod had 63 duplicated WDAY daily bars). Sort and keep
+    // the last bar per time so one bad row can't blank the whole chart.
+    mapped.sort((a, b) => (a.time as number) - (b.time as number))
+    return mapped.filter((c, i) => i === mapped.length - 1 || (mapped[i + 1].time as number) !== (c.time as number))
   }, [data, exchangeTimezone])
 
   // Create chart instance
