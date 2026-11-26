@@ -27,6 +27,7 @@ import {
   Swords,
   MessageCircle,
   Bell,
+  BellRing,
   Compass,
   Plus,
   Brain,
@@ -206,6 +207,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
       { id: 'mlops', label: 'MLOps', icon: Brain, href: '/mlops' },
       { id: 'community', label: 'Community', icon: MessageCircle, href: '/community' },
       { id: 'notifications', label: 'Notifications', icon: Bell, href: '/notifications' },
+      { id: 'alerts', label: 'Price Alerts', icon: BellRing, href: '/alerts' },
       { id: 'game', label: 'CoinRealm', icon: Swords, href: '/game', amber: true },
       {
         id: 'pricing',

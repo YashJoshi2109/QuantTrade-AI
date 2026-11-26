@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import {
   Bell,
+  BellRing,
   Bookmark,
   Briefcase,
   ChevronRight,
@@ -247,6 +248,12 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
               title="Notifications"
               description="Control alerts, emails and signals."
               href="/settings/notifications"
+            />
+            <MenuItem
+              icon={<BellRing className="w-4 h-4 text-amber-400" />}
+              title="Price Alerts"
+              description="Price, daily-move and RSI alerts on any ticker."
+              href="/alerts"
             />
           </div>
 
