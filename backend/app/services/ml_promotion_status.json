@@ -12,5 +12,71 @@
     "gates_passed": 9,
     "gates_total": 10,
     "deployed": false
+  },
+  "benchmark_test": {
+    "benchmark": "ARIMA(0,1,0)",
+    "test": "Diebold-Mariano, absolute and squared loss, Newey-West HAC (h-1 lags), Harvey-Leybourne-Newbold correction",
+    "evaluated_at": "2026-11-26",
+    "horizons": {
+      "1": {
+        "checkpoint": "lstm_prod_300_h1_20260510_160005.pt",
+        "tickers": [
+          "AAPL",
+          "JPM",
+          "NVDA",
+          "SPY",
+          "XOM"
+        ],
+        "oos_period": [
+          "2026-05-11",
+          "2026-11-24"
+        ],
+        "origins_per_ticker": 138,
+        "rel_mae_range": [
+          1.132,
+          3.164
+        ],
+        "min_dm_p_one_sided": 0.9927,
+        "significantly_worse_tickers": [
+          "AAPL",
+          "JPM",
+          "NVDA",
+          "SPY",
+          "XOM"
+        ],
+        "edge": false
+      },
+      "7": {
+        "checkpoint": "lstm_prod_300_h7_20260510_160022.pt",
+        "tickers": [
+          "AAPL",
+          "JPM",
+          "NVDA",
+          "SPY",
+          "XOM"
+        ],
+        "oos_period": [
+          "2026-05-11",
+          "2026-11-16"
+        ],
+        "origins_per_ticker": 132,
+        "rel_mae_range": [
+          3.63,
+          13.699
+        ],
+        "min_dm_p_one_sided": 1.0,
+        "significantly_worse_tickers": [
+          "AAPL",
+          "JPM",
+          "NVDA",
+          "SPY",
+          "XOM"
+        ],
+        "edge": false
+      }
+    },
+    "edge_any": false,
+    "finding": "LSTM shows no predictive edge over a random walk at 1 day (or at 7 days). Out of sample it is significantly worse than ARIMA(0,1,0) on every ticker tested.",
+    "details": "docs/FORECASTING_EVAL.md"
   }
 }

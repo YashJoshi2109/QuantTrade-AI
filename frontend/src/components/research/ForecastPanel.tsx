@@ -1,18 +1,20 @@
 'use client'
 
 /**
- * Statistical price forecast — fan chart + horizon cards + honest accuracy.
- * Shared by desktop research page and mobile research (same component, responsive).
- * Data: GET /api/v1/forecast/{ticker} (ARIMA/ETS/Theta ensemble, GJR-GARCH bands).
- * Honesty rules live in lib/forecastHonesty (experimental label, no direction
- * colour or P(up) without a tested edge, measured band calibration).
+ * Statistical price forecast: fan chart, per-horizon ranges, the selected model
+ * and why, and the out-of-sample test against the ARIMA(0,1,0) benchmark.
+ * Shared by the desktop research page and mobile research (same component, responsive).
+ * Data: GET /api/v1/forecast/{ticker} (SARIMAX + baselines, GJR-GARCH bands).
+ * Honesty rules live in lib/forecastHonesty: experimental label, and without a
+ * tested edge over ARIMA(0,1,0) only the range is shown (no midpoint, no P(up)).
  */
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, FlaskConical, Info, LineChart, Loader2 } from 'lucide-react'
 import {
-  bandCalibration, CALIBRATION_TEXT, EXPERIMENTAL_LABEL, horizonReliability, mlStatusSentence,
-  type CalibrationStatus, type MlModelStatus, type Reliability,
+  bandCalibration, BENCHMARK_NAME, CALIBRATION_TEXT, EDGE_TEXT, EXPERIMENTAL_LABEL, fmtP, horizonLabel,
+  horizonReliability, mlStatusSentence, noEdgeReason,
+  type CalibrationStatus, type HorizonEval, type MlModelStatus, type Reliability,
 } from '@/lib/forecastHonesty'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
@@ -27,6 +29,23 @@ export interface ForecastPoint {
   bands: Record<'50' | '80' | '95', Band>
   reliability?: Reliability
   calibration?: { status?: CalibrationStatus }
+  model?: {
+    primary?: string | null
+    primary_label?: string | null
+    served?: string
+    served_label?: string
+    centre?: 'model' | 'random_walk'
+    exog?: string[]
+    why?: string | null
+  }
+  eval?: HorizonEval & {
+    rmse_ratio?: number | null
+    dm_pvalue?: number | null
+    dir_acc?: number | null
+    dir_pvalue?: number | null
+    holdout_origins?: number
+    coverage?: Record<string, number | null> | null
+  }
 }
 export interface ForecastResponse {
   ticker: string
@@ -35,6 +54,10 @@ export interface ForecastResponse {
   horizons: ForecastPoint[]
   path: ForecastPoint[]
   models: { weights: Record<string, number>; arima_order: number[]; volatility: string }
+  model?: { name?: string; order?: number[]; exog_used?: Record<string, string[]>; volatility?: string }
+  benchmark?: { name: string; description?: string }
+  model_state?: { mode?: 'refit' | 'filtered'; refit_reason?: string | null; fit_date?: string; bars_since_fit?: number }
+  exog_sources?: string[]
   vol_annualized_pct: number
   backtest: {
     origins: number
@@ -43,6 +66,7 @@ export interface ForecastResponse {
     directional_accuracy: Record<string, number | null>
     directional_pvalue: Record<string, number | null>
     band_coverage: Record<string, Record<string, number | null>>
+    dm_pvalue_holm?: Record<string, number | null>
   }
   beats_naive: Record<string, boolean>
   method: string
@@ -61,7 +85,6 @@ async function fetchForecast(symbol: string): Promise<ForecastResponse> {
   return res.json()
 }
 
-const HLABEL: Record<number, string> = { 1: '1 day', 5: '1 week', 20: '1 month' }
 const money = (v: number) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const pct = (v: number | null | undefined, d = 0) => (v == null ? '—' : `${(v * 100).toFixed(d)}%`)
 
@@ -83,22 +106,25 @@ export function buildFanGeometry(data: ForecastResponse, width: number, height: 
   return { area, line, x, y, lo, hi, naiveY: y(data.last_close) }
 }
 
+export function fanTicks(n: number): number[] {
+  const t = n > 20 ? [0, 5, 20, 40, 60] : [0, 5, 10, 15, 20]
+  return t.filter((i) => i <= n)
+}
+
 function FanChart({ data }: { data: ForecastResponse }) {
   const W = 640, H = 220
   const g = useMemo(() => buildFanGeometry(data, W, H), [data])
-  const ticks = [0, 5, 10, 15, 20].filter((i) => i <= data.path.length)
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img"
-      aria-label={`${data.ticker} 20-day forecast fan chart with 50, 80 and 95 percent bands`}>
+      aria-label={`${data.ticker} ${data.path.length}-day forecast fan chart: median with 80 and 95 percent ranges`}>
       <polygon points={g.area('95')} className="fill-blue-500/10" />
-      <polygon points={g.area('80')} className="fill-blue-500/15" />
-      <polygon points={g.area('50')} className="fill-blue-500/25" />
-      {/* naive / random-walk reference: price stays where it is */}
+      <polygon points={g.area('80')} className="fill-blue-500/20" />
+      {/* ARIMA(0,1,0) benchmark: price stays where it is */}
       <line x1={g.x(0)} x2={g.x(data.path.length)} y1={g.naiveY} y2={g.naiveY}
         className="stroke-fg-muted" strokeDasharray="4 4" strokeWidth={1} />
       <polyline points={g.line} fill="none" className="stroke-blue-400" strokeWidth={2} />
       <circle cx={g.x(0)} cy={g.naiveY} r={3.5} className="fill-white" />
-      {ticks.map((i) => (
+      {fanTicks(data.path.length).map((i) => (
         <text key={i} x={g.x(i)} y={H - 8} textAnchor="middle" className="fill-fg-muted" fontSize={13}>
           {i === 0 ? 'Today' : `+${i}d`}
         </text>
@@ -111,6 +137,36 @@ function FanChart({ data }: { data: ForecastResponse }) {
 
 /* ── Panel ────────────────────────────────────────────────────────────── */
 
+function HorizonCard({ data, row }: { data: ForecastResponse; row: ForecastPoint }) {
+  // Without a tested edge the midpoint is noise: range only, no colour, no P(up).
+  const rel = horizonReliability(data, row.h)
+  const beats = rel === 'edge_in_backtest'
+  const cal = CALIBRATION_TEXT[bandCalibration(data, row.h)]
+  const dirTone = row.exp_return_pct >= 0 ? 'text-emerald-400' : 'text-red-400'
+  return (
+    <div className="rounded-xl border border-line-subtle bg-surface-raised/40 p-3" data-testid={`forecast-horizon-${row.h}`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-semibold text-fg-secondary">{horizonLabel(row.h)} · {row.date}</span>
+        <span className={`text-[10px] ${beats ? 'text-emerald-400' : 'text-amber-400'}`}>{EDGE_TEXT[rel]}</span>
+      </div>
+      <div className="mt-1 text-sm text-white font-mono">
+        80% range {money(row.bands['80'][0])} – {money(row.bands['80'][1])}
+      </div>
+      <div className="text-[10px] text-fg-muted font-mono">
+        95% range {money(row.bands['95'][0])} – {money(row.bands['95'][1])}
+      </div>
+      {beats && (
+        <div className="mt-1 text-[10px] text-fg-muted">
+          Midpoint {money(row.point)} <span className={`font-mono ${dirTone}`}>({row.exp_return_pct >= 0 ? '+' : ''}{row.exp_return_pct.toFixed(2)}%)</span> · P(up) {pct(row.prob_up)}
+        </div>
+      )}
+      <div className={`mt-1 text-[10px] ${cal.tone === 'warn' ? 'text-amber-400' : cal.tone === 'ok' ? 'text-fg-secondary' : 'text-fg-muted'}`}>
+        {cal.label}
+      </div>
+    </div>
+  )
+}
+
 export default function ForecastPanel({ symbol }: { symbol: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['forecast', symbol],
@@ -119,11 +175,12 @@ export default function ForecastPanel({ symbol }: { symbol: string }) {
     staleTime: 30 * 60 * 1000,
     retry: 1,
   })
+  const bench = data?.benchmark?.name ?? BENCHMARK_NAME
 
   return (
-    <div className="col-span-12 hud-panel p-4 sm:p-5">
+    <div className="col-span-12 hud-panel p-4 sm:p-5" data-testid="forecast-panel">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <LineChart className="w-4 h-4 text-blue-400" />
           <h3 className="font-bold text-sm text-white tracking-wide">Price Forecast Range</h3>
           <span className="text-[10px] px-1.5 py-0.5 rounded border border-line-subtle text-fg-muted">Statistical</span>
@@ -140,7 +197,7 @@ export default function ForecastPanel({ symbol }: { symbol: string }) {
 
       {isLoading ? (
         <div className="flex items-center justify-center gap-2 h-40 text-sm text-fg-muted">
-          <Loader2 className="w-4 h-4 animate-spin" /> Fitting models on 2 years of prices…
+          <Loader2 className="w-4 h-4 animate-spin" /> Testing models on 2 years of prices…
         </div>
       ) : error || !data ? (
         <div className="flex items-start gap-2 rounded-xl border border-line-subtle bg-surface-raised/40 p-4 text-xs text-fg-muted">
@@ -153,74 +210,71 @@ export default function ForecastPanel({ symbol }: { symbol: string }) {
             <div className="lg:col-span-3 rounded-xl border border-line-subtle bg-surface-raised/30 p-2">
               <FanChart data={data} />
               <div className="flex flex-wrap gap-3 px-2 pb-1 text-[10px] text-fg-muted">
-                <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm bg-blue-500/40" />50% range</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm bg-blue-500/20" />80%</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm bg-blue-500/10" />95%</span>
-                <span className="flex items-center gap-1"><span className="w-3 border-t border-dashed border-fg-muted" />No-change baseline</span>
+                <span className="flex items-center gap-1"><span className="w-3 border-t-2 border-blue-400" />Median</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm bg-blue-500/30" />80% range</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm bg-blue-500/10" />95% range</span>
+                <span className="flex items-center gap-1"><span className="w-3 border-t border-dashed border-fg-muted" />{bench} (no change)</span>
               </div>
             </div>
-            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2">
-              {data.horizons.map((h) => {
-                // Without a tested edge the midpoint is noise: no up/down colour, no P(up).
-                const beats = horizonReliability(data, h.h) === 'edge_in_backtest'
-                const cal = CALIBRATION_TEXT[bandCalibration(data, h.h)]
-                const dirTone = !beats ? 'text-fg-muted' : h.exp_return_pct >= 0 ? 'text-emerald-400' : 'text-red-400'
-                return (
-                  <div key={h.h} className="rounded-xl border border-line-subtle bg-surface-raised/40 p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-fg-secondary">{HLABEL[h.h] ?? `${h.h}d`} · {h.date}</span>
-                      <span className={`text-[10px] font-mono ${dirTone}`} title={beats ? undefined : 'No tested edge — treat as zero'}>
-                        {h.exp_return_pct >= 0 ? '+' : ''}{h.exp_return_pct.toFixed(2)}%
-                      </span>
-                    </div>
-                    <div className="mt-1 text-sm text-white font-mono">
-                      80% range {money(h.bands['80'][0])} – {money(h.bands['80'][1])}
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 text-[10px] text-fg-muted">
-                      <span>
-                        Midpoint {money(h.point)}
-                        {beats ? <> · P(up) {pct(h.prob_up)}</> : <> · direction: no edge</>}
-                      </span>
-                      <span className={beats ? 'text-emerald-400' : 'text-amber-400'}>
-                        {beats ? 'Beat baseline in tests' : 'No edge vs baseline'}
-                      </span>
-                    </div>
-                    <div className={`mt-1 text-[10px] ${cal.tone === 'warn' ? 'text-amber-400' : cal.tone === 'ok' ? 'text-fg-secondary' : 'text-fg-muted'}`}>
-                      {cal.label}
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+              {data.horizons.map((row) => <HorizonCard key={row.h} data={data} row={row} />)}
             </div>
           </div>
 
-          {/* Out-of-sample accuracy — shown, not hidden */}
-          <div className="mt-4 rounded-xl border border-line-subtle bg-surface-raised/30 p-3">
+          {/* Selected model per horizon, and why */}
+          <div className="mt-4 rounded-xl border border-line-subtle bg-surface-raised/30 p-3" data-testid="forecast-model-selection">
             <div className="text-[11px] font-semibold text-fg-secondary mb-2">
-              How it did out of sample · {data.backtest.origins} walk-forward tests ({data.backtest.period[0]} → {data.backtest.period[1]})
+              Model chosen for each horizon{data.model?.name ? ` · family ${data.model.name}` : ''}
+            </div>
+            <ul className="space-y-1.5">
+              {data.horizons.map((row) => (
+                <li key={row.h} className="text-[11px] leading-relaxed text-fg-muted">
+                  <span className="text-fg-secondary font-semibold">{horizonLabel(row.h)}:</span>{' '}
+                  <span className="text-white">{row.model?.primary_label ?? '—'}</span>
+                  {row.model?.centre === 'random_walk' && <> → range centred on <span className="text-fg-secondary">{bench}</span></>}
+                  {row.model?.why ? <> — {row.model.why}</> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Out-of-sample test vs the benchmark — shown, not hidden */}
+          <div className="mt-4 rounded-xl border border-line-subtle bg-surface-raised/30 p-3" data-testid="forecast-eval-table">
+            <div className="text-[11px] font-semibold text-fg-secondary mb-2">
+              Out-of-sample test vs {bench} · {data.backtest.origins} walk-forward origins ({data.backtest.period[0]} → {data.backtest.period[1]}); scores from the later half
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-[11px] font-mono">
+              <table className="w-full min-w-[560px] text-[11px] font-mono">
                 <thead>
                   <tr className="text-fg-muted text-left">
                     <th className="py-1 pr-3 font-medium">Horizon</th>
-                    <th className="py-1 pr-3 font-medium" title="Mean absolute error relative to the no-change baseline; below 1.00 is better than the baseline">Error vs baseline</th>
-                    <th className="py-1 pr-3 font-medium">Direction hit rate</th>
-                    <th className="py-1 font-medium" title="Share of past outcomes that landed inside the 80% / 95% range">Range coverage 80 / 95</th>
+                    <th className="py-1 pr-3 font-medium">Selected model</th>
+                    <th className="py-1 pr-3 font-medium" title={`Mean absolute error divided by ${bench}'s; below 1.00 is better`}>Error vs {bench}</th>
+                    <th className="py-1 pr-3 font-medium" title="Diebold-Mariano test vs the benchmark, Holm-adjusted across horizons">DM p</th>
+                    <th className="py-1 pr-3 font-medium" title="Direction hit rate; Pesaran-Timmermann p-value">Direction</th>
+                    <th className="py-1 pr-3 font-medium" title="Share of later outcomes inside the 80% / 95% range">Range 80 / 95</th>
+                    <th className="py-1 font-medium">Edge</th>
                   </tr>
                 </thead>
                 <tbody className="text-fg-secondary">
-                  {data.horizons.map(({ h }) => {
-                    const k = String(h)
-                    const m = data.backtest.mase_vs_naive[k]
-                    const cov = data.backtest.band_coverage[k] ?? {}
+                  {data.horizons.map((row) => {
+                    const k = String(row.h)
+                    const ev = row.eval
+                    const m = ev?.rel_mae ?? data.backtest.mase_vs_naive[k]
+                    const cov = ev?.coverage ?? data.backtest.band_coverage[k] ?? {}
+                    const beats = horizonReliability(data, row.h) === 'edge_in_backtest'
+                    const reason = noEdgeReason(ev)
                     return (
-                      <tr key={k} className="border-t border-line-subtle">
-                        <td className="py-1 pr-3">{HLABEL[h] ?? `${h}d`}</td>
-                        {/* green only when the edge is also statistically supported (beats_naive), not for 0.98 noise */}
-                        <td className={`py-1 pr-3 ${data.beats_naive[k] ? 'text-emerald-400' : 'text-fg-secondary'}`}>{m?.toFixed(2) ?? '—'}×</td>
-                        <td className="py-1 pr-3">{pct(data.backtest.directional_accuracy[k])} <span className="text-fg-muted">(p={data.backtest.directional_pvalue[k]?.toFixed(2) ?? '—'})</span></td>
-                        <td className="py-1">{pct(cov['80'])} / {pct(cov['95'])}</td>
+                      <tr key={k} className="border-t border-line-subtle align-top">
+                        <td className="py-1 pr-3">{horizonLabel(row.h)}</td>
+                        <td className="py-1 pr-3 font-sans">{row.model?.primary_label ?? '—'}</td>
+                        <td className={`py-1 pr-3 ${beats ? 'text-emerald-400' : ''}`}>{m != null ? `${m.toFixed(2)}×` : '—'}</td>
+                        <td className="py-1 pr-3">{fmtP(ev?.dm_pvalue_holm ?? data.backtest.dm_pvalue_holm?.[k])}</td>
+                        <td className="py-1 pr-3">{pct(ev?.dir_acc ?? data.backtest.directional_accuracy[k])} <span className="text-fg-muted">(p={fmtP(ev?.dir_pvalue ?? data.backtest.directional_pvalue[k])})</span></td>
+                        <td className="py-1 pr-3">{pct(cov?.['80'])} / {pct(cov?.['95'])}</td>
+                        <td className={`py-1 font-sans ${beats ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          {beats ? 'Yes' : 'No'}{reason ? <span className="text-fg-muted"> · {reason}</span> : null}
+                        </td>
                       </tr>
                     )
                   })}
@@ -234,7 +288,11 @@ export default function ForecastPanel({ symbol }: { symbol: string }) {
             <span>
               <strong className="text-fg-secondary">Experimental — not investment advice.</strong>{' '}
               {mlStatusSentence(data.ml_model)}{' '}
-              {data.disclaimer} Models: ARIMA{data.models.arima_order.length ? ` (${data.models.arima_order.join(',')})` : ''}, ETS, Theta and drift on log price, combined by past accuracy; ranges from {data.models.volatility} volatility, calibrated on the tests above.
+              {data.disclaimer} {data.method}
+              {data.model_state?.fit_date && (
+                <> Parameters fitted {data.model_state.fit_date}
+                  {data.model_state.mode === 'filtered' ? `; ${data.model_state.bars_since_fit ?? 0} newer bars updated by Kalman filter, no refit.` : '.'}</>
+              )}
             </span>
           </div>
         </>
