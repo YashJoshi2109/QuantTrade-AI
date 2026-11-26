@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import {
-  Briefcase, Download, FlaskConical, Loader2, LogIn, Pencil, Plus, RotateCcw, Trash2, AlertTriangle,
+  Briefcase, Download, FlaskConical, Loader2, LogIn, Pencil, Plus, RotateCcw, Trash2, AlertTriangle, Upload,
 } from 'lucide-react'
+import { ImportTradesForm, PerformancePanel } from './PortfolioHistoryParts'
 import AppLayout from '@/components/AppLayout'
 import TickerLogo from '@/components/TickerLogo'
 import { fmtDate, fmtMoney, fmtPct, fmtQty, pnlClass } from '@/lib/portfolio'
@@ -102,6 +103,11 @@ export default function PortfolioDesktop() {
                     <button type="button" onClick={() => c.setTrade({})} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-[#fff] hover:bg-indigo-500">
                       <Plus className="h-3.5 w-3.5" /> {s.simulated ? 'Simulated order' : 'Add transaction'}
                     </button>
+                    {!s.simulated && (
+                      <button type="button" className={ghostBtn} onClick={() => c.setImportOpen(true)}>
+                        <Upload className="h-3.5 w-3.5" /> Import CSV
+                      </button>
+                    )}
                     <button type="button" className={ghostBtn} disabled={c.exporting} onClick={() => c.exportCsv('holdings')}>
                       <Download className="h-3.5 w-3.5" /> Holdings CSV
                     </button>
@@ -121,6 +127,8 @@ export default function PortfolioDesktop() {
                     <AlertTriangle className="h-3.5 w-3.5" /> No live price for {s.stale_quotes.join(', ')}. Those holdings are left out of value and P&amp;L until a quote is available.
                   </p>
                 )}
+
+                <PerformancePanel key={s.id} portfolioId={s.id} simulated={s.simulated} />
 
                 <div className="grid gap-5 2xl:grid-cols-[1fr_320px]">
                   <section className="hud-card overflow-hidden p-0" aria-label="Holdings">
@@ -245,6 +253,11 @@ export default function PortfolioDesktop() {
       <Overlay open={c.createOpen} onClose={() => c.setCreateOpen(false)} title="New portfolio" variant="modal">
         <CreatePortfolioForm onDone={(id) => { c.setCreateOpen(false); c.select(id) }} />
       </Overlay>
+      {s && !s.simulated && (
+        <Overlay open={c.importOpen} onClose={() => c.setImportOpen(false)} title="Import trades from CSV" variant="modal">
+          <ImportTradesForm portfolioId={s.id} onDone={() => c.setImportOpen(false)} />
+        </Overlay>
+      )}
       {s && (
         <Overlay
           open={!!c.trade}

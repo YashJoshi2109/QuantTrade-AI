@@ -32,6 +32,7 @@ from app.api import (
     risk,
     watchlist,
     backtest,
+    backtest_v2,
     auth,
     market,
     market_status,
@@ -122,6 +123,7 @@ from app.models.ml_training import (
 from app.models.edgar import CompanyEDGAR, FinancialStatement
 from app.models.news_item import NewsItem as _NewsItem  # noqa: F401  (news_items table)
 from app.models.price_alert import PriceAlert as _PriceAlert  # noqa: F401  (price_alerts table)
+from app.models.screener_snapshot import ScreenerSnapshot as _ScreenerSnapshot  # noqa: F401  (screener_snapshots table)
 
 
 def _create_db_tables():
@@ -230,6 +232,28 @@ def _start_scheduler():
             _user_price_alerts,
             CronTrigger(minute="*/5"),
             id="user_price_alerts",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )
+        # Portfolio value history: one snapshot per portfolio after the US close
+        # (21:30 UTC is after 16:00 ET in both EST and EDT), Mon-Fri.
+        def _portfolio_snapshots():
+            db = SessionLocal()
+            try:
+                from app.services.portfolio_history import run_daily_snapshots_sync
+
+                res = run_daily_snapshots_sync(db)
+                print(f"📈 Portfolio snapshots: {res}")
+            except Exception as e:
+                print(f"⚠️ Portfolio snapshot job error: {e}")
+            finally:
+                db.close()
+
+        sched.add_job(
+            _portfolio_snapshots,
+            CronTrigger(day_of_week="mon-fri", hour=21, minute=30),
+            id="portfolio_daily_snapshots",
             replace_existing=True,
             max_instances=1,
             coalesce=True,
@@ -555,6 +579,7 @@ app.include_router(filings.router, prefix="/api/v1", tags=["filings"])
 app.include_router(risk.router, prefix="/api/v1", tags=["risk"])
 app.include_router(watchlist.router, prefix="/api/v1", tags=["watchlist"])
 app.include_router(backtest.router, prefix="/api/v1", tags=["backtest"])
+app.include_router(backtest_v2.router, prefix="/api/v1", tags=["backtest"])
 app.include_router(market.router, prefix="/api/v1", tags=["market"])
 app.include_router(market_status.router, prefix="/api/v1", tags=["market-status"])
 app.include_router(chat_history.router, prefix="/api/v1", tags=["chat-history"])
@@ -638,6 +663,10 @@ app.include_router(portfolios_api.router, prefix="/api/v1")
 # Price / indicator alerts — user-defined, evaluated by the user_price_alerts job
 from app.api import alerts as alerts_api  # noqa: E402
 app.include_router(alerts_api.router, prefix="/api/v1")
+
+# Stock screener — fundamental + technical filters over a DB-built snapshot
+from app.api import screener as screener_api  # noqa: E402
+app.include_router(screener_api.router, prefix="/api/v1")
 
 # Earnings calendar (Finnhub + Nasdaq, Redis-cached) and the Research "earnings in N days" badge
 from app.api import earnings as earnings_api  # noqa: E402

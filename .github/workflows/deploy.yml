@@ -225,7 +225,11 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: SECRET_KEY,OPENAI_API_KEY,ANTHROPIC_API_KEY,NEWSAPI_KEY,ALPHA_VANTAGE_API_KEY,SEC_API_KEY,FINNHUB_API_KEY,FMP_API_KEY,EODHD_API_KEY,APILAYER_CURRENCY_KEY,MARKETSTACK_API_KEY,OPENFIGI_API_KEY,TWELVEDATA_API_KEY,PUBLIC_API_SECRET_KEY,STRIPE_SECRET_KEY,STRIPE_PUBLISHABLE_KEY,STRIPE_WEBHOOK_SECRET,STRIPE_CONNECT_THIN_WEBHOOK_SECRET,STRIPE_CONNECT_SUBSCRIPTION_PRICE_ID,STRIPE_PRICE_PLUS_MONTHLY,STRIPE_PRICE_PLUS_YEARLY,GUARDIAN_API_KEY,ACLED_API_KEY,ACLED_EMAIL,ACLED_PASSWORD,FRED_API_KEY,EIA_API_KEY,CLOUDFLARE_RADAR_TOKEN,GROQ_API_KEY,OPENROUTER_API_KEY,NEXT_PUBLIC_OPENROUTER_API_KEY,NASA_API_KEY,NASA_FIRMS_API_KEY,USGS_API_KEY,ELEVENLABS_API_KEY,ELEVENLABS_MODEL_ID,ELEVENLABS_VOICE_NARRATOR,ELEVENLABS_VOICE_KNIGHT,ELEVENLABS_VOICE_SCHOLAR,ELEVENLABS_VOICE_MERCHANT,ELEVENLABS_VOICE_NOBLE,ELEVENLABS_VOICE_SAGE,BREVO_API_KEY,BREVO_FROM_EMAIL,RESEND_API_KEY,RESEND_FROM_EMAIL,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,NEXT_PUBLIC_GOOGLE_CLIENT_ID,S3_ENDPOINT,S3_ACCESS_KEY,S3_SECRET_KEY,S3_BUCKET,S3_PUBLIC_URL,USE_LOCAL_STORAGE,COHERE_API_KEY,QDRANT_URL,QDRANT_API_KEY,ADMIN_EMAILS,ALPACA_API_KEY,ALPACA_SECRET_KEY,ML_CALLBACK_SECRET
-          script_stop: true
+          # No script_stop: it appends an exit-code check after every line, and the
+          # check placed after `else` sees the failed `if` test ($?=1) and exits.
+          # Every deploy where nginx.conf was unchanged died silently right after
+          # the container swap (skipping the nginx reload and all migrations).
+          # `set -e` below stops on real failures and handles if/else correctly.
           script: |
             set -e
             
@@ -351,7 +355,7 @@ jobs:
             
             # Debug: verify critical secrets arrived
             # DATABASE_URL is NOT expected in .env — backend/celery load it from AWS Secrets Manager.
-            # Single line that always exits 0: script_stop aborts on any non-zero command.
+            # Single line that always exits 0 (set -e aborts on any non-zero command).
             echo "ℹ️ DATABASE_URL source: AWS Secrets Manager (quanttrade/backend); in .env: $(grep -c '^DATABASE_URL=' .env || true)"
             
             # ===== STOP SYSTEM SERVICES THAT MAY USE PORT 80/443 =====
@@ -367,8 +371,40 @@ jobs:
             # containers in place; only fall back to a full reset if that fails.
             echo "🔐 Logging into GitHub Container Registry..."
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Free space BEFORE pulling. Pruning unused images/build cache is safe
+            # while the stack runs (images used by running containers are kept).
+            # Without this, failed deploys never reach the post-deploy prune and
+            # images pile up: 2026-11-26 the disk hit 89% (3.2 GB free) and the
+            # pull died with "failed to extract layer", taking prod down.
+            echo "Disk space before cleanup:"
+            df -h /
+            docker image prune -af --filter "until=24h" || true
+            docker builder prune -af || true
+            avail_kb=$(df --output=avail / | tail -1 | tr -d ' ')
+            if [ "${avail_kb:-0}" -lt 6000000 ]; then
+              echo "⚠️ <6 GB free after age-filtered prune — pruning all unused images"
+              docker image prune -af || true
+            fi
             echo "Disk space available:"
             df -h /
+            avail_kb=$(df --output=avail / | tail -1 | tr -d ' ')
+            if [ "${avail_kb:-0}" -lt 4000000 ]; then
+              echo "❌ Less than 4 GB free; refusing to pull (the old stack keeps serving)"
+              exit 1
+            fi
+            # nginx resolves the backend/frontend upstream names once, at
+            # (re)load. If a container is recreated it can get a new IP (on
+            # 2026-11-26 backend and frontend swapped .2/.4) and nginx keeps
+            # proxying to the stale address -> 502 everywhere, even though every
+            # container reports healthy. Always re-resolve on exit, including
+            # when a later step fails and the script exits early.
+            refresh_nginx() {
+              docker exec quanttrade-nginx nginx -s reload >/dev/null 2>&1 \
+                && echo "🔄 nginx reloaded (upstreams re-resolved)" \
+                || echo "⚠️ nginx reload on exit failed"
+            }
+            trap refresh_nginx EXIT
+
             echo "📥 Pulling latest images (old stack still serving)..."
             docker compose -f docker-compose.prod.yml pull
 
@@ -444,11 +480,21 @@ jobs:
               python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/add_user_preferences_column.py', run_name='__main__')" \
               || echo "⚠️ preferences_json migration failed — run on PostgreSQL: ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences_json TEXT;"
 
+            echo "🧱 Applying DB migration portfolio_snapshots history columns (if missing)..."
+            docker compose -f docker-compose.prod.yml exec -T backend \
+              python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/add_portfolio_snapshot_columns.py', run_name='__main__')" \
+              || echo "⚠️ portfolio_snapshots migration failed — run scripts/add_portfolio_snapshot_columns.py manually"
+
             echo "🧱 Applying DB migration price_alerts.last_event_key (if missing)..."
             docker compose -f docker-compose.prod.yml exec -T backend \
               python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/add_price_alert_event_key_column.py', run_name='__main__')" \
               || echo "⚠️ last_event_key migration failed — run on PostgreSQL: ALTER TABLE price_alerts ADD COLUMN IF NOT EXISTS last_event_key VARCHAR(32);"
             
+            echo "🧱 Applying DB migration price_bars unique (symbol_id, timestamp) (if missing)..."
+            docker compose -f docker-compose.prod.yml exec -T backend \
+              python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/add_price_bars_unique_index.py', run_name='__main__')" \
+              || echo "⚠️ price_bars unique-index migration failed — run scripts/add_price_bars_unique_index.py manually"
+
             # ===== POST-DEPLOY CLEANUP =====
             echo "🧹 Post-deploy cleanup..."
             docker image prune -af || true

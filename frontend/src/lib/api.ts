@@ -683,6 +683,9 @@ export interface BacktestRequest {
 }
 
 export interface BacktestTrade {
+  symbol?: string
+  side?: 'LONG' | 'SHORT'
+  signal_date?: string
   entry_date: string
   exit_date: string | null
   entry_price: number

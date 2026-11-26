@@ -17,6 +17,7 @@ import {
   Calendar,
 } from 'lucide-react'
 import { BacktestTrade } from '@/lib/api'
+import { downloadCsv, toCsv } from '@/lib/backtestLab'
 
 // ──────────────────────────────────────────
 // Types
@@ -278,14 +279,14 @@ function computeStreaks(trades: BacktestTrade[]): { winStreak: number; lossStrea
 
 function exportCSV(trades: BacktestTrade[], symbol: string) {
   const headers = [
-    '#', 'Symbol', 'Entry Date', 'Entry Price', 'Exit Date', 'Exit Price',
-    'Quantity', 'P&L', 'Return %', 'MAE %', 'MFE %', 'Commission',
+    '#', 'Symbol', 'Signal Date', 'Entry Date', 'Entry Price', 'Exit Date', 'Exit Price',
+    'Quantity', 'Net P&L', 'Return %', 'MAE %', 'MFE %', 'Commission',
     'Exit Reason', 'Bars Held',
   ]
-
   const rows = trades.map((t, i) => [
     i + 1,
-    symbol,
+    t.symbol ?? symbol,
+    t.signal_date ?? '',
     t.entry_date,
     t.entry_price.toFixed(2),
     t.exit_date ?? '',
@@ -299,15 +300,8 @@ function exportCSV(trades: BacktestTrade[], symbol: string) {
     t.exit_reason,
     t.bars_held,
   ])
-
-  const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${symbol}_trade_journal.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+  // Shared writer: quotes fields and neutralises spreadsheet formula injection.
+  downloadCsv(`${symbol}_trade_journal.csv`, toCsv(headers, rows))
 }
 
 // ──────────────────────────────────────────

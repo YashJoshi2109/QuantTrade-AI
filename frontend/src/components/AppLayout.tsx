@@ -31,6 +31,7 @@ import {
   Compass,
   Plus,
   Brain,
+  Filter,
   CalendarDays,
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
@@ -204,6 +205,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
       { id: 'portfolio', label: 'Portfolio', icon: Briefcase, href: '/portfolio' },
       { id: 'earnings', label: 'Earnings', icon: CalendarDays, href: '/earnings' },
       { id: 'research', label: 'Research', icon: FileText, href: '/research' },
+      { id: 'screener', label: 'Screener', icon: Filter, href: '/screener' },
       { id: 'backtest', label: 'Backtest', icon: Activity, href: '/backtest' },
       { id: 'ideas', label: 'Ideas Lab', icon: Lightbulb, href: '/ideas-lab' },
       { id: 'mlops', label: 'MLOps', icon: Brain, href: '/mlops' },

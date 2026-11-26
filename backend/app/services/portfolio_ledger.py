@@ -74,6 +74,56 @@ def _sort_key(t: LedgerTxn):
     return (t.date, t.id if t.id is not None else float("inf"))
 
 
+def apply_txn(state: LedgerState, t: LedgerTxn, *, enforce_cash: bool = False) -> None:
+    """Apply one transaction to `state` in place. Raises LedgerError (state unchanged)."""
+    lot = state.lots.get(t.symbol)
+    if lot is None:
+        lot = Lot(symbol=t.symbol)
+    fees = t.fees or 0.0
+    if t.type == "BUY":
+        spend = t.quantity * t.price + fees
+        if enforce_cash and spend > state.cash + 1e-6:
+            raise LedgerError(
+                f"Insufficient buying power: order costs ${spend:,.2f}, cash is ${state.cash:,.2f}"
+            )
+        lot.quantity += t.quantity
+        lot.cost += spend
+        state.cash -= spend
+        state.fees += fees
+    elif t.type == "SELL":
+        if t.quantity > lot.quantity + QTY_EPS:
+            raise LedgerError(
+                f"Cannot sell {t.quantity:g} {t.symbol}: only {max(lot.quantity, 0):g} held on "
+                f"{t.date.date().isoformat()}"
+            )
+        qty = min(t.quantity, lot.quantity)
+        cost_out = lot.avg_cost * qty
+        proceeds = qty * t.price - fees
+        pnl = proceeds - cost_out
+        lot.quantity -= qty
+        lot.cost -= cost_out
+        if lot.quantity <= QTY_EPS:
+            lot.quantity = 0.0
+            lot.cost = 0.0
+        lot.realized_pnl += pnl
+        state.realized_pnl += pnl
+        state.cash += proceeds
+        state.fees += fees
+        if t.id is not None:
+            state.sell_pnl[t.id] = pnl
+    elif t.type == "DIVIDEND":
+        lot.dividends += t.amount
+        state.dividends += t.amount
+        state.cash += t.amount
+    else:
+        raise LedgerError(f"Unsupported transaction type {t.type!r}")
+    state.lots[t.symbol] = lot
+
+
+def sorted_txns(txns: Iterable[LedgerTxn]) -> List[LedgerTxn]:
+    return sorted(txns, key=_sort_key)
+
+
 def replay(
     txns: Iterable[LedgerTxn],
     *,
@@ -82,47 +132,26 @@ def replay(
 ) -> LedgerState:
     """Replay transactions oldest-first. Raises LedgerError on an impossible ledger."""
     state = LedgerState(cash=starting_cash)
-    for t in sorted(txns, key=_sort_key):
-        lot = state.lots.setdefault(t.symbol, Lot(symbol=t.symbol))
-        fees = t.fees or 0.0
-        if t.type == "BUY":
-            spend = t.quantity * t.price + fees
-            if enforce_cash and spend > state.cash + 1e-6:
-                raise LedgerError(
-                    f"Insufficient buying power: order costs ${spend:,.2f}, cash is ${state.cash:,.2f}"
-                )
-            lot.quantity += t.quantity
-            lot.cost += spend
-            state.cash -= spend
-            state.fees += fees
-        elif t.type == "SELL":
-            if t.quantity > lot.quantity + QTY_EPS:
-                raise LedgerError(
-                    f"Cannot sell {t.quantity:g} {t.symbol}: only {max(lot.quantity, 0):g} held on "
-                    f"{t.date.date().isoformat()}"
-                )
-            qty = min(t.quantity, lot.quantity)
-            cost_out = lot.avg_cost * qty
-            proceeds = qty * t.price - fees
-            pnl = proceeds - cost_out
-            lot.quantity -= qty
-            lot.cost -= cost_out
-            if lot.quantity <= QTY_EPS:
-                lot.quantity = 0.0
-                lot.cost = 0.0
-            lot.realized_pnl += pnl
-            state.realized_pnl += pnl
-            state.cash += proceeds
-            state.fees += fees
-            if t.id is not None:
-                state.sell_pnl[t.id] = pnl
-        elif t.type == "DIVIDEND":
-            lot.dividends += t.amount
-            state.dividends += t.amount
-            state.cash += t.amount
-        else:
-            raise LedgerError(f"Unsupported transaction type {t.type!r}")
+    for t in sorted_txns(txns):
+        apply_txn(state, t, enforce_cash=enforce_cash)
     return state
+
+
+def first_invalid(
+    txns: Iterable[LedgerTxn],
+    *,
+    starting_cash: float = 0.0,
+    enforce_cash: bool = False,
+) -> Optional[tuple]:
+    """Replay and return (txn, message) for the first transaction that breaks
+    the ledger, or None when every transaction is valid."""
+    state = LedgerState(cash=starting_cash)
+    for t in sorted_txns(txns):
+        try:
+            apply_txn(state, t, enforce_cash=enforce_cash)
+        except LedgerError as e:
+            return t, str(e)
+    return None
 
 
 @dataclass

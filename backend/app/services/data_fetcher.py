@@ -318,7 +318,7 @@ class DataFetcher:
             count += 1
         
         if bars_to_insert:
-            db.bulk_save_objects(bars_to_insert)
+            count = DataFetcher._insert_bars_ignore_duplicates(db, bars_to_insert)
         if bars_to_insert or refreshed:
             db.commit()
         if bars_to_insert:
@@ -328,6 +328,30 @@ class DataFetcher:
 
         # Callers treat a non-zero return as "stored data changed, re-query".
         return count + refreshed
+
+    @staticmethod
+    def _insert_bars_ignore_duplicates(db: Session, bars: list) -> int:
+        """Insert bars, skipping any (symbol_id, timestamp) that already exists.
+
+        The existing-timestamp check above is racy when two syncs of one symbol
+        overlap; ON CONFLICT DO NOTHING on uq_price_bars_symbol_ts makes the
+        insert itself idempotent. Returns the number of rows actually inserted.
+        """
+        rows = [{"symbol_id": b.symbol_id, "timestamp": b.timestamp, "open": b.open, "high": b.high,
+                 "low": b.low, "close": b.close, "volume": b.volume} for b in bars]
+        dialect = db.get_bind().dialect.name
+        if dialect == "postgresql":
+            from sqlalchemy.dialects.postgresql import insert as dialect_insert
+        elif dialect == "sqlite":
+            from sqlalchemy.dialects.sqlite import insert as dialect_insert
+        else:
+            db.bulk_save_objects(bars)
+            return len(bars)
+        stmt = (dialect_insert(PriceBar.__table__).values(rows)
+                .on_conflict_do_nothing(index_elements=["symbol_id", "timestamp"])
+                .returning(PriceBar.__table__.c.id))
+        # rowcount is unreliable for ON CONFLICT DO NOTHING; count returned ids.
+        return len(db.execute(stmt).fetchall())
 
     @staticmethod
     def _refresh_bar(db: Session, symbol_id: int, bar_date, row) -> int:

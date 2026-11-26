@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { buildFanGeometry, type ForecastResponse } from './ForecastPanel'
+import { buildFanGeometry, fanTicks, type ForecastResponse } from './ForecastPanel'
+
+describe('fanTicks', () => {
+  it('spans the 60-day path and keeps the old 20-day ticks for legacy payloads', () => {
+    expect(fanTicks(60)).toEqual([0, 5, 20, 40, 60])
+    expect(fanTicks(20)).toEqual([0, 5, 10, 15, 20])
+  })
+})
 
 const pt = (h: number, point: number, w: number) => ({
   h, date: `2026-12-${String(h).padStart(2, '0')}`, point, exp_return_pct: 0, prob_up: 0.5,
