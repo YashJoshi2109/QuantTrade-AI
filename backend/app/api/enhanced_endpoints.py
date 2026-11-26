@@ -25,6 +25,7 @@ from app.services.rate_limiter import get_api_stats
 from app.api.auth import get_current_user, require_admin
 from app.models.user import User
 from app.models.watchlist import Watchlist
+from app.services.model_status import ml_model_promoted
 from app.services.stock_analysis_client import fetch_stock_prediction_payload
 from app.services.quote_cache import QuoteCacheService
 from app.config import settings
@@ -1206,10 +1207,14 @@ async def get_prediction_alerts(
         sym_u = sym.upper().strip()
         had_ml = False
 
-        # Run blocking HTTP call in thread pool to avoid blocking the event loop
-        payload = await asyncio.get_running_loop().run_in_executor(
-            None, partial(fetch_stock_prediction_payload, sym_u, horizons=[1, 7, 30])
-        )
+        # ML alerts only from a model that passed its promotion gates; an
+        # unvalidated model must not be presented as a "high severity" signal.
+        payload = None
+        if ml_model_promoted():
+            # Run blocking HTTP call in thread pool to avoid blocking the event loop
+            payload = await asyncio.get_running_loop().run_in_executor(
+                None, partial(fetch_stock_prediction_payload, sym_u, horizons=[1, 7, 30])
+            )
         if payload:
             for p in payload.get("predictions", []) or []:
                 try:

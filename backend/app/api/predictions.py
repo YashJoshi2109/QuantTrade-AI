@@ -13,7 +13,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 
 from ml.constants import DEFAULT_CHECKPOINT_DIR, DEFAULT_SEQ_LEN, DEFAULT_HORIZONS
@@ -150,13 +149,21 @@ def _run_inference(symbol: str, horizon: int) -> dict:
         raw_output = model(X_tensor)  # (1, 1)
     predicted_return = float(raw_output.squeeze().item())
 
-    # Direction and confidence
     predicted_direction = "up" if predicted_return >= 0 else "down"
 
-    # Confidence: sigmoid of |predicted_return| scaled to [0.5, 1.0]
-    # A raw log-return of 0 → 0.5 confidence; ±0.05 → ~0.62; ±0.10 → ~0.75
-    confidence = float(1 / (1 + np.exp(-abs(predicted_return) * 20)))
-    confidence = round(max(0.5, min(0.99, confidence)), 4)
+    # A sigmoid of |predicted_return| used to be reported as "confidence". It is
+    # not a probability and was never calibrated, so a model that failed its
+    # validation gates looked confident. Only a promoted model reports one.
+    from app.services.model_status import EXPERIMENTAL_LABEL, ml_model_promoted, ml_status_summary
+
+    promoted = ml_model_promoted()
+    confidence = None
+    if promoted and calibration is not None:
+        try:
+            from ml.calibration import calibrated_confidence
+            confidence = round(float(calibrated_confidence(predicted_return, calibration)), 4)
+        except Exception:
+            confidence = None
 
     version = _model_version_from_path(checkpoint_path)
     computed_at = datetime.now(timezone.utc).isoformat()
@@ -169,6 +176,9 @@ def _run_inference(symbol: str, horizon: int) -> dict:
         "confidence": confidence,
         "model_version": version,
         "computed_at": computed_at,
+        "experimental": not promoted,
+        "label": EXPERIMENTAL_LABEL,
+        "model_status": ml_status_summary(),
     }
 
 

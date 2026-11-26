@@ -1,0 +1,16 @@
+{
+  "served_model": "lstm_prod_300 (h1/h7) via /api/v1/predictions and lstm_prediction_service",
+  "verdict": "NOT_READY",
+  "gates_passed": null,
+  "gates_total": 10,
+  "gates_required": 8,
+  "evaluated_at": "2026-11-26",
+  "reason": "The served LSTM has never passed the 10-condition walk-forward promotion gate. The Phase 9 research candidate (h20 LightGBM, OHLCV + SEC filing recency) passed 9/10 in a purged backtest but is not deployed: no serving pipeline, survivorship-biased universe, IC not significant at 5%. See docs/ML_PHASE9_IC_RESEARCH.md.",
+  "research_candidate": {
+    "model_family": "h20_lightgbm_cross_sectional_ranker",
+    "variant": "sec_pit",
+    "gates_passed": 9,
+    "gates_total": 10,
+    "deployed": false
+  }
+}
