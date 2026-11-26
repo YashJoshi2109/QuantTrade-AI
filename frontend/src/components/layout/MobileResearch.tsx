@@ -54,6 +54,8 @@ import EarningsShortInterestPanel from '@/components/research/EarningsShortInter
 import { CompanyFolioPanel } from '@/components/research/CompanyFolioPanel'
 import TechnicalAnalysisGauge from '@/components/TechnicalAnalysisGauge'
 import AskCopilotButton from '@/components/copilot/AskCopilotButton'
+import { GitCompareArrows } from 'lucide-react'
+import { compareHref } from '@/lib/compare'
 
 const TIMEFRAMES = ['1D', '1W', '1M', '3M', '1Y', 'All'] as const
 type Timeframe = (typeof TIMEFRAMES)[number]
@@ -441,7 +443,18 @@ export default function MobileResearch() {
           </div>
         </div>
 
-        <AskCopilotButton symbol={symbolFromUrl} variant="mobile" />
+        <div className="flex items-stretch gap-2">
+          <div className="min-w-0 flex-1">
+            <AskCopilotButton symbol={symbolFromUrl} variant="mobile" />
+          </div>
+          <Link
+            href={compareHref([symbolFromUrl])}
+            className="flex shrink-0 items-center gap-1.5 rounded-2xl border border-line-subtle bg-surface-raised px-3 text-[12px] font-semibold text-fg-secondary active:scale-[0.98]"
+          >
+            <GitCompareArrows className="h-4 w-4" aria-hidden />
+            Compare
+          </Link>
+        </div>
 
         <div className="rounded-2xl bg-surface-raised border border-line-subtle overflow-hidden">
           <div className="h-[250px] chart-grid bg-surface-base">

@@ -47,6 +47,8 @@ import { useMarketRefreshInterval } from '@/hooks/useMarketRefresh'
 import { useToast } from '@/components/Toast'
 import { SkeletonWatchlistTable, SkeletonText } from '@/components/Skeleton'
 import TickerLogo from '@/components/TickerLogo'
+import { GitCompareArrows } from 'lucide-react'
+import { compareHref } from '@/lib/compare'
 
 interface WatchlistItemWithPrice extends WatchlistItem {
   price?: number
@@ -407,7 +409,7 @@ function WatchlistFinancialTable({
     )
   }
 
-  const GRID_COLS = '36px 40px 180px 90px 80px 80px 90px 80px 80px 80px 120px 44px'
+  const GRID_COLS = '36px 40px 180px 90px 80px 80px 90px 80px 80px 80px 120px 56px'
 
   return (
     <div className="w-full">
@@ -542,8 +544,16 @@ function WatchlistFinancialTable({
                       })() : <span className="text-fg-muted text-xs">—</span>}
                     </div>
 
-                    {/* Remove */}
-                    <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                    {/* Compare + remove */}
+                    <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <Link
+                        href={compareHref([item.symbol])}
+                        className="text-fg-muted hover:text-indigo-400 transition-colors"
+                        aria-label={`Compare ${item.symbol}`}
+                        title={`Compare ${item.symbol}`}
+                      >
+                        <GitCompareArrows className="w-4 h-4" />
+                      </Link>
                       <button
                         onClick={() => handleRemove(item.symbol)}
                         disabled={removeMutation.isPending}
@@ -990,6 +1000,16 @@ function DesktopWatchlistPage() {
                     <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
                     Refresh
                   </button>
+                  {watchlist.length >= 2 && (
+                    <Link
+                      href={compareHref(watchlist.slice(0, 4).map((w) => w.symbol))}
+                      className="flex items-center gap-2 px-3 py-2 bg-surface-raised hover:bg-surface-hover text-fg-primary rounded-lg font-medium text-sm transition-colors border border-line-subtle"
+                      title="Compare the first four symbols in your watchlist"
+                    >
+                      <GitCompareArrows className="w-4 h-4" aria-hidden="true" />
+                      Compare
+                    </Link>
+                  )}
                   <button
                     onClick={() => setShowAddModal(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors"
