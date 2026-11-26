@@ -27,11 +27,14 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # News-intelligence models: export ProsusAI/finbert + all-MiniLM-L6-v2 to int8
 # ONNX at build time (torch/transformers are only needed here). The runtime
-# (news-worker) uses onnxruntime + tokenizers. `onnx` is build-only.
+# (news-worker) uses onnxruntime + tokenizers. `onnx` and `transformers` are
+# build-only: installed here for the export, then removed so the runtime image
+# never carries them (transformers used to arrive transitively via
+# sentence-transformers, which #77 dropped from requirements.txt).
 COPY app/services/news_intel/export_models.py /tmp/export_models.py
-RUN pip install --no-cache-dir onnx && \
+RUN pip install --no-cache-dir onnx "transformers>=4.40,<6" && \
     HF_HOME=/tmp/hf python /tmp/export_models.py --out /opt/news-models && \
-    pip uninstall -y onnx && \
+    pip uninstall -y onnx transformers && \
     rm -rf /tmp/hf /tmp/export_models.py
 
 # Stage 2: Production

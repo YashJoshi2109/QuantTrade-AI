@@ -1,0 +1,58 @@
+name: Docker build check
+
+# Build the production backend image on every PR that can affect it, without
+# pushing. Before this, the image was only built after merge (deploy.yml), so a
+# dependency change that broke the Dockerfile (e.g. #77 dropping a package the
+# model-export step needed) was only discovered by a failed production deploy.
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/docker-build-check.yml"
+
+concurrency:
+  group: docker-build-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend-image:
+    name: Build backend image (linux/amd64, no push)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: quanttrade-backend:pr-check
+          build-args: |
+            GIT_SHA=${{ github.event.pull_request.head.sha }}
+          cache-from: type=gha,scope=backend-pr
+          cache-to: type=gha,scope=backend-pr,mode=max
+
+      - name: Smoke-test the image
+        run: |
+          docker run --rm --entrypoint python quanttrade-backend:pr-check -c "
+          import os, sys, importlib.util as u
+          assert os.listdir(os.environ['NEWS_MODELS_DIR']), 'news models missing'
+          assert u.find_spec('onnxruntime') and u.find_spec('tokenizers'), 'runtime deps missing'
+          import app.main
+          assert 'torch' not in sys.modules, 'API process must not import torch'
+          print('image ok, GIT_SHA', os.environ.get('GIT_SHA'))
+          "
