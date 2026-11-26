@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { BellRing, Loader2, LogIn, Mail, Pause, Play, Plus, Repeat, Trash2 } from 'lucide-react'
 import TickerLogo from '@/components/TickerLogo'
-import { STATUS_STYLE, describeAlert, distanceToLevel } from '@/lib/alerts'
+import { STATUS_STYLE, describeAlert, distanceToLevel, earningsCountdown } from '@/lib/alerts'
 import { AlertForm, FILTERS, Overlay, relTime, useAlertsController } from './AlertsParts'
 
 export default function AlertsMobile() {
@@ -45,7 +45,7 @@ export default function AlertsMobile() {
       ) : c.alerts.length === 0 ? (
         <div className="rounded-2xl border border-line-subtle bg-surface-raised p-4">
           <p className="mb-3 text-sm font-semibold text-fg-primary">Create your first alert</p>
-          <AlertForm initialSymbol={c.prefill} onDone={() => undefined} />
+          <AlertForm initialSymbol={c.prefill} initialCondition={c.prefillCondition} onDone={() => undefined} />
         </div>
       ) : (
         <>
@@ -85,7 +85,7 @@ export default function AlertsMobile() {
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-fg-muted">
                       <span className="min-w-0 truncate">
-                        {a.current_price == null ? 'Price n/a' : `$${a.current_price.toFixed(2)}`}
+                        {earningsCountdown(a) ?? (a.current_price == null ? 'Price n/a' : `$${a.current_price.toFixed(2)}`)}
                         {dist != null && a.status === 'active' && ` · ${Math.abs(dist).toFixed(1)}% to level`}
                         {a.trigger_count > 0 && ` · fired ${relTime(a.last_triggered_at)}`}
                         {a.repeat && <Repeat className="ml-1 inline h-3 w-3" aria-label="repeats" />}
@@ -120,8 +120,8 @@ export default function AlertsMobile() {
         </>
       )}
 
-      <Overlay open={c.createOpen} onClose={() => c.setCreateOpen(false)} title="New price alert" variant="sheet">
-        <AlertForm key={c.prefill} initialSymbol={c.prefill} onDone={() => c.setCreateOpen(false)} />
+      <Overlay open={c.createOpen} onClose={() => c.setCreateOpen(false)} title="New alert" variant="sheet">
+        <AlertForm key={`${c.prefill}-${c.prefillCondition}`} initialSymbol={c.prefill} initialCondition={c.prefillCondition} onDone={() => c.setCreateOpen(false)} />
       </Overlay>
     </div>
   )

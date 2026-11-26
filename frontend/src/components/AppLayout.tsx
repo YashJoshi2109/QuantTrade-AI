@@ -32,6 +32,7 @@ import {
   Plus,
   Brain,
   Filter,
+  CalendarDays,
   Coins,
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
@@ -203,6 +204,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
       { id: 'markets', label: 'Markets', icon: TrendingUp, href: '/markets' },
       { id: 'watchlist', label: 'Watchlist', icon: Bookmark, href: '/watchlist' },
       { id: 'portfolio', label: 'Portfolio', icon: Briefcase, href: '/portfolio' },
+      { id: 'earnings', label: 'Earnings', icon: CalendarDays, href: '/earnings' },
       { id: 'dividends', label: 'Dividends', icon: Coins, href: '/dividends' },
       { id: 'research', label: 'Research', icon: FileText, href: '/research' },
       { id: 'screener', label: 'Screener', icon: Filter, href: '/screener' },

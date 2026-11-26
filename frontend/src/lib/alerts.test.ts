@@ -6,7 +6,8 @@ describe('alert helpers', () => {
     expect(describeAlert({ condition: 'price_above', threshold: 210 })).toBe('Price rises above $210.00')
     expect(describeAlert({ condition: 'change_down_pct', threshold: 3 })).toBe('Down on the day by 3%')
     expect(describeAlert({ condition: 'rsi_below', threshold: 30 })).toBe('RSI(14) below 30')
-    expect(CONDITION_ORDER).toHaveLength(6)
+    expect(CONDITION_ORDER).toHaveLength(7)
+    expect(describeAlert({ condition: "earnings_within_days", threshold: 3 })).toBe("Earnings report within 3 days")
   })
 
   it('formats thresholds by unit', () => {

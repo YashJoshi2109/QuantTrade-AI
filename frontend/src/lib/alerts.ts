@@ -14,6 +14,7 @@ export type AlertCondition =
   | 'change_down_pct'
   | 'rsi_above'
   | 'rsi_below'
+  | 'earnings_within_days'
 
 export type AlertStatus = 'active' | 'triggered' | 'paused'
 
@@ -23,6 +24,8 @@ export interface PriceAlert {
   name: string | null
   condition: AlertCondition
   condition_label: string
+  /** price | change | rsi | earnings */
+  metric?: string
   threshold: number
   status: AlertStatus
   repeat: boolean
@@ -34,6 +37,8 @@ export interface PriceAlert {
   last_triggered_value: number | null
   last_checked_at: string | null
   last_value: number | null
+  /** Earnings alerts: report date (YYYY-MM-DD) that last fired. */
+  last_event_key?: string | null
   current_price: number | null
   change_percent: number | null
   created_at: string | null
@@ -51,7 +56,7 @@ export interface AlertInput {
 /** UI metadata. Bounds mirror backend CONDITIONS (server re-validates). */
 export const CONDITION_META: Record<
   AlertCondition,
-  { short: string; label: string; unit: '$' | '%' | ''; min: number; max: number; step: string; hint: string }
+  { short: string; label: string; unit: '$' | '%' | '' | 'days'; min: number; max: number; step: string; hint: string }
 > = {
   price_above: { short: 'Price ≥', label: 'Price rises above', unit: '$', min: 0.0001, max: 10_000_000, step: '0.01', hint: 'Fires when the last price is at or above this level.' },
   price_below: { short: 'Price ≤', label: 'Price falls below', unit: '$', min: 0.0001, max: 10_000_000, step: '0.01', hint: 'Fires when the last price is at or below this level.' },
@@ -59,16 +64,21 @@ export const CONDITION_META: Record<
   change_down_pct: { short: 'Day ▼', label: 'Down on the day by', unit: '%', min: 0.1, max: 100, step: '0.1', hint: 'Size of the drop vs. the previous close, e.g. 3 = down 3% or more.' },
   rsi_above: { short: 'RSI ≥', label: 'RSI(14) above', unit: '', min: 1, max: 99, step: '1', hint: 'Daily RSI(14) including today’s price. 70+ is often read as overbought.' },
   rsi_below: { short: 'RSI ≤', label: 'RSI(14) below', unit: '', min: 1, max: 99, step: '1', hint: 'Daily RSI(14) including today’s price. 30 or lower is often read as oversold.' },
+  earnings_within_days: { short: 'Earnings', label: 'Earnings report within', unit: 'days', min: 1, max: 30, step: '1', hint: 'Fires once per earnings report, N days (or fewer) before the scheduled date.' },
 }
 
 export const CONDITION_ORDER: AlertCondition[] = [
   'price_above', 'price_below', 'change_up_pct', 'change_down_pct', 'rsi_above', 'rsi_below',
+  'earnings_within_days',
 ]
+
+export const isEarningsCondition = (c: AlertCondition) => c === 'earnings_within_days'
 
 export function formatThreshold(c: AlertCondition, v: number): string {
   const u = CONDITION_META[c].unit
   if (u === '$') return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
   if (u === '%') return `${v}%`
+  if (u === 'days') return `${v} day${v === 1 ? '' : 's'}`
   return String(v)
 }
 
@@ -83,11 +93,22 @@ export function distanceToLevel(a: Pick<PriceAlert, 'condition' | 'threshold' | 
   return ((a.threshold - a.current_price) / a.current_price) * 100
 }
 
+/** Earnings alerts: "Reports in 3 days" from the last evaluation, or null for other alerts. */
+export function earningsCountdown(a: Pick<PriceAlert, 'condition' | 'last_value'>): string | null {
+  if (!isEarningsCondition(a.condition)) return null
+  const d = a.last_value
+  if (d == null || !Number.isFinite(d) || d < 0) return 'Next report not scheduled yet'
+  if (d === 0) return 'Reports today'
+  if (d === 1) return 'Reports tomorrow'
+  return `Reports in ${d} days`
+}
+
 export function validateThreshold(c: AlertCondition, raw: string): string | null {
   const v = Number(raw)
   const m = CONDITION_META[c]
   if (raw.trim() === '' || !Number.isFinite(v)) return 'Enter a number'
   if (v < m.min || v > m.max) return `Must be between ${m.min} and ${m.max.toLocaleString('en-US')}`
+  if (m.unit === 'days' && !Number.isInteger(v)) return 'Use a whole number of days'
   return null
 }
 

@@ -6,6 +6,7 @@ import {
   BellRing,
   Bookmark,
   Briefcase,
+  CalendarDays,
   ChevronRight,
   Coins,
   DollarSign,
@@ -185,6 +186,12 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
               title="Portfolio"
               description="Holdings, P&L, allocation and simulated paper trading."
               href="/portfolio"
+            />
+            <MenuItem
+              icon={<CalendarDays className="w-4 h-4 text-amber-500" />}
+              title="Earnings Calendar"
+              description="Upcoming reports, EPS and revenue vs. estimates."
+              href="/earnings"
             />
             <MenuItem
               icon={<Coins className="w-4 h-4 text-emerald-500" />}

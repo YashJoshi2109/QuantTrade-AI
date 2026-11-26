@@ -143,6 +143,11 @@ def _create_db_tables():
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
         print("✅ Database tables created/verified successfully")
+        try:
+            from app.models.price_alert import ensure_price_alert_columns
+            ensure_price_alert_columns(engine)
+        except Exception as e:
+            print(f"⚠️ price_alerts column migration failed (run scripts/add_price_alert_event_key_column.py): {e}")
     except Exception as e:
         error_msg = str(e)
         if "already exists" in error_msg or "DuplicateTable" in error_msg:
@@ -662,6 +667,10 @@ app.include_router(alerts_api.router, prefix="/api/v1")
 # Stock screener — fundamental + technical filters over a DB-built snapshot
 from app.api import screener as screener_api  # noqa: E402
 app.include_router(screener_api.router, prefix="/api/v1")
+
+# Earnings calendar (Finnhub + Nasdaq, Redis-cached) and the Research "earnings in N days" badge
+from app.api import earnings as earnings_api  # noqa: E402
+app.include_router(earnings_api.router, prefix="/api/v1")
 
 # Dividend calendar (Nasdaq) + projected dividend income for tracked portfolios (yfinance history)
 from app.api import dividends as dividends_api  # noqa: E402

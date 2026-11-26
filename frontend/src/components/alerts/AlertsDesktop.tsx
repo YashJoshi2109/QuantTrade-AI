@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { BellRing, Loader2, LogIn, Mail, Pause, Play, Plus, Repeat, Trash2 } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import TickerLogo from '@/components/TickerLogo'
-import { STATUS_STYLE, describeAlert, distanceToLevel } from '@/lib/alerts'
+import { STATUS_STYLE, describeAlert, distanceToLevel, earningsCountdown } from '@/lib/alerts'
 import { AlertForm, FILTERS, Overlay, relTime, useAlertsController } from './AlertsParts'
 
 export default function AlertsDesktop() {
@@ -52,7 +52,7 @@ export default function AlertsDesktop() {
           <div className="hud-card mx-auto max-w-lg p-8">
             <h2 className="mb-1 text-lg font-semibold text-fg-primary">Create your first alert</h2>
             <p className="mb-5 text-sm text-fg-muted">Up to {c.limit} alerts. Checked about every 5 minutes.</p>
-            <AlertForm initialSymbol={c.prefill} onDone={() => undefined} />
+            <AlertForm initialSymbol={c.prefill} initialCondition={c.prefillCondition} onDone={() => undefined} />
           </div>
         ) : (
           <>
@@ -112,7 +112,9 @@ export default function AlertsDesktop() {
                             </span>
                           </td>
                           <td className="px-3 py-3 text-right tabular-nums">
-                            {a.current_price == null ? '—' : `$${a.current_price.toFixed(2)}`}
+                            {earningsCountdown(a) ? (
+                              <span className="text-xs text-fg-secondary">{earningsCountdown(a)}</span>
+                            ) : a.current_price == null ? '—' : `$${a.current_price.toFixed(2)}`}
                             {dist != null && a.status === 'active' && (
                               <span className="block text-[11px] text-fg-muted">{Math.abs(dist).toFixed(1)}% {dist > 0 ? 'below level' : 'above level'}</span>
                             )}
@@ -149,8 +151,8 @@ export default function AlertsDesktop() {
           </>
         )}
       </div>
-      <Overlay open={c.createOpen} onClose={() => c.setCreateOpen(false)} title="New price alert" variant="modal">
-        <AlertForm key={c.prefill} initialSymbol={c.prefill} onDone={() => c.setCreateOpen(false)} />
+      <Overlay open={c.createOpen} onClose={() => c.setCreateOpen(false)} title="New alert" variant="modal">
+        <AlertForm key={`${c.prefill}-${c.prefillCondition}`} initialSymbol={c.prefill} initialCondition={c.prefillCondition} onDone={() => c.setCreateOpen(false)} />
       </Overlay>
     </AppLayout>
   )

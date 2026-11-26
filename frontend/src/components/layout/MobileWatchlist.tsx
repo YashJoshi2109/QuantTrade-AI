@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import TickerLogo from '@/components/TickerLogo'
+import { GitCompareArrows } from 'lucide-react'
+import { compareHref } from '@/lib/compare'
 import WatchlistPortfolioPanel from '@/components/portfolio/WatchlistPortfolioPanel'
 import {
   addToWatchlist,
@@ -164,6 +166,15 @@ export default function MobileWatchlist() {
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
+            {items.length >= 2 && (
+              <Link
+                href={compareHref(items.slice(0, 4).map((w) => w.symbol))}
+                className="h-9 w-9 rounded-full bg-surface-raised border border-line-subtle text-fg-secondary flex items-center justify-center active:scale-95"
+                aria-label="Compare watchlist symbols"
+              >
+                <GitCompareArrows className="w-4 h-4" />
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => setShowAdd(true)}
@@ -314,6 +325,13 @@ export default function MobileWatchlist() {
                           {formatPercent(q.change_percent, 2)}
                         </p>
                       </div>
+                      <Link
+                        href={compareHref([q.symbol])}
+                        className="h-9 w-9 rounded-full bg-surface-base border border-line-subtle text-fg-secondary flex items-center justify-center active:scale-95"
+                        aria-label={`Compare ${q.symbol}`}
+                      >
+                        <GitCompareArrows className="w-4 h-4" />
+                      </Link>
                       <button
                         type="button"
                         onClick={() => removeMutation.mutate(q.symbol)}

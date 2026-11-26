@@ -205,9 +205,16 @@ class FinnhubFetcher:
         params = {"from": from_date, "to": to_date}
         if symbol:
             params["symbol"] = symbol
-        
-        data = FinnhubFetcher._make_request("calendar/earnings", params)
-        return data
+
+        # Shared 60/min limiter at low priority: a busy minute returns {} instead of
+        # blocking (callers fall back to the Nasdaq calendar). Cached 1 hour.
+        return rate_limited_api_call(
+            endpoint='earnings_calendar',
+            params=params,
+            api_function=lambda: FinnhubFetcher._make_request("calendar/earnings", params),
+            cache_ttl=CACHE_TTL['earnings_calendar'],
+            priority='normal',
+        )
     
     @staticmethod
     def get_peers(symbol: str, priority: str = 'normal') -> List[str]:
