@@ -70,8 +70,10 @@ def validate_ohlcv(df: pd.DataFrame, symbol: str = "") -> tuple[pd.DataFrame, Li
         warnings.append(f"{symbol}: dropped {before - len(out)} bars with missing or non-positive prices")
     hi = out[["open", "close", "high"]].max(axis=1)
     lo = out[["open", "close", "low"]].min(axis=1)
-    if ((hi != out["high"]) | (lo != out["low"])).any():
-        warnings.append(f"{symbol}: repaired bars where high/low did not contain open/close")
+    # Adjusted vendor bars are often off by a rounding tick; only flag real repairs.
+    gap = np.maximum((hi - out["high"]) / out["close"], (out["low"] - lo) / out["close"])
+    if (gap > 0.005).any():
+        warnings.append(f"{symbol}: repaired {int((gap > 0.005).sum())} bars where high/low did not contain open/close")
     out["high"], out["low"] = hi, lo
     out["volume"] = out["volume"].fillna(0.0)
     rets = out["close"].pct_change().abs()

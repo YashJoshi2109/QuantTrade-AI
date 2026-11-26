@@ -79,12 +79,103 @@ change past trades. Its signals were causal.
 Not changed: the eight named strategies' signal definitions. They were
 already causal: each uses only bars up to t.
 
+## Strategy builder (`rules.py`, `indicators.py`, `runner.py`)
+
+A strategy spec has these parts:
+- `symbols` (1-10) and a benchmark.
+- An `entry` rule and an optional `exit` rule. Each rule is a group: `all` means AND, `any` means OR. Groups can nest 3 levels deep.
+- Costs, sizing, side, stops, `signal_frequency` and `rebalance`.
+- `parameters` and an optional `param_grid`.
+
+A condition is `left op right`:
+- Operators: `>`, `<`, `>=`, `<=`, `crosses_above`, `crosses_below`.
+- Each side is an indicator or a constant. Numeric fields may be references like `"$fast"`, resolved from `parameters` or from one grid combination.
+
+Indicators:
+
+| Group | Indicators |
+|---|---|
+| Price and volume | close, open, high, low, volume, volume SMA |
+| Moving averages | SMA, EMA |
+| Momentum | RSI, MACD (line, signal, histogram), rate of change |
+| Bands and volatility | Bollinger (upper, mid, lower), z-score, ATR% |
+| Breakout | `highest` / `lowest`: range of the *prior* N bars, so a breakout is reachable |
+| Cross-sectional | `momentum_rank`: rank 1 is the strongest N-bar return that day |
+
+Every indicator is causal. `test_every_indicator_is_causal` changes all bars after t and asserts values up to t do not move.
+
+Presets: golden cross, RSI mean reversion, MACD trend, Bollinger reversion, Donchian breakout, momentum rotation (7 ETFs, top K, monthly), and buy-and-hold.
+
+API (`backend/app/api/backtest_v2.py`):
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/v1/backtest/v2/meta` | Indicators, operators, presets, limits |
+| `POST /api/v1/backtest/v2/validate` | Check a spec. Returns 422 with reasons, or the rule text, combination count and warm-up |
+| `POST /api/v1/backtest/v2/jobs` | Start a job. Returns 202 with `{id}`. Auth required; 409 if you already have one running; 429 if the queue is full |
+| `GET /api/v1/backtest/v2/jobs/{id}` | Status, stage, progress and result |
+| `DELETE /api/v1/backtest/v2/jobs/{id}` | Cancel |
+
+Jobs run in an in-process single-thread pool (`jobs.py`), never on the event loop:
+- Queue of 4. One active job per user.
+- 60 s time budget, checked inside the engine loop.
+- Results are kept for 15 minutes.
+
+The JWT-only guard does not open a DB session.
+
+## Robustness (`robustness.py`)
+
+Each check targets one failure mode Phase 9 found:
+
+| Check | What it does |
+|---|---|
+| **In-sample / out-of-sample split** (default 70/30) | Same parameters, metrics shown side by side. With a sweep, the in-sample winner's out-of-sample result and rank. |
+| **Walk-forward optimisation** (2-10 folds, anchored or rolling) | Each fold picks the best combination on its training window only. The stitched test windows form one out-of-sample equity curve. Reports walk-forward efficiency: OOS Sharpe / mean train Sharpe. |
+| **Probability of backtest overfitting** (CSCV, 10 blocks, 252 splits) | The share of splits in which the in-sample winner ranks in the bottom half out of sample. |
+| **Deflated Sharpe ratio** | The probability that the best Sharpe is above 0 after accounting for the number of trials, the dispersion of trial Sharpes, and skew and kurtosis. With no sweep it is the probabilistic Sharpe ratio. |
+| **Monte Carlo** | See above. |
+
+Selection always uses returns from full-period runs. Indicators are causal and positions are opened only on past information, so a test window never leaks into its own selection.
+
+### Sample results (real adjusted data, 1 bp commission + 5 bps slippage per side)
+
+**Golden cross on SPY, 2005-2024.** Grid: fast ∈ {20, 50, 100} × slow ∈ {150, 200, 250}.
+
+| | Strategy (50/200) | SPY buy and hold |
+|---|---|---|
+| CAGR | 8.38% | 10.30% |
+| Sharpe | 0.68 | 0.61 |
+| Max drawdown | −33.7% | −55.2% |
+| Exposure | 71% | 100% |
+
+- Trades: 9, win rate 78%.
+- Alpha 3.4%/yr, beta 0.48.
+- In-sample / out-of-sample Sharpe: 0.66 / 0.73.
+- PBO 0.32. Deflated Sharpe probability 0.998 (9 trials).
+- Walk-forward (5 folds): OOS Sharpe 0.75, efficiency 1.47.
+- Monte Carlo final return p5 / p50 / p95: +109% / +411% / +1,083%. Max drawdown p50 −31.9%.
+- Verdict: a lower-risk, lower-return trend filter, and the result is stable out of sample.
+
+**Momentum rotation over 7 ETFs, 2008-2024.** Top 3 by 126-day return, monthly. Grid: lookback ∈ {63, 126, 252} × top ∈ {2, 3, 4}.
+
+| | Strategy | SPY buy and hold |
+|---|---|---|
+| CAGR | 9.30% | 10.65% |
+| Sharpe | 0.74 | 0.61 |
+| Max drawdown | −25.7% | −51.9% |
+
+- Turnover 5.1×/yr.
+- **PBO 0.60**: the in-sample winner usually ranks below median out of sample.
+- Walk-forward OOS Sharpe 0.50, efficiency 0.67.
+- Verdict: the parameter choice is mostly noise. The edge over SPY is in drawdown, not in return.
+
 ## Limits (`limits.py`)
 
 At most 25 years per request, 10 symbols per portfolio, 25 symbols per scan,
 indicator windows up to 400 bars, 60 parameter combinations per sweep,
 10 walk-forward folds, and 2,000 Monte Carlo simulations (also capped at 2M
-cells). Synchronous runs get a 20 s time budget. Background jobs get 60 s.
+cells). One run is also limited to 1.5M symbol × trading-day × combination
+cells, about 40 s of engine time. Synchronous runs get a 20 s time budget. Background jobs get 60 s.
 
 ## What a backtest cannot tell you
 
