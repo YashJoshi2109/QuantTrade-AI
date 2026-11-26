@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import {
-  AlertTriangle, Briefcase, Download, FlaskConical, Loader2, LogIn, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2,
+  AlertTriangle, Briefcase, Download, FlaskConical, Loader2, LogIn, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2, Upload,
 } from 'lucide-react'
+import { ImportTradesForm, PerformancePanel } from './PortfolioHistoryParts'
 import TickerLogo from '@/components/TickerLogo'
 import { fmtDate, fmtMoney, fmtPct, fmtQty, pnlClass } from '@/lib/portfolio'
 import {
@@ -106,6 +107,7 @@ export default function PortfolioMobile() {
                   {menuOpen && (
                     <div className="absolute right-0 z-30 mt-1 w-52 overflow-hidden rounded-xl border border-line-default bg-white text-sm shadow-xl dark:bg-slate-900" role="menu">
                       {[
+                        ...(!s.simulated ? [{ icon: Upload, label: 'Import trades CSV', fn: () => c.setImportOpen(true) }] : []),
                         { icon: Download, label: 'Export holdings CSV', fn: () => c.exportCsv('holdings') },
                         { icon: Download, label: 'Export transactions CSV', fn: () => c.exportCsv('transactions') },
                         { icon: Pencil, label: 'Rename', fn: c.rename },
@@ -136,6 +138,8 @@ export default function PortfolioMobile() {
               >
                 <Plus className="h-4 w-4" /> {s.simulated ? 'Place simulated order' : 'Add transaction'}
               </button>
+
+              <PerformancePanel key={s.id} portfolioId={s.id} simulated={s.simulated} compact />
 
               <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-1 rounded-xl border border-line-subtle bg-surface-raised/50 p-1" role="tablist">
                 {(['holdings', 'activity'] as const).map((k) => (
@@ -228,6 +232,11 @@ export default function PortfolioMobile() {
       <Overlay open={c.createOpen} onClose={() => c.setCreateOpen(false)} title="New portfolio" variant="sheet">
         <CreatePortfolioForm onDone={(id) => { c.setCreateOpen(false); c.select(id) }} />
       </Overlay>
+      {s && !s.simulated && (
+        <Overlay open={c.importOpen} onClose={() => c.setImportOpen(false)} title="Import trades from CSV" variant="sheet">
+          <ImportTradesForm portfolioId={s.id} onDone={() => c.setImportOpen(false)} />
+        </Overlay>
+      )}
       {s && (
         <Overlay open={!!c.trade} onClose={() => c.setTrade(null)} title={s.simulated ? 'Simulated order' : 'Add transaction'} variant="sheet">
           <TradeForm

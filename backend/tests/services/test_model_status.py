@@ -97,6 +97,8 @@ def test_forecast_endpoint_returns_honesty_fields(monkeypatch):
     idx = pd.bdate_range("2023-01-02", periods=420)
     closes = pd.Series(100 * np.exp(np.cumsum(rng.normal(0, 0.01, len(idx)))), index=idx)
     monkeypatch.setattr(api, "_load_closes", lambda t: closes)
+    monkeypatch.setattr(api, "_load_exog", lambda t: None)  # no network in tests
+    monkeypatch.setattr(api, "_load_earnings", lambda t: None)
     store: dict = {}
 
     async def fake_get(key):
@@ -114,4 +116,23 @@ def test_forecast_endpoint_returns_honesty_fields(monkeypatch):
     assert body["ml_model"]["used_in_forecast"] is False
     assert all(h["reliability"] in ("edge_in_backtest", "no_edge") for h in body["horizons"])
     assert all("status" in h["calibration"] for h in body["horizons"])
-    assert api._CACHE_VERSION == "v2"  # old cached payloads lack the labels
+    assert int(api._CACHE_VERSION[1:]) >= 2  # v1 cached payloads lack the labels
+
+
+def test_committed_benchmark_test_says_lstm_has_no_edge():
+    s = ms.ml_status_summary()
+    assert s["benchmark"] == "ARIMA(0,1,0)" and s["beats_benchmark"] is False
+    assert "no predictive edge over a random walk at 1 day" in s["note"]
+    assert "no predictive edge" in s["benchmark_finding"]
+
+
+def test_benchmark_loss_blocks_promotion_even_with_gates(tmp_path, monkeypatch):
+    ok = {"verdict": "READY", "gates_passed": 9, "gates_required": 8}
+    _write(tmp_path, monkeypatch, {**ok, "benchmark_test": {"edge_any": False, "finding": "no edge"}})
+    assert ms.ml_model_promoted() is False
+    ms.ml_model_status.cache_clear()
+    _write(tmp_path, monkeypatch, {**ok, "benchmark_test": {"edge_any": True}})
+    assert ms.ml_model_promoted() is True
+    ms.ml_model_status.cache_clear()
+    _write(tmp_path, monkeypatch, ok)  # never benchmark-tested: gates decide
+    assert ms.ml_model_promoted() is True and ms.benchmark_edge() is None

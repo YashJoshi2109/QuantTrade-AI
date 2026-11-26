@@ -29,8 +29,7 @@ import MobileWatchlist from '@/components/layout/MobileWatchlist'
 import {
   TrendingUp, TrendingDown, Plus, Trash2, Star, Loader2,
   RefreshCw, X, LogIn, AlertCircle, Search,
-  Building2, Globe, Briefcase, Link2, Unlink, Filter,
-  Sparkles, PieChart, BarChart3, Layers, AlertTriangle,
+  Building2, Globe, Briefcase, Filter,
   MoreHorizontal, Download, Calendar as CalendarIcon, Share2
 } from 'lucide-react'
 import {
@@ -49,6 +48,7 @@ import { SkeletonWatchlistTable, SkeletonText } from '@/components/Skeleton'
 import TickerLogo from '@/components/TickerLogo'
 import { GitCompareArrows } from 'lucide-react'
 import { compareHref } from '@/lib/compare'
+import WatchlistPortfolioPanel from '@/components/portfolio/WatchlistPortfolioPanel'
 
 interface WatchlistItemWithPrice extends WatchlistItem {
   price?: number
@@ -67,40 +67,6 @@ interface WatchlistItemWithPrice extends WatchlistItem {
 }
 
 type ActiveTab = 'watchlist' | 'portfolio'
-
-interface BrokerConnection {
-  id: string
-  name: string
-  icon: string
-  connected: boolean
-  accountCount: number
-  totalValue: number
-}
-
-interface PortfolioHolding {
-  symbol: string
-  name: string
-  shares: number
-  avgCost: number
-  currentPrice: number
-  marketValue: number
-  pnl: number
-  pnlPercent: number
-  sector: string
-  broker: string
-  weight: number
-}
-
-const SUPPORTED_BROKERS: Omit<BrokerConnection, 'connected' | 'accountCount' | 'totalValue'>[] = [
-  { id: 'robinhood', name: 'Robinhood', icon: '🪶' },
-  { id: 'fidelity', name: 'Fidelity', icon: '🏛️' },
-  { id: 'schwab', name: 'Charles Schwab', icon: '💼' },
-  { id: 'etrade', name: 'E*TRADE', icon: '📊' },
-  { id: 'td_ameritrade', name: 'TD Ameritrade', icon: '🟢' },
-  { id: 'webull', name: 'Webull', icon: '🐂' },
-  { id: 'interactive_brokers', name: 'Interactive Brokers', icon: '🔴' },
-  { id: 'vanguard', name: 'Vanguard', icon: '⛵' },
-]
 
 // Query key for cache management
 const WATCHLIST_QUERY_KEY = ['watchlist']
@@ -589,19 +555,8 @@ function DesktopWatchlistPage() {
   const [isSearching, setIsSearching] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
 
-  // Portfolio state
+  // Tab: watchlist, or a summary of the user's real portfolios (/portfolio)
   const [activeTab, setActiveTab] = useState<ActiveTab>('watchlist')
-  const [showBrokerConnect, setShowBrokerConnect] = useState(false)
-  const [brokers, setBrokers] = useState<BrokerConnection[]>(
-    SUPPORTED_BROKERS.map(b => ({ ...b, connected: false, accountCount: 0, totalValue: 0 }))
-  )
-  const [holdings, setHoldings] = useState<PortfolioHolding[]>([])
-  const [selectedBrokerFilter, setSelectedBrokerFilter] = useState<string | null>(null)
-  const [selectedSectorFilter, setSelectedSectorFilter] = useState<string | null>(null)
-  const [sortByPerformance, setSortByPerformance] = useState(false)
-  const [showOptimizer, setShowOptimizer] = useState(false)
-  const [optimizing, setOptimizing] = useState(false)
-  const [optimizeResult, setOptimizeResult] = useState<null | { score: number; suggestions: string[] }>(null)
 
   // Refs
   const isAddingRef = useRef(false)
@@ -899,52 +854,6 @@ function DesktopWatchlistPage() {
     return { gainers, losers, topGainer, topLoser, avgChange }
   }, [watchlist])
 
-  // Portfolio computed values
-  const connectedBrokers = brokers.filter(b => b.connected)
-  const hasPortfolio = connectedBrokers.length > 0
-
-  const portfolioSectors = useMemo(() => Array.from(new Set(holdings.map(h => h.sector))), [holdings])
-  const portfolioBrokerNames = useMemo(() => Array.from(new Set(holdings.map(h => h.broker))), [holdings])
-
-  const filteredHoldings = useMemo(() => {
-    let filtered = holdings
-    if (selectedBrokerFilter) filtered = filtered.filter(h => h.broker === selectedBrokerFilter)
-    if (selectedSectorFilter) filtered = filtered.filter(h => h.sector === selectedSectorFilter)
-    if (sortByPerformance) filtered = [...filtered].sort((a, b) => b.pnlPercent - a.pnlPercent)
-    return filtered
-  }, [holdings, selectedBrokerFilter, selectedSectorFilter, sortByPerformance])
-
-  const portfolioStats = useMemo(() => {
-    const totalValue = filteredHoldings.reduce((s, h) => s + h.marketValue, 0)
-    const totalPnl = filteredHoldings.reduce((s, h) => s + h.pnl, 0)
-    const totalCost = filteredHoldings.reduce((s, h) => s + (h.avgCost * h.shares), 0)
-    const totalPnlPercent = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
-    return { totalValue, totalPnl, totalPnlPercent, holdingCount: filteredHoldings.length }
-  }, [filteredHoldings])
-
-  const handleConnectBroker = (brokerId: string) => {
-    // TODO: Integrate with real broker OAuth flow (e.g. Plaid)
-    // For now, toggle connection state — actual holdings would be fetched from the broker API
-    setBrokers(prev => prev.map(b =>
-      b.id === brokerId
-        ? { ...b, connected: !b.connected, accountCount: b.connected ? 0 : 1, totalValue: 0 }
-        : b
-    ))
-    // When disconnecting, clear holdings from this broker
-    const broker = brokers.find(b => b.id === brokerId)
-    if (broker?.connected) {
-      setHoldings(prev => prev.filter(h => h.broker !== broker.name))
-    }
-  }
-
-  const handleOptimize = async () => {
-    if (holdings.length === 0) return
-    setOptimizing(true)
-    // TODO: Call real portfolio optimization API endpoint
-    // e.g. const result = await fetch('/api/v1/portfolio/optimize', { method: 'POST', body: JSON.stringify({ holdings }) })
-    setOptimizing(false)
-  }
-
   // Auth gate
   if (!authLoading && !isAuthenticated) {
     return (
@@ -978,14 +887,12 @@ function DesktopWatchlistPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-white">
-                {activeTab === 'watchlist' ? 'Your Watchlist' : 'Portfolio Optimizer'}
+                {activeTab === 'watchlist' ? 'Your Watchlist' : 'Your Portfolios'}
               </h1>
               <p className="text-sm text-fg-secondary mt-1">
                 {activeTab === 'watchlist'
                   ? `${watchlist.length} symbols tracked • ${stats.gainers} up • ${stats.losers} down`
-                  : hasPortfolio
-                    ? `${portfolioStats.holdingCount} holdings across ${connectedBrokers.length} broker${connectedBrokers.length > 1 ? 's' : ''}`
-                    : 'Connect your brokerage to get started'}
+                  : 'Holdings, P&L and performance from your Portfolio page'}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -1021,24 +928,13 @@ function DesktopWatchlistPage() {
                 </>
               )}
               {activeTab === 'portfolio' && (
-                <>
-                  <button
-                    onClick={() => setShowBrokerConnect(true)}
-                    className="flex items-center gap-2 px-3 py-2 bg-surface-raised hover:bg-surface-hover text-fg-primary rounded-lg font-medium text-sm transition-colors border border-line-subtle"
-                  >
-                    <Link2 className="w-4 h-4" aria-hidden="true" />
-                    {hasPortfolio ? 'Manage Brokers' : 'Connect Broker'}
-                  </button>
-                  {hasPortfolio && (
-                    <button
-                      onClick={() => { setShowOptimizer(true); setOptimizeResult(null) }}
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-lg font-medium text-sm transition-colors"
-                    >
-                      <Sparkles className="w-4 h-4" aria-hidden="true" />
-                      Optimize Portfolio
-                    </button>
-                  )}
-                </>
+                <Link
+                  href="/portfolio"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors"
+                >
+                  <Briefcase className="w-4 h-4" aria-hidden="true" />
+                  Open Portfolio
+                </Link>
               )}
             </div>
           </div>
@@ -1134,353 +1030,10 @@ function DesktopWatchlistPage() {
             </>
           )}
 
-          {/* ─── PORTFOLIO TAB ─── */}
-          {activeTab === 'portfolio' && (
-            <>
-              {!hasPortfolio ? (
-                <div className="bg-surface-raised border border-line-subtle rounded-lg p-12 text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center mx-auto mb-4">
-                    <Link2 className="w-8 h-8 text-blue-400" />
-                  </div>
-                  <h2 className="text-xl font-bold text-white mb-2">Connect Your Brokerage</h2>
-                  <p className="text-fg-secondary mb-6 max-w-md mx-auto">
-                    Import your portfolio from Robinhood, Fidelity, Schwab, and more to get AI-powered optimization insights and sector analysis.
-                  </p>
-                  <button
-                    onClick={() => setShowBrokerConnect(true)}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors"
-                  >
-                    <Link2 className="w-5 h-5" />
-                    Connect a Broker
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {/* Connected Brokers Summary */}
-                  <div className="grid grid-cols-4 gap-4 mb-6">
-                    <div className="bg-surface-raised border border-line-subtle rounded-lg p-4">
-                      <p className="text-sm text-fg-secondary mb-1">Connected Brokers</p>
-                      <p className="text-2xl font-bold text-white">{connectedBrokers.length}</p>
-                      <div className="flex gap-1 mt-1">
-                        {connectedBrokers.map(b => (
-                          <span key={b.id} className="text-base" title={b.name}>{b.icon}</span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="bg-surface-raised border border-line-subtle rounded-lg p-4">
-                      <p className="text-sm text-fg-secondary mb-1">Total Value</p>
-                      <p className="text-2xl font-bold text-white">
-                        {holdings.length > 0 ? `$${(portfolioStats.totalValue / 1000).toFixed(1)}K` : '—'}
-                      </p>
-                      <p className="text-xs text-fg-secondary mt-1">{portfolioStats.holdingCount} holdings</p>
-                    </div>
-                    <div className="bg-surface-raised border border-line-subtle rounded-lg p-4">
-                      <p className="text-sm text-fg-secondary mb-1">Total P&L</p>
-                      {holdings.length > 0 ? (
-                        <>
-                          <p className={`text-2xl font-bold ${portfolioStats.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {portfolioStats.totalPnl >= 0 ? '+' : ''}${(portfolioStats.totalPnl / 1000).toFixed(1)}K
-                          </p>
-                          <p className={`text-xs mt-1 ${portfolioStats.totalPnlPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {portfolioStats.totalPnlPercent >= 0 ? '+' : ''}{portfolioStats.totalPnlPercent.toFixed(2)}%
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-2xl font-bold text-white">—</p>
-                      )}
-                    </div>
-                    <div className="bg-surface-raised border border-line-subtle rounded-lg p-4">
-                      <p className="text-sm text-fg-secondary mb-1">Sectors</p>
-                      <p className="text-2xl font-bold text-white">{portfolioSectors.length || '—'}</p>
-                      <p className="text-xs text-fg-secondary mt-1">Diversification spread</p>
-                    </div>
-                  </div>
-
-                  {/* Filter Bar — only show when there are holdings */}
-                  {holdings.length > 0 && (
-                    <div className="flex items-center gap-3 mb-4 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <Filter className="w-4 h-4 text-fg-secondary" />
-                        <span className="text-sm text-fg-secondary">Filter:</span>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-fg-muted mr-1">Broker:</span>
-                        <button
-                          onClick={() => setSelectedBrokerFilter(null)}
-                          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                            !selectedBrokerFilter ? 'bg-blue-600 text-white' : 'bg-surface-raised text-fg-secondary hover:text-white border border-line-subtle'
-                          }`}
-                        >
-                          All
-                        </button>
-                        {portfolioBrokerNames.map(bn => (
-                          <button
-                            key={bn}
-                            onClick={() => setSelectedBrokerFilter(selectedBrokerFilter === bn ? null : bn)}
-                            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                              selectedBrokerFilter === bn ? 'bg-blue-600 text-white' : 'bg-surface-raised text-fg-secondary hover:text-white border border-line-subtle'
-                            }`}
-                          >
-                            {bn}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="w-px h-5 bg-line-default" />
-
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-fg-muted mr-1">Sector:</span>
-                        <button
-                          onClick={() => setSelectedSectorFilter(null)}
-                          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                            !selectedSectorFilter ? 'bg-blue-600 text-white' : 'bg-surface-raised text-fg-secondary hover:text-white border border-line-subtle'
-                          }`}
-                        >
-                          All
-                        </button>
-                        {portfolioSectors.map(s => (
-                          <button
-                            key={s}
-                            onClick={() => setSelectedSectorFilter(selectedSectorFilter === s ? null : s)}
-                            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                              selectedSectorFilter === s ? 'bg-blue-600 text-white' : 'bg-surface-raised text-fg-secondary hover:text-white border border-line-subtle'
-                            }`}
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="w-px h-5 bg-line-default" />
-
-                      <button
-                        onClick={() => setSortByPerformance(!sortByPerformance)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors flex items-center gap-1 ${
-                          sortByPerformance ? 'bg-blue-600 text-white' : 'bg-surface-raised text-fg-secondary hover:text-white border border-line-subtle'
-                        }`}
-                      >
-                        <BarChart3 className="w-3 h-3" />
-                        Sort by P&L
-                      </button>
-
-                      {(selectedBrokerFilter || selectedSectorFilter || sortByPerformance) && (
-                        <button
-                          onClick={() => { setSelectedBrokerFilter(null); setSelectedSectorFilter(null); setSortByPerformance(false) }}
-                          className="px-3 py-1 rounded-full text-xs font-medium text-red-400 hover:text-red-300 bg-red-500/10 flex items-center gap-1"
-                        >
-                          <X className="w-3 h-3" />
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Holdings Table or Empty State */}
-                  <div className="bg-surface-raised border border-line-subtle rounded-lg overflow-hidden">
-                    {holdings.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-16 text-fg-secondary">
-                        <Briefcase className="w-12 h-12 text-fg-muted mb-4" />
-                        <p className="text-lg mb-2">No holdings imported yet</p>
-                        <p className="text-sm mb-1 max-w-md text-center">
-                          Your connected brokerage accounts will sync holdings here automatically once the broker integration API is live.
-                        </p>
-                        <p className="text-xs text-fg-muted mt-3">
-                          Connected: {connectedBrokers.map(b => b.name).join(', ')}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full" role="table" aria-label="Portfolio Holdings">
-                          <thead>
-                            <tr className="border-b border-line-subtle bg-surface-hover/30">
-                              <th className="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider" scope="col">Symbol</th>
-                              <th className="px-4 py-3 text-right text-xs font-medium text-fg-muted uppercase tracking-wider" scope="col">Shares</th>
-                              <th className="px-4 py-3 text-right text-xs font-medium text-fg-muted uppercase tracking-wider" scope="col">Avg Cost</th>
-                              <th className="px-4 py-3 text-right text-xs font-medium text-fg-muted uppercase tracking-wider" scope="col">Price</th>
-                              <th className="px-4 py-3 text-right text-xs font-medium text-fg-muted uppercase tracking-wider" scope="col">Mkt Value</th>
-                              <th className="px-4 py-3 text-right text-xs font-medium text-fg-muted uppercase tracking-wider" scope="col">P&L</th>
-                              <th className="px-4 py-3 text-right text-xs font-medium text-fg-muted uppercase tracking-wider" scope="col">%</th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider" scope="col">Sector</th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider" scope="col">Broker</th>
-                              <th className="px-4 py-3 text-right text-xs font-medium text-fg-muted uppercase tracking-wider" scope="col">Weight</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-line-subtle">
-                            {filteredHoldings.map(h => (
-                              <tr key={h.symbol} className="hover:bg-surface-hover transition-colors">
-                                <td className="px-4 py-4">
-                                  <Link href={`/research?symbol=${h.symbol}`} className="hover:text-blue-400 transition-colors group">
-                                    <div className="font-semibold text-white group-hover:text-blue-400">{h.symbol}</div>
-                                    <div className="text-xs text-fg-secondary">{h.name}</div>
-                                  </Link>
-                                </td>
-                                <td className="px-4 py-4 text-right font-mono text-white">{h.shares}</td>
-                                <td className="px-4 py-4 text-right font-mono text-fg-secondary">${h.avgCost.toFixed(2)}</td>
-                                <td className="px-4 py-4 text-right font-mono text-white">${h.currentPrice.toFixed(2)}</td>
-                                <td className="px-4 py-4 text-right font-mono text-white">${h.marketValue.toLocaleString()}</td>
-                                <td className={`px-4 py-4 text-right font-mono ${h.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                  {h.pnl >= 0 ? '+' : ''}${h.pnl.toFixed(0)}
-                                </td>
-                                <td className="px-4 py-4 text-right">
-                                  <span className={`inline-flex items-center gap-1 font-mono ${h.pnlPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                    {h.pnlPercent >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                                    {h.pnlPercent >= 0 ? '+' : ''}{h.pnlPercent.toFixed(2)}%
-                                  </span>
-                                </td>
-                                <td className="px-4 py-4">
-                                  <span className="px-2 py-1 text-xs rounded-full bg-surface-overlay text-fg-secondary border border-line-subtle">{h.sector}</span>
-                                </td>
-                                <td className="px-4 py-4">
-                                  <span className="text-sm text-fg-secondary">{h.broker}</span>
-                                </td>
-                                <td className="px-4 py-4 text-right">
-                                  <div className="flex items-center justify-end gap-2">
-                                    <div className="w-16 h-1.5 bg-line-default rounded-full overflow-hidden">
-                                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(h.weight, 100)}%` }} />
-                                    </div>
-                                    <span className="text-xs font-mono text-fg-secondary">{h.weight.toFixed(1)}%</span>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </>
-          )}
+          {/* ─── PORTFOLIO TAB: summary of the real /portfolio data ─── */}
+          {activeTab === 'portfolio' && <WatchlistPortfolioPanel variant="desktop" />}
         </div>
       </div>
-
-      {/* ─── BROKER CONNECT MODAL ─── */}
-      {showBrokerConnect && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowBrokerConnect(false) }}
-        >
-          <div className="bg-surface-overlay border border-line-default rounded-lg p-6 w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-bold text-fg-primary">Connect Brokerage</h2>
-                <p className="text-sm text-fg-secondary">Link accounts to import portfolio holdings</p>
-              </div>
-              <button onClick={() => setShowBrokerConnect(false)} className="text-fg-secondary hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-2 overflow-y-auto">
-              {brokers.map(b => (
-                <div key={b.id} className="flex items-center justify-between p-4 rounded-lg bg-surface-raised border border-line-subtle">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{b.icon}</span>
-                    <div>
-                      <p className="font-semibold text-white">{b.name}</p>
-                      {b.connected && <p className="text-xs text-green-400">Connected</p>}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleConnectBroker(b.id)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-                      b.connected
-                        ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20'
-                        : 'bg-blue-600 hover:bg-blue-500 text-white'
-                    }`}
-                  >
-                    {b.connected ? <><Unlink className="w-4 h-4" /> Disconnect</> : <><Link2 className="w-4 h-4" /> Connect</>}
-                  </button>
-                </div>
-              ))}
-              <div className="p-4 border border-dashed border-line-default rounded-lg text-center text-fg-muted text-sm">
-                More brokerages coming soon — Merrill Lynch, Ally Invest, SoFi, and more
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── OPTIMIZER MODAL ─── */}
-      {showOptimizer && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowOptimizer(false) }}
-        >
-          <div className="bg-surface-overlay border border-line-default rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-purple-400" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-fg-primary">Portfolio Optimizer</h2>
-                  <p className="text-sm text-fg-secondary">AI-powered portfolio analysis & suggestions</p>
-                </div>
-              </div>
-              <button onClick={() => setShowOptimizer(false)} className="text-fg-secondary hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-lg bg-surface-raised border border-line-subtle">
-                  <div className="flex items-center gap-2 mb-2">
-                    <PieChart className="w-5 h-5 text-blue-400" />
-                    <span className="text-sm font-semibold text-fg-primary">Sector Analysis</span>
-                  </div>
-                  <p className="text-xs text-fg-secondary">Evaluates sector diversification and concentration risk</p>
-                </div>
-                <div className="p-4 rounded-lg bg-surface-raised border border-line-subtle">
-                  <div className="flex items-center gap-2 mb-2">
-                    <BarChart3 className="w-5 h-5 text-purple-400" />
-                    <span className="text-sm font-semibold text-fg-primary">Risk Assessment</span>
-                  </div>
-                  <p className="text-xs text-fg-secondary">Analyzes risk-adjusted returns and portfolio beta</p>
-                </div>
-                <div className="p-4 rounded-lg bg-surface-raised border border-line-subtle">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-5 h-5 text-amber-400" />
-                    <span className="text-sm font-semibold text-fg-primary">Rebalancing</span>
-                  </div>
-                  <p className="text-xs text-fg-secondary">Suggests optimal position adjustments for better returns</p>
-                </div>
-                <div className="p-4 rounded-lg bg-surface-raised border border-line-subtle">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle className="w-5 h-5 text-green-400" />
-                    <span className="text-sm font-semibold text-fg-primary">Tax Optimization</span>
-                  </div>
-                  <p className="text-xs text-fg-secondary">Identifies tax-loss harvesting opportunities</p>
-                </div>
-              </div>
-
-              {holdings.length === 0 ? (
-                <div className="p-6 rounded-lg bg-surface-raised border border-line-subtle text-center">
-                  <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-3" />
-                  <p className="text-fg-primary font-medium mb-1">No holdings to optimize</p>
-                  <p className="text-sm text-fg-secondary">
-                    Connect a brokerage and import your holdings to run portfolio optimization.
-                  </p>
-                </div>
-              ) : (
-                <button
-                  onClick={handleOptimize}
-                  disabled={optimizing}
-                  className="w-full py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-                >
-                  {optimizing ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> Analyzing...</>
-                  ) : (
-                    <><Sparkles className="w-5 h-5" /> Run Optimization Analysis</>
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Add Symbol Modal with Universal Search */}
       {showAddModal && (
