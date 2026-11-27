@@ -399,10 +399,8 @@ class CopilotEngine:
         llm_stats.stats.record(provider=used.provider if used else None, model=used.model if used else None,
                                ok=True, latency_ms=(time.perf_counter() - t_gen) * 1000,
                                first_token_ms=first_token_ms)
-        answer = "".join(parts).strip()
-        if not answer:
-            answer = "I couldn't produce an answer from the available data."
-        streamed = answer
+        streamed = "".join(parts).strip()       # exactly what the client has received as tokens
+        answer = streamed or "I couldn't produce an answer from the available data."
         repaired = False
         if deep and GROUNDING_REPAIR and bound_llm is not None:
             untraced = composer.untraceable(answer, registry, req.message)
@@ -436,7 +434,8 @@ class CopilotEngine:
             final += DISCLAIMER
             if not pc.changed and not repaired:
                 yield "token", {"text": DISCLAIMER}
-        changed = (final != streamed) and (pc.changed or repaired)
+        # an empty model turn streamed nothing, so the fallback must be sent as final_text
+        changed = (final != streamed) and (pc.changed or repaired or not streamed)
 
         citations = []
         for n, fid in enumerate(pc.cited_ids, 1):

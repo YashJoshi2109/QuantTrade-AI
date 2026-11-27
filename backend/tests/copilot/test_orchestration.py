@@ -43,7 +43,10 @@ def test_question_hints_exact_values():
 
 
 # ── tool discovery is by family + keywords, never by name ────────────────────
-def test_discovery_finds_a_newly_registered_tool_without_code_changes():
+def test_discovery_finds_a_newly_registered_tool_without_code_changes(monkeypatch):
+    # start from a registry with no price-behaviour engine (the shipped one is analyze_price_behavior)
+    monkeypatch.setattr(tools_mod, "TOOL_SPECS", [t for t in tools_mod.TOOL_SPECS
+                                                  if t["name"] not in planner.QUANT and not t["name"].startswith("quant_")])
     q = ("Analyze TSM using rolling volatility, the Hurst exponent and autocorrelation to decide whether it "
          "mean-reverts or trends, and explain the statistical limitations in detail please.")
     before = planner.build_plan(q, ["TSM"])

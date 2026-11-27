@@ -1,194 +1,1396 @@
 {
-  "_comment": "RECORDED / SYNTHETIC tool outputs for the offline institutional eval. They stand in for the fundamentals_*, valuation_*, quant_* and filings_* engines so the orchestration (planner -> parallel tool calls -> composer -> grounding guard) can be tested with no network and no LLM. The numbers are fixtures, not real company data; never show them to users. Each tool: spec (registered exactly like a production tool), optional per-ticker responses ('*' = any ticker), per_ticker (one fact per ticker for multi-ticker tools).",
+  "_comment": "RECORDED / SYNTHETIC tool outputs for the offline institutional eval. Each entry stands in for the production engine tool of the SAME NAME (fundamentals, valuation, quant, filings engines) so the orchestration (planner -> parallel tool calls -> composer -> grounding guard) can be tested with no network and no LLM. The numbers are fixtures, not real company data; never show them to users. Each tool: spec (copied from the production registry; test_recorded_specs_match_registry keeps them in sync), optional per-ticker responses ('*' = any ticker), per_ticker (one fact per ticker for multi-ticker tools).",
   "tools": {
-    "fundamentals_statements": {
-      "spec": {"name": "fundamentals_statements",
-               "description": "Multi-year annual financial statements from SEC XBRL companyfacts (income statement, balance sheet, cash flow) with filing accession and fiscal period for every value.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "years": {"type": "integer", "minimum": 1, "maximum": 10}}, "required": ["ticker"], "additionalProperties": false}},
+    "get_financial_history": {
+      "spec": {
+        "name": "get_financial_history",
+        "description": "Normalised 1-10y annual or quarterly income statement, balance sheet, cash flow from SEC XBRL, with filing accession per period and restatement notes.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            },
+            "period": {
+              "type": "string",
+              "enum": [
+                "annual",
+                "quarterly"
+              ]
+            },
+            "years": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "statement": {
+              "type": "string",
+              "enum": [
+                "all",
+                "income",
+                "balance",
+                "cashflow"
+              ]
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
       "progress": "Fetching {years}y statements for {ticker}",
-      "responses": {"*": {"title": "{ticker} annual statements (SEC XBRL)", "source": "SEC XBRL companyfacts (recorded fixture)", "as_of": "2026-02-26",
-                          "filing_type": "10-K", "filed_date": "2026-02-26", "accession": "0001045810-26-000012", "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&type=10-K",
-                          "values": {"revenue_latest": 130497000000, "net_income_latest": 72880000000, "operating_cash_flow_latest": 64089000000, "capex_latest": 3236000000, "free_cash_flow_latest": 60853000000, "revenue_cagr_5y": 0.6412},
-                          "formulas": {"free_cash_flow": "operating cash flow - capital expenditures", "revenue_cagr_5y": "(revenue_t / revenue_t-5)^(1/5) - 1"}}}
+      "responses": {
+        "*": {
+          "title": "{ticker} annual statements (SEC XBRL)",
+          "source": "SEC XBRL companyfacts (recorded fixture)",
+          "as_of": "2026-02-26",
+          "filing_type": "10-K",
+          "filed_date": "2026-02-26",
+          "accession": "0001045810-26-000012",
+          "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&type=10-K",
+          "values": {
+            "revenue_latest": 130497000000,
+            "net_income_latest": 72880000000,
+            "operating_cash_flow_latest": 64089000000,
+            "capex_latest": 3236000000,
+            "free_cash_flow_latest": 60853000000,
+            "revenue_cagr_5y": 0.6412
+          },
+          "formulas": {
+            "free_cash_flow": "operating cash flow - capital expenditures",
+            "revenue_cagr_5y": "(revenue_t / revenue_t-5)^(1/5) - 1"
+          }
+        }
+      }
     },
-    "fundamentals_earnings_quality": {
-      "spec": {"name": "fundamentals_earnings_quality",
-               "description": "Forensic earnings-quality metrics from SEC statements: Sloan accrual ratio, cash conversion (OCF / net income), working capital days (DSO, DIO, DPO, cash conversion cycle) per fiscal year.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "years": {"type": "integer"}}, "required": ["ticker"], "additionalProperties": false}},
-      "responses": {"*": {"title": "{ticker} earnings quality", "source": "Computed from SEC XBRL statements (recorded fixture)", "as_of": "2026-02-26",
-                          "values": {"sloan_accrual_ratio": 0.0812, "cash_conversion": 0.8794, "net_income_growth": 1.4498, "ocf_growth": 1.1817, "dso_days": 53.2, "dio_days": 81.4, "dpo_days": 41.7, "cash_conversion_cycle_days": 92.9},
-                          "formulas": {"sloan_accrual_ratio": "(net income - operating cash flow) / average total assets", "cash_conversion": "operating cash flow / net income", "cash_conversion_cycle_days": "DSO + DIO - DPO"}}}
+    "analyze_earnings_quality": {
+      "spec": {
+        "name": "analyze_earnings_quality",
+        "description": "Forensic accounting (SEC XBRL): net income vs OCF, balance-sheet and cash-flow accrual ratios, DSO/DIO/DPO/CCC, Beneish M, SBC, earnings-quality flags.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            },
+            "years": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 10
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "responses": {
+        "*": {
+          "title": "{ticker} earnings quality",
+          "source": "Computed from SEC XBRL statements (recorded fixture)",
+          "as_of": "2026-02-26",
+          "values": {
+            "sloan_accrual_ratio": 0.0812,
+            "cash_conversion": 0.8794,
+            "net_income_growth": 1.4498,
+            "ocf_growth": 1.1817,
+            "dso_days": 53.2,
+            "dio_days": 81.4,
+            "dpo_days": 41.7,
+            "cash_conversion_cycle_days": 92.9
+          },
+          "formulas": {
+            "sloan_accrual_ratio": "(net income - operating cash flow) / average total assets",
+            "cash_conversion": "operating cash flow / net income",
+            "cash_conversion_cycle_days": "DSO + DIO - DPO"
+          }
+        }
+      }
     },
-    "fundamentals_roic": {
-      "spec": {"name": "fundamentals_roic",
-               "description": "Return on invested capital (NOPAT / invested capital) per fiscal year with value-driver attribution: margin, capital turnover, leverage and buyback contribution to per-share growth.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "years": {"type": "integer"}}, "required": ["ticker"], "additionalProperties": false}},
-      "responses": {"*": {"title": "{ticker} ROIC", "source": "Computed from SEC XBRL statements (recorded fixture)", "as_of": "2025-10-31",
-                          "values": {"roic_latest": 0.5612, "roic_5y_avg": 0.4975, "nopat_margin": 0.2611, "invested_capital_turnover": 2.149, "buyback_eps_contribution": 0.0314},
-                          "formulas": {"roic": "NOPAT / (total debt + equity - cash)", "nopat": "operating income x (1 - effective tax rate)"},
-                          "assumptions": {"tax_rate_source": "effective tax rate from 10-K"}}}
-    },
-    "fundamentals_dupont": {
-      "spec": {"name": "fundamentals_dupont",
-               "description": "DuPont decomposition of return on equity (ROE = net margin x asset turnover x equity multiplier) from SEC statements.",
-               "input_schema": {"type": "object", "properties": {"tickers": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 6}}, "required": ["tickers"], "additionalProperties": false}},
+    "analyze_capital_efficiency": {
       "per_ticker": true,
-      "responses": {"*": {"title": "{ticker} DuPont ROE", "source": "Computed from SEC XBRL statements (recorded fixture)", "as_of": "2026-02-26",
-                          "values": {"roe": 1.3652, "net_margin": 0.2397, "asset_turnover": 1.1561, "equity_multiplier": 4.9265},
-                          "formulas": {"roe": "net margin x asset turnover x equity multiplier"}}}
+      "responses": {
+        "*": {
+          "title": "{ticker} capital efficiency",
+          "source": "Computed from SEC XBRL statements (recorded fixture)",
+          "as_of": "2025-10-31",
+          "values": {
+            "roic_latest": 0.5612,
+            "roic_5y_avg": 0.4975,
+            "nopat_margin": 0.2611,
+            "invested_capital_turnover": 2.149,
+            "buyback_eps_contribution": 0.0314,
+            "capex_latest": 64551000000,
+            "capex_to_revenue": 0.2286,
+            "depreciation_to_revenue": 0.0911,
+            "incremental_roic": 0.1874
+          },
+          "formulas": {
+            "roic": "NOPAT / (total debt + equity - cash)",
+            "nopat": "operating income x (1 - effective tax rate)",
+            "incremental_roic": "change in NOPAT / change in invested capital (3y)"
+          },
+          "assumptions": {
+            "tax_rate_source": "effective tax rate from 10-K"
+          }
+        }
+      },
+      "spec": {
+        "name": "analyze_capital_efficiency",
+        "description": "ROIC vs WACC, incremental ROIC, reinvestment, DuPont with ROE-change attribution, margins, capex/D&A intensity, buyback vs dilution split of EPS growth. CAPM WACC unless wacc_pct given.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            },
+            "years": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 10
+            },
+            "wacc_pct": {
+              "type": "number"
+            },
+            "cost_of_debt_pct": {
+              "type": "number"
+            },
+            "equity_risk_premium_pct": {
+              "type": "number",
+              "description": "default 5.0"
+            },
+            "include_operating_leases": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      }
     },
-    "fundamentals_distress": {
-      "spec": {"name": "fundamentals_distress",
-               "description": "Financial distress models: Altman Z-score, Piotroski F-score, Beneish M-score, interest coverage, current and quick ratios, debt maturity schedule from 10-K notes.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}}, "required": ["ticker"], "additionalProperties": false}},
-      "responses": {"*": {"title": "{ticker} distress scores", "source": "Computed from SEC XBRL statements (recorded fixture)", "as_of": "2026-01-30",
-                          "filing_type": "10-K", "filed_date": "2026-01-30", "accession": "0000050863-26-000009", "section": "Item 8 - Note: Borrowings",
-                          "values": {"altman_z": 1.62, "piotroski_f": 3, "beneish_m": -2.41, "interest_coverage": 1.9, "current_ratio": 1.33, "quick_ratio": 0.98, "debt_due_within_2y": 6450000000},
-                          "formulas": {"altman_z": "1.2 X1 + 1.4 X2 + 3.3 X3 + 0.6 X4 + 1.0 X5", "beneish_m": "-4.84 + 0.92 DSRI + 0.528 GMI + 0.404 AQI + 0.892 SGI + 0.115 DEPI - 0.172 SGAI + 4.679 TATA - 0.327 LVGI", "interest_coverage": "EBIT / interest expense"}}}
-    },
-    "fundamentals_peer_metrics": {
-      "spec": {"name": "fundamentals_peer_metrics",
-               "description": "Peer comparison: gross margin, revenue growth, ROIC, capital intensity (capex / revenue), free cash flow conversion and share dilution for several companies from SEC statements.",
-               "input_schema": {"type": "object", "properties": {"tickers": {"type": "array", "items": {"type": "string"}, "minItems": 2, "maxItems": 8}}, "required": ["tickers"], "additionalProperties": false}},
+    "dupont_analysis": {
+      "spec": {
+        "name": "dupont_analysis",
+        "description": "DuPont 3- and 5-step ROE decomposition (SEC XBRL) for 1-4 companies, with balance-sheet distortion flags.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "tickers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 4
+            },
+            "years": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 10
+            }
+          },
+          "required": [
+            "tickers"
+          ],
+          "additionalProperties": false
+        }
+      },
       "per_ticker": true,
-      "responses": {"*": {"title": "{ticker} peer metrics", "source": "Computed from SEC XBRL statements (recorded fixture)", "as_of": "2026-02-26",
-                          "values": {"gross_margin": 0.7498, "revenue_growth": 0.5221, "roic": 0.4411, "capex_to_revenue": 0.0655, "fcf_conversion": 0.9123, "share_dilution": 0.0091}}}
+      "responses": {
+        "*": {
+          "title": "{ticker} DuPont ROE",
+          "source": "Computed from SEC XBRL statements (recorded fixture)",
+          "as_of": "2026-02-26",
+          "values": {
+            "roe": 1.3652,
+            "net_margin": 0.2397,
+            "asset_turnover": 1.1561,
+            "equity_multiplier": 4.9265
+          },
+          "formulas": {
+            "roe": "net margin x asset turnover x equity multiplier"
+          }
+        }
+      }
     },
-    "fundamentals_capex_intensity": {
-      "spec": {"name": "fundamentals_capex_intensity",
-               "description": "Capital expenditure, depreciation burden (D&A / revenue), capital intensity and incremental ROIC on recent capex, with cloud segment revenue growth where disclosed.",
-               "input_schema": {"type": "object", "properties": {"tickers": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 6}}, "required": ["tickers"], "additionalProperties": false}},
+    "assess_financial_distress": {
+      "spec": {
+        "name": "assess_financial_distress",
+        "description": "Altman Z and Z'' (with applicability), Piotroski F (all 9 signals), Beneish M, interest coverage, liquidity ratios, XBRL debt maturity schedule, FCF sustainability.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            },
+            "years": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 10
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "responses": {
+        "*": {
+          "title": "{ticker} distress scores",
+          "source": "Computed from SEC XBRL statements (recorded fixture)",
+          "as_of": "2026-01-30",
+          "filing_type": "10-K",
+          "filed_date": "2026-01-30",
+          "accession": "0000050863-26-000009",
+          "section": "Item 8 - Note: Borrowings",
+          "values": {
+            "altman_z": 1.62,
+            "piotroski_f": 3,
+            "beneish_m": -2.41,
+            "interest_coverage": 1.9,
+            "current_ratio": 1.33,
+            "quick_ratio": 0.98,
+            "debt_due_within_2y": 6450000000
+          },
+          "formulas": {
+            "altman_z": "1.2 X1 + 1.4 X2 + 3.3 X3 + 0.6 X4 + 1.0 X5",
+            "beneish_m": "-4.84 + 0.92 DSRI + 0.528 GMI + 0.404 AQI + 0.892 SGI + 0.115 DEPI - 0.172 SGAI + 4.679 TATA - 0.327 LVGI",
+            "interest_coverage": "EBIT / interest expense"
+          }
+        }
+      }
+    },
+    "compare_peer_fundamentals": {
+      "spec": {
+        "name": "compare_peer_fundamentals",
+        "description": "Peer table (2-6): EV/EBITDA, P/E, forward P/E, FCF yield, ROIC, gross margin, revenue growth, capex intensity, operating leverage, FCF conversion, dilution; normalisation notes, rank + sensitivity.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "tickers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 2,
+              "maxItems": 6
+            },
+            "weights": {
+              "type": "object",
+              "description": "metric weights, e.g. {\"roic_pct\": 2}",
+              "additionalProperties": {
+                "type": "number"
+              }
+            }
+          },
+          "required": [
+            "tickers"
+          ],
+          "additionalProperties": false
+        }
+      },
       "per_ticker": true,
-      "responses": {"*": {"title": "{ticker} capex intensity", "source": "Computed from SEC XBRL statements (recorded fixture)", "as_of": "2026-01-29",
-                          "values": {"capex_latest": 64551000000, "capex_to_revenue": 0.2286, "depreciation_to_revenue": 0.0911, "incremental_roic": 0.1874, "cloud_revenue_growth": 0.2104},
-                          "formulas": {"incremental_roic": "change in NOPAT / change in invested capital (3y)"}}}
+      "responses": {
+        "*": {
+          "title": "{ticker} peer metrics",
+          "source": "Computed from SEC XBRL statements (recorded fixture)",
+          "as_of": "2026-02-26",
+          "values": {
+            "gross_margin": 0.7498,
+            "revenue_growth": 0.5221,
+            "roic": 0.4411,
+            "capex_to_revenue": 0.0655,
+            "fcf_conversion": 0.9123,
+            "share_dilution": 0.0091
+          }
+        }
+      }
+    },
+    "analyze_price_behavior": {
+      "spec": {
+        "name": "analyze_price_behavior",
+        "description": "Daily-bar statistics: rolling 30/90/252d realised vol, Hurst (R/S corrected, DFA) vs a permutation null, ACF + Ljung-Box, variance ratios, HMM vol regimes, and a mean-reversion vs momentum reading with caveats.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            },
+            "years": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 20
+            },
+            "n_states": {
+              "type": "integer",
+              "enum": [
+                2,
+                3
+              ]
+            },
+            "acf_lags": {
+              "type": "integer",
+              "minimum": 5,
+              "maximum": 40
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "responses": {
+        "*": {
+          "title": "{ticker} volatility & regime",
+          "source": "Daily bars (yfinance, recorded fixture)",
+          "as_of": "2026-11-24",
+          "values": {
+            "vol_30d": 0.3814,
+            "vol_90d": 0.4122,
+            "vol_252d": 0.4467,
+            "hurst": 0.5631,
+            "acf_lag1": 0.0412,
+            "variance_ratio_10d": 1.087,
+            "regime_high_vol_prob": 0.3255
+          },
+          "formulas": {
+            "vol_nd": "stdev(log returns over n days) x sqrt(252)",
+            "hurst": "slope of log(R/S) on log(n)"
+          }
+        }
+      }
+    },
+    "get_risk_metrics": {
+      "spec": {
+        "name": "get_risk_metrics",
+        "description": "Daily total returns vs a benchmark (default 5y): beta, rolling/downside beta, Jensen's alpha (FRED T-bill rf), Sharpe, Sortino, max drawdown with dates, historical/parametric/Cornish-Fisher VaR and CVaR, divergence notes.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            },
+            "benchmark": {
+              "type": "string",
+              "description": "ETF, default SPY"
+            },
+            "years": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 20
+            },
+            "var_level": {
+              "type": "number",
+              "minimum": 0.9,
+              "maximum": 0.995
+            },
+            "risk_free_rate_pct": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "responses": {
+        "*": {
+          "title": "{ticker} risk metrics vs SPY",
+          "source": "Daily bars (yfinance, recorded fixture); risk-free FRED DGS3MO",
+          "as_of": "2026-11-24",
+          "values": {
+            "beta": 1.74,
+            "downside_beta": 1.91,
+            "jensens_alpha_annual": 0.4612,
+            "sharpe": 1.62,
+            "sortino": 2.31,
+            "max_drawdown": -0.6634,
+            "var_95_historical": -0.0482,
+            "var_95_parametric": -0.0517
+          },
+          "formulas": {
+            "sharpe": "(mean excess return / stdev) x sqrt(252)",
+            "var_parametric": "mu - 1.645 sigma"
+          },
+          "assumptions": {
+            "risk_free": "FRED DGS3MO",
+            "confidence": 0.95
+          }
+        }
+      }
+    },
+    "earnings_event_study": {
+      "spec": {
+        "name": "earnings_event_study",
+        "description": "Market-model event study of the last N earnings releases (default 12, window [-2,+2]): AR, CAR, t, J1/J2 and sign tests, split by EPS-surprise sign.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            },
+            "n_events": {
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 20
+            },
+            "window_pre": {
+              "type": "integer",
+              "minimum": -10,
+              "maximum": 0
+            },
+            "window_post": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "estimation_days": {
+              "type": "integer",
+              "minimum": 60,
+              "maximum": 250
+            },
+            "market": {
+              "type": "string",
+              "description": "ETF, default SPY"
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "responses": {
+        "*": {
+          "title": "{ticker} earnings event study",
+          "source": "Daily bars + earnings dates (recorded fixture)",
+          "as_of": "2026-10-30",
+          "values": {
+            "n_events": 12,
+            "mean_car": 0.0071,
+            "mean_car_positive_surprise": 0.0113,
+            "t_stat_positive_surprise": 1.21,
+            "p_value_positive_surprise": 0.2512
+          },
+          "formulas": {
+            "abnormal_return": "R_t - (alpha + beta R_m,t), estimated over [-250, -11]",
+            "car": "sum of abnormal returns over the event window"
+          },
+          "assumptions": {
+            "estimation_window": "[-250, -11]",
+            "event_window": "[-2, +2]"
+          }
+        }
+      }
+    },
+    "analyze_portfolio_risk": {
+      "spec": {
+        "name": "analyze_portfolio_risk",
+        "description": "1-10 tickers (default equal weight, 3y): correlations, covariance, marginal/percent risk contributions, PCA, sectors, factor betas (SPY, QQQ-SPY, sector ETF), historical stress (2018, 2020, 2022, 2025) and a hypothetical QQQ shock (default -20%).",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "tickers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 10
+            },
+            "weights": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "years": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "tech_shock_pct": {
+              "type": "number",
+              "minimum": -60,
+              "maximum": 0
+            }
+          },
+          "required": [
+            "tickers"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "responses": {
+        "*": {
+          "title": "Equal-weight portfolio risk",
+          "source": "Daily bars (yfinance, recorded fixture)",
+          "as_of": "2026-11-24",
+          "values": {
+            "avg_pairwise_correlation": 0.5734,
+            "max_pairwise_correlation": 0.7811,
+            "portfolio_vol": 0.2988,
+            "top_mcr_share": 0.2641,
+            "tech_sector_weight": 0.8333,
+            "stress_drawdown": -0.3172
+          },
+          "formulas": {
+            "mcr_i": "w_i (Sigma w)_i / sigma_p"
+          },
+          "assumptions": {
+            "stress_scenario": "Nasdaq-100 -25% with 2022 betas"
+          }
+        }
+      }
+    },
+    "backtest_strategy": {
+      "spec": {
+        "name": "backtest_strategy",
+        "description": "Strategy Lab backtest vs buy-and-hold (next-open fills, costs, in/out-of-sample split, deflated Sharpe). Preset rsi_reversion = RSI(14) < buy_below and close > SMA200, exit RSI > sell_above, 8% stop; or entry/exit {logic: all|any, rules: [{left: {indicator, params}, op, right: {value} | {indicator, params}}]}.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            },
+            "preset": {
+              "type": "string",
+              "enum": [
+                "golden_cross",
+                "rsi_reversion",
+                "macd_trend",
+                "rsi_macd_trend",
+                "bollinger_reversion",
+                "donchian_breakout"
+              ]
+            },
+            "parameters": {
+              "type": "object"
+            },
+            "entry": {
+              "type": "object"
+            },
+            "exit": {
+              "type": "object"
+            },
+            "start_date": {
+              "type": "string"
+            },
+            "end_date": {
+              "type": "string"
+            },
+            "years": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 20
+            },
+            "commission_bps": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "slippage_bps": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "oos_split": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 0.9
+            },
+            "stop_loss_pct": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 50
+            },
+            "max_hold_bars": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "responses": {
+        "*": {
+          "title": "{ticker} RSI strategy backtest",
+          "source": "Daily bars (yfinance, recorded fixture)",
+          "as_of": "2026-11-24",
+          "values": {
+            "strategy_cagr": 0.0912,
+            "strategy_sharpe": 0.83,
+            "strategy_max_drawdown": -0.1844,
+            "buy_hold_cagr": 0.1867,
+            "buy_hold_sharpe": 0.91,
+            "trades": 27,
+            "oos_sharpe": 0.61
+          },
+          "assumptions": {
+            "cost_bps": 5,
+            "slippage_bps": 5,
+            "execution": "next open",
+            "oos_split": "2022-01-01"
+          }
+        }
+      }
     },
     "valuation_wacc": {
-      "spec": {"name": "valuation_wacc",
-               "description": "Weighted average cost of capital via CAPM: risk-free rate (FRED DGS10), regression beta, equity risk premium (assumption), after-tax cost of debt, market-value weights.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "equity_risk_premium": {"type": "number"}}, "required": ["ticker"], "additionalProperties": false}},
-      "responses": {"*": {"title": "{ticker} WACC", "source": "CAPM over FRED DGS10 + daily bars (recorded fixture)", "as_of": "2026-11-24",
-                          "values": {"wacc": 0.0912, "cost_of_equity": 0.0968, "after_tax_cost_of_debt": 0.0341, "risk_free_rate": 0.0428, "beta": 1.08, "equity_weight": 0.9713},
-                          "formulas": {"wacc": "E/V x Re + D/V x Rd x (1 - t)", "cost_of_equity": "rf + beta x ERP"},
-                          "assumptions": {"equity_risk_premium": 0.05, "tax_rate": 0.18},
-                          "inputs": [{"series": "FRED DGS10", "observation_date": "2026-11-24"}]}}
+      "spec": {
+        "name": "valuation_wacc",
+        "description": "WACC from data: 10Y Treasury (dated), OLS beta vs SPY (5y weekly, with SE/R^2), ERP assumption, cost of debt = interest expense / avg debt (XBRL) after tax, market-value weights.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string",
+              "description": "Ticker symbol, e.g. MSFT"
+            },
+            "assumptions": {
+              "type": "object",
+              "description": "Same optional overrides as valuation_dcf.assumptions."
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "responses": {
+        "*": {
+          "title": "{ticker} WACC",
+          "source": "CAPM over FRED DGS10 + daily bars (recorded fixture)",
+          "as_of": "2026-11-24",
+          "values": {
+            "wacc": 0.0912,
+            "cost_of_equity": 0.0968,
+            "after_tax_cost_of_debt": 0.0341,
+            "risk_free_rate": 0.0428,
+            "beta": 1.08,
+            "equity_weight": 0.9713
+          },
+          "formulas": {
+            "wacc": "E/V x Re + D/V x Rd x (1 - t)",
+            "cost_of_equity": "rf + beta x ERP"
+          },
+          "assumptions": {
+            "equity_risk_premium": 0.05,
+            "tax_rate": 0.18
+          },
+          "inputs": [
+            {
+              "series": "FRED DGS10",
+              "observation_date": "2026-11-24"
+            }
+          ]
+        }
+      }
     },
     "valuation_dcf": {
-      "spec": {"name": "valuation_dcf",
-               "description": "Three-stage discounted cash flow (FCFF) valuation with WACC, terminal growth, intrinsic value per share versus current market capitalization, and a sensitivity matrix over discount rate and revenue growth.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "terminal_growth": {"type": "number"}}, "required": ["ticker"], "additionalProperties": false}},
+      "spec": {
+        "name": "valuation_dcf",
+        "description": "3-stage FCFF DCF on SEC XBRL financials: WACC derivation, year-by-year table, terminal value, sensitivity matrices (WACC x terminal growth, WACC x revenue growth), vs current price/market cap.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string",
+              "description": "Ticker symbol, e.g. MSFT"
+            },
+            "assumptions": {
+              "type": "object",
+              "description": "Optional overrides, rates as fractions (0.05=5%): stage1_growth, stage1_years(5), fade_years(5), terminal_growth, target_operating_margin, sales_to_capital, tax_rate, erp(0.05), beta, rf, wacc, terminal_method(gordon|exit_multiple), exit_ev_ebitda, terminal_roic, mid_year, shares_per_adr (foreign ADRs), beta_frequency(weekly|daily|monthly), beta_years(5). Unset values default from filings; the result lists every assumption."
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
       "progress": "Running 3-stage DCF for {ticker}",
-      "responses": {"*": {"title": "{ticker} 3-stage DCF", "source": "DCF engine over SEC XBRL + quote (recorded fixture)", "as_of": "2026-11-24",
-                          "values": {"intrinsic_value_per_share": 431.17, "enterprise_value": 3297000000000, "equity_value": 3205000000000, "market_cap": 3808000000000, "implied_upside": -0.1583},
-                          "formulas": {"enterprise_value": "sum FCFF_t / (1 + WACC)^t + TV / (1 + WACC)^N", "terminal_value": "FCFF_N+1 / (WACC - g)"},
-                          "assumptions": {"terminal_growth": 0.025, "stage1_revenue_growth": 0.14, "stage2_revenue_growth": 0.08, "wacc": 0.0912},
-                          "table": [{"wacc": 0.0812, "growth_low": 452.3, "growth_base": 498.6, "growth_high": 548.9}, {"wacc": 0.0912, "growth_low": 392.1, "growth_base": 431.17, "growth_high": 472.4}, {"wacc": 0.1012, "growth_low": 345.0, "growth_base": 378.2, "growth_high": 413.5}]}}
+      "responses": {
+        "*": {
+          "title": "{ticker} 3-stage DCF",
+          "source": "DCF engine over SEC XBRL + quote (recorded fixture)",
+          "as_of": "2026-11-24",
+          "values": {
+            "intrinsic_value_per_share": 431.17,
+            "enterprise_value": 3297000000000,
+            "equity_value": 3205000000000,
+            "market_cap": 3808000000000,
+            "implied_upside": -0.1583
+          },
+          "formulas": {
+            "enterprise_value": "sum FCFF_t / (1 + WACC)^t + TV / (1 + WACC)^N",
+            "terminal_value": "FCFF_N+1 / (WACC - g)"
+          },
+          "assumptions": {
+            "terminal_growth": 0.025,
+            "stage1_revenue_growth": 0.14,
+            "stage2_revenue_growth": 0.08,
+            "wacc": 0.0912
+          },
+          "table": [
+            {
+              "wacc": 0.0812,
+              "growth_low": 452.3,
+              "growth_base": 498.6,
+              "growth_high": 548.9
+            },
+            {
+              "wacc": 0.0912,
+              "growth_low": 392.1,
+              "growth_base": 431.17,
+              "growth_high": 472.4
+            },
+            {
+              "wacc": 0.1012,
+              "growth_low": 345.0,
+              "growth_base": 378.2,
+              "growth_high": 413.5
+            }
+          ]
+        }
+      }
     },
     "valuation_reverse_dcf": {
-      "spec": {"name": "valuation_reverse_dcf",
-               "description": "Reverse DCF: solves for the revenue growth, operating margin and reinvestment rate implied by the current market valuation over a projection horizon.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "horizon_years": {"type": "integer"}}, "required": ["ticker"], "additionalProperties": false}},
-      "responses": {"*": {"title": "{ticker} reverse DCF", "source": "Reverse DCF engine (recorded fixture)", "as_of": "2026-11-24",
-                          "values": {"implied_revenue_cagr": 0.2215, "implied_terminal_operating_margin": 0.1964, "implied_reinvestment_rate": 0.3412, "market_cap": 1104000000000},
-                          "assumptions": {"wacc": 0.1045, "terminal_growth": 0.03, "horizon_years": 10}}}
+      "spec": {
+        "name": "valuation_reverse_dcf",
+        "description": "Reverse DCF: solve the revenue growth, operating margin or sales-to-capital the current price implies over 10 years; implied path checked vs own history and optional peers.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string",
+              "description": "Ticker symbol, e.g. MSFT"
+            },
+            "solve_for": {
+              "type": "string",
+              "enum": [
+                "stage1_growth",
+                "target_operating_margin",
+                "sales_to_capital"
+              ]
+            },
+            "peers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 4
+            },
+            "assumptions": {
+              "type": "object",
+              "description": "Same optional overrides as valuation_dcf.assumptions."
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "responses": {
+        "*": {
+          "title": "{ticker} reverse DCF",
+          "source": "Reverse DCF engine (recorded fixture)",
+          "as_of": "2026-11-24",
+          "values": {
+            "implied_revenue_cagr": 0.2215,
+            "implied_terminal_operating_margin": 0.1964,
+            "implied_reinvestment_rate": 0.3412,
+            "market_cap": 1104000000000
+          },
+          "assumptions": {
+            "wacc": 0.1045,
+            "terminal_growth": 0.03,
+            "horizon_years": 10
+          }
+        }
+      }
     },
     "valuation_monte_carlo": {
-      "spec": {"name": "valuation_monte_carlo",
-               "description": "Monte Carlo DCF valuation simulation with probabilistic revenue growth, operating margin, discount rate and terminal growth; reports median, 5th and 95th percentile value per share and probability below the current price.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "n_simulations": {"type": "integer", "minimum": 1000, "maximum": 100000}}, "required": ["ticker"], "additionalProperties": false}},
+      "spec": {
+        "name": "valuation_monte_carlo",
+        "description": "Monte Carlo DCF that really runs N seeded simulations (default 10,000) over revenue growth, margin, WACC, terminal growth: median, p5/p95, P(value < price), seed and distributions.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string",
+              "description": "Ticker symbol, e.g. MSFT"
+            },
+            "n_simulations": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 200000
+            },
+            "seed": {
+              "type": "integer"
+            },
+            "distributions": {
+              "type": "object",
+              "description": "per-variable overrides keyed stage1_growth|target_operating_margin|wacc|terminal_growth: {dist: normal|uniform|triangular|fixed, mean, sd, min, max, mode, value} as fractions"
+            },
+            "assumptions": {
+              "type": "object",
+              "description": "Same optional overrides as valuation_dcf.assumptions."
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
       "progress": "Running {n_simulations:,} simulations for {ticker}",
-      "responses": {"*": {"title": "{ticker} Monte Carlo valuation", "source": "Monte Carlo engine, seed 42 (recorded fixture)", "as_of": "2026-11-24",
-                          "values": {"n_simulations": 10000, "median_value_per_share": 204.36, "p5_value_per_share": 131.08, "p95_value_per_share": 318.72, "prob_below_price": 0.4127, "current_price": 208.11},
-                          "assumptions": {"revenue_growth_mean": 0.105, "revenue_growth_sd": 0.03, "operating_margin_mean": 0.115, "wacc_mean": 0.088, "terminal_growth_range": "0.02-0.03", "seed": 42}}}
+      "responses": {
+        "*": {
+          "title": "{ticker} Monte Carlo valuation",
+          "source": "Monte Carlo engine, seed 42 (recorded fixture)",
+          "as_of": "2026-11-24",
+          "values": {
+            "n_simulations": 10000,
+            "median_value_per_share": 204.36,
+            "p5_value_per_share": 131.08,
+            "p95_value_per_share": 318.72,
+            "prob_below_price": 0.4127,
+            "current_price": 208.11
+          },
+          "assumptions": {
+            "revenue_growth_mean": 0.105,
+            "revenue_growth_sd": 0.03,
+            "operating_margin_mean": 0.115,
+            "wacc_mean": 0.088,
+            "terminal_growth_range": "0.02-0.03",
+            "seed": 42
+          }
+        }
+      }
     },
     "valuation_scenarios": {
-      "spec": {"name": "valuation_scenarios",
-               "description": "Scenario and stress analysis (bull / base / bear or named shocks): revenue, gross margin, capex and value per share under explicit assumption sets.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "scenario_set": {"type": "string", "enum": ["bull_base_bear", "geopolitical", "macro"], "default": "bull_base_bear"}}, "required": ["ticker", "scenario_set"], "additionalProperties": false}},
-      "responses": {"*": {"title": "{ticker} scenarios", "source": "Scenario engine (recorded fixture)", "as_of": "2026-11-24",
-                          "values": {"bull_value_per_share": 412.5, "base_value_per_share": 296.4, "bear_value_per_share": 141.9, "bear_revenue_change": -0.181, "bear_gross_margin": 0.142},
-                          "assumptions": {"bear_demand_shock": -0.2, "bear_margin_compression_pp": -4.0, "bull_revenue_growth": 0.25, "base_revenue_growth": 0.12}}}
+      "responses": {
+        "*": {
+          "title": "{ticker} scenario shocks",
+          "source": "Scenario engine on latest FY (recorded fixture)",
+          "as_of": "2026-11-24",
+          "values": {
+            "eps_impact_rate_shock": -0.0123,
+            "eps_impact_currency_appreciation": -0.0412,
+            "eps_impact_tariff": -0.0278,
+            "eps_impact_demand_decline": -0.0655,
+            "eps_impact_capex_change": -0.0104,
+            "combined_eps_impact": -0.1417,
+            "bear_value_per_share": 141.9,
+            "combined_value_per_share_change": -0.1633
+          },
+          "formulas": {
+            "eps_impact": "(EPS under shock - base EPS) / base EPS",
+            "combined": "all shocks applied together on the latest fiscal year"
+          },
+          "assumptions": {
+            "rate_shock": 0.01,
+            "reporting_currency_appreciation": 0.1,
+            "tariff_rate": 0.1,
+            "demand_decline": 0.05,
+            "capex_change": 0.1,
+            "foreign_revenue_share_source": "XBRL geographic disclosure"
+          }
+        }
+      },
+      "spec": {
+        "name": "valuation_scenarios",
+        "description": "Scenario engine on the latest FY: FX via disclosed geographic revenue mix, tariffs/cost via COGS, demand, revenue, margin, opex, capex and rate shocks -> individual and combined EPS and DCF value impacts. `shocks` = individual+combined; `scenarios` = named cases.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string",
+              "description": "Ticker symbol, e.g. MSFT"
+            },
+            "shocks": {
+              "type": "object",
+              "description": "Shocks as fractions: reporting_currency_appreciation, demand_decline, revenue_change, tariff_rate, cogs_inflation, gross_margin_change, opex_change, capex_change, rate_shock (e.g. reporting_currency_appreciation 0.10 = USD +10%, rate_shock 0.01 = +100bp)."
+            },
+            "scenarios": {
+              "type": "array",
+              "maxItems": 5,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "rationale": {
+                    "type": "string"
+                  },
+                  "shocks": {
+                    "type": "object",
+                    "description": "Shocks as fractions: reporting_currency_appreciation, demand_decline, revenue_change, tariff_rate, cogs_inflation, gross_margin_change, opex_change, capex_change, rate_shock (e.g. reporting_currency_appreciation 0.10 = USD +10%, rate_shock 0.01 = +100bp)."
+                  }
+                },
+                "required": [
+                  "name",
+                  "shocks"
+                ]
+              }
+            },
+            "structure": {
+              "type": "object",
+              "description": "Structural inputs (fractions): foreign_revenue_share (default: XBRL geographic disclosure), tariff_exposed_cogs_share (required with tariff_rate), tariff_pass_through(0), foreign_cost_share(0), hedge_ratio(0), variable_cogs_share(1), floating_rate_debt_share(0), capex_shock_years(3)."
+            },
+            "assumptions": {
+              "type": "object",
+              "description": "Same optional overrides as valuation_dcf.assumptions."
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      }
     },
-    "quant_volatility_regime": {
-      "spec": {"name": "quant_volatility_regime",
-               "description": "Rolling volatility (30/90/252-day annualized), Hurst exponent (R/S), lag-1 autocorrelation, variance ratio and Markov regime detection from daily bars.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "windows": {"type": "array", "items": {"type": "integer"}}}, "required": ["ticker"], "additionalProperties": false}},
-      "responses": {"*": {"title": "{ticker} volatility & regime", "source": "Daily bars (yfinance, recorded fixture)", "as_of": "2026-11-24",
-                          "values": {"vol_30d": 0.3814, "vol_90d": 0.4122, "vol_252d": 0.4467, "hurst": 0.5631, "acf_lag1": 0.0412, "variance_ratio_10d": 1.087, "regime_high_vol_prob": 0.3255},
-                          "formulas": {"vol_nd": "stdev(log returns over n days) x sqrt(252)", "hurst": "slope of log(R/S) on log(n)"}}}
+    "valuation_bull_bear": {
+      "responses": {
+        "*": {
+          "title": "{ticker} bull / base / bear DCF",
+          "source": "Bull/bear engine over SEC XBRL history (recorded fixture)",
+          "as_of": "2026-11-24",
+          "values": {
+            "bull_value_per_share": 412.5,
+            "base_value_per_share": 296.4,
+            "bear_value_per_share": 141.9,
+            "bear_revenue_change": -0.181,
+            "bear_gross_margin": 0.142
+          },
+          "assumptions": {
+            "bear_demand_shock": -0.2,
+            "bear_margin_compression_pp": -4.0,
+            "bull_revenue_growth": 0.25,
+            "base_revenue_growth": 0.12
+          }
+        }
+      },
+      "spec": {
+        "name": "valuation_bull_bear",
+        "description": "Bull/base/bear DCF cases from the company's best/worst historical growth and margins, P/E compression at historical fiscal-year-end P/E, and largest historical drawdowns.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string",
+              "description": "Ticker symbol, e.g. MSFT"
+            },
+            "overrides": {
+              "type": "object",
+              "description": "{bull|base|bear: {stage1_growth, target_operating_margin, wacc_delta, terminal_growth}} fractions"
+            },
+            "assumptions": {
+              "type": "object",
+              "description": "Same optional overrides as valuation_dcf.assumptions."
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      }
     },
-    "quant_risk_metrics": {
-      "spec": {"name": "quant_risk_metrics",
-               "description": "Risk metrics from daily returns versus a benchmark: rolling beta, downside beta, Jensen's alpha, Sharpe, Sortino, maximum drawdown, historical and parametric value at risk (VaR).",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "benchmark": {"type": "string"}, "years": {"type": "integer"}, "confidence": {"type": "number"}}, "required": ["ticker"], "additionalProperties": false}},
-      "responses": {"*": {"title": "{ticker} risk metrics vs SPY", "source": "Daily bars (yfinance, recorded fixture); risk-free FRED DGS3MO", "as_of": "2026-11-24",
-                          "values": {"beta": 1.74, "downside_beta": 1.91, "jensens_alpha_annual": 0.4612, "sharpe": 1.62, "sortino": 2.31, "max_drawdown": -0.6634, "var_95_historical": -0.0482, "var_95_parametric": -0.0517},
-                          "formulas": {"sharpe": "(mean excess return / stdev) x sqrt(252)", "var_parametric": "mu - 1.645 sigma"},
-                          "assumptions": {"risk_free": "FRED DGS3MO", "confidence": 0.95}}}
+    "valuation_rate_sensitivity": {
+      "spec": {
+        "name": "valuation_rate_sensitivity",
+        "description": "Bank rate sensitivity: disclosed NII sensitivity (+/- shock) from filings with EPS impact, cost of deposits and AFS/HTM fair values (XBRL); states what is unavailable.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string",
+              "description": "Ticker symbol, e.g. MSFT"
+            },
+            "shock_bp": {
+              "type": "integer",
+              "enum": [
+                25,
+                50,
+                100,
+                200
+              ]
+            },
+            "deposit_beta": {
+              "type": "number",
+              "description": "assumption, 0-1"
+            },
+            "securities_duration_years": {
+              "type": "number",
+              "description": "as disclosed"
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "responses": {
+        "*": {
+          "title": "{ticker} rate sensitivity (Item 7A)",
+          "source": "SEC 10-Q Item 7A (recorded fixture)",
+          "as_of": "2026-11-04",
+          "filing_type": "10-Q",
+          "filed_date": "2026-11-04",
+          "accession": "0000019617-26-000204",
+          "section": "Item 3. Quantitative and Qualitative Disclosures About Market Risk",
+          "values": {
+            "nii_change_plus_100bp": 2100000000,
+            "nii_change_minus_100bp": -2900000000,
+            "deposit_cost": 0.0215,
+            "afs_unrealized_loss": 5600000000,
+            "allowance_credit_losses": 26900000000,
+            "diluted_shares": 2810000000
+          },
+          "formulas": {
+            "eps_impact": "NII change x (1 - tax rate) / diluted shares"
+          }
+        }
+      }
     },
-    "quant_event_study": {
-      "spec": {"name": "quant_event_study",
-               "description": "Earnings event study: market-model abnormal returns and cumulative abnormal returns (CAR) around earnings announcements, with t-tests on positive EPS surprise events.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "n_events": {"type": "integer"}, "event_window": {"type": "integer"}}, "required": ["ticker"], "additionalProperties": false}},
-      "responses": {"*": {"title": "{ticker} earnings event study", "source": "Daily bars + earnings dates (recorded fixture)", "as_of": "2026-10-30",
-                          "values": {"n_events": 12, "mean_car": 0.0071, "mean_car_positive_surprise": 0.0113, "t_stat_positive_surprise": 1.21, "p_value_positive_surprise": 0.2512},
-                          "formulas": {"abnormal_return": "R_t - (alpha + beta R_m,t), estimated over [-250, -11]", "car": "sum of abnormal returns over the event window"},
-                          "assumptions": {"estimation_window": "[-250, -11]", "event_window": "[-2, +2]"}}}
+    "sec_filings_list": {
+      "responses": {
+        "*": {
+          "title": "{ticker} recent SEC filings",
+          "source": "SEC EDGAR submissions (recorded fixture)",
+          "as_of": "2026-11-04",
+          "filing_type": "10-Q",
+          "filed_date": "2026-11-04",
+          "accession": "0000000000-26-000001",
+          "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany",
+          "values": {
+            "filings_listed": 8
+          },
+          "table": [
+            {
+              "form": "10-Q",
+              "filed": "2026-11-04"
+            },
+            {
+              "form": "8-K",
+              "filed": "2026-10-29"
+            },
+            {
+              "form": "10-K",
+              "filed": "2026-02-26"
+            }
+          ]
+        }
+      },
+      "spec": {
+        "name": "sec_filings_list",
+        "description": "Latest SEC filings from EDGAR: form, filing date, period, accession, URL, 8-K items (2.02 = earnings).",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string",
+              "description": "Ticker, e.g. NVDA"
+            },
+            "forms": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "10-K",
+                  "10-Q",
+                  "8-K"
+                ]
+              },
+              "description": "Default all three"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "description": "Per form (default 5)"
+            },
+            "earnings_only": {
+              "type": "boolean",
+              "description": "8-Ks with Item 2.02 only"
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      }
     },
-    "quant_backtest": {
-      "spec": {"name": "quant_backtest",
-               "description": "Strategy backtest on daily bars with transaction costs and slippage, next-bar execution (no look-ahead), and in-sample / out-of-sample split versus buy-and-hold.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "rule": {"type": "string", "default": "rsi14<30 and close>sma200"}, "cost_bps": {"type": "number"}}, "required": ["ticker", "rule"], "additionalProperties": false}},
-      "responses": {"*": {"title": "{ticker} RSI strategy backtest", "source": "Daily bars (yfinance, recorded fixture)", "as_of": "2026-11-24",
-                          "values": {"strategy_cagr": 0.0912, "strategy_sharpe": 0.83, "strategy_max_drawdown": -0.1844, "buy_hold_cagr": 0.1867, "buy_hold_sharpe": 0.91, "trades": 27, "oos_sharpe": 0.61},
-                          "assumptions": {"cost_bps": 5, "slippage_bps": 5, "execution": "next open", "oos_split": "2022-01-01"}}}
+    "sec_filing_passages": {
+      "responses": {
+        "*": {
+          "title": "{ticker} filing passages",
+          "source": "SEC EDGAR filing text (recorded fixture)",
+          "as_of": "2026-02-26",
+          "filing_type": "10-K",
+          "filed_date": "2026-02-26",
+          "accession": "0000000000-26-000002",
+          "section": "Item 7. MD&A",
+          "url": "https://www.sec.gov/Archives/edgar/data/",
+          "values": {
+            "passages_returned": 4
+          }
+        }
+      },
+      "spec": {
+        "name": "sec_filing_passages",
+        "description": "Verbatim passages from a company's SEC filings with citations (form, filing date, accession, section, page, URL). EX-99.1 = earnings press releases. Quote `excerpt` exactly.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string",
+              "description": "Ticker, e.g. NVDA"
+            },
+            "query": {
+              "type": "string"
+            },
+            "forms": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "10-K",
+                  "10-Q",
+                  "8-K",
+                  "EX-99.1"
+                ]
+              },
+              "description": "Default 10-K"
+            },
+            "filings_back": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5,
+              "description": "Latest N per form (default 1)"
+            },
+            "sections": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "business",
+                  "controls",
+                  "cybersecurity",
+                  "exhibit",
+                  "financial_statements",
+                  "legal_proceedings",
+                  "market_risk",
+                  "mdna",
+                  "other_events",
+                  "properties",
+                  "regulation_fd",
+                  "results_of_operations",
+                  "risk_factors"
+                ]
+              }
+            },
+            "accession": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10,
+              "description": "Default 5"
+            }
+          },
+          "required": [
+            "ticker",
+            "query"
+          ],
+          "additionalProperties": false
+        }
+      }
     },
-    "quant_portfolio_risk": {
-      "spec": {"name": "quant_portfolio_risk",
-               "description": "Portfolio diversification analysis: pairwise correlation matrix, factor concentration, marginal contribution to risk per holding, sector exposure and stressed drawdown under a technology correction.",
-               "input_schema": {"type": "object", "properties": {"tickers": {"type": "array", "items": {"type": "string"}, "minItems": 2, "maxItems": 10}}, "required": ["tickers"], "additionalProperties": false}},
-      "responses": {"*": {"title": "Equal-weight portfolio risk", "source": "Daily bars (yfinance, recorded fixture)", "as_of": "2026-11-24",
-                          "values": {"avg_pairwise_correlation": 0.5734, "max_pairwise_correlation": 0.7811, "portfolio_vol": 0.2988, "top_mcr_share": 0.2641, "tech_sector_weight": 0.8333, "stress_drawdown": -0.3172},
-                          "formulas": {"mcr_i": "w_i (Sigma w)_i / sigma_p"},
-                          "assumptions": {"stress_scenario": "Nasdaq-100 -25% with 2022 betas"}}}
-    },
-    "quant_macro_factors": {
-      "spec": {"name": "quant_macro_factors",
-               "description": "Macro factor exposure: regression betas of returns on 10-year Treasury yield changes (FRED DGS10), semiconductor index, US dollar index and hyperscaler capex proxies.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}}, "required": ["ticker"], "additionalProperties": false}},
-      "responses": {"*": {"title": "{ticker} macro factor betas", "source": "Daily bars + FRED (recorded fixture)", "as_of": "2026-11-24",
-                          "values": {"beta_10y_yield_per_100bp": -0.0912, "beta_semis_index": 1.37, "beta_usd_index": -0.42, "r_squared": 0.5812},
-                          "inputs": [{"series": "FRED DGS10", "observation_date": "2026-11-24"}]}}
-    },
-    "filings_compare": {
-      "spec": {"name": "filings_compare",
-               "description": "Compare a company's recent SEC filings (10-K, 10-Q, 8-K) section by section: risk factors, customer concentration, geographic revenue, commitments, MD&A; returns changes with filing dates, accession numbers and excerpts.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "forms": {"type": "array", "items": {"type": "string", "enum": ["10-K", "10-Q", "8-K"]}}, "n_filings": {"type": "integer"}}, "required": ["ticker"], "additionalProperties": false}},
+    "sec_filing_section_diff": {
+      "spec": {
+        "name": "sec_filing_section_diff",
+        "description": "Diff one section across the last N 10-Ks (or 10-Qs): risk factors / paragraphs added, removed, changed, with verbatim excerpts, inserted/deleted phrases, counts and citations.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string",
+              "description": "Ticker, e.g. NVDA"
+            },
+            "section": {
+              "type": "string",
+              "enum": [
+                "risk_factors",
+                "mdna",
+                "business",
+                "market_risk",
+                "legal_proceedings",
+                "cybersecurity",
+                "financial_statements",
+                "controls"
+              ]
+            },
+            "form": {
+              "type": "string",
+              "enum": [
+                "10-K",
+                "10-Q"
+              ],
+              "description": "Default 10-K"
+            },
+            "filings": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 5,
+              "description": "Default 3"
+            },
+            "max_items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "description": "Per change type (default 8)"
+            }
+          },
+          "required": [
+            "ticker",
+            "section"
+          ],
+          "additionalProperties": false
+        }
+      },
       "progress": "Comparing SEC filings for {ticker}",
-      "responses": {"*": {"title": "{ticker} filing changes (10-K)", "source": "SEC EDGAR filings (recorded fixture)", "as_of": "2026-02-26",
-                          "filing_type": "10-K", "filed_date": "2026-02-26", "accession": "0001045810-26-000012", "section": "Item 1A. Risk Factors",
-                          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000012/",
-                          "values": {"risk_factor_count_latest": 46, "risk_factor_count_prior": 41, "largest_customer_share": 0.19, "inventory_purchase_obligations": 50300000000},
-                          "table": [{"change": "new risk factor on export controls to China", "section": "Item 1A", "filed": "2026-02-26"}, {"change": "customer concentration disclosure expanded", "section": "Item 7", "filed": "2026-02-26"}],
-                          "note": "Excerpt: 'We have experienced and may experience export control restrictions...'"}}
+      "responses": {
+        "*": {
+          "title": "{ticker} filing changes (10-K)",
+          "source": "SEC EDGAR filings (recorded fixture)",
+          "as_of": "2026-02-26",
+          "filing_type": "10-K",
+          "filed_date": "2026-02-26",
+          "accession": "0001045810-26-000012",
+          "section": "Item 1A. Risk Factors",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000012/",
+          "values": {
+            "risk_factor_count_latest": 46,
+            "risk_factor_count_prior": 41,
+            "largest_customer_share": 0.19,
+            "inventory_purchase_obligations": 50300000000
+          },
+          "table": [
+            {
+              "change": "new risk factor on export controls to China",
+              "section": "Item 1A",
+              "filed": "2026-02-26"
+            },
+            {
+              "change": "customer concentration disclosure expanded",
+              "section": "Item 7",
+              "filed": "2026-02-26"
+            }
+          ],
+          "note": "Excerpt: 'We have experienced and may experience export control restrictions...'"
+        }
+      }
     },
-    "filings_disclosures": {
-      "spec": {"name": "filings_disclosures",
-               "description": "Extract primary disclosures from 10-K / 10-Q notes and XBRL: contractual obligations, deferred revenue, remaining performance obligations, operating lease liabilities, capex commitments, stock-based compensation, segment revenue, guidance.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}, "query": {"type": "string"}}, "required": ["ticker", "query"], "additionalProperties": false}},
-      "responses": {"*": {"title": "{ticker} disclosures (notes)", "source": "SEC 10-K notes + XBRL (recorded fixture)", "as_of": "2025-07-30",
-                          "filing_type": "10-K", "filed_date": "2025-07-30", "accession": "0000950170-25-100235", "section": "Item 8 - Notes",
-                          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017025100235/",
-                          "values": {"remaining_performance_obligations": 368000000000, "deferred_revenue": 64555000000, "operating_lease_liabilities": 24823000000, "capex_commitments": 108400000000, "stock_based_compensation": 11974000000}}}
-    },
-    "filings_rate_sensitivity": {
-      "spec": {"name": "filings_rate_sensitivity",
-               "description": "Bank interest rate risk disclosures from 10-K/10-Q (Item 7A): net interest income sensitivity to +/-100bp parallel shocks, deposit costs, AFS/HTM securities unrealized losses, allowance for credit losses.",
-               "input_schema": {"type": "object", "properties": {"ticker": {"type": "string"}}, "required": ["ticker"], "additionalProperties": false}},
-      "responses": {"*": {"title": "{ticker} rate sensitivity (Item 7A)", "source": "SEC 10-Q Item 7A (recorded fixture)", "as_of": "2026-11-04",
-                          "filing_type": "10-Q", "filed_date": "2026-11-04", "accession": "0000019617-26-000204", "section": "Item 3. Quantitative and Qualitative Disclosures About Market Risk",
-                          "values": {"nii_change_plus_100bp": 2100000000, "nii_change_minus_100bp": -2900000000, "deposit_cost": 0.0215, "afs_unrealized_loss": 5600000000, "allowance_credit_losses": 26900000000, "diluted_shares": 2810000000},
-                          "formulas": {"eps_impact": "NII change x (1 - tax rate) / diluted shares"}}}
+    "sec_disclosure_extract": {
+      "spec": {
+        "name": "sec_disclosure_extract",
+        "description": "One disclosure from a filing: XBRL values as filed in that accession, reconciliation checks (e.g. lease maturities vs filed total) and the verbatim narrative excerpt. guidance reads the earnings 8-K EX-99.1 by default.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string",
+              "description": "Ticker, e.g. NVDA"
+            },
+            "topic": {
+              "type": "string",
+              "enum": [
+                "customer_concentration",
+                "geographic_revenue",
+                "purchase_commitments",
+                "remaining_performance_obligations",
+                "deferred_revenue",
+                "operating_leases",
+                "finance_leases",
+                "contractual_obligations",
+                "capex_commitments",
+                "revenue_recognition",
+                "stock_based_compensation",
+                "depreciation_useful_lives",
+                "liquidity",
+                "guidance"
+              ]
+            },
+            "form": {
+              "type": "string",
+              "enum": [
+                "10-K",
+                "10-Q",
+                "8-K"
+              ],
+              "description": "Default 10-K"
+            },
+            "filings_back": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3,
+              "description": "Default 1"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8,
+              "description": "Passages (default 4)"
+            }
+          },
+          "required": [
+            "ticker",
+            "topic"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "responses": {
+        "*": {
+          "title": "{ticker} disclosures (notes)",
+          "source": "SEC 10-K notes + XBRL (recorded fixture)",
+          "as_of": "2025-07-30",
+          "filing_type": "10-K",
+          "filed_date": "2025-07-30",
+          "accession": "0000950170-25-100235",
+          "section": "Item 8 - Notes",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017025100235/",
+          "values": {
+            "remaining_performance_obligations": 368000000000,
+            "deferred_revenue": 64555000000,
+            "operating_lease_liabilities": 24823000000,
+            "capex_commitments": 108400000000,
+            "stock_based_compensation": 11974000000
+          }
+        }
+      }
     }
   }
 }

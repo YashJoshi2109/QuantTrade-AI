@@ -64,6 +64,11 @@ def _fill(obj: Any, ticker: str) -> Any:
     return obj
 
 
+def recorded_names() -> List[str]:
+    """Every tool the recorded fixture stands in for (production names)."""
+    return list(json.loads(RECORDED.read_text())["tools"])
+
+
 def recorded_tools(drop: Iterable[str] = (), delay_s: Optional[Dict[str, float]] = None,
                    fail: Iterable[str] = (), timeout_s: Optional[Dict[str, float]] = None) -> Dict[str, Dict[str, Any]]:
     """Recorded tools as engine plugins ({name: {spec, handler, progress, timeout_s}})."""
@@ -172,7 +177,7 @@ class MockAnalystLLM:
                     continue
                 for name in st["tools"]:
                     spec = self._spec(name)
-                    if spec is None or name.startswith("get_"):
+                    if spec is None or name in _BUILTIN_DATA_TOOLS:
                         continue
                     props = spec["input_schema"].get("properties", {})
                     req = spec["input_schema"].get("required", [])
@@ -253,6 +258,31 @@ class MockAnalystLLM:
         return "\n".join(L)
 
 
+# Built-in data tools answered from FixtureSources / the context pack; the mock
+# model never issues them itself (everything else is an engine tool).
+_BUILTIN_DATA_TOOLS = {"get_quote", "get_fundamentals", "get_financials", "get_forecast", "get_news",
+                       "search_filings", "compare_tickers", "get_macro", "get_market_movers"}
+
+
+class offline_registry:
+    """Hide the production engine tools that the recorded fixture stands in for
+    (same names, same specs), so an offline run can never reach a live provider
+    and a tool dropped from the recorded set is really unavailable."""
+
+    def __enter__(self):
+        from app.services.copilot import tools as T
+        self._T = T
+        self._specs, self._names = T.TOOL_SPECS, T.TOOL_NAMES
+        hidden = set(recorded_names())
+        T.TOOL_SPECS = [t for t in T.TOOL_SPECS if t["name"] not in hidden]
+        T.TOOL_NAMES = {t["name"] for t in T.TOOL_SPECS}
+        return self
+
+    def __exit__(self, *exc):
+        self._T.TOOL_SPECS, self._T.TOOL_NAMES = self._specs, self._names
+        return False
+
+
 # ── run + score ──────────────────────────────────────────────────────────────
 async def run_question(q: dict, *, tools: Optional[Dict[str, Dict[str, Any]]] = None, llm=None,
                        data: Optional[dict] = None) -> Dict[str, Any]:
@@ -262,11 +292,13 @@ async def run_question(q: dict, *, tools: Optional[Dict[str, Dict[str, Any]]] = 
     llm = llm or MockAnalystLLM()
     db = fixture_db(data)
     try:
-        eng = CopilotEngine(db, sources=FixtureSources(data), llm_chain=[LLMHandle("scripted", "mock-analyst", lambda: llm)],
-                            memory_store=InMemoryStore(), use_pack_cache=False,
-                            extra_tools=tools if tools is not None else recorded_tools())
-        events = [ev async for ev in eng.run(CopilotRequest(message=q["question"], user_id=1,
-                                                            conversation_id=f"inst-{q['id']}"))]
+        with offline_registry():
+            eng = CopilotEngine(db, sources=FixtureSources(data),
+                                llm_chain=[LLMHandle("scripted", "mock-analyst", lambda: llm)],
+                                memory_store=InMemoryStore(), use_pack_cache=False,
+                                extra_tools=tools if tools is not None else recorded_tools())
+            events = [ev async for ev in eng.run(CopilotRequest(message=q["question"], user_id=1,
+                                                                conversation_id=f"inst-{q['id']}"))]
     finally:
         db.close()
     return {"events": events, "trace": eng.last_trace, "llm": llm, "plan": eng.last_plan}

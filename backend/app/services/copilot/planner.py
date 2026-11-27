@@ -74,6 +74,18 @@ class Capability:
     families: Tuple[str, ...] = ()       # tool-name prefixes that own this capability
     computation: bool = True             # needs execution (vs retrieval)
     query: str = ""                      # filing-search query when a tool takes one
+    exclude: Tuple[str, ...] = ()        # tools that match by keyword but answer a different question
+
+
+# Engine families.  A family is a tool-name prefix; the engines shipped with the
+# copilot do not share one prefix per engine, so their tool names are listed as
+# (exact) prefixes too.  New tools still get discovered by keyword + family.
+FUND = ("fundamentals_", "get_financial_history", "analyze_earnings_quality", "analyze_capital_efficiency",
+        "dupont_analysis", "assess_financial_distress", "compare_peer_fundamentals")
+VAL = ("valuation_",)
+QUANT = ("quant_", "analyze_price_behavior", "get_risk_metrics", "earnings_event_study",
+         "analyze_portfolio_risk", "backtest_strategy")
+FIL = ("filings_", "sec_")
 
 
 CAPABILITIES: Tuple[Capability, ...] = (
@@ -81,84 +93,87 @@ CAPABILITIES: Tuple[Capability, ...] = (
                r"financial statements|income statement|balance sheet|cash flows?|five years|5 years|"
                r"last \w+ years|past \w+ years|historical financials",
                ("statements", "financials", "history", "annual", "xbrl", "income statement", "financial statements"),
-               ("fundamentals_",), computation=False),
+               FUND, computation=False),
     Capability("earnings_quality", "Earnings quality: accruals, cash conversion, working capital",
                r"forensic|accrual|earnings quality|working capital|cash conversion|operating cash flow|"
                r"adjusted operating income|stock-based compensation",
                ("accrual", "accruals", "quality", "forensic", "working capital", "cash conversion", "earnings quality", "sbc"),
-               ("fundamentals_",)),
+               FUND),
     Capability("returns_on_capital", "ROIC vs WACC / incremental returns",
                r"\broic\b|return on invested capital|capital efficiency|incremental return",
-               ("roic", "invested capital", "returns", "nopat", "incremental"), ("fundamentals_", "valuation_")),
+               ("roic", "invested capital", "returns", "nopat", "incremental"), FUND + VAL),
     Capability("dupont", "DuPont ROE decomposition", r"dupont|decompose roe|\broe\b|return on equity",
-               ("dupont", "roe", "return on equity", "asset turnover", "leverage"), ("fundamentals_",)),
+               ("dupont", "roe", "return on equity", "asset turnover", "leverage"), FUND),
     Capability("distress", "Distress models (Altman Z, Piotroski F, Beneish M)",
                r"altman|z-score|piotroski|f-score|beneish|m-score|distress",
-               ("altman", "piotroski", "beneish", "distress", "z-score", "zscore", "f-score", "m-score"), ("fundamentals_",)),
+               ("altman", "piotroski", "beneish", "distress", "z-score", "zscore", "f-score", "m-score"), FUND),
     Capability("leverage_liquidity", "Leverage, liquidity, interest coverage, debt maturities",
                r"interest coverage|debt maturity|maturity schedule|liquidity|leverage",
-               ("coverage", "maturity", "liquidity", "leverage", "debt", "solvency"), ("fundamentals_",)),
+               ("coverage", "maturity", "liquidity", "leverage", "debt", "solvency"), FUND),
     Capability("wacc", "Cost of capital (WACC / CAPM)", r"\bwacc\b|cost of capital|discount rates?",
-               ("wacc", "cost of capital", "capm", "discount rate", "cost of equity"), ("valuation_",)),
+               ("wacc", "cost of capital", "capm", "discount rate", "cost of equity"), VAL),
     Capability("dcf", "Discounted cash flow valuation", r"discounted cash flow|\bdcf\b|intrinsic value|three-stage",
-               ("dcf", "discounted cash flow", "intrinsic", "intrinsic value", "fcff"), ("valuation_",)),
+               ("dcf", "discounted cash flow", "intrinsic", "intrinsic value", "fcff"), VAL),
     Capability("reverse_dcf", "Reverse DCF / market-implied expectations",
                r"reverse dcf|market[- ]implied|implied (growth|expectations)|justify its current",
-               ("reverse", "implied", "reverse dcf", "market implied"), ("valuation_",)),
+               ("reverse", "implied", "reverse dcf", "market implied"), VAL),
     Capability("sensitivity", "Sensitivity analysis", r"sensitivity|matrix",
-               ("sensitivity", "matrix", "grid"), ("valuation_", "quant_")),
+               ("sensitivity", "matrix", "grid"), VAL + QUANT,
+               exclude=("valuation_rate_sensitivity",)),        # bank-only; see bank_rate_sensitivity
     Capability("multiples", "Relative valuation multiples (EV/EBITDA, P/E, FCF yield)",
                r"ev/ebitda|enterprise value|forward p/e|p/e\b|fcf yield|free cash flow yield|peer valuation|"
                r"valuation ranking|multiples",
                ("multiples", "ev/ebitda", "ebitda", "peers", "peer", "comparables", "fcf yield", "relative",
-                "p/e"), ("valuation_",)),
+                "p/e"), VAL),
     Capability("monte_carlo", "Monte Carlo simulation", r"monte carlo|simulations?",
                ("monte", "carlo", "monte carlo", "simulation", "simulations", "probabilistic", "stochastic"),
-               ("valuation_", "quant_")),
+               VAL + QUANT),
     Capability("scenarios", "Scenario / stress analysis",
                r"scenarios?|stress|bull|bear|downside|shock|tariffs?|export restrictions?|geopolitical|"
                r"appreciation of the us dollar|correction",
-               ("scenario", "scenarios", "stress", "shock", "bull", "bear", "what-if"), ("valuation_", "quant_")),
+               ("scenario", "scenarios", "stress", "shock", "bull", "bear", "what-if"), VAL + QUANT),
     Capability("volatility_regime", "Volatility, Hurst exponent, autocorrelation, regimes",
                r"volatility|hurst|autocorrelation|regime|mean reversion|momentum",
-               ("volatility", "hurst", "autocorrelation", "regime", "rolling", "mean reversion"), ("quant_",)),
+               ("volatility", "hurst", "autocorrelation", "regime", "rolling", "mean reversion"), QUANT),
     Capability("risk_metrics", "Risk metrics (beta, alpha, Sharpe, Sortino, drawdown, VaR)",
                r"\bbeta\b|alpha|sharpe|sortino|drawdown|value at risk|\bvar\b",
-               ("beta", "sharpe", "sortino", "drawdown", "var", "value at risk", "alpha", "risk metrics"), ("quant_",)),
+               ("beta", "sharpe", "sortino", "drawdown", "var", "value at risk", "alpha", "risk metrics"), QUANT,
+               exclude=("backtest_strategy",)),
     Capability("event_study", "Earnings event study (abnormal returns)",
                r"event study|abnormal returns?|earnings announcements?|eps surprises?",
-               ("event", "event study", "abnormal", "announcement", "surprise", "car"), ("quant_",)),
+               ("event", "event study", "abnormal", "announcement", "surprise", "car"), QUANT),
     Capability("backtest", "Strategy backtest", r"backtest|strategy|\brsi\b|moving average|buy-and-hold|slippage|out-of-sample",
-               ("backtest", "strategy", "rsi", "signal", "slippage", "transaction cost"), ("quant_",)),
+               ("backtest", "strategy", "rsi", "signal", "slippage", "transaction cost"), QUANT),
     Capability("portfolio", "Portfolio correlation / risk contribution",
                r"portfolio|correlations?|diversif|marginal contribution|factor concentration",
-               ("portfolio", "correlation", "covariance", "diversification", "contribution", "factor"), ("quant_",)),
+               ("portfolio", "correlation", "covariance", "diversification", "contribution", "factor"), QUANT),
     Capability("macro_factors", "Rates / macro factor sensitivity",
                r"treasury|yields?\b|interest rates?|basis[- ]points?|macro|us dollar|consumer discretionary",
-               ("macro", "rates", "treasury", "yield", "factor", "fred"), ("quant_", "macro_")),
+               ("macro", "rates", "treasury", "yield", "factor", "fred"), QUANT + ("macro_", "get_macro"),
+               exclude=("get_risk_metrics",)),                  # market beta is not a macro-factor exposure
     Capability("bank_rate_sensitivity", "Bank rate sensitivity (NII, deposits, AOCI, credit losses)",
                r"net interest income|deposit costs?|securities portfolio|credit losses",
                ("net interest income", "nii", "deposit", "rate sensitivity", "interest rate risk"),
-               ("filings_", "fundamentals_"), query="net interest income sensitivity to interest rates"),
+               FIL + FUND, query="net interest income sensitivity to interest rates"),
     Capability("filings_compare", "Cross-filing comparison (10-K / 10-Q / 8-K)",
                r"10-k|10-q|8-k|risk[- ]factor|material changes|cross-reference|filings",
                ("filings", "filing", "10-k", "risk factors", "compare", "diff", "changes", "section", "excerpt"),
-               ("filings_",), computation=False, query="risk factors material changes"),
+               FIL, computation=False, query="risk factors material changes"),
     Capability("disclosures", "Primary disclosures (notes, obligations, segments, guidance)",
                r"contractual obligations|deferred revenue|remaining performance obligations|leases?|"
                r"capital expenditure commitments|guidance|revenue recognition|customer concentration|"
                r"geographic|inventory|depreciation|segment|cloud revenue|cross-border|transaction volume|"
                r"regulatory|disclosures?",
                ("disclosure", "disclosures", "filings", "xbrl", "notes", "obligations", "segment", "footnote", "passages"),
-               ("filings_", "fundamentals_"), computation=False, query="contractual obligations commitments guidance"),
+               FIL + FUND, computation=False, query="contractual obligations commitments guidance"),
     Capability("market_value", "Current market value (price, market cap)",
                r"market cap|market capitali[sz]ation|current (share )?price|current market valuation|implied valuation",
-               ("quote", "price", "market cap"), (), computation=False),
+               ("quote", "price", "market cap"), (), computation=False, exclude=QUANT),
     Capability("capex", "Capital intensity / capex / depreciation",
                r"capital (expenditure|intensity)|capex|depreciation burden|infrastructure invest",
-               ("capex", "capital expenditure", "depreciation", "intensity", "reinvestment"), ("fundamentals_",)),
+               ("capex", "capital expenditure", "depreciation", "intensity", "reinvestment"), FUND),
     Capability("growth_margins", "Growth and margins", r"revenue growth|gross margin|operating margin|operating leverage|margins?",
-               ("growth", "margin", "margins", "revenue", "operating leverage"), ("fundamentals_",)),
+               ("growth", "margin", "margins", "revenue", "operating leverage"), FUND),
 )
 
 
@@ -225,6 +240,8 @@ def _tool_text(spec: Dict[str, Any]) -> Tuple[str, set, set]:
 
 
 def score_tool(cap: Capability, spec: Dict[str, Any]) -> int:
+    if any(spec["name"].lower().startswith(x) for x in cap.exclude):
+        return 0
     text, name_toks, toks = _tool_text(spec)
     family = any(spec["name"].lower().startswith(f) for f in cap.families)
     s = 2 if family else 0
@@ -333,8 +350,33 @@ def _coerce(value: Any, prop: Dict[str, Any]) -> Any:
     return value if t is None else None
 
 
+_ENUM_MAX_CALLS = 3
+
+
+def _norm_words(text: str) -> str:
+    return " " + re.sub(r"[^a-z0-9]+", " ", (text or "").lower()) + " "
+
+
+def enum_matches(prop: Dict[str, Any], text: str) -> List[str]:
+    """Enum values of a string parameter that the question names (``operating_leases``
+    matches "operating lease"); used to fill required selector arguments such as a
+    filing section or disclosure topic.  Never guesses a value the text does not name."""
+    words = _norm_words(text)
+    out = []
+    for v in prop.get("enum") or []:
+        if not isinstance(v, str):
+            continue
+        parts = [w for w in re.split(r"[^a-z0-9]+", v.lower()) if w]
+        if not parts:
+            continue
+        pat = r"\s".join(re.escape(w[:-1] if len(w) > 3 and w.endswith("s") else w) + "s?" for w in parts)
+        if re.search(r"\s" + pat + r"\s", words):
+            out.append(v)
+    return out[:_ENUM_MAX_CALLS]
+
+
 def suggest_calls(spec: Dict[str, Any], tickers: Sequence[str], hints: Dict[str, Any],
-                  cap: Capability) -> List[Dict[str, Any]]:
+                  cap: Capability, question: str = "") -> List[Dict[str, Any]]:
     """Argument sets for one tool, or [] when a required argument cannot be filled."""
     schema = spec.get("input_schema") or {}
     props: Dict[str, Any] = schema.get("properties") or {}
@@ -348,18 +390,29 @@ def suggest_calls(spec: Dict[str, Any], tickers: Sequence[str], hints: Dict[str,
                 base[p] = v
         elif p == "query":
             base[p] = cap.query or cap.label
+    # required enum selectors (section / topic ...) named by the question or the capability
+    variants: List[Dict[str, Any]] = [{}]
+    for p in required:
+        prop = props.get(p) or {}
+        if p in base or prop.get("type") != "string" or not prop.get("enum"):
+            continue
+        vals = enum_matches(prop, question) or enum_matches(prop, cap.query)
+        if vals:
+            variants = [{**v, p: x} for v in variants for x in vals][:_ENUM_MAX_CALLS]
     tk = next((k for k in _TICKERS_KEYS if k in props), None)
     t1 = next((k for k in _TICKER_KEYS if k in props), None)
     out: List[Dict[str, Any]] = []
-    if tk:
-        mx = (props[tk].get("maxItems") or 10)
-        mn = (props[tk].get("minItems") or 1)
-        if len(tickers) >= mn:
-            out.append({**base, tk: list(tickers)[:mx]})
-    elif t1:
-        out.extend({**base, t1: t} for t in tickers)
-    else:
-        out.append(dict(base))
+    for var in variants:
+        b = {**base, **var}
+        if tk:
+            mx = (props[tk].get("maxItems") or 10)
+            mn = (props[tk].get("minItems") or 1)
+            if len(tickers) >= mn:
+                out.append({**b, tk: list(tickers)[:mx]})
+        elif t1:
+            out.extend({**b, t1: t} for t in tickers)
+        else:
+            out.append(dict(b))
     return [a for a in out if all(r in a for r in required)]
 
 
@@ -420,7 +473,7 @@ def build_plan(question: str, tickers: Sequence[str], extra: Optional[Dict[str, 
             for t in tools:
                 if t["name"] in PACK_COVERED:
                     continue
-                for args in suggest_calls(t, tickers, hints, cap):
+                for args in suggest_calls(t, tickers, hints, cap, question):
                     if n_prefetch >= DEEP_PREFETCH_MAX:
                         break
                     if any(c.tool == t["name"] and c.args == args for s in plan.steps for c in s.calls):

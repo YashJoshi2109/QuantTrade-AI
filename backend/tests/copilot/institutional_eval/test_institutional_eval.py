@@ -11,7 +11,10 @@ import pytest
 
 from app.services.copilot import composer, planner
 
-from .harness import MockAnalystLLM, answer_text, load_questions, recorded_tools, run_question, score
+from app.services.copilot import tools as tools_mod
+
+from .harness import (MockAnalystLLM, answer_text, load_questions, recorded_names, recorded_tools, run_question,
+                      score)
 
 QUESTIONS = load_questions()
 BY_ID = {q["id"]: q for q in QUESTIONS}
@@ -23,6 +26,20 @@ def _run(q, **kw):
 
 def _done(events):
     return next(d for n, d in events if n == "done")
+
+
+def test_recorded_specs_match_registry():
+    """Recorded stand-ins use the production tool names and schemas, so the
+    offline eval exercises the planner against the real registry."""
+    real = {t["name"]: t for t in tools_mod.all_tool_specs()}
+    for name, plugin in recorded_tools().items():
+        if name in real:                      # engine merged: schema must match exactly
+            assert plugin["spec"]["input_schema"] == real[name]["input_schema"], name
+            assert plugin["spec"]["description"] == real[name]["description"], name
+    engine_tools = set(real) - {"get_quote", "get_fundamentals", "get_financials", "get_forecast", "get_news",
+                                "search_filings", "compare_tickers", "get_macro", "get_market_movers"}
+    missing = engine_tools - set(recorded_names())
+    assert not missing, f"engine tools without a recorded stand-in: {sorted(missing)}"
 
 
 def test_question_set_is_complete():
@@ -83,22 +100,22 @@ def test_repair_round_fixes_an_untraceable_figure():
 
 def test_failed_tool_is_reported_as_not_executed():
     q = BY_ID["Q06"]
-    r = _run(q, tools=recorded_tools(fail=["quant_risk_metrics"]))
+    r = _run(q, tools=recorded_tools(fail=["get_risk_metrics"]))
     step = next(s for s in r["plan"].steps if s.capability == "risk_metrics")
     assert step.status in ("failed", "partial")
     errs = [d for n, d in r["events"] if n == "tool" and d["status"] == "error"]
-    assert errs and errs[0]["name"] == "quant_risk_metrics" and "not available" in errs[0]["error"]
+    assert errs and errs[0]["name"] == "get_risk_metrics" and "not available" in errs[0]["error"]
     if step.status == "failed":
         assert "Not executed: Risk metrics" in answer_text(r["events"])
 
 
 def test_slow_tool_hits_its_per_step_timeout():
     q = BY_ID["Q07"]
-    tools = recorded_tools(delay_s={"quant_event_study": 2.0}, timeout_s={"quant_event_study": 0.05})
+    tools = recorded_tools(delay_s={"earnings_event_study": 2.0}, timeout_s={"earnings_event_study": 0.05})
     t0 = time.perf_counter()
     r = _run(q, tools=tools)
     assert time.perf_counter() - t0 < 1.5
-    err = next(d for n, d in r["events"] if n == "tool" and d["name"] == "quant_event_study" and d["status"] != "running")
+    err = next(d for n, d in r["events"] if n == "tool" and d["name"] == "earnings_event_study" and d["status"] != "running")
     assert err["status"] == "error" and "timed out" in err["error"]
     assert _done(r["events"])["refusal"] is None
 
