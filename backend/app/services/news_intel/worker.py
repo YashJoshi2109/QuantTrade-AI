@@ -46,7 +46,17 @@ async def _amain() -> None:
     try:
         import redis.asyncio as aioredis
 
-        redis = aioredis.from_url(redis_url, decode_responses=True, socket_connect_timeout=5)
+        from redis.asyncio.retry import Retry
+        from redis.backoff import ExponentialBackoff
+        from redis.exceptions import ConnectionError as _RedisConnErr, TimeoutError as _RedisTimeout
+
+        # Same hardening as the API client (#142): ElastiCache/NAT silently drop
+        # idle pooled sockets, and a failed heartbeat write made /news/health
+        # report the worker dead while it was ingesting.
+        redis = aioredis.from_url(redis_url, decode_responses=True, socket_connect_timeout=5,
+                                  socket_timeout=5, socket_keepalive=True, health_check_interval=30,
+                                  retry=Retry(ExponentialBackoff(cap=1.0, base=0.05), 2),
+                                  retry_on_error=[_RedisConnErr, _RedisTimeout])
         await redis.ping()
         from app.services.redis_cache_service import cache_service
 
@@ -67,6 +77,19 @@ async def _amain() -> None:
     svc = pipeline.NewsIntelService(redis=redis)
     pipeline._service = svc
     status = asyncio.create_task(svc.status_loop(), name="news-status")
+
+    # Meter this process's provider calls (Finnhub news, SEC, ...) and publish
+    # them so the API's status page counts the shared per-key quotas.
+    from app.services import provider_meter
+
+    provider_meter.install()
+
+    async def _meter_loop():
+        while True:
+            await provider_meter.publish(redis, "news-worker", os.getpid())
+            await asyncio.sleep(5)
+
+    meter_task = asyncio.create_task(_meter_loop(), name="provider-meter")
     runner = svc.start()
 
     # Copilot SEC filing index refresh lives here, not in the API process.
@@ -86,6 +109,7 @@ async def _amain() -> None:
     await stop.wait()
     log.info("news-worker stopping")
     status.cancel()
+    meter_task.cancel()
     if sec_task is not None:
         sec_task.cancel()
     await svc.stop()

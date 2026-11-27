@@ -37,6 +37,7 @@ from app.services.forecasting.evaluation import EVAL_VERSION
 from app.services.forecasting.models import STATE_VERSION
 from app.services.forecasting.summary import summarize_forecast
 from app.services.model_status import EXPERIMENTAL_LABEL, annotate_forecast
+from app.services import provider_meter
 from app.services.redis_cache_service import cache_service
 
 logger = logging.getLogger(__name__)
@@ -218,8 +219,19 @@ async def _get_or_compute(t: str, refresh: bool = False) -> dict:
                 return cached
         evaluation = await cache_service.get(_eval_key(t))
         state = await cache_service.get(_state_key(t))
-        result = await asyncio.wait_for(asyncio.to_thread(_compute, t, evaluation, state),
-                                        timeout=_REQUEST_TIMEOUT_S)
+        t0 = time.perf_counter()
+        try:
+            result = await asyncio.wait_for(asyncio.to_thread(_compute, t, evaluation, state),
+                                            timeout=_REQUEST_TIMEOUT_S)
+        except ValueError:
+            # Short / missing history for this ticker: the service worked.
+            provider_meter.meter.record("forecast_compute", True, (time.perf_counter() - t0) * 1000)
+            raise
+        except Exception as e:
+            provider_meter.meter.record("forecast_compute", False, (time.perf_counter() - t0) * 1000,
+                                        error=type(e).__name__)
+            raise
+        provider_meter.meter.record("forecast_compute", True, (time.perf_counter() - t0) * 1000)
         ev = result.pop("_evaluation", None)
         new_state = result.pop("_state", None)
         if new_state is not None:

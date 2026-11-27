@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactNode, useState } from 'react'
 import PrefetchEngine from '@/components/loading/PrefetchEngine'
 import GlobalDataLoadingBar from '@/components/loading/GlobalDataLoadingBar'
+import { SystemStatusProvider } from '@/components/status/SystemStatusProvider'
 
 function makeQueryClient() {
   return new QueryClient({
@@ -32,7 +33,7 @@ export function ReactQueryProvider({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <PrefetchEngine />
       <GlobalDataLoadingBar />
-      {children}
+      <SystemStatusProvider>{children}</SystemStatusProvider>
     </QueryClientProvider>
   )
 }

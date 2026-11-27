@@ -28,6 +28,7 @@ from app.services.copilot.prompt import (cache_call_kwargs, history_messages, pr
 from app.services.copilot.registry import FactRegistry, numbers_in_text
 from app.services.copilot.resolver import Resolution, TickerResolver
 from app.services.copilot.telemetry import Trace
+from app.services.copilot import llm_stats
 from app.services.copilot.tools import ToolExecutor, lc_tools
 
 import logging
@@ -215,6 +216,7 @@ class CopilotEngine:
         executor = ToolExecutor(self.sources, registry, self.resolver, packs, pack_builder)
         chain = list(self.llm_chain if self.llm_chain is not None else default_llm_chain())
         if not chain:
+            llm_stats.stats.record(provider=None, model=None, ok=False, error="no LLM provider configured")
             yield "error", {"message": "No LLM provider is configured."}
             trace.set(error="no_llm"); self.last_trace = trace.finish()
             return
@@ -227,6 +229,8 @@ class CopilotEngine:
         from app.services import ai_guard
         meter = ai_guard.StreamMeter(ai_guard.io_caps()["max_tokens_sonnet"])
         tools = lc_tools()
+        t_gen = time.perf_counter()
+        first_token_ms: Optional[float] = None
 
         for idx, handle in enumerate(chain):
             cache_on = False
@@ -249,6 +253,7 @@ class CopilotEngine:
                             if t:
                                 if not emitted:
                                     trace.mark("first_token")
+                                    first_token_ms = (time.perf_counter() - t_gen) * 1000
                                 emitted = True
                                 parts.append(t)
                                 yield "token", {"text": t}
@@ -299,12 +304,18 @@ class CopilotEngine:
                     chain.insert(idx + 1, handle)
                     continue
                 if emitted or rounds > 1 or idx == len(chain) - 1:
+                    llm_stats.stats.record(provider=handle.provider, model=handle.model, ok=False,
+                                           latency_ms=(time.perf_counter() - t_gen) * 1000,
+                                           first_token_ms=first_token_ms, error=type(e).__name__)
                     yield "error", {"message": f"The language model failed ({type(e).__name__}). Please retry."}
                     trace.set(error=type(e).__name__); self.last_trace = trace.finish()
                     return
                 continue          # fall through to the next provider (nothing streamed yet)
 
         self.last_messages = messages
+        llm_stats.stats.record(provider=used.provider if used else None, model=used.model if used else None,
+                               ok=True, latency_ms=(time.perf_counter() - t_gen) * 1000,
+                               first_token_ms=first_token_ms)
         answer = "".join(parts).strip()
         if not answer:
             answer = "I couldn't produce an answer from the available data."

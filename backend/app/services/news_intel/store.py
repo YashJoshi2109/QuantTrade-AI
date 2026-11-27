@@ -299,10 +299,13 @@ def health_stats(db: Session, hours: int = 24) -> Dict[str, Any]:
     ing_cls: List[float] = []
     feed_pub_ing: Dict[str, List[float]] = {}
     feed_ing_cls: Dict[str, List[float]] = {}
+    newest = None
     for feed, pub, ing, cls in rows:
         feed = feed or "unknown"
         per_feed[feed] += 1
         pub, ing, cls = _aware(pub), _aware(ing), _aware(cls)
+        if ing and (newest is None or ing > newest):
+            newest = ing
         if pub and ing:
             d = (ing - pub).total_seconds()
             if 0 <= d <= 86400:  # ignore backfilled/old items and clock skew
@@ -324,6 +327,7 @@ def health_stats(db: Session, hours: int = 24) -> Dict[str, Any]:
             for f in per_feed
         },
         "items_24h": len(rows),
+        "newest_ingested_at": newest,
         "latency_seconds": {
             "published_to_ingested": {"p50": _percentile(pub_ing, 0.5), "p95": _percentile(pub_ing, 0.95),
                                       "n": len(pub_ing)},

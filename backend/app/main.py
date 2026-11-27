@@ -422,7 +422,28 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             print(f"⚠️ News intelligence pipeline not started: {e}")
 
+    # Live system status (/api/v1/system/status): passive provider meter on
+    # outbound HTTP + a background collector that probes each dependency on
+    # its own cadence.  Never on the request path.  SYSTEM_STATUS_ENABLED=0
+    # turns both off.
+    status_collector = None
+    from app.services import system_status as _system_status
+    if _system_status.enabled() and "pytest" not in sys.modules:
+        try:
+            from app.services import provider_meter as _provider_meter
+            from app.services.system_probes import build_collector
+
+            _provider_meter.install()
+            status_collector = build_collector(app=app, redis=getattr(app.state, "redis", None))
+            _system_status.set_collector(status_collector)
+            status_collector.start()
+        except Exception as e:
+            print(f"⚠️ System status collector not started: {e}")
+
     yield
+    if status_collector is not None:
+        await status_collector.stop()
+        _system_status.set_collector(None)
     if forecast_warm_task:
         forecast_warm_task.cancel()
     if news_intel_task:
@@ -538,7 +559,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Skip rate limiting for health/internal endpoints
         path = request.url.path
-        if path in ("/health", "/health/ready", "/", "/docs", "/openapi.json"):
+        # /api/v1/system/status is polled every second by every open tab; it is
+        # served from memory (and micro-cached by nginx), so it is exempt.
+        if path in ("/health", "/health/ready", "/", "/docs", "/openapi.json", "/api/v1/system/status"):
             return await call_next(request)
 
         client_ip = request.client.host if request.client else "unknown"
@@ -719,6 +742,10 @@ app.include_router(predictions.router, prefix="/api/v1", tags=["predictions"])
 # Statistical forecasting — ARIMA/ETS/Theta ensemble + calibrated GARCH bands
 from app.api import forecast as forecast_api
 app.include_router(forecast_api.router, prefix="/api/v1", tags=["forecast"])
+
+# Live system status (every dependency, polled every second by the top-bar pill)
+from app.api import system_status as system_status_api
+app.include_router(system_status_api.router, prefix="/api/v1", tags=["system"])
 
 # Static files — serve locally-uploaded community media (fallback when R2 is not configured)
 import pathlib as _pathlib
