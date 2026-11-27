@@ -91,12 +91,13 @@ export const DESKTOP_PERIOD_TABS = ['1D', '5D', '1M', '3M', '6M', '1Y', '5Y'] as
  * news         - Live news
  * ai           - AI analysis, technical gauges, Copilot handoff
  */
-export const RESEARCH_TABS = ['overview', 'fundamentals', 'financials', 'news', 'ai'] as const
+export const RESEARCH_TABS = ['overview', 'fundamentals', 'financials', 'ownership', 'news', 'ai'] as const
 export type ResearchTab = (typeof RESEARCH_TABS)[number]
 export const RESEARCH_TAB_LABELS: Record<ResearchTab, string> = {
   overview: 'Overview',
   fundamentals: 'Fundamentals',
   financials: 'Financials',
+  ownership: 'Ownership',
   news: 'News',
   ai: 'AI Insights',
 }
