@@ -196,6 +196,19 @@ def _resolve_cik(upper: str) -> str:
     raise _sec_error(404, "no_sec_filer", f"{upper} is not in SEC EDGAR's ticker registry")
 
 
+def _edgar_row(db: Session, symbol_id: int, ticker: str):
+    """The CompanyEDGAR row for a symbol, or its share-class sibling's.
+
+    company_edgar.cik is unique, so GOOG and GOOGL (one filer) share one row,
+    owned by whichever class synced first.
+    """
+    row = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == symbol_id).first()
+    if row is not None:
+        return row
+    cik = get_cik(ticker)
+    return db.query(CompanyEDGAR).filter(CompanyEDGAR.cik == cik).first() if cik else None
+
+
 def _filer_type(db: Session, symbol_id: Optional[int], cik: Optional[str]) -> str:
     """domestic | foreign | fund | unknown. Parsed 10-K/10-Q rows answer it with no SEC call."""
     if symbol_id is not None:
@@ -277,7 +290,7 @@ def company_overview(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpoo
     from app.services.copilot.viewed import record_view
     record_view(upper)
 
-    edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym.id).first()
+    edgar = _edgar_row(db, sym.id, upper)
 
     if not edgar:
         sym_id, sym_name = sym.id, sym.name
@@ -290,7 +303,7 @@ def company_overview(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpoo
             raise _sec_error(503, "sync_pending", result["message"], retry_after=10)
         if result["status"] == "error":
             raise _sec_error(503, "sec_unavailable", result.get("message") or "EDGAR sync failed", retry_after=30)
-        edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym_id).first()
+        edgar = _edgar_row(db, sym_id, upper)
         if not edgar:
             raise _sec_error(503, "sec_unavailable", "EDGAR data not available yet", retry_after=30)
 
@@ -477,7 +490,7 @@ async def get_ai_insights(
     ]
 
     edgar = await asyncio.to_thread(
-        lambda: db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym.id).first()
+        lambda: _edgar_row(db, sym.id, ticker.upper())
     )
     company_info = {
         "company_name": edgar.company_name if edgar else ticker,

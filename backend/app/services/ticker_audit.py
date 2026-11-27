@@ -653,7 +653,10 @@ def endpoint_sweep(base: str, tickers: Sequence[str] = SWEEP_SAMPLE, workers: in
                     nulls.append("no bars")
                 if bad:
                     nulls.append(f"{len(bad)} null-close bars")
+            fund_like = isinstance(data, dict) and data.get("asset_type") in ("etf", "fund", "index")
             for f in fields or ():
+                if fund_like and f in ("market_cap",):
+                    continue  # funds have AUM, not a market cap
                 v = _dig(data, f)
                 if v is None or v == [] or v == "":
                     nulls.append(f)

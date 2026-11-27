@@ -370,3 +370,27 @@ def test_forecast_refuses_split_jumps_and_retired():
     assert msg and "unadjusted split" in msg
     assert "no longer trades" in forecast_history_problem("SQ", clean)
     assert "reassigned" in forecast_history_problem("PARA", clean)
+
+
+# ── SEC share classes (GOOGL 503 found by the endpoint sweep) ─────────────
+
+def test_edgar_sync_reuses_share_class_sibling_row(monkeypatch):
+    from app.models.edgar import CompanyEDGAR, FinancialStatement
+    from app.services import sec_edgar_service as sec
+
+    eng = create_engine("sqlite://")
+    Base.metadata.create_all(eng, tables=[Symbol.__table__, CompanyEDGAR.__table__, FinancialStatement.__table__])
+    db = sessionmaker(bind=eng)()
+    db.add_all([Symbol(symbol="GOOG", name="Alphabet C"), Symbol(symbol="GOOGL", name="Alphabet A")])
+    db.commit()
+    monkeypatch.setattr(sec, "get_cik", lambda t: "0001652044")
+    monkeypatch.setattr(sec, "get_company_facts", lambda cik, force_refresh=False: {"entityName": "Alphabet Inc.", "facts": {}})
+    monkeypatch.setattr(sec, "get_submissions", lambda cik, force_refresh=False: {"sic": "7370"})
+    assert sec.sync_edgar_data("GOOG", db)["status"] == "ok"
+    assert sec.sync_edgar_data("GOOGL", db)["status"] == "ok"  # used to raise UniqueViolation
+    assert db.query(CompanyEDGAR).count() == 1
+
+    from app.api.research import _edgar_row
+    monkeypatch.setattr("app.api.research.get_cik", lambda t: "0001652044")
+    googl = db.query(Symbol).filter(Symbol.symbol == "GOOGL").one()
+    assert _edgar_row(db, googl.id, "GOOGL").company_name == "Alphabet Inc."

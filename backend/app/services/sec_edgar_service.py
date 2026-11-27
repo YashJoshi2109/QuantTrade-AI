@@ -731,6 +731,12 @@ def sync_edgar_data(ticker: str, db: Session, force_refresh: bool = False) -> di
     # 4. Upsert CompanyEDGAR
     overview = parse_company_overview(facts_data, submissions_data or {}, cik)
     company_edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == symbol.id).first()
+    if company_edgar is None:
+        # company_edgar.cik is unique, so share classes of one filer (GOOG /
+        # GOOGL, BRK.A / BRK.B, FOX / FOXA) share the row the first class
+        # created; inserting a second one failed with UniqueViolation and the
+        # Research page returned 503 for GOOGL (2026-11-27). Reuse it.
+        company_edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.cik == cik).first()
     if company_edgar:
         for k, v in overview.items():
             setattr(company_edgar, k, v)
