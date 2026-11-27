@@ -41,9 +41,16 @@ def risk_free_rate() -> float:
 
 
 def year_fraction(expiration: str | date, now: Optional[datetime] = None) -> float:
-    """Years from `now` (UTC) until the 16:00 ET close on the expiration date."""
+    """Years from `now` (UTC) until the regular close on the expiration date
+    (16:00 ET, or 13:00 ET on an early-close day such as the day after
+    Thanksgiving, from app.services.market_calendar)."""
     exp_date = expiration if isinstance(expiration, date) else date.fromisoformat(str(expiration)[:10])
-    expiry = datetime.combine(exp_date, _EXPIRY_UTC, tzinfo=timezone.utc)
+    try:
+        from app.services import market_calendar as mc
+
+        expiry = datetime.combine(exp_date, mc.close_time(exp_date), tzinfo=mc.ET)
+    except Exception:
+        expiry = datetime.combine(exp_date, _EXPIRY_UTC, tzinfo=timezone.utc)
     now = now or datetime.now(timezone.utc)
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)

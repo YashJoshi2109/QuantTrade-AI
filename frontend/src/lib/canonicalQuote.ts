@@ -47,6 +47,11 @@ export interface CanonicalQuoteInfo {
   as_of: string | null
   source: string | null
   stale: boolean
+  /** regular-session volume / open / high / low; null when unknown */
+  volume?: number | null
+  open?: number | null
+  high?: number | null
+  low?: number | null
 }
 
 const SESSION_LABEL: Record<string, string> = {
@@ -93,7 +98,16 @@ export function canonicalQuoteInfo(body: unknown): CanonicalQuoteInfo | null {
     as_of: typeof b.as_of === 'string' ? b.as_of : null,
     source: typeof b.source === 'string' ? b.source : typeof b.data_source === 'string' ? b.data_source : null,
     stale: b.stale === true,
+    // Regular-session bar figures (never the overnight venue's volume).
+    volume: positive(b.volume),
+    open: positive(b.open),
+    high: positive(b.high),
+    low: positive(b.low),
   }
+}
+
+function positive(v: unknown): number | null {
+  return isNumber(v) && v > 0 ? v : null
 }
 
 interface PriceFields {
@@ -101,6 +115,10 @@ interface PriceFields {
   change: number
   change_percent: number
   prev_close: number
+  volume?: number
+  open?: number
+  day_high?: number
+  day_low?: number
   quote?: CanonicalQuoteInfo | null
 }
 
@@ -122,6 +140,10 @@ export function applyCanonicalQuote<T extends PriceFields>(
     change: isNumber(r.change) ? r.change : 0,
     change_percent: isNumber(r.change_percent) ? r.change_percent : 0,
     prev_close: isNumber(r.previous_close) ? r.previous_close : info.prev_close,
+    ...(q.volume != null ? { volume: q.volume } : {}),
+    ...(q.open != null ? { open: q.open } : {}),
+    ...(q.high != null ? { day_high: q.high } : {}),
+    ...(q.low != null ? { day_low: q.low } : {}),
     quote: q,
   }
 }

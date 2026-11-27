@@ -602,6 +602,59 @@ async function fetchCanonicalQuote(sym: string): Promise<CanonicalQuoteInfo | nu
   }
 }
 
+// ─── Backend-only profile (last resort) ─────────────────────────────────────
+//
+// FMP (daily quota) and Yahoo quoteSummary ("Invalid Crumb" 401s) both failed
+// for NVDA on 2026-11-27, so the route returned 404 and Research showed
+// "No quote data" and an empty Company Folio although the backend had the
+// fundamentals row and the canonical quote. Build the profile from those.
+
+type BackendProfile = BackendFundamentals & {
+  company_name?: string | null
+  sector?: string | null
+  industry?: string | null
+  country?: string | null
+  asset_type?: string | null
+  week_52_high?: number | null
+  week_52_low?: number | null
+  target_price?: number | null
+  recommendation?: string | number | null
+}
+
+function tickerInfoFromBackend(sym: string, b: BackendProfile): TickerInfo {
+  const num = (v: unknown): number => (typeof v === 'number' && isFinite(v) ? v : 0)
+  const rec = Number(b.recommendation)
+  return {
+    symbol: sym,
+    asset_type: normalizeAssetType(b.asset_type) ?? undefined,
+    name: sanitizeQuoteSummaryCompanyName(String(b.company_name || sym), sym),
+    exchange: '', exchange_display: '', currency: 'USD',
+    country: String(b.country ?? ''), sector: String(b.sector ?? ''), industry: String(b.industry ?? ''),
+    market_cap: num(b.market_cap), employees: 0, description: '', website: '',
+    address: '', city: '', state: '', zip: '', phone: '', officers: [],
+    price: 0, change: 0, change_percent: 0, prev_close: 0, open: 0, day_high: 0, day_low: 0,
+    week_52_high: num(b.week_52_high), week_52_low: num(b.week_52_low), volume: 0, avg_volume: 0,
+    pe_ratio: 0, forward_pe: 0, eps: 0, forward_eps: 0, dividend_yield: 0, dividend_rate: 0,
+    peg_ratio: 0, price_to_book: 0, price_to_sales: 0, debt_to_equity: 0,
+    return_on_equity: 0, return_on_assets: 0, revenue: 0, revenue_growth: 0, gross_profit: 0,
+    gross_margins: 0, operating_margins: 0, profit_margins: 0, ebitda: 0, ebitda_margins: 0,
+    net_income: 0, operating_cashflow: 0, free_cash_flow: 0, total_cash: 0, total_debt: 0,
+    beta: 0, enterprise_value: 0, enterprise_to_revenue: 0, enterprise_to_ebitda: 0,
+    shares_outstanding: 0, float_shares: 0, held_percent_insiders: 0, held_percent_institutions: 0,
+    short_ratio: 0, short_percent_of_float: 0,
+    target_price: num(b.target_price), target_high: 0, target_low: 0,
+    // Backend recommendation is the 1 (strong buy) – 5 (sell) mean.
+    recommendation: isFinite(rec) && rec > 0 ? (rec <= 2 ? 'buy' : rec >= 3.5 ? 'sell' : 'hold') : '',
+    analyst_count: 0, ex_dividend_date: '', earnings_date: '', founded: '',
+    // Overlapping metrics (P/E, margins, ROE, D/E …) are filled by
+    // reconcileTickerFundamentals from this same row below.
+  }
+}
+
+function finiteNum(v: unknown): boolean {
+  return typeof v === 'number' && isFinite(v) && v > 0
+}
+
 // ─── GET handler ────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -626,6 +679,14 @@ export async function GET(request: NextRequest) {
     data =
       (await fetchYahooQuoteSummaryDirect(providerSymbol)) ??
       (await fetchYahooQuoteSummaryViaBackend(providerSymbol))
+  }
+
+  // Both profile providers down: fall back to the backend's own row.
+  let backendRow: BackendFundamentals | null | undefined
+  if (!data) {
+    backendRow = await fetchBackendFundamentals(symbol)
+    const b = backendRow as BackendProfile | null
+    if (b && (b.company_name || finiteNum(b.market_cap))) data = tickerInfoFromBackend(providerSymbol, b)
   }
 
   if (!data) {
@@ -667,7 +728,9 @@ export async function GET(request: NextRequest) {
   // One source of truth per Research page: the backend fundamentals row (also used
   // by Key Factors and the Fundamentals panel) wins for every overlapping metric,
   // with D/E as a ratio, PEG ≤ 0 dropped and past earnings dates removed.
-  const backend = isCompanyAsset(symbol, data.asset_type) ? await fetchBackendFundamentals(symbol) : null
+  const backend = isCompanyAsset(symbol, data.asset_type)
+    ? (backendRow !== undefined ? backendRow : await fetchBackendFundamentals(symbol))
+    : null
   data = reconcileTickerFundamentals(data, backend)
   // Keep Fwd EPS consistent with the Fwd P/E shown beside it.
   // Headline price = the backend canonical quote (regular session).

@@ -3,7 +3,7 @@
 import { useId, useMemo } from 'react'
 import { FundamentalsData } from '@/lib/api'
 import { isNumber, formatNumber } from '@/lib/format'
-import { formatMarketCap, meaningfulPeg } from '@/lib/valuation'
+import { earningsTiming, formatMarketCap, meaningfulPeg } from '@/lib/valuation'
 import { Zap, RefreshCw, Loader2 } from 'lucide-react'
 
 /* ────────────────── Health Score Computation ────────────────── */
@@ -690,16 +690,28 @@ export default function FundamentalsPanel({
               </div>
             </div>
           </div>
-          {f?.earnings_date && (
-            <div className="mt-2 flex items-center justify-between bg-amber-500/5 border border-amber-500/20 rounded-lg p-2.5">
-              <span className="text-[10px] text-amber-400 font-medium">
-                Next Earnings
-              </span>
-              <span className="text-[11px] font-mono text-amber-300 font-bold">
-                {f.earnings_date}
-              </span>
-            </div>
-          )}
+          {(() => {
+            // A past date is the last report, not the next one (NVDA showed
+            // "Next Earnings 2026-11-17" ten days after reporting).
+            const t = earningsTiming(f?.earnings_date)
+            if (!t) return null
+            const upcoming = t.kind === 'upcoming'
+            return (
+              <div className="mt-2 flex items-center justify-between bg-amber-500/5 border border-amber-500/20 rounded-lg p-2.5">
+                <span className="text-[10px] text-amber-400 font-medium">
+                  {upcoming ? 'Next Earnings' : 'Last Reported'}
+                </span>
+                <span className="text-[11px] font-mono text-amber-300 font-bold">
+                  {t.label}
+                  <span className="ml-1.5 font-normal text-fg-muted">
+                    {upcoming
+                      ? t.days === 0 ? 'today' : `in ${t.days}d`
+                      : `${t.days}d ago · next not confirmed`}
+                  </span>
+                </span>
+              </div>
+            )
+          })()}
         </div>
       </div>
 

@@ -37,7 +37,7 @@ from typing import Any, Dict, Optional
 
 from app.services import market_calendar as mc
 
-QUOTE_VERSION = 2
+QUOTE_VERSION = 3
 
 # Providers whose quote price is the regular-session price by construction.
 REGULAR_ONLY_SOURCES = ("yahoo_direct", "yfinance", "fmp", "twelve_data", "finnhub", "database")
@@ -168,7 +168,14 @@ def canonicalize(q: Optional[Dict[str, Any]], now: Optional[datetime] = None) ->
                 pass
         reg_price, reg_prev = _regular_from_extended(q, session_date)
         extended = {"price": round(price, 4), "time": _iso(printed), "session": session}
+        if _pos(q.get("volume")) is not None:
+            extended["volume"] = int(q["volume"])
         reg_time = _close_dt(session_date)
+        # The payload's volume / open / high / low belong to the extended
+        # print's venue (overnight volume is ~0.5% of a regular day). The
+        # regular session's own bar replaces them; without it they are unknown.
+        bar = q.get("reference_bar") if isinstance(q.get("reference_bar"), dict) else {}
+        reg_bar = {k: (_pos(bar.get(k)) if bar else None) for k in ("volume", "open", "high", "low")}
     else:
         # Regular-session print (or a provider with no trade time, whose quote
         # is taken as the regular price).
@@ -194,7 +201,12 @@ def canonicalize(q: Optional[Dict[str, Any]], now: Optional[datetime] = None) ->
     session_over = now >= _close_dt(session_date)
     needs_regular = reg_price is None or reg_prev is None
 
-    out = {k: v for k, v in q.items() if k not in ("cached", "cache_age_seconds")}
+    out = {k: v for k, v in q.items() if k not in ("cached", "cache_age_seconds", "reference_bar")}
+    if extended is not None:
+        out.update({
+            "volume": int(reg_bar["volume"]) if reg_bar["volume"] else None,
+            "open": reg_bar["open"], "high": reg_bar["high"], "low": reg_bar["low"],
+        })
     if reg_price is not None:
         change = (reg_price - reg_prev) if reg_prev else None
         pct = (change / reg_prev * 100) if change is not None else None
