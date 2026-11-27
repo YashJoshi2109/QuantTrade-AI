@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic feed: one item per image location the parser must handle. -->
+<rss version="2.0"
+     xmlns:media="http://search.yahoo.com/mrss/"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+<channel>
+<title>Media variants</title>
+<link>https://news.example.com/</link>
+<description>fixture</description>
+
+<item>
+  <title>media group picks the largest width</title>
+  <link>https://news.example.com/a/group</link>
+  <media:group>
+    <media:content url="https://cdn.example.com/g-small.jpg" medium="image" width="320" height="180"/>
+    <media:content url="https://cdn.example.com/g-large.jpg" medium="image" width="1280" height="720"/>
+    <media:content url="https://cdn.example.com/g-video.mp4" medium="video" width="1920" height="1080"/>
+  </media:group>
+</item>
+
+<item>
+  <title>media content skips icon sized and video entries</title>
+  <link>https://news.example.com/a/content</link>
+  <media:content url="https://cdn.example.com/icon.png" type="image/png" width="48" height="48"/>
+  <media:content url="https://cdn.example.com/clip.mp4" type="video/mp4"/>
+  <media:content url="https://cdn.example.com/photo.jpg" type="image/jpeg" width="800"/>
+</item>
+
+<item>
+  <title>media thumbnail only</title>
+  <link>https://news.example.com/a/thumb</link>
+  <media:thumbnail url="https://cdn.example.com/thumb.jpg" width="640" height="360"/>
+</item>
+
+<item>
+  <title>enclosure image, audio enclosure ignored</title>
+  <link>https://news.example.com/a/enclosure</link>
+  <enclosure url="https://cdn.example.com/podcast.mp3" type="audio/mpeg" length="1000"/>
+  <enclosure url="http://cdn.example.com/enclosed.png" type="image/png" length="2048"/>
+</item>
+
+<item>
+  <title>itunes image</title>
+  <link>https://news.example.com/a/itunes</link>
+  <itunes:image href="https://cdn.example.com/itunes.jpg"/>
+</item>
+
+<item>
+  <title>content encoded img after a tracking pixel</title>
+  <link>https://news.example.com/a/encoded</link>
+  <description>plain text summary</description>
+  <content:encoded><![CDATA[
+    <p><img src="https://stats.example.com/pixel.gif?id=1" width="1" height="1"/></p>
+    <p><img src="https://feeds.feedburner.com/~r/x/~4/abc" /></p>
+    <p><img src="//cdn.example.com/encoded.jpg" width="600" height="400" alt="photo"/></p>
+  ]]></content:encoded>
+</item>
+
+<item>
+  <title>description img, relative src resolved against the link</title>
+  <link>https://news.example.com/a/desc</link>
+  <description><![CDATA[<img src="/images/desc.webp" alt=""/> Body text.]]></description>
+</item>
+
+<item>
+  <title>description with only a 1x1 pixel has no image</title>
+  <link>https://news.example.com/a/pixel</link>
+  <description><![CDATA[<img src="https://cdn.example.com/1x1.gif" width="1" height="1"/> Body.]]></description>
+</item>
+
+<item>
+  <title>site placeholder image is not a story image</title>
+  <link>https://news.example.com/a/generic</link>
+  <media:content url="https://cdn.example.com/static/default-share.png" medium="image" width="1200"/>
+</item>
+</channel>
+</rss>

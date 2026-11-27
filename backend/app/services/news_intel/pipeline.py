@@ -6,6 +6,8 @@ NewsIntelService — the asyncio ingestion service started from main.py lifespan
   consumer: batch -> dedupe/cluster -> classify (thread) -> persist (thread)
             -> publish {"type":"news","item":...} on Redis qt:ws:news
   ai loop:   top-impact clusters without a note -> Claude Haiku (daily cap)
+  images:    newest stories without a feed image -> article og:image (cached,
+             robots-aware, SSRF-safe; see enrich.py) + one-time 14-day backfill
   upkeep:    leader-lock renewal, 14-day retention, clusterer prune
 
 Only the process holding the Redis leader lock ingests. Without Redis the
@@ -39,6 +41,8 @@ WS_CHANNEL = "qt:ws:news"
 LEADER_KEY = "qt:news:leader"
 SOURCES_KEY = "qt:news:sources"
 ALPACA_KEY = "qt:news:alpaca_connected"
+IMAGE_BACKFILL_KEY = "qt:news:image_backfill"
+IMAGE_BACKFILL_VERSION = "v1"
 STATUS_KEY = "qt:news:worker:status"   # JSON snapshot written by the news-worker every 15s
 HEARTBEAT_FILE = os.environ.get("NEWS_WORKER_HEARTBEAT_FILE", "/tmp/news-worker.heartbeat")
 MAX_AGE_HOURS = 48          # ignore feed items older than this (RSS backlogs)
@@ -131,6 +135,7 @@ class NewsIntelService:
         self.is_leader = False
         self.ai_cap = ai_notes.DailyCap(redis=redis)
         self._ai_attempted: set = set()
+        self.images = None  # ImageEnricher, created on demand
         self._task: Optional[asyncio.Task] = None
         self._children: List[asyncio.Task] = []
         self.stats = {"processed": 0, "new": 0, "joined": 0, "duplicates": 0, "stale": 0, "dropped": 0}
@@ -353,6 +358,110 @@ class NewsIntelService:
                 await self.publish(updated)
         return written
 
+    # ── image enrichment ─────────────────────────────────────────────────
+    def _enricher(self):
+        if self.images is None:
+            from app.services.news_intel.enrich import ImageEnricher
+
+            self.images = ImageEnricher(redis=self.redis)
+        return self.images
+
+    async def _enrich_rows(self, rows: List[Dict[str, Any]], *, publish: bool) -> int:
+        """rows: [{id, urls}] -> look up og:image for each, persist, publish."""
+        enricher = self._enricher()
+
+        async def one(r) -> int:
+            for url in r["urls"]:
+                img = await enricher.find(url)
+                if img:
+                    payload = await asyncio.to_thread(self._db_call, _set_image_payload, r["id"], img)
+                    if payload and publish:
+                        try:
+                            await self.publish(payload)
+                        except Exception as e:
+                            logger.debug("news image publish failed: %s", e)
+                    return 1 if payload else 0
+            return 0
+
+        found = sum(await asyncio.gather(*(one(r) for r in rows)))
+        while enricher.new_generic:
+            img = enricher.new_generic.pop()
+            try:
+                await asyncio.to_thread(self._db_call, store.clear_image, img)
+            except Exception as e:
+                logger.debug("clear generic image failed: %s", e)
+        return found
+
+    async def run_image_pass(self, *, window: int = 40, max_lookups: int = 12) -> int:
+        """Newest `window` stories without an image (48h); at most `max_lookups`
+        uncached page fetches per pass. Returns images found."""
+        enricher = self._enricher()
+        since = _now() - timedelta(hours=MAX_AGE_HOURS)
+        rows = await asyncio.to_thread(self._db_call, _missing_image_rows, since, window, False, None)
+        todo, lookups = [], 0
+        for r in rows:
+            uncached = False
+            for u in r["urls"]:
+                if not await enricher.is_cached(u):
+                    uncached = True
+                    break
+            if uncached:
+                if lookups >= max_lookups:
+                    continue
+                lookups += 1
+            todo.append(r)
+        return await self._enrich_rows(todo, publish=True)
+
+    async def run_image_backfill(self, *, days: int = 14, cap: int = 1000, batch: int = 20) -> int:
+        """Once per IMAGE_BACKFILL_VERSION: og:image for stored stories of the
+        last `days` days, newest first, at most `cap` stories. Idempotent:
+        rows that got an image are skipped and lookups are cached."""
+        try:
+            if self.redis is not None and (await self.redis.get(IMAGE_BACKFILL_KEY)) == IMAGE_BACKFILL_VERSION:
+                return 0
+        except Exception:
+            pass
+        since = _now() - timedelta(days=days)
+        before_id = None
+        seen = found = 0
+        while seen < cap:
+            rows = await asyncio.to_thread(self._db_call, _missing_image_rows, since,
+                                           min(batch, cap - seen), True, before_id)
+            if not rows:
+                break
+            seen += len(rows)
+            before_id = rows[-1]["id"]
+            found += await self._enrich_rows(rows, publish=False)
+        logger.info("news-intel image backfill: %d of %d stories got an image", found, seen)
+        try:
+            if self.redis is not None:
+                await self.redis.set(IMAGE_BACKFILL_KEY, IMAGE_BACKFILL_VERSION)
+        except Exception:
+            pass
+        return found
+
+    async def _image_loop(self) -> None:
+        interval = _env_int("NEWS_IMAGE_INTERVAL_SECONDS", 45)
+        per_cycle = _env_int("NEWS_IMAGE_PER_CYCLE", 12)
+        await asyncio.sleep(20)
+        while True:
+            try:
+                await self.run_image_pass(max_lookups=per_cycle)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("news image pass failed")
+            await asyncio.sleep(interval)
+
+    async def _image_backfill_task(self) -> None:
+        await asyncio.sleep(120)  # let live ingestion and the first passes settle
+        try:
+            await self.run_image_backfill(cap=_env_int("NEWS_IMAGE_BACKFILL_MAX", 1000))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("news image backfill failed")
+
     async def _upkeep(self) -> None:
         retention = _env_int("NEWS_INTEL_RETENTION_DAYS", 14)
         last_prune = 0.0
@@ -492,6 +601,10 @@ class NewsIntelService:
             self._children.append(asyncio.create_task(self._alpaca_loop(), name="news-alpaca"))
             if ai_notes.daily_limit() > 0:
                 self._children.append(asyncio.create_task(self._ai_loop(), name="news-ai"))
+            if os.environ.get("NEWS_IMAGE_ENRICH", "1") != "0":
+                self._children.append(asyncio.create_task(self._image_loop(), name="news-images"))
+                self._children.append(asyncio.create_task(self._image_backfill_task(),
+                                                          name="news-image-backfill"))
             upkeep = asyncio.create_task(self._upkeep(), name="news-upkeep")
             try:
                 await upkeep  # returns when the leader lock is lost
@@ -502,6 +615,9 @@ class NewsIntelService:
                 self._children = []
                 if self.alpaca:
                     self.alpaca.connected = False
+                if self.images is not None:
+                    await self.images.aclose()
+                    self.images = None
 
     async def run(self) -> None:
         while True:
@@ -530,6 +646,7 @@ class NewsIntelService:
             "queue_depth": self.queue.qsize(),
             "stats": dict(self.stats),
             "sources": self.source_state,
+            "images": dict(self.images.stats) if self.images is not None else None,
             "models": {"sentiment": clf.backend, "sentiment_load_seconds": clf.load_seconds,
                        "categorizer_embeddings": get_categorizer().loaded},
         }
@@ -614,6 +731,19 @@ def _top_payloads(db, since, min_impact, limit):
 
 def _set_ai_payload(db, cluster_id, note):
     row = store.set_ai(db, cluster_id, note)
+    return store.serialize(row) if row else None
+
+
+def _missing_image_rows(db, since, limit, by_id, before_id):
+    out = []
+    for r in store.missing_images(db, since=since, limit=limit, by_id=by_id, before_id=before_id):
+        urls = [r.url] + [s.get("url") for s in (r.sources or []) if s.get("url")]
+        out.append({"id": r.id, "urls": list(dict.fromkeys(u for u in urls if u))[:4]})
+    return out
+
+
+def _set_image_payload(db, item_id, image_url):
+    row = store.set_image(db, item_id, image_url)
     return store.serialize(row) if row else None
 
 

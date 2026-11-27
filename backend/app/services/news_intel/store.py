@@ -119,6 +119,42 @@ def add_source(db: Session, cluster_id: str, entry: Dict[str, Any],
     return row
 
 
+def missing_images(db: Session, *, since: datetime, limit: int, by_id: bool = False,
+                   before_id: Optional[int] = None) -> List[NewsItem]:
+    """Stories without an image, newest first. `by_id` pages by id below
+    `before_id` (backfill: stable paging while rows gain images)."""
+    q = db.query(NewsItem).filter(
+        NewsItem.image_url.is_(None), NewsItem.url.isnot(None), NewsItem.published_at >= since
+    )
+    if by_id:
+        if before_id is not None:
+            q = q.filter(NewsItem.id < before_id)
+        q = q.order_by(NewsItem.id.desc())
+    else:
+        q = q.order_by(NewsItem.published_at.desc(), NewsItem.id.desc())
+    return q.limit(limit).all()
+
+
+def set_image(db: Session, item_id: int, image_url: str) -> Optional[NewsItem]:
+    """Fill a missing image; never overwrites one the feed supplied."""
+    row = db.get(NewsItem, item_id)
+    if row is None or row.image_url:
+        return None
+    row.image_url = image_url
+    row.updated_at = utcnow()
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def clear_image(db: Session, image_url: str) -> int:
+    """Drop an image found to be a site-wide placeholder."""
+    n = (db.query(NewsItem).filter(NewsItem.image_url == image_url)
+         .update({NewsItem.image_url: None}, synchronize_session=False))
+    db.commit()
+    return int(n or 0)
+
+
 def set_impact(db: Session, row: NewsItem, impact: int) -> None:
     row.impact = impact
     db.commit()
