@@ -30,7 +30,7 @@ numpy>=1.26.2
 requests>=2.33.0
 beautifulsoup4==4.12.2
 httpx==0.25.2
-lxml>=5.3.1
+lxml>=5.3.1,<6.2
 ta==0.11.0
 
 # AI/Chat (Lightweight - no local models)
