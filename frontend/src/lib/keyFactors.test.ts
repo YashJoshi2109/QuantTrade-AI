@@ -29,8 +29,9 @@ describe('generateKeyFactors', () => {
   })
 
   it('reads NVDA correctly', () => {
-    // price 155.38 < SMA50 204.95, SMA50 > SMA200 202.81 → pullback inside a longer uptrend
-    expect(byId.trend.title).toBe('Pullback in Uptrend')
+    // price 155.38 below SMA50 204.95 AND SMA200 202.81 (SMA50 > SMA200) → the
+    // uptrend has broken; "pullback" is only for prices still above SMA200
+    expect(byId.trend.title).toBe('Trend Breakdown')
     expect(byId.trend.bias).toBe('Bearish')
     expect(byId.rsi.title).toBe('Weak Momentum')          // 34.4: below 45, not ≤30
     expect(byId.macd.bias).toBe('Bearish')
@@ -40,6 +41,11 @@ describe('generateKeyFactors', () => {
     expect(byId.balance.title).toBe('Strong Balance Sheet')
     expect(byId.analyst.title).toBe('Analysts Bullish')    // +57% to target, consensus 1.7
     expect(byId.analyst.description).toContain('+57.5%')
+  })
+
+  it('calls a dip that holds SMA200 a pullback', () => {
+    const t = Object.fromEntries(generateKeyFactors(ind, fund, 203.5).map((f) => [f.id, f]))
+    expect(t.trend.title).toBe('Pullback in Uptrend')
   })
 
   it('never claims invented hit-rates', () => {

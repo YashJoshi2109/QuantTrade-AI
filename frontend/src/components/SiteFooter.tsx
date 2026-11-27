@@ -57,10 +57,10 @@ export default function SiteFooter() {
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Stay in the order book
               </p>
-              <h3 className="text-lg sm:text-xl font-semibold text-fg-primary">
+              <h3 className="text-lg sm:text-xl font-semibold text-white">
                 Subscribe for macro briefs and product drops.
               </h3>
-              <p className="text-[12px] sm:text-[13px] text-fg-muted">
+              <p className="text-[12px] sm:text-[13px] text-slate-400">
                 Only high-signal updates from QuantTrade AI – no spam, just edge.
               </p>
             </div>
@@ -119,11 +119,11 @@ export default function SiteFooter() {
             <div className="md:w-1/3 space-y-2">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-2xl bg-gradient-to-br from-sky-500 via-cyan-400 to-emerald-400 p-[1px]">
-                  <div className="h-full w-full rounded-2xl bg-surface-base flex items-center justify-center text-xs font-bold text-sky-100">
+                  <div className="h-full w-full rounded-2xl bg-surface-base flex items-center justify-center text-xs font-bold text-sky-500">
                     QT
                   </div>
                 </div>
-                <span className="text-sm font-semibold tracking-wide text-slate-100">
+                <span className="text-sm font-semibold tracking-wide text-fg-primary">
                   QuantTrade AI
                 </span>
               </div>

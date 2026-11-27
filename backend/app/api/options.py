@@ -229,7 +229,30 @@ def _enrich(calls: List[Dict[str, Any]], puts: List[Dict[str, Any]],
 
 
 async def _spot_price(symbol: str) -> Optional[float]:
-    """Underlying price for Greeks: Public.com quote, then yfinance."""
+    """Underlying price for Greeks: the canonical regular-session price.
+
+    Listed options trade only in the regular session, so their bid/ask are
+    priced off the regular close. Public.com's raw quote is the last print on
+    any venue: on 2026-11-27 at 01:18 ET it gave NVDA 156.65 (overnight)
+    against a 149.30 close, which made every call below 156 look deep in the
+    money (delta 1.0, no solvable IV) and pushed put IVs to 250-470%. The
+    canonical quote (app.services.canonical_quote) is the same price every
+    other surface shows; Public.com / yfinance remain the fallbacks.
+    """
+    try:
+        from app.db.database import SessionLocal
+        from app.services.quote_cache import QuoteCacheService
+
+        db = SessionLocal()
+        try:
+            quote = await QuoteCacheService(db).get_quote(symbol)
+        finally:
+            db.close()
+        price = _safe_float((quote or {}).get("price"))
+        if price and price > 0:
+            return price
+    except Exception as exc:
+        logger.debug("canonical spot quote failed for %s: %s", symbol, exc)
     try:
         from app.services.public_client import public_client
 

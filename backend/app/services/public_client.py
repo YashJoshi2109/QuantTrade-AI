@@ -124,6 +124,11 @@ _prev_close_cache: Dict[tuple, float] = {}
 # canonical quote needs both: the regular close is the headline and the close
 # before it is the baseline for the regular-session change.
 _prior_close_cache: Dict[tuple, float] = {}
+# (symbol, reference session date) -> that session's own bar figures
+# (volume / open / high / low). An overnight Public.com quote carries the
+# overnight venue's volume (NVDA 1.7M vs 366M on 2026-11-25), so the regular
+# session's volume and range come from the same daily-bar download.
+_ref_bar_cache: Dict[tuple, Dict[str, float]] = {}
 
 
 def _et_today():
@@ -189,6 +194,7 @@ def _fetch_previous_closes(symbols, ref_dates: Optional[Dict[str, Any]] = None) 
     if len(_prev_close_cache) > 5000:
         _prev_close_cache.clear()
         _prior_close_cache.clear()
+        _ref_bar_cache.clear()
     try:
         import yfinance as yf
         import pandas as pd
@@ -217,6 +223,19 @@ def _fetch_previous_closes(symbols, ref_dates: Optional[Dict[str, Any]] = None) 
                     if val > 0:
                         out[sym] = val
                         _prev_close_cache[(sym, ref if ref is not None else today)] = val
+                        if ref is not None:
+                            bar = frame.loc[closes.index[-1]]
+                            figs = {}
+                            for col, key in (("Volume", "volume"), ("Open", "open"),
+                                             ("High", "high"), ("Low", "low")):
+                                try:
+                                    v = float(bar[col])
+                                except (KeyError, TypeError, ValueError):
+                                    continue
+                                if v == v and v > 0:
+                                    figs[key] = v
+                            if figs:
+                                _ref_bar_cache[(sym, ref)] = figs
                         if ref is not None and len(closes) >= 2:
                             from app.services import market_calendar as mc
                             if closes.index[-2].date() == mc.previous_trading_day(ref):
@@ -389,6 +408,9 @@ class PublicClient:
                 prior = _prior_close_cache.get((sym, ref))
                 if prior:
                     results[sym]["reference_prior_close"] = round(prior, 4)
+                bar = _ref_bar_cache.get((sym, ref))
+                if bar:
+                    results[sym]["reference_bar"] = dict(bar)
 
     async def get_quote(self, symbol: str) -> Optional[Dict[str, Any]]:
         """Fetch single real-time quote from Public.com."""

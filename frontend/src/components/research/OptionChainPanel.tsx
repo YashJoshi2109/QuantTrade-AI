@@ -96,7 +96,7 @@ function ContractRow({
   )
 }
 
-const TH = 'sticky top-0 z-10 bg-surface-overlay backdrop-blur-md py-2 px-2 font-semibold shadow-[inset_0_-1px_0_var(--line-default,rgba(0,0,0,0.1))]'
+const TH = 'sticky top-0 z-10 bg-white dark:bg-slate-900 py-2 px-2 font-semibold shadow-[inset_0_-1px_0_var(--line-default,rgba(0,0,0,0.1))]'
 
 function ContractTable({
   contracts, type, atm, spot,

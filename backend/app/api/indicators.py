@@ -40,6 +40,16 @@ def get_indicators(
     db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol_upper).first()
     if db_symbol:
         indicators = IndicatorService.get_all_indicators(db, db_symbol.id)
+        if indicators and indicators.get("sma_200") is None:
+            # Under 200 stored daily bars (AMD and MSFT on 2026-11-27): SMA200
+            # was blank on Research while the trend signals rely on it. A year
+            # of yfinance bars gives the full set from one source.
+            try:
+                full = IndicatorService.get_indicators_from_yfinance(symbol_upper)
+            except Exception:
+                full = None
+            if full and full.get("sma_200") is not None:
+                indicators = full
         if indicators:
             return {"symbol": symbol_upper, "indicators": indicators}
 

@@ -55,6 +55,11 @@ export function generateKeyFactors(
     } else if (px < s50 && s50 < s200) {
       out.push({ ...base, title: 'Downtrend', impact: 'High', bias: 'Bearish', strength: clamp(60 + Math.abs(d200)), icon: 'trendDown',
         description: `Price ${f(Math.abs(d50))}% below SMA50 ($${f(s50, 2)}), and SMA50 is below SMA200 ($${f(s200, 2)}) — moving averages aligned downward.` })
+    } else if (px < s50 && px < s200) {
+      // SMA50 still above SMA200 but price below both: the uptrend has broken
+      // (NVDA 149.30 vs SMA50 203.65 / SMA200 202.62), not a pullback inside it.
+      out.push({ ...base, title: 'Trend Breakdown', impact: 'High', bias: 'Bearish', strength: clamp(55 + Math.abs(d200)), icon: 'trendDown',
+        description: `Price ${f(Math.abs(d50))}% below SMA50 ($${f(s50, 2)}) and ${f(Math.abs(d200))}% below SMA200 ($${f(s200, 2)}). SMA50 is still above SMA200; a cross below would confirm a downtrend.` })
     } else if (px < s50) {
       out.push({ ...base, title: 'Pullback in Uptrend', impact: 'Medium', bias: 'Bearish', strength: clamp(45 + Math.abs(d50)), icon: 'trendDown',
         description: `Price ${f(Math.abs(d50))}% below SMA50 while SMA50 stays above SMA200. SMA200 at $${f(s200, 2)} (${f(d200)}% away) is the longer-term reference.` })
