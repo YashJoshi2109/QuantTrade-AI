@@ -24,6 +24,8 @@ DEFAULT_PREFERENCES: Dict[str, Any] = {
         "watchlist_price": True,
         "watchlist_news": True,
     },
+    # Community feed: show automated (clearly labelled) bot posts.
+    "community": {"show_bot_posts": True},
     "_price_alert_snapshot": {},
     "_news_alert_sent_ids": [],
 }

@@ -36,6 +36,8 @@ import { FeedSkeleton } from '@/components/community/Skeletons'
 import { useKeyboardShortcuts, ShortcutHelpModal } from '@/components/community/KeyboardShortcuts'
 import { useToast } from '@/components/Toast'
 import { COMMUNITY_COMPOSE_SIGN_IN } from '@/lib/authRedirect'
+import ShowBotsToggle from '@/components/community/ShowBotsToggle'
+import { useShowBotPosts } from '@/lib/communityBots'
 import {
   fetchFeed,
   fetchPopularFeed,
@@ -110,6 +112,7 @@ function CommunityPageInner() {
   const searchParams = useSearchParams()
   const { success: toastSuccess, error: toastError } = useToast()
   const [loadError, setLoadError] = useState(false)
+  const [showBots, setShowBots, botsReady] = useShowBotPosts(isAuthenticated)
 
   // Posting needs an account. Signed-out visitors go to sign-in and come
   // back with the composer open instead of hitting a 401 on submit.
@@ -269,8 +272,8 @@ function CommunityPageInner() {
       const c = isReset ? undefined : (cursor ?? undefined)
       const feedSort = sortKey === 'following' ? 'hot' : sortKey
       const data = sortKey === 'following'
-        ? await fetchFeed('hot', c, 20, time)
-        : await fetchPopularFeed(c, 20, feedSort, time)
+        ? await fetchFeed('hot', c, 20, time, showBots)
+        : await fetchPopularFeed(c, 20, feedSort, time, showBots)
 
       const newPosts = data.posts || []
 
@@ -296,13 +299,14 @@ function CommunityPageInner() {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [cursor, toastError])
+  }, [cursor, toastError, showBots])
 
-  // Initial load and sort changes
+  // Initial load and sort / bot-filter changes (after the saved bot preference is known)
   useEffect(() => {
+    if (!botsReady) return
     loadFeed(sort, true, timeFilter)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sort, timeFilter])
+  }, [sort, timeFilter, showBots, botsReady])
 
   // Infinite scroll
   useEffect(() => {
@@ -574,6 +578,8 @@ function CommunityPageInner() {
                   </div>
                 )}
               </div>
+
+              <ShowBotsToggle checked={showBots} onChange={setShowBots} className="px-1 mb-3" />
 
               {/* ── Posts Feed ── */}
               {loading ? (
