@@ -110,3 +110,6 @@ __all__ = [
     "CompanyEDGAR",
     "FinancialStatement",
 ]
+
+# Async report job results (app.services.reports, DungBeetle pattern)
+from app.models.report_job import ReportResult

@@ -676,6 +676,10 @@ app.include_router(earnings_api.router, prefix="/api/v1")
 from app.api import dividends as dividends_api  # noqa: E402
 app.include_router(dividends_api.router, prefix="/api/v1")
 
+# Async report jobs (DungBeetle pattern): Console-style statements + data reports
+from app.api import reports as reports_api  # noqa: E402
+app.include_router(reports_api.router, prefix="/api/v1")
+
 # Agentic RAG Copilot — ingest trigger, status, health check (admin)
 
 # ML Training Pipeline — internal operator API

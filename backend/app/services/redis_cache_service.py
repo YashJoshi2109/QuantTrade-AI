@@ -13,6 +13,7 @@ Usage:
     # Publish to WebSocket channels
     await cache_service.publish("qt:ws:ideas", payload)
 """
+import asyncio
 import json
 import logging
 from typing import Any, Callable, Coroutine, Optional
@@ -26,6 +27,7 @@ class RedisCacheService:
     def __init__(self):
         self._redis = None  # Set via init_redis()
         self._memory = None  # Lazy import of ttl_cache.cache
+        self._inflight = {}  # (loop id, key) -> asyncio.Task, see get_or_fetch
 
     def init_redis(self, redis_client) -> None:
         self._redis = redis_client
@@ -69,14 +71,29 @@ class RedisCacheService:
         ttl: int,
         fetch_fn: Callable[[], Coroutine],
     ) -> Any:
-        """Cache-aside: return cached value or fetch, cache, and return."""
+        """Cache-aside: return cached value or fetch, cache, and return.
+
+        Single-flight: concurrent misses for the same key in this process share
+        one ``fetch_fn`` call instead of each hitting the provider/DB (cache
+        stampede when a hot key expires). A waiter that is cancelled does not
+        cancel the shared fetch. Errors reach every waiter, as before."""
         cached = await self.get(key)
         if cached is not None:
             return cached
-        result = await fetch_fn()
-        if result is not None:
-            await self.set(key, result, ttl)
-        return result
+        loop = asyncio.get_running_loop()
+        flight_key = (id(loop), key)
+        task = self._inflight.get(flight_key)
+        if task is None:
+            async def _fill():
+                result = await fetch_fn()
+                if result is not None:
+                    await self.set(key, result, ttl)
+                return result
+
+            task = loop.create_task(_fill())
+            self._inflight[flight_key] = task
+            task.add_done_callback(lambda _t: self._inflight.pop(flight_key, None))
+        return await asyncio.shield(task)
 
     async def delete(self, key: str) -> None:
         if self._redis:

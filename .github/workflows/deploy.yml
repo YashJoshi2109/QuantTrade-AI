@@ -495,6 +495,11 @@ jobs:
               python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/add_price_bars_unique_index.py', run_name='__main__')" \
               || echo "⚠️ price_bars unique-index migration failed — run scripts/add_price_bars_unique_index.py manually"
 
+            echo "🧱 Applying DB migration report_results table (if missing)..."
+            docker compose -f docker-compose.prod.yml exec -T backend \
+              python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/create_report_results_table.py', run_name='__main__')" \
+              || echo "⚠️ report_results migration failed — run scripts/create_report_results_table.py manually"
+
             # ===== POST-DEPLOY CLEANUP =====
             echo "🧹 Post-deploy cleanup..."
             docker image prune -af || true
