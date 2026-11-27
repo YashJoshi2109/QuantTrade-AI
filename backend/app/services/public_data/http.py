@@ -55,7 +55,8 @@ def user_agent() -> str:
 
 class Fetcher(Protocol):
     def get(self, url: str, *, ttl_h: Optional[float] = 24, method: str = "GET",
-            json_body: Optional[dict] = None, accept: str = "*/*") -> bytes: ...
+            json_body: Optional[dict] = None, accept: str = "*/*",
+            secrets: Optional[dict] = None) -> bytes: ...
 
     def download(self, url: str, *, ttl_h: Optional[float] = None) -> Path: ...
 
@@ -83,19 +84,9 @@ class _HostThrottle:
 _THROTTLE = _HostThrottle()
 
 
-_SECRET_PARAMS = re.compile(r"(?i)([?&](?:api_?key|apikey|token|access_token|key|registrationkey)=)[^&#]*")
-_SECRET_BODY_KEYS = {"registrationkey", "api_key", "apikey", "token"}
-
-
-def redact_url(url: str) -> str:
-    """URL with credential query values masked; safe for logs, errors and cache keys."""
-    return _SECRET_PARAMS.sub(r"\1***", url)
-
-
 def _cache_name(url: str, body: Optional[dict]) -> str:
-    # Credentials never feed the cache name: same data whichever key fetched it.
-    clean = {k: v for k, v in (body or {}).items() if k.lower() not in _SECRET_BODY_KEYS}
-    key = redact_url(url) + (repr(sorted(clean.items())) if clean else "")
+    # url/body never carry credentials (those go in ``secrets``).
+    key = url + (repr(sorted(body.items())) if body else "")
     safe = re.sub(r"[^A-Za-z0-9._-]", "_", urlsplit(url).netloc + urlsplit(url).path)[-80:]
     return f"{safe}_{hashlib.sha256(key.encode()).hexdigest()[:16]}"
 
@@ -115,7 +106,8 @@ class LiveFetcher:
         except OSError:
             return False
 
-    def _request(self, url: str, method: str, json_body: Optional[dict], accept: str, stream: bool):
+    def _request(self, url: str, method: str, json_body: Optional[dict], accept: str, stream: bool,
+                 secrets: Optional[dict] = None):
         import requests
         host = urlsplit(url).hostname or ""
         headers = {"User-Agent": user_agent(), "Accept": accept, "Accept-Encoding": "gzip, deflate"}
@@ -123,7 +115,10 @@ class LiveFetcher:
         for attempt in range(3):
             _THROTTLE.wait(host)
             try:
-                r = requests.request(method, url, headers=headers, json=json_body, timeout=self.timeout, stream=stream)
+                r = requests.request(method, url, headers=headers,
+                                     params=(secrets if secrets and method == "GET" else None),
+                                     json=({**(json_body or {}), **secrets} if secrets and method != "GET" else json_body),
+                                     timeout=self.timeout, stream=stream)
             except Exception as e:                       # network error
                 last = type(e).__name__
                 time.sleep(0.5 * (attempt + 1))
@@ -133,12 +128,15 @@ class LiveFetcher:
                 time.sleep(1.5 * (attempt + 1))
                 continue
             if r.status_code >= 400:
-                raise FetchError(f"HTTP {r.status_code} for {redact_url(url)}")
+                raise FetchError(f"HTTP {r.status_code} for {url}")
             return r
-        raise FetchError(f"{redact_url(url)} unavailable ({last})")
+        raise FetchError(f"{url} unavailable ({last})")
 
     def get(self, url: str, *, ttl_h: Optional[float] = 24, method: str = "GET",
-            json_body: Optional[dict] = None, accept: str = "*/*") -> bytes:
+            json_body: Optional[dict] = None, accept: str = "*/*",
+            secrets: Optional[dict] = None) -> bytes:
+        """``secrets`` (API keys) are attached only when the request is sent: they never
+        appear in ``url``, cache names, errors or logs."""
         p = self.cache_dir / (_cache_name(url, json_body) + ".gz")
         if self._fresh(p, ttl_h):
             try:
@@ -146,17 +144,17 @@ class LiveFetcher:
             except (OSError, EOFError, gzip.BadGzipFile):
                 pass
         self._guard()
-        r = self._request(url, method, json_body, accept, stream=False)
+        r = self._request(url, method, json_body, accept, stream=False, secrets=secrets)
         data = r.content
         if len(data) > MAX_BYTES:
-            raise FetchError(f"response larger than {MAX_BYTES} bytes: {redact_url(url)}")
+            raise FetchError(f"response larger than {MAX_BYTES} bytes: {url}")
         try:
             p.parent.mkdir(parents=True, exist_ok=True)
             tmp = p.with_suffix(f".tmp{os.getpid()}{threading.get_ident()}")
             tmp.write_bytes(gzip.compress(data, compresslevel=5))
             os.replace(tmp, p)
         except OSError as e:
-            logger.warning("public-data cache write failed for %s: %s", redact_url(url), e)
+            logger.warning("public-data cache write failed for %s: %s", url, e)
         return data
 
     def download(self, url: str, *, ttl_h: Optional[float] = None) -> Path:
@@ -174,7 +172,7 @@ class LiveFetcher:
                 if n > MAX_BYTES:
                     fh.close()
                     tmp.unlink(missing_ok=True)
-                    raise FetchError(f"download larger than {MAX_BYTES} bytes: {redact_url(url)}")
+                    raise FetchError(f"download larger than {MAX_BYTES} bytes: {url}")
                 fh.write(chunk)
         os.replace(tmp, p)
         return p
@@ -204,7 +202,8 @@ class FixtureFetcher:
         return self.routes[max(hits, key=len)]
 
     def get(self, url: str, *, ttl_h: Optional[float] = 24, method: str = "GET",
-            json_body: Optional[dict] = None, accept: str = "*/*") -> bytes:
+            json_body: Optional[dict] = None, accept: str = "*/*",
+            secrets: Optional[dict] = None) -> bytes:
         self.calls.append((method, url, json_body))
         v = self._match(url)
         if callable(v):

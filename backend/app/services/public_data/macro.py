@@ -212,8 +212,9 @@ def refresh_fred(db: Session, series: Optional[Sequence[str]] = None, start: str
     for sid in series or (FRED_DAILY + list(FRED_MONTHLY)):
         try:
             if key:
-                url = (f"{FRED_API}?series_id={sid}&api_key={key}&file_type=json&observation_start={start}")
-                obs = json.loads(get_fetcher().get(url, ttl_h=6, accept="application/json")).get("observations", [])
+                url = f"{FRED_API}?series_id={sid}&file_type=json&observation_start={start}"
+                obs = json.loads(get_fetcher().get(url, ttl_h=6, accept="application/json",
+                                                   secrets={"api_key": key})).get("observations", [])
                 rows = [_fred_row(sid, o["date"], v) for o in obs if (v := _f(o.get("value"))) is not None]
             else:
                 text = get_fetcher().get(FREDGRAPH.format(sid=sid, start=start), ttl_h=6, accept="text/csv")
@@ -229,9 +230,8 @@ def refresh_bls(db: Session, today: Optional[date] = None) -> int:
     today = today or date.today()
     body = {"seriesid": list(BLS_SERIES), "startyear": str(today.year - 2), "endyear": str(today.year)}
     key = os.getenv("BLS_API_KEY")
-    if key:
-        body["registrationkey"] = key
-    raw = get_fetcher().get(BLS_URL, ttl_h=12, method="POST", json_body=body, accept="application/json")
+    raw = get_fetcher().get(BLS_URL, ttl_h=12, method="POST", json_body=body, accept="application/json",
+                            secrets={"registrationkey": key} if key else None)
     return _save(db, parse_bls_json(raw), "bls", "cpi_unrate")
 
 
