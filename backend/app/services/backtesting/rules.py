@@ -89,6 +89,10 @@ class StrategySpec(BaseModel):
     commission_bps: float = Field(1.0, ge=0, le=L.MAX_COST_BPS)
     slippage_bps: float = Field(5.0, ge=0, le=L.MAX_COST_BPS)
     borrow_bps_annual: float = Field(0.0, ge=0, le=5000)
+    # Annual risk-free rate in percent (e.g. 4.0 for 3-month T-bills at 4%).
+    # Used for Sharpe, Sortino, alpha and rolling Sharpe. 0 keeps the old
+    # rf = 0 convention.
+    risk_free_rate_pct: float = Field(0.0, ge=0, le=20)
     sizing: Literal["fixed_dollar", "pct_equity", "vol_target"] = "pct_equity"
     sizing_value: float = Field(1.0, gt=0, le=L.MAX_CAPITAL)
     vol_lookback: int = Field(20, ge=5, le=252)

@@ -33,9 +33,14 @@ Code: `backend/app/services/backtesting/` (`engine.py`, `metrics.py`,
 - **Calmar**: CAGR / |max drawdown|.
 - **Max drawdown duration**: the longest peak-to-recovery stretch, in bars and in calendar days. A drawdown that has not recovered runs to the last bar and is flagged.
 - **Win rate and profit factor**: from net P&L per trade, after all costs.
-- **Exposure**: the share of bars with any open position. **Turnover**: traded notional / average equity / years.
-- **Alpha / beta**: OLS on returns measured between dates where *both* the strategy and the benchmark have a bar. Alpha is annualised. Tracking error and information ratio are reported too.
-- **Monthly / yearly returns**: calendar periods, compounded from period-end equity. They multiply back exactly to the total return.
+- **Risk-free rate**: `risk_free_rate_pct` on the spec (default 0), de-annualised as `rf / periods_per_year`. It changes Sharpe, Sortino, alpha and the rolling Sharpe only, and the UI puts it in those labels ("Sharpe · rf 4%").
+- **Exposure**: the share of bars with any open position at the close, including the last bar (the end-of-test liquidation happens at that close). **Turnover**: traded notional (buys + sells) / average equity / years. **CAGR / exposure**: CAGR divided by the average share of equity deployed.
+- **Alpha / beta**: OLS on returns measured between dates where *both* the strategy and the benchmark have a bar. Alpha is annualised. Tracking error, information ratio and correlation are reported too.
+- **VaR / CVaR 95% (1 day)**: historical 5th percentile of daily returns and the mean of the returns at or below it.
+- **Rolling Sharpe**: trailing 126-bar annualised Sharpe on every chart point; null until a full window exists or while the window has no variance (out of the market).
+- **Monthly / yearly returns**: calendar periods, compounded from period-end equity. They multiply back exactly to the total return. Best / worst month and the share of up months come from the same series.
+- **Unfinished bar**: a daily bar dated today is dropped while today's US session is still open (13:00 ET on early-close days), so a backtest ending today never marks, signals or liquidates on an intraday price.
+- **Independent check**: `tests/backtesting/test_pro_audit.py` pins total return, CAGR, volatility, Sharpe, Sortino, max drawdown, Calmar, trades, win rate, exposure, turnover, alpha, beta and the benchmark figures for SPY buy-and-hold (1y, 5y), AAPL SMA 50/200 and MSFT RSI(14) 30/55 with costs and an 8% stop to values computed by a separate pandas implementation on real adjusted bars (`tests/fixtures/bt_daily_adjusted.csv.gz`).
 
 ### Monte Carlo (`montecarlo.py`)
 

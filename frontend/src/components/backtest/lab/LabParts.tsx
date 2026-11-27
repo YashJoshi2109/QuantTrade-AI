@@ -7,15 +7,15 @@
  */
 import { useMemo, useState, type ReactNode } from 'react'
 import {
-  Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { AlertTriangle, Download, Info, Loader2, Plus, Square, Trash2, X } from 'lucide-react'
 import { useThemeTokens } from '@/hooks/useThemeTokens'
 import { fmtMoney, fmtPct, pnlClass } from '@/lib/portfolio'
 import {
   DISCLAIMER, EXIT_REASON_LABELS, METRIC_DEFS, MONTHS, OP_LABELS, TONE_CLASS,
-  chartRows, defaultParams, downloadCsv, dsrVerdict, fmtRatio, formatMetric, groupDepth, heatClass, isGroup,
-  jobProgressText, monthlyGrid, newCondition, num, oosVerdict, paramsText, parseGrid, pboVerdict, referencedParams,
+  chartRows, defaultParams, downloadCsv, dsrTitle, dsrVerdict, fmtRatio, formatMetric, groupDepth, heatClass, isGroup,
+  jobProgressText, metricLabel, monthlyGrid, newCondition, num, oosVerdict, paramsText, parseGrid, pboVerdict, referencedParams,
   tradesCsv, updateRule, wfVerdict,
   type Condition, type Group, type LabMeta, type LabResult, type LabTrade, type Num, type Op, type Operand,
   type RobustnessOptions, type StrategySpec, type Verdict,
@@ -340,6 +340,10 @@ export function SettingsEditor({ c }: { c: LabController }) {
           <NumInput ariaLabel={sizingLabel} value={Math.round(sizingShown * 100) / 100}
             onChange={(v) => typeof v === 'number' && c.setSpec({ sizing_value: s.sizing === 'fixed_dollar' ? v : v / 100 })} />
         </Field>
+        <Field label="Risk-free (%/yr)" hint="Used by Sharpe, Sortino and alpha. 0 = raw returns.">
+          <NumInput ariaLabel="Risk-free rate percent" value={s.risk_free_rate_pct ?? 0}
+            onChange={(v) => c.setSpec({ risk_free_rate_pct: typeof v === 'number' && v >= 0 ? Math.min(v, 20) : 0 })} />
+        </Field>
         {s.side === 'short' && (
           <Field label="Borrow (bps/yr)"><NumInput ariaLabel="Borrow bps" value={s.borrow_bps_annual} onChange={(v) => typeof v === 'number' && c.setSpec({ borrow_bps_annual: v })} /></Field>
         )}
@@ -437,7 +441,7 @@ export function MetricsGrid({ r, columns = 'grid-cols-[repeat(2,minmax(0,1fr))] 
         const color = d.format === 'pct' && (d.key === 'max_drawdown_pct' ? 'text-fg-primary' : pnlClass(num(v)))
         return (
           <div key={d.key} className="rounded-xl border border-line-subtle bg-surface-base/60 px-3 py-2" title={d.hint}>
-            <div className="truncate text-[10px] font-medium uppercase tracking-wide text-fg-muted">{d.label}</div>
+            <div className="truncate text-[10px] font-medium uppercase tracking-wide text-fg-muted">{metricLabel(d, m)}</div>
             <div className={`mt-0.5 text-base font-semibold tabular-nums ${color || 'text-fg-primary'}`}>{formatMetric(v, d.format)}</div>
             {bench !== undefined && <div className="truncate text-[10px] text-fg-muted">{r.metrics.benchmark ? 'Bench ' : ''}{formatMetric(bench, d.format)}</div>}
           </div>
@@ -499,6 +503,29 @@ export function DrawdownChart({ r, height = 140 }: { r: LabResult; height?: numb
           <Tooltip contentStyle={{ background: k.tipBg, border: `1px solid ${k.tipBorder}`, borderRadius: 8, fontSize: 12, color: k.tipText }}
             formatter={(v: unknown) => [fmtPct(v as number), 'Drawdown']} />
           <Area dataKey="drawdown_pct" stroke={k.down} fill={k.down} fillOpacity={0.18} isAnimationActive={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+export function RollingSharpeChart({ r, height = 140 }: { r: LabResult; height?: number }) {
+  const k = useChartColors()
+  const rows = r.series.points
+  if (!rows.some((p) => typeof p.rolling_sharpe === 'number')) {
+    return <p className="text-xs text-fg-muted">Needs at least {r.series.rolling_sharpe_window ?? 126} trading days.</p>
+  }
+  return (
+    <div style={{ height }} aria-label="Rolling Sharpe ratio" role="img">
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={rows} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid stroke={k.grid} vertical={false} />
+          <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fill: k.text, fontSize: 10 }} minTickGap={40} />
+          <YAxis tick={{ fill: k.text, fontSize: 10 }} width={58} tickFormatter={(v: number) => v.toFixed(1)} />
+          <ReferenceLine y={0} stroke={k.text} strokeDasharray="3 3" />
+          <Tooltip contentStyle={{ background: k.tipBg, border: `1px solid ${k.tipBorder}`, borderRadius: 8, fontSize: 12, color: k.tipText }}
+            formatter={(v: unknown) => [fmtRatio(v), `Sharpe (${r.series.rolling_sharpe_window ?? 126}d)`]} />
+          <Line dataKey="rolling_sharpe" stroke={k.equity} dot={false} strokeWidth={1.25} isAnimationActive={false} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
@@ -687,7 +714,7 @@ export function RobustnessPanel({ r, stacked = false }: { r: LabResult; stacked?
       <div className={`grid gap-2 ${stacked ? 'grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-4'}`}>
         {rob.split && <VerdictBox title="Out of sample" value={`${fmtRatio(rob.split.out_of_sample.sharpe)} vs ${fmtRatio(rob.split.in_sample.sharpe)}`} v={oosVerdict(rob.split.in_sample.sharpe, rob.split.out_of_sample.sharpe)} />}
         <VerdictBox title="Overfitting (PBO)" value={sw?.pbo ? `${Math.round(sw.pbo.pbo * 100)}%` : '—'} v={pboVerdict(sw?.pbo?.pbo)} />
-        <VerdictBox title="Deflated Sharpe" value={dsr ? `${Math.round(dsr.deflated_sharpe_probability * 100)}%` : '—'} v={dsrVerdict(dsr?.deflated_sharpe_probability)} />
+        <VerdictBox title={dsrTitle(dsr)} value={dsr ? `${Math.round(dsr.deflated_sharpe_probability * 100)}%` : '—'} v={dsrVerdict(dsr?.deflated_sharpe_probability)} />
         <VerdictBox title="Walk-forward" value={sw?.walk_forward?.efficiency != null ? fmtRatio(sw.walk_forward.efficiency) : '—'} v={wfVerdict(sw?.walk_forward?.efficiency)} />
       </div>
       <div className={`grid gap-3 ${grid}`}>

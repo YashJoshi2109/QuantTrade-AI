@@ -751,6 +751,8 @@ export interface BacktestResult {
   benchmark_ticker: string
   data_source: string
   equity_curve: number[]
+  /** Every daily equity mark (equity_curve is down-sampled to ~300 points). */
+  equity_curve_raw?: number[]
   drawdown_curve: number[]
   monthly_returns: { month: number; return_pct: number }[]
   rolling_sharpe: number[]

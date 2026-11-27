@@ -61,11 +61,11 @@ def _cfg(spec: StrategySpec, ppy: int) -> EngineConfig:
     )
 
 
-def _slice_metrics(eq: pd.Series, trades, ppy: int, bench: Optional[pd.Series]) -> dict:
+def _slice_metrics(eq: pd.Series, trades, ppy: int, bench: Optional[pd.Series], rf: float = 0.0) -> dict:
     keys = ("total_return_pct", "cagr_pct", "volatility_pct", "sharpe", "sortino", "max_drawdown_pct", "calmar")
     if len(eq) < 3:
         return {}
-    m = compute_metrics(eq, float(eq.iloc[0]), trades, benchmark=bench, ppy=ppy)
+    m = compute_metrics(eq, float(eq.iloc[0]), trades, benchmark=bench, ppy=ppy, rf=rf)
     out = {k: m.get(k) for k in keys}
     out["total_trades"] = len(trades)
     out["start"] = eq.index[0].date().isoformat()
@@ -151,8 +151,9 @@ def run_strategy(
     step("Running strategy", 0.3)
     res = one(base)
     eq = res.equity
+    rf = spec.risk_free_rate_pct / 100
     m = compute_metrics(eq, spec.initial_capital, res.trades, res.gross_exposure, res.traded_notional,
-                        res.total_commission, bench, ppy=ppy)
+                        res.total_commission, bench, ppy=ppy, rf=rf)
     monthly, yearly = calendar_returns(eq, spec.initial_capital)
     rets = eq.pct_change().dropna()
 
@@ -164,8 +165,8 @@ def run_strategy(
         oos_tr = [t for t in res.trades if pd.Timestamp(t.entry_date) >= cut_ts]
         robustness["split"] = {
             "split_date": cut_ts.date().isoformat(), "in_sample_fraction": rob.oos_split,
-            "in_sample": _slice_metrics(eq.iloc[:cut + 1], is_tr, ppy, bench),
-            "out_of_sample": _slice_metrics(eq.iloc[cut:], oos_tr, ppy, bench),
+            "in_sample": _slice_metrics(eq.iloc[:cut + 1], is_tr, ppy, bench, rf),
+            "out_of_sample": _slice_metrics(eq.iloc[cut:], oos_tr, ppy, bench, rf),
             "note": "Same parameters in both windows. A large drop out of sample suggests the rules fit noise.",
         }
 
@@ -217,10 +218,11 @@ def run_strategy(
             "rebalance": spec.rebalance, "commission_bps": spec.commission_bps, "slippage_bps": spec.slippage_bps,
             "first_bar": eq.index[0].date().isoformat(), "last_bar": eq.index[-1].date().isoformat(),
             "warmup_bars_required": warm, "periods_per_year": ppy,
+            "risk_free_rate_pct": spec.risk_free_rate_pct,
         },
         "data": data_info,
         "metrics": m,
-        "series": series_payload(eq, spec.initial_capital, bench),
+        "series": series_payload(eq, spec.initial_capital, bench, ppy=ppy, rf=rf),
         "monthly_returns": monthly,
         "yearly_returns": yearly,
         "trades": trades[:MAX_TRADES_RETURNED],

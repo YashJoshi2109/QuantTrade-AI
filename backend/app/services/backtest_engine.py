@@ -305,7 +305,8 @@ def _legacy_mc(daily_returns: pd.Series, trades, initial: float, sims: int, ppy:
     total = sum(b["count"] for b in bb["distribution"]) or 1
     return {
         "method": bb["method"],
-        "median_return": fr["p50"], "mean_return": fr["p50"],
+        # mean_return used to repeat the median (p50); it is the real mean now.
+        "median_return": fr["p50"], "mean_return": bb["mean_final_return_pct"],
         "p5_return": fr["p5"], "p25_return": fr["p25"], "p75_return": fr["p75"], "p95_return": fr["p95"],
         "probability_of_profit": round(100 - bb["probability_of_loss_pct"], 1),
         "probability_of_ruin": bb["probability_drawdown_over_50_pct"],

@@ -86,6 +86,28 @@ def validate_ohlcv(df: pd.DataFrame, symbol: str = "") -> tuple[pd.DataFrame, Li
     return out, warnings
 
 
+def drop_unfinished_bar(df: pd.DataFrame, now: Optional[datetime] = None) -> tuple[pd.DataFrame, Optional[str]]:
+    """Drop today's daily bar while today's US session is still running.
+
+    Before the close, vendors return a partial bar for today whose "close" is
+    just the latest trade. A backtest that ends today would then mark equity,
+    evaluate signals and liquidate on a price that is not a close. Returns the
+    frame and a warning when a bar was dropped.
+    """
+    if df is None or df.empty:
+        return df, None
+    from app.services import market_calendar as mc
+
+    et = mc._to_et(now)
+    today = et.date()
+    last = df.index[-1]
+    if last.date() != today or not mc.is_trading_day(today):
+        return df, None
+    if et.time() >= mc.close_time(today):
+        return df, None
+    return df.iloc[:-1], f"dropped today's unfinished bar ({today.isoformat()}); the session has not closed yet"
+
+
 # ── Providers ──────────────────────────────────────────────────────────────
 
 def fetch_yfinance(ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
@@ -228,6 +250,9 @@ def load_prices(ticker: str, start: datetime, end: datetime, min_bars: int = 20)
     for name, fetch, adjusted in PROVIDERS:
         raw = fetch(sym, start, end)
         df, warns = validate_ohlcv(raw, sym)
+        df, partial = drop_unfinished_bar(df)
+        if partial:
+            warns.append(f"{sym}: {partial}")
         if len(df) >= min_bars:
             df = df[(df.index >= pd.Timestamp(start).normalize()) & (df.index <= pd.Timestamp(end).normalize())]
             if len(df) < min_bars:
