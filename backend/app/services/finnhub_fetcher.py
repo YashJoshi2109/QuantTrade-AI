@@ -217,6 +217,22 @@ class FinnhubFetcher:
         )
     
     @staticmethod
+    def get_earnings_surprises(symbol: str, limit: int = 8) -> List[Dict]:
+        """
+        Reported quarterly EPS vs consensus estimate (Finnhub /stock/earnings; the free
+        tier returns the last 4 quarters). Newest first. [] on error or a busy minute.
+        """
+        params = {"symbol": symbol, "limit": limit}
+        data = rate_limited_api_call(
+            endpoint='earnings_surprises',
+            params=params,
+            api_function=lambda: FinnhubFetcher._make_request("stock/earnings", params),
+            cache_ttl=CACHE_TTL['earnings_calendar'],
+            priority='normal',
+        )
+        return data if isinstance(data, list) else []
+
+    @staticmethod
     def get_peers(symbol: str, priority: str = 'normal') -> List[str]:
         """
         Get company peers (similar companies) with rate limiting

@@ -310,6 +310,35 @@ def test_fetch_last_closes_cache_and_budget():
     assert asyncio.run(dc.fetch_last_closes(["CCC"], close_fn=slow, budget_s=0.05)) == {"CCC": None}
 
 
+def test_history_payload_ttm_frequency_and_unknown():
+    today = date(2026, 11, 27)
+    hist = {"dividends": [("2025-08-15", 0.5), ("2025-11-14", 0.5), ("2026-02-13", 0.51),
+                          ("2026-05-15", 0.51), ("2026-08-14", 0.51), ("2027-02-12", 0.6), ("bad", 1.0),
+                          ("2026-01-02", 0.0)],
+            "next_ex_date": "2026-11-28", "next_pay_date": None}
+    out = dc.history_payload("KO", hist, today)
+    assert out["available"] is True
+    assert [p["ex_date"] for p in out["payments"]] == ["2025-08-15", "2025-11-14", "2026-02-13",
+                                                       "2026-05-15", "2026-08-14"]  # future + junk dropped
+    assert out["ttm_count"] == 3 and out["ttm_total"] == pytest.approx(1.53)
+    assert out["frequency"] == 4 and out["frequency_label"] == "Quarterly"
+    assert out["next_ex_date"] == "2026-11-28"
+    none = dc.history_payload("NVDA", {"dividends": []}, today)
+    assert none["available"] is True and none["payments"] == [] and none["ttm_total"] is None
+    fail = dc.history_payload("X", None, today)
+    assert fail["available"] is False and fail["ttm_total"] is None
+
+
+def test_history_endpoint(api_env):
+    body = api_env.get("/api/v1/dividends/history/ko").json()
+    assert body["symbol"] == "KO" and body["available"] is True
+    assert len(body["payments"]) >= 4 and body["frequency_label"] == "Quarterly"
+    assert body["payments"] == sorted(body["payments"], key=lambda p: p["ex_date"])
+    unknown = api_env.get("/api/v1/dividends/history/ZZZZ").json()
+    assert unknown["available"] is False  # lookup failed: unknown, not "no dividend"
+    assert api_env.get("/api/v1/dividends/history/bad%20sym").status_code == 422
+
+
 def test_yield_suppressed_when_annual_inconsistent_with_payment():
     from app.api import dividends as api
 

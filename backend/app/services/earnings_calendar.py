@@ -492,3 +492,110 @@ def event_payload(event: Optional[dict], today: date) -> dict:
         "revenue_estimate": event.get("revenue_estimate"),
         "fiscal_period": event.get("fiscal_period") or event.get("fiscal_quarter_ending"),
     }
+
+
+# ── per-symbol EPS history (snapshot mini chart) ─────────────────────────────
+#
+# Finnhub /stock/earnings: reported EPS vs consensus per fiscal quarter (the free
+# tier returns the last 4). yfinance ``get_earnings_dates`` is the fallback (up to
+# ~8 past reports, keyed by report date rather than fiscal period end).
+
+TTL_EPS_HISTORY = 12 * 3600
+EPS_HISTORY_MAX = 8
+
+
+def parse_finnhub_surprises(payload: Any) -> List[dict]:
+    """Finnhub /stock/earnings rows -> quarters (oldest first). Rows without an actual are skipped."""
+    out: Dict[str, dict] = {}
+    for it in payload if isinstance(payload, list) else []:
+        if not isinstance(it, dict):
+            continue
+        period = str(it.get("period") or "")[:10]
+        try:
+            date.fromisoformat(period)
+        except ValueError:
+            continue
+        actual = _finite(it.get("actual"))
+        if actual is None:
+            continue
+        est = _finite(it.get("estimate"))
+        q, y = it.get("quarter"), it.get("year")
+        label = f"Q{int(q)} {int(y)}" if isinstance(q, (int, float)) and isinstance(y, (int, float)) else period
+        out[period] = {"period": period, "label": label, "eps_actual": actual, "eps_estimate": est,
+                       "surprise_pct": surprise_pct(actual, est)}
+    return [out[k] for k in sorted(out)]
+
+
+def _finnhub_surprises_sync(symbol: str) -> Optional[List[dict]]:
+    from app.config import settings
+    from app.services.finnhub_fetcher import FinnhubFetcher
+
+    if not (settings.FINNHUB_API_KEY or "").strip():
+        return None
+    return parse_finnhub_surprises(FinnhubFetcher.get_earnings_surprises(symbol, EPS_HISTORY_MAX))
+
+
+def _yf_eps_history_sync(symbol: str) -> Optional[List[dict]]:
+    """yfinance past earnings: report date, EPS estimate, reported EPS. None on failure."""
+    import yfinance as yf
+
+    try:
+        df = yf.Ticker(symbol).get_earnings_dates(limit=16)
+    except Exception as exc:  # noqa: BLE001
+        logger.info("yfinance earnings dates %s failed: %s", symbol, exc)
+        return None
+    if df is None or not hasattr(df, "iterrows"):
+        return []
+    out: Dict[str, dict] = {}
+    try:
+        for ts, row in df.iterrows():
+            actual = _finite(row.get("Reported EPS"))
+            d = ts.date() if hasattr(ts, "date") else None
+            if actual is None or d is None:
+                continue
+            est = _finite(row.get("EPS Estimate"))
+            out[d.isoformat()] = {"period": d.isoformat(), "label": d.strftime("%b %Y"),
+                                  "eps_actual": actual, "eps_estimate": est,
+                                  "surprise_pct": surprise_pct(actual, est)}
+    except Exception as exc:  # noqa: BLE001
+        logger.info("yfinance earnings dates %s parse failed: %s", symbol, exc)
+        return None
+    return [out[k] for k in sorted(out)]
+
+
+async def fetch_eps_history(
+    symbol: str,
+    *,
+    finnhub_fn: Optional[Callable[[str], Optional[List[dict]]]] = None,
+    yf_fn: Optional[Callable[[str], Optional[List[dict]]]] = None,
+) -> dict:
+    """Last <= 8 reported quarters (oldest first) with the source used. Failures are not cached."""
+    from app.services.redis_cache_service import cache_service
+
+    symbol = _norm_symbol(symbol)
+    key = f"qt:earn:hist:{symbol}"
+    cached = await cache_service.get(key)
+    if isinstance(cached, dict):
+        return cached
+    finnhub_fn = finnhub_fn or _finnhub_surprises_sync
+    yf_fn = yf_fn or _yf_eps_history_sync
+
+    async def run(fn):
+        try:
+            return await asyncio.to_thread(fn, symbol)
+        except Exception:  # noqa: BLE001
+            logger.exception("EPS history lookup failed for %s", symbol)
+            return None
+
+    fh = await run(finnhub_fn)
+    quarters, source = (fh, "finnhub") if fh else (None, None)
+    yf_rows = None
+    if not quarters or len(quarters) < EPS_HISTORY_MAX:  # Finnhub free tier: only 4
+        yf_rows = await run(yf_fn)
+        if yf_rows and len(yf_rows) > len(quarters or []):
+            quarters, source = yf_rows, "yfinance"
+    if fh is None and yf_rows is None:
+        return {"symbol": symbol, "available": False, "quarters": [], "source": None}
+    body = {"symbol": symbol, "available": True, "quarters": (quarters or [])[-EPS_HISTORY_MAX:], "source": source}
+    await cache_service.set(key, body, TTL_EPS_HISTORY if quarters else TTL_EMPTY)
+    return body

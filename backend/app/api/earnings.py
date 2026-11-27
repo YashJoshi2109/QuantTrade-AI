@@ -8,6 +8,10 @@ Earnings calendar API.
       otherwise). Missing numbers are null, never 0.
   GET /api/v1/earnings/next/{symbol}
       Next scheduled report within 30 days, for the Research header badge.
+  GET /api/v1/earnings/history/{symbol}
+      Last <= 8 reported quarters: EPS actual vs consensus estimate and surprise %
+      (Finnhub /stock/earnings, yfinance fallback; cached 12h). available=false when
+      every source failed.
 
 Data: app.services.earnings_calendar (Finnhub + Nasdaq, Redis-cached).
 """
@@ -158,3 +162,12 @@ async def next_earnings(symbol: str):
     today = cal.today_et()
     event = await cal.next_earnings(sym, today=today)
     return {"symbol": sym, "today": today.isoformat(), **cal.event_payload(event, today)}
+
+
+@router.get("/history/{symbol}")
+async def eps_history(symbol: str):
+    sym = (symbol or "").strip().upper()
+    if not SYMBOL_RE.match(sym):
+        raise HTTPException(status_code=422, detail="invalid symbol")
+    body = await cal.fetch_eps_history(sym)
+    return {**body, "generated_at": datetime.now(timezone.utc).isoformat()}

@@ -151,7 +151,8 @@ export function sortByYield(rows: DividendRow[]): DividendRow[] {
   return [...rows].sort((a, b) => (b.yield_pct ?? -1) - (a.yield_pct ?? -1) || a.symbol.localeCompare(b.symbol))
 }
 
-export type DividendSortKey = 'yield' | 'symbol' | 'amount' | 'annual' | 'price' | 'pay_date'
+export type DividendSortKey =
+  | 'yield' | 'symbol' | 'amount' | 'annual' | 'price' | 'pay_date' | 'record_date' | 'ex_date' | 'frequency'
 export type SortDir = 'asc' | 'desc'
 
 export const SORT_OPTIONS: { key: DividendSortKey; label: string; defaultDir: SortDir }[] = [
@@ -159,9 +160,13 @@ export const SORT_OPTIONS: { key: DividendSortKey; label: string; defaultDir: So
   { key: 'amount', label: 'Dividend / share', defaultDir: 'desc' },
   { key: 'annual', label: 'Indicated annual', defaultDir: 'desc' },
   { key: 'price', label: 'Price', defaultDir: 'desc' },
+  { key: 'ex_date', label: 'Ex-date', defaultDir: 'asc' },
+  { key: 'record_date', label: 'Record date', defaultDir: 'asc' },
   { key: 'pay_date', label: 'Pay date', defaultDir: 'asc' },
+  { key: 'frequency', label: 'Frequency', defaultDir: 'desc' },
   { key: 'symbol', label: 'Symbol', defaultDir: 'asc' },
 ]
+export const SORT_KEYS = SORT_OPTIONS.map((o) => o.key)
 
 function sortValue(r: DividendRow, key: DividendSortKey): number | string | null {
   switch (key) {
@@ -170,6 +175,9 @@ function sortValue(r: DividendRow, key: DividendSortKey): number | string | null
     case 'annual': return finite(r.annual_dividend) ? r.annual_dividend : null
     case 'price': return finite(r.price) ? r.price : null
     case 'pay_date': return r.pay_date || null
+    case 'record_date': return r.record_date || null
+    case 'ex_date': return r.ex_date || null
+    case 'frequency': return finite(r.frequency) ? r.frequency : null
     case 'symbol': return r.symbol
   }
 }
@@ -229,6 +237,106 @@ export function summarize(rows: DividendRow[]): WeekSummary {
   return { total: rows.length, withYield, held, watched, top }
 }
 
+// ── filters, row identity, CSV ──
+
+export type FreqFilter = 'all' | 'weekly' | 'monthly' | 'quarterly' | 'semiannual' | 'annual' | 'unknown'
+
+export const FREQ_OPTIONS: { id: FreqFilter; label: string }[] = [
+  { id: 'all', label: 'All frequencies' },
+  { id: 'weekly', label: 'Weekly / biweekly' },
+  { id: 'monthly', label: 'Monthly' },
+  { id: 'quarterly', label: 'Quarterly' },
+  { id: 'semiannual', label: 'Semi-annual' },
+  { id: 'annual', label: 'Annual' },
+  { id: 'unknown', label: 'Irregular / unknown' },
+]
+export const FREQ_IDS = FREQ_OPTIONS.map((o) => o.id)
+
+export function freqBucket(freq: number | null | undefined): Exclude<FreqFilter, 'all'> {
+  switch (freq) {
+    case 52: case 26: return 'weekly'
+    case 12: return 'monthly'
+    case 4: return 'quarterly'
+    case 2: return 'semiannual'
+    case 1: return 'annual'
+    default: return 'unknown'
+  }
+}
+
+export interface DividendFilters {
+  freq: FreqFilter
+  q: string
+}
+
+/** Frequency bucket + company search (ticker prefix or name substring, case-insensitive). */
+export function filterDividendRows(rows: DividendRow[], f: DividendFilters): DividendRow[] {
+  const q = f.q.trim().toLowerCase()
+  return rows.filter((r) => {
+    if (f.freq !== 'all' && freqBucket(r.frequency) !== f.freq) return false
+    if (!q) return true
+    return r.symbol.toLowerCase().startsWith(q) || (r.name || '').toLowerCase().includes(q)
+  })
+}
+
+/** Stable identity for a calendar row (a symbol can have two distributions in one week). */
+export function dividendRowKey(r: Pick<DividendRow, 'symbol' | 'ex_date' | 'amount'>): string {
+  return `${r.symbol}|${r.ex_date}|${r.amount ?? ''}`
+}
+
+export const DIVIDEND_CSV_HEADERS = [
+  'Symbol', 'Company', 'Ex-date', 'Record date', 'Pay date', 'Declared', 'Frequency',
+  'Dividend per share', 'Indicated annual', 'Price', 'Price source', 'Forward yield %', 'In watchlist', 'In portfolio',
+]
+
+export function dividendsCsv(rows: DividendRow[]): unknown[][] {
+  return rows.map((r) => [
+    r.symbol, r.name, r.ex_date, r.record_date, r.pay_date, r.declared_date, r.frequency_label,
+    finite(r.amount) ? r.amount : null, finite(r.annual_dividend) ? r.annual_dividend : null,
+    finite(r.price) ? r.price : null, r.price ? (r.price_source === 'last_close' ? 'latest close' : 'stored') : null,
+    finite(r.yield_pct) ? r.yield_pct : null, r.in_watchlist ? 'yes' : 'no', r.in_portfolio ? 'yes' : 'no',
+  ])
+}
+
+// ── per-symbol dividend history (snapshot mini chart) ──
+
+export interface DividendHistory {
+  symbol: string
+  /** false = lookup failed (unknown); true with no payments = pays no dividend. */
+  available: boolean
+  payments: { ex_date: string; amount: number }[]
+  ttm_total: number | null
+  ttm_count: number
+  frequency: number | null
+  frequency_label: string | null
+  next_ex_date: string | null
+  next_pay_date: string | null
+  source: string
+}
+
+/** Last `n` payments as bar fractions of the largest one (for the mini chart). */
+export function historyBars(h: DividendHistory | undefined, n = 12): { ex_date: string; amount: number; frac: number }[] {
+  const pts = (h?.payments ?? []).filter((p) => finite(p.amount) && p.amount > 0).slice(-n)
+  const max = Math.max(0, ...pts.map((p) => p.amount))
+  return pts.map((p) => ({ ...p, frac: max > 0 ? p.amount / max : 0 }))
+}
+
+export type TimelineStep = { id: 'declared' | 'ex' | 'record' | 'pay'; label: string; date: string | null; state: 'past' | 'today' | 'future' | 'unknown' }
+
+/** Declared → Ex-dividend → Record → Payment, each marked past / today / future relative to `today`. */
+export function paymentTimeline(r: DividendRow, today: string): TimelineStep[] {
+  const st = (d: string | null): TimelineStep['state'] => {
+    const n = daysUntil(d, today)
+    if (n === null) return 'unknown'
+    return n < 0 ? 'past' : n === 0 ? 'today' : 'future'
+  }
+  const steps: TimelineStep[] = [
+    { id: 'ex', label: 'Ex-dividend', date: r.ex_date, state: st(r.ex_date) },
+    { id: 'record', label: 'Record', date: r.record_date, state: st(r.record_date) },
+    { id: 'pay', label: 'Payment', date: r.pay_date, state: st(r.pay_date) },
+  ]
+  return r.declared_date ? [{ id: 'declared', label: 'Declared', date: r.declared_date, state: st(r.declared_date) }, ...steps] : steps
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_URL}/api/v1/dividends${path}`, { credentials: 'include' })
   const data = await res.json().catch(() => ({}))
@@ -247,6 +355,18 @@ export const dividendsApi = {
   },
   income: (portfolioId: number | null) =>
     getJson<IncomeResponse>(`/income${portfolioId ? `?portfolio_id=${portfolioId}` : ''}`),
+  history: (symbol: string) => getJson<DividendHistory>(`/history/${encodeURIComponent(symbol.toUpperCase())}`),
+}
+
+export function useDividendHistory(symbol: string | null | undefined) {
+  const sym = (symbol || '').trim().toUpperCase()
+  return useQuery({
+    queryKey: ['dividend-history', sym],
+    queryFn: () => dividendsApi.history(sym),
+    enabled: /^[A-Z0-9.\-]{1,10}$/.test(sym),
+    staleTime: 6 * 3600_000,
+    retry: 1,
+  })
 }
 
 export function useDividendCalendar(start: string, end: string, scope: DividendScope, enabled = true) {

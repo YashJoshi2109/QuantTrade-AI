@@ -43,6 +43,22 @@ export function dayLabel(iso: string, style: 'short' | 'long' = 'short'): string
     : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
 }
 
+/** Progress-bar widths for the week's day cards: each count ÷ the busiest day (0..1). */
+export function dayFractions(counts: number[]): number[] {
+  const max = Math.max(0, ...counts)
+  return counts.map((n) => (max > 0 ? n / max : 0))
+}
+
+/** Busiest day of the given days by count; null when every day is empty. */
+export function busiestDay(counts: Record<string, number>, days: string[]): { day: string; count: number } | null {
+  let best: { day: string; count: number } | null = null
+  for (const d of days) {
+    const n = counts[d] ?? 0
+    if (n > 0 && (!best || n > best.count)) best = { day: d, count: n }
+  }
+  return best
+}
+
 export function weekRangeLabel(monday: string): string {
   const s = parseDay(monday)
   const e = parseDay(addDays(monday, 4))
