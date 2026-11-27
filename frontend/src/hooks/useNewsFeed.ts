@@ -45,6 +45,8 @@ export interface UseNewsFeedResult {
   /** Total for the "All" tab (server `all` count, else list length). */
   totalCount: number
   asOf: string | null
+  /** Oldest stored item (ISO) — the window an empty result covered. */
+  coverageSince: string | null
   mode: 'live' | 'legacy' | null
   /** Socket open AND unified feed available. */
   isLive: boolean
@@ -214,6 +216,7 @@ export function useNewsFeed(options: UseNewsFeedOptions = {}): UseNewsFeedResult
     categoryCounts,
     totalCount: categoryCounts.all ?? items.length,
     asOf: query.data?.as_of ?? null,
+    coverageSince: query.data?.coverage_since ?? null,
     mode,
     isLive: socketStatus === 'open' && mode === 'live',
     socketStatus,

@@ -683,9 +683,14 @@ class FactorEngine:
         for ticker, data in universe_data.items():
             if data.get("data_completeness", 0) < DATA_QUALITY["min_completeness_for_scoring"] * 100:
                 continue
-            raw_scores[ticker] = FactorEngine.score_stock(
-                data, regime, index_type, universe_data,
-            )
+            try:
+                raw_scores[ticker] = FactorEngine.score_stock(
+                    data, regime, index_type, universe_data,
+                )
+            except Exception as e:  # one bad stock must not sink the basket
+                reason = f"factor scoring error: {type(e).__name__}: {e}"[:200]
+                data["_failure_reason"] = reason
+                logger.warning("Model index: %s not scored for %s: %s", ticker, index_type, reason)
 
         if not raw_scores:
             return {}
