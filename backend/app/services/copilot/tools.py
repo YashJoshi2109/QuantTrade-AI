@@ -57,6 +57,11 @@ TOOL_SPECS: List[Dict[str, Any]] = [
          "sector": {"type": "string"}, "min_market_cap": {"type": "number"}},
          "required": ["direction"], "additionalProperties": False}},
 ]
+# Valuation engine tools (app.services.copilot.valuation_tools)
+from app.services.copilot.valuation_tools import (TOOL_TIMEOUT_S as _VAL_TIMEOUT_S,  # noqa: E402
+                                                  VALUATION_TOOL_NAMES, VALUATION_TOOL_SPECS, run_valuation_tool)
+TOOL_SPECS.extend(VALUATION_TOOL_SPECS)
+TOOL_TIMEOUTS: Dict[str, float] = {n: _VAL_TIMEOUT_S for n in VALUATION_TOOL_NAMES}
 TOOL_NAMES = {t["name"] for t in TOOL_SPECS}
 
 
@@ -127,7 +132,8 @@ class ToolExecutor:
         if name not in TOOL_NAMES:
             return f"unknown tool {name}", [], True
         try:
-            facts, payload = await asyncio.wait_for(self._dispatch(name, args or {}), TOOL_TIMEOUT_S)
+            facts, payload = await asyncio.wait_for(self._dispatch(name, args or {}),
+                                                    TOOL_TIMEOUTS.get(name, TOOL_TIMEOUT_S))
         except asyncio.TimeoutError:
             return f"{name} timed out", [], True
         except LookupError as e:
@@ -140,6 +146,8 @@ class ToolExecutor:
         return context_block(f"tool:{name}", as_of, payload), facts, False
 
     async def _dispatch(self, name: str, a: Dict[str, Any]):
+        if name in VALUATION_TOOL_NAMES:
+            return await run_valuation_tool(self, name, a)
         if name == "get_macro":
             facts = await self.sources.macro(list(a.get("indicators") or []))
             if not facts:
