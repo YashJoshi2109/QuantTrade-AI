@@ -10,10 +10,11 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, Database, Info, Package, RefreshCw, Shield, Target } from 'lucide-react'
+import { AlertTriangle, Database, Info, ListChecks, Package, RefreshCw, Shield, Target } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
-  fetchFailureMessage, fetchMlopsStatus, formatAge, freshnessTone, gateHeadline,
-  type FreshnessTable, type MlopsStatus,
+  fetchFailureMessage, fetchMlopsStatus, formatAge, formatGateValue, freshnessTone, gateHeadline,
+  robustnessLine, type FreshnessTable, type MlopsStatus, type ResearchCandidate,
 } from '@/lib/mlopsStatus'
 
 const TONE = {
@@ -66,6 +67,84 @@ function FreshRow({ label, t }: { label: string; t?: FreshnessTable }) {
   )
 }
 
+/** The 10 gate conditions: threshold, the Phase 9 "before" and the current candidate. */
+function GateScorecard({ rc, compact }: { rc: ResearchCandidate; compact?: boolean }) {
+  const before = new Map((rc.before?.scorecard ?? []).map((c) => [c.key, c]))
+  const showBefore = before.size > 0
+  return (
+    <Panel
+      icon={ListChecks}
+      title="Gate scorecard"
+      compact={compact}
+      right={
+        <span className="text-[10px] text-fg-muted font-mono tabular-nums">
+          {rc.gates_passed}/{rc.gates_total ?? 10} · {rc.gates_required ?? 8} required
+        </span>
+      }
+    >
+      <div className="overflow-x-auto -mx-1">
+        <table className="w-full text-xs tabular-nums">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-wider text-fg-muted text-left">
+              <th className="font-medium px-1 pb-1.5">Condition</th>
+              {!compact && <th className="font-medium px-1 pb-1.5">Threshold</th>}
+              {showBefore && <th className="font-medium px-1 pb-1.5 text-right">Before</th>}
+              <th className="font-medium px-1 pb-1.5 text-right">Now</th>
+              <th className="font-medium px-1 pb-1.5 text-right sr-only">Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rc.scorecard!.map((c) => {
+              const b = before.get(c.key)
+              return (
+                <tr key={c.key} className="border-t border-line-subtle">
+                  <td className="px-1 py-1.5 text-fg-primary">
+                    {c.label}
+                    {compact && <span className="block text-[10px] text-fg-muted">{c.threshold}</span>}
+                  </td>
+                  {!compact && <td className="px-1 py-1.5 text-fg-muted font-mono text-[11px]">{c.threshold}</td>}
+                  {showBefore && (
+                    <td className="px-1 py-1.5 text-right font-mono text-fg-muted">
+                      {b ? formatGateValue(b) : '--'}
+                    </td>
+                  )}
+                  <td className="px-1 py-1.5 text-right font-mono text-fg-primary">{formatGateValue(c)}</td>
+                  <td className="px-1 py-1.5 text-right">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${c.passed ? TONE.ok : TONE.bad}`}>
+                      {c.passed ? 'PASS' : 'FAIL'}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[10px] text-fg-muted pt-2 leading-relaxed">
+        {rc.description ? `${rc.description}. ` : ''}
+        {showBefore && rc.before ? `Before = ${rc.before.variant} (${rc.before.gates_passed}/10). ` : ''}
+        {rc.oos_period ? `Out of sample ${rc.oos_period[0]} to ${rc.oos_period[1]}. ` : ''}
+        Purged walk-forward; thresholds unchanged from Phase 7.
+      </p>
+    </Panel>
+  )
+}
+
+/** Loading state shaped like the loaded page: banner, scorecard, panel grid. */
+function MLStatusSkeleton({ compact }: { compact?: boolean }) {
+  return (
+    <div className="space-y-3" aria-busy="true" aria-label="Loading MLOps status">
+      <Skeleton className="h-[72px] rounded-xl bg-surface-raised border border-line-subtle" />
+      <Skeleton className="h-56 rounded-xl bg-surface-raised border border-line-subtle" />
+      <div className={compact ? 'space-y-3' : 'grid grid-cols-1 lg:grid-cols-2 gap-4'}>
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-40 rounded-xl bg-surface-raised border border-line-subtle" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function MLStatusPanels({ compact = false }: { compact?: boolean }) {
   const [status, setStatus] = useState<MlopsStatus | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
@@ -81,7 +160,7 @@ export default function MLStatusPanels({ compact = false }: { compact?: boolean 
   useEffect(() => { load() }, [load])
 
   if (loading && !status) {
-    return <div className="h-24 rounded-xl bg-surface-raised border border-line-subtle animate-pulse" aria-busy="true" />
+    return <MLStatusSkeleton compact={compact} />
   }
 
   if (failure && !status) {
@@ -108,10 +187,16 @@ export default function MLStatusPanels({ compact = false }: { compact?: boolean 
           <p className="text-xs font-bold">ML pipeline gate: {gateHeadline(gate)}</p>
           <p className="text-[11px] text-fg-secondary mt-0.5 leading-relaxed">{gate.note || gate.empty_reason}</p>
           {gate.research_candidate && (
-            <p className="text-[11px] text-fg-muted mt-1">
+            <p className="text-[11px] text-fg-muted mt-1 tabular-nums">
               Research candidate {gate.research_candidate.model_family} ({gate.research_candidate.variant}):{' '}
-              {gate.research_candidate.gates_passed}/{gate.research_candidate.gates_total} gates,{' '}
+              {robustnessLine(gate.research_candidate)},{' '}
               {gate.research_candidate.deployed ? 'deployed' : 'not deployed'}.
+            </p>
+          )}
+          {gate.serving && (
+            <p className="text-[11px] text-fg-secondary mt-1">
+              <span className="font-semibold">Serving: </span>
+              {gate.serving.signal_model ? gate.serving.signal_model : 'statistical baseline, no ML signal'}. {gate.serving.reason}
             </p>
           )}
         </div>
@@ -119,6 +204,10 @@ export default function MLStatusPanels({ compact = false }: { compact?: boolean 
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
+
+      {gate.research_candidate?.scorecard && gate.research_candidate.scorecard.length > 0 && (
+        <GateScorecard rc={gate.research_candidate} compact={compact} />
+      )}
 
       <div className={grid}>
         {/* Served model vs ARIMA(0,1,0) */}
