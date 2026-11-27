@@ -113,7 +113,10 @@ class FinvizFetcher:
                 "peg_ratio": meaningful_peg(FinvizFetcher._parse_float(fundamentals.get("PEG"))),
                 "price_to_sales": FinvizFetcher._parse_float(fundamentals.get("P/S")),
                 "price_to_book": FinvizFetcher._parse_float(fundamentals.get("P/B")),
-                
+                "enterprise_value": FinvizFetcher._parse_market_cap(fundamentals.get("Enterprise Value")),
+                "ev_to_ebitda": FinvizFetcher._parse_float(fundamentals.get("EV/EBITDA")),
+                "ev_to_sales": FinvizFetcher._parse_float(fundamentals.get("EV/Sales")),
+
                 # Dividends
                 "dividend_yield": FinvizFetcher._parse_percent(fundamentals.get("Dividend %")),
                 
@@ -214,6 +217,9 @@ class FinvizFetcher:
             "peg_ratio": meaningful_peg(num("trailingPegRatio") or num("pegRatio")),
             "price_to_sales": num("priceToSalesTrailing12Months"),
             "price_to_book": num("priceToBook"),
+            "enterprise_value": num("enterpriseValue"),
+            "ev_to_ebitda": num("enterpriseToEbitda"),
+            "ev_to_sales": num("enterpriseToRevenue"),
             "dividend_yield": pct("trailingAnnualDividendYield"),
             "profit_margin": pct("profitMargins"),
             "operating_margin": pct("operatingMargins"),

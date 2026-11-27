@@ -1,39 +1,42 @@
 'use client'
 
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, Newspaper, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, ChevronDown, X } from 'lucide-react'
 import type { TickerContext } from '@/lib/copilot-engine'
 import { formatCompactNumber } from '@/lib/copilot-handoff'
+import { formatAge } from '@/lib/copilot-trust'
 import { cn } from '@/lib/utils'
-
-function sentimentDot(s?: string | null) {
-  const v = (s || '').toLowerCase()
-  if (v.includes('bull') || v === 'positive') return 'bg-emerald-400'
-  if (v.includes('bear') || v === 'negative') return 'bg-red-400'
-  return 'bg-slate-400'
-}
-
-function ago(iso?: string | null): string {
-  if (!iso) return ''
-  const ms = Date.now() - new Date(iso).getTime()
-  if (!Number.isFinite(ms)) return ''
-  const h = Math.round(ms / 3_600_000)
-  if (h < 1) return 'just now'
-  if (h < 24) return `${h}h ago`
-  return `${Math.round(h / 24)}d ago`
-}
 
 function fmtAsOf(iso?: string | null): string {
   if (!iso) return ''
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? String(iso) : d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return Number.isNaN(d.getTime()) ? String(iso) : d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
+function ago(iso?: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : formatAge(d, Date.now())
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[9px] font-mono uppercase tracking-wider text-fg-muted">{label}</p>
-      <p className="truncate text-xs font-semibold text-fg-primary tabular-nums">{value}</p>
+      <dt className="text-[12px] text-[var(--cp-ink-3)]">{label}</dt>
+      <dd className="truncate text-[14px] font-semibold tabular-nums text-[var(--cp-ink)]">{value}</dd>
     </div>
+  )
+}
+
+/** Price change in neutral ink: a normal daily move is information, not an alarm. */
+function Change({ pct }: { pct: number }) {
+  const up = pct >= 0
+  const Arrow = up ? ArrowUpRight : ArrowDownRight
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[14px] font-medium tabular-nums text-[var(--cp-ink-2)]">
+      <Arrow className={cn('h-4 w-4', up ? 'text-[var(--cp-up)]' : 'text-[var(--cp-down)]')} aria-hidden />
+      <span className="sr-only">{up ? 'up' : 'down'} </span>
+      <span>{`${up ? '+' : ''}${pct.toFixed(2)}%`}</span>
+    </span>
   )
 }
 
@@ -46,14 +49,17 @@ export interface TickerContextCardProps {
   onClear?: () => void
   compact?: boolean
   disabled?: boolean
+  /** 'bar': one-line strip pinned above a conversation; expands to the card. */
+  variant?: 'card' | 'bar'
+  expanded?: boolean
+  onToggle?: () => void
 }
 
-/** Ticker context card: what the copilot knows about the symbol before it answers. */
+/** What the copilot knows about the ticker before it answers. */
 export default function TickerContextCard({
-  symbol, ctx, loading, suggestions = [], onAsk, onClear, compact, disabled,
+  symbol, ctx, loading, suggestions = [], onAsk, onClear, compact, disabled, variant = 'card', expanded, onToggle,
 }: TickerContextCardProps) {
   const q = ctx?.quote
-  const up = (q?.change_percent ?? 0) >= 0
   const ks = ctx?.key_stats ?? {}
   const fc = ctx?.forecast
   const st = ctx?.latest_statement
@@ -64,127 +70,171 @@ export default function TickerContextCard({
   const pos = fc && fc.p10 != null && fc.p90 != null && fc.p50 != null && fc.p90 > fc.p10
     ? Math.min(100, Math.max(0, ((fc.p50 - fc.p10) / (fc.p90 - fc.p10)) * 100)) : 50
 
+  const clearBtn = onClear && (
+    <button
+      type="button"
+      onClick={onClear}
+      aria-label={`Stop focusing on ${symbol}`}
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--cp-ink-3)] hover:bg-[var(--cp-sunken)] hover:text-[var(--cp-ink)]"
+    >
+      <X className="h-4 w-4" aria-hidden />
+    </button>
+  )
+
+  if (variant === 'bar' && !expanded) {
+    return (
+      <section aria-label={`${symbol} context`} data-testid="ticker-context-bar" className="flex min-h-[48px] items-center gap-3 rounded-xl border border-[var(--cp-line)] bg-[var(--cp-panel)] py-1.5 pl-3 pr-1">
+        <span className="text-[14px] font-semibold text-[var(--cp-ink)]">{symbol}</span>
+        {loading && !q ? (
+          <span aria-hidden className="cp-skeleton h-3.5 w-40" />
+        ) : q?.price != null ? (
+          <span className="flex min-w-0 flex-wrap items-baseline gap-x-2.5">
+            <span className="text-[14px] font-semibold tabular-nums text-[var(--cp-ink)]">${q.price.toFixed(2)}</span>
+            {q.change_percent != null && <Change pct={q.change_percent} />}
+            <span className="truncate text-[12px] text-[var(--cp-ink-3)]">as of {fmtAsOf(q.as_of)}</span>
+          </span>
+        ) : (
+          <span className="text-[13px] text-[var(--cp-ink-3)]">No live quote</span>
+        )}
+        <span className="ml-auto flex items-center">
+          {onToggle && (
+            <button type="button" onClick={onToggle} aria-expanded={false}
+              className="inline-flex min-h-[36px] items-center gap-1 rounded-lg px-2 text-[13px] text-[var(--cp-ink-2)] hover:bg-[var(--cp-sunken)]">
+              Details <ChevronDown className="h-4 w-4" aria-hidden />
+            </button>
+          )}
+          {clearBtn}
+        </span>
+      </section>
+    )
+  }
+
   return (
     <section
       aria-label={`${symbol} context`}
       data-testid="ticker-context-card"
-      className="relative z-10 w-full rounded-2xl border border-[rgba(0,122,255,0.22)] bg-surface-raised p-3 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
+      className="w-full rounded-2xl border border-[var(--cp-line)] bg-[var(--cp-panel)] p-4 shadow-[var(--cp-shadow)] sm:p-5"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-baseline gap-2">
-            <span className="font-display text-base font-bold text-fg-primary sm:text-lg">{symbol}</span>
-            <span className="truncate text-[11px] text-fg-muted">{ctx?.name ?? (loading ? 'Loading…' : '')}</span>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span className="text-[18px] font-semibold text-[var(--cp-ink)]">{symbol}</span>
+            <span className="truncate text-[14px] text-[var(--cp-ink-3)]">{ctx?.name ?? ''}</span>
             {ctx && ctx.asset_type !== 'equity' && (
-              <span className="rounded border border-line-subtle px-1 text-[9px] uppercase text-fg-muted">{ctx.asset_type}</span>
+              <span className="rounded border border-[var(--cp-line)] px-1 text-[11px] text-[var(--cp-ink-3)]">{ctx.asset_type}</span>
             )}
           </div>
-          {q?.price != null ? (
-            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
-              <span className="text-xl font-bold tabular-nums text-fg-primary sm:text-2xl">${q.price.toFixed(2)}</span>
-              {q.change_percent != null && (
-                <span className={cn('inline-flex items-center text-xs font-semibold tabular-nums', up ? 'text-emerald-400' : 'text-red-400')}>
-                  {up ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-                  {up ? '+' : ''}{q.change_percent.toFixed(2)}%
-                </span>
-              )}
-              <span className="text-[10px] text-fg-muted">
-                {fmtAsOf(q.as_of)}{q.market_session ? ` · market ${q.market_session.toLowerCase()}` : ''}
+          {loading && !q ? (
+            <div aria-hidden className="mt-2 space-y-2">
+              <div className="cp-skeleton h-7 w-44" />
+              <div className="cp-skeleton h-3 w-56" />
+            </div>
+          ) : q?.price != null ? (
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-3">
+              <span className="text-[26px] font-semibold tabular-nums text-[var(--cp-ink)]">${q.price.toFixed(2)}</span>
+              {q.change_percent != null && <Change pct={q.change_percent} />}
+              <span className="text-[13px] text-[var(--cp-ink-3)]">
+                as of {fmtAsOf(q.as_of)}{q.market_session ? `, market ${q.market_session.toLowerCase()}` : ''}
               </span>
             </div>
           ) : (
-            <p className="mt-1 text-[11px] text-fg-muted">
-              {loading ? 'Fetching live context…' : ctx?.errors?.quote ?? 'No live quote'}
-            </p>
+            <p className="mt-1 text-[14px] text-[var(--cp-ink-3)]">{ctx?.errors?.quote ?? 'No live quote right now'}</p>
           )}
         </div>
-        {onClear && (
-          <button type="button" onClick={onClear} title="Stop focusing this ticker"
-            className="shrink-0 rounded-lg p-1.5 text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg-primary">
-            <X className="h-4 w-4" />
-          </button>
-        )}
+        <div className="flex items-center">
+          {variant === 'bar' && onToggle && (
+            <button type="button" onClick={onToggle} aria-expanded
+              className="inline-flex min-h-[36px] items-center gap-1 rounded-lg px-2 text-[13px] text-[var(--cp-ink-2)] hover:bg-[var(--cp-sunken)]">
+              Less <ChevronDown className="h-4 w-4 rotate-180" aria-hidden />
+            </button>
+          )}
+          {clearBtn}
+        </div>
       </div>
 
       {ctx && ctx.identity.status !== 'ok' && (
-        <div className="mt-2 flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-600 dark:text-amber-200">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <div className="mt-3 flex gap-2 rounded-lg border border-[var(--cp-caution-line)] bg-[var(--cp-caution-soft)] px-3 py-2 text-[13px] text-[var(--cp-caution-ink)]">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>{ctx.identity.note}</span>
         </div>
       )}
 
-      {ctx && (
-        <div className={cn('mt-3 grid gap-x-3 gap-y-2', compact ? 'grid-cols-[repeat(3,minmax(0,1fr))]' : 'grid-cols-[repeat(3,minmax(0,1fr))] sm:grid-cols-[repeat(5,minmax(0,1fr))]')}>
-          <Stat label="Mkt cap" value={formatCompactNumber(num('market_cap'), '$')} />
+      {loading && !ctx ? (
+        <div aria-hidden className="mt-4 grid grid-cols-[repeat(3,minmax(0,1fr))] gap-3">
+          {[0, 1, 2].map((i) => <div key={i} className="cp-skeleton h-9" />)}
+        </div>
+      ) : ctx ? (
+        <dl className={cn('mt-4 grid gap-x-4 gap-y-3', compact ? 'grid-cols-[repeat(3,minmax(0,1fr))]' : 'grid-cols-[repeat(3,minmax(0,1fr))] sm:grid-cols-[repeat(5,minmax(0,1fr))]')}>
+          <Stat label="Market cap" value={formatCompactNumber(num('market_cap'), '$')} />
           <Stat label="P/E" value={num('pe_ratio') != null ? num('pe_ratio')!.toFixed(1) : '—'} />
           <Stat label="EPS (TTM)" value={num('eps_ttm') != null ? `$${num('eps_ttm')!.toFixed(2)}` : '—'} />
-          {!compact && <Stat label="52w range" value={w52l != null && w52h != null ? `$${w52l.toFixed(0)}–$${w52h.toFixed(0)}` : '—'} />}
+          {!compact && <Stat label="52-week range" value={w52l != null && w52h != null ? `$${w52l.toFixed(0)}–$${w52h.toFixed(0)}` : '—'} />}
           {!compact && <Stat label="Analyst target" value={num('target_price') != null ? `$${num('target_price')!.toFixed(2)}` : '—'} />}
-        </div>
-      )}
+        </dl>
+      ) : null}
 
       {(fc || st) && (
-        <div className={cn('mt-3 grid gap-3', st && fc ? 'sm:grid-cols-2' : '')}>
+        <div className={cn('mt-4 grid gap-3', st && fc && !compact ? 'sm:grid-cols-2' : '')}>
           {fc && fc.p10 != null && fc.p90 != null && (
-            <div className="rounded-xl border border-line-subtle bg-surface-base px-3 py-2">
-              <div className="flex items-center justify-between text-[10px] text-fg-muted">
-                <span className="font-mono uppercase tracking-wider">{fc.horizon_days}-day forecast (p10–p90)</span>
-                {fc.prob_up_pct != null && <span>{fc.prob_up_pct.toFixed(0)}% up</span>}
+            <div className="rounded-xl border border-[var(--cp-line)] bg-[var(--cp-canvas)] px-3.5 py-3">
+              <p className="text-[13px] text-[var(--cp-ink-2)]">
+                <span className="font-semibold text-[var(--cp-ink)]">{fc.horizon_days}-day range</span>, experimental model
+              </p>
+              <div className="relative mt-3 h-1.5 rounded-full bg-[var(--cp-line)]" aria-hidden>
+                <span className="absolute top-1/2 h-3.5 w-1 -translate-y-1/2 rounded bg-[var(--cp-ink-2)]" style={{ left: `calc(${pos}% - 2px)` }} />
               </div>
-              <div className="relative mt-2 h-1.5 rounded-full bg-gradient-to-r from-red-500/50 via-slate-500/40 to-emerald-500/50">
-                <span className="absolute top-1/2 h-3 w-0.5 -translate-y-1/2 rounded bg-white" style={{ left: `${pos}%` }} />
-              </div>
-              <div className="mt-1 flex justify-between text-[11px] font-semibold tabular-nums text-fg-primary">
+              <div className="mt-1.5 flex justify-between text-[13px] font-semibold tabular-nums text-[var(--cp-ink)]">
                 <span>${fc.p10.toFixed(2)}</span>
-                {fc.p50 != null && <span className="text-[#007AFF]">${fc.p50.toFixed(2)}</span>}
+                {fc.p50 != null && <span className="text-[var(--cp-ink-2)]">${fc.p50.toFixed(2)}</span>}
                 <span>${fc.p90.toFixed(2)}</span>
               </div>
+              <p className="mt-1 text-[12px] leading-snug text-[var(--cp-ink-3)]">
+                80% of model outcomes fall in this range. It is not a price target.
+              </p>
             </div>
           )}
           {st && (
-            <div className="rounded-xl border border-line-subtle bg-surface-base px-3 py-2">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-fg-muted">
-                {st.period_label} · {st.form ?? 'SEC'}{st.filed ? ` · filed ${st.filed}` : ''}
+            <div className="rounded-xl border border-[var(--cp-line)] bg-[var(--cp-canvas)] px-3.5 py-3">
+              <p className="text-[13px] text-[var(--cp-ink-2)]">
+                <span className="font-semibold text-[var(--cp-ink)]">{st.period_label}</span> {st.form ?? 'SEC filing'}{st.filed ? `, filed ${st.filed}` : ''}
               </p>
-              <p className="mt-1 text-xs text-fg-primary tabular-nums">
-                Revenue <b>{formatCompactNumber(st.revenue ?? null, '$')}</b>
-                {st.revenue_yoy_pct != null && <span className={st.revenue_yoy_pct >= 0 ? 'text-emerald-400' : 'text-red-400'}> ({st.revenue_yoy_pct >= 0 ? '+' : ''}{st.revenue_yoy_pct.toFixed(1)}% YoY)</span>}
-                {st.gross_margin_pct != null && <> · GM <b>{st.gross_margin_pct.toFixed(1)}%</b></>}
+              <p className="mt-2 text-[14px] tabular-nums text-[var(--cp-ink)]">
+                Revenue <b className="font-semibold">{formatCompactNumber(st.revenue ?? null, '$')}</b>
+                {st.revenue_yoy_pct != null && <span className="text-[var(--cp-ink-2)]"> ({st.revenue_yoy_pct >= 0 ? '+' : ''}{st.revenue_yoy_pct.toFixed(1)}% YoY)</span>}
               </p>
+              {st.gross_margin_pct != null && (
+                <p className="text-[14px] tabular-nums text-[var(--cp-ink)]">Gross margin <b className="font-semibold">{st.gross_margin_pct.toFixed(1)}%</b></p>
+              )}
             </div>
           )}
         </div>
       )}
 
       {news.length > 0 && (
-        <ul className="mt-3 space-y-1.5">
+        <ul className="mt-4 space-y-2 border-t border-[var(--cp-line)] pt-3">
           {news.map((n) => (
-            <li key={n.id} className="flex items-start gap-2 text-[11px] leading-snug">
-              <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', sentimentDot(n.sentiment))} title={n.sentiment ?? 'neutral'} />
-              <span className="min-w-0 flex-1">
-                {n.url ? (
-                  <a href={n.url} target="_blank" rel="noopener noreferrer" className="text-fg-secondary hover:text-fg-primary hover:underline">{n.title}</a>
-                ) : <span className="text-fg-secondary">{n.title}</span>}
-                <span className="ml-1 text-fg-muted">· {n.publisher ?? 'news'} · {ago(n.published_at)}</span>
-                {n.suspicious && <span className="ml-1 text-amber-300" title="Contains instruction-like text; treated as data only">⚠</span>}
-              </span>
+            <li key={n.id} className="text-[14px] leading-snug">
+              {n.url ? (
+                <a href={n.url} target="_blank" rel="noopener noreferrer" className="text-[var(--cp-ink)] underline-offset-2 hover:underline">{n.title}</a>
+              ) : <span className="text-[var(--cp-ink)]">{n.title}</span>}
+              <span className="ml-1.5 text-[12px] text-[var(--cp-ink-3)]">{n.publisher ?? 'News'}{n.published_at ? `, ${ago(n.published_at)}` : ''}</span>
+              {n.suspicious && <span className="ml-1.5 text-[12px] text-[var(--cp-caution-ink)]">contains instruction-like text, treated as data only</span>}
             </li>
           ))}
         </ul>
       )}
-      {ctx && !news.length && !compact && (
-        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-fg-muted"><Newspaper className="h-3 w-3" /> No classified news in the last 7 days</p>
-      )}
 
       {suggestions.length > 0 && onAsk && (
-        <div className="mt-3 flex flex-wrap gap-1.5" data-testid="ticker-suggestions">
+        <ul className="mt-4 flex flex-wrap gap-2" data-testid="ticker-suggestions">
           {suggestions.map((s) => (
-            <button key={s} type="button" disabled={disabled} onClick={() => onAsk(s)}
-              className="inline-flex items-center gap-1 rounded-full border border-[#007AFF]/30 bg-[#007AFF]/10 px-2.5 py-1 text-[11px] text-[#007AFF] transition-colors hover:bg-[#007AFF]/20 disabled:opacity-50">
-              <Sparkles className="h-3 w-3" /> {s}
-            </button>
+            <li key={s}>
+              <button type="button" disabled={disabled} onClick={() => onAsk(s)}
+                className="min-h-[36px] rounded-full border border-[var(--cp-line-strong)] bg-[var(--cp-panel)] px-3.5 py-1.5 text-left text-[14px] text-[var(--cp-ink)] hover:border-[var(--cp-accent)] hover:text-[var(--cp-accent-ink)] disabled:opacity-60">
+                {s}
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </section>
   )

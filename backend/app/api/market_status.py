@@ -1,61 +1,47 @@
 """
 Market status API - Check if NYSE/NASDAQ is open
 """
+from datetime import datetime
+from typing import Optional
+
 from fastapi import APIRouter
-from datetime import datetime, timedelta, timezone
-import pytz
+
+from app.services import market_calendar as mc
 
 router = APIRouter()
 
 
-def is_market_open() -> dict:
+def is_market_open(at: Optional[datetime] = None) -> dict:
     """
-    Check if US stock market (NYSE/NASDAQ) is currently open
-    Market hours: 9:30 AM - 4:00 PM ET, Monday-Friday
+    Check if the US stock market (NYSE/NASDAQ) is in its regular session.
+    Regular hours: 9:30 AM - 4:00 PM ET (1:00 PM on early-close days) on
+    trading days; exchange holidays (e.g. Thanksgiving) are closed.
     """
-    # Get current time in Eastern Time
-    et_tz = pytz.timezone('US/Eastern')
-    now_et = datetime.now(et_tz)
-    
-    # Check if it's a weekday (Monday=0, Sunday=6)
-    is_weekday = now_et.weekday() < 5
-    
-    # Market hours: 9:30 AM - 4:00 PM ET
-    market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
-    market_close = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
-    
-    is_open = is_weekday and market_open <= now_et <= market_close
-    
-    # Calculate time until open/close
-    if not is_weekday:
-        # Next weekday
-        days_until_weekday = (5 - now_et.weekday()) % 7
-        if days_until_weekday == 0:
-            days_until_weekday = 1
-        next_open = (now_et + timedelta(days=days_until_weekday)).replace(hour=9, minute=30, second=0, microsecond=0)
-        time_until = (next_open - now_et).total_seconds()
-    elif now_et < market_open:
-        time_until = (market_open - now_et).total_seconds()
-    elif now_et > market_close:
-        # Next trading day
-        days_until_weekday = (5 - now_et.weekday()) % 7
-        if days_until_weekday == 0:
-            days_until_weekday = 1
-        next_open = (now_et + timedelta(days=days_until_weekday)).replace(hour=9, minute=30, second=0, microsecond=0)
-        time_until = (next_open - now_et).total_seconds()
-    else:
+    st = mc.market_state(at)
+    now_et = st.now_et
+    close = st.close_today or mc.CLOSE
+    market_open = now_et.replace(hour=mc.OPEN.hour, minute=mc.OPEN.minute, second=0, microsecond=0)
+    market_close = now_et.replace(hour=close.hour, minute=close.minute, second=0, microsecond=0)
+    if st.is_open:
         time_until = (market_close - now_et).total_seconds()
-    
+    else:
+        time_until = (st.next_open - now_et).total_seconds()
+
     return {
-        "is_open": is_open,
-        "status": "OPEN" if is_open else "CLOSED",
+        "is_open": st.is_open,
+        "status": "OPEN" if st.is_open else "CLOSED",
+        "session": st.session,
+        "holiday": st.holiday,
+        "early_close": st.early_close,
         "current_time_et": now_et.strftime("%Y-%m-%d %H:%M:%S %Z"),
         "market_open": market_open.strftime("%H:%M %Z"),
         "market_close": market_close.strftime("%H:%M %Z"),
-        "is_weekday": is_weekday,
+        "next_open_et": st.next_open.strftime("%Y-%m-%d %H:%M %Z"),
+        "seconds_until_change": int(time_until),
+        "is_weekday": now_et.weekday() < 5,
         "exchanges": {
-            "NYSE": is_open,
-            "NASDAQ": is_open
+            "NYSE": st.is_open,
+            "NASDAQ": st.is_open
         }
     }
 

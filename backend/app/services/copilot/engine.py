@@ -23,13 +23,19 @@ from app.services.copilot.context_pack import build_pack
 from app.services.copilot.memory import ConversationMemory, InMemoryStore
 from app.services.copilot.models import TickerContextPack
 from app.services.copilot.postcheck import run_postcheck
-from app.services.copilot.prompt import history_messages, system_prompt, user_turn
+from app.services.copilot.prompt import (cache_call_kwargs, history_messages, prompt_cache_enabled,
+                                         system_message, system_prompt, user_turn)
 from app.services.copilot.registry import FactRegistry, numbers_in_text
 from app.services.copilot.resolver import Resolution, TickerResolver
 from app.services.copilot.telemetry import Trace
 from app.services.copilot.tools import ToolExecutor, lc_tools
 
+import logging
 import os
+
+logger = logging.getLogger(__name__)
+# Models that rejected prompt-cache breakpoints (process lifetime).
+_CACHE_REJECTED: set = set()
 
 MAX_TOOL_ROUNDS = int(os.getenv("COPILOT_MAX_TOOL_ROUNDS", "4"))
 DISCLAIMER = "\n\n*Informational only, not financial advice.*"
@@ -207,7 +213,7 @@ class CopilotEngine:
             return await build_pack(rt, self.sources, use_cache=self.use_pack_cache)
 
         executor = ToolExecutor(self.sources, registry, self.resolver, packs, pack_builder)
-        chain = self.llm_chain if self.llm_chain is not None else default_llm_chain()
+        chain = list(self.llm_chain if self.llm_chain is not None else default_llm_chain())
         if not chain:
             yield "error", {"message": "No LLM provider is configured."}
             trace.set(error="no_llm"); self.last_trace = trace.finish()
@@ -223,15 +229,22 @@ class CopilotEngine:
         tools = lc_tools()
 
         for idx, handle in enumerate(chain):
+            cache_on = False
             try:
                 llm = handle.make().bind_tools(tools)
                 used = handle
+                # Provider-specific system message + cache breakpoints (no-op
+                # for OpenAI / OpenRouter / scripted models).
+                cache_on = prompt_cache_enabled(handle.provider) and handle.model not in _CACHE_REJECTED
+                messages[0] = system_message(handle.provider, cache=cache_on)
+                call_kw = cache_call_kwargs(handle.provider, cache=cache_on)
+                trace.set(prompt_cache=cache_on)
                 for rnd in range(MAX_TOOL_ROUNDS + 1):
                     rounds = rnd + 1
                     full = None
                     llm_calls += 1
                     with trace.stage(f"llm_round_{rnd}"):
-                        async for chunk in llm.astream(messages):
+                        async for chunk in llm.astream(messages, **call_kw):
                             t = chunk_text(chunk)
                             if t:
                                 if not emitted:
@@ -276,6 +289,15 @@ class CopilotEngine:
                 return
             except Exception as e:
                 trace.data.setdefault("provider_errors", []).append(f"{handle.provider}:{handle.model}:{type(e).__name__}")
+                if (cache_on and not emitted and rounds <= 1 and "cach" in str(e).lower()
+                        and handle.model not in _CACHE_REJECTED):
+                    # Model/endpoint rejected the cache breakpoints: remember
+                    # that and retry the same model once without them.
+                    logger.warning("prompt caching rejected by %s:%s (%s); retrying uncached",
+                                   handle.provider, handle.model, str(e)[:160])
+                    _CACHE_REJECTED.add(handle.model)
+                    chain.insert(idx + 1, handle)
+                    continue
                 if emitted or rounds > 1 or idx == len(chain) - 1:
                     yield "error", {"message": f"The language model failed ({type(e).__name__}). Please retry."}
                     trace.set(error=type(e).__name__); self.last_trace = trace.finish()

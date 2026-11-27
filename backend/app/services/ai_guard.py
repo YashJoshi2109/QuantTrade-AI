@@ -42,6 +42,27 @@ System / background jobs (e.g. SEC insight pre-generation, news notes):
   callback that reserves/reconciles per call, so a background job only needs
   `with system_context("news_notes"):` around its get_llm_haiku() usage; the
   explicit reserve_system() call above is for gating a batch up front.
+
+Prompt caching and token accounting:
+
+  Usage is reconciled from the provider's metadata split into uncached input,
+  cache reads, cache writes and output (usage_breakdown_from_langchain).  USD
+  cost prices reads at CACHE_READ_PRICE_MULT (0.1x input) and writes at
+  CACHE_WRITE_PRICE_MULT (1.25x); the per-user tokens_per_day counter uses
+  the same weights (weighted_tokens: "input-equivalent tokens", output 1x).
+
+Cost envelope (defaults, copilot on Claude Sonnet 5 at $2 / $10 per 1M):
+
+  * Typical question: ~1.2k cached prefix (system + tool schemas, 0.1x),
+    ~3-4.5k per-request context (history + ticker pack, written to cache at
+    1.25x so a tool round re-reads it at 0.1x), ~400-600 output tokens
+    => ~5-7k input-equivalent tokens, ~$0.015-0.022 per question.
+  * Free tier: 20 requests/day, 160k tokens/day.  Expected spend per fully
+    active free user ~$0.30-0.45/day.  Worst case (every counted token billed
+    as output) is capped by tokens_per_day: 160k x $10/1M = $1.60/user/day.
+  * The global breaker (LLM_DAILY_BUDGET_USD, default $5/day; hourly $1.5)
+    still bounds the whole fleet: ~250-330 typical questions/day, or ~3 free
+    users at the theoretical per-user worst case, before AI is paused (503).
 """
 from __future__ import annotations
 
@@ -86,10 +107,17 @@ def _env_int(name: str, default: int) -> int:
     return int(_env_float(name, default))
 
 
+# tokens_per_day counts *input-equivalent* tokens (see weighted_tokens()):
+# uncached input 1x, prompt-cache reads 0.1x, cache writes 1.25x, output 1x.
+# A typical copilot question (prompt-cached system + tools, trimmed ticker
+# pack, one or two model rounds) costs ~4-8k of these, so the free tier's
+# tokens_per_day fits its 20 requests/day with headroom for the per-call
+# reservation (prompt estimate + max_tokens) checked before every model call.
+# Worst-case $/day at these defaults: "Cost envelope" in the module docstring.
 _TIER_DEFAULTS: Dict[str, Dict[str, int]] = {
-    "free":  {"req_per_min": 5,  "req_per_day": 20,   "tokens_per_day": 60_000,
+    "free":  {"req_per_min": 5,  "req_per_day": 20,   "tokens_per_day": 160_000,
               "images_per_day": 5,   "tts_chars_per_day": 3_000},
-    "pro":   {"req_per_min": 15, "req_per_day": 200,  "tokens_per_day": 600_000,
+    "pro":   {"req_per_min": 15, "req_per_day": 200,  "tokens_per_day": 1_600_000,
               "images_per_day": 50,  "tts_chars_per_day": 30_000},
     "admin": {"req_per_min": 60, "req_per_day": 2000, "tokens_per_day": 5_000_000,
               "images_per_day": 500, "tts_chars_per_day": 300_000},
@@ -182,6 +210,11 @@ UNIT_PRICES: Dict[str, float] = {
 }
 _FALLBACK_TOKEN_PRICE = (3.0, 15.0)  # unknown model → priced like Sonnet (conservative)
 
+# Anthropic prompt caching (direct API and Bedrock): reading a cached prefix
+# costs 10% of the input price, writing it (5-minute TTL) 125%.
+CACHE_READ_PRICE_MULT = _env_float("AI_CACHE_READ_PRICE_MULT", 0.1)
+CACHE_WRITE_PRICE_MULT = _env_float("AI_CACHE_WRITE_PRICE_MULT", 1.25)
+
 
 def _price_tables() -> Tuple[Dict[str, Tuple[float, float]], Dict[str, float]]:
     tok, unit = dict(TOKEN_PRICES), dict(UNIT_PRICES)
@@ -207,18 +240,31 @@ def _longest_match(model: str, keys: Iterable[str]) -> Optional[str]:
     return best
 
 
-def estimate_cost(model: str, input_tokens: int = 0, output_tokens: int = 0, units: float = 0.0) -> float:
-    """USD cost for one call."""
+def estimate_cost(model: str, input_tokens: int = 0, output_tokens: int = 0, units: float = 0.0,
+                  cache_read_tokens: int = 0, cache_write_tokens: int = 0) -> float:
+    """USD cost for one call.  ``input_tokens`` are the *uncached* input tokens;
+    prompt-cache reads / writes are priced at CACHE_READ/WRITE_PRICE_MULT x input."""
     tok, unit = _price_tables()
     cost = 0.0
     if units:
         k = _longest_match(model, unit)
         cost += units * (unit[k] if k else 0.01)
-    if input_tokens or output_tokens:
+    if input_tokens or output_tokens or cache_read_tokens or cache_write_tokens:
         k = _longest_match(model, tok)
         pin, pout = tok[k] if k else _FALLBACK_TOKEN_PRICE
-        cost += input_tokens / 1e6 * pin + output_tokens / 1e6 * pout
+        cost += (input_tokens + cache_read_tokens * CACHE_READ_PRICE_MULT
+                 + cache_write_tokens * CACHE_WRITE_PRICE_MULT) / 1e6 * pin
+        cost += output_tokens / 1e6 * pout
     return cost
+
+
+def weighted_tokens(input_tokens: int = 0, output_tokens: int = 0, cache_read_tokens: int = 0,
+                    cache_write_tokens: int = 0) -> int:
+    """Input-equivalent tokens charged to a user's tokens_per_day: prompt-cache
+    reads and writes are weighted by their price relative to uncached input."""
+    return int(input_tokens + output_tokens
+               + math.ceil(cache_read_tokens * CACHE_READ_PRICE_MULT)
+               + math.ceil(cache_write_tokens * CACHE_WRITE_PRICE_MULT))
 
 
 def estimate_tokens(text_or_chars: Any) -> int:
@@ -666,8 +712,12 @@ class Reservation:
             logger.warning("ai_guard: reconcile failed: %s", exc)
 
     def commit(self, input_tokens: int = 0, output_tokens: int = 0, units: Optional[float] = None,
-               status_: str = "ok") -> float:
-        """Reconcile with real usage. Returns the actual USD cost."""
+               status_: str = "ok", cache_read_tokens: int = 0, cache_write_tokens: int = 0) -> float:
+        """Reconcile with real usage. Returns the actual USD cost.
+
+        ``input_tokens`` are uncached input tokens; prompt-cache reads/writes
+        are passed separately and charged at their relative price, both in
+        USD and in the user's input-equivalent tokens_per_day."""
         if self.done:
             return self.cost_usd
         self.done = True
@@ -676,19 +726,25 @@ class Reservation:
         if self.cost_per_unit_usd is not None:
             cost = float(units or 0) * self.cost_per_unit_usd
         else:
-            cost = estimate_cost(self.model, input_tokens, output_tokens, priced_units)
+            cost = estimate_cost(self.model, input_tokens, output_tokens, priced_units,
+                                 cache_read_tokens=cache_read_tokens, cache_write_tokens=cache_write_tokens)
         self.cost_usd = cost
         actual_micro = _micro(cost)
+        charged = weighted_tokens(input_tokens, output_tokens, cache_read_tokens, cache_write_tokens)
+        total_in = int(input_tokens) + int(cache_read_tokens) + int(cache_write_tokens)
         self._adjust(
             actual_micro - self.reserved_micro,
-            (input_tokens + output_tokens) - self.reserved_tokens if self.unit_kind is None else 0,
+            charged - self.reserved_tokens if self.unit_kind is None else 0,
             int(units) - int(self.reserved_units) if self.unit_kind else 0,
         )
         if self.ctx.user_id is not None:
             try:
                 _run(lambda st: st.incr(_k("u", self.ctx.user_id, "cost", _day()), actual_micro, _DAY_TTL))
-                _run(lambda st: st.incr(_k("u", self.ctx.user_id, "in", _day()), int(input_tokens), _DAY_TTL))
+                _run(lambda st: st.incr(_k("u", self.ctx.user_id, "in", _day()), total_in, _DAY_TTL))
                 _run(lambda st: st.incr(_k("u", self.ctx.user_id, "out", _day()), int(output_tokens), _DAY_TTL))
+                if cache_read_tokens:
+                    _run(lambda st: st.incr(_k("u", self.ctx.user_id, "cache_read", _day()),
+                                            int(cache_read_tokens), _DAY_TTL))
             except Exception:  # noqa: BLE001
                 pass
         try:
@@ -697,7 +753,7 @@ class Reservation:
                 "feature": (self.ctx.feature or "unknown")[:64],
                 "provider": self.provider,
                 "model": (self.model or "unknown")[:120],
-                "input_tokens": int(input_tokens),
+                "input_tokens": total_in,
                 "output_tokens": int(output_tokens),
                 "units": float(units or 0),
                 "cost_usd": round(cost, 6),
@@ -841,6 +897,73 @@ def usage_from_langchain(result: Any) -> Tuple[int, int]:
     return tin, tout
 
 
+@dataclass
+class UsageBreakdown:
+    """Provider usage normalised so ``input_tokens`` is the UNCACHED input only."""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+
+    @property
+    def total_input(self) -> int:
+        return self.input_tokens + self.cache_read_tokens + self.cache_write_tokens
+
+    def __bool__(self) -> bool:
+        return bool(self.total_input or self.output_tokens)
+
+
+def usage_breakdown_from_langchain(result: Any) -> UsageBreakdown:
+    """Uncached input / cache read / cache write / output from a LangChain
+    LLMResult or AIMessage.
+
+    The integrations disagree on what ``usage_metadata.input_tokens`` means:
+    langchain-anthropic adds cache reads + writes into it (total_tokens ==
+    input + output), langchain-aws passes Bedrock's ``inputTokens`` through,
+    which EXCLUDES cached tokens (totalTokens counts them).  Decide per
+    message from total_tokens; without it, treat input_tokens as inclusive
+    only when it is large enough to contain the cache tokens."""
+    msgs = []
+    if hasattr(result, "generations"):
+        for gen_list in result.generations or []:
+            for g in gen_list or []:
+                if getattr(g, "message", None) is not None:
+                    msgs.append(g.message)
+    else:
+        msgs.append(result)
+    out = UsageBreakdown()
+    for m in msgs:
+        um = getattr(m, "usage_metadata", None) or {}
+        if um:
+            tin = int(um.get("input_tokens") or 0)
+            tout = int(um.get("output_tokens") or 0)
+            det = um.get("input_token_details") or {}
+            cr, cw = int(det.get("cache_read") or 0), int(det.get("cache_creation") or 0)
+            if cr or cw:
+                total = um.get("total_tokens")
+                inclusive = (int(total) == tin + tout) if total is not None else tin >= cr + cw
+                if inclusive:
+                    tin = max(0, tin - cr - cw)
+            out.input_tokens += tin
+            out.output_tokens += tout
+            out.cache_read_tokens += cr
+            out.cache_write_tokens += cw
+            continue
+        rm = getattr(m, "response_metadata", None) or {}
+        u = rm.get("usage") or rm.get("token_usage") or {}
+        # raw Anthropic usage: input_tokens already excludes the cache fields
+        out.input_tokens += int(u.get("input_tokens") or u.get("prompt_tokens") or u.get("prompt_token_count") or 0)
+        out.output_tokens += int(u.get("output_tokens") or u.get("completion_tokens") or 0)
+        out.cache_read_tokens += int(u.get("cache_read_input_tokens") or 0)
+        out.cache_write_tokens += int(u.get("cache_creation_input_tokens") or 0)
+    if not out:
+        lo = getattr(result, "llm_output", None) or {}
+        u = lo.get("usage") or lo.get("token_usage") or {}
+        out.input_tokens = int(u.get("input_tokens") or u.get("prompt_tokens") or 0)
+        out.output_tokens = int(u.get("output_tokens") or u.get("completion_tokens") or 0)
+    return out
+
+
 def usage_from_anthropic(resp: Any) -> Tuple[int, int]:
     u = getattr(resp, "usage", None)
     return (int(getattr(u, "input_tokens", 0) or 0), int(getattr(u, "output_tokens", 0) or 0)) if u else (0, 0)
@@ -905,16 +1028,18 @@ class GuardCallbackHandler(_BaseCB):  # type: ignore[misc]
         if not entry:
             return
         res, streamed = entry
-        tin, tout = usage_from_langchain(response)
-        if not (tin or tout):  # provider returned no usage → estimate conservatively
-            tin = res.reserved_tokens - self.max_output_tokens
+        u = usage_breakdown_from_langchain(response)
+        if not u:  # provider returned no usage → estimate conservatively
             text = ""
             try:
                 text = response.generations[0][0].text
             except Exception:  # noqa: BLE001
                 pass
-            tout = estimate_tokens(max(streamed[0], len(text or "")))
-        res.commit(tin, tout)
+            res.commit(res.reserved_tokens - self.max_output_tokens,
+                       estimate_tokens(max(streamed[0], len(text or ""))))
+            return
+        res.commit(u.input_tokens, u.output_tokens, cache_read_tokens=u.cache_read_tokens,
+                   cache_write_tokens=u.cache_write_tokens)
 
     def on_llm_error(self, error, *, run_id, **kwargs):
         entry = self._runs.pop(run_id, None)

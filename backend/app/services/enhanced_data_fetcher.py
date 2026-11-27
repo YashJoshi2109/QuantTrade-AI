@@ -205,7 +205,12 @@ class EnhancedDataFetcher:
             fundamentals.peg_ratio = data.get('peg_ratio')
             fundamentals.price_to_sales = data.get('price_to_sales')
             fundamentals.price_to_book = data.get('price_to_book')
-            
+            # EV multiples (copilot answers "EV/EBITDA"); keep an older value
+            # when this fetch did not report one
+            for k in ('enterprise_value', 'ev_to_ebitda', 'ev_to_sales'):
+                if data.get(k) is not None:
+                    setattr(fundamentals, k, data.get(k))
+
             # Dividends
             fundamentals.dividend_yield = data.get('dividend_yield')
             
