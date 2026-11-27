@@ -56,6 +56,9 @@ def test_frequency_inference():
     assert dc.frequency_from_ratio(1.0, 2.0) == 2
     assert dc.frequency_from_ratio(1.0, 1.0) == 1
     assert dc.frequency_from_ratio(1.0, 7.0) is None
+    assert dc.frequency_from_ratio(0.05395, 2.88392) == 52  # weekly income ETF
+    assert dc.frequency_from_ratio(0.1286, 3.3436) == 26
+    assert dc.frequency_from_ratio(0.0658, 16.3842) is None  # 249x: inconsistent upstream row
     assert dc.frequency_from_ratio(None, 2.0) is None
     d = date(2026, 1, 15)
     assert dc.frequency_from_dates([d + timedelta(days=30 * i) for i in range(6)]) == 12
@@ -227,6 +230,11 @@ def api_env(monkeypatch):
 
     monkeypatch.setattr(api.dc, "fetch_window", fake_window)
     monkeypatch.setattr(api.dc, "fetch_histories", fake_hist)
+
+    async def fake_closes(symbols, **kw):
+        return {s: (40.0 if s == "SPC" else None) for s in symbols}
+
+    monkeypatch.setattr(api.dc, "fetch_last_closes", fake_closes)
     app = FastAPI()
     app.include_router(api.router, prefix="/api/v1")
 
@@ -249,7 +257,10 @@ def test_calendar_yield_and_scope(api_env):
     by = {x["symbol"]: x for x in r.json()["rows"]}
     assert by["KO"]["yield_pct"] == pytest.approx(3.03, abs=0.01)  # 2.12 / 70 (fundamentals price)
     assert by["O"]["price"] == 65.28 and by["O"]["yield_pct"] == pytest.approx(5.0)  # latest bar
-    assert by["SPC"]["yield_pct"] is None and by["SPC"]["price"] is None  # unknown: "—"
+    assert by["KO"]["price_source"] == "db" and by["O"]["price_source"] == "db"
+    # Untracked symbol priced from the latest close; no indicated annual -> yield still "—".
+    assert by["SPC"]["price"] == 40.0 and by["SPC"]["price_source"] == "last_close"
+    assert by["SPC"]["yield_pct"] is None
     assert api_env.get("/api/v1/dividends/calendar?scope=watchlist").status_code == 401
     w = api_env.get("/api/v1/dividends/calendar?scope=watchlist", headers=api_env.a).json()
     assert [x["symbol"] for x in w["rows"]] == ["O"]
@@ -276,3 +287,40 @@ def test_income_single_portfolio_and_ownership(api_env):
     assert [h["symbol"] for h in body["holdings"]] == ["O"]
     assert body["portfolio_yield_pct"] is not None
     assert api_env.get("/api/v1/dividends/income?portfolio_id=3", headers=api_env.a).status_code == 404
+
+
+def test_fetch_last_closes_cache_and_budget():
+    import time as _t
+
+    calls = []
+
+    def fn(symbols):
+        calls.append(list(symbols))
+        return {s: (12.5 if s == "AAA" else None) for s in symbols}
+
+    out = asyncio.run(dc.fetch_last_closes(["aaa", "BBB"], close_fn=fn))
+    assert out == {"AAA": 12.5, "BBB": None}
+    out2 = asyncio.run(dc.fetch_last_closes(["AAA", "BBB"], close_fn=fn))
+    assert out2 == out and len(calls) == 1  # hit and miss both cached
+
+    def slow(symbols):
+        _t.sleep(0.3)
+        return {s: 9.0 for s in symbols}
+
+    assert asyncio.run(dc.fetch_last_closes(["CCC"], close_fn=slow, budget_s=0.05)) == {"CCC": None}
+
+
+def test_yield_suppressed_when_annual_inconsistent_with_payment():
+    from app.api import dividends as api
+
+    rows = [
+        {"symbol": "BAD", "amount": 0.0658, "annual_dividend": 16.3842, "frequency": None, "name": "x"},
+        {"symbol": "SPECIAL", "amount": 30.0, "annual_dividend": 5.88, "frequency": None, "name": "y"},
+        {"symbol": "OK", "amount": 0.5, "annual_dividend": 2.0, "frequency": 4, "name": "z"},
+    ]
+    meta = {s: {"name": None, "sector": None, "price": 100.0} for s in ("BAD", "SPECIAL", "OK")}
+    out = api._enrich_calendar(None, rows, None, "all", meta)
+    by = {r["symbol"]: r for r in out["rows"]}
+    assert by["BAD"]["yield_pct"] is None
+    assert by["SPECIAL"]["yield_pct"] == pytest.approx(5.88)
+    assert by["OK"]["yield_pct"] == pytest.approx(2.0)

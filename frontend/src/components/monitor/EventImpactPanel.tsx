@@ -30,6 +30,8 @@ interface Props {
   selectedCountry: SelectedCountry | null
   mapData: MapData | null
   onClear: () => void
+  /** Event ingestion offline/stale: counters are unknown, not zero. */
+  feedDown?: boolean
 }
 
 // ── helpers ──────────────────────────────────────────────────────────
@@ -442,7 +444,7 @@ function CountryRiskView({
 
 // ── Global overview (default state) ──────────────────────────────────
 
-function GlobalOverview({ mapData }: { mapData: MapData | null }) {
+function GlobalOverview({ mapData, feedDown = false }: { mapData: MapData | null; feedDown?: boolean }) {
   const topCountries = useMemo(() =>
     (mapData?.instability || [])
       .filter(c => c.instability_index > 0)
@@ -476,9 +478,15 @@ function GlobalOverview({ mapData }: { mapData: MapData | null }) {
         <div className="flex items-center gap-2">
           <Globe className="w-3.5 h-3.5 text-sky-400" />
           <span className="text-[11px] font-black uppercase tracking-[0.2em] text-fg-primary font-mono">GLOBAL INTELLIGENCE</span>
-          <span className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[8px] text-emerald-400 font-bold">
-            <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" /> LIVE
-          </span>
+          {feedDown ? (
+            <span className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-[8px] text-amber-600 dark:text-amber-400 font-bold">
+              <span className="w-1 h-1 rounded-full bg-amber-500" /> OFFLINE
+            </span>
+          ) : (
+            <span className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[8px] text-emerald-600 dark:text-emerald-400 font-bold">
+              <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" /> LIVE
+            </span>
+          )}
         </div>
         <p className="text-[9px] text-fg-muted mt-0.5 font-mono">Click any event or country on the globe</p>
       </div>
@@ -496,7 +504,7 @@ function GlobalOverview({ mapData }: { mapData: MapData | null }) {
               <Icon className={`w-4 h-4 ${color} shrink-0`} />
               <div>
                 <div className="text-[8px] text-fg-muted uppercase">{label}</div>
-                <div className={`text-lg font-black font-mono ${color}`}>{value}</div>
+                <div className={`text-lg font-black font-mono tabular-nums ${feedDown ? 'text-fg-muted' : color}`} title={feedDown ? 'Event feed offline: count unavailable' : undefined}>{feedDown ? '—' : value}</div>
               </div>
             </div>
           ))}
@@ -584,7 +592,7 @@ function GlobalOverview({ mapData }: { mapData: MapData | null }) {
 
 // ── Main exported component ───────────────────────────────────────────
 
-export default function EventImpactPanel({ selectedEvent, selectedCountry, mapData, onClear }: Props) {
+export default function EventImpactPanel({ selectedEvent, selectedCountry, mapData, onClear, feedDown = false }: Props) {
   const instability = mapData?.instability || []
   const allEvents = mapData?.events || []
 
@@ -633,7 +641,7 @@ export default function EventImpactPanel({ selectedEvent, selectedCountry, mapDa
             transition={{ duration: 0.2 }}
             className="flex flex-col h-full"
           >
-            <GlobalOverview mapData={mapData} />
+            <GlobalOverview mapData={mapData} feedDown={feedDown} />
           </motion.div>
         )}
       </AnimatePresence>

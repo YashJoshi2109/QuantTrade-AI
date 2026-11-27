@@ -304,7 +304,7 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
               color: neon,
             }}
           >
-            {up ? '+' : ''}{(q.change_percent ?? 0).toFixed(2)}%
+            {typeof q.change_percent === 'number' && Number.isFinite(q.change_percent) ? `${up ? '+' : ''}${q.change_percent.toFixed(2)}%` : '—'}
           </span>
         </div>
 
@@ -323,16 +323,6 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
 
   return (
     <div className="mb-6">
-      {/* Section header */}
-      <div className="flex items-center gap-2 mb-3 px-0.5">
-        <div className="w-1 h-4 rounded-full bg-[#007AFF]" />
-        <span className="text-xs font-bold text-fg-secondary uppercase tracking-widest">Global Exchange Indices</span>
-        <div className="ml-auto flex items-center gap-1.5 text-[10px] text-fg-muted font-mono">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Live
-        </div>
-      </div>
-
       {isGlobal ? (
         <div className="relative w-full overflow-hidden [mask-image:_linear-gradient(to_right,transparent_0,_black_40px,_black_calc(100%-40px),transparent_100%)]">
           <div className="animate-ticker-tape gap-2 pb-2 pt-1 px-1">
@@ -864,7 +854,7 @@ function DesktopMarketsPage() {
         <div className="mb-2">
           <div className="flex items-center gap-2 mb-3">
             <Signal className="w-4 h-4 text-[#007AFF]" />
-            <h2 className="text-sm font-bold text-white">
+            <h2 className="text-sm font-bold text-fg-primary">
               {CONTINENTS.find((c) => c.id === activeContinent)?.label} Exchange Indices
             </h2>
             <QuoteActivityFlash fingerprint={marketsActivityFingerprint} className="scale-90" />
