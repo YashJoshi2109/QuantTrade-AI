@@ -811,3 +811,63 @@ def get_exchange_universe(  # sync: DB + blocking FMP sync run in the threadpool
             for r in rows
         ],
     }
+
+
+# ─── Yahoo quoteSummary proxy (Research profile fallback) ──────────────────
+#
+# frontend/src/app/api/quotes/ticker/route.ts falls back to this route when
+# FMP fails. It did not exist (404), and the frontend's direct quoteSummary
+# call gets 401 "Invalid Crumb": Yahoo requires a cookie + crumb pair that
+# yfinance negotiates itself. So both Yahoo fallbacks were dead and the
+# Research profile 404'd whenever FMP ran out of quota (NVDA, 2026-11-27).
+# yfinance's Ticker.info is the flattened quoteSummary; it is re-wrapped in
+# the module shape the frontend parser reads (it accepts plain numbers).
+
+import re as _re
+import time as _time
+
+_QS_SYMBOL = _re.compile(r"^[A-Z0-9^][A-Z0-9.\-=^]{0,14}$")
+_QS_TTL_S = 900
+_qs_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+_QS_MODULES = ("price", "summaryDetail", "financialData", "defaultKeyStatistics",
+               "assetProfile", "summaryProfile")
+
+
+def _yahoo_quote_summary(symbol: str) -> Optional[Dict[str, Any]]:
+    import yfinance as yf
+
+    info = yf.Ticker(symbol).info or {}
+    if not (info.get("regularMarketPrice") or info.get("currentPrice") or info.get("longName")):
+        return None
+    info = dict(info)
+    info.setdefault("symbol", symbol)
+    result: Dict[str, Any] = {m: info for m in _QS_MODULES}
+    ts = info.get("earningsTimestamp") or info.get("earningsTimestampStart")
+    if isinstance(ts, (int, float)) and ts > 0:
+        day = datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d")
+        result["calendarEvents"] = {"earnings": {"earningsDate": [{"raw": int(ts), "fmt": day}]}}
+    return {"quoteSummary": {"result": [result], "error": None}}
+
+
+@router.get("/market/yahoo-quote-summary/{symbol}")
+async def yahoo_quote_summary(symbol: str):
+    """Yahoo quoteSummary-shaped profile for one symbol (cached 15 min)."""
+    import asyncio
+
+    sym = symbol.strip().upper()
+    if not _QS_SYMBOL.match(sym):
+        raise HTTPException(status_code=400, detail="Invalid symbol")
+    hit = _qs_cache.get(sym)
+    if hit and _time.time() - hit[0] < _QS_TTL_S:
+        return hit[1]
+    try:
+        data = await asyncio.wait_for(asyncio.to_thread(_yahoo_quote_summary, sym), timeout=15)
+    except Exception as exc:
+        logger.warning("yahoo quoteSummary via yfinance failed for %s: %s", sym, exc)
+        data = None
+    if not data:
+        raise HTTPException(status_code=404, detail=f"No Yahoo profile for {sym}")
+    if len(_qs_cache) > 2000:
+        _qs_cache.clear()
+    _qs_cache[sym] = (_time.time(), data)
+    return data
