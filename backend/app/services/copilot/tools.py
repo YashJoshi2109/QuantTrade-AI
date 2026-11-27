@@ -13,6 +13,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
+from app.services.copilot import fundamentals_tools
 from app.services.copilot.models import Fact, TickerContextPack, compact_fact
 from app.services.copilot.registry import FactRegistry
 
@@ -57,7 +58,11 @@ TOOL_SPECS: List[Dict[str, Any]] = [
          "sector": {"type": "string"}, "min_market_cap": {"type": "number"}},
          "required": ["direction"], "additionalProperties": False}},
 ]
+# Fundamentals engine (SEC XBRL statements, forensic / capital-efficiency / distress / peer analytics)
+TOOL_SPECS += fundamentals_tools.TOOL_SPECS
 TOOL_NAMES = {t["name"] for t in TOOL_SPECS}
+# Per-tool time limits for tools that legitimately take longer than TOOL_TIMEOUT_S.
+TOOL_TIMEOUTS: Dict[str, float] = {n: fundamentals_tools.TOOL_TIMEOUT_S for n in fundamentals_tools.TOOL_NAMES}
 
 
 def lc_tools() -> List[Dict[str, Any]]:
@@ -127,7 +132,8 @@ class ToolExecutor:
         if name not in TOOL_NAMES:
             return f"unknown tool {name}", [], True
         try:
-            facts, payload = await asyncio.wait_for(self._dispatch(name, args or {}), TOOL_TIMEOUT_S)
+            facts, payload = await asyncio.wait_for(self._dispatch(name, args or {}),
+                                                    TOOL_TIMEOUTS.get(name, TOOL_TIMEOUT_S))
         except asyncio.TimeoutError:
             return f"{name} timed out", [], True
         except LookupError as e:
@@ -140,6 +146,8 @@ class ToolExecutor:
         return context_block(f"tool:{name}", as_of, payload), facts, False
 
     async def _dispatch(self, name: str, a: Dict[str, Any]):
+        if name in fundamentals_tools.TOOL_NAMES:
+            return await fundamentals_tools.dispatch(name, a, pack=self._pack, sources=self.sources)
         if name == "get_macro":
             facts = await self.sources.macro(list(a.get("indicators") or []))
             if not facts:
