@@ -38,6 +38,7 @@ import { useToast } from '@/components/Toast'
 import { SkeletonChart, SkeletonIndicators, SkeletonText, Skeleton } from '@/components/Skeleton'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 import { resolvePriceInfo } from '@/lib/researchQuote'
+import { useChartPrefs, useResearchSymbol } from '@/lib/researchPrefs'
 import { ResearchChartHeader, type ResearchChartPeriod } from '@/components/research/ResearchChartHeader'
 import { CompanyFolioPanel } from '@/components/research/CompanyFolioPanel'
 import EarningsShortInterestPanel from '@/components/research/EarningsShortInterestPanel'
@@ -83,22 +84,29 @@ function ResearchContent() {
   const queryClient = useQueryClient()
   const toast = useToast()
 
-  const [selectedSymbol, setSelectedSymbol] = useState(symbolParam || 'NVDA')
+  // Last symbol and chart setup persist per user (lib/researchPrefs, shared with mobile).
+  const selectedSymbol = useResearchSymbol(symbolParam)
   const [priceData, setPriceData] = useState<PriceBar[]>([])
   const [indicators, setIndicators] = useState<Indicators | null>(null)
   const [fundamentals, setFundamentals] = useState<FundamentalsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('1Y')
-  const [chartSeriesType, setChartSeriesType] = useState<ChartSeriesType>('candlestick')
-  const [chartShowMa, setChartShowMa] = useState(true)
-  const [chartShowVolume, setChartShowVolume] = useState(false)
-  const [chartLogScale, setChartLogScale] = useState(false)
-  const [chartShowGrid, setChartShowGrid] = useState(true)
-  const [activeOverlays, setActiveOverlays] = useState<OverlayIndicatorId[]>(['sma20', 'ema50'])
-  const [activePanes, setActivePanes] = useState<PaneIndicatorId[]>(['volume'])
-  const [extendedHours, setExtendedHours] = useState(false)
+  const { prefs: chartPrefs, field: chartField, reset: resetChartPrefs } = useChartPrefs()
+  const chartPeriod: ChartPeriod = chartPrefs.period
+  const chartSeriesType: ChartSeriesType = chartPrefs.seriesType
+  const { showMa: chartShowMa, showVolume: chartShowVolume, logScale: chartLogScale, showGrid: chartShowGrid } = chartPrefs
+  const activeOverlays: OverlayIndicatorId[] = chartPrefs.overlays
+  const activePanes: PaneIndicatorId[] = chartPrefs.panes
+  const extendedHours = chartPrefs.extendedHours
+  const {
+    setChartPeriod, setChartSeriesType, setChartShowMa, setChartShowVolume, setChartLogScale, setChartShowGrid,
+    setActiveOverlays, setActivePanes, setExtendedHours,
+  } = useMemo(() => ({
+    setChartPeriod: chartField('period'), setChartSeriesType: chartField('seriesType'), setChartShowMa: chartField('showMa'),
+    setChartShowVolume: chartField('showVolume'), setChartLogScale: chartField('logScale'), setChartShowGrid: chartField('showGrid'),
+    setActiveOverlays: chartField('overlays'), setActivePanes: chartField('panes'), setExtendedHours: chartField('extendedHours'),
+  }), [chartField])
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [fullscreenChart, setFullscreenChart] = useState(false)
   const advancedRef = useRef<HTMLDivElement>(null)
@@ -157,12 +165,6 @@ function ResearchContent() {
     priority: 'high', // High priority - will wait if rate limited
     useFinnhub: true // Use Finnhub for real-time data
   })
-
-  useEffect(() => {
-    if (symbolParam && symbolParam !== selectedSymbol) {
-      setSelectedSymbol(symbolParam.toUpperCase())
-    }
-  }, [symbolParam])
 
   useEffect(() => {
     if (!advancedOpen) return
@@ -531,6 +533,7 @@ function ResearchContent() {
                 setChartLogScale={setChartLogScale}
                 chartShowGrid={chartShowGrid}
                 setChartShowGrid={setChartShowGrid}
+                onResetChart={resetChartPrefs}
                 priceInfo={priceInfo}
                 quoteLoading={quoteLoading}
                 priceTick={priceTick}

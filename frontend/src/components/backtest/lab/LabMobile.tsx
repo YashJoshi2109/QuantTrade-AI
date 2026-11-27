@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { FlaskConical, Loader2 } from 'lucide-react'
 import {
   Card, ChartLegend, Disclaimer, DrawdownChart, EquityChart, MetricsGrid, MonthlyHeatmap, ParametersEditor,
-  PresetPicker, RobustnessEditor, RobustnessPanel, RulesEditor, RulesSummary, RunBar, SettingsEditor, SignInPrompt,
+  PresetPicker, RobustnessEditor, RobustnessPanel, RulesEditor, RulesSummary, RunBar, RunningBanner, SettingsEditor, SignInPrompt,
   TradeCards, TradeExport, WarningsList,
 } from './LabParts'
 import { useBacktestLab, type LabTab } from './useBacktestLab'
@@ -41,6 +41,8 @@ export default function LabMobile() {
           </button>
         ))}
       </div>
+
+      {c.tab !== 'builder' && <RunningBanner c={c} />}
 
       {c.metaLoading || !c.spec ? (
         <div className="hud-card flex h-40 items-center justify-center">

@@ -42,6 +42,7 @@ import {
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import Link from 'next/link'
 import { CONTINENTS, DISPLAY_CURRENCIES, type Continent } from '@/lib/world-exchanges'
+import { useMarketsContinent, useMarketsCurrency, useMarketsView } from '@/lib/marketsPrefs'
 import { isIndexLevel, formatLevelOrPrice, displaySymbol } from '@/lib/quoteDisplay'
 import type { IndexQuote } from '@/app/api/quotes/indices/route'
 import type { ExchangeSector } from '@/app/api/exchange/heatmap/route'
@@ -728,9 +729,10 @@ export function ContinentMovers({ continent }: { continent: Continent }) {
 }
 
 function DesktopMarketsPage() {
-  const [view, setView] = useState<'heatmap' | 'list'>('heatmap')
-  const [activeContinent, setActiveContinent] = useState<Continent>('global')
-  const [displayCurrency, setDisplayCurrency] = useState('USD')
+  // View, region and currency persist per user (lib/marketsPrefs, shared with mobile).
+  const [view, setView] = useMarketsView()
+  const [activeContinent, setActiveContinent] = useMarketsContinent()
+  const [displayCurrency, setDisplayCurrency] = useMarketsCurrency()
   const { data: currencyRates = {} } = useCurrencyRates()
   
   // Fetch market indices from dedicated endpoint - cached aggressively

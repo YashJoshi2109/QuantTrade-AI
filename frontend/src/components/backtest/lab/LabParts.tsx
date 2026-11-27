@@ -9,7 +9,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import {
   Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { AlertTriangle, Download, Info, Loader2, Plus, Square, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Download, Info, Loader2, Plus, RotateCcw, Square, Trash2, X } from 'lucide-react'
 import { useThemeTokens } from '@/hooks/useThemeTokens'
 import { fmtMoney, fmtPct, pnlClass } from '@/lib/portfolio'
 import {
@@ -411,6 +411,7 @@ export function RunBar({ c, compact = false }: { c: LabController; compact?: boo
         {c.running && (
           <button type="button" className={ghostBtn} onClick={c.cancel}><Square className="h-3 w-3" /> Cancel</button>
         )}
+        <ResetLabButton c={c} />
       </div>
       {j && c.running && (
         <div aria-live="polite">
@@ -420,6 +421,40 @@ export function RunBar({ c, compact = false }: { c: LabController; compact?: boo
           <p className="mt-1 text-[11px] text-fg-muted">{jobProgressText(j)}</p>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Clears the saved draft, result and job (they persist across visits otherwise). */
+export function ResetLabButton({ c }: { c: LabController }) {
+  return (
+    <button
+      type="button"
+      className={ghostBtn}
+      title="Start over: first preset, no saved result"
+      onClick={() => {
+        if (typeof window === 'undefined' || window.confirm('Reset the Strategy Lab? Your saved strategy and last result will be cleared.')) c.reset()
+      }}
+    >
+      <RotateCcw className="h-3 w-3" /> Reset
+    </button>
+  )
+}
+
+/** Shown outside the builder while a job runs, so leaving and coming back shows it. */
+export function RunningBanner({ c }: { c: LabController }) {
+  const j = c.job
+  if (!c.running || !j) return null
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.06] px-3 py-2" aria-live="polite">
+      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-indigo-500" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium text-fg-primary">Backtest running · {jobProgressText(j)}</p>
+        <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-surface-raised">
+          <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${Math.max(4, j.progress * 100)}%` }} />
+        </div>
+      </div>
+      <button type="button" className={ghostBtn} onClick={c.cancel}><Square className="h-3 w-3" /> Cancel</button>
     </div>
   )
 }

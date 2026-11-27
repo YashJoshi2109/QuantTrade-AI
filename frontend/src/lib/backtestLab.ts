@@ -251,6 +251,9 @@ export interface Job {
   stage: string
   progress: number
   error: string | null
+  created?: number
+  started?: number | null
+  finished?: number | null
   result?: LabResult
 }
 
@@ -263,8 +266,14 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   })
   const body = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(errorText(body, res.status))
+  if (!res.ok) throw Object.assign(new Error(errorText(body, res.status)), { status: res.status })
   return body as T
+}
+
+/** HTTP status of a failed labApi call, if any. */
+export function labErrorStatus(e: unknown): number | undefined {
+  const s = (e as { status?: unknown } | null)?.status
+  return typeof s === 'number' ? s : undefined
 }
 
 export const labApi = {
@@ -275,8 +284,12 @@ export const labApi = {
     }),
   start: (spec: StrategySpec, robustness: RobustnessOptions) =>
     call<Job>('/jobs', { method: 'POST', body: JSON.stringify({ spec, robustness }) }),
-  get: (id: string) => call<Job>(`/jobs/${id}`),
-  cancel: (id: string) => call<Job>(`/jobs/${id}`, { method: 'DELETE' }),
+  get: (id: string) => call<Job>(`/jobs/${encodeURIComponent(id)}`),
+  /** The signed-in user's newest job (active first), or null. */
+  latest: (includeResult = true) => call<Job | null>(`/jobs/latest?include_result=${includeResult}`),
+  cancel: (id: string) => call<Job>(`/jobs/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  /** Drop a finished job's stored result (or cancel it if still active). */
+  forget: (id: string) => call<Job>(`/jobs/${encodeURIComponent(id)}?forget=true`, { method: 'DELETE' }),
 }
 
 // ── Spec helpers ─────────────────────────────────────────────────────────
