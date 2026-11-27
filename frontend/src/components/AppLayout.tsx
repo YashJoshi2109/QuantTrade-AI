@@ -33,6 +33,7 @@ import {
   Filter,
   CalendarDays,
   Coins,
+  ShieldCheck,
 } from 'lucide-react'
 import SystemStatusPill from './status/SystemStatusPill'
 import UnifiedNotificationCenter from './UnifiedNotificationCenter'
@@ -191,8 +192,10 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
         badge: planPro ? 'Pro' : undefined,
       },
       { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
+      // Cosmetic only: the server 404s /admin for non-admins.
+      ...(user?.is_admin ? [{ id: 'admin', label: 'Admin', icon: ShieldCheck, href: '/admin' }] : []),
     ],
-    [planPro]
+    [planPro, user?.is_admin]
   )
 
   return (

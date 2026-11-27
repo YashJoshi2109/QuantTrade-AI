@@ -20,6 +20,9 @@ export interface User {
   is_verified: boolean
   created_at: string
   last_login?: string | null
+  /** Server-decided (ADMIN_EMAILS + verified). Only toggles the Admin nav entry;
+   *  /admin pages and /api/v1/admin/* enforce admin on the server. */
+  is_admin?: boolean
 }
 
 export interface AuthResponse {

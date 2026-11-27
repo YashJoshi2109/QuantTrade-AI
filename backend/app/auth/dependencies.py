@@ -8,7 +8,7 @@ from app.auth.jwt import COOKIE_NAME, decode_access_token
 security = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(
+def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
@@ -44,5 +44,14 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
         )
+
+    # Suspension / admin session revocation (cached lookup, see account_controls).
+    from app.services.account_controls import fast_token_check
+    try:
+        uid, sv = int(user_id), int(payload.get("sv") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
+    if not fast_token_check(uid, sv):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session revoked")
 
     return {"user_id": user_id, "payload": payload}

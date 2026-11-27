@@ -109,24 +109,62 @@ def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, session_version: int = 0) -> str:
+    """JWT for a user. ``sv`` is the account's session version at issue time:
+    an admin "revoke sessions" (or a suspension) bumps the stored version,
+    which invalidates every token issued before."""
     expire = datetime.utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
     payload = {
         "sub": str(user_id),
+        "sv": int(session_version or 0),
         "exp": expire,
         "iat": datetime.utcnow()
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def decode_token(token: str) -> Optional[int]:
+def issue_token_for(db: Session, user: User) -> str:
+    from app.services.account_controls import session_version
+    return create_access_token(user.id, session_version(db, user.id))
+
+
+def decode_claims(token: str) -> Optional[tuple]:
+    """(user_id, session_version) from a valid token, else None."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return int(payload.get("sub"))
-    except jwt.ExpiredSignatureError:
+        return int(payload.get("sub")), int(payload.get("sv") or 0)
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, TypeError, ValueError):
         return None
-    except jwt.InvalidTokenError:
+
+
+def decode_token(token: str) -> Optional[int]:
+    claims = decode_claims(token)
+    return claims[0] if claims else None
+
+
+def _request_ip(request: Optional[Request]) -> Optional[str]:
+    if request is None:
         return None
+    return (
+        request.headers.get("cf-connecting-ip")
+        or (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+        or request.headers.get("x-real-ip")
+        or (request.client.host if request.client else None)
+    )
+
+
+def _request_ua(request: Optional[Request]) -> Optional[str]:
+    return request.headers.get("user-agent") if request is not None else None
+
+
+def _ensure_not_suspended(db: Session, user: User, method: str, request: Optional[Request]) -> None:
+    """Sign-in gate: a suspended account gets 403 and no token is issued."""
+    from app.services.account_controls import get_controls, is_suspended, record_login
+    if is_suspended(get_controls(db, user.id)):
+        db.rollback()  # drop pending sign-in side effects (account link, sign count)
+        record_login(db, user.id, method, _request_ip(request), _request_ua(request), success=False, note="suspended")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="This account is suspended. Contact support.")
 
 
 def get_current_user(
@@ -147,11 +185,19 @@ def get_current_user(
     if not token:
         return None
 
-    user_id = decode_token(token)
-    if not user_id:
+    claims = decode_claims(token)
+    if not claims:
         return None
+    user_id, sv = claims
 
     user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        return None
+    from app.services.account_controls import get_controls, token_allowed
+    if not token_allowed(get_controls(db, user.id), sv):
+        return None
+    from app.services.admin_metrics import touch_activity
+    touch_activity(user.id)
     return user
 
 
@@ -168,27 +214,47 @@ def _guard_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated"
         )
-    user_id = decode_token(token)
-    if not user_id:
+    claims = decode_claims(token)
+    if not claims:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token"
         )
+    user_id, sv = claims
+    # DB-less routes (backtests, reports) still honour suspension / revocation
+    # through a short-TTL cached lookup (account_controls.fast_token_check).
+    from app.services.account_controls import fast_token_verdict
+    verdict = fast_token_verdict(user_id, sv)
+    if verdict == "suspended":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account is suspended.")
+    if verdict != "ok":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session revoked")
+    request.state.token_sv = sv
     return user_id
 
 
 def require_auth(
+    request: Request,
     user_id: int = Depends(_guard_token),
     db: Session = Depends(get_db),
 ) -> User:
     """Require authentication - raises 401 if not authenticated.
-    _guard_token validates JWT first; DB is only acquired for valid tokens."""
+    _guard_token validates JWT first; DB is only acquired for valid tokens.
+    Suspended accounts get 403; tokens issued before a revocation get 401."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
+    from app.services.account_controls import get_controls, is_suspended, token_allowed
+    controls = get_controls(db, user.id)
+    if is_suspended(controls):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account is suspended.")
+    if not token_allowed(controls, getattr(request.state, "token_sv", 0)):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session revoked")
+    from app.services.admin_metrics import touch_activity
+    touch_activity(user.id)
     return user
 
 
@@ -253,7 +319,9 @@ def user_to_dict(user: User) -> dict:
         "phone_number": getattr(user, "phone_number", None),
         "date_of_birth": dob.isoformat() if dob else None,
         "gender": getattr(user, "gender", None),
-        "created_at": user.created_at.isoformat() if user.created_at else None
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        # Server-decided; the frontend uses it only to show the Admin nav entry.
+        "is_admin": is_admin_user(user),
     }
 
 
@@ -382,7 +450,7 @@ async def register(user_data: UserRegister, request: Request, response: Response
     await _require_turnstile(user_data.turnstile_token, request)
 
     # Blocking DB work runs in a worker thread, not on the event loop.
-    user_id, token_response = await asyncio.to_thread(_register_sync, user_data, response, db)
+    user_id, token_response = await asyncio.to_thread(_register_sync, user_data, response, db, request)
 
     # schedule_welcome_promo_email needs the running event loop, so it stays here.
     if WELCOME_PROMO_AVAILABLE:
@@ -394,7 +462,7 @@ async def register(user_data: UserRegister, request: Request, response: Response
     return token_response
 
 
-def _register_sync(user_data: UserRegister, response: Response, db: Session):
+def _register_sync(user_data: UserRegister, response: Response, db: Session, request: Optional[Request] = None):
     email = normalize_email(user_data.email)
 
     # Check if email exists (case-insensitive)
@@ -447,8 +515,10 @@ def _register_sync(user_data: UserRegister, response: Response, db: Session):
     db.refresh(user)
 
     # Generate token
-    token = create_access_token(user.id)
+    token = issue_token_for(db, user)
     set_auth_cookie(response, token)
+    from app.services.account_controls import record_login
+    record_login(db, user.id, "register", _request_ip(request), _request_ua(request))
 
     return user.id, TokenResponse(
         access_token=token,
@@ -462,7 +532,7 @@ async def login(credentials: UserLogin, request: Request, response: Response, db
     await _require_turnstile(credentials.turnstile_token, request)
 
     # Blocking DB work (and bcrypt) runs in a worker thread, not on the event loop.
-    user_id, user_email, token_response = await asyncio.to_thread(_login_sync, credentials, response, db)
+    user_id, user_email, token_response = await asyncio.to_thread(_login_sync, credentials, response, db, request)
 
     # OWASP A09: Security event — notify user of new sign-in with IP (fire-and-forget)
     if LOGIN_NOTIFY_AVAILABLE:
@@ -489,7 +559,7 @@ async def login(credentials: UserLogin, request: Request, response: Response, db
     return token_response
 
 
-def _login_sync(credentials: UserLogin, response: Response, db: Session):
+def _login_sync(credentials: UserLogin, response: Response, db: Session, request: Optional[Request] = None):
     user = find_user_by_email(db, credentials.email)
     
     if not user or not user.hashed_password:
@@ -504,13 +574,17 @@ def _login_sync(credentials: UserLogin, response: Response, db: Session):
             detail="Invalid email or password"
         )
     
+    _ensure_not_suspended(db, user, "password", request)
+
     # Update last login
     user.last_login = datetime.utcnow()
     db.commit()
 
     # Generate token
-    token = create_access_token(user.id)
+    token = issue_token_for(db, user)
     set_auth_cookie(response, token)
+    from app.services.account_controls import record_login
+    record_login(db, user.id, "password", _request_ip(request), _request_ua(request))
 
     return user.id, user.email, TokenResponse(
         access_token=token,
@@ -525,13 +599,14 @@ class GoogleTokenVerify(BaseModel):
 @router.post("/google/verify", response_model=TokenResponse)
 async def google_verify_token(
     token_data: GoogleTokenVerify,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db)
 ):
     """Verify Google ID token and login/register user"""
     # Token verification (HTTP cert fetch) and DB work are blocking: run them in
     # a worker thread, not on the event loop.
-    user_id, token_response = await asyncio.to_thread(_google_verify_token_sync, token_data, response, db)
+    user_id, token_response = await asyncio.to_thread(_google_verify_token_sync, token_data, response, db, request)
 
     # schedule_welcome_promo_email needs the running event loop, so it stays here.
     if WELCOME_PROMO_AVAILABLE:
@@ -543,7 +618,8 @@ async def google_verify_token(
     return token_response
 
 
-def _google_verify_token_sync(token_data: GoogleTokenVerify, response: Response, db: Session):
+def _google_verify_token_sync(token_data: GoogleTokenVerify, response: Response, db: Session,
+                              request: Optional[Request] = None):
     if not GOOGLE_AUTH_AVAILABLE:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -626,14 +702,19 @@ def _google_verify_token_sync(token_data: GoogleTokenVerify, response: Response,
                 )
                 db.add(user)
         
+        if user.id is not None:
+            _ensure_not_suspended(db, user, "google", request)
+
         # Update last login
         user.last_login = datetime.utcnow()
         db.commit()
         db.refresh(user)
 
         # Generate token
-        token = create_access_token(user.id)
+        token = issue_token_for(db, user)
         set_auth_cookie(response, token)
+        from app.services.account_controls import record_login
+        record_login(db, user.id, "google", _request_ip(request), _request_ua(request))
 
         return user.id, TokenResponse(
             access_token=token,
@@ -664,11 +745,15 @@ async def check_session(user: User = Depends(get_current_user)):
     if user:
         return {
             "authenticated": True,
-            "user": user_to_dict(user)
+            "user": user_to_dict(user),
+            # Server-decided. It only drives whether the UI shows the Admin
+            # entry; every /api/v1/admin/* route enforces admin on its own.
+            "is_admin": is_admin_user(user),
         }
     return {
         "authenticated": False,
-        "user": None
+        "user": None,
+        "is_admin": False,
     }
 
 
@@ -934,7 +1019,8 @@ async def passkey_auth_challenge():
 
 
 @router.post("/passkey/auth/verify", response_model=TokenResponse)
-def passkey_auth_verify(req: PasskeyAuthVerifyRequest, response: Response, db: Session = Depends(get_db)):
+def passkey_auth_verify(req: PasskeyAuthVerifyRequest, request: Request, response: Response,
+                        db: Session = Depends(get_db)):
     """Verify WebAuthn assertion and return a JWT if valid."""
     if not WEBAUTHN_AVAILABLE:
         raise HTTPException(status_code=503, detail="WebAuthn library not installed. Run: pip install webauthn")
@@ -986,11 +1072,15 @@ def passkey_auth_verify(req: PasskeyAuthVerifyRequest, response: Response, db: S
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
 
+        _ensure_not_suspended(db, user, "passkey", request)
+
         user.last_login = datetime.utcnow()
         db.commit()
 
-        token = create_access_token(user.id)
+        token = issue_token_for(db, user)
         set_auth_cookie(response, token)
+        from app.services.account_controls import record_login
+        record_login(db, user.id, "passkey", _request_ip(request), _request_ua(request))
         return TokenResponse(access_token=token, user=user_to_dict(user))
 
     except HTTPException:

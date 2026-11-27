@@ -207,7 +207,9 @@ async def copilot_context(symbol: str, db: Session = Depends(get_db), user: User
 def copilot_usage(db: Session = Depends(get_db), current_user: User = Depends(require_auth)):
     """Per-user AI usage for today (legacy shape + the guard's fields)."""
     tier = resolve_tier(db, current_user)
-    u = ai_guard.usage_summary(current_user.id, tier)
+    from app.services.account_controls import get_controls
+    _c = get_controls(db, current_user.id)
+    u = ai_guard.usage_summary(current_user.id, tier, (_c.ai_quota_override or None) if _c is not None else None)
     g = ai_guard.global_summary()
     return {
         "today_requests": u["requests_used"],
@@ -216,7 +218,7 @@ def copilot_usage(db: Session = Depends(get_db), current_user: User = Depends(re
         "today_cost_usd": u["cost_usd"],
         "daily_budget_usd": g["daily_budget_usd"],
         "budget_remaining_usd": round(max(0.0, g["daily_budget_usd"] - g["today_spent_usd"]), 4),
-        "budget_ok": not u["paused"] and u["requests_remaining"] > 0,
+        "budget_ok": not u["paused"] and (u["requests_limit"] < 0 or u["requests_remaining"] > 0),
         "is_pro": tier in ("pro", "admin"),
         "free_limit": u["requests_limit"],
         "free_remaining": u["requests_remaining"],

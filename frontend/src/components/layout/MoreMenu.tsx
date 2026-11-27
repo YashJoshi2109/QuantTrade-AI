@@ -22,6 +22,7 @@ import {
   Brain as BrainIcon,
   Settings,
   ShieldAlert,
+  ShieldCheck,
   Swords,
   User,
   X,
@@ -117,7 +118,7 @@ function MenuItem({
 }
 
 export default function MoreMenu({ open, onClose }: MoreMenuProps) {
-  const { isAuthenticated, logout } = useAuth()
+  const { isAuthenticated, logout, user } = useAuth()
   const router = useRouter()
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
 
@@ -243,6 +244,19 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
               href="/game"
             />
           </div>
+
+          {/* Admin (cosmetic: the server 404s /admin for non-admins) */}
+          {user?.is_admin && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-muted mb-1.5">Admin</p>
+              <MenuItem
+                icon={<ShieldCheck className="w-4 h-4 text-cyan-400" />}
+                title="Admin console"
+                description="Users, AI spend, revenue, system health and audit."
+                href="/admin"
+              />
+            </div>
+          )}
 
           {/* Account */}
           <div>
