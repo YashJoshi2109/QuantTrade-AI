@@ -4,6 +4,7 @@
  * Polymarket Finance, ACLED, Energy, Internet Outages
  */
 
+import { throwIfRateLimited } from '@/lib/httpError'
 import { apiUrl } from '@/lib/api'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
@@ -311,7 +312,9 @@ export interface LiveVisitorsData {
 }
 
 export async function fetchLiveVisitors(): Promise<LiveVisitorsData> {
-  const res = await fetch(`${API_URL}/api/v1/monitor/live-visitors`)
+  const url = `${API_URL}/api/v1/monitor/live-visitors`
+  const res = await fetch(url)
+  throwIfRateLimited(res, url)
   if (!res.ok) return { count: null, source: 'error' }
   return res.json()
 }

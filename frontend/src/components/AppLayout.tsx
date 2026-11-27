@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, ReactNode, useMemo, useRef } from 'react'
+import { useState, useEffect, ReactNode, useMemo } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   TrendingUp,
@@ -13,7 +13,6 @@ import {
   Settings,
   Search,
   HelpCircle,
-  Loader2,
   Activity,
   Zap,
   LogIn,
@@ -40,12 +39,10 @@ import UnifiedNotificationCenter from './UnifiedNotificationCenter'
 import MarketTicker from './MarketTicker'
 import SiteFooter from './SiteFooter'
 import HelpDialog from './HelpDialog'
-import { fetchSymbols, Symbol, syncSymbol, fetchMarketStatus, MarketStatus, getSubscriptionStatus } from '@/lib/api'
-import { fetchLiveVisitors } from '@/lib/monitor-extended-api'
-import { formatMarketCap } from '@/lib/valuation'
+import { getSubscriptionStatus } from '@/lib/api'
+import GlobalSearch from '@/components/search/GlobalSearch'
+import { useMarketStatus } from '@/hooks/useMarketRefresh'
 import { useAuth } from '@/contexts/AuthContext'
-import { useQuery } from '@tanstack/react-query'
-import LiveVisitorCounter from '@/components/ui/live-visitor'
 import { BB8ThemeToggle } from '@/components/ui/star-wars-toggle-switch'
 
 interface AppLayoutProps {
@@ -77,11 +74,8 @@ function HeaderTooltip({
 
 // Market Status Indicator Component
 function MarketStatusIndicator({ compact = false }: { compact?: boolean }) {
-  const { data: marketStatus, isLoading } = useQuery<MarketStatus>({
-    queryKey: ['marketStatus'],
-    queryFn: fetchMarketStatus,
-    refetchInterval: 60000, // Refresh every minute
-  })
+  // Shared app-wide market-status query (one poll, 429 backoff).
+  const { data: marketStatus, isLoading } = useMarketStatus()
 
   const isOpen = marketStatus?.is_open ?? false
   const statusText = marketStatus?.status ?? 'CLOSED'
@@ -128,18 +122,11 @@ function MarketStatusIndicator({ compact = false }: { compact?: boolean }) {
 
 export default function AppLayout({ children, symbol, hideFooter, hideSidebar = false }: AppLayoutProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const { user, isAuthenticated, logout, isLoading: authLoading } = useAuth()
   const [planPro, setPlanPro] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Symbol[]>([])
-  const [globalResults, setGlobalResults] = useState<Array<{ symbol: string; name: string; exchange_display: string; country: string }>>([])
-  const [showResults, setShowResults] = useState(false)
-  const [searching, setSearching] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
-  const headerSearchRef = useRef<HTMLInputElement>(null)
 
   // Load sidebar state from localStorage on mount
   useEffect(() => {
@@ -161,19 +148,6 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
     setMobileMenuOpen(false)
   }, [pathname])
 
-  // "/" focuses header search when not typing in an input
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
-      const t = e.target as HTMLElement | null
-      if (t && ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)) return
-      e.preventDefault()
-      headerSearchRef.current?.focus()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
-
   // Dynamic widths for responsive layout
   const sidebarWidth = sidebarCollapsed ? '5rem' : '14rem'
 
@@ -188,13 +162,6 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
       .then((s) => setPlanPro(!!s.is_pro))
       .catch(() => setPlanPro(false))
   }, [isAuthenticated, authLoading])
-
-  const { data: liveVisitors } = useQuery({
-    queryKey: ['live-visitors'],
-    queryFn: fetchLiveVisitors,
-    refetchInterval: 30_000,
-    staleTime: 25_000,
-  })
 
   const menuItems = useMemo(
     () => [
@@ -227,71 +194,6 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
     ],
     [planPro]
   )
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(async () => {
-      if (searchQuery.length >= 1) {
-        setSearching(true)
-        try {
-          // Parallel: local DB + global Yahoo Finance search
-          const [localResults, globalRes] = await Promise.allSettled([
-            fetchSymbols(searchQuery),
-            fetch(`/api/search/global?q=${encodeURIComponent(searchQuery)}&limit=12`).then((r) =>
-              r.ok ? r.json() : []
-            ),
-          ])
-
-          const local = localResults.status === 'fulfilled' ? localResults.value : []
-          const global = globalRes.status === 'fulfilled' ? (globalRes.value as Array<{ symbol: string; name: string; exchange_display: string; country: string }>) : []
-
-          // Deduplicate global by symbols already in local
-          const localSymbols = new Set(local.map((s) => s.symbol.toUpperCase()))
-          const filteredGlobal = global.filter((g) => !localSymbols.has(g.symbol.toUpperCase()))
-
-          setSearchResults(local)
-          setGlobalResults(filteredGlobal)
-          setShowResults(true)
-        } catch {
-          setSearchResults([])
-          setGlobalResults([])
-        } finally {
-          setSearching(false)
-        }
-      } else {
-        setSearchResults([])
-        setGlobalResults([])
-        setShowResults(false)
-      }
-    }, 300)
-
-    return () => clearTimeout(delayDebounceFn)
-  }, [searchQuery])
-
-  const handleSymbolSelect = async (sym: Symbol) => {
-    setShowResults(false)
-    setSearchQuery('')
-    try {
-      await syncSymbol(sym.symbol)
-    } catch (error) {
-      console.error('Error syncing symbol:', error)
-    }
-    router.push(`/research?symbol=${sym.symbol}`)
-  }
-
-  const handleSearchSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      const upperSymbol = searchQuery.trim().toUpperCase()
-      setShowResults(false)
-      setSearchQuery('')
-      try {
-        await syncSymbol(upperSymbol)
-      } catch (error) {
-        console.error('Error syncing symbol:', error)
-      }
-      router.push(`/research?symbol=${upperSymbol}`)
-    }
-  }
 
   return (
     <div className="min-h-screen">
@@ -335,85 +237,8 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
             </button>
           )}
 
-          {/* Search Bar - Hidden on mobile */}
-          <div className="flex-1 max-w-xl relative hidden md:block">
-            <form onSubmit={handleSearchSubmit} className="relative">
-              <div className="hud-card flex items-center gap-2 pr-2">
-                <Search className="w-4 h-4 text-blue-400 ml-3" />
-                {searching && <Loader2 className="w-4 h-4 text-blue-400 animate-spin absolute right-3" />}
-                <input
-                  ref={headerSearchRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search symbols, companies… (press /)"
-                  aria-label="Search symbols, companies"
-                  className="flex-1 bg-transparent border-none outline-none text-sm py-2 text-white placeholder-slate-500"
-                />
-              </div>
-
-              {/* Search Results Dropdown */}
-              {showResults && (searchResults.length > 0 || globalResults.length > 0) && (
-                <div className="absolute top-full left-0 right-0 mt-2 hud-card max-h-96 overflow-y-auto z-50">
-                  {/* Local DB results */}
-                  {searchResults.length > 0 && (
-                    <>
-                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-fg-muted border-b border-line-subtle/40">
-                        Your Database
-                      </div>
-                      {searchResults.slice(0, 8).map((sym) => (
-                        <button
-                          key={sym.symbol}
-                          onClick={() => handleSymbolSelect(sym)}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-surface-raised/50 transition-colors text-left"
-                        >
-                          <div className="flex-1">
-                            <div className="font-bold text-white text-sm">{sym.symbol}</div>
-                            <div className="text-xs text-fg-muted truncate">{sym.name}</div>
-                          </div>
-                          {/* Same source (fundamentals row) and formatter as Research */}
-                          {sym.market_cap != null && sym.market_cap > 0 && (
-                            <div className="text-[#007AFF] font-mono text-xs">
-                              {formatMarketCap(sym.market_cap)}
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </>
-                  )}
-                  {/* Global Yahoo Finance results */}
-                  {globalResults.length > 0 && (
-                    <>
-                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-fg-muted border-y border-line-subtle/40">
-                        Global Markets · {globalResults.length} results
-                      </div>
-                      {globalResults.slice(0, 8).map((g) => (
-                        <button
-                          key={`global-${g.symbol}`}
-                          onClick={() => {
-                            setShowResults(false)
-                            setSearchQuery('')
-                            syncSymbol(g.symbol).catch(() => {})
-                            router.push(`/research?symbol=${g.symbol}`)
-                          }}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-surface-raised/50 transition-colors text-left"
-                        >
-                          <div className="flex-1">
-                            <div className="font-bold text-white text-sm">{g.symbol}</div>
-                            <div className="text-xs text-fg-muted truncate">{g.name}</div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className="text-[10px] text-fg-muted font-mono">{g.exchange_display}</div>
-                            <div className="text-[9px] text-fg-muted">{g.country}</div>
-                          </div>
-                        </button>
-                      ))}
-                    </>
-                  )}
-                </div>
-              )}
-            </form>
-          </div>
+          {/* Search Bar - Hidden on mobile ("/" or ⌘K focuses it; components/search) */}
+          <GlobalSearch className="hidden flex-1 max-w-xl md:block" />
 
           {/* Actions — extra gap before bell so badge does not overlap API chip */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 md:ml-1">
@@ -461,11 +286,6 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
       </header>
 
       <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
-
-      {/* Click outside to close search */}
-      {showResults && (
-        <div className="fixed inset-0 z-40" onClick={() => setShowResults(false)} />
-      )}
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (

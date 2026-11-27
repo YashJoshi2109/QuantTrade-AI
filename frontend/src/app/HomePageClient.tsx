@@ -78,6 +78,7 @@ import type { IndexQuote } from '@/app/api/quotes/indices/route'
 import { buildMarketTape, type MarketTapeItem } from '@/lib/market-tape'
 import { QuoteActivityFlash, moversActivityFingerprint } from '@/components/QuoteActivityFlash'
 import { GlassMoversPanel } from '@/components/continent-dashboard'
+import { useMarketMovers, useSectorPerformance } from '@/lib/marketQueries'
 
 /** Local clock: morning 5–11, afternoon 12–16, evening otherwise. */
 function getTimeBasedGreeting(d = new Date()): string {
@@ -1204,14 +1205,8 @@ function DesktopHome() {
     refetch: refetchRegionMovers,
   } = useDashboardRegionMovers(activeContinent, selectedExchangeId)
 
-  const { data: sectors = [], isLoading: sectorsLoading } = useQuery({
-    queryKey: ['sectorPerformance'],
-    queryFn: () => fetchSectorPerformance(),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
-    gcTime: 300_000,
-    placeholderData: keepPreviousData,
-  })
+  // Shared app-wide sector query (one poll interval for every observer).
+  const { data: sectors = [], isLoading: sectorsLoading } = useSectorPerformance()
 
   const {
     data: exchangeHeatmapData,
@@ -1245,13 +1240,7 @@ function DesktopHome() {
 
   /** Global + no venue: same backend movers query (and cache key) as mobile home and /markets. */
   const useSharedUsMovers = activeContinent === 'global' && !selectedExchangeId
-  const { data: usMovers, isLoading: usMoversLoading } = useQuery({
-    queryKey: ['marketMovers'],
-    queryFn: () => fetchMarketMovers(false),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
-    enabled: useSharedUsMovers,
-  })
+  const { data: usMovers, isLoading: usMoversLoading } = useMarketMovers({ enabled: useSharedUsMovers })
   const moverSource = useSharedUsMovers ? usMovers : regionMovers
   const moverCardsLoading = useSharedUsMovers ? usMoversLoading : regionMoversLoading
   const topGainers = normalizeMoverRows(moverSource?.gainers).slice(0, 10)

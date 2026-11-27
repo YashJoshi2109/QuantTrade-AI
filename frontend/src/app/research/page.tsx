@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
+import { useState, useEffect, useRef, useMemo, useSyncExternalStore, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '@/components/AppLayout'
@@ -9,14 +9,7 @@ import MobileResearch from '@/components/layout/MobileResearch'
 import type { ChartSeriesType } from '@/components/Chart'
 import type { OverlayIndicatorId, PaneIndicatorId } from '@/lib/indicators'
 import {
-  fetchPrices,
-  fetchIntradayPrices,
-  fetchIndicators,
-  fetchFundamentals,
   syncSymbol,
-  PriceBar,
-  Indicators,
-  FundamentalsData,
   addToWatchlist,
   getWatchlist,
   removeFromWatchlist,
@@ -27,8 +20,19 @@ import { useMacdHistory, useTechnicalInputs } from '@/hooks/useResearchTechnical
 import { isNumber } from '@/lib/format'
 import { useToast } from '@/components/Toast'
 import { SkeletonText, Skeleton } from '@/components/Skeleton'
-import type { TickerInfo } from '@/app/api/quotes/ticker/route'
-import { resolvePriceInfo } from '@/lib/researchQuote'
+import {
+  requestPriceSync,
+  researchKeys,
+  useResearchFundamentals,
+  useResearchIndicators,
+  useResearchPrices,
+  useResearchStatus,
+  useTickerInfo,
+  isNotFoundError,
+  type PriceRange,
+} from '@/lib/researchData'
+import { ResearchStatusBanner } from '@/components/research/ResearchStatusBanner'
+import UnknownTicker from '@/components/research/UnknownTicker'
 import { keyStatsSource } from '@/lib/researchKeyStats'
 import { useChartPrefs, useResearchSymbol, useResearchTab } from '@/lib/researchPrefs'
 import { ResearchPriceHeader, type ResearchChartPeriod } from '@/components/research/ResearchChartHeader'
@@ -53,6 +57,25 @@ type ChartPeriod = ResearchChartPeriod
 
 function isIntradayPeriod(period: ChartPeriod): boolean {
   return period === '1D' || period === '5D'
+}
+
+const PERIOD_DAYS: Record<ChartPeriod, number> = {
+  '1D': 1,
+  '5D': 5,
+  '1M': 35,
+  '3M': 98,
+  '6M': 190,
+  '1Y': 370,
+  '2Y': 750,
+  '5Y': 1900,
+}
+
+/** Bars to load for a chart period (shared React Query key via lib/researchData). */
+function chartPriceRange(period: ChartPeriod, extendedHours: boolean): PriceRange {
+  if (period === '1D') return { kind: 'intraday', interval: '1m', days: 1, extendedHours }
+  if (period === '5D') return { kind: 'intraday', interval: '5m', days: 5, extendedHours }
+  const days = PERIOD_DAYS[period]
+  return { kind: 'daily', days, limit: Math.min(5000, Math.ceil(days * 1.25)) }
 }
 
 function chartPeriodRange(period: ChartPeriod): { start: Date; end: Date; barLimit: number } {
@@ -82,12 +105,8 @@ function ResearchContent() {
 
   // Last symbol and chart setup persist per user (lib/researchPrefs, shared with mobile).
   const selectedSymbol = useResearchSymbol(symbolParam)
-  const [priceData, setPriceData] = useState<PriceBar[]>([])
-  const [indicators, setIndicators] = useState<Indicators | null>(null)
-  const [fundamentals, setFundamentals] = useState<FundamentalsData | null>(null)
-  const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
   const { prefs: chartPrefs, field: chartField, reset: resetChartPrefs } = useChartPrefs()
   const chartPeriod: ChartPeriod = chartPrefs.period
   const chartSeriesType: ChartSeriesType = chartPrefs.seriesType
@@ -113,17 +132,10 @@ function ResearchContent() {
     retry: false,
   })
 
-  // Company ticker info (Yahoo Finance — name, sector, description, officers, financials)
-  const { data: tickerInfo, isPending: tickerInfoLoading } = useQuery<TickerInfo>({
-    queryKey: ['tickerInfo', selectedSymbol],
-    queryFn: async () => {
-      const res = await fetch(`/api/quotes/ticker?symbol=${encodeURIComponent(selectedSymbol)}`)
-      if (!res.ok) throw new Error('Not found')
-      return res.json()
-    },
-    staleTime: 300_000,
-    retry: 1,
-  })
+  // Core sources: shared React Query keys with MobileResearch (lib/researchData),
+  // failures surface as typed errors so the header banner can explain them.
+  const tickerQ = useTickerInfo(selectedSymbol)
+  const { data: tickerInfo, isPending: tickerInfoLoading } = tickerQ
 
   // Index / ETF symbols hide company-only panels (same helper as MobileResearch).
   const showCompanyPanels = isCompanyAsset(selectedSymbol, tickerInfo?.asset_type)
@@ -149,130 +161,57 @@ function ResearchContent() {
   )
 
 
-  // Real-time quote with HIGH PRIORITY for research page and 5-second updates
-  const { data: realtimeQuote, isLoading: quoteLoading } = useRealtimeQuote({ 
+  // Live quote: shared, market-phase-aware poll with 429 backoff. No polling
+  // once the profile says the ticker does not exist.
+  const quoteQ = useRealtimeQuote({
     symbol: selectedSymbol,
-    refetchInterval: 15_000, // Update every 15 seconds
-    priority: 'high', // High priority - will wait if rate limited
-    useFinnhub: true // Use Finnhub for real-time data
+    priority: 'high',
+    useFinnhub: true,
+    poll: !isNotFoundError(tickerQ.error),
   })
+  const { data: realtimeQuote, isLoading: quoteLoading } = quoteQ
 
-  // Each load gets an id; a slower response for a previous symbol/period must not
-  // overwrite the current one (first-load race when the URL symbol arrives).
-  const loadSeqRef = useRef(0)
-  const loadedSymbolRef = useRef<string | null>(null)
-  const loadSymbolData = useCallback(async () => {
-    const seq = ++loadSeqRef.current
-    const isStale = () => seq !== loadSeqRef.current
-    setLoading(true)
-    setError(null)
-    if (loadedSymbolRef.current !== selectedSymbol) {
-      // New symbol: drop the previous symbol's bars/indicators instead of showing them.
-      loadedSymbolRef.current = selectedSymbol
-      setPriceData([])
-      setIndicators(null)
-    }
+  const priceRange = useMemo(() => chartPriceRange(chartPeriod, extendedHours), [chartPeriod, extendedHours])
+  const pricesQ = useResearchPrices(selectedSymbol, priceRange)
+  const indicatorsQ = useResearchIndicators(selectedSymbol)
+  const fundamentalsQ = useResearchFundamentals(selectedSymbol)
+  const priceData = useMemo(() => pricesQ.data ?? [], [pricesQ.data])
+  const indicators = indicatorsQ.data ?? null
+  const fundamentals = fundamentalsQ.data ?? null
+  const loading = pricesQ.isPending
+  const error =
+    syncError ??
+    (pricesQ.isError && priceData.length === 0
+      ? 'Price history is temporarily unavailable. Retrying automatically.'
+      : pricesQ.isSuccess && priceData.length === 0
+        ? 'No price data available. Click "Sync Data" to fetch.'
+        : null)
 
-    try {
-      const { start: startDate, end: endDate, barLimit } = chartPeriodRange(chartPeriod)
-
-      let prices: PriceBar[] = []
-
-      if (isIntradayPeriod(chartPeriod)) {
-        // Intraday: 1D = 1min bars, 5D = 5min bars
-        const interval = chartPeriod === '1D' ? '1m' : '5m'
-        const days = chartPeriod === '1D' ? 1 : 5
-        prices = await fetchIntradayPrices(selectedSymbol, interval, days, extendedHours).catch(() => [])
-      } else {
-        // Daily bars
-        prices = await fetchPrices(
-          selectedSymbol,
-          startDate.toISOString(),
-          endDate.toISOString(),
-          barLimit
-        ).catch(() => [])
-
-        if (prices.length === 0) {
-          try {
-            const apiBase = process.env.NEXT_PUBLIC_API_URL || ''
-            const syncParams = new URLSearchParams({ start: startDate.toISOString(), end: endDate.toISOString() })
-            await fetch(`${apiBase}/api/v1/prices/${selectedSymbol}/sync?${syncParams}`, { method: 'POST' })
-
-            await new Promise((resolve) => setTimeout(resolve, 2000))
-            prices = await fetchPrices(
-              selectedSymbol,
-              startDate.toISOString(),
-              endDate.toISOString(),
-              barLimit
-            ).catch(() => [])
-          } catch (syncErr) {
-            console.warn('Sync attempt failed:', syncErr)
-          }
-        }
-      }
-      
-      let [ind, fund] = await Promise.all([
-        fetchIndicators(selectedSymbol).catch(() => null),
-        fetchFundamentals(selectedSymbol).catch(() => null)
-      ])
-
-      // Cold backend / first sync of a new symbol: retry once before showing empty panels.
-      if (!isStale() && (prices.length === 0 || !ind)) {
-        await new Promise((resolve) => setTimeout(resolve, 2500))
-        if (isStale()) return
-        const [retryPrices, retryInd] = await Promise.all([
-          prices.length === 0
-            ? isIntradayPeriod(chartPeriod)
-              ? fetchIntradayPrices(selectedSymbol, chartPeriod === '1D' ? '1m' : '5m', chartPeriod === '1D' ? 1 : 5, extendedHours).catch(() => [])
-              : fetchPrices(selectedSymbol, startDate.toISOString(), endDate.toISOString(), barLimit).catch(() => [])
-            : Promise.resolve(prices),
-          ind ? Promise.resolve(ind) : fetchIndicators(selectedSymbol).catch(() => null),
-        ])
-        prices = retryPrices
-        ind = retryInd
-      }
-      if (isStale()) return
-
-      setPriceData(prices)
-      setIndicators(ind)
-      setFundamentals(fund)
-      
-      if (prices.length === 0) {
-        setError('No price data available. Click "Sync Data" to fetch.')
-      }
-    } catch (err) {
-      if (isStale()) return
-      console.error('Error loading symbol data:', err)
-      setError('Failed to load data. Please try again.')
-    } finally {
-      if (!isStale()) setLoading(false)
-    }
-  }, [selectedSymbol, chartPeriod, extendedHours])
-
-  useEffect(() => {
-    loadSymbolData()
-  }, [loadSymbolData])
+  // One status for the header banner (same hook as MobileResearch).
+  const researchStatus = useResearchStatus({
+    symbol: selectedSymbol,
+    quote: quoteQ,
+    tickerInfo: tickerQ,
+    prices: pricesQ,
+    indicators: indicatorsQ,
+    fundamentals: fundamentalsQ,
+  })
 
   const handleSyncData = async () => {
     setSyncing(true)
-    setError(null)
+    setSyncError(null)
     try {
       await syncSymbol(selectedSymbol)
-
       const { start: startDate, end: endDate } = chartPeriodRange(chartPeriod)
-
-      try {
-        const apiBase = process.env.NEXT_PUBLIC_API_URL || ''
-        const syncParams = new URLSearchParams({ start: startDate.toISOString(), end: endDate.toISOString() })
-        await fetch(`${apiBase}/api/v1/prices/${selectedSymbol}/sync?${syncParams}`, { method: 'POST' })
-      } catch (syncErr) {
-        console.warn('Price sync failed, continuing with regular fetch:', syncErr)
-      }
-
-      await loadSymbolData()
+      await requestPriceSync(selectedSymbol, startDate, endDate)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['research.prices', selectedSymbol] }),
+        queryClient.invalidateQueries({ queryKey: researchKeys.indicators(selectedSymbol) }),
+        queryClient.invalidateQueries({ queryKey: researchKeys.fundamentals(selectedSymbol) }),
+      ])
     } catch (err) {
       console.error('Error syncing:', err)
-      setError('Failed to sync data. Please try again.')
+      setSyncError('Failed to sync data. Please try again.')
     } finally {
       setSyncing(false)
     }
@@ -301,7 +240,7 @@ function ResearchContent() {
 
   // Realtime quote -> ticker profile price -> last daily bars. hasPrice=false means
   // no source has a real price yet (render a skeleton, never "$0.00").
-  const priceInfo = resolvePriceInfo(realtimeQuote, tickerInfo, priceData)
+  const priceInfo = researchStatus.priceInfo
   const pricePrevRef = useRef<number | null>(null)
   const [priceTick, setPriceTick] = useState<'up' | 'down' | null>(null)
 
@@ -324,7 +263,17 @@ function ResearchContent() {
   const macdHist = useMacdHistory(selectedSymbol)
   const [tab, setTab] = useResearchTab()
   const keyStats = keyStatsSource(tickerInfo, priceInfo, fundamentals)
-  const indicatorsLoading = loading && !indicators
+  const indicatorsLoading = indicatorsQ.isPending
+
+  if (researchStatus.kind === 'not_found') {
+    return (
+      <AppLayout symbol={selectedSymbol}>
+        <div className="mx-auto w-full max-w-[1100px] p-6">
+          <UnknownTicker symbol={selectedSymbol} onRetry={researchStatus.retry} />
+        </div>
+      </AppLayout>
+    )
+  }
 
   return (
     <AppLayout symbol={selectedSymbol}>
@@ -337,6 +286,7 @@ function ResearchContent() {
         <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
           {/* Main column */}
           <div className="min-w-0 space-y-4">
+            <ResearchStatusBanner status={researchStatus} />
             <ResearchPriceHeader
               symbol={selectedSymbol}
               tickerInfo={headerTickerInfo}
@@ -399,7 +349,7 @@ function ResearchContent() {
               tickerInfo={tickerInfo}
               tickerInfoLoading={tickerInfoLoading}
               fundamentals={fundamentals}
-              fundamentalsLoading={loading && !fundamentals}
+              fundamentalsLoading={fundamentalsQ.isPending}
               indicators={indicators}
               indicatorsLoading={indicatorsLoading}
               technicals={technicals}
@@ -461,12 +411,47 @@ function DesktopResearchPage() {
   )
 }
 
+// Only the tree for the current viewport mounts: both used to mount (one hidden
+// by CSS), so every Research request ran twice and the hidden mobile tree
+// polled the quote every 5s on desktop. The server snapshot is 'unknown', so
+// SSR + hydration render the CSS-switched skeletons, then one tree mounts.
+const DESKTOP_MQ = '(min-width: 768px)'
+type Viewport = 'unknown' | 'desktop' | 'mobile'
+function subscribeViewport(cb: () => void) {
+  const mql = window.matchMedia(DESKTOP_MQ)
+  mql.addEventListener('change', cb)
+  return () => mql.removeEventListener('change', cb)
+}
+function useViewport(): Viewport {
+  return useSyncExternalStore<Viewport>(
+    subscribeViewport,
+    () => (window.matchMedia(DESKTOP_MQ).matches ? 'desktop' : 'mobile'),
+    () => 'unknown',
+  )
+}
+
+function ResearchSkeleton() {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <Skeleton className="w-12 h-12 rounded-full" />
+        <SkeletonText className="h-4 w-32" />
+      </div>
+    </div>
+  )
+}
+
 export default function ResearchPage() {
+  const viewport = useViewport()
+  if (viewport === 'unknown') return <ResearchSkeleton />
   return (
     <>
+      {viewport === 'desktop' && (
       <div className="hidden md:block">
         <DesktopResearchPage />
       </div>
+      )}
+      {viewport === 'mobile' && (
       <div className="md:hidden">
         <Suspense
           fallback={
@@ -485,6 +470,7 @@ export default function ResearchPage() {
           </MobileLayout>
         </Suspense>
       </div>
+      )}
     </>
   )
 }

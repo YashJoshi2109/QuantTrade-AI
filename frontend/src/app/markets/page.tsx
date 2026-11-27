@@ -49,6 +49,7 @@ import type { ExchangeSector } from '@/app/api/exchange/heatmap/route'
 import { useStockSnapshot } from '@/context/StockSnapshotContext'
 import { useExchangeHeatmap } from '@/hooks/useExchangeHeatmap'
 import { computeBreadth, FLAT_THRESHOLD_PCT } from '@/lib/marketBreadth'
+import { useMarketIndices, useMarketMovers, useSectorPerformance } from '@/lib/marketQueries'
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 function useWorldIndices(continent: Continent) {
@@ -726,31 +727,13 @@ function DesktopMarketsPage() {
   const { data: currencyRates = {} } = useCurrencyRates()
   
   // Fetch market indices from dedicated endpoint - cached aggressively
-  const { data: indexData, isLoading: indicesLoading } = useQuery({
-    queryKey: ['marketIndices'],
-    queryFn: fetchMarketIndices,
-    refetchInterval: 60000, // Update every minute (backend caches)
-    staleTime: 30000, // Fresh for 30 seconds
-    gcTime: 300000, // Keep in cache for 5 minutes
-  })
+  const { data: indexData, isLoading: indicesLoading } = useMarketIndices()
   
   // Fetch sector data with stocks - shared cache with home page
-  const { data: sectors, isLoading: sectorsLoading, refetch: refetchSectors } = useQuery({
-    queryKey: ['sectorPerformance'],
-    queryFn: () => fetchSectorPerformance(),
-    refetchInterval: 120000, // Update every 2 minutes
-    staleTime: 60000, // Fresh for 1 minute
-    gcTime: 300000, // Keep in cache for 5 minutes
-  })
+  const { data: sectors, isLoading: sectorsLoading, refetch: refetchSectors } = useSectorPerformance()
 
   // Fetch movers - shared cache with home page
-  const { data: movers, isLoading: moversLoading, refetch: refetchMovers } = useQuery({
-    queryKey: ['marketMovers'],
-    queryFn: () => fetchMarketMovers(false), // Try without force refresh first
-    refetchInterval: 120000, // Update every 2 minutes
-    staleTime: 60000, // Fresh for 1 minute
-    gcTime: 300000, // Keep in cache for 5 minutes
-  })
+  const { data: movers, isLoading: moversLoading, refetch: refetchMovers } = useMarketMovers()
 
   const { data: coverage } = useQuery({
     queryKey: ['marketCoverage'],

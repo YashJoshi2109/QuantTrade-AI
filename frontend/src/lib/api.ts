@@ -10,6 +10,7 @@ import {
   type Continent,
 } from '@/lib/world-exchanges'
 import type { TickerContext } from '@/lib/copilot-engine'
+import { HttpError, isRateLimited, throwIfRateLimited } from '@/lib/httpError'
 import type { CanonicalExtended, CanonicalRegular } from '@/lib/canonicalQuote'
 import type { BasketDataCoverage } from '@/lib/basketCoverage'
 
@@ -988,37 +989,26 @@ export interface QuoteData {
 
 // Use enhanced endpoint with Finviz for sub-second real-time data
 export async function fetchQuote(symbol: string, priority: 'high' | 'normal' = 'normal'): Promise<QuoteData> {
-  try {
-    const response = await fetch(`${API_URL}/api/v1/enhanced/quote/${symbol}?priority=${priority}`)
-    const data = await parseJsonSafe<Record<string, unknown>>(response)
-    if (data) {
-      return normalizeQuoteData(data, symbol)
-    }
-
-    // Fallback to legacy endpoint before throwing
-    const fallbackResponse = await fetch(`${API_URL}/api/v1/prices/${symbol}/quote`)
-    if (fallbackResponse.ok) {
-      return fallbackResponse.json()
-    }
-
-    throw new Error(`Failed to fetch quote: ${response.status}`)
-  } catch (error) {
-    console.error('Error fetching enhanced quote:', error)
-    
-    // Return mock data if all fails
-    return {
-      symbol: symbol.toUpperCase(),
-      price: 0,
-      change: 0,
-      change_percent: 0,
-      volume: 0,
-      high: 0,
-      low: 0,
-      open: 0,
-      previous_close: 0,
-      timestamp: new Date().toISOString()
-    }
+  const url = `${API_URL}/api/v1/enhanced/quote/${symbol}?priority=${priority}`
+  const response = await fetch(url)
+  // 429: same limiter bucket for every endpoint, so no fallback call; let
+  // React Query back off (lib/queryPolicy).
+  throwIfRateLimited(response, url)
+  const data = response.ok ? await parseJsonSafe<Record<string, unknown>>(response) : null
+  if (data) {
+    return normalizeQuoteData(data, symbol)
   }
+
+  // Fallback to legacy endpoint before throwing
+  const fallbackUrl = `${API_URL}/api/v1/prices/${symbol}/quote`
+  const fallbackResponse = await fetch(fallbackUrl)
+  throwIfRateLimited(fallbackResponse, fallbackUrl)
+  if (fallbackResponse.ok) {
+    return fallbackResponse.json()
+  }
+
+  // No mock zeros: callers show "unavailable" / last close, never a fake quote.
+  throw new HttpError(response.ok ? fallbackResponse.status : response.status, url)
 }
 
 // Fetch fundamentals from enhanced endpoint
@@ -1054,9 +1044,13 @@ export interface FundamentalsData {
 
 // Fetch quote from Finnhub with priority parameter
 export async function fetchFinnhubQuote(symbol: string, priority: 'high' | 'normal' = 'high'): Promise<QuoteData> {
+  const url = `${API_URL}/api/v1/enhanced/quote/${symbol}/finnhub?priority=${priority}`
   try {
-    const response = await fetch(`${API_URL}/api/v1/enhanced/quote/${symbol}/finnhub?priority=${priority}`)
-    const data = await parseJsonSafe<Record<string, unknown>>(response)
+    const response = await fetch(url)
+    // A 429 is the shared limiter: falling back to fetchQuote would double the
+    // load on the same bucket. Surface it so React Query backs off.
+    throwIfRateLimited(response, url)
+    const data = response.ok ? await parseJsonSafe<Record<string, unknown>>(response) : null
     if (data) {
       return {
         ...normalizeQuoteData(data, symbol),
@@ -1066,6 +1060,7 @@ export async function fetchFinnhubQuote(symbol: string, priority: 'high' | 'norm
     }
     return fetchQuote(symbol, priority)
   } catch (error) {
+    if (isRateLimited(error)) throw error
     const message = error instanceof Error ? error.message : String(error)
     if (!message.includes('Failed to fetch Finnhub quote')) {
       console.error('Error fetching Finnhub quote:', error)
@@ -1257,6 +1252,7 @@ export async function fetchMarketStocks(
 export async function fetchSectorPerformance(): Promise<SectorPerformance[]> {
   try {
     const response = await fetchWithTimeout(`${API_URL}/api/v1/market/sectors`, 60_000)
+    throwIfRateLimited(response, '/api/v1/market/sectors')
     const data = await parseJsonSafe<SectorPerformance[]>(response)
     if (Array.isArray(data)) return data
     if (!response.ok) {
@@ -1265,6 +1261,7 @@ export async function fetchSectorPerformance(): Promise<SectorPerformance[]> {
     }
     return []
   } catch (error) {
+    if (isRateLimited(error)) throw error
     console.error('Error fetching sector performance:', error)
     return []
   }
@@ -1316,7 +1313,8 @@ export async function fetchMarketMovers(forceRefresh: boolean = false): Promise<
       url.searchParams.append('force_refresh', 'true')
     }
     const response = await fetchWithTimeout(url.toString(), 15_000)
-    const data = await parseJsonSafe<MarketMovers>(response)
+    throwIfRateLimited(response, '/api/v1/market/movers')
+    const data = response.ok ? await parseJsonSafe<MarketMovers>(response) : null
     if (data && (data.gainers?.length > 0 || data.losers?.length > 0)) {
       return { ...data, updated_at: data.updated_at || updatedAt() }
     }
@@ -1331,6 +1329,7 @@ export async function fetchMarketMovers(forceRefresh: boolean = false): Promise<
       updated_at: updatedAt(),
     }
   } catch (error) {
+    if (isRateLimited(error)) throw error
     console.error('Error fetching market movers:', error)
     return { gainers: [], losers: [], updated_at: updatedAt() }
   }
@@ -1342,8 +1341,8 @@ export async function fetchBatchQuotes(
   priority: 'high' | 'normal' = 'normal'
 ): Promise<QuoteData[]> {
   try {
-    const promises = symbols.map(symbol => fetchQuote(symbol, priority))
-    return await Promise.all(promises)
+    const settled = await Promise.allSettled(symbols.map((symbol) => fetchQuote(symbol, priority)))
+    return settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []))
   } catch (error) {
     console.error('Error fetching batch quotes:', error)
     return []
@@ -1405,8 +1404,10 @@ export interface MarketStatus {
 }
 
 export async function fetchMarketStatus(): Promise<MarketStatus> {
-  const response = await fetch(`${API_URL}/api/v1/market/status`)
-  const data = await parseJsonSafe<MarketStatus>(response)
+  const url = `${API_URL}/api/v1/market/status`
+  const response = await fetch(url)
+  throwIfRateLimited(response, url)
+  const data = response.ok ? await parseJsonSafe<MarketStatus>(response) : null
   if (data) return data
   if (!response.ok) {
     return {

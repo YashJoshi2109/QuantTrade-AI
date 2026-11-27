@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import MobileSearchSheet from '@/components/search/MobileSearchSheet'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
@@ -24,13 +25,10 @@ import {
   fetchMarketIndices,
   fetchSectorPerformance,
   fetchPredictionAlerts,
-  searchSymbols,
-  syncSymbol,
   MarketStatus,
   MarketMovers,
   MarketIndex,
   SectorPerformance,
-  SearchResult,
 } from '@/lib/api'
 import { useNewsFeed } from '@/hooks/useNewsFeed'
 import NewsFeedCard from '@/components/news/NewsFeedCard'
@@ -44,6 +42,8 @@ import EconomicCalendarStrip from '@/components/EconomicCalendarStrip'
 import MiniWorldMonitorSnapshot from '@/components/MiniWorldMonitorSnapshot'
 import IpoRadarWidget from '@/components/IpoRadarWidget'
 import { useToast } from '@/components/Toast'
+import { useMarketIndices, useMarketMovers, useSectorPerformance } from '@/lib/marketQueries'
+import { useMarketStatus } from '@/hooks/useMarketRefresh'
 
 // Time-dependent strings render only after mount: the server's clock and zone
 // differ from the browser's, which caused hydration error #418.
@@ -137,66 +137,14 @@ export default function MobileDashboard() {
   const greeting = useGreeting(user?.full_name || user?.username)
   const timeString = useCurrentTime()
 
-  /* ── Search state ── */
+  /* ── Search (shared full-screen sheet: components/search) ── */
   const [showSearch, setShowSearch] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const searchInputRef = useRef<HTMLInputElement>(null)
 
-  const { data: searchResults = [], isLoading: searching } = useQuery<SearchResult[]>({
-    queryKey: ['mobile.dashSearch', searchQuery],
-    queryFn: () => searchSymbols(searchQuery, 10),
-    enabled: showSearch && searchQuery.trim().length > 0,
-    staleTime: 0,
-  })
-
-  useEffect(() => {
-    if (showSearch) {
-      setTimeout(() => searchInputRef.current?.focus(), 100)
-    } else {
-      setSearchQuery('')
-    }
-  }, [showSearch])
-
-  const handleSearchSelect = useCallback(
-    async (symbol: string) => {
-      setShowSearch(false)
-      setSearchQuery('')
-      try { await syncSymbol(symbol) } catch { /* ignore */ }
-      router.push(`/research?symbol=${symbol}`)
-    },
-    [router],
-  )
-
-  const { data: status, isLoading: statusLoading } = useQuery<MarketStatus>({
-    // Share cache with desktop dashboard/other views
-    queryKey: ['marketStatus'],
-    queryFn: fetchMarketStatus,
-    refetchInterval: 60000,
-  })
-
-  const { data: movers, isLoading: moversLoading } = useQuery<MarketMovers>({
-    // Share cache with desktop dashboard/markets page
-    queryKey: ['marketMovers'],
-    queryFn: () => fetchMarketMovers(),
-    refetchInterval: 45000,
-    staleTime: 25000,
-  })
-
-  const { data: indices } = useQuery<MarketIndex[]>({
-    // Share cache with desktop markets page
-    queryKey: ['marketIndices'],
-    queryFn: () => fetchMarketIndices(),
-    refetchInterval: 60000,
-    staleTime: 30000,
-  })
-
-  const { data: sectors } = useQuery<SectorPerformance[]>({
-    // Share cache with desktop dashboard/markets page
-    queryKey: ['sectorPerformance'],
-    queryFn: () => fetchSectorPerformance(),
-    refetchInterval: 60000,
-    staleTime: 30000,
-  })
+  // Shared app-wide queries (lib/marketQueries): one poll per key for every view.
+  const { data: status, isLoading: statusLoading } = useMarketStatus()
+  const { data: movers, isLoading: moversLoading } = useMarketMovers()
+  const { data: indices } = useMarketIndices()
+  const { data: sectors } = useSectorPerformance()
 
   // Same cache entry as desktop home + MarketNewsGrid (unified feed, latest, limit 50).
   const breakingFeed = useNewsFeed({ limit: 50 })
@@ -298,69 +246,7 @@ export default function MobileDashboard() {
         </div>
       </header>
 
-      {/* Search overlay */}
-      {showSearch && (
-        <div className="fixed inset-0 z-50 bg-white/95 dark:bg-[#0b0f17]/95 backdrop-blur-xl flex flex-col animate-fade-in">
-          <div className="flex items-center gap-2 px-4 pt-safe pb-3 border-b border-line-subtle">
-            <button
-              type="button"
-              onClick={() => setShowSearch(false)}
-              aria-label="Close search"
-              className="p-2 -ml-2 rounded-full hover:bg-surface-hover active:scale-95"
-            >
-              <ArrowRight className="w-5 h-5 text-fg-secondary rotate-180" />
-            </button>
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
-              <input
-                ref={searchInputRef}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search stocks, ETFs, crypto..."
-                aria-label="Search stocks, ETFs, crypto"
-                className="w-full h-10 rounded-full bg-surface-raised border border-line-subtle pl-9 pr-4 text-[13px] text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
-              />
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-4 py-3">
-            {searching && (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-5 h-5 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
-            {!searching && searchQuery.trim().length > 0 && searchResults.length === 0 && (
-              <div className="text-center py-8 text-fg-muted text-sm">
-                No results for &quot;{searchQuery}&quot;
-              </div>
-            )}
-            {!searching && searchQuery.trim().length === 0 && (
-              <div className="text-center py-8 text-fg-muted text-sm">
-                Type a symbol or company name to search
-              </div>
-            )}
-            {searchResults.map((result) => (
-              <button
-                key={result.symbol}
-                type="button"
-                onClick={() => handleSearchSelect(result.symbol)}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-hover active:bg-surface-hover transition-colors text-left"
-              >
-                <TickerLogo symbol={result.symbol} companyName={result.name} size={36} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-fg-primary">{result.symbol}</p>
-                  <p className="text-[11px] text-fg-muted truncate">{result.name}</p>
-                </div>
-                {result.asset_type && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-hover border border-line-subtle text-fg-secondary uppercase">
-                    {result.asset_type}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <MobileSearchSheet open={showSearch} onClose={() => setShowSearch(false)} />
 
       {/* Greeting */}
       <section className="px-1">
