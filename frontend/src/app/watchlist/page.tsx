@@ -50,6 +50,8 @@ import { GitCompareArrows } from 'lucide-react'
 import { compareHref } from '@/lib/compare'
 import { isStr, oneOf, usePersistentState } from '@/lib/persistentState'
 import WatchlistPortfolioPanel from '@/components/portfolio/WatchlistPortfolioPanel'
+import ForecastBadge from '@/components/forecast/ForecastBadge'
+import { useForecastSummaries } from '@/lib/useForecastSummaries'
 
 interface WatchlistItemWithPrice extends WatchlistItem {
   price?: number
@@ -287,6 +289,8 @@ function WatchlistFinancialTable({
 }) {
   const shouldReduceMotion = useReducedMotion()
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
+  const forecastSymbols = useMemo(() => watchlist.map((w) => w.symbol), [watchlist])
+  const forecasts = useForecastSummaries(forecastSymbols)
 
   const containerVariants = {
     visible: {
@@ -376,13 +380,13 @@ function WatchlistFinancialTable({
     )
   }
 
-  const GRID_COLS = '36px 40px 180px 90px 80px 80px 90px 80px 80px 80px 120px 56px'
+  const GRID_COLS = '36px 40px 180px 90px 80px 80px 90px 80px 80px 80px 120px 140px 56px'
 
   return (
     <div className="w-full">
       <div className="bg-surface-raised border border-line-subtle rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
-          <div className="min-w-[1100px]">
+          <div className="min-w-[1280px]">
             {/* Header */}
             <div
               className="px-6 py-3 text-[11px] font-medium text-fg-muted uppercase tracking-wider bg-surface-hover/30 border-b border-line-subtle"
@@ -399,6 +403,7 @@ function WatchlistFinancialTable({
               <div className="text-right">Volume</div>
               <div className="text-center">2-Day Chart</div>
               <div className="text-right">Daily Perf.</div>
+              <div className="text-right normal-case tracking-normal" title="Statistical 80% price range in 1 month, and how often past ranges held. Experimental, not investment advice.">1M range (80%)</div>
               <div />
             </div>
 
@@ -510,6 +515,10 @@ function WatchlistFinancialTable({
                         )
                       })() : <span className="text-fg-muted text-xs">—</span>}
                     </div>
+
+                    {/* 1-month statistical forecast range (experimental) */}
+                    <ForecastBadge symbol={item.symbol} item={forecasts.byTicker[item.symbol.toUpperCase()]}
+                      loading={forecasts.isLoading} h={20} price={item.price} />
 
                     {/* Compare + remove */}
                     <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>

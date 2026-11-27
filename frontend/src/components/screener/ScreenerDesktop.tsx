@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Filter, Loader2 } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import TickerLogo from '@/components/TickerLogo'
+import ForecastBadge from '@/components/forecast/ForecastBadge'
+import { useForecastSummaries } from '@/lib/useForecastSummaries'
+import { isBool, usePersistentState } from '@/lib/persistentState'
 import { FLAG_TEXT, METRIC_COLUMNS, nextSort, type SortField } from '@/lib/screener'
 import {
   ActiveChips, EmptyState, FilterPanel, Pager, PresetBar, RowActions, asOfText, useRowActions, useScreenerController,
@@ -39,6 +42,10 @@ export default function ScreenerDesktop() {
   const c = useScreenerController()
   const actions = useRowActions()
   const router = useRouter()
+  // Optional 1-month forecast column. Cache-only (warm: false): paging through
+  // the screener must not start a model fit per row.
+  const [showForecast, setShowForecast] = usePersistentState('screener.forecastColumn', false, { validate: isBool })
+  const forecasts = useForecastSummaries(c.rows.map((r) => r.symbol), { enabled: showForecast, warm: false })
 
   return (
     <AppLayout>
@@ -71,7 +78,11 @@ export default function ScreenerDesktop() {
           <section className="min-w-0 flex-1 space-y-3" aria-label="Results">
             <div className="flex min-h-[28px] items-center justify-between gap-3">
               <ActiveChips c={c} />
-              <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-fg-muted">
+              <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-fg-secondary" title="Statistical 80% price range in 1 month (experimental). Shown where already computed.">
+                <input type="checkbox" checked={showForecast} onChange={(e) => setShowForecast(e.target.checked)} className="h-3.5 w-3.5 accent-indigo-600" />
+                1M forecast range
+              </label>
+              <span className="flex shrink-0 items-center gap-1.5 text-xs text-fg-muted">
                 {c.fetching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 {c.data && `${c.total.toLocaleString()} match${c.total === 1 ? '' : 'es'}`}
               </span>
@@ -96,6 +107,11 @@ export default function ScreenerDesktop() {
                         {METRIC_COLUMNS.map((col) => (
                           <SortHeader key={col.key} c={c} field={col.sort} label={col.label} title={col.title} />
                         ))}
+                        {showForecast && (
+                          <th scope="col" className="sticky top-0 z-10 whitespace-nowrap bg-surface-base px-3 py-2.5 text-right font-medium uppercase tracking-wide" title="Statistical 80% price range in 1 month and how often past ranges held. Experimental, not investment advice. “—” = not computed yet; open Research to compute.">
+                            1M range
+                          </th>
+                        )}
                         <th scope="col" className="sticky top-0 z-10 bg-surface-base px-3 py-2.5"><span className="sr-only">Actions</span></th>
                       </tr>
                     </thead>
@@ -137,6 +153,11 @@ export default function ScreenerDesktop() {
                                 {col.format(r)}
                               </td>
                             ))}
+                            {showForecast && (
+                              <td className="border-t border-line-subtle px-3 py-2">
+                                <ForecastBadge symbol={r.symbol} item={forecasts.byTicker[r.symbol.toUpperCase()]} loading={forecasts.isLoading} h={20} price={r.price} />
+                              </td>
+                            )}
                             <td className="border-t border-line-subtle px-2 py-2">
                               <RowActions symbol={r.symbol} actions={actions} />
                             </td>

@@ -30,7 +30,10 @@ TOOL_SPECS: List[Dict[str, Any]] = [
      "input_schema": {"type": "object", "properties": {"ticker": _T}, "required": ["ticker"], "additionalProperties": False}},
     {"name": "get_financials", "description": "SEC financial statements (last 8 fiscal quarters + 3 fiscal years, with margins and YoY growth) for a company.",
      "input_schema": {"type": "object", "properties": {"ticker": _T}, "required": ["ticker"], "additionalProperties": False}},
-    {"name": "get_forecast", "description": "QuantTrade statistical price forecast: p10/p50/p90 bands for 1, 5, 20 trading days plus backtest skill.",
+    {"name": "get_forecast", "description": ("QuantTrade statistical price forecast for 1, 5, 20 and 60 trading days: 80% range (p10-p90), "
+                    "95% range, each horizon's historical hit rate, and whether it beat the ARIMA(0,1,0) "
+                    "random walk in walk-forward tests. p50/P(up) only exist for horizons with an edge. "
+                    "Experimental; never a signal or advice."),
      "input_schema": {"type": "object", "properties": {"ticker": _T}, "required": ["ticker"], "additionalProperties": False}},
     {"name": "get_news", "description": "Classified news for a ticker from the last N days (impact, sentiment, category).",
      "input_schema": {"type": "object", "properties": {"ticker": _T, "days": {"type": "integer", "minimum": 1, "maximum": 14}},
@@ -187,7 +190,14 @@ class ToolExecutor:
             return list(pack.statements), [compact_fact(s) for s in pack.statements]
         if name == "get_forecast":
             if pack.forecast is None:
-                raise LookupError(f"no forecast for {t} yet ({pack.errors.get('forecast', 'not computed')})")
+                # the pack may predate a fit that has since finished: re-read the cache once
+                fc = await self.sources.forecast(t)
+                if fc is not None:
+                    pack.forecast = fc
+                    pack.errors.pop("forecast", None)
+            if pack.forecast is None:
+                raise LookupError(f"no forecast for {t} yet ({pack.errors.get('forecast', 'not computed')}); "
+                                  "it is being computed, ask again in a minute")
             return [pack.forecast], compact_fact(pack.forecast)
         if name == "get_news":
             days = int(a.get("days") or 7)

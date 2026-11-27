@@ -19,6 +19,8 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import ForecastBadge from '@/components/forecast/ForecastBadge'
+import { useForecastSummaries } from '@/lib/useForecastSummaries'
 import TickerLogo from '@/components/TickerLogo'
 import { GitCompareArrows } from 'lucide-react'
 import { compareHref } from '@/lib/compare'
@@ -60,6 +62,7 @@ export default function MobileWatchlist() {
   })
 
   const symbols = useMemo(() => items.map((i) => i.symbol), [items])
+  const forecasts = useForecastSummaries(symbols)
 
   const { data: quotes = [], isLoading: quotesLoading } = useQuery<WatchlistQuote[]>({
     queryKey: ['watchlist.quotes', symbols.join(',')],
@@ -315,6 +318,8 @@ export default function MobileWatchlist() {
                         <p className="text-[11px] text-fg-muted truncate max-w-[200px]">
                           {q.name || '—'}
                         </p>
+                        <ForecastBadge symbol={q.symbol} item={forecasts.byTicker[q.symbol.toUpperCase()]}
+                          loading={forecasts.isLoading} h={20} variant="inline" className="max-w-[200px]" />
                       </div>
                     </div>
                     <div className="flex items-center gap-3">

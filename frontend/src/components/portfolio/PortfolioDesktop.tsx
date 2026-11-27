@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { ImportTradesForm, PerformancePanel } from './PortfolioHistoryParts'
 import AppLayout from '@/components/AppLayout'
+import PortfolioForecastCard from '@/components/forecast/PortfolioForecastCard'
 import TickerLogo from '@/components/TickerLogo'
 import { fmtDate, fmtMoney, fmtPct, fmtQty, pnlClass } from '@/lib/portfolio'
 import {
@@ -189,10 +190,13 @@ export default function PortfolioDesktop() {
                     )}
                   </section>
 
-                  <section className="hud-card p-4 2xl:max-w-none" aria-label="Allocation">
-                    <h3 className="mb-3 text-sm font-semibold text-fg-primary">Allocation</h3>
-                    <AllocationDonut slices={s.allocation} size={120} />
-                  </section>
+                  <div className="space-y-5">
+                    <section className="hud-card p-4 2xl:max-w-none" aria-label="Allocation">
+                      <h3 className="mb-3 text-sm font-semibold text-fg-primary">Allocation</h3>
+                      <AllocationDonut slices={s.allocation} size={120} />
+                    </section>
+                    <PortfolioForecastCard holdings={s.holdings} />
+                  </div>
                 </div>
 
                 <section className="hud-card overflow-hidden p-0" aria-label="Transactions">

@@ -35,7 +35,8 @@ from fastapi import APIRouter, HTTPException
 from app.services.forecasting.engine import HISTORY_DAYS, MIN_HISTORY, forecast
 from app.services.forecasting.evaluation import EVAL_VERSION
 from app.services.forecasting.models import STATE_VERSION
-from app.services.model_status import annotate_forecast
+from app.services.forecasting.summary import summarize_forecast
+from app.services.model_status import EXPERIMENTAL_LABEL, annotate_forecast
 from app.services.redis_cache_service import cache_service
 
 logger = logging.getLogger(__name__)
@@ -246,6 +247,76 @@ async def get_forecast(ticker: str, refresh: bool = False):
     except Exception:
         logger.exception("forecast failed for %s", t)
         raise HTTPException(status_code=503, detail="Forecast temporarily unavailable")
+
+
+# ── Compact summaries for lists (watchlist, portfolio, screener) ─────────────
+# Cache-only: a list page must never trigger one fit per row in the request.
+# Misses are reported as "pending" and up to _SUMMARY_WARM_MAX of them are
+# computed in the background (one at a time, behind the same fit slots), so a
+# later poll finds them.
+
+_SUMMARY_MAX_TICKERS = 50
+_SUMMARY_WARM_MAX = 3
+_bg_tasks: set = set()
+
+
+def _forecast_key(t: str) -> str:
+    return f"forecast:{_CACHE_VERSION}:{t}"
+
+
+async def _warm_quietly(tickers: list[str]) -> None:
+    for t in tickers:
+        try:
+            await _get_or_compute(t)
+        except Exception as e:  # 422 (short history) etc. — the next poll stays pending/unavailable
+            logger.info("background forecast for %s failed: %s", t, e)
+
+
+@router.get("/forecasts/summary")
+async def get_forecast_summaries(tickers: str, warm: bool = True):
+    """Compact forecast summaries for up to 50 tickers, from cache only.
+
+    Each item is {ticker, status: ready|pending|invalid, summary}. ``summary``
+    follows app.services.forecasting.summary (ranges always; midpoint and
+    P(up) only where the horizon beat ARIMA(0,1,0) in walk-forward tests).
+    """
+    seen: list[str] = []
+    for raw in tickers.split(","):
+        t = raw.upper().strip()
+        if t and t not in seen:
+            seen.append(t)
+    if not seen:
+        raise HTTPException(status_code=400, detail="tickers is required")
+    if len(seen) > _SUMMARY_MAX_TICKERS:
+        raise HTTPException(status_code=400, detail=f"At most {_SUMMARY_MAX_TICKERS} tickers")
+
+    items, missing = [], []
+    for t in seen:
+        if not _TICKER_RE.match(t):
+            items.append({"ticker": t, "status": "invalid", "summary": None})
+            continue
+        cached = await cache_service.get(_forecast_key(t))
+        summary = summarize_forecast(cached, t) if cached else None
+        if summary:
+            items.append({"ticker": t, "status": "ready", "summary": summary})
+        else:
+            items.append({"ticker": t, "status": "pending", "summary": None})
+            lock = _locks.get(t)
+            if not (lock and lock.locked()):
+                missing.append(t)
+
+    if warm and missing:
+        task = asyncio.create_task(_warm_quietly(missing[:_SUMMARY_WARM_MAX]))
+        _bg_tasks.add(task)
+        task.add_done_callback(_bg_tasks.discard)
+
+    return {
+        "items": items,
+        "label": EXPERIMENTAL_LABEL,
+        "benchmark": "ARIMA(0,1,0)",
+        "note": ("Statistical ranges, not signals. Midpoint and P(up) appear only for horizons that "
+                 "beat the ARIMA(0,1,0) random walk in walk-forward tests."),
+    }
 
 
 # ── Cache warming ──────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { CitationData, TickerContext } from '@/lib/copilot-engine'
 import TickerContextCard from './TickerContextCard'
@@ -28,6 +28,22 @@ describe('TickerContextCard', () => {
     expect(screen.getByText('$257.30')).toBeTruthy()
     expect(screen.getByText(/Q4 FY2026/)).toBeTruthy()
     expect(screen.getByText('Apple immune to sell-off')).toBeTruthy()
+  })
+
+  it('hides the forecast midpoint without a tested edge and shows the hit rate', () => {
+    cleanup()
+    render(
+      <TickerContextCard
+        symbol="AAPL"
+        ctx={{ ...ctx, forecast: { ...ctx.forecast!, p50: null, prob_up_pct: null, reliability: 'no_edge',
+          edge_vs_benchmark: 'No edge vs ARIMA(0,1,0)', hit_rate_80: 0.78, hit_rate_tests: 40 } }}
+      />,
+    )
+    expect(screen.queryByText(/mid \$/)).toBeNull()
+    const note = screen.getByTestId('copilot-forecast-honesty').textContent ?? ''
+    expect(note).toContain('Held 78% of 40 tests')
+    expect(note).toContain('No edge vs ARIMA(0,1,0)')
+    expect(note).toContain('not which way')
   })
 
   it('warns on a reassigned ticker and fires suggestions', () => {

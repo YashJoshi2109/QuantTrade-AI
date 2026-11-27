@@ -6,6 +6,7 @@ import {
   AlertTriangle, Briefcase, Download, FlaskConical, Loader2, LogIn, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2, Upload,
 } from 'lucide-react'
 import { ImportTradesForm, PerformancePanel } from './PortfolioHistoryParts'
+import PortfolioForecastCard from '@/components/forecast/PortfolioForecastCard'
 import TickerLogo from '@/components/TickerLogo'
 import { fmtDate, fmtMoney, fmtPct, fmtQty, pnlClass } from '@/lib/portfolio'
 import {
@@ -197,6 +198,7 @@ export default function PortfolioMobile() {
                     <p className="mb-2 text-xs font-semibold text-fg-primary">Allocation</p>
                     <AllocationDonut slices={s.allocation} size={110} />
                   </div>
+                  <PortfolioForecastCard holdings={s.holdings} className="!p-3" />
                 </>
               ) : c.txnsLoading ? (
                 <div className="flex h-24 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-fg-muted" /></div>
