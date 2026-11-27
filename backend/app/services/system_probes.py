@@ -632,10 +632,14 @@ async def probe_copilot(ctx: ProbeContext) -> ProbeResult:
 def _db_label() -> str:
     """Name the database by what it really is (prod: AWS RDS PostgreSQL)."""
     import os
-    url = os.getenv("DATABASE_URL") or ""
-    if ".rds.amazonaws.com" in url:
+    from urllib.parse import urlsplit
+    try:
+        host = (urlsplit(os.getenv("DATABASE_URL") or "").hostname or "").lower()
+    except ValueError:
+        host = ""
+    if host.endswith(".rds.amazonaws.com"):
         return "AWS RDS PostgreSQL"
-    if "neon.tech" in url:
+    if host.endswith(".neon.tech"):
         return "Neon PostgreSQL"
     return "PostgreSQL"
 
