@@ -41,8 +41,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
 import { useMacdHistory, useTechnicalInputs } from '@/hooks/useResearchTechnicals'
 import { isCompanyAsset } from '@/lib/assetType'
-import { displayCompanyName } from '@/lib/tickerIdentity'
-import { TickerIdentityBanner, useTickerIdentity } from '@/components/research/TickerIdentityBanner'
+import { displayCompanyName, tickerBannerState } from '@/lib/tickerIdentity'
+import { RetiredPricePlaceholder, TickerIdentityBanner, useTickerIdentity } from '@/components/research/TickerIdentityBanner'
 import Chart from '@/components/Chart'
 import TickerLogo from '@/components/TickerLogo'
 import type { PaneIndicatorId } from '@/lib/indicators'
@@ -249,6 +249,8 @@ export default function MobileResearch() {
   // Index / ETF symbols hide company-only panels (same helper as desktop).
   const showCompanyPanels = isCompanyAsset(symbolFromUrl, tickerInfo?.asset_type)
   const { data: tickerIdentity } = useTickerIdentity(symbolFromUrl)
+  // Same rule as desktop: a retired ticker shows the banner, never null prices.
+  const hidePrice = !!tickerBannerState(tickerIdentity)?.hidePricePanels
 
   // Realtime -> ticker profile -> daily bars; never show a placeholder $0.00.
   const priceInfo = resolvePriceInfo(realtimeQuote, tickerInfo, prices)
@@ -421,6 +423,10 @@ export default function MobileResearch() {
         </div>
       )}
 
+      {hidePrice && <RetiredPricePlaceholder identity={tickerIdentity} compact />}
+
+      {!hidePrice && (
+      <>
       {/* ── Price ── */}
       <section className="space-y-2" aria-label="Quote">
         {priceInfo.hasPrice ? (
@@ -447,7 +453,7 @@ export default function MobileResearch() {
         {watchError && <p className="text-[12px] text-amber-600 dark:text-amber-400">{watchError}</p>}
       </section>
 
-      <ResearchStatsCard source={keyStats} price={livePrice} loading={tickerInfoLoading && !tickerInfo} variant="mobile" />
+      <ResearchStatsCard source={keyStats} price={livePrice} loading={tickerInfoLoading && !tickerInfo} variant="mobile" fieldNotes={fundamentals?.field_notes} />
 
       {/* ── Price performance ── */}
       <section className="rs-card overflow-hidden" data-testid="mobile-chart-card">
@@ -530,6 +536,8 @@ export default function MobileResearch() {
       <MovingAveragesCard inputs={technicals} loading={indicatorsLoading} showTrend />
       <TrendSummaryCard inputs={technicals} loading={indicatorsLoading} />
       <BollingerCard inputs={technicals} loading={indicatorsLoading} />
+      </>
+      )}
 
       {/* ── Company Folio: right after the technicals, as on desktop's rail ── */}
       {showCompanyPanels && (

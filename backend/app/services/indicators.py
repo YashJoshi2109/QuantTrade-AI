@@ -109,105 +109,103 @@ class IndicatorService:
             return None
     
     @staticmethod
+    def clean_daily(df: pd.DataFrame) -> pd.DataFrame:
+        """Valid daily bars only, from the last unadjusted split onwards.
+
+        Null-close bars are dropped (they turned every rolling window NaN) and a
+        >4x one-day jump (unadjusted reverse split / reused ticker: PARA went
+        $0.03 -> $3.04 on 2026-11-24) starts a new series, so SMA/RSI/MACD are
+        never computed across two incomparable price scales.
+        """
+        from app.services.bar_hygiene import clean_ohlcv_df, clean_tail_start
+
+        df = clean_ohlcv_df(df)
+        if df is None or df.empty:
+            return pd.DataFrame()
+        start = clean_tail_start(list(df["close"].astype(float)))
+        return df.iloc[start:]
+
+    @staticmethod
+    def indicators_from_df(df: pd.DataFrame, source: str) -> Dict:
+        """Indicator set from daily bars; each value is None when there is not
+        enough clean history for its window (never a partial-window value)."""
+        df = IndicatorService.clean_daily(df)
+        if df.empty:
+            return {}
+        safe = IndicatorService._safe_value
+        n = len(df)
+
+        def last(series, need):
+            return safe(series.iloc[-1]) if n >= need and len(series) else None
+
+        macd_data = IndicatorService.compute_macd(df)
+        bb = IndicatorService.compute_bollinger_bands(df)
+        macd_ok = n >= 35  # 26-period slow EMA + 9-period signal
+        return {
+            "current_price": safe(df["close"].iloc[-1]),
+            "sma_20": last(IndicatorService.compute_sma(df, 20), 20),
+            "sma_50": last(IndicatorService.compute_sma(df, 50), 50),
+            "sma_200": last(IndicatorService.compute_sma(df, 200), 200),
+            "rsi": last(IndicatorService.compute_rsi(df, 14), 15),
+            "macd": {
+                "macd": safe(macd_data["macd"].iloc[-1]) if macd_ok else None,
+                "signal": safe(macd_data["signal"].iloc[-1]) if macd_ok else None,
+                "histogram": safe(macd_data["histogram"].iloc[-1]) if macd_ok else None,
+            },
+            "bollinger_bands": {
+                "upper": last(bb["upper"], 20),
+                "middle": last(bb["middle"], 20),
+                "lower": last(bb["lower"], 20),
+            },
+            "bars_used": n,
+            "history_start": str(df.index[0])[:10],
+            "data_source": source,
+        }
+
+    @staticmethod
     def get_all_indicators(
         db: Session,
         symbol_id: int,
         periods: Optional[Dict[str, int]] = None
     ) -> Dict:
-        """Get all computed indicators for a symbol"""
-        if periods is None:
-            periods = {
-                "sma_20": 20,
-                "sma_50": 50,
-                "sma_200": 200,
-                "rsi": 14
-            }
-        
+        """Indicators from stored daily bars (``periods`` kept for callers; the
+        standard 20/50/200 SMA + RSI14 + MACD 12/26/9 + BB 20/2 set is used)."""
         df = IndicatorService.get_price_dataframe(db, symbol_id)
-        
         if df.empty:
             return {}
-        
-        indicators = {}
-        safe = IndicatorService._safe_value
-        
-        # Moving averages
-        if "sma_20" in periods:
-            sma_20 = IndicatorService.compute_sma(df, periods["sma_20"])
-            indicators["sma_20"] = safe(sma_20.iloc[-1]) if len(sma_20) > 0 else None
-        if "sma_50" in periods:
-            sma_50 = IndicatorService.compute_sma(df, periods["sma_50"])
-            indicators["sma_50"] = safe(sma_50.iloc[-1]) if len(sma_50) > 0 else None
-        if "sma_200" in periods:
-            sma_200 = IndicatorService.compute_sma(df, periods["sma_200"])
-            indicators["sma_200"] = safe(sma_200.iloc[-1]) if len(sma_200) > 0 else None
-        
-        # RSI
-        if "rsi" in periods:
-            rsi = IndicatorService.compute_rsi(df, periods["rsi"])
-            indicators["rsi"] = safe(rsi.iloc[-1]) if len(rsi) > 0 else None
-        
-        # MACD
-        macd_data = IndicatorService.compute_macd(df)
-        indicators["macd"] = {
-            "macd": safe(macd_data["macd"].iloc[-1]) if len(macd_data["macd"]) > 0 else None,
-            "signal": safe(macd_data["signal"].iloc[-1]) if len(macd_data["signal"]) > 0 else None,
-            "histogram": safe(macd_data["histogram"].iloc[-1]) if len(macd_data["histogram"]) > 0 else None
-        }
-        
-        # Bollinger Bands
-        bb = IndicatorService.compute_bollinger_bands(df)
-        indicators["bollinger_bands"] = {
-            "upper": safe(bb["upper"].iloc[-1]) if len(bb["upper"]) > 0 else None,
-            "middle": safe(bb["middle"].iloc[-1]) if len(bb["middle"]) > 0 else None,
-            "lower": safe(bb["lower"].iloc[-1]) if len(bb["lower"]) > 0 else None
-        }
-        
-        # Current price
-        indicators["current_price"] = safe(df["close"].iloc[-1])
-
-        return indicators
+        return IndicatorService.indicators_from_df(df, "database")
 
     @staticmethod
     def get_indicators_from_yfinance(symbol: str) -> Optional[Dict]:
-        """Compute indicators from live yfinance data when DB has no price history."""
+        """Indicators from 2y of yfinance daily bars (enough for SMA200)."""
         try:
             import yfinance as yf
-            ticker = yf.Ticker(symbol)
-            hist = ticker.history(period="1y")
-            if hist.empty or len(hist) < 30:
-                return None
+            from app.services.ticker_validation import yahoo_symbol
 
+            hist = yf.Ticker(yahoo_symbol(symbol)).history(period="2y")
+            if hist.empty:
+                return None
             df = hist[["Open", "High", "Low", "Close", "Volume"]].copy()
             df.columns = ["open", "high", "low", "close", "volume"]
-
-            safe = IndicatorService._safe_value
-
-            sma_20 = IndicatorService.compute_sma(df, 20)
-            sma_50 = IndicatorService.compute_sma(df, 50)
-            sma_200 = IndicatorService.compute_sma(df, 200)
-            rsi = IndicatorService.compute_rsi(df, 14)
-            macd_data = IndicatorService.compute_macd(df)
-            bb = IndicatorService.compute_bollinger_bands(df)
-
-            return {
-                "current_price": safe(df["close"].iloc[-1]),
-                "sma_20": safe(sma_20.iloc[-1]) if len(sma_20) > 0 else None,
-                "sma_50": safe(sma_50.iloc[-1]) if len(sma_50) > 0 else None,
-                "sma_200": safe(sma_200.iloc[-1]) if len(sma_200) > 0 else None,
-                "rsi": safe(rsi.iloc[-1]) if len(rsi) > 0 else None,
-                "macd": {
-                    "macd": safe(macd_data["macd"].iloc[-1]) if len(macd_data["macd"]) > 0 else None,
-                    "signal": safe(macd_data["signal"].iloc[-1]) if len(macd_data["signal"]) > 0 else None,
-                    "histogram": safe(macd_data["histogram"].iloc[-1]) if len(macd_data["histogram"]) > 0 else None,
-                },
-                "bollinger_bands": {
-                    "upper": safe(bb["upper"].iloc[-1]) if len(bb["upper"]) > 0 else None,
-                    "middle": safe(bb["middle"].iloc[-1]) if len(bb["middle"]) > 0 else None,
-                    "lower": safe(bb["lower"].iloc[-1]) if len(bb["lower"]) > 0 else None,
-                },
-                "data_source": "yfinance",
-            }
+            out = IndicatorService.indicators_from_df(df, "yfinance")
+            return out or None
         except Exception as e:
             print(f"yfinance indicators error for {symbol}: {e}")
+            return None
+
+    @staticmethod
+    def get_indicators_from_sip(symbol: str, days: int = 1100) -> Optional[Dict]:
+        """Indicators from Alpaca SIP daily bars (raw, consolidated tape)."""
+        try:
+            from app.services.alpaca_client import alpaca_client
+
+            rows = alpaca_client.get_daily_bars_sip([symbol], days=days).get(symbol.upper()) or []
+            if not rows:
+                return None
+            df = pd.DataFrame(rows, columns=["timestamp", "open", "high", "low", "close", "volume"])
+            df.set_index("timestamp", inplace=True)
+            out = IndicatorService.indicators_from_df(df, "alpaca_sip")
+            return out or None
+        except Exception as e:
+            print(f"SIP indicators error for {symbol}: {e}")
             return None

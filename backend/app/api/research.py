@@ -140,6 +140,20 @@ def ticker_identity_endpoint(ticker: str, db: Session = Depends(get_db)):
     succ = out.get("successor_symbol")
     out["successor_listed"] = bool(succ) and db.query(Symbol.id).filter(Symbol.symbol == succ).first() is not None
     out["known_symbol"] = sym is not None
+    # Lifecycle (retired / reused tickers): drives the "stopped trading" banner
+    # and hides price panels for inactive symbols on desktop and mobile.
+    from app.services.ticker_lifecycle import lifecycle_payload
+
+    life = lifecycle_payload(upper, sym)
+    out.update(life)
+    if life["lifecycle_status"] != "active":
+        out["status"] = "changed"
+        out["note"] = out.get("note") or life["status_note"]
+        out["former_name"] = out.get("former_name") or life["former_name"]
+        if not out.get("successor_symbol") and life["successor_symbol"]:
+            out["successor_symbol"] = life["successor_symbol"]
+            out["successor_listed"] = db.query(Symbol.id).filter(
+                Symbol.symbol == life["successor_symbol"]).first() is not None
     return out
 
 

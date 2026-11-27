@@ -171,8 +171,42 @@ def _compute(ticker: str, evaluation: Optional[dict], state: Optional[dict] = No
         return _compute_unlimited(ticker, evaluation, state)
 
 
+def forecast_history_problem(ticker: str, closes: pd.Series) -> Optional[str]:
+    """Why a series must not be forecast, or None when it is usable.
+
+    PARA (2026-11-27) was forecast from a series that jumped $0.03 -> $3.04
+    overnight (unadjusted reverse split on a reassigned ticker): 479.8%
+    annualised vol and a 3-month range of $0.03-$253. Refuse instead.
+    """
+    from app.services.bar_hygiene import SPLIT_JUMP_RATIO, split_breaks
+    from app.services.ticker_lifecycle import REUSED, retirement
+
+    r = retirement(ticker)
+    if r is not None and r.inactive:
+        succ = f" Its successor trades as {r.successor}." if r.successor else ""
+        return f"{ticker} no longer trades ({r.note}).{succ} No forecast is produced."
+    if r is not None and r.kind == REUSED:
+        return (f"{ticker} was reassigned to {r.current_name or 'a different company'}, so its price history "
+                "mixes two issuers. No forecast is produced until it has enough clean history of its own.")
+    window = closes.iloc[-HISTORY_DAYS:]
+    breaks = split_breaks(list(window.astype(float)))
+    if breaks:
+        i = breaks[-1]
+        when = str(window.index[i])[:10]
+        ratio = float(window.iloc[i]) / float(window.iloc[i - 1])
+        move = f"{ratio:.1f}x" if ratio >= 1 else f"1/{1 / ratio:.1f}x"
+        return (f"{ticker}'s daily closes jump {move} on {when} (more than {SPLIT_JUMP_RATIO:g}x in one session): "
+                "most likely an unadjusted split or ticker change. A forecast fitted across that jump would be "
+                "meaningless, so none is produced.")
+    return None
+
+
 def _compute_unlimited(ticker: str, evaluation: Optional[dict], state: Optional[dict] = None) -> dict:
     closes = _load_closes(ticker)
+    closes = closes[pd.to_numeric(closes, errors="coerce") > 0]
+    problem = forecast_history_problem(ticker, closes)
+    if problem:
+        raise ValueError(problem)
     if len(closes) < MIN_HISTORY:
         raise ValueError(
             f"{ticker} has {len(closes)} daily closes; forecasting needs at least {MIN_HISTORY} "

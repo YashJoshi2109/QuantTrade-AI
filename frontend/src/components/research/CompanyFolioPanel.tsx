@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useId, useState } from 'react'
 import type { CompanyOfficer, TickerInfo } from '@/app/api/quotes/ticker/route'
+import { sanitizeTickerInfo } from '@/lib/fundamentalSanity'
 import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import TickerLogo from '@/components/TickerLogo'
@@ -151,7 +152,12 @@ export interface CompanyFolioPanelProps {
   compact?: boolean
 }
 
-export function CompanyFolioPanel({ symbol, info, isLoading, compact = false }: CompanyFolioPanelProps) {
+export function CompanyFolioPanel({ symbol, info: rawInfo, isLoading, compact = false }: CompanyFolioPanelProps) {
+  // Implausible values (unadjusted splits: PARA's $39,200 52W high, $25,891
+  // EPS) are hidden and explained in a note instead of shown as facts.
+  const sane = rawInfo ? sanitizeTickerInfo(rawInfo) : null
+  const info = sane ? sane.info : rawInfo
+  const hiddenFields = sane?.hidden ?? []
   const [bioExpanded, setBioExpanded] = useState(false)
 
   if (isLoading && !info) {
@@ -640,6 +646,15 @@ export function CompanyFolioPanel({ symbol, info, isLoading, compact = false }: 
               </div>
               ))}
             </div>
+          )}
+          {hiddenFields.length > 0 && (
+            <p
+              data-testid="folio-hidden-fields"
+              title={hiddenFields.map((h) => `${h.label}: ${h.reason}`).join('\n')}
+              className="cursor-help border-t border-line-subtle px-4 py-2 text-[11px] text-fg-muted"
+            >
+              Hidden as implausible: {hiddenFields.map((h) => h.label).join(', ')} (hover for why)
+            </p>
           )}
         </div>
       </motion.section>

@@ -411,7 +411,11 @@ def compute_rows(db: Session, now: Optional[datetime] = None) -> List[Dict[str, 
     cols = (Symbol.id, Symbol.symbol, Symbol.name, Symbol.exchange, Symbol.asset_type, Symbol.sector,
             Symbol.industry, Symbol.market_cap)
     keys = ("id", "symbol", "name", "exchange", "asset_type", "sector", "industry", "market_cap")
-    all_syms = [dict(zip(keys, r)) for r in db.query(*cols).order_by(Symbol.id)]
+    from app.services.ticker_lifecycle import inactive_symbols
+
+    retired = inactive_symbols(db)  # renamed / acquired / delisted never screen
+    all_syms = [dict(zip(keys, r)) for r in db.query(*cols).order_by(Symbol.id)
+                if (r[1] or "").upper() not in retired]
     out: List[Dict[str, Any]] = []
     for i in range(0, len(all_syms), CHUNK):
         chunk = all_syms[i:i + CHUNK]

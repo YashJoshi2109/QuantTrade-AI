@@ -133,7 +133,7 @@ _TICKER_KEYWORDS: Dict[str, List[str]] = {
     "tiktok": ["META", "GOOGL"], "bytedance": ["META"],
     "uber": ["UBER"], "airbnb": ["ABNB"], "spotify": ["SPOT"],
     "salesforce": ["CRM"], "oracle": ["ORCL"], "ibm": ["IBM"],
-    "snap": ["SNAP"], "snapchat": ["SNAP"], "twitter": ["TWTR"], "x corp": ["TWTR"],
+    "snap": ["SNAP"], "snapchat": ["SNAP"],
     # Finance
     "jpmorgan": ["JPM"], "jp morgan": ["JPM"], "goldman sachs": ["GS"], "goldman": ["GS"],
     "morgan stanley": ["MS"], "bank of america": ["BAC"], "citigroup": ["C"], "citi": ["C"],
@@ -178,7 +178,7 @@ _TICKER_KEYWORDS: Dict[str, List[str]] = {
     "china": ["FXI", "KWEB"], "chinese": ["FXI"],
     "japan": ["EWJ"], "japanese": ["EWJ"],
     "india": ["INDA"], "indian": ["INDA"],
-    "brazil": ["EWZ"], "russia": ["RSX"],
+    "brazil": ["EWZ"],
     "fed": ["SPY"], "federal reserve": ["SPY", "TLT"],
     "interest rate": ["TLT"], "treasury": ["TLT"],
     "tariff": ["SPY"], "sanctions": ["SPY"],

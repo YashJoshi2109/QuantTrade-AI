@@ -4,6 +4,7 @@ import { useId, useMemo } from 'react'
 import { FundamentalsData } from '@/lib/api'
 import { isNumber, formatNumber } from '@/lib/format'
 import { earningsTiming, formatMarketCap, meaningfulPeg } from '@/lib/valuation'
+import { fieldTooltip, sanitizeFundamentals } from '@/lib/fundamentalSanity'
 import { Zap, RefreshCw, Loader2 } from 'lucide-react'
 
 /* ────────────────── Health Score Computation ────────────────── */
@@ -490,13 +491,27 @@ interface FundamentalsPanelProps {
   syncing?: boolean
 }
 
+const NOTE_LABELS: Record<string, string> = {
+  market_cap: 'Market cap', pe_ratio: 'P/E', forward_pe: 'Forward P/E', eps: 'EPS', roe: 'ROE', roa: 'ROA',
+  week_52_high: '52W high', week_52_low: '52W low', target_price: 'Target', beta: 'Beta', dividend_yield: 'Dividend yield',
+}
+
 export default function FundamentalsPanel({
   fundamentals,
+  price,
   loading,
   onSync,
   syncing,
 }: FundamentalsPanelProps) {
-  const f = fundamentals
+  // Implausible values are hidden ("—") with the reason in a note; derived
+  // ones (market cap = shares x price, P/E from SEC EPS) name their source.
+  const { values: f, notes } = useMemo(
+    () => sanitizeFundamentals(fundamentals, price, fundamentals?.field_notes),
+    [fundamentals, price],
+  )
+  const noteRows = Object.keys(notes)
+    .filter((k) => NOTE_LABELS[k] && fieldTooltip(notes, k))
+    .map((k) => ({ key: k, label: NOTE_LABELS[k], text: fieldTooltip(notes, k) as string }))
   const score = useMemo(() => computeHealthScore(f), [f])
   const roi = (f as unknown as Record<string, unknown>)?.roi as number | undefined
 
@@ -714,6 +729,16 @@ export default function FundamentalsPanel({
           })()}
         </div>
       </div>
+
+      {noteRows.length > 0 && (
+        <ul data-testid="fundamentals-field-notes" className="mt-3 space-y-0.5 text-[11px] text-fg-muted">
+          {noteRows.map((n) => (
+            <li key={n.key} title={n.text} className="cursor-help truncate">
+              <span className="font-medium text-fg-secondary">{n.label}:</span> {n.text}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/* ── Refresh Button ── */}
       {onSync && (
