@@ -129,3 +129,29 @@ def test_parser_version_stamp():
         revenue = json.dumps({"value": 1, "unit": "USD"})
     assert stored_parser_version(Row()) == PARSER_VERSION
     assert stored_parser_version(Old()) == 0
+
+
+def test_net_income_falls_back_to_profitloss_when_netincomeloss_stops():
+    """AEIS tags NetIncomeLoss through Q2 2025, then only ProfitLoss: later
+    quarters showed net income "—". NetIncomeLoss still wins where it exists."""
+    M = 1e6
+    facts = {"facts": {"us-gaap": {
+        "Revenues": _usd(
+            _fact("2025-04-01", "2025-06-30", 441.0 * M, "10-Q", 2025, "Q2", "2025-08-05"),
+            _fact("2026-07-01", "2026-09-30", 696.4 * M, "10-Q", 2026, "Q3", "2026-11-02"),
+        ),
+        "NetIncomeLoss": _usd(
+            _fact("2025-04-01", "2025-06-30", 25.2 * M, "10-Q", 2025, "Q2", "2025-08-05"),
+        ),
+        "ProfitLoss": _usd(
+            _fact("2025-04-01", "2025-06-30", 99.0 * M, "10-Q", 2025, "Q2", "2025-08-05"),
+            _fact("2026-07-01", "2026-09-30", 115.6 * M, "10-Q", 2026, "Q3", "2026-11-02"),
+        ),
+    }}}
+    rows = {r["period"]: r for r in parse_financials(facts, "0000927003", 1, "AEIS")}
+
+    def ni(p):
+        return json.loads(rows[p]["net_income"])["value"]
+
+    assert ni("2026-Q3") == 115.6 * M
+    assert ni("2025-Q2") == 25.2 * M  # NetIncomeLoss preferred over ProfitLoss

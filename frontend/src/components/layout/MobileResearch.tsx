@@ -8,8 +8,6 @@ import {
   ArrowLeft,
   Bookmark,
   BookmarkCheck,
-  TrendingUp,
-  TrendingDown,
   RefreshCw,
   BarChart3,
   Sparkles,
@@ -40,8 +38,9 @@ import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { isCompanyAsset } from '@/lib/assetType'
 import { displayCompanyName } from '@/lib/tickerIdentity'
 import { TickerIdentityBanner, useTickerIdentity } from '@/components/research/TickerIdentityBanner'
-import { formatMarketCap } from '@/lib/valuation'
 import Chart from '@/components/Chart'
+import { Skeleton } from '@/components/Skeleton'
+import { keyStatsColumns } from '@/lib/researchKeyStats'
 import LiveNews from '@/components/LiveNews'
 import KeyFactorsPanel from '@/components/KeyFactorsPanel'
 import FundamentalsPanel from '@/components/FundamentalsPanel'
@@ -414,34 +413,30 @@ export default function MobileResearch() {
         <div className="flex items-end justify-between">
           <div>
             {priceInfo.hasPrice ? (
-              <div className="text-[28px] font-bold text-fg-primary font-mono">
-                ${formatNumber(price, 2)}
+              <div className="flex items-baseline gap-2 tabular-nums">
+                <span className="text-[30px] font-bold leading-none text-fg-primary">
+                  ${formatNumber(price, 2)}
+                </span>
+                <span
+                  data-testid="mobile-research-change"
+                  className={`text-[15px] font-semibold ${isUp ? 'text-emerald-500' : 'text-red-500'}`}
+                >
+                  {isUp ? '+' : ''}
+                  {formatNumber(change, 2)} ({formatPercent(pct, 2)})
+                </span>
               </div>
             ) : (
-              <div className="h-9 w-32 animate-pulse rounded-lg bg-surface-raised" aria-busy="true" aria-label="Loading quote" />
+              <div className="flex items-baseline gap-2" aria-busy="true" aria-label="Loading quote">
+                <Skeleton className="h-8 w-32" />
+                <Skeleton className="h-4 w-24" />
+              </div>
             )}
-            {priceInfo.hasPrice && (
-            <div className="mt-1 flex items-center gap-1">
-              <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full font-mono ${
-                  isUp
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                    : 'bg-red-500/10 text-red-400 border border-red-500/30'
-                }`}
-              >
-                {isUp ? (
-                  <TrendingUp className="w-3 h-3" />
-                ) : (
-                  <TrendingDown className="w-3 h-3" />
-                )}
-                {isUp ? '+' : ''}
-                {formatNumber(change, 2)} ({formatPercent(pct, 2)})
-              </span>
-              {quoteLoading && (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#00D9FF] ml-1" />
-              )}
-            </div>
-            )}
+            <p className="mt-1.5 text-[11px] text-fg-muted">
+              {timeframe === 'All' ? 'Max range' : `Past ${timeframe}`}
+              {(tickerInfo?.exchange_display || tickerInfo?.exchange) &&
+                ` · ${tickerInfo?.exchange_display || tickerInfo?.exchange}`}
+              {tickerInfo?.currency ? ` · ${tickerInfo.currency}` : ''}
+            </p>
             {priceInfo.hasPrice && <ExtendedHoursBadge badge={priceInfo.extended} className="mt-1" />}
           </div>
           <div className="text-right text-[10px] text-fg-muted">
@@ -467,34 +462,39 @@ export default function MobileResearch() {
           <div className="h-[250px] chart-grid bg-surface-base">
             {prices && prices.length > 0 ? (
               <Chart data={prices} symbol={symbolFromUrl} />
+            ) : pricesLoading ? (
+              <div className="h-full p-3 flex flex-col gap-2" aria-busy="true" aria-label="Loading chart">
+                <div className="flex gap-2">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-12" />
+                </div>
+                <Skeleton className="flex-1 w-full" />
+              </div>
             ) : (
               <div className="h-full flex items-center justify-center text-[12px] text-fg-muted">
-                {pricesLoading
-                  ? 'Loading chart data...'
-                  : 'No chart data. Try Sync.'}
+                No chart data. Try Sync.
               </div>
             )}
           </div>
         </div>
 
         {/* Timeframes */}
-        <div className="flex items-center justify-between">
-          <div className="flex gap-1 rounded-full bg-surface-raised p-1 border border-line-subtle">
-            {TIMEFRAMES.map((tf) => (
-              <button
-                key={tf}
-                type="button"
-                onClick={() => setTimeframe(tf)}
-                className={`px-2 py-1 rounded-full text-[11px] font-medium ${
-                  timeframe === tf
-                    ? 'bg-[#00D9FF]/15 text-[#00D9FF]'
-                    : 'text-fg-secondary'
-                }`}
-              >
-                {tf}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center justify-between gap-1" role="group" aria-label="Chart range">
+          {TIMEFRAMES.map((tf) => (
+            <button
+              key={tf}
+              type="button"
+              aria-pressed={timeframe === tf}
+              onClick={() => setTimeframe(tf)}
+              className={`flex-1 rounded-full py-1.5 text-[12px] font-semibold tabular-nums transition-colors ${
+                timeframe === tf
+                  ? 'bg-fg-primary/10 text-fg-primary'
+                  : 'text-fg-muted'
+              }`}
+            >
+              {tf}
+            </button>
+          ))}
         </div>
       </section>
 
@@ -509,36 +509,45 @@ export default function MobileResearch() {
 
       {/* ── Key Stats ── */}
       <section className="px-1">
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl bg-surface-raised border border-line-subtle p-3">
-            <p className="text-[10px] text-fg-secondary mb-1">Market Cap</p>
-            <p className="text-[14px] font-semibold text-fg-primary">
-              {formatMarketCap(marketCap, 'N/A')}
-            </p>
-          </div>
-          <div className="rounded-xl bg-surface-raised border border-line-subtle p-3">
-            <p className="text-[10px] text-fg-secondary mb-1">P/E Ratio</p>
-            <p className="text-[14px] font-semibold text-fg-primary">
-              {isNumber(pe) ? formatNumber(pe, 2) : 'N/A'}
-            </p>
-          </div>
-          {isNumber(eps) && (
-            <div className="rounded-xl bg-surface-raised border border-line-subtle p-3">
-              <p className="text-[10px] text-fg-secondary mb-1">EPS (TTM)</p>
-              <p className="text-[14px] font-semibold text-fg-primary">
-                {formatNumber(eps, 2)}
-              </p>
+        {/* Apple Stocks style: 3 columns, label left / value right, thin dividers. */}
+        <div className="overflow-x-auto border-y border-line-subtle" data-testid="mobile-key-stats">
+          {tickerInfoLoading && !tickerInfo ? (
+            <div className="grid grid-cols-3 min-w-[360px] divide-x divide-line-subtle py-2" aria-busy="true" aria-label="Loading key stats">
+              {[0, 1, 2].map((c) => (
+                <div key={c} className="space-y-2 px-2.5">
+                  {[0, 1, 2].map((r) => (
+                    <div key={r} className="flex justify-between gap-2">
+                      <Skeleton className="h-3 w-8" />
+                      <Skeleton className="h-3 w-12" />
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
-          )}
-          {isNumber(high52) && (
-            <div className="rounded-xl bg-surface-raised border border-line-subtle p-3">
-              <p className="text-[10px] text-fg-secondary mb-1">52W High</p>
-              <p className="text-[14px] font-semibold text-fg-primary">
-                {`$${formatNumber(high52, 2)}`}
-              </p>
+          ) : (
+            <div className="grid grid-cols-3 min-w-[360px] divide-x divide-line-subtle py-2">
+              {keyStatsColumns({
+                ...tickerInfo,
+                // Fill gaps from DB fundamentals only where the live quote has none.
+                market_cap: marketCap ?? tickerInfo?.market_cap,
+                pe_ratio: pe ?? tickerInfo?.pe_ratio,
+                week_52_high: high52 ?? tickerInfo?.week_52_high,
+              }).map((col, c) => (
+                <dl key={c} className="space-y-1.5 px-2.5">
+                  {col.map((s) => (
+                    <div key={s.label} className="flex items-baseline justify-between gap-2 text-[12px]">
+                      <dt className="text-fg-muted whitespace-nowrap">{s.label}</dt>
+                      <dd className="font-semibold text-fg-primary tabular-nums whitespace-nowrap">{s.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ))}
             </div>
           )}
         </div>
+        {isNumber(eps) && (
+          <p className="mt-1.5 text-[11px] text-fg-muted tabular-nums">EPS (TTM) {formatNumber(eps, 2)}</p>
+        )}
       </section>
 
       {/* ── Tabs ── */}
@@ -683,9 +692,14 @@ export default function MobileResearch() {
                 </span>
               </div>
               {indicatorsLoading ? (
-                <p className="text-[11px] text-fg-muted">
-                  Loading indicators\u2026
-                </p>
+                <div className="grid grid-cols-2 gap-2" aria-busy="true" aria-label="Loading indicators">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="rounded-xl bg-surface-base border border-line-subtle p-2 space-y-1.5">
+                      <Skeleton className="h-3 w-12" />
+                      <Skeleton className="h-3.5 w-16" />
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
                   {[
