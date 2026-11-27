@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from typing import Callable, Iterable, List, Optional, Sequence, Set, TypeVar
 
@@ -135,6 +135,22 @@ RETIREMENTS: dict[str, Retirement] = {r.symbol: r for r in (
        "ANSYS was acquired by Synopsys (cash and stock) in Jul 2025; ANSS was later reassigned to an unrelated ETF.",
        "SNPS", "2025-07-16", current_name="Leverage Shares 1X Short Anthropic Daily ETF"),
 )}
+
+
+# Last session each old company traded under the ticker, from Alpaca SIP daily
+# bars queried on the prod host on 2026-11-27 (the audit's local run had no
+# Alpaca keys, so these banners said "stopped trading" with no date). TOT is
+# deliberately absent: bars continue to 2026-10-26 at ~$24, i.e. the symbol is
+# trading again under someone else; RE predates the SIP window (renamed EG 2023).
+_VERIFIED_LAST_SESSION = {
+    "GPS": "2024-08-21", "FI": "2025-11-10", "K": "2025-12-10", "MMC": "2026-01-13",
+    "CMA": "2026-01-30", "DAY": "2026-02-03", "CYBR": "2026-02-10", "HOLX": "2026-04-06",
+    "BK": "2026-05-20", "AVB": "2026-08-14", "EQR": "2026-08-17", "WBD": "2026-10-05",
+}
+for _sym, _d in _VERIFIED_LAST_SESSION.items():
+    _r0 = RETIREMENTS.get(_sym)
+    if _r0 is not None and _r0.delisted_at is None:
+        RETIREMENTS[_sym] = replace(_r0, delisted_at=date.fromisoformat(_d))
 
 
 def _norm(symbol: Optional[str]) -> str:
