@@ -13,6 +13,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
+from app.services.copilot import quant_tools
 from app.services.copilot.models import Fact, TickerContextPack, compact_fact
 from app.services.copilot.registry import FactRegistry
 
@@ -57,7 +58,9 @@ TOOL_SPECS: List[Dict[str, Any]] = [
          "sector": {"type": "string"}, "min_market_cap": {"type": "number"}},
          "required": ["direction"], "additionalProperties": False}},
 ]
+TOOL_SPECS += quant_tools.QUANT_TOOL_SPECS          # quant / risk engine (app.services.quant)
 TOOL_NAMES = {t["name"] for t in TOOL_SPECS}
+TOOL_TIMEOUTS: Dict[str, float] = {n: quant_tools.QUANT_TOOL_TIMEOUT_S for n in quant_tools.QUANT_TOOL_NAMES}
 
 
 def lc_tools() -> List[Dict[str, Any]]:
@@ -127,7 +130,8 @@ class ToolExecutor:
         if name not in TOOL_NAMES:
             return f"unknown tool {name}", [], True
         try:
-            facts, payload = await asyncio.wait_for(self._dispatch(name, args or {}), TOOL_TIMEOUT_S)
+            facts, payload = await asyncio.wait_for(self._dispatch(name, args or {}),
+                                                    TOOL_TIMEOUTS.get(name, TOOL_TIMEOUT_S))
         except asyncio.TimeoutError:
             return f"{name} timed out", [], True
         except LookupError as e:
@@ -140,6 +144,8 @@ class ToolExecutor:
         return context_block(f"tool:{name}", as_of, payload), facts, False
 
     async def _dispatch(self, name: str, a: Dict[str, Any]):
+        if name in quant_tools.QUANT_TOOL_NAMES:
+            return await quant_tools.dispatch(self, name, a)
         if name == "get_macro":
             facts = await self.sources.macro(list(a.get("indicators") or []))
             if not facts:
