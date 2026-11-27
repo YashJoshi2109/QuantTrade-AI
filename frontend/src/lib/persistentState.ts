@@ -208,6 +208,10 @@ export function __resetPersistentStateForTests(): void {
 
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect
 
+const noopSubscribe = () => () => {}
+const clientSnapshot = () => false
+const serverSnapshot = () => true
+
 // ── The hook ─────────────────────────────────────────────────────────────────
 
 export interface PersistControls {
@@ -238,9 +242,16 @@ export function usePersistentState<T>(
   const fullKey = persistKey(key, opts, scope)
   const id = useRef(Symbol(key)).current
 
+  // True only while THIS component is hydrating server HTML. The old global
+  // `hydrated` flag flipped as soon as any hook committed, so a subtree that
+  // hydrates later (inside <Suspense>, e.g. MobileResearch) read the saved
+  // value during hydration: "Hydration failed ... aria-selected" and a full
+  // client re-render of the Research page.
+  const isHydrating = useSyncExternalStore(noopSubscribe, clientSnapshot, serverSnapshot)
+
   // After hydration we can read synchronously: no default-then-restore frame.
   const [state, setState] = useState<{ key: string; value: T; restored: boolean }>(() => {
-    if (hydrated && typeof window !== 'undefined') {
+    if (!isHydrating && hydrated && typeof window !== 'undefined') {
       const saved = readPersisted<T>(key, opts, scope)
       return { key: fullKey, value: saved === undefined ? defaultValue : saved, restored: true }
     }
