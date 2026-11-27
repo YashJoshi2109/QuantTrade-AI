@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import Chart, { ChartSeriesType } from '@/components/Chart'
 import { PriceBar } from '@/lib/api'
@@ -100,11 +101,20 @@ export default function FullscreenChartModal({
 
   const filteredData = filterByPeriod(priceData, period)
 
-  return (
+  // Portal to <body>: a transformed / filtered ancestor (the app shell uses
+  // backdrop-filter) makes `position: fixed` relative to that ancestor, so
+  // the overlay could sit under the sidebar and ticker tape.
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-[9999] flex bg-surface-base"
+          // Solid background: --surface-base is transparent in dark mode, which
+          // let the app's sidebar, ticker tape and nav show through the chart.
+          className="fixed inset-0 z-[9999] flex bg-white dark:bg-[#0b0f17]"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${symbol} chart, full screen`}
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
         >
@@ -115,7 +125,7 @@ export default function FullscreenChartModal({
               .fullscreen-chart-rotate-prompt { display: flex !important; }
             }
           `}</style>
-          <div className="fullscreen-chart-rotate-prompt hidden fixed inset-0 z-[10000] items-center justify-center flex-col gap-4 bg-surface-base">
+          <div className="fullscreen-chart-rotate-prompt hidden fixed inset-0 z-[10000] items-center justify-center flex-col gap-4 bg-white dark:bg-[#0b0f17]">
             <svg className="w-16 h-16 text-blue-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
             </svg>
@@ -126,14 +136,14 @@ export default function FullscreenChartModal({
           <div className="fullscreen-chart-landscape-only flex flex-1 min-h-0 min-w-0">
             {/* Indicator sidebar */}
             <motion.div
-              className="shrink-0 border-r border-line-subtle flex flex-col overflow-y-auto bg-surface-glass"
+              className="shrink-0 border-r border-line-subtle flex flex-col overflow-y-auto bg-slate-50 dark:bg-[#0f1520]"
               initial={false}
               animate={{ width: sidebarOpen ? 200 : 44 }}
               transition={{ duration: 0.2 }}
             >
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-3 text-fg-muted hover:text-white transition-colors self-end"
+                className="p-3 text-fg-muted hover:text-fg-primary transition-colors self-end"
                 title={sidebarOpen ? 'Collapse' : 'Expand'}
               >
                 <svg className={`w-5 h-5 transition-transform ${sidebarOpen ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -208,14 +218,14 @@ export default function FullscreenChartModal({
                       className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                         period === tp
                           ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                          : 'text-fg-muted hover:text-white hover:bg-surface-hover'
+                          : 'text-fg-muted hover:text-fg-primary hover:bg-surface-hover'
                       }`}
                     >
                       {tp}
                     </button>
                   ))}
                 </div>
-                <button onClick={onClose} className="ml-4 p-2 rounded-lg text-fg-muted hover:text-white hover:bg-surface-raised transition-colors" title="Close (Esc)">
+                <button onClick={onClose} className="ml-4 p-2 rounded-lg text-fg-muted hover:text-fg-primary hover:bg-surface-raised transition-colors" title="Close (Esc)">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -243,6 +253,7 @@ export default function FullscreenChartModal({
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }
