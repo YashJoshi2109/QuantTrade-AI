@@ -338,21 +338,26 @@ def classify(ev: Evidence, today: Optional[date] = None, retirement=None,
 COMPLETENESS_FIELDS = ("name", "exchange", "sector", "price", "prev_close", "volume", "market_cap", "pe",
                        "range_52w_250", "sma20", "sma50", "sma200", "rsi", "macd", "fundamentals",
                        "sec_filings", "news")
-FUND_NA = {"pe", "sec_filings", "market_cap"}  # do not apply to ETFs/funds/indices
+FUND_NA = {"pe", "sec_filings", "market_cap", "sector"}  # do not apply to ETFs/funds/indices
 
 
 def completeness(t: str, quote: Optional[dict], fund: Optional[dict], ind: Optional[dict], bars: Optional[list],
-                 sec: Optional[dict], news: Optional[list], asset_type: str = "equity") -> Tuple[float, List[str], List[str]]:
-    """(score 0-100, missing fields, not-applicable fields) for one ticker's Research data."""
+                 sec: Optional[dict], news: Optional[list], asset_type: str = "equity",
+                 profile: Optional[dict] = None) -> Tuple[float, List[str], List[str]]:
+    """(score 0-100, missing fields, not-applicable fields) for one ticker's Research data.
+
+    ``profile`` is the frontend /api/quotes/ticker payload (the Research header's
+    name / exchange / sector source)."""
     fund = fund or {}
+    prof = profile or {}
     notes = fund.get("field_notes") or {}
     i = (ind or {}).get("indicators") or {}
     q = quote or {}
     valid_bars = [b for b in (bars or []) if isinstance(b, dict) and b.get("close")]
     have = {
-        "name": bool(fund.get("company_name")),
-        "exchange": bool((sec or {}).get("exchange") or fund.get("exchange") or (q.get("exchange"))),
-        "sector": bool(fund.get("sector")),
+        "name": bool(prof.get("name") or fund.get("company_name")),
+        "exchange": bool(prof.get("exchange") or (sec or {}).get("exchange") or fund.get("exchange") or q.get("exchange")),
+        "sector": bool(prof.get("sector") or fund.get("sector")),
         "price": bool(q.get("last_price")),
         "prev_close": bool(q.get("previous_close")),
         "volume": q.get("volume") is not None,
@@ -583,9 +588,10 @@ def run_completeness(base: str, tickers: Sequence[str], workers: int = 3) -> Dic
             b, _ = _http_json(f"{base}/api/v1/prices/{t}?start={start:%Y-%m-%dT00:00:00}&end={end:%Y-%m-%dT00:00:00}&limit=400", timeout=60)
             s, _ = _http_json(f"{base}/api/v1/research/{t}/company-overview", timeout=60)
             n, _ = _http_json(f"{base}/api/v1/news/feed?ticker={t}&limit=5", timeout=60)
+            pr, _ = _http_json(f"{base}/api/quotes/ticker?symbol={t}", timeout=60)
             news = n.get("items") if isinstance(n, dict) else n
             kind = (f or {}).get("asset_type") or asset_kind(t)
-            return t, completeness(t, q, f, i, b, s, news, kind)
+            return t, completeness(t, q, f, i, b, s, news, kind, pr)
         except Exception as e:
             return t, (0.0, [f"error: {e}"], [])
 
@@ -692,8 +698,8 @@ def to_markdown(results: List[Tuple[Evidence, Verdict]], comp: Optional[Dict[str
                      f"{v.successor or ''} | {v.reason} | {v.action} | {src} |")
     if comp:
         lines += ["", "## Completeness (prod Research data)", "",
-                  "Fields: " + ", ".join(COMPLETENESS_FIELDS) + ". ETFs/funds/indices skip P/E, market cap and SEC "
-                  "filings; P/E of a loss-maker counts when shown as n/m.", ""]
+                  "Fields: " + ", ".join(COMPLETENESS_FIELDS) + ". ETFs/funds/indices skip P/E, market cap, sector "
+                  "and SEC filings; P/E of a loss-maker counts when shown as n/m.", ""]
         full = sum(1 for s, _, _ in comp.values() if s >= 100)
         lines += [f"{full}/{len(comp)} sampled tickers at 100%.", "",
                   "| ticker | score | missing |", "|---|---|---|"]
