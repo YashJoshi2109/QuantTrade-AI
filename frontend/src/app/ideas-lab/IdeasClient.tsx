@@ -15,7 +15,7 @@ import {
   Sparkles, TrendingUp, TrendingDown, RefreshCw, Activity,
   Target, Shield, Zap, ChevronDown, ChevronUp, BarChart3,
   Clock, Crosshair, AlertTriangle, Layers, ArrowUpRight,
-  ArrowDownRight, Flame, Brain,
+  ArrowDownRight, Flame, Brain, Info,
 } from 'lucide-react'
 import MobileLayout from '@/components/layout/MobileLayout'
 import BottomNav from '@/components/layout/BottomNav'
@@ -28,6 +28,7 @@ import {
   type IndexDefinition, type IndexSnapshot, type RegimeData,
 } from '@/lib/api'
 import { useMarketWebSocket } from '@/lib/websocket'
+import { basketCoverageNote } from '@/lib/basketCoverage'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -781,6 +782,7 @@ function DesktopIdeasLab() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [basketNotice, setBasketNotice] = useState<string | null>(null)
   const [sentiment, setSentiment] = useState<Sentiment>('all')
   const [timeframe, setTimeframe] = useState<Timeframe>('all')
   const [sector, setSector] = useState('All Sectors')
@@ -871,6 +873,7 @@ function DesktopIdeasLab() {
       return
     }
     setError(null)
+    setBasketNotice(null)
     setRefreshingIndex(indexId)
     try {
       const snap = await refreshIndex(indexId, true, true)
@@ -880,6 +883,7 @@ function DesktopIdeasLab() {
       }
       if (snap && Array.isArray(snap.holdings) && snap.holdings.length > 0) {
         setSnapshots(prev => ({ ...prev, [indexId]: snap as IndexSnapshot }))
+        setBasketNotice(basketCoverageNote(snap.data_coverage))
       } else {
         setError('No holdings returned — check market data and database seed.')
       }
@@ -1107,6 +1111,15 @@ function DesktopIdeasLab() {
               <span className="text-xs text-red-300">{error}</span>
             </motion.div>
           )}
+          {basketNotice && !error && (
+            <div
+              role="status"
+              className="flex items-center gap-2 px-4 py-3 mb-6 bg-amber-500/10 border border-amber-500/20 rounded-xl"
+            >
+              <Info className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="text-xs text-amber-200">{basketNotice}</span>
+            </div>
+          )}
 
           {/* ── Tab Content ──────────────────────────── */}
           {/* Use display:none instead of conditional render to prevent remount/progress reset on tab switch */}
@@ -1233,6 +1246,7 @@ function MobileIdeasLab() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [basketNotice, setBasketNotice] = useState<string | null>(null)
   const [sentiment, setSentiment] = useState<Sentiment>('all')
   const isAuthed = typeof window !== 'undefined' && !!getUser()
   const mqc = useQueryClient()
@@ -1296,6 +1310,7 @@ function MobileIdeasLab() {
   const handleRefreshIndex = async (indexId: string) => {
     if (!isAuthed) { setError('Sign in to generate AI baskets'); return }
     setError(null)
+    setBasketNotice(null)
     setRefreshingIndex(indexId)
     try {
       const snap = await refreshIndex(indexId, true, true)
@@ -1305,6 +1320,7 @@ function MobileIdeasLab() {
       }
       if (snap && Array.isArray(snap.holdings) && snap.holdings.length > 0) {
         setSnapshots(prev => ({ ...prev, [indexId]: snap as IndexSnapshot }))
+        setBasketNotice(basketCoverageNote(snap.data_coverage))
       } else {
         setError('No holdings returned — check market data and database seed.')
       }
@@ -1383,6 +1399,12 @@ function MobileIdeasLab() {
           <div className="flex items-center gap-2 px-3 py-2 mb-4 bg-red-500/10 border border-red-500/20 rounded-xl">
             <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
             <span className="text-[11px] text-red-300">{error}</span>
+          </div>
+        )}
+        {basketNotice && !error && (
+          <div role="status" className="flex items-center gap-2 px-3 py-2 mb-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+            <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="text-[11px] text-amber-200">{basketNotice}</span>
           </div>
         )}
 
