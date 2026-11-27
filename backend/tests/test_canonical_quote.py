@@ -179,7 +179,7 @@ def test_cache_service_takes_regular_from_yahoo_when_public_cannot(monkeypatch):
     q = asyncio.run(QuoteCacheService(None)._fetch_quote("AMD"))
     assert q["price"] == 406.03 and q["change_percent"] == pytest.approx(-1.7519, abs=1e-3)
     assert q["extended"]["price"] == 424.0 and q["extended"]["session"] == "overnight"
-    assert "public.com" in q["source"]
+    assert q["source"] == "yahoo_direct (+public.com extended)"
 
 
 def test_legacy_cache_rows_are_a_miss():
