@@ -11,6 +11,11 @@ GET  /api/v1/copilot/health            Qdrant + pinned embedder config (no paid 
 SSE events: intent, context, structured_data (legacy cards), tool, token,
 citation, error, done.  `done` carries per-stage latency, guard usage and —
 when post-checks changed the streamed text — `final_text` to replace it.
+Deep (multi-part) questions also stream `plan` (planned computations and the
+tools discovered for each, re-sent after prefetch with statuses) and
+`progress` ({label, status, tool, step_id}: "Running 10,000 simulations for
+AMZN"); their `done` has `deep: true`, the final `plan`, and the composer's
+postcheck (removed_numbers, missing/added sections, not_executed).
 """
 from __future__ import annotations
 

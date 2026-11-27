@@ -98,6 +98,7 @@ export function citationIdFromHref(href: string | undefined): string | null {
 const KIND_LABEL: Record<string, string> = {
   quote: 'Quote', fundamentals: 'Key stats', statement: 'Financial statement', forecast: 'Forecast',
   technicals: 'Technicals', news: 'News', filing: 'SEC filing', macro: 'Macro (FRED)', movers: 'Market movers',
+  computed: 'Computed',
 }
 
 export function citationKindLabel(kind: string | undefined): string {

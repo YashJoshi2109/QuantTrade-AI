@@ -64,6 +64,73 @@ describe('AssistantAnswer', () => {
   })
 })
 
+describe('AssistantAnswer: deep (institutional) answers', () => {
+  const deepCites: CitationData[] = [
+    { id: 'calc:valuation_dcf:MSFT:ab12cd34', n: 1, kind: 'computed', source: 'DCF engine', label: 'MSFT 3-stage DCF', as_of: '2026-11-24', tool: 'valuation_dcf' },
+    { id: 'calc:filings_disclosures:MSFT:1', n: 2, kind: 'computed', source: 'SEC 10-K notes', label: 'MSFT disclosures', as_of: '2025-07-30', filing_type: '10-K', section: 'Item 8 - Notes', filed_date: '2025-07-30', accession: '0000950170-25-100235' },
+  ]
+  const deepText = [
+    '## Summary', 'Intrinsic value is $431.17 [calc:valuation_dcf:MSFT:ab12cd34].', '',
+    '## Data & Method', 'Three-stage FCFF DCF.', '',
+    '## Results', '| Metric | Value | Source |', '|---|---|---|',
+    '| Value per share | $431.17 | [calc:valuation_dcf:MSFT:ab12cd34] |',
+    '| Peer multiple | n/a (unverified) | - |', '',
+    '## Interpretation', 'Below market.', '',
+    '## Verified facts vs assumptions/interpretation', '- Assumption: terminal growth (parameter).', '',
+    '## Limitations', '- Not executed: Monte Carlo simulation (no tool available).', '',
+    '## Sources', '', '1. [calc:valuation_dcf:MSFT:ab12cd34] MSFT 3-stage DCF — DCF engine; as of 2026-11-24',
+    '', '*Informational only, not financial advice.*',
+  ].join('\n')
+  const deepMsg: CopilotMessageView = {
+    id: 'd1', role: 'assistant', timestamp: new Date(NOW), content: deepText, citations: deepCites,
+    done: {
+      request_id: 'r', conversation_id: 'c', citations: deepCites, deep: true,
+      postcheck: { unverified_numbers: ['18.4x'], removed_numbers: ['18.4x'], mode: 'deep' },
+      plan: { deep: true, tickers: ['MSFT'], steps: [
+        { id: 'S1', label: 'Discounted cash flow valuation', status: 'done', tools: ['valuation_dcf'] },
+        { id: 'S2', label: 'Monte Carlo simulation', status: 'unavailable', tools: [] },
+      ] },
+    },
+  }
+
+  it('renders results as a real table with citation chips and every section visible', () => {
+    render(<AssistantAnswer msg={deepMsg} now={NOW} onCitationClick={() => {}} />)
+    const table = screen.getByRole('table')
+    expect(table.querySelectorAll('tbody tr')).toHaveLength(2)
+    expect(screen.getByRole('columnheader', { name: 'Value' })).toBeTruthy()
+    expect(screen.getByRole('cell', { name: '$431.17' }).className).toContain('cp-num')
+    expect(screen.getAllByRole('button', { name: /^Source 1: Computed/ }).length).toBeGreaterThanOrEqual(2)
+    expect(screen.queryByRole('button', { name: /show details/i })).toBeNull()
+    expect(screen.getByRole('region', { name: 'Verified facts versus assumptions' })).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'Limitations' }).textContent).toContain('Not executed: Monte Carlo simulation')
+    expect(screen.getByText('unverified')).toBeTruthy()
+  })
+
+  it('replaces the text Sources list with the ledger, shows provenance and the plan', () => {
+    render(<AssistantAnswer msg={deepMsg} now={NOW} onCitationClick={() => {}} />)
+    expect(screen.queryByRole('heading', { name: 'Sources' })).toBeNull()
+    expect(screen.getByText(/10-K · Item 8 - Notes · filed 2025-07-30 · accession 0000950170-25-100235/)).toBeTruthy()
+    expect(screen.getByText(/How this was computed: 2 steps/)).toBeTruthy()
+    expect(screen.getByText(/1 not executed/)).toBeTruthy()
+    expect(screen.getByText(/no tool, not executed/)).toBeTruthy()
+  })
+
+  it('shows streamed progress while waiting for the first token', () => {
+    const waiting: CopilotMessageView = {
+      id: 'w', role: 'assistant', timestamp: new Date(NOW), content: '', streaming: true,
+      progress: [
+        { id: 'pf_0', label: 'Fetching 5y statements for AMZN', status: 'running' },
+        { id: 'pf_1', label: 'Running 10,000 simulations for AMZN', status: 'running' },
+        { id: 'pf_0', label: 'fundamentals statements', status: 'done' },
+      ],
+    }
+    render(<AssistantAnswer msg={waiting} now={NOW} statusText="Reading AMZN" onCitationClick={() => {}} />)
+    const list = screen.getByRole('list', { name: 'Analysis steps' })
+    expect(list.textContent).toContain('Fetching 5y statements for AMZN')
+    expect(list.textContent).toContain('Running 10,000 simulations for AMZN…')
+  })
+})
+
 describe('LimitNoticeCard', () => {
   it('explains the daily limit with the reset time', () => {
     render(<LimitNoticeCard notice={classifyCopilotError(429, 'Daily AI token limit reached.')} now={NOW} noticeAt={NOW} resetsInSeconds={8 * 3600 + 49 * 60} />)

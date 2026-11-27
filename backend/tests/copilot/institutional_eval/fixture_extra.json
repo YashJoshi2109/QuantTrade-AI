@@ -1,0 +1,17 @@
+{
+  "_comment": "Extra symbols for the institutional eval, merged into tests/fixtures/copilot_fixture_data.json. Synthetic fixture quotes.",
+  "symbols": [
+    {"symbol": "TSM", "name": "Taiwan Semiconductor Manufacturing Company Limited", "sector": "Technology", "market_cap": 1150000000000},
+    {"symbol": "AVGO", "name": "Broadcom Inc.", "sector": "Technology", "market_cap": 1020000000000},
+    {"symbol": "V", "name": "Visa Inc.", "sector": "Financial Services", "market_cap": 640000000000},
+    {"symbol": "MA", "name": "Mastercard Incorporated", "sector": "Financial Services", "market_cap": 520000000000},
+    {"symbol": "INTC", "name": "Intel Corporation", "sector": "Technology", "market_cap": 98000000000}
+  ],
+  "tickers": {
+    "TSM": {"quote": {"price": 221.85, "change": 1.2, "change_percent": 0.54, "volume": 11200000, "source": "fixture"}},
+    "AVGO": {"quote": {"price": 218.4, "change": -2.1, "change_percent": -0.95, "volume": 20100000, "source": "fixture"}},
+    "V": {"quote": {"price": 330.12, "change": 0.8, "change_percent": 0.24, "volume": 5200000, "source": "fixture"}},
+    "MA": {"quote": {"price": 566.3, "change": 1.9, "change_percent": 0.34, "volume": 2300000, "source": "fixture"}},
+    "INTC": {"quote": {"price": 22.41, "change": -0.31, "change_percent": -1.36, "volume": 61000000, "source": "fixture"}}
+  }
+}

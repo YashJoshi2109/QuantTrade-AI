@@ -858,6 +858,10 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
               const d = data.stocks?.[0] ?? (data as StockAnalysisData)
               if (d.symbol) setAnalysisData(d)
             },
+            // Deep questions: plan + progress of long steps ("Running 10,000 simulations…"),
+            // rendered by AssistantAnswer in both the desktop and mobile variants.
+            onPlan: (plan) => patch(aid, (m) => ({ ...m, plan })),
+            onProgress: (p) => patch(aid, (m) => ({ ...m, progress: [...(m.progress ?? []), p].slice(-200) })),
             onToolCall: () => setStage('data'),
             onToolResult: () => setStage('streaming'),
             onCitation: (c) => patch(aid, (m) => ({ ...m, citations: [...(m.citations ?? []).filter((x) => x.id !== c.id), c] })),

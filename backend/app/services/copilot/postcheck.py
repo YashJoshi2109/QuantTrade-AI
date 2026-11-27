@@ -78,8 +78,10 @@ def fix_citations(text: str, registry: FactRegistry) -> tuple[str, List[str], Li
     return CITE_RE.sub(repl, text), cited, invalid
 
 
-def _value_pool(registry: FactRegistry) -> List[float]:
+def _value_pool(registry: FactRegistry, derived: bool = True) -> List[float]:
     pool = [abs(v) for v in registry.numeric_values() if v is not None]
+    if not derived:                      # strict (deep mode): only values a tool or context gave
+        return pool
     # derived: growth between periods of the same series + percentage-point gaps
     series: Dict[tuple, List[float]] = {}
     pct_vals: List[float] = []
@@ -101,7 +103,7 @@ def _value_pool(registry: FactRegistry) -> List[float]:
     return pool
 
 
-def _matches(n: float, decimals: int, unit: str, pool: Sequence[float]) -> bool:
+def _matches(n: float, decimals: int, unit: str, pool: Sequence[float], rel: float = 0.005) -> bool:
     unit = unit.lower()
     tol_display = 0.5 * 10 ** (-decimals) + 1e-9
     mult = _MULT.get(unit, 1.0)
@@ -114,16 +116,20 @@ def _matches(n: float, decimals: int, unit: str, pool: Sequence[float]) -> bool:
         if unit == "bps":
             cands = [c * 100 for c in cands] + cands
         for c in cands:
-            if abs(target - c) <= max(tol, 0.005 * abs(c)):
+            if abs(target - c) <= max(tol, rel * abs(c)):
                 return True
     return False
 
 
-def ground_numbers(text: str, registry: FactRegistry, question: str = "") -> tuple[str, int, List[str]]:
+def ground_numbers(text: str, registry: FactRegistry, question: str = "",
+                   block_with: Optional[str] = None, strict: bool = False) -> tuple[str, int, List[str]]:
+    """Mark (default) or, with ``block_with``, replace every figure that does not
+    match a context / tool value."""
     masked = CITE_RE.sub(lambda m: " " * len(m.group(0)), text)
     for rx in _MASKS:
         masked = rx.sub(lambda m: " " * len(m.group(0)), masked)
-    pool = _value_pool(registry) + [abs(v) for v in numbers_in_text(question)]
+    pool = _value_pool(registry, derived=not strict) + [abs(v) for v in numbers_in_text(question)]
+    rel = 0.001 if strict else 0.005
     checked = 0
     bad: List[tuple[int, int, str]] = []
     for m in NUM_RE.finditer(masked):
@@ -135,11 +141,14 @@ def ground_numbers(text: str, registry: FactRegistry, question: str = "") -> tup
             if not dec and (n <= 12 or (1990 <= n <= 2100)):
                 continue                                # counts, horizons, years
         checked += 1
-        if not _matches(n, max(0, len(dec) - 1), unit, pool):
+        if not _matches(n, max(0, len(dec) - 1), unit, pool, rel):
             bad.append((m.start(), m.end(), text[m.start():m.end()].strip()))
     out = text
     for start, end, _ in sorted(bad, reverse=True):
-        out = out[:end] + " (unverified)" + out[end:]
+        if block_with is not None:
+            out = out[:start] + block_with + out[end:]
+        else:
+            out = out[:end] + " (unverified)" + out[end:]
     return out, checked, [b[2] for b in bad]
 
 

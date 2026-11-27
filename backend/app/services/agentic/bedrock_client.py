@@ -23,6 +23,9 @@ PREFER_OPENAI=1.  All ids are env-configurable:
   COPILOT_MODEL_FALLBACK    (default us.anthropic.claude-sonnet-4-6)
   COPILOT_MODEL_ANTHROPIC   (default claude-sonnet-5, direct API)
   COPILOT_MODEL_OPENAI      (default gpt-4o)
+  COPILOT_MODEL_DEEP        (optional "provider:model", e.g. "bedrock:us.anthropic.claude-opus-4-1";
+                             tried FIRST for long multi-part questions, then the normal chain)
+  LLM_MAX_TOKENS_DEEP       (output cap for deep answers, default 6144)
 
 Embeddings: ONE pinned model (EMBED_MODEL, default
 ``openai:text-embedding-3-small:1536``; ``bedrock:amazon.titan-embed-text-v2:0:1024``
@@ -443,10 +446,37 @@ def copilot_llm_candidates() -> list[LLMCandidate]:
     return out
 
 
-def build_copilot_llm(candidate: LLMCandidate, max_tokens: int | None = None):
+def copilot_deep_candidates() -> list[LLMCandidate]:
+    """Answer-model chain for deep (multi-part institutional) questions:
+    COPILOT_MODEL_DEEP first when it is configured and its provider is
+    available, then the normal copilot chain.  Unset = same chain."""
+    base = copilot_llm_candidates()
+    raw = os.getenv("COPILOT_MODEL_DEEP", "").strip()
+    provider, _, model = raw.partition(":")
+    if not raw or not model:
+        return base
+    ok = ((provider == "bedrock" and not _flag("PREFER_OPENAI") and _aws_credentials_available()
+           and bedrock_model_available(model))
+          or (provider == "anthropic" and anthropic_configured())
+          or (provider == "openai" and bool(os.getenv("OPENAI_API_KEY"))))
+    if not ok:
+        return base
+    deep = LLMCandidate(provider, model)
+    return [deep] + [c for c in base if c != deep]
+
+
+def deep_max_tokens() -> int:
+    try:
+        return max(_caps()["max_tokens_sonnet"], int(os.getenv("LLM_MAX_TOKENS_DEEP", "6144")))
+    except ValueError:
+        return _caps()["max_tokens_sonnet"]
+
+
+def build_copilot_llm(candidate: LLMCandidate, max_tokens: int | None = None, deep: bool = False):
     """Guarded chat model for one chain entry.  No temperature is sent to
-    Claude: Sonnet 5 rejects sampling parameters."""
-    cap = _caps()["max_tokens_sonnet"]
+    Claude: Sonnet 5 rejects sampling parameters.  ``deep`` raises the output
+    cap to LLM_MAX_TOKENS_DEEP (structured multi-section answers)."""
+    cap = deep_max_tokens() if deep else _caps()["max_tokens_sonnet"]
     mt = min(max_tokens or cap, cap)
     if candidate.provider == "bedrock":
         return _bedrock_llm(candidate.model, None, mt, True)
