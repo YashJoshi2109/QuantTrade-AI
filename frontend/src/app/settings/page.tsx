@@ -16,6 +16,8 @@ import {
   Settings, Fingerprint, Crown, Sparkles, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import SignInPrompt from '@/components/ui/SignInPrompt'
+import { Skeleton } from '@/components/Skeleton'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   createBillingPortalSession,
@@ -188,20 +190,40 @@ function SettingsPageContent() {
     }
   }
 
-  // Auth gate
+  // Auth gate: the same sign-in card every signed-out tab uses.
   if (!authLoading && !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-surface-base flex items-center justify-center py-12 px-4">
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-md px-6">
-          <div className="w-20 h-20 rounded-2xl bg-surface-raised border border-cyan-500/20 flex items-center justify-center mx-auto mb-6">
-            <Lock className="w-8 h-8 text-cyan-500" />
+      <div className="mx-auto max-w-md px-1 py-10 sm:py-14">
+        <h1 className="mb-6 text-2xl font-bold text-fg-primary">Settings</h1>
+        <SignInPrompt
+          icon={Lock}
+          title="Sign in to open settings"
+          description="Profile, passkeys, notification preferences and billing are tied to your account."
+          returnTo="/settings"
+        />
+      </div>
+    )
+  }
+
+  // While the session resolves, hold the layout instead of rendering a
+  // placeholder "Trader" profile that then jumps to the real one.
+  if (authLoading) {
+    return (
+      <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 sm:py-10 space-y-6" aria-busy="true" aria-label="Loading settings">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10 rounded-xl" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-3 w-56" />
           </div>
-          <h2 className="text-2xl font-black text-fg-primary mb-3">Authentication Required</h2>
-          <p className="text-fg-muted mb-8 text-sm leading-relaxed">Sign in to access your settings and personalize your QuantTrade AI experience.</p>
-          <Link href="/auth" className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 text-white font-bold hover:from-cyan-400 hover:to-sky-400 transition-all shadow-lg shadow-cyan-500/25">
-            <LogIn className="w-4 h-4" /> Sign In to Continue
-          </Link>
-        </motion.div>
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="rounded-2xl border border-line-subtle bg-surface-raised p-5 space-y-3">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-10 w-full rounded-xl" />
+            <Skeleton className="h-10 w-full rounded-xl" />
+          </div>
+        ))}
       </div>
     )
   }

@@ -250,25 +250,16 @@ export const QuantTradeIntro: React.FC = () => {
               style={{
                 fontSize: 'clamp(15px, 1.8vw, 22px)',
                 fontWeight: 700,
-                color: '#4ade80',
+                color: '#7dd3fc',
                 letterSpacing: '0.06em',
                 textTransform: 'uppercase' as const,
                 opacity: rallyOpacity,
-                textShadow: '0 0 24px rgba(74, 222, 128, 0.45)',
+                textShadow: '0 0 24px rgba(125, 211, 252, 0.4)',
               }}
             >
-              Markets climbing
-            </div>
-            <div
-              style={{
-                fontSize: 'clamp(22px, 3vw, 34px)',
-                fontWeight: 800,
-                color: '#f8fafc',
-                opacity: rallyOpacity,
-                fontVariantNumeric: 'tabular-nums' as const,
-              }}
-            >
-              +2.48%
+              {/* Decorative splash: no figure here. A percentage would read
+                  as a live market move, and this animation has no data. */}
+              Research · Backtests · Alerts
             </div>
           </div>
         </div>

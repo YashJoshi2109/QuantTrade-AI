@@ -2612,27 +2612,8 @@ html.light .brand-logo {
   .keep-cols.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
 }
 
-/* Mobile segmented control (Apple Stocks feel): muted track, filled pill for
-   the selected segment, no borders or glow. */
-.seg-track {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 9999px;
-  background: var(--surface-overlay);
-}
-.seg-item {
-  flex: 1 1 0%;
-  white-space: nowrap;
-  padding: 6px 14px;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-.seg-item[aria-selected='true'],
-.seg-item[data-active='true'] {
-  background: var(--text-primary);
-  color: var(--surface-base);
+/* text-cyan-100 is near-white; on light surfaces (pricing "on Pro" notices,
+   manage-billing button) it was unreadable. */
+:where(html.light) .text-cyan-100 {
+  color: #0e7490;
 }

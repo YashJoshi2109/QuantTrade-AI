@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import MobileMLOps from '@/components/layout/MobileMLOps'
+import BottomNav from '@/components/layout/BottomNav'
 import MLStatusPanels from '@/components/mlops/MLStatusPanels'
 import { useAuth } from '@/contexts/AuthContext'
 import SignInPrompt from '@/components/ui/SignInPrompt'
@@ -2448,7 +2449,8 @@ function DesktopMLOps() {
   )
 }
 
-export default function MLOpsDashboard() {
+/** Desktop auth gate. MobileMLOps carries its own loading and sign-in states. */
+function DesktopMLOpsGate() {
   const { isAuthenticated, isLoading } = useAuth()
 
   // Signed out, show the shared sign-in card instead of bouncing straight to
@@ -2458,7 +2460,7 @@ export default function MLOpsDashboard() {
       <AppLayout>
         <div className="mx-auto max-w-5xl space-y-4 p-6" aria-busy="true" aria-label="Loading MLOps">
           <Skeleton className="h-8 w-56" />
-          <div className="grid grid-cols-4 gap-3">
+          <div className="keep-cols grid grid-cols-4 gap-3">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
           </div>
           <Skeleton className="h-64 rounded-xl" />
@@ -2470,7 +2472,8 @@ export default function MLOpsDashboard() {
   if (!isAuthenticated) {
     return (
       <AppLayout>
-        <div className="mx-auto max-w-md px-4 py-16">
+        <div className="mx-auto max-w-md px-4 py-12">
+          <h1 className="mb-6 text-2xl font-bold text-fg-primary">MLOps</h1>
           <SignInPrompt
             icon={Lock}
             title="Sign in to open MLOps"
@@ -2482,10 +2485,16 @@ export default function MLOpsDashboard() {
     )
   }
 
+  return <DesktopMLOps />
+}
+
+export default function MLOpsDashboard() {
   return (
     <>
-      <div className="hidden md:block"><DesktopMLOps /></div>
-      <div className="md:hidden"><MobileMLOps /></div>
+      <div className="hidden md:block"><DesktopMLOpsGate /></div>
+      {/* The bottom nav is the phone's way around the app; without it the phone view was
+          a dead end with no way back to the rest of the app. */}
+      <div className="md:hidden"><MobileMLOps /><BottomNav /></div>
     </>
   )
 }
