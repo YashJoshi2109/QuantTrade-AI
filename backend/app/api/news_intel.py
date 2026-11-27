@@ -13,6 +13,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -97,7 +98,7 @@ def _db_health():
 @router.get("/news/health")
 async def news_health():
     from app.services.news_intel import ai_notes
-    from app.services.news_intel.pipeline import ALPACA_KEY, SOURCES_KEY, STATUS_KEY, get_service
+    from app.services.news_intel.pipeline import ALPACA_KEY, SOURCES_KEY, get_service
     from app.services.news_intel.sources import default_pollers
     from app.services.redis_cache_service import cache_service
 
@@ -111,16 +112,25 @@ async def news_health():
     alpaca_connected = bool(svc and svc.alpaca and svc.alpaca.connected)
     ai_used = None
     if redis is not None:
+        # Independent reads: one failure (e.g. a dropped pooled connection)
+        # must not blank the others; the heartbeat read is retried once.
+        from app.services.news_intel.worker_health import read_heartbeat
+        hb = await read_heartbeat(redis)
+        if hb:
+            worker = hb
         try:
-            raw_status = await redis.get(STATUS_KEY)
-            if raw_status:
-                worker = json.loads(raw_status)
             raw = await redis.hgetall(SOURCES_KEY)
             source_state = {k: json.loads(v) for k, v in (raw or {}).items()}
+        except Exception as e:
+            logger.debug("news health sources read failed: %s", e)
+        try:
             alpaca_connected = alpaca_connected or bool(await redis.get(ALPACA_KEY))
+        except Exception as e:
+            logger.debug("news health alpaca read failed: %s", e)
+        try:
             ai_used = await ai_notes.DailyCap(redis=redis).used()
         except Exception as e:
-            logger.debug("news health redis error: %s", e)
+            logger.debug("news health ai cap read failed: %s", e)
     if worker:
         for k, v in (worker.get("sources") or {}).items():
             source_state.setdefault(k, v)
@@ -149,12 +159,17 @@ async def news_health():
             "latency_seconds": (db_stats.get("latency_by_feed") or {}).get(k),
         }
     worker = worker or {}
+    # Alive = a fresh heartbeat (ts < 90s old) or, when the heartbeat is
+    # missing, a newly ingested item in the last 15 min (see worker_health).
+    from app.services.news_intel import worker_health
+    newest = db_stats.get("newest_ingested_at")
+    worker_alive = worker_health.alive(worker, newest.timestamp() if newest else None, time.time())
     return {
         "sources": sources,
         "items_24h": db_stats.get("items_24h"),
         "latency_seconds": db_stats.get("latency_seconds", {}),
         "alpaca_connected": alpaca_connected,
-        "worker_alive": bool(worker),
+        "worker_alive": worker_alive,
         "worker_last_seen": worker.get("ts"),
         "ingesting": bool(worker.get("is_leader")),
         "queue_depth": worker.get("queue_depth"),

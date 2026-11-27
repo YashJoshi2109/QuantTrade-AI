@@ -243,11 +243,14 @@ async def _spot_price(symbol: str) -> Optional[float]:
         from app.db.database import SessionLocal
         from app.services.quote_cache import QuoteCacheService
 
-        db = SessionLocal()
+        # No DB configured: QuoteCacheService still runs the canonical
+        # provider chain without the cache (it accepts db=None).
+        db = SessionLocal() if SessionLocal is not None else None
         try:
             quote = await QuoteCacheService(db).get_quote(symbol)
         finally:
-            db.close()
+            if db is not None:
+                db.close()
         price = _safe_float((quote or {}).get("price"))
         if price and price > 0:
             return price

@@ -39,6 +39,41 @@ from app.config import settings
 from app.services.canonical_quote import QUOTE_VERSION, canonicalize
 
 
+# Outcome of recent live fetches (all symbols, this process) for the status page.
+_PIPELINE_RECENT: "collections.deque" = None  # type: ignore[assignment]
+_PIPELINE_LOCK = threading.Lock()
+
+
+def _pipeline_record(ok: bool, source: Optional[str], latency_ms: float) -> None:
+    global _PIPELINE_RECENT
+    import collections
+    import time as _t
+    with _PIPELINE_LOCK:
+        if _PIPELINE_RECENT is None:
+            _PIPELINE_RECENT = collections.deque(maxlen=200)
+        _PIPELINE_RECENT.append((_t.time(), ok, source, latency_ms))
+
+
+def pipeline_stats(window: int = 50) -> Dict[str, Any]:
+    """Recent live-fetch outcomes: success count, providers that answered, p50."""
+    with _PIPELINE_LOCK:
+        rows = list(_PIPELINE_RECENT or [])
+    recent = rows[-window:]
+    sources: Dict[str, int] = {}
+    for _, ok, src, _ms in rows:
+        if ok and src:
+            sources[src] = sources.get(src, 0) + 1
+    lat = sorted(r[3] for r in recent if r[1])
+    oks = [r[0] for r in rows if r[1]]
+    return {
+        "recent_n": len(recent),
+        "recent_ok": sum(1 for r in recent if r[1]),
+        "sources": dict(sorted(sources.items(), key=lambda kv: -kv[1])),
+        "p50_ms": round(lat[len(lat) // 2], 1) if lat else None,
+        "last_ok_at": oks[-1] if oks else None,
+    }
+
+
 def _canonical_or_none(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Cached payload in the canonical contract, or None when it cannot be."""
     if data.get('quote_version') == QUOTE_VERSION:
@@ -440,6 +475,19 @@ class QuoteCacheService:
             return None
 
     async def _fetch_quote(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Live fetch through the provider chain, recording the outcome for
+        /api/v1/system/status (which provider answered, success rate, latency)."""
+        import time as _t
+        t0 = _t.perf_counter()
+        quote = None
+        try:
+            quote = await self._fetch_quote_chain(symbol)
+            return quote
+        finally:
+            ok = bool(quote and quote.get('price'))
+            _pipeline_record(ok, (quote or {}).get('data_source') if ok else None, (_t.perf_counter() - t0) * 1000)
+
+    async def _fetch_quote_chain(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
         Fetch quote from providers with multiple fallbacks
 
@@ -602,8 +650,8 @@ class QuoteCacheService:
         """
         symbol = symbol.upper().strip()
         
-        # Check cache first (unless force refresh)
-        if not force_refresh:
+        # Check cache first (unless force refresh). db=None = no cache (no DB configured).
+        if not force_refresh and self.db is not None:
             data = (await self._db(self._get_cached_quotes_bulk, [symbol])).get(symbol)
             if data:
                 return data
@@ -613,7 +661,8 @@ class QuoteCacheService:
         
         if quote:
             ttl = self._get_current_ttl()
-            await self._db(self._update_cache, symbol, quote, ttl)
+            if self.db is not None:
+                await self._db(self._update_cache, symbol, quote, ttl)
             quote['cached'] = False
             return quote
         

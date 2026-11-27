@@ -35,7 +35,7 @@ import {
   CalendarDays,
   Coins,
 } from 'lucide-react'
-import ApiStatsMonitor from './ApiStatsMonitor'
+import SystemStatusPill from './status/SystemStatusPill'
 import UnifiedNotificationCenter from './UnifiedNotificationCenter'
 import MarketTicker from './MarketTicker'
 import SiteFooter from './SiteFooter'
@@ -300,7 +300,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
         <MarketTicker />
       </div>
 
-      {/* Fixed Header — md:top-11 clears ticker a bit more so the alert bell badge does not crowd API usage chip */}
+      {/* Fixed Header — md:top-11 clears the ticker so the alert bell badge does not crowd the status pill */}
       <header className="fixed top-0 md:top-11 left-0 right-0 h-14 z-50">
         <div className="absolute inset-0 bg-surface-raised/90 backdrop-blur-xl border-b border-line-subtle" />
         <div className="relative h-full flex items-center px-4 md:px-6 gap-2 md:gap-4 md:pt-1">
@@ -417,9 +417,8 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
 
           {/* Actions — extra gap before bell so badge does not overlap API chip */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 md:ml-1">
-            <div className="shrink-0 max-w-[min(8rem,28vw)]">
-              <ApiStatsMonitor compact={true} />
-            </div>
+            {/* Live status of every dependency (desktop popover / mobile bottom sheet) */}
+            <SystemStatusPill className="shrink-0" />
             <MarketStatusIndicator compact={true} />
             {/* Live visitors removed — not providing real-time data */}
             <HeaderTooltip
