@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 
 from app.services.outlook import earnings_moves, hedge as hedge_math, options_math as om, scenario as sc
 from app.services.redis_cache_service import cache_service
+from app.services.ticker_lifecycle import is_retired
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -350,7 +351,7 @@ async def event_calendar(
     syms = []
     for raw in symbols.split(","):
         s = raw.strip().upper()
-        if s and SYMBOL_RE.match(s) and s not in syms:
+        if s and SYMBOL_RE.match(s) and s not in syms and not is_retired(s):
             syms.append(s)
     syms = syms[:12]
     if not syms:

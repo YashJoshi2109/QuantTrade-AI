@@ -129,6 +129,8 @@ def frequency_from_dates(ex_dates: List[date]) -> Optional[int]:
 # ── calendar ─────────────────────────────────────────────────────────────────
 
 def parse_nasdaq_dividends(payload: Any) -> List[dict]:
+    from app.services.ticker_lifecycle import is_retired
+
     data = payload.get("data") if isinstance(payload, dict) else None
     cal = data.get("calendar") if isinstance(data, dict) else None
     rows = cal.get("rows") if isinstance(cal, dict) else None
@@ -138,7 +140,7 @@ def parse_nasdaq_dividends(payload: Any) -> List[dict]:
             continue
         sym = str(r.get("symbol") or "").strip().upper()
         ex = _us_date(r.get("dividend_Ex_Date"))
-        if not sym or not ex:
+        if not sym or not ex or is_retired(sym):
             continue
         amount = _finite(r.get("dividend_Rate"))
         annual = _finite(r.get("indicated_Annual_Dividend"))

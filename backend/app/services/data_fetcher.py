@@ -206,6 +206,7 @@ class DataFetcher:
                 "Volume": "volume"
             }, inplace=True)
 
+            df = DataFetcher._fill_null_bars_from_sip(symbol, df)
             print(f"Fetched {len(df)} bars for {symbol} via yfinance")
             return df
         except Exception as e:
@@ -219,6 +220,33 @@ class DataFetcher:
                 print(f"Fetched {len(df)} bars for {symbol} via Alpha Vantage")
             return df
     
+    @staticmethod
+    def _fill_null_bars_from_sip(symbol: str, df: pd.DataFrame) -> pd.DataFrame:
+        """Replace sessions yfinance returned without prices (PARA 2026-11-23:
+        all-NaN row around an unadjusted reverse split) with Alpaca SIP daily
+        bars, then drop whatever is still unusable and fill o/h/l from close."""
+        from app.services.bar_hygiene import clean_ohlcv_df, sip_bars_by_date
+
+        if df is None or df.empty or "close" not in df.columns:
+            return df
+        close = pd.to_numeric(df["close"], errors="coerce")
+        bad = df.index[close.isna() | (close <= 0)]
+        if len(bad):
+            try:
+                first = pd.Timestamp(df.loc[bad, "timestamp"].min())
+                days = min(3 * 365, max(14, (pd.Timestamp.utcnow().tz_localize(None) - first.tz_localize(None)).days + 5))
+                sip = sip_bars_by_date(symbol, days)
+                for i in bad:
+                    d = pd.Timestamp(df.at[i, "timestamp"]).date()
+                    if d in sip:
+                        o, h, l, c, v = sip[d]
+                        df.loc[i, ["open", "high", "low", "close", "volume"]] = [o, h, l, c, v]
+                if sip:
+                    print(f"{symbol}: filled null yfinance bars from Alpaca SIP where available")
+            except Exception as e:
+                print(f"{symbol}: SIP fill for null bars failed: {e}")
+        return clean_ohlcv_df(df)
+
     @staticmethod
     def sync_symbol_to_db(db: Session, symbol: str) -> Symbol:
         """Sync symbol information to database.
@@ -259,7 +287,9 @@ class DataFetcher:
         
         # Fetch data
         df = DataFetcher.fetch_historical_data(symbol, start_date, end_date)
-        
+        from app.services.bar_hygiene import clean_ohlcv_df
+        df = clean_ohlcv_df(df) if df is not None else pd.DataFrame()
+
         if df.empty:
             print(f"No data returned for {symbol}")
             return 0
@@ -297,6 +327,9 @@ class DataFetcher:
             
             if ts_date > closed_through:
                 continue  # session still open: bar is not final yet
+            from app.services.bar_hygiene import finite_pos
+            if finite_pos(row.get("close")) is None:
+                continue  # never store a bar without a close
 
             if ts_date in existing_timestamps:
                 # Rewrite the newest stored bar: it may have been saved partial

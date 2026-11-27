@@ -83,13 +83,13 @@ class TickerCorrelationEngine:
         "TWN": ["TSM", "NVDA", "AAPL", "AMD", "AVGO"],  # Taiwan (semiconductors)
         "JPN": ["SONY", "TM", "MUFG", "NTDOY"],  # Japan
         "KOR": ["SSNLF", "AAPL", "NVDA"],  # South Korea
-        "DEU": ["BMW", "VLKAY", "SAP", "SIEGY"],  # Germany
-        "GBR": ["HSBC", "BP", "RDS.A", "ULVR"],  # UK
-        "FRA": ["LVMUY", "TOT", "SAN"],  # France
+        "DEU": ["BMWYY", "VWAGY", "SAP", "SIEGY"],  # Germany
+        "GBR": ["HSBC", "BP", "SHEL", "UL"],  # UK
+        "FRA": ["LVMUY", "TTE", "SAN"],  # France
         "MEX": ["TSLA", "GM", "F", "KO"],  # Mexico (manufacturing)
         "BRA": ["VALE", "PBR", "ITUB"],  # Brazil
         "IND": ["INFY", "WIT", "HDB"],  # India
-        "RUS": ["GAZP", "LUKOY", "XLE"],  # Russia (energy)
+        "RUS": ["XLE"],  # Russia (energy)
         "SAU": ["XLE", "CVX", "XOM"],  # Saudi Arabia (oil)
         "ARE": ["XLE", "BA"],  # UAE
         "ISR": ["INTC", "NVDA", "GOOG"],  # Israel (tech)
@@ -355,7 +355,7 @@ class TickerCorrelationEngine:
             "Retail": ["WMT", "AMZN", "HD", "COST", "TGT"],
             "Consumer": ["PG", "KO", "PEP", "WMT", "COST"],
             "Technology": ["AAPL", "MSFT", "GOOGL", "META", "NVDA"],
-            "Cybersecurity": ["CRWD", "PANW", "ZS", "FTNT", "CYBR"],
+            "Cybersecurity": ["CRWD", "PANW", "ZS", "FTNT", "OKTA"],
             "Financial": ["JPM", "BAC", "WFC", "C", "GS"],
             "Healthcare": ["UNH", "JNJ", "PFE", "ABBV", "TMO"],
             "Agriculture": ["ADM", "BG", "DE", "CTVA", "FMC"],

@@ -512,6 +512,11 @@ jobs:
               python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/create_report_results_table.py', run_name='__main__')" \
               || echo "⚠️ report_results migration failed — run scripts/create_report_results_table.py manually"
 
+            echo "🧱 Applying DB migration symbols lifecycle columns + retired tickers (if missing)..."
+            docker compose -f docker-compose.prod.yml exec -T backend \
+              python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/add_symbol_lifecycle_columns.py', run_name='__main__')" \
+              || echo "⚠️ symbols lifecycle migration failed — run scripts/add_symbol_lifecycle_columns.py manually"
+
             # ===== POST-DEPLOY CLEANUP =====
             echo "🧹 Post-deploy cleanup..."
             docker image prune -af || true

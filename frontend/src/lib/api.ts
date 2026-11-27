@@ -1040,6 +1040,10 @@ export interface FundamentalsData {
   earnings_date?: string
   target_price?: number
   recommendation?: string
+  /** Per-field provenance from the backend sanity layer (implausible / derived / n/m / n/a). */
+  field_notes?: import('./fundamentalSanity').FieldNotes
+  data_quality?: 'ok' | 'limited' | 'none'
+  dividend_yield?: number
 }
 
 // Fetch quote from Finnhub with priority parameter

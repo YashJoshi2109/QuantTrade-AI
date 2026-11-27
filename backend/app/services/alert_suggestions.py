@@ -28,6 +28,7 @@ from datetime import date
 from typing import Dict, Iterable, List, Optional, Sequence
 
 from app.services.price_alert_service import CONDITIONS, EARNINGS_CONDITION, is_met
+from app.services.ticker_lifecycle import is_retired
 
 MIN_GAP_PCT = 0.5          # a price level is at least this far from the last price
 NEAR_52W_PCT = 3.0         # "near" the 52-week high / low
@@ -436,7 +437,7 @@ def finalize(candidates: Iterable[Suggestion], existing: Iterable[dict], limit: 
     }
     best: Dict[tuple, Suggestion] = {}
     for s in candidates:
-        if s.condition not in CONDITIONS or s.source not in SOURCE_BASE:
+        if s.condition not in CONDITIONS or s.source not in SOURCE_BASE or is_retired(s.symbol):
             continue
         spec = CONDITIONS[s.condition]
         if not (spec.min_threshold <= s.threshold <= spec.max_threshold):

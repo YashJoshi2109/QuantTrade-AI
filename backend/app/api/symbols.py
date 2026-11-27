@@ -138,6 +138,11 @@ def _fresh_market_caps(db: Session, symbols: List[str]) -> dict:
 
 
 def _with_fresh_caps(db: Session, results: List[SearchResultResponse]) -> List[SearchResultResponse]:
+    # Retired tickers (renamed / acquired / delisted) are not suggested; a
+    # direct /research?symbol=SQ still works and shows the successor banner.
+    from app.services.ticker_lifecycle import drop_inactive
+
+    results = drop_inactive(results, key=lambda r: r.symbol, db=db)
     caps = _fresh_market_caps(db, [r.symbol for r in results])
     for r in results:
         r.market_cap = caps.get(r.symbol.upper())

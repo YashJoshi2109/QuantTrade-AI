@@ -14,7 +14,7 @@ CURATED_UNIVERSE: Dict[str, List[str]] = {
     "Technology": [
         "AAPL", "MSFT", "NVDA", "GOOGL", "META", "AMZN", "TSM", "AVGO",
         "ORCL", "CRM", "AMD", "ADBE", "INTC", "CSCO", "NOW", "UBER",
-        "SHOP", "SQ", "PLTR", "SNOW", "NET", "CRWD", "DDOG", "MDB",
+        "SHOP", "XYZ", "PLTR", "SNOW", "NET", "CRWD", "DDOG", "MDB",
         "PANW", "FTNT",
     ],
     "Healthcare": [
@@ -25,7 +25,7 @@ CURATED_UNIVERSE: Dict[str, List[str]] = {
     "Financials": [
         "JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "BLK", "SCHW",
         "AXP", "C", "USB", "PNC", "TFC", "ICE", "CME", "SPGI",
-        "MCO", "AON", "MMC", "CB", "MET", "AIG", "PRU",
+        "MCO", "AON", "MRSH", "CB", "MET", "AIG", "PRU",
     ],
     "Consumer": [
         "TSLA", "WMT", "COST", "HD", "PG", "KO", "PEP", "MCD",
@@ -33,8 +33,8 @@ CURATED_UNIVERSE: Dict[str, List[str]] = {
         "EL", "CL", "YUM", "CMG", "DHR", "ABNB", "BKNG", "MAR",
     ],
     "Energy": [
-        "XOM", "CVX", "COP", "EOG", "SLB", "PXD", "MPC", "PSX",
-        "VLO", "OXY", "HAL", "DVN", "FANG", "HES", "BKR", "KMI",
+        "XOM", "CVX", "COP", "EOG", "SLB", "MPC", "PSX",
+        "VLO", "OXY", "HAL", "DVN", "FANG", "BKR", "KMI",
     ],
     "Industrials": [
         "CAT", "BA", "HON", "GE", "UNP", "RTX", "DE", "LMT",
@@ -58,10 +58,14 @@ CURATED_UNIVERSE: Dict[str, List[str]] = {
 
 def get_full_universe() -> List[str]:
     """Return flat list of all tickers in the curated universe."""
+    from app.services.ticker_lifecycle import drop_inactive, filter_curated
+
     tickers = []
     for sector_tickers in CURATED_UNIVERSE.values():
         tickers.extend(sector_tickers)
-    return list(set(tickers))
+    # Retired/reused names never reach the basket scan (yfinance logged
+    # "SQ, PXD, HES, MMC: No data found" every run), nor DB-retired ones.
+    return drop_inactive(filter_curated(sorted(set(tickers))))
 
 
 def get_sector_for_ticker(ticker: str) -> str:

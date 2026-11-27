@@ -8,7 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion'
  * Thin indeterminate bar while any query is actively fetching (avoids flash on sub-200ms requests).
  */
 export default function GlobalDataLoadingBar() {
-  const fetching = useIsFetching({ fetchStatus: 'fetching' })
+  // Background polls (meta.background, e.g. the 1 s system-status poll) never show the bar.
+  const fetching = useIsFetching({ fetchStatus: 'fetching', predicate: (q) => !q.meta?.background })
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {

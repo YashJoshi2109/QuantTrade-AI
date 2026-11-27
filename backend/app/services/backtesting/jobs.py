@@ -26,6 +26,7 @@ import os
 import threading
 import time
 import uuid
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional
@@ -229,6 +230,8 @@ class JobManager:
         self._lock = threading.Lock()
         self.budget_s = budget_s
         self.store = store if store is not None else default_store()
+        # Finished-job outcomes for the status page (kept past _gc).
+        self._history: deque = deque(maxlen=20)
 
     def _persist(self, job: Job) -> None:
         try:
@@ -272,6 +275,7 @@ class JobManager:
         def progress(stage: str, frac: float):
             job.stage, job.progress = stage, max(job.progress, min(1.0, frac))
 
+        internal_error = False
         try:
             job.result = fn(progress, deadline, lambda: job.cancel)
             job.status, job.progress = "done", 1.0
@@ -287,8 +291,12 @@ class JobManager:
             else:
                 logger.exception("backtest job failed")
                 job.status, job.error = "error", "Backtest failed"
+                internal_error = True
         finally:
             job.finished = time.time()
+            self._history.append({"status": "failed" if internal_error else job.status, "kind": job.kind,
+                                  "finished": job.finished,
+                                  "duration_s": job.finished - job.started if job.started else None})
             self._persist(job)
 
     def get(self, job_id: str, owner: str) -> Optional[Job]:
@@ -345,6 +353,21 @@ class JobManager:
                 j.status, j.finished, j.error = "cancelled", time.time(), "Cancelled"
                 self._persist(j)
         return j
+
+    def stats(self) -> dict:
+        """Queue depth and the most recent finished job (system status page)."""
+        with self._lock:
+            jobs = list(self._jobs.values())
+        hist = list(self._history)
+        done = [h for h in hist if h["status"] == "done"]
+        return {
+            "queued": sum(1 for j in jobs if j.status == "queued"),
+            "running": sum(1 for j in jobs if j.status == "running"),
+            # "failed" = the runner crashed; "error" = invalid input (user error)
+            "recent_statuses": [h["status"] for h in hist[-10:]],
+            "last": dict(hist[-1]) if hist else None,
+            "last_done_at": done[-1]["finished"] if done else None,
+        }
 
 
 manager = JobManager()

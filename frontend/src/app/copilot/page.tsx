@@ -58,6 +58,7 @@ import CopilotComposer from '@/components/copilot/CopilotComposer'
 import CopilotEmptyState from '@/components/copilot/CopilotEmptyState'
 import CopilotHistoryPanel from '@/components/copilot/CopilotHistoryPanel'
 import CopilotUsageMeter from '@/components/copilot/CopilotUsageMeter'
+import CopilotLlmBanner from '@/components/status/CopilotLlmBanner'
 import {
   AssistantAnswer,
   LimitNoticeCard,
@@ -1121,6 +1122,7 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
             </button>
           </div>
         </header>
+        <CopilotLlmBanner />
 
         <div ref={scrollRef} className="cp-scroll min-h-0 flex-1 overflow-y-auto [overflow-anchor:auto]">
           <div className={cn('mx-auto w-full max-w-[46rem] px-4', isMobile ? 'pb-6 pt-4' : 'pb-10 pt-6 sm:px-6')}>
@@ -1266,6 +1268,9 @@ export default function CopilotPage() {
       <AppLayout>
         <div className="cp-scope flex min-h-[70vh] items-center justify-center px-4">
           <div className="w-full max-w-md rounded-2xl border border-[var(--cp-line)] bg-[var(--cp-panel)] p-8 shadow-[var(--cp-shadow)]">
+            <div className="-mx-8 -mt-8 mb-6 overflow-hidden rounded-t-2xl empty:hidden">
+              <CopilotLlmBanner />
+            </div>
             <h2 className="cp-serif text-[1.75rem] font-semibold leading-tight text-[var(--cp-ink)]">Ask about any US stock.</h2>
             <p className="mt-3 text-[15px] leading-relaxed text-[var(--cp-ink-2)]">
               Copilot answers questions about US stocks and cites its sources: filings, financial statements, quotes and news, each with a date.

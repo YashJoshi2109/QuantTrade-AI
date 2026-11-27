@@ -78,7 +78,9 @@ PUBLIC_MARKET_PREFIXES: Tuple[str, ...] = (
     "/api/v1/news/feed",
 )
 
-EXEMPT_PATHS = frozenset({"/health", "/health/ready", "/", "/docs", "/openapi.json"})
+# /api/v1/system/status is polled every second by every open tab; it is served
+# from an in-memory snapshot and micro-cached by nginx, so it is exempt.
+EXEMPT_PATHS = frozenset({"/health", "/health/ready", "/", "/docs", "/openapi.json", "/api/v1/system/status"})
 
 
 def _parse_networks(cidrs: Iterable[str]) -> List[IPNetwork]:

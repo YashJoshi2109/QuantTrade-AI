@@ -37,6 +37,7 @@ from app.services.forecasting.evaluation import EVAL_VERSION
 from app.services.forecasting.models import STATE_VERSION
 from app.services.forecasting.summary import summarize_forecast
 from app.services.model_status import EXPERIMENTAL_LABEL, annotate_forecast
+from app.services import provider_meter
 from app.services.redis_cache_service import cache_service
 
 logger = logging.getLogger(__name__)
@@ -171,8 +172,42 @@ def _compute(ticker: str, evaluation: Optional[dict], state: Optional[dict] = No
         return _compute_unlimited(ticker, evaluation, state)
 
 
+def forecast_history_problem(ticker: str, closes: pd.Series) -> Optional[str]:
+    """Why a series must not be forecast, or None when it is usable.
+
+    PARA (2026-11-27) was forecast from a series that jumped $0.03 -> $3.04
+    overnight (unadjusted reverse split on a reassigned ticker): 479.8%
+    annualised vol and a 3-month range of $0.03-$253. Refuse instead.
+    """
+    from app.services.bar_hygiene import SPLIT_JUMP_RATIO, split_breaks
+    from app.services.ticker_lifecycle import REUSED, retirement
+
+    r = retirement(ticker)
+    if r is not None and r.inactive:
+        succ = f" Its successor trades as {r.successor}." if r.successor else ""
+        return f"{ticker} no longer trades ({r.note}).{succ} No forecast is produced."
+    if r is not None and r.kind == REUSED:
+        return (f"{ticker} was reassigned to {r.current_name or 'a different company'}, so its price history "
+                "mixes two issuers. No forecast is produced until it has enough clean history of its own.")
+    window = closes.iloc[-HISTORY_DAYS:]
+    breaks = split_breaks(list(window.astype(float)))
+    if breaks:
+        i = breaks[-1]
+        when = str(window.index[i])[:10]
+        ratio = float(window.iloc[i]) / float(window.iloc[i - 1])
+        move = f"{ratio:.1f}x" if ratio >= 1 else f"1/{1 / ratio:.1f}x"
+        return (f"{ticker}'s daily closes jump {move} on {when} (more than {SPLIT_JUMP_RATIO:g}x in one session): "
+                "most likely an unadjusted split or ticker change. A forecast fitted across that jump would be "
+                "meaningless, so none is produced.")
+    return None
+
+
 def _compute_unlimited(ticker: str, evaluation: Optional[dict], state: Optional[dict] = None) -> dict:
     closes = _load_closes(ticker)
+    closes = closes[pd.to_numeric(closes, errors="coerce") > 0]
+    problem = forecast_history_problem(ticker, closes)
+    if problem:
+        raise ValueError(problem)
     if len(closes) < MIN_HISTORY:
         raise ValueError(
             f"{ticker} has {len(closes)} daily closes; forecasting needs at least {MIN_HISTORY} "
@@ -218,8 +253,19 @@ async def _get_or_compute(t: str, refresh: bool = False) -> dict:
                 return cached
         evaluation = await cache_service.get(_eval_key(t))
         state = await cache_service.get(_state_key(t))
-        result = await asyncio.wait_for(asyncio.to_thread(_compute, t, evaluation, state),
-                                        timeout=_REQUEST_TIMEOUT_S)
+        t0 = time.perf_counter()
+        try:
+            result = await asyncio.wait_for(asyncio.to_thread(_compute, t, evaluation, state),
+                                            timeout=_REQUEST_TIMEOUT_S)
+        except ValueError:
+            # Short / missing history for this ticker: the service worked.
+            provider_meter.meter.record("forecast_compute", True, (time.perf_counter() - t0) * 1000)
+            raise
+        except Exception as e:
+            provider_meter.meter.record("forecast_compute", False, (time.perf_counter() - t0) * 1000,
+                                        error=type(e).__name__)
+            raise
+        provider_meter.meter.record("forecast_compute", True, (time.perf_counter() - t0) * 1000)
         ev = result.pop("_evaluation", None)
         new_state = result.pop("_state", None)
         if new_state is not None:
