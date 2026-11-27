@@ -149,6 +149,30 @@ def test_record_is_not_ready_unless_every_rerun_passes():
     assert rec["deployed"] is False   # passing research never deploys by itself
 
 
+def test_ic_gate_is_mandatory_for_robust():
+    """8/10 reached through portfolio construction alone (no IC) is not a signal."""
+    m = _fake_summary({})
+    m["mean_ic"] = 0.001
+    m["gate"] = p9.evaluate_gate(m)
+    assert m["gate"]["checks"]["mean_wf_ic_gt_threshold"] is False
+    assert not g.mandatory_ok(m)
+    meta = {"generated_at": "2026-11-27T00:00:00", "source": "panel", "n_symbols": 1, "date_min": "a",
+            "date_max": "b", "ohlcv_sha256_16": "x", "n_variants_tested": 1}
+    rob = {"n_runs": 9, "min_gates": 8, "max_gates": 9, "median_gates": 8, "runs_passing": 9, "all_pass": True}
+    if m["gate"]["n_passed"] >= 8:
+        assert g.registry_record(m, rob, None, [m], meta)["robust"] is False
+
+
+def test_robustness_skips_reruns_when_primary_fails_ic():
+    m = _fake_summary({})
+    m["mean_ic"] = -0.002
+    m["gate"] = p9.evaluate_gate(m)
+    plan = {"seed_sets": [(42, 43, 44), (1, 2, 3)], "fold_offsets": [0, 21]}
+    rob = g.robustness(g.V2Spec("v", ()), None, None, {}, None, g.WFConfig(), "phase5", m, plan)
+    assert rob["n_runs"] == 1 and rob["n_planned"] == 4
+    assert rob["all_pass"] is False and "IC" in rob["skipped_reason"]
+
+
 def test_gate_thresholds_unchanged():
     assert p9.GATE_THRESHOLDS == {
         "promo_min_ic": 0.03, "promo_min_ic_hit_rate": 0.55, "promo_max_symbol_freq": 0.40,
@@ -180,7 +204,10 @@ def test_pipeline_smoke_end_to_end(tmp_path):
     for name in ("gate_report.md", "gate_run.json", "registry_record.json"):
         assert (out / name).exists()
     rec = json.loads((out / "registry_record.json").read_text())
-    assert rec["robustness"]["n_runs"] == 4
+    rob = rec["robustness"]
+    # re-runs only happen when the primary run could still be robust
+    assert rob["n_planned"] == 4
+    assert rob["n_runs"] == (4 if rob["skipped_reason"] is None else 1)
     assert rec["verdict"] in ("READY", "NOT_READY")
     assert rec["deployed"] is False
     assert len(rec["scorecard"]) == 10

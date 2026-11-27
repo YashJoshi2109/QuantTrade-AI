@@ -428,40 +428,83 @@ ROBUSTNESS = {   # (bag seeds or legacy seed, fold offset in trading days)
 }
 
 
-def _run_one(spec: V2Spec, panel, raw_panel, sectors, spy, cfg: WFConfig, portfolio_rule: str) -> tuple[dict, p9.VariantRun]:
-    if spec.legacy_phase9:
-        run = run_legacy(raw_panel, sectors, cfg, seed=spec.bag_seeds[0] if spec.bag_seeds != (42, 43, 44) else 42)
-        # Phase 9 portfolio used equal weights; keep the legacy preds' vol column absent
-    else:
-        run = run_v2_variant(panel, spec, sectors, cfg)
-    return summarize_v2(run, spec, spy, sectors, portfolio_rule), run
+# Conditions that must hold on EVERY robustness run, on top of 8/10. A model
+# whose predictions carry no cross-sectional information (IC) can still reach
+# 8/10 through portfolio construction alone (low-vol tilt, sector caps); that
+# is not a forecasting signal, so the IC gate is mandatory for "robust".
+MANDATORY_CHECKS = ("mean_wf_ic_gt_threshold",)
+
+
+def _model_key(spec: V2Spec, cfg: WFConfig) -> tuple:
+    """Variants that differ only in portfolio weighting share predictions."""
+    return (spec.legacy_phase9, spec.features, spec.target, spec.bag_seeds, spec.sec_lag_days,
+            cfg.train_min, cfg.test_days, cfg.step, cfg.embargo, cfg.fold_offset, cfg.n_estimators)
+
+
+def _run_one(spec: V2Spec, panel, raw_panel, sectors, spy, cfg: WFConfig, portfolio_rule: str,
+             top_k: int = p9.TOP_K, cache: Optional[dict] = None) -> tuple[dict, p9.VariantRun]:
+    key = _model_key(spec, cfg)
+    run = cache.get(key) if cache is not None else None
+    if run is None:
+        if spec.legacy_phase9:
+            # Phase 9 used one LightGBM with seed 42 and equal weights
+            run = run_legacy(raw_panel, sectors, cfg,
+                             seed=42 if spec.bag_seeds == (42, 43, 44) else spec.bag_seeds[0])
+        else:
+            run = run_v2_variant(panel, spec, sectors, cfg)
+        if cache is not None:
+            cache[key] = run
+    return summarize_v2(run, spec, spy, sectors, portfolio_rule, top_k=top_k), run
+
+
+def mandatory_ok(s: dict) -> bool:
+    checks = s.get("gate", {}).get("checks", {})
+    return all(bool(checks.get(k)) for k in MANDATORY_CHECKS)
 
 
 def robustness(spec: V2Spec, panel, raw_panel, sectors, spy, cfg: WFConfig, portfolio_rule: str,
                primary: dict, plan: dict = ROBUSTNESS,
-               progress: Optional[Callable[[str], None]] = None) -> dict:
-    runs = []
-    for seeds in plan["seed_sets"]:
-        for off in plan["fold_offsets"]:
-            if tuple(seeds) == tuple(plan["seed_sets"][0]) and off == 0:
-                s = primary
-            else:
-                sp = replace(spec, bag_seeds=tuple(seeds))
-                s, _ = _run_one(sp, panel, raw_panel, sectors, spy, replace(cfg, fold_offset=off), portfolio_rule)
-            b = s["backtest"]
-            row = {"seeds": list(seeds), "fold_offset": off, "gates_passed": s["gate"]["n_passed"],
-                   "mean_ic": s["mean_ic"], "ic_tstat": s["ic_tstat_nonoverlap"],
-                   "cum_return": b.get("cumulative_return"), "sharpe": b.get("sharpe"),
-                   "max_drawdown": b.get("max_drawdown"), "spy_max_drawdown": b.get("spy_max_drawdown"),
-                   "failed": [p9.GATE_LABELS[k] for k, v in s["gate"].get("checks", {}).items() if not v]}
-            runs.append(row)
-            if progress:
-                progress(f"  robustness seeds={seeds} offset={off}: {row['gates_passed']}/10 IC={row['mean_ic']:+.4f}")
-    passed = [r["gates_passed"] for r in runs]
+               progress: Optional[Callable[[str], None]] = None, top_k: int = p9.TOP_K) -> dict:
+    """Re-run *spec* over seed sets x fold offsets. If the primary run already
+    fails a mandatory check (or 8/10) the variant cannot be robust, so the
+    re-runs are skipped and the record says so."""
     req = p9.GATE_THRESHOLDS["promote_threshold"]
-    return {"runs": runs, "n_runs": len(runs), "min_gates": min(passed), "max_gates": max(passed),
-            "median_gates": float(np.median(passed)), "runs_passing": sum(p >= req for p in passed),
-            "all_pass": all(p >= req for p in passed)}
+    planned = len(plan["seed_sets"]) * len(plan["fold_offsets"])
+    runs = []
+    skipped = None
+    if not mandatory_ok(primary):
+        skipped = "primary run fails " + ", ".join(
+            p9.GATE_LABELS[k] for k in MANDATORY_CHECKS if not primary["gate"]["checks"].get(k))
+    elif primary["gate"]["n_passed"] < req:
+        skipped = f"primary run below {req}/10"
+    if skipped:
+        combos = [(plan["seed_sets"][0], 0)]
+    else:
+        combos = [(sd, off) for sd in plan["seed_sets"] for off in plan["fold_offsets"]]
+    for seeds, off in combos:
+        if tuple(seeds) == tuple(plan["seed_sets"][0]) and off == 0:
+            s = primary
+        else:
+            sp = replace(spec, bag_seeds=tuple(seeds))
+            s, _ = _run_one(sp, panel, raw_panel, sectors, spy, replace(cfg, fold_offset=off),
+                            portfolio_rule, top_k)
+        b = s["backtest"]
+        row = {"seeds": list(seeds), "fold_offset": off, "gates_passed": s["gate"]["n_passed"],
+               "mandatory_ok": mandatory_ok(s),
+               "mean_ic": s["mean_ic"], "ic_tstat": s["ic_tstat_nonoverlap"],
+               "cum_return": b.get("cumulative_return"), "sharpe": b.get("sharpe"),
+               "max_drawdown": b.get("max_drawdown"), "spy_max_drawdown": b.get("spy_max_drawdown"),
+               "failed": [p9.GATE_LABELS[k] for k, v in s["gate"].get("checks", {}).items() if not v]}
+        runs.append(row)
+        if progress:
+            progress(f"  robustness seeds={seeds} offset={off}: {row['gates_passed']}/10 IC={row['mean_ic']:+.4f}")
+    passed = [r["gates_passed"] for r in runs]
+    ok = [r["gates_passed"] >= req and r["mandatory_ok"] for r in runs]
+    return {"runs": runs, "n_runs": len(runs), "n_planned": planned, "skipped_reason": skipped,
+            "mandatory_checks": [p9.GATE_LABELS[k] for k in MANDATORY_CHECKS],
+            "min_gates": min(passed), "max_gates": max(passed),
+            "median_gates": float(np.median(passed)), "runs_passing": sum(ok),
+            "all_pass": skipped is None and all(ok)}
 
 
 def run_pipeline(*, source: str, sectors_path: str, spy_path: str, out_dir: str,
@@ -486,12 +529,12 @@ def run_pipeline(*, source: str, sectors_path: str, spy_path: str, out_dir: str,
     variants = variants or default_v2_variants_for(raw_panel is not None)
     if raw_panel is None:
         variants = [v for v in variants if not v.legacy_phase9]
-    summaries, runs = [], {}
+    summaries, cache = [], {}
     for spec in variants:
-        s, run = _run_one(spec, panel, raw_panel, sectors, spy, cfg, portfolio_rule)
+        s, run = _run_one(spec, panel, raw_panel, sectors, spy, cfg, portfolio_rule, top_k, cache)
         s["placebo_ic"] = placebo_ic(run.preds)
         summaries.append(s)
-        runs[spec.name] = run
+        (out / f"{spec.name}_summary.json").write_text(json.dumps(p9._jsonable(s), indent=2))
         if progress:
             progress(f"{spec.name}: IC={s['mean_ic']:+.4f} t={s['ic_tstat_nonoverlap']:+.2f} "
                      f"gate={s['gate']['n_passed']}/10")
@@ -503,10 +546,7 @@ def run_pipeline(*, source: str, sectors_path: str, spy_path: str, out_dir: str,
     if progress:
         progress(f"best by Phase 7 rule (cum return): {best['variant']} -> robustness")
     rob = robustness(best_spec, panel, raw_panel, sectors, spy, cfg, portfolio_rule, best,
-                     robustness_plan or ROBUSTNESS, progress)
-    rob_before = None
-    if before is not None and robustness_plan is None:
-        rob_before = None  # Phase 9 robustness is documented in docs/ML_PHASE9_IC_RESEARCH.md
+                     robustness_plan or ROBUSTNESS, progress, top_k)
     meta = {"generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"), "phase": PHASE, **prov,
             "walk_forward": {**asdict(cfg), "horizon": HORIZON, "purged": True},
             "portfolio_rule": portfolio_rule, "top_k": top_k, "thresholds": p9.GATE_THRESHOLDS,
@@ -524,7 +564,7 @@ def run_pipeline(*, source: str, sectors_path: str, spy_path: str, out_dir: str,
 def registry_record(best: dict, rob: dict, before: Optional[dict], summaries: list[dict], meta: dict) -> dict:
     """Machine-readable result the API reads (``research_candidate`` block)."""
     req = p9.GATE_THRESHOLDS["promote_threshold"]
-    robust = bool(rob["all_pass"]) and best["gate"]["n_passed"] >= req
+    robust = bool(rob["all_pass"]) and best["gate"]["n_passed"] >= req and mandatory_ok(best)
     return {
         "phase": PHASE,
         "evaluated_at": meta["generated_at"][:10],
@@ -535,8 +575,9 @@ def registry_record(best: dict, rob: dict, before: Optional[dict], summaries: li
         "gates_total": 10,
         "gates_required": req,
         "robust": robust,
-        "robustness": {k: rob[k] for k in ("n_runs", "min_gates", "max_gates", "median_gates",
-                                           "runs_passing", "all_pass")},
+        "robustness": {k: rob.get(k) for k in ("n_runs", "n_planned", "skipped_reason", "mandatory_checks",
+                                               "min_gates", "max_gates", "median_gates",
+                                               "runs_passing", "all_pass")},
         "verdict": "READY" if robust else "NOT_READY",
         "deployed": False,
         "mean_ic": round(best["mean_ic"], 4),
@@ -608,8 +649,13 @@ def render_report(summaries, best, before, rob, meta, record) -> str:
                  f"{r['ic_tstat']:+.2f} | {pct(r['cum_return'])} | {(r['sharpe'] or 0):.2f} | "
                  f"{pct(r['max_drawdown'])} ({pct(r['spy_max_drawdown'])}) | {', '.join(r['failed']) or '—'} |")
     L += ["", f"Gate across re-runs: min {rob['min_gates']}/10, median {rob['median_gates']:.0f}/10, "
-              f"max {rob['max_gates']}/10; {rob['runs_passing']}/{rob['n_runs']} runs reach 8/10.", "",
-          f"**Verdict: {record['verdict']}** — robust = {record['robust']} (all re-runs ≥ 8/10), "
+              f"max {rob['max_gates']}/10; {rob['runs_passing']}/{rob['n_runs']} runs reach 8/10 with "
+              f"{', '.join(rob['mandatory_checks'])} passing.", ""]
+    if rob.get("skipped_reason"):
+        L += [f"Re-runs skipped ({rob['n_runs']} of {rob['n_planned']} planned run): "
+              f"{rob['skipped_reason']}, so the variant cannot be robust whatever re-runs would show.", ""]
+    L += [
+          f"**Verdict: {record['verdict']}** — robust = {record['robust']} (all re-runs ≥ 8/10 and IC gate passing), "
           f"deployed = {record['deployed']}. The served model is unchanged; only a robust and deployed "
           "model may be shown as a signal.", ""]
     return "\n".join(L)
