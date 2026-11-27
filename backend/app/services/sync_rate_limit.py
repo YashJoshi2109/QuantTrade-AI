@@ -24,10 +24,11 @@ _lock = threading.Lock()
 
 
 def _client_ip(request: Request) -> str:
-    fwd = request.headers.get("X-Forwarded-For", "")
-    if fwd:
-        return fwd.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    # Same trusted-proxy walk as the global limiter: the left-most
+    # X-Forwarded-For entry is client-controlled and must not be the key.
+    from app.middleware.rate_limit import client_ip
+
+    return client_ip(request)[0]
 
 
 def sync_rate_limit(request: Request) -> None:
