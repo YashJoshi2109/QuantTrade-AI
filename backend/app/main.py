@@ -309,7 +309,24 @@ async def lifespan(app: FastAPI):
     redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
     try:
         import redis.asyncio as aioredis
-        redis_client = aioredis.from_url(redis_url, decode_responses=True, socket_connect_timeout=5)
+        # ElastiCache / NAT drop idle TCP connections silently; without
+        # keepalive + health checks the next command on such a connection
+        # failed (health showed redis "degraded" ~1 in 3 checks and cache
+        # reads/writes failed the same way). Retry once on a dropped socket.
+        from redis.asyncio.retry import Retry
+        from redis.backoff import ExponentialBackoff
+        from redis.exceptions import ConnectionError as _RedisConnErr, TimeoutError as _RedisTimeout
+
+        redis_client = aioredis.from_url(
+            redis_url,
+            decode_responses=True,
+            socket_connect_timeout=5,
+            socket_timeout=5,
+            socket_keepalive=True,
+            health_check_interval=30,
+            retry=Retry(ExponentialBackoff(cap=1.0, base=0.05), 2),
+            retry_on_error=[_RedisConnErr, _RedisTimeout],
+        )
         await redis_client.ping()
         app.state.redis = redis_client
         # Initialize universal Redis cache service
@@ -750,7 +767,11 @@ async def health():
     try:
         redis_client = getattr(app.state, "redis", None)
         if redis_client is not None:
-            await redis_client.ping()
+            try:
+                await redis_client.ping()
+            except Exception:
+                await asyncio.sleep(0.05)
+                await redis_client.ping()  # one retry: a pooled socket may have been dropped
             checks["redis"] = "ok"
         else:
             checks["redis"] = "not_configured"
