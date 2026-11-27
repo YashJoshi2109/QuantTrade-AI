@@ -143,3 +143,13 @@ def test_concurrent_tool_lookups_never_share_the_session_across_threads():
 
     asyncio.run(go())
     assert active["max"] == 1
+
+
+def test_empty_model_answer_is_delivered_not_just_the_disclaimer(fixture_db):
+    """Regression: an empty post-tool turn used to stream only the disclaimer;
+    the fallback text never reached the client because final_text was only
+    sent when the postcheck changed something."""
+    evs, eng, llm = _run(fixture_db, "What was AAPL's revenue last quarter?", [{"text": ""}])
+    done = dict(evs)["done"]
+    assert done["final_text"] and "couldn't produce an answer" in done["final_text"]
+    assert done["answer_replaced"] is True

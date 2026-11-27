@@ -14,6 +14,9 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from app.services.copilot import fundamentals_tools
+from app.services.copilot import quant_tools
+from app.services.copilot.filings_rag.tools import (FILINGS_TOOL_NAMES, FILINGS_TOOL_SPECS,
+                                                    FILINGS_TOOL_TIMEOUTS)
 from app.services.copilot.models import Fact, TickerContextPack, compact_fact
 from app.services.copilot.registry import FactRegistry
 
@@ -58,16 +61,61 @@ TOOL_SPECS: List[Dict[str, Any]] = [
          "sector": {"type": "string"}, "min_market_cap": {"type": "number"}},
          "required": ["direction"], "additionalProperties": False}},
 ]
+# Per-tool time limits for tools that legitimately take longer than TOOL_TIMEOUT_S.
+TOOL_TIMEOUTS: Dict[str, float] = {}
 # Fundamentals engine (SEC XBRL statements, forensic / capital-efficiency / distress / peer analytics)
 TOOL_SPECS += fundamentals_tools.TOOL_SPECS
+TOOL_TIMEOUTS.update({n: fundamentals_tools.TOOL_TIMEOUT_S for n in fundamentals_tools.TOOL_NAMES})
+# Quant / risk engine (app.services.quant)
+TOOL_SPECS += quant_tools.QUANT_TOOL_SPECS
+TOOL_TIMEOUTS.update({n: quant_tools.QUANT_TOOL_TIMEOUT_S for n in quant_tools.QUANT_TOOL_NAMES})
+# Valuation engine tools (app.services.copilot.valuation_tools)
+from app.services.copilot.valuation_tools import (TOOL_TIMEOUT_S as _VAL_TIMEOUT_S,  # noqa: E402
+                                                  VALUATION_TOOL_NAMES, VALUATION_TOOL_SPECS, run_valuation_tool)
+TOOL_SPECS.extend(VALUATION_TOOL_SPECS)
+TOOL_TIMEOUTS.update({n: _VAL_TIMEOUT_S for n in VALUATION_TOOL_NAMES})
+# SEC filings RAG (verbatim excerpts + citations, section diffs, disclosures)
+TOOL_SPECS += FILINGS_TOOL_SPECS
+# per-tool timeouts; filings tools may download + parse several 10-Ks on first use
+TOOL_TIMEOUTS.update(FILINGS_TOOL_TIMEOUTS)
 TOOL_NAMES = {t["name"] for t in TOOL_SPECS}
-# Per-tool time limits for tools that legitimately take longer than TOOL_TIMEOUT_S.
-TOOL_TIMEOUTS: Dict[str, float] = {n: fundamentals_tools.TOOL_TIMEOUT_S for n in fundamentals_tools.TOOL_NAMES}
+
+# ── pluggable tools ──────────────────────────────────────────────────────────
+# Engines (fundamentals_*, valuation_*, quant_*, filings_* ...) can register a
+# tool without touching TOOL_SPECS / _dispatch:
+#
+#     register_tool(spec, handler, timeout_s=30, progress="Running {n_sims:,} simulations for {ticker}")
+#
+# ``handler(executor, args)`` is async and returns ``(facts, payload)`` exactly
+# like a built-in tool; raise LookupError for "data not available".  The
+# planner (planner.py) discovers every tool from ``all_tool_specs()``.
+PLUGIN_TOOLS: Dict[str, Dict[str, Any]] = {}
 
 
-def lc_tools() -> List[Dict[str, Any]]:
+def register_tool(spec: Dict[str, Any], handler, *, timeout_s: Optional[float] = None,
+                  progress: Optional[str] = None) -> None:
+    if not spec.get("name") or not spec.get("input_schema"):
+        raise ValueError("tool spec needs name and input_schema")
+    PLUGIN_TOOLS[spec["name"]] = {"spec": spec, "handler": handler, "timeout_s": timeout_s, "progress": progress}
+
+
+def unregister_tool(name: str) -> None:
+    PLUGIN_TOOLS.pop(name, None)
+
+
+def all_tool_specs(extra: Optional[Dict[str, Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+    """Built-in specs + registered plugins (+ per-request extras), by unique name."""
+    out: Dict[str, Dict[str, Any]] = {t["name"]: t for t in TOOL_SPECS}
+    for plugins in (PLUGIN_TOOLS, extra or {}):
+        for name, p in plugins.items():
+            out.setdefault(name, p["spec"])
+    return list(out.values())
+
+
+def lc_tools(extra: Optional[Dict[str, Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
     """Anthropic-format tool dicts (accepted by bind_tools on Bedrock/Anthropic/OpenAI)."""
-    return [{"name": t["name"], "description": t["description"], "input_schema": t["input_schema"]} for t in TOOL_SPECS]
+    return [{"name": t["name"], "description": t["description"], "input_schema": t["input_schema"]}
+            for t in all_tool_specs(extra)]
 
 
 def _escape(s: str) -> str:
@@ -82,8 +130,11 @@ def context_block(source: str, as_of: Optional[str], payload: Any) -> str:
 
 class ToolExecutor:
     def __init__(self, sources, registry: FactRegistry, resolver, packs: Dict[str, TickerContextPack],
-                 build_pack):
+                 build_pack, *, timeout_s: Optional[float] = None,
+                 extra: Optional[Dict[str, Dict[str, Any]]] = None):
         self.sources = sources
+        self.timeout_s = timeout_s         # per-call default (deep questions get a longer one)
+        self.extra = dict(extra or {})     # per-request plugins (eval harness / recorded tools)
         self.registry = registry
         self.resolver = resolver           # TickerResolver (for symbol validation)
         self.packs = packs                 # already-built packs, reused
@@ -129,11 +180,12 @@ class ToolExecutor:
 
     async def run(self, name: str, args: Dict[str, Any]) -> tuple[str, List[Fact], bool]:
         """Returns (tool_result_text, facts, is_error)."""
-        if name not in TOOL_NAMES:
+        plugin = self.plugin(name)
+        if name not in TOOL_NAMES and plugin is None and name not in {t["name"] for t in TOOL_SPECS}:
             return f"unknown tool {name}", [], True
         try:
-            facts, payload = await asyncio.wait_for(self._dispatch(name, args or {}),
-                                                    TOOL_TIMEOUTS.get(name, TOOL_TIMEOUT_S))
+            work = plugin["handler"](self, args or {}) if plugin is not None else self._dispatch(name, args or {})
+            facts, payload = await asyncio.wait_for(work, self.timeout_for(name))
         except asyncio.TimeoutError:
             return f"{name} timed out", [], True
         except LookupError as e:
@@ -145,9 +197,27 @@ class ToolExecutor:
         as_of = max((f.as_of or "" for f in facts), default="") or None
         return context_block(f"tool:{name}", as_of, payload), facts, False
 
+    def plugin(self, name: str) -> Optional[Dict[str, Any]]:
+        return self.extra.get(name) or PLUGIN_TOOLS.get(name)
+
+    def timeout_for(self, name: str) -> float:
+        p = self.plugin(name)
+        if p is not None and p.get("timeout_s"):
+            return float(p["timeout_s"])
+        if name in TOOL_TIMEOUTS:                                  # engine-declared per-tool limit
+            return max(float(TOOL_TIMEOUTS[name]), float(self.timeout_s or 0))
+        spec = next((t for t in TOOL_SPECS if t["name"] == name), None)
+        if spec is not None and spec.get("timeout_s"):          # optional key on a built-in spec
+            return max(float(spec["timeout_s"]), float(self.timeout_s or 0))
+        return float(self.timeout_s or TOOL_TIMEOUT_S)
+
     async def _dispatch(self, name: str, a: Dict[str, Any]):
         if name in fundamentals_tools.TOOL_NAMES:
             return await fundamentals_tools.dispatch(name, a, pack=self._pack, sources=self.sources)
+        if name in quant_tools.QUANT_TOOL_NAMES:
+            return await quant_tools.dispatch(self, name, a)
+        if name in VALUATION_TOOL_NAMES:
+            return await run_valuation_tool(self, name, a)
         if name == "get_macro":
             facts = await self.sources.macro(list(a.get("indicators") or []))
             if not facts:
@@ -158,6 +228,9 @@ class ToolExecutor:
             if f is None:
                 raise LookupError("market movers not available")
             return [f], compact_fact(f)
+        if name in FILINGS_TOOL_NAMES:
+            from app.services.copilot.filings_rag.tools import run_filings_tool
+            return await run_filings_tool(self, name, a)
         if name == "compare_tickers":
             packs = [await self._pack(t) for t in (a.get("tickers") or [])[:3]]
             missing = [t for t, p in zip(a.get("tickers") or [], packs) if p is None]

@@ -285,6 +285,56 @@ class AlpacaClient:
                                         "low": ref_bar[3], "volume": ref_bar[5]}
         return payload
 
+    def get_daily_history_sip(self, symbol: str, start: datetime, end: datetime,
+                              adjustment: str = "all") -> pd.DataFrame:
+        """Consolidated (SIP) daily OHLCV for one symbol, paginated, split- and
+        dividend-adjusted by default. The free data plan serves SIP history
+        back to 2016 (~9-10 years) but not the last 15 minutes, so ``end`` is
+        capped at now-16min. Returns open/high/low/close/volume indexed by the
+        ET session date (tz-naive); empty frame when unavailable."""
+        if not settings.ALPACA_API_KEY or not settings.ALPACA_SECRET_KEY:
+            return pd.DataFrame()
+        from app.services import market_calendar as mc
+
+        now = datetime.now(timezone.utc)
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+        end = min(end, now - timedelta(minutes=16))
+        if end <= start:
+            return pd.DataFrame()
+        rows, token = [], None
+        for _ in range(20):  # 20 pages x 10k bars is far beyond 10 years of dailies
+            params = {
+                "timeframe": "1Day", "feed": "sip", "adjustment": adjustment, "limit": 10000,
+                "start": start.strftime("%Y-%m-%dT%H:%M:%SZ"), "end": end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+            if token:
+                params["page_token"] = token
+            body = _data_get(f"/v2/stocks/{symbol.upper()}/bars", params)
+            if not body:
+                break
+            rows.extend(body.get("bars") or [])
+            token = body.get("next_page_token")
+            if not token:
+                break
+        if not rows:
+            return pd.DataFrame()
+        recs = []
+        for r in rows:
+            try:
+                ts = datetime.fromisoformat(str(r["t"]).replace("Z", "+00:00"))
+                recs.append({"date": pd.Timestamp(mc._to_et(ts).date()), "open": float(r["o"]),
+                             "high": float(r["h"]), "low": float(r["l"]), "close": float(r["c"]),
+                             "volume": float(r["v"])})
+            except (KeyError, TypeError, ValueError):
+                continue
+        if not recs:
+            return pd.DataFrame()
+        df = pd.DataFrame(recs).drop_duplicates("date", keep="last").set_index("date").sort_index()
+        return df[["open", "high", "low", "close", "volume"]]
+
     def get_daily_bars_sip(self, symbols, days: int = 14) -> Dict[str, list]:
         """Consolidated (SIP) daily bars per symbol: [(et_date, o, h, l, c, v)],
         oldest first. Ends 16 minutes ago (the free plan's SIP delay)."""

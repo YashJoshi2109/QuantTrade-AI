@@ -221,6 +221,10 @@ export interface CitationData {
   sentiment?: string | null
   category?: string | null
   suspicious?: boolean
+  // computed tool output (kind 'computed'): provenance for the source drawer
+  tool?: string
+  formulas?: Record<string, string> | null
+  assumptions?: Record<string, unknown> | null
   /** legacy alias of n */
   source_n?: number
 }
@@ -285,6 +289,36 @@ export interface CopilotToolEvent {
   status: 'running' | 'done' | 'error'
   facts?: number
   error?: string | null
+  /** Human progress label ("Running 10,000 simulations for AMZN"). */
+  label?: string
+}
+
+/** Deep (multi-part) questions: planned computations and the tools found for each. */
+export interface CopilotPlanStep {
+  id: string
+  label: string
+  capability?: string
+  status: 'planned' | 'in_context' | 'done' | 'partial' | 'failed' | 'unavailable' | string
+  tools: string[]
+  computation?: boolean
+}
+
+export interface CopilotPlan {
+  deep: boolean
+  tickers: string[]
+  steps: CopilotPlanStep[]
+  budget?: Record<string, unknown>
+}
+
+/** SSE `progress`: one long-running step ("Fetching 5y statements for NVDA"). */
+export interface CopilotProgress {
+  id?: string
+  step_id?: string
+  label: string
+  status: 'running' | 'done' | 'error' | string
+  tool?: string
+  facts?: number
+  error?: string | null
 }
 
 export interface CopilotDone {
@@ -296,7 +330,18 @@ export interface CopilotDone {
   refusal?: string | null
   citations: CitationData[]
   latency_ms?: Record<string, number>
-  postcheck?: { unverified_numbers?: string[]; invalid_citations?: string[]; policy_flags?: string[] } | null
+  postcheck?: {
+    unverified_numbers?: string[]
+    invalid_citations?: string[]
+    policy_flags?: string[]
+    /** deep answers: figures replaced by "n/a (unverified)" */
+    removed_numbers?: string[]
+    not_executed?: string[]
+    missing_sections?: string[]
+    mode?: string
+  } | null
+  deep?: boolean
+  plan?: CopilotPlan | null
 }
 
 // ─── SSE Event Handlers ─────────────────────────────────────────────────────
@@ -312,6 +357,10 @@ export interface CopilotStreamCallbacks {
   onFinalText?: (text: string) => void
   onCitation?: (citation: CitationData) => void
   onTool?: (tool: CopilotToolEvent) => void
+  /** Deep questions: the plan (sent before and after the parallel prefetch). */
+  onPlan?: (plan: CopilotPlan) => void
+  /** Deep questions: progress of long-running steps. */
+  onProgress?: (progress: CopilotProgress) => void
   onToolCall?: (message: string) => void
   onToolResult?: (message: string) => void
   onNoFilings?: (symbol: string) => void
@@ -437,6 +486,14 @@ export async function streamCopilotAnalysis(
               else callbacks.onToolResult?.(t.name)
               break
             }
+
+            case 'plan':
+              callbacks.onPlan?.(data as CopilotPlan)
+              break
+
+            case 'progress':
+              callbacks.onProgress?.(data as CopilotProgress)
+              break
 
             case 'structured_data':
               callbacks.onStructuredData?.(data as CopilotStructuredData)

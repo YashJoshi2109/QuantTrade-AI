@@ -41,6 +41,9 @@ ACRONYMS = {
     "NYSE", "NASDAQ", "SP", "S&P", "YTD", "MTD", "Q1", "Q2", "Q3", "Q4", "H1", "H2", "TL", "DR",
     "TLDR", "FAQ", "PDF", "CEOS", "AGI", "GPU", "CPU", "EV/EBITDA", "NII", "NIM", "SYSTEM",
     "OPEX", "CAPEX", "R&D", "SG&A", "COGS", "GAAP", "IRS", "FDA", "DOJ", "FTC",
+    # quant / valuation vocabulary in institutional questions
+    "WACC", "VAR", "CAPM", "ERP", "RPO", "OCF", "NOPAT", "SBC", "AWS", "DXY", "FX",
+    "OOS", "HHI", "AOCI", "CET1", "EBT", "ROIIC", "DSO", "DIO", "DPO", "FRED",
 }
 
 # Curated aliases: common names that a naive LIKE match gets wrong.
@@ -52,6 +55,7 @@ ALIASES = {
     "paramount": "PARA", "coca-cola": "KO", "coca cola": "KO", "coke": "KO", "intel": "INTC",
     "broadcom": "AVGO", "oracle": "ORCL", "salesforce": "CRM", "palantir": "PLTR", "sofi": "SOFI",
     "advanced micro devices": "AMD", "disney": "DIS", "boeing": "BA", "coinbase": "COIN",
+    "visa": "V", "mastercard": "MA", "tsmc": "TSM", "taiwan semiconductor": "TSM",
 }
 
 _CASHTAG = re.compile(r"\$([A-Za-z]{1,6}(?:[.\-/][A-Za-z]{1,2})?)\b")
@@ -156,13 +160,14 @@ class TickerResolver:
 
     # ── main entry ───────────────────────────────────────────────────────────
     def resolve(self, message: str, explicit_symbol: Optional[str] = None,
-                memory_symbols: Sequence[str] = ()) -> Resolution:
+                memory_symbols: Sequence[str] = (), max_tickers: Optional[int] = None) -> Resolution:
         res = Resolution()
+        limit = max_tickers or MAX_TICKERS
         seen: set[str] = set()
         msg = message or ""
 
         def add(rt: ResolvedTicker) -> None:
-            if rt.symbol not in seen and len(res.tickers) < MAX_TICKERS:
+            if rt.symbol not in seen and len(res.tickers) < limit:
                 seen.add(rt.symbol)
                 res.tickers.append(rt)
 
@@ -214,7 +219,7 @@ class TickerResolver:
                     break
 
         # Resolved tickers explain the "unknown" uppercase tokens they came from.
-        res.unknown = [u for u in res.unknown if u not in seen]
+        res.unknown = [u for u in res.unknown if u not in seen and ALIASES.get(u.lower()) not in seen]
 
         if not res.tickers and memory_symbols and (_FOLLOWUP.search(msg) or FINANCE_HINTS.search(msg)):
             for s in memory_symbols[:MAX_TICKERS]:

@@ -113,3 +113,6 @@ backend_log.txt
 .tmp*
 infra/lambdas/*/package/
 infra/lambdas/*/function.zip
+
+# copilot institutional eval scorecards (scripts/run_institutional_eval.py)
+backend/eval_results/

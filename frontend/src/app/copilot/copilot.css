@@ -114,6 +114,19 @@
 .cp-answer th { color: var(--cp-ink-2); font-weight: 600; }
 .cp-answer a { color: var(--cp-accent-ink); text-decoration: underline; text-underline-offset: 2px; }
 
+/* Deep answers: scrollable result tables (desktop + mobile) and labelled sections. */
+.cp-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0.5em 0 1em; border: 1px solid var(--cp-line); border-radius: 10px; }
+.cp-table-wrap table { margin: 0; min-width: 100%; }
+.cp-table-wrap th { background: var(--cp-sunken); white-space: nowrap; position: sticky; top: 0; }
+.cp-table-wrap td { vertical-align: top; }
+.cp-table-wrap td.cp-num, .cp-table-wrap th.cp-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cp-table-wrap tr:last-child td { border-bottom: 0; }
+.cp-table-wrap p { margin: 0; }
+.cp-section-facts { border: 1px solid var(--cp-sourced); background: var(--cp-sourced-soft); border-radius: 12px; padding: 0.75em 1em; margin: 0.9em 0; }
+.cp-section-facts h2 { margin-top: 0.2em; }
+.cp-section-limits { border-left: 3px solid var(--cp-caution-line); padding-left: 0.9em; margin: 0.9em 0; }
+@media (max-width: 640px) { .cp-table-wrap table { font-size: 0.8125rem; } .cp-table-wrap th, .cp-table-wrap td { padding: 0.35em 0.5em; } }
+
 .cp-serif { font-family: var(--font-cp-serif), Georgia, serif; }
 
 /* Streaming caret; static when the user prefers reduced motion. */

@@ -56,13 +56,24 @@ the user, no guarantees). Explain risks and trade-offs instead.
 Tools: the context usually already has quote, key stats, financial statements, forecast, \
 technicals and recent news for the requested tickers. Call a tool only for data that is missing \
 (another ticker, filing text, macro, market movers). Prefer one round of parallel calls.
+Quant tools (analyze_price_behavior, get_risk_metrics, earnings_event_study, analyze_portfolio_risk, \
+backtest_strategy) compute volatility, regimes, risk metrics, event studies, portfolio risk/stress and \
+backtests deterministically; never compute these yourself. Cite their fact id, give the data window, and \
+state the assumptions and caveats they return.
 
 Style: concise markdown, lead with the direct answer, use short bullet lists (not tables; \
 the chat UI does not render markdown tables) for comparisons, end with one line noting this is informational, not financial advice."""
 
 
-def system_prompt() -> str:
-    return SYSTEM_PROMPT
+def system_prompt(deep: bool = False) -> str:
+    """Static system prompt.  Deep (multi-part institutional) questions get a
+    second static variant with the planner / structure / honesty rules; both
+    are byte-identical across requests, so both stay cacheable."""
+    if not deep:
+        return SYSTEM_PROMPT
+    from app.services.copilot.composer import DEEP_PROMPT_ADDENDUM
+    return SYSTEM_PROMPT.replace("use short bullet lists (not tables; the chat UI does not render markdown tables) for comparisons",
+                                 "use markdown pipe tables for results") + DEEP_PROMPT_ADDENDUM
 
 
 # ── Anthropic prompt caching ─────────────────────────────────────────────────
@@ -80,16 +91,17 @@ def prompt_cache_enabled(provider: str) -> bool:
     return provider in CACHE_PROVIDERS and os.getenv("COPILOT_PROMPT_CACHE", "1").lower() not in ("0", "false", "no")
 
 
-def system_message(provider: str, cache: Optional[bool] = None):
+def system_message(provider: str, cache: Optional[bool] = None, deep: bool = False):
     """SystemMessage for one provider.  Direct Anthropic gets a text block with
     cache_control; Bedrock gets a plain string (langchain-aws adds the
     cachePoint from the ``cache_control`` call kwarg); OpenAI/OpenRouter and
     scripted models get a plain string (no caching params ever sent)."""
     from langchain_core.messages import SystemMessage
     cache = prompt_cache_enabled(provider) if cache is None else cache
+    text = system_prompt(deep)
     if provider == "anthropic" and cache:
-        return SystemMessage(content=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": dict(_EPHEMERAL)}])
-    return SystemMessage(SYSTEM_PROMPT)
+        return SystemMessage(content=[{"type": "text", "text": text, "cache_control": dict(_EPHEMERAL)}])
+    return SystemMessage(text)
 
 
 def cache_call_kwargs(provider: str, cache: Optional[bool] = None) -> Dict[str, Any]:
@@ -106,7 +118,7 @@ def pack_block(pack: TickerContextPack) -> str:
 
 
 def user_turn(question: str, packs: Sequence[TickerContextPack], memory_summary: str = "",
-              notes: Sequence[str] = ()) -> str:
+              notes: Sequence[str] = (), extra_blocks: Sequence[str] = ()) -> str:
     parts: List[str] = []
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     if memory_summary:
@@ -115,6 +127,7 @@ def user_turn(question: str, packs: Sequence[TickerContextPack], memory_summary:
         parts.append(pack_block(p))
     if notes:
         parts.append(context_block("server_notes", now, list(notes)))
+    parts.extend(extra_blocks)          # deep mode: plan + prefetched tool results
     parts.append(f"Current time: {now}\n<question>\n{question.strip()}\n</question>")
     return "\n\n".join(parts)
 

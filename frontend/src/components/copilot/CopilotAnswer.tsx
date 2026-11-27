@@ -17,8 +17,21 @@ import {
   Newspaper,
   RotateCcw,
   Activity,
+  ListChecks,
+  Loader2,
+  MinusCircle,
+  XCircle,
 } from 'lucide-react'
-import type { CitationData, CopilotDone } from '@/lib/copilot-engine'
+import type { CitationData, CopilotDone, CopilotPlan, CopilotProgress } from '@/lib/copilot-engine'
+import {
+  collapseProgress,
+  isNumericCell,
+  isStructuredAnswer,
+  splitMarkdownBlocks,
+  splitSections,
+  withoutSourcesSection,
+  type TableSegment,
+} from '@/lib/copilot-rich'
 import {
   citationIdFromHref,
   citationKindLabel,
@@ -51,6 +64,9 @@ export interface CopilotMessageView {
   notice?: CopilotLimitNotice | null
   tone?: AnswerTone
   noFilings?: string[]
+  /** Deep questions: plan + streamed progress of long-running steps. */
+  plan?: CopilotPlan | null
+  progress?: CopilotProgress[]
 }
 
 const KIND_ICON: Record<string, typeof FileText> = {
@@ -184,18 +200,158 @@ function useMarkdownComponents(citations: CitationData[] | undefined, onCitation
   }, [citations, onCitationClick])
 }
 
+function InlineMarkdown({ text, components }: { text: string; components: Components }) {
+  return (
+    <ReactMarkdown components={{ ...components, p: ({ children }) => <>{children}</> }}>{text}</ReactMarkdown>
+  )
+}
+
+function AnswerTable({ table, components }: { table: TableSegment; components: Components }) {
+  const numericCol = table.header.map((_, k) => table.rows.length > 0 && table.rows.every((r) => !r[k] || isNumericCell(r[k])))
+  return (
+    <div className="cp-table-wrap" role="region" aria-label="Results table" tabIndex={0}>
+      <table>
+        <thead>
+          <tr>
+            {table.header.map((h, k) => (
+              <th key={k} scope="col" className={numericCol[k] ? 'cp-num' : undefined}>
+                <InlineMarkdown text={h} components={components} />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {table.rows.map((r, i) => (
+            <tr key={i}>
+              {r.map((cell, k) => (
+                <td key={k} className={numericCol[k] || isNumericCell(cell) ? 'cp-num' : undefined}>
+                  <InlineMarkdown text={cell} components={components} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** Markdown with real (scrollable) tables; react-markdown alone renders pipe tables as text. */
 function Markdown({ text, components }: { text: string; components: Components }) {
-  return <ReactMarkdown components={components}>{text}</ReactMarkdown>
+  const segments = splitMarkdownBlocks(text)
+  return (
+    <>
+      {segments.map((s, i) =>
+        s.kind === 'table' ? (
+          <AnswerTable key={i} table={s} components={components} />
+        ) : (
+          <ReactMarkdown key={i} components={components}>{s.text}</ReactMarkdown>
+        ),
+      )}
+    </>
+  )
+}
+
+/** Deep answers: every section visible; facts-vs-assumptions and limitations set apart. */
+function StructuredAnswer({ text, components }: { text: string; components: Components }) {
+  return (
+    <>
+      {splitSections(text).map((s, i) => {
+        const body = (
+          <>
+            {s.title && <h2>{s.title}</h2>}
+            <Markdown text={s.body} components={components} />
+          </>
+        )
+        if (s.key === 'facts_vs_assumptions') {
+          return <section key={i} className="cp-section-facts" aria-label="Verified facts versus assumptions">{body}</section>
+        }
+        if (s.key === 'limitations') {
+          return <section key={i} className="cp-section-limits" aria-label="Limitations">{body}</section>
+        }
+        return <section key={i}>{body}</section>
+      })}
+    </>
+  )
+}
+
+// ─── Deep-question progress ─────────────────────────────────────────────────
+
+function ProgressIcon({ status }: { status: string }) {
+  if (status === 'running') return <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[var(--cp-accent-ink)] motion-reduce:animate-none" aria-hidden />
+  if (status === 'error' || status === 'failed') return <XCircle className="h-3.5 w-3.5 shrink-0 text-[var(--cp-caution-ink)]" aria-hidden />
+  if (status === 'unavailable') return <MinusCircle className="h-3.5 w-3.5 shrink-0 text-[var(--cp-ink-3)]" aria-hidden />
+  return <Check className="h-3.5 w-3.5 shrink-0 text-[var(--cp-sourced)]" aria-hidden />
+}
+
+function ProgressList({ items, limit = 8 }: { items: CopilotProgress[]; limit?: number }) {
+  const shown = items.slice(-limit)
+  return (
+    <ul className="mt-2 space-y-1" aria-label="Analysis steps">
+      {shown.map((p, i) => (
+        <li key={(p.id ?? p.label) + i} className="flex min-w-0 items-center gap-2 text-[13px] text-[var(--cp-ink-2)]">
+          <ProgressIcon status={p.status} />
+          <span className="truncate">{p.label}{p.status === 'running' ? '…' : ''}</span>
+          {p.status === 'error' && <span className="shrink-0 text-[var(--cp-caution-ink)]">not available</span>}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+const STEP_STATUS: Record<string, string> = {
+  done: 'computed', partial: 'partly computed', in_context: 'from context', planned: 'requested',
+  failed: 'failed, not executed', unavailable: 'no tool, not executed',
+}
+
+function PlanSummary({ plan }: { plan: CopilotPlan }) {
+  const notRun = plan.steps.filter((s) => s.status === 'failed' || s.status === 'unavailable').length
+  return (
+    <details className="mt-3 rounded-lg border border-[var(--cp-line)] px-3 py-2 text-[13px] text-[var(--cp-ink-2)]">
+      <summary className="flex cursor-pointer list-none items-center gap-2 font-medium text-[var(--cp-ink)]">
+        <ListChecks className="h-4 w-4 shrink-0 text-[var(--cp-ink-3)]" aria-hidden />
+        How this was computed: {plan.steps.length} {plan.steps.length === 1 ? 'step' : 'steps'}
+        {notRun > 0 && <span className="font-normal text-[var(--cp-caution-ink)]">, {notRun} not executed</span>}
+      </summary>
+      <ul className="mt-2 space-y-1.5">
+        {plan.steps.map((s) => (
+          <li key={s.id} className="flex min-w-0 items-start gap-2">
+            <span className="mt-[2px]"><ProgressIcon status={s.status === 'planned' ? 'done' : s.status} /></span>
+            <span className="min-w-0">
+              <span className="text-[var(--cp-ink)]">{s.label}</span>
+              <span className="text-[var(--cp-ink-3)]"> · {STEP_STATUS[s.status] ?? s.status}</span>
+              {s.tools.length > 0 && (
+                <span className="block break-words font-mono text-[11.5px] text-[var(--cp-ink-3)]">{s.tools.join(', ')}</span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
 }
 
 // ─── Sources ledger ─────────────────────────────────────────────────────────
 
-function SourcesLedger({ citations, now, onCitationClick }: { citations: CitationData[]; now: number; onCitationClick: (c: CitationData) => void }) {
+/** "Item 1A · filed Feb 26, 2026 · accession 0001045810-26-000012" for filing-backed sources. */
+function provenanceLine(c: CitationData): string {
+  const bits: string[] = []
+  if (c.kind === 'computed' && c.filing_type) bits.push(c.filing_type)
+  if (c.kind === 'computed' && c.section) bits.push(c.section)
+  if (c.filed_date && c.kind !== 'statement') bits.push(`filed ${String(c.filed_date).slice(0, 10)}`)
+  if (c.accession) bits.push(`accession ${c.accession}`)
+  return bits.join(' · ')
+}
+
+function SourcesLedger({ citations, now, onCitationClick, limit = 12 }: { citations: CitationData[]; now: number; onCitationClick: (c: CitationData) => void; limit?: number }) {
+  const extra = citations.length - limit
   return (
+    <>
     <ol className="mt-2 grid gap-1.5 sm:grid-cols-2" aria-label="Sources">
-      {citations.slice(0, 12).map((c) => {
+      {citations.slice(0, limit).map((c) => {
         const f = citationFreshness(c, now)
         const Icon = KIND_ICON[c.kind] ?? FileText
+        const prov = provenanceLine(c)
         return (
           <li key={c.id} className="min-w-0">
             <button
@@ -221,12 +377,19 @@ function SourcesLedger({ citations, now, onCitationClick }: { citations: Citatio
                     <span className="tabular-nums">{f.label}</span>
                   )}
                 </span>
+                {prov && <span className="mt-0.5 block break-words text-[11.5px] tabular-nums text-[var(--cp-ink-3)]">{prov}</span>}
               </span>
             </button>
           </li>
         )
       })}
     </ol>
+    {extra > 0 && (
+      <p className="mt-1.5 text-[12px] text-[var(--cp-ink-3)]">
+        and {extra} more {extra === 1 ? 'source' : 'sources'}, listed in the copied answer
+      </p>
+    )}
+    </>
   )
 }
 
@@ -292,11 +455,17 @@ export function AssistantAnswer({
   const components = useMarkdownComponents(msg.citations, onCitationClick)
 
   const { body } = stripDisclaimer(msg.content)
-  const linked = markUnverified(linkifyCitations(body, msg.streaming ? null : msg.citations))
+  const done = !msg.streaming
+  // Deep answers (Summary / Data & Method / Results / ... / Sources): show every
+  // section; the citation ledger below replaces the text Sources list once done.
+  const structured = isStructuredAnswer(body)
+  const shownBody = structured && done && (msg.citations?.length ?? 0) > 0 ? withoutSourcesSection(body) : body
+  const linked = markUnverified(linkifyCitations(shownBody, msg.streaming ? null : msg.citations))
   const parts = splitAnswer(linked)
   const tone = msg.tone ?? 'normal'
-  const done = !msg.streaming
   const hasForecast = (msg.citations ?? []).some((c) => c.kind === 'forecast')
+  const progress = collapseProgress(msg.progress)
+  const plan = msg.done?.plan ?? msg.plan ?? null
 
   const copy = async () => {
     try {
@@ -313,6 +482,7 @@ export function AssistantAnswer({
     return (
       <div aria-busy="true" className="min-h-[96px]">
         <p className="text-[14px] text-[var(--cp-ink-2)]">{statusText || 'Gathering sources'}…</p>
+        {progress.length > 0 && <ProgressList items={progress} />}
         <div aria-hidden className="mt-3 space-y-2.5">
           <div className="cp-skeleton h-3.5 w-[92%]" />
           <div className="cp-skeleton h-3.5 w-[78%]" />
@@ -322,8 +492,15 @@ export function AssistantAnswer({
     )
   }
 
-  const answerBody = (
+  const answerBody = structured ? (
     <div className="cp-answer">
+      {msg.streaming && progress.some((p) => p.status === 'running') && <ProgressList items={progress} limit={4} />}
+      <StructuredAnswer text={linked} components={components} />
+      {msg.streaming && <span className="cp-caret" aria-hidden />}
+    </div>
+  ) : (
+    <div className="cp-answer">
+      {msg.streaming && progress.some((p) => p.status === 'running') && <ProgressList items={progress} limit={4} />}
       <Markdown text={parts.summary} components={components} />
       {parts.details && !expanded && msg.streaming && <span className="sr-only">More detail is being written.</span>}
       {parts.details && (
@@ -376,8 +553,9 @@ export function AssistantAnswer({
         <div className="mt-4 border-t border-[var(--cp-line)] pt-3">
           <TrustStrip msg={msg} now={now} />
           {msg.citations && msg.citations.length > 0 && (
-            <SourcesLedger citations={msg.citations} now={now} onCitationClick={onCitationClick} />
+            <SourcesLedger citations={msg.citations} now={now} onCitationClick={onCitationClick} limit={structured ? 24 : 12} />
           )}
+          {plan && plan.deep && plan.steps.length > 0 && <PlanSummary plan={plan} />}
           {hasForecast && (
             <p className="mt-2 text-[13px] leading-relaxed text-[var(--cp-ink-3)]">
               Forecast figures come from an experimental model. Read them as a range of outcomes, not a prediction.
