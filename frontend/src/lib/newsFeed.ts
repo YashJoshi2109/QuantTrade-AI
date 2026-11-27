@@ -282,6 +282,43 @@ export function sourceFaviconUrl(url: string | null | undefined, source: string 
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain || 'news.google.com')}&sz=64`
 }
 
+/* ─────────────── Story image + designed fallback tile ─────────────── */
+
+/**
+ * The story image to render, or null. Only absolute https URLs: an http
+ * image is blocked as mixed content, and anything else (data:, javascript:,
+ * relative) is never a publisher CDN image.
+ */
+export function storyImageUrl(url: string | null | undefined): string | null {
+  if (!url || typeof url !== 'string') return null
+  try {
+    const u = new URL(url)
+    return u.protocol === 'https:' && u.hostname ? u.toString() : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Publisher monogram for the no-image tile: "Yahoo Finance" -> "YF",
+ * "SEC EDGAR" -> "SEC", "CNBC" -> "CNBC", "Fiscal.Ai" -> "FA", "Forbes" -> "F".
+ */
+export function publisherInitials(source: string | null | undefined): string {
+  const clean = (source || '').trim().replace(/\.(com|net|org|io|co)$/i, '')
+  const words = clean
+    .split(/[\s.\-_/&]+/)
+    .map((w) => w.replace(/[^A-Za-z0-9\u00C0-\u024F]/g, ''))
+    .filter(Boolean)
+  if (!words.length) return 'N'
+  const first = words[0]
+  const isAcronym = first.length >= 2 && first.length <= 4 && first === first.toUpperCase() && /[A-Za-z]/.test(first)
+  if (isAcronym) return first
+  if (words.length === 1) return first.charAt(0).toUpperCase()
+  return words
+    .slice(0, 3)
+    .map((w) => w.charAt(0).toUpperCase())
+    .join('')
+}
 
 export function formatRelativeTime(iso: string | null | undefined, now: number = Date.now()): string {
   if (!iso) return ''

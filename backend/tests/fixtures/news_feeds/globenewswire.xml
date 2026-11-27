@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modelled on the GlobeNewswire public-companies RSS layout (dc:* fields,
+     media:content with medium="image" and no width). The live feed returned
+     HTTP 403 (Akamai) to the capture host, so this item set is hand-built. -->
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/" version="2.0">
+<channel>
+<title>GlobeNewswire - News about Public Companies</title>
+<link>https://www.globenewswire.com/</link>
+<description>GlobeNewswire</description>
+<item>
+  <guid isPermaLink="true">https://www.globenewswire.com/news-release/2026/11/27/3411486/0/en/nevgold-announces-graduation-to-the-tsx-senior-board.html</guid>
+  <link>https://www.globenewswire.com/news-release/2026/11/27/3411486/0/en/nevgold-announces-graduation-to-the-tsx-senior-board.html</link>
+  <title>NevGold Announces Graduation to the TSX Senior Board</title>
+  <description>VANCOUVER, Nov. 27, 2026 (GLOBE NEWSWIRE) -- NevGold Corp. announces ...</description>
+  <pubDate>Fri, 27 Nov 2026 19:30 GMT</pubDate>
+  <dc:identifier>3411486</dc:identifier>
+  <dc:language>en</dc:language>
+  <dc:publisher>NevGold Corp.</dc:publisher>
+  <dc:contributor>NevGold Corp.</dc:contributor>
+  <media:content medium="image" type="image/jpeg" url="https://ml.globenewswire.com/Resource/Download/8a2c7c1e-1111-4a4a-9f9f-000000000001"/>
+</item>
+<item>
+  <guid isPermaLink="true">https://www.globenewswire.com/news-release/2026/11/27/3411478/0/en/alx-oncology-reports-inducement-grant.html</guid>
+  <link>https://www.globenewswire.com/news-release/2026/11/27/3411478/0/en/alx-oncology-reports-inducement-grant.html</link>
+  <title>ALX Oncology Reports Inducement Grant as Permitted by the Nasdaq Listing Rules</title>
+  <description>SOUTH SAN FRANCISCO, Calif., Nov. 27, 2026 (GLOBE NEWSWIRE) -- ALX Oncology ...</description>
+  <pubDate>Fri, 27 Nov 2026 19:05 GMT</pubDate>
+  <dc:identifier>3411478</dc:identifier>
+  <dc:language>en</dc:language>
+  <dc:publisher>ALX Oncology Holdings Inc.</dc:publisher>
+</item>
+</channel>
+</rss>

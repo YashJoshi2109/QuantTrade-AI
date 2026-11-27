@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Business Wire Technology: Networks News</title>
+    <link>http://www.businesswire.com/portal/site/home/news/industry/?vnsId=31255</link>
+    <description>Technology: Networks News Distributed by Business Wire</description>
+    <language>en</language>
+    <copyright>Copyright 2026, Business Wire.</copyright>
+    <managingEditor>RSSfeeds@BusinessWire.com</managingEditor>
+    <webMaster>WebSupport@BusinessWire.com</webMaster>
+    <pubDate>Fri, 27 Nov 2026 13:32:47 UT</pubDate>
+    <lastBuildDate>Fri, 27 Nov 2026 13:32:47 UT</lastBuildDate>
+    <docs>http://www.businesswire.com</docs>
+    <image>
+      <title>Business Wire Technology: Networks News</title>
+      <link>http://www.businesswire.com/portal/site/home/news/industry/?vnsId=31255</link>
+      <description>Business Wire - The global leader in news distribution</description>
+      <url>http://www.businesswire.com/images/Powered-by-Business-Wire.gif</url>
+      <width>109</width>
+      <height>37</height>
+    </image>
+    <item>
+      <title>Damco Solutions Introduces a Headless Approach to Insurance Core Modernization with InsureEdge</title>
+      <pubDate>Fri, 27 Nov 2026 13:30:00 UT</pubDate>
+      <enclosure url="https://mms.businesswire.com/media/20261126675338/en/2982708/21/damco.jpg" type="image/jpeg" length="2048"/>
+      <description>PRINCETON, N.J. &amp; DUBAI, United Arab Emirates--(BUSINESS WIRE)-- #AIadoption--Damco Solutions, a global IT services and technology consulting company, is advancing InsureEdge, its headless insurance core platform.</description>
+      <link>http://www.businesswire.com/news/home/20261126675338/en/Damco-Solutions-Introduces-a-Headless-Approach-to-Insurance-Core-Modernization-with-InsureEdge/?feedref=JjAwJuNHiystnCoBq_hl-WsGkFyUNMTSNrPsg57HLEqqcp-o_pnudlUwsb5apQ1S4gUE65BTfjH3-pSuqdv0gW3cb3F4oTIgUqCPafFkgu5AneicJQDNboWvodvG82E0</link>
+      <guid isPermaLink="false">20261126675338en</guid>
+    </item>
+<item>
+      <title>KIOXIA GP2系列固態硬碟為GPU記憶體擴充帶來全新效能水準</title>
+      <pubDate>Thu, 26 Nov 2026 19:47:00 UT</pubDate>
+      <enclosure url="https://mms.businesswire.com/media/20261125984530/zh-HK/2982575/21/KIOXIA_GP2_SSD_261126.jpg" type="image/jpeg" length="2048"/>
+      <description>東京--(BUSINESS WIRE)--(美國商業資訊)-- 儲存解決方案領域的全球領導者Kioxia Corporation今日宣布推出KIOXIA GP2系列超高IOPS SSD，這是其專為GPU直接存取最佳化的KIOXIA GP系列SSD中的第二款產品。KIOXIA GP2系列在2026年8月發表的KIOXIA GP1系列SSD的技術與架構基礎上進行了升級，在512位元組塊大小下可提供超過1800萬隨機讀取IOPS，效能幾乎是前代產品的兩倍(1)。此外，該系列可望實現高達28 GB/s的循序讀取吞吐量(2)，足以充分運用PCIe® 6.0 x4鏈路頻寬。 超高IOPS SSD能夠透過提供一個可由GPU直接存取的額外快閃記憶體層級，擴充GPU系統高頻寬記憶體(HBM)的有效容量，從而協助業界提升AI系統能力與效率。這一方案使AI系統能夠存取更龐大的資料集（包括大型圖神經網路所用的資料集），其成本顯著低於同容量增加更多HBM或DRAM的方案，同時還能提升GPU的利用率。 KIOXIA GP2系列SSD充分利用公司的XL-FLASH™第三代低延遲、高效能快閃記憶體。該產品具備獨特優勢</description>
+      <link>http://www.businesswire.com/news/home/20261125984530/zh-HK/?feedref=JjAwJuNHiystnCoBq_hl-WsGkFyUNMTSNrPsg57HLEqqcp-o_pnudlUwsb5apQ1S4gUE65BTfjH3-pSuqdv0gW3cb3F4oTIgUqCPafFkgu5AneicJQDNboWvodvG82E0</link>
+      <guid isPermaLink="false">20261125984530zh-HK</guid>
+    </item>
+  </channel>
+</rss>
+ 

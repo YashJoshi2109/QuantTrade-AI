@@ -1,16 +1,19 @@
 'use client'
 
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ChevronDown, Clock, Layers, Minus, Newspaper, Sparkles, TrendingDown, TrendingUp } from 'lucide-react'
+import { ChevronDown, Clock, Layers, Minus, Sparkles, TrendingDown, TrendingUp } from 'lucide-react'
 import {
   categoryMeta,
   formatRelativeTime,
   formatSentimentScore,
   horizonLabel,
   impactBadge,
+  publisherInitials,
   sentimentTone,
   sourceFaviconUrl,
+  storyImageUrl,
+  type NewsCategoryKey,
   type NewsFeedItem,
 } from '@/lib/newsFeed'
 
@@ -168,51 +171,139 @@ function SourceFavicon({ url, source }: { url: string | null; source: string | n
   )
 }
 
+/* No-image tile colours per category. Literal class strings so Tailwind keeps them. */
+const TILE_THEME: Record<NewsCategoryKey, { wash: string; accent: string; dot: string }> = {
+  earnings: { wash: 'from-sky-500/25 via-sky-500/[0.07]', accent: 'text-sky-700 dark:text-sky-300', dot: 'rgb(14 165 233 / 0.30)' },
+  guidance: { wash: 'from-indigo-500/25 via-indigo-500/[0.07]', accent: 'text-indigo-700 dark:text-indigo-300', dot: 'rgb(99 102 241 / 0.30)' },
+  mna: { wash: 'from-violet-500/25 via-violet-500/[0.07]', accent: 'text-violet-700 dark:text-violet-300', dot: 'rgb(139 92 246 / 0.30)' },
+  analyst: { wash: 'from-cyan-500/25 via-cyan-500/[0.07]', accent: 'text-cyan-700 dark:text-cyan-300', dot: 'rgb(6 182 212 / 0.30)' },
+  macro_fed: { wash: 'from-amber-500/25 via-amber-500/[0.07]', accent: 'text-amber-700 dark:text-amber-300', dot: 'rgb(245 158 11 / 0.30)' },
+  economic_data: { wash: 'from-yellow-500/25 via-yellow-500/[0.07]', accent: 'text-yellow-700 dark:text-yellow-300', dot: 'rgb(234 179 8 / 0.30)' },
+  regulatory_legal: { wash: 'from-rose-500/25 via-rose-500/[0.07]', accent: 'text-rose-700 dark:text-rose-300', dot: 'rgb(244 63 94 / 0.30)' },
+  ipo_offering: { wash: 'from-fuchsia-500/25 via-fuchsia-500/[0.07]', accent: 'text-fuchsia-700 dark:text-fuchsia-300', dot: 'rgb(217 70 239 / 0.30)' },
+  capital_return: { wash: 'from-teal-500/25 via-teal-500/[0.07]', accent: 'text-teal-700 dark:text-teal-300', dot: 'rgb(20 184 166 / 0.30)' },
+  product_business: { wash: 'from-blue-500/25 via-blue-500/[0.07]', accent: 'text-blue-700 dark:text-blue-300', dot: 'rgb(59 130 246 / 0.30)' },
+  energy_commodities: { wash: 'from-orange-500/25 via-orange-500/[0.07]', accent: 'text-orange-700 dark:text-orange-300', dot: 'rgb(249 115 22 / 0.30)' },
+  crypto: { wash: 'from-lime-500/25 via-lime-500/[0.07]', accent: 'text-lime-700 dark:text-lime-300', dot: 'rgb(132 204 22 / 0.30)' },
+  geopolitics: { wash: 'from-red-500/25 via-red-500/[0.07]', accent: 'text-red-700 dark:text-red-300', dot: 'rgb(239 68 68 / 0.30)' },
+  market_moves: { wash: 'from-sky-500/25 via-sky-500/[0.07]', accent: 'text-sky-700 dark:text-sky-300', dot: 'rgb(14 165 233 / 0.30)' },
+  other: { wash: 'from-slate-500/20 via-slate-500/[0.06]', accent: 'text-fg-secondary', dot: 'rgb(100 116 139 / 0.28)' },
+}
+
+function tileTheme(category: string | null | undefined) {
+  return (category && TILE_THEME[category as NewsCategoryKey]) || TILE_THEME.other
+}
+
+type ThumbItem = Pick<NewsFeedItem, 'image_url' | 'url' | 'source' | 'primary_category'>
+
 /**
- * Story image with graceful fallback: the publisher favicon on a tinted tile,
- * then a generic glyph — every card always has a visual.
+ * Designed stand-in when a story has no usable image: category-tinted wash,
+ * a faint dot grid, the category label and a publisher monogram + name.
+ */
+export function NewsFallbackTile({ item, size = 'md' }: { item: ThumbItem; size?: 'sm' | 'md' | 'lg' }) {
+  const theme = tileTheme(item.primary_category)
+  const publisher = (item.source || '').trim() || 'News'
+  const initials = publisherInitials(publisher)
+  return (
+    <div
+      className={`absolute inset-0 bg-gradient-to-br ${theme.wash} to-transparent`}
+      data-testid="news-fallback-tile"
+    >
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: `radial-gradient(${theme.dot} 1px, transparent 1.25px)`,
+          backgroundSize: size === 'lg' ? '14px 14px' : '9px 9px',
+          WebkitMaskImage: 'linear-gradient(135deg, #000 0%, rgba(0,0,0,0.35) 55%, transparent 85%)',
+          maskImage: 'linear-gradient(135deg, #000 0%, rgba(0,0,0,0.35) 55%, transparent 85%)',
+        }}
+      />
+      {size === 'sm' ? (
+        <span
+          className={`absolute inset-0 grid place-items-center font-bold tracking-tight ${theme.accent} ${
+            initials.length > 2 ? 'text-[11px]' : 'text-sm'
+          }`}
+        >
+          {initials}
+        </span>
+      ) : (
+        <div className={`absolute inset-0 flex flex-col justify-between ${size === 'lg' ? 'p-4' : 'p-2'}`}>
+          <span
+            className={`font-semibold uppercase tracking-wider ${theme.accent} ${size === 'lg' ? 'text-[10px]' : 'text-[8px]'}`}
+          >
+            {categoryMeta(item.primary_category).short}
+          </span>
+          <span className="flex min-w-0 items-center gap-2">
+            <span
+              className={`grid shrink-0 place-items-center rounded-md bg-surface-base/75 font-bold ring-1 ring-line-subtle ${theme.accent} ${
+                size === 'lg' ? 'h-10 w-10 text-sm' : 'h-6 w-6 text-[9px] sm:h-7 sm:w-7 sm:text-[10px]'
+              }`}
+            >
+              {initials}
+            </span>
+            <span
+              className={`min-w-0 truncate font-semibold text-fg-secondary ${
+                size === 'lg' ? 'text-base' : 'hidden text-[11px] sm:inline'
+              }`}
+            >
+              {publisher}
+            </span>
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Story thumbnail in a fixed-size box (no layout shift). The designed tile is
+ * always underneath; the remote image fades in over it once it loads and is
+ * dropped on error. Third-party CDN, so no referrer and lazy loading.
  */
 export function NewsThumb({
   item,
   className,
   iconSize = 'md',
 }: {
-  item: Pick<NewsFeedItem, 'image_url' | 'url' | 'source'>
+  item: ThumbItem
   className: string
   iconSize?: 'sm' | 'md' | 'lg'
 }) {
-  const [imgFailed, setImgFailed] = useState(false)
-  const [favFailed, setFavFailed] = useState(false)
-  const showImage = Boolean(item.image_url) && !imgFailed
-  const fav = iconSize === 'lg' ? 'h-12 w-12' : iconSize === 'md' ? 'h-8 w-8' : 'h-6 w-6'
+  const src = storyImageUrl(item.image_url)
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null)
+  const imgRef = useRef<HTMLImageElement | null>(null)
+  const showImage = Boolean(src) && src !== failedSrc
+  const loaded = showImage && loadedSrc === src
+
+  // An image served from cache can finish before React attaches onLoad.
+  // (Only the success case: a lazy image not yet fetched also has naturalWidth 0.)
+  useEffect(() => {
+    const el = imgRef.current
+    if (el && src && el.complete && el.naturalWidth > 0) setLoadedSrc(src)
+  }, [src])
+
   return (
     <div
-      className={`relative shrink-0 overflow-hidden border border-line-subtle bg-gradient-to-br from-surface-raised to-surface-overlay ${className}`}
+      className={`relative shrink-0 overflow-hidden border border-line-subtle bg-surface-raised ${className}`}
       aria-hidden
     >
-      {showImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- remote publisher CDNs vary
+      {!loaded && <NewsFallbackTile item={item} size={iconSize} />}
+      {showImage && (
+        // eslint-disable-next-line @next/next/no-img-element -- remote publisher CDNs vary; next/image would proxy them
         <img
-          src={item.image_url as string}
+          ref={imgRef}
+          src={src as string}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-500 group-hover:scale-[1.03] ${
+            loaded ? 'opacity-100' : 'opacity-0'
+          }`}
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          onError={() => setImgFailed(true)}
+          onLoad={() => setLoadedSrc(src)}
+          onError={() => setFailedSrc(src)}
         />
-      ) : !favFailed ? (
-        // eslint-disable-next-line @next/next/no-img-element -- favicon service
-        <img
-          src={sourceFaviconUrl(item.url, item.source).replace('sz=64', 'sz=128')}
-          alt=""
-          className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-lg opacity-80 ${fav}`}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          onError={() => setFavFailed(true)}
-        />
-      ) : (
-        <Newspaper className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 text-fg-muted" />
       )}
     </div>
   )
@@ -277,7 +368,7 @@ export default function NewsFeedCard({
     >
       {isHero ? (
         <NewsThumb item={item} className="mb-3 aspect-[2/1] max-h-[240px] w-full rounded-lg" iconSize="lg" />
-      ) : variant === 'default' && item.image_url ? (
+      ) : variant === 'default' && storyImageUrl(item.image_url) ? (
         <NewsThumb item={item} className="mb-2.5 h-28 w-full rounded-lg" />
       ) : isCompact ? (
         <NewsThumb item={item} className="h-14 w-14 rounded-lg" iconSize="sm" />

@@ -22,6 +22,8 @@ from typing import Awaitable, Callable, Dict, List, Optional
 
 import httpx
 
+from app.services.news_intel.images import alpaca_image, entry_image, is_generic_image, normalize_image_url
+
 logger = logging.getLogger(__name__)
 
 HTTP_TIMEOUT = httpx.Timeout(12.0, connect=5.0)
@@ -72,6 +74,11 @@ def _parse_iso(s: Optional[str]) -> Optional[datetime]:
         return None
 
 
+def _feed_image(url: Optional[str]) -> Optional[str]:
+    u = normalize_image_url(url)
+    return None if not u or is_generic_image(u) else u
+
+
 # ── RSS / Atom ──────────────────────────────────────────────────────────
 
 def parse_feed(content: bytes, feed_key: str, default_source: str, *, use_entry_source: bool = False,
@@ -92,11 +99,7 @@ def parse_feed(content: bytes, feed_key: str, default_source: str, *, use_entry_
             suffix = f" - {source}"
             if source != default_source and title.endswith(suffix):
                 title = title[: -len(suffix)].strip() or title
-        image = None
-        for m in (e.get("media_content") or []) + (e.get("media_thumbnail") or []):
-            if isinstance(m, dict) and m.get("url"):
-                image = m["url"]
-                break
+        image = entry_image(e)
         out.append(RawItem(
             feed=feed_key,
             source=source,
@@ -143,7 +146,7 @@ def parse_finnhub(data, feed_key: str) -> List[RawItem]:
             summary=clean_text(it.get("summary"), 600),
             published_at=datetime.fromtimestamp(int(ts), tz=timezone.utc) if ts else None,
             symbols=related[:8],
-            image_url=it.get("image") or None,
+            image_url=_feed_image(it.get("image")),
             category_hints=["mna"] if feed_key == "finnhub_merger" else [],
         ))
     return out
@@ -303,6 +306,7 @@ def parse_alpaca_message(msg: dict) -> Optional[RawItem]:
         summary=clean_text(msg.get("summary"), 600),
         published_at=_parse_iso(msg.get("created_at")) or _parse_iso(msg.get("updated_at")),
         symbols=[s for s in (msg.get("symbols") or []) if isinstance(s, str)][:8],
+        image_url=alpaca_image(msg),
     )
 
 
