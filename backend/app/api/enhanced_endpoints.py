@@ -59,9 +59,48 @@ class QuoteResponse(BaseModel):
     # True when the only price available is an older daily bar than the
     # latest completed session (the live providers all failed).
     stale: bool = False
+    # Canonical quote contract (app.services.canonical_quote). last_price /
+    # change / change_percent / previous_close are the REGULAR session;
+    # an extended-hours print is only ever in `extended`.
+    regular: Optional[dict] = None
+    extended: Optional[dict] = None
+    as_of: Optional[str] = None           # trade time of the regular price
+    session: Optional[str] = None         # session of last_price: "regular"
+    source: Optional[str] = None
+    quote_version: Optional[int] = None
 
     class Config:
         from_attributes = True
+
+
+def canonical_quote_response(symbol: str, q: dict, start_time: Optional[datetime] = None) -> "QuoteResponse":
+    """QuoteResponse from a QuoteCacheService payload (canonicalised if it is
+    not already)."""
+    from app.services.canonical_quote import canonicalize
+
+    c = canonicalize(q) or {}
+    start_time = start_time or datetime.utcnow()
+    return QuoteResponse(
+        symbol=symbol,
+        last_price=float(c["price"]),
+        change=c.get("change"),
+        change_percent=c.get("change_percent"),
+        volume=int(c.get("volume") or 0),
+        high=c.get("high") or None,
+        low=c.get("low") or None,
+        open=c.get("open") or None,
+        previous_close=c.get("previous_close") or None,
+        data_source=c.get("data_source") or "live",
+        latency_ms=int((datetime.utcnow() - start_time).total_seconds() * 1000),
+        timestamp=_parse_dt(c.get("as_of") or c.get("market_time") or c.get("timestamp")),
+        stale=bool(c.get("stale")),
+        regular=c.get("regular"),
+        extended=c.get("extended"),
+        as_of=c.get("as_of"),
+        session=c.get("session"),
+        source=c.get("source"),
+        quote_version=c.get("quote_version"),
+    )
 
 
 def _bar_session_date(ts: datetime):
@@ -142,6 +181,14 @@ def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
             return default
     
     try:
+        # The canonical quote (QuoteCacheService, the same quote_snapshots row
+        # the copilot / watchlist / portfolio / alerts read) comes first. A DB
+        # daily bar is only a fallback when every live provider failed, and is
+        # flagged stale when it predates the latest completed session.
+        live = _live_quote(symbol.upper(), db)
+        if live:
+            return canonical_quote_response(symbol.upper(), live, start_time)
+
         # Get symbol from database
         db_symbol = db.query(Symbol).filter(Symbol.symbol == symbol.upper()).first()
         if not db_symbol:
@@ -190,25 +237,7 @@ def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
                 timestamp=fallback_data.get("timestamp") or datetime.utcnow()
             )
         
-        if not db_bar_is_current(latest_price.timestamp):
-            live = _live_quote(symbol.upper(), db)
-            if live:
-                return QuoteResponse(
-                    symbol=symbol.upper(),
-                    last_price=float(live["price"]),
-                    change=live.get("change"),
-                    change_percent=live.get("change_percent"),
-                    volume=int(live.get("volume") or 0),
-                    high=live.get("high") or None,
-                    low=live.get("low") or None,
-                    open=live.get("open") or None,
-                    previous_close=live.get("previous_close") or None,
-                    data_source=live.get("data_source") or "live",
-                    latency_ms=int((datetime.utcnow() - start_time).total_seconds() * 1000),
-                    timestamp=_parse_dt(live.get("market_time") or live.get("timestamp")),
-                )
-        from app.services.market_calendar import last_completed_session
-        stale = _bar_session_date(latest_price.timestamp) < last_completed_session()
+        stale = not db_bar_is_current(latest_price.timestamp)
 
         # Get previous price for change calculation
         prev_price = db.query(PriceBar).filter(
@@ -1023,62 +1052,20 @@ def get_transaction_history(
 @router.get("/quote/{symbol}/finnhub", response_model=QuoteResponse)
 async def get_finnhub_quote(symbol: str, priority: str = Query('high', pattern='^(high|normal)$'), db: Session = Depends(get_db)):
     """
-    Get real-time quote, Finnhub-first with multi-source fallback.
-    Priority: 'high' for research/markets pages (default), 'normal' for others
+    Kept for old clients: answers with the SAME canonical quote as
+    /quote/{symbol} (QuoteCacheService, one cache row per symbol). It used to
+    read Finnhub directly, a separate provider chain that disagreed with the
+    rest of the app. `priority` is accepted and ignored.
     """
     start_time = datetime.utcnow()
-    source = "finnhub"
-
     try:
-        # Blocking requests call (+ rate-limiter sleep for priority=high):
-        # run it off the event loop.
-        quote_data = await asyncio.to_thread(FinnhubFetcher.get_quote, symbol.upper(), priority=priority)
-
-        if not quote_data or 'c' not in quote_data or not quote_data.get('c'):
-            # Finnhub failed/rate-limited — fall back to multi-source quote cache
-            from app.services.quote_cache import QuoteCacheService
-            qcs = QuoteCacheService(db)
-            fallback = await qcs.get_quote(symbol.upper())
-            if fallback and not fallback.get('unavailable') and fallback.get('price'):
-                source = fallback.get('data_source', 'fallback')
-                latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
-                return QuoteResponse(
-                    symbol=symbol.upper(),
-                    last_price=fallback['price'],
-                    change=fallback.get('change', 0),
-                    change_percent=fallback.get('change_percent', 0),
-                    volume=fallback.get('volume'),
-                    high=fallback.get('high'),
-                    low=fallback.get('low'),
-                    open=fallback.get('open'),
-                    data_source=source,
-                    latency_ms=latency_ms,
-                    timestamp=datetime.utcnow()
-                )
-            raise HTTPException(status_code=404, detail=f"Quote not found for {symbol}")
-
-        change = quote_data.get('c', 0) - quote_data.get('pc', 0)
-        change_percent = (change / quote_data.get('pc', 1)) * 100 if quote_data.get('pc') else 0
-        latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
-
-        return QuoteResponse(
-            symbol=symbol.upper(),
-            last_price=quote_data.get('c', 0),
-            change=change,
-            change_percent=change_percent,
-            volume=None,
-            high=quote_data.get('h'),
-            low=quote_data.get('l'),
-            open=quote_data.get('o'),
-            data_source="finnhub",
-            latency_ms=latency_ms,
-            timestamp=datetime.utcnow()
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Finnhub error")
-        raise HTTPException(status_code=500, detail="Finnhub error")
+        q = await QuoteCacheService(db).get_quote(symbol.upper())
+    except Exception:
+        logger.exception("canonical quote failed")
+        raise HTTPException(status_code=500, detail="Quote error")
+    if not q or q.get('unavailable') or not q.get('price'):
+        raise HTTPException(status_code=404, detail=f"Quote not found for {symbol}")
+    return canonical_quote_response(symbol.upper(), q, start_time)
 
 
 @router.get("/news/{symbol}/finnhub")

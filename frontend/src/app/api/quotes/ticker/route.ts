@@ -3,6 +3,7 @@ import { sanitizeQuoteSummaryCompanyName } from '@/lib/company-display-name'
 import { incrementFmpUsage } from '@/lib/fmp-usage'
 import { assetTypeFromSymbol, isCompanyAsset, normalizeAssetType, toYahooSymbol } from '@/lib/assetType'
 import { reconcileTickerFundamentals, type BackendFundamentals } from '@/lib/valuation'
+import { applyCanonicalQuote, canonicalQuoteInfo, type CanonicalQuoteInfo } from '@/lib/canonicalQuote'
 
 /**
  * Universal Ticker Info API
@@ -101,6 +102,12 @@ export interface TickerInfo {
   founded: string
   /** equity | etf | fund | index | … (see lib/assetType). Gates company-only panels. */
   asset_type?: string
+  /**
+   * Canonical backend quote (lib/canonicalQuote). When present, price /
+   * change / change_percent / prev_close above are its regular-session
+   * values; an extended-hours print is only in quote.extended.
+   */
+  quote?: CanonicalQuoteInfo | null
 }
 
 const YAHOO_QUOTE_MODULES = [
@@ -572,6 +579,29 @@ async function fetchBackendFundamentals(sym: string): Promise<BackendFundamental
   }
 }
 
+// ─── Canonical quote (one price for every surface) ──────────────────────────
+//
+// FMP / Yahoo above are a separate provider chain from the backend quote cache
+// the copilot, watchlist, portfolio and alerts use; on 2026-11-26 they
+// disagreed by $17 on AMD. The headline price always comes from the backend's
+// canonical quote; the profile providers only supply profile fields.
+
+async function fetchCanonicalQuote(sym: string): Promise<CanonicalQuoteInfo | null> {
+  const base = (process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+  if (!base) return null
+  try {
+    const res = await fetch(`${base}/api/v1/enhanced/quote/${encodeURIComponent(sym)}`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    return canonicalQuoteInfo(await res.json())
+  } catch {
+    return null
+  }
+}
+
 // ─── GET handler ────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -584,6 +614,9 @@ export async function GET(request: NextRequest) {
 
   // Share classes: BRK.B is "BRK-B" on FMP and Yahoo (the dot form returned nothing).
   const providerSymbol = toYahooSymbol(symbol)
+
+  // Canonical price in parallel with the profile fetch.
+  const canonicalPromise = fetchCanonicalQuote(symbol)
 
   // Strategy: FMP (primary, stable API) → Yahoo (fallback) → Finnhub enrichment
   let data = await fetchFmpFullProfile(providerSymbol)
@@ -637,13 +670,16 @@ export async function GET(request: NextRequest) {
   const backend = isCompanyAsset(symbol, data.asset_type) ? await fetchBackendFundamentals(symbol) : null
   data = reconcileTickerFundamentals(data, backend)
   // Keep Fwd EPS consistent with the Fwd P/E shown beside it.
+  // Headline price = the backend canonical quote (regular session).
+  data = applyCanonicalQuote(data, await canonicalPromise)
   if (typeof backend?.forward_pe === 'number' && backend.forward_pe > 0 && data.price > 0) {
     data.forward_eps = data.price / backend.forward_pe
   }
 
   return NextResponse.json(data, {
     headers: {
-      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+      // Short: the price must track the backend quote cache (60s in session).
+      'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
     },
   })
 }

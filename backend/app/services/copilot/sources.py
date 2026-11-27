@@ -419,9 +419,12 @@ def quote_fact(ticker: str, q: Optional[Dict[str, Any]], now: Optional[datetime]
     we fetched it for most providers, so it is only a fallback for as_of and
     never used to claim a quote is current."""
     from app.services import market_calendar as mc
+    from app.services.canonical_quote import QUOTE_VERSION
     if not q or q.get("unavailable") or fnum(q.get("price")) is None:
         return None
     now = now or _utcnow()
+    if q.get("quote_version") == QUOTE_VERSION and q.get("regular"):
+        return _canonical_quote_fact(ticker, q, now)
     state = mc.market_state(now)
     market_now = mc.label(state.session, state.holiday)
     traded = _parse_ts(q.get("market_time"))
@@ -465,6 +468,64 @@ def quote_fact(ticker: str, q: Optional[Dict[str, Any]], now: Optional[datetime]
         market_session=session, market_now=market_now,
         quote_time=traded.replace(microsecond=0).isoformat() if traded else None,
         age_minutes=age_min, stale=stale, freshness_note=note)
+
+
+def _canonical_quote_fact(ticker: str, q: Dict[str, Any], now: datetime) -> QuoteFact:
+    """QuoteFact from a canonical quote: the headline is the regular-session
+    price (the same number every other tab shows); any pre-market /
+    after-hours / overnight print is carried separately in extended_*.
+
+    Incident 2026-11-26 21:45 ET (Thanksgiving): the copilot quoted AMD
+    423.01 (+2.36%), an overnight print, while every other tab showed the
+    Nov 25 close 406.03 (-1.75%)."""
+    from app.services import market_calendar as mc
+    from app.services.canonical_quote import extended_label
+    reg = q["regular"]
+    ext = q.get("extended") or None
+    state = mc.market_state(now)
+    market_now = mc.label(state.session, state.holiday)
+    as_of = _parse_ts(q.get("as_of"))
+    if as_of is not None and as_of > now:
+        as_of = now
+    age_min = round(max(0.0, (now - as_of).total_seconds()) / 60, 1) if as_of else None
+    live = bool(reg.get("live")) and state.is_open
+    if live:
+        stale = (age_min * 60 > QUOTE_MAX_AGE_S) if age_min is not None else None
+    else:
+        stale = bool(q.get("stale"))
+    prev = fnum(reg.get("previous_close"))
+    prev_txt = (f"change vs the {reg.get('previous_session_date')} close {prev:.2f}" if prev
+                else "previous close not available")
+    if live:
+        when = as_of.astimezone(mc.ET).strftime("%H:%M ET") if as_of else "unknown time"
+        note = f"live regular-session price, last trade {when}"
+        if age_min is not None:
+            note += f" ({age_min:.0f} min old)"
+    else:
+        note = f"regular-session close of {reg.get('session_date')}; latest regular price, not live"
+    note += f"; {prev_txt}; US market now: {market_now}"
+    if stale:
+        note += "; STALE - do not present as a live price"
+    if ext:
+        et = _parse_ts(ext.get("time"))
+        lbl = extended_label(ext)
+        note += (f"; extended-hours trade (separate from the price above): {lbl} vs the regular close"
+                 + (f", at {et.astimezone(mc.ET).strftime('%Y-%m-%d %H:%M ET')}" if et else "")
+                 + " - mention it separately and label it, never as the price")
+    return QuoteFact(
+        id=f"quote:{ticker}", source=f"quote cache ({q.get('source') or q.get('data_source') or 'market data'})",
+        as_of=as_of.replace(microsecond=0).isoformat() if as_of else None,
+        ticker=ticker, price=fnum(reg.get("price")), change=fnum(reg.get("change")),
+        change_percent=fnum(reg.get("change_percent")), volume=fnum(q.get("volume")),
+        previous_close=prev, day_high=fnum(q.get("high")), day_low=fnum(q.get("low")),
+        market_session=mc.REGULAR, market_now=market_now,
+        quote_time=as_of.replace(microsecond=0).isoformat() if as_of else None,
+        age_minutes=age_min, stale=stale, freshness_note=note,
+        session_date=reg.get("session_date"), previous_close_date=reg.get("previous_session_date"),
+        extended_price=fnum(ext.get("price")) if ext else None,
+        extended_change_percent=fnum(ext.get("change_percent")) if ext else None,
+        extended_session=ext.get("session") if ext else None,
+        extended_time=ext.get("time") if ext else None)
 
 
 def fundamentals_fact(ticker: str, r: Dict[str, Any]) -> FundamentalsFact:

@@ -119,6 +119,11 @@ _REGULAR_LAST_KEYS = ("regularMarketLast", "regular_market_last", "regularLast",
 
 # (symbol, reference session date) -> that session's close, from daily bars.
 _prev_close_cache: Dict[tuple, float] = {}
+# (symbol, reference session date) -> close of the trading day BEFORE it (the
+# reference session's own previous close), from the same download. The
+# canonical quote needs both: the regular close is the headline and the close
+# before it is the baseline for the regular-session change.
+_prior_close_cache: Dict[tuple, float] = {}
 
 
 def _et_today():
@@ -183,6 +188,7 @@ def _fetch_previous_closes(symbols, ref_dates: Optional[Dict[str, Any]] = None) 
         return out
     if len(_prev_close_cache) > 5000:
         _prev_close_cache.clear()
+        _prior_close_cache.clear()
     try:
         import yfinance as yf
         import pandas as pd
@@ -211,6 +217,12 @@ def _fetch_previous_closes(symbols, ref_dates: Optional[Dict[str, Any]] = None) 
                     if val > 0:
                         out[sym] = val
                         _prev_close_cache[(sym, ref if ref is not None else today)] = val
+                        if ref is not None and len(closes) >= 2:
+                            from app.services import market_calendar as mc
+                            if closes.index[-2].date() == mc.previous_trading_day(ref):
+                                prior = float(closes.iloc[-2])
+                                if prior > 0:
+                                    _prior_close_cache[(sym, ref)] = prior
             except Exception:
                 continue
     except Exception as e:
@@ -300,11 +312,23 @@ def _parse_quote(raw) -> Optional[Dict[str, Any]]:
         market_time = ts.isoformat() if hasattr(ts, "isoformat") else (str(ts) if ts else None)
         ts_str = market_time or datetime.now(timezone.utc).isoformat()
 
+        # Public's own baseline, kept verbatim for the canonical quote. The SDK
+        # model's __dict__ uses snake_case (previous_close / one_day_change);
+        # the camelCase spellings are the REST JSON. one_day_change is the
+        # REGULAR-session change (Xignite), so raw previous_close + change is
+        # the last regular close even when `last` is an overnight print
+        # (AMD 2026-11-26: 413.27 - 7.24 = 406.03 while last was 424.00).
+        raw_prev = _get(raw, "previous_close", None) or _get(raw, "previousClose", None)
+        odc = _get(raw, "one_day_change", None) or _get(raw, "oneDayChange", None)
+        odc_change = _get(odc, "change", None) if odc is not None else None
+
         return {
             "symbol": symbol,
             "price": round(price, 2),
             "change": round(change, 2),
             "change_percent": round(change_pct, 4),
+            "public_previous_close": float(raw_prev) if raw_prev not in (None, "") else None,
+            "public_one_day_change": float(odc_change) if odc_change not in (None, "") else None,
             "volume": volume,
             "high": None,  # Not provided by Public.com quote endpoint
             "low": None,
@@ -358,6 +382,13 @@ class PublicClient:
         for sym, prev in prevs.items():
             if sym in results:
                 _apply_previous_close(results[sym], prev)
+                ref = ref_dates.get(sym)
+                # Bars-verified regular close of the reference session and the
+                # close before it (app.services.canonical_quote reads these).
+                results[sym]["reference_close"] = round(prev, 4)
+                prior = _prior_close_cache.get((sym, ref))
+                if prior:
+                    results[sym]["reference_prior_close"] = round(prior, 4)
 
     async def get_quote(self, symbol: str) -> Optional[Dict[str, Any]]:
         """Fetch single real-time quote from Public.com."""

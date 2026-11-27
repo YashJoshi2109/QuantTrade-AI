@@ -270,8 +270,14 @@ async def _default_fetch(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
     try:
         from app.services.public_client import public_client
 
+        from app.services.canonical_quote import canonicalize
+
+        # Rows written here are read by every quote surface: store them in the
+        # canonical contract (regular-session headline, extended separate).
         bulk = await public_client.get_quotes(symbols) or {}
-        out.update({s: q for s, q in bulk.items() if _has_baseline(q)})
+        canon = {s: canonicalize(q) for s, q in bulk.items()}
+        out.update({s: q for s, q in canon.items()
+                    if q and not q.get("needs_regular") and _has_baseline(q)})
     except Exception as e:
         logger.debug("market_snapshot: Public.com batch failed: %s", e)
 

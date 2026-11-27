@@ -10,6 +10,7 @@ import {
   type Continent,
 } from '@/lib/world-exchanges'
 import type { TickerContext } from '@/lib/copilot-engine'
+import type { CanonicalExtended, CanonicalRegular } from '@/lib/canonicalQuote'
 import type { BasketDataCoverage } from '@/lib/basketCoverage'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
@@ -79,6 +80,10 @@ function normalizeQuoteData(data: Record<string, unknown>, symbol: string): Quot
     market_status: data.market_status as string | undefined,
     data_source: data.data_source as string | undefined,
     latency_ms: data.latency_ms as number | undefined,
+    regular: (data.regular as CanonicalRegular | null | undefined) ?? null,
+    extended: (data.extended as CanonicalExtended | null | undefined) ?? null,
+    as_of: (data.as_of as string | null | undefined) ?? null,
+    stale: data.stale === true,
   }
 }
 
@@ -973,6 +978,12 @@ export interface QuoteData {
   market_status?: string
   data_source?: string
   latency_ms?: number
+  /** Canonical quote (lib/canonicalQuote): price/change are the regular session. */
+  regular?: CanonicalRegular | null
+  /** Pre-market / after-hours / overnight print, shown separately. */
+  extended?: CanonicalExtended | null
+  as_of?: string | null
+  stale?: boolean
 }
 
 // Use enhanced endpoint with Finviz for sub-second real-time data

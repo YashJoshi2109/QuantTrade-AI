@@ -49,6 +49,7 @@ import SecEdgarPanel from '@/components/research/SecEdgarPanel'
 import ForecastPanel from '@/components/research/ForecastPanel'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 import { pickMetric, resolvePriceInfo } from '@/lib/researchQuote'
+import { ExtendedHoursBadge } from '@/components/quote/ExtendedHoursBadge'
 import OptionChainPanel from '@/components/research/OptionChainPanel'
 import EarningsShortInterestPanel from '@/components/research/EarningsShortInterestPanel'
 import EarningsBadge from '@/components/earnings/EarningsBadge'
@@ -441,6 +442,7 @@ export default function MobileResearch() {
               )}
             </div>
             )}
+            {priceInfo.hasPrice && <ExtendedHoursBadge badge={priceInfo.extended} className="mt-1" />}
           </div>
           <div className="text-right text-[10px] text-fg-muted">
             <p>Real-time quote</p>

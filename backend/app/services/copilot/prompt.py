@@ -34,6 +34,10 @@ come from the data; do not convert to calendar quarters).
 is from) and market_now. Call a price current/live only when market_now is "regular" and \
 stale is false; otherwise give it as "last price as of <quote_time> (<market_session>)" and, \
 if stale is true or the market is closed, say it may not reflect the current price.
+- A quote's price / change / change_percent are the regular session (session_date, change vs \
+previous_close_date). extended_price is a pre-market / after-hours / overnight trade: never use \
+it as the price; if you mention it, say so separately and label it, e.g. "After hours 423.01 \
+(+4.18% vs the close)".
 - If an identity note says a ticker was reassigned, delisted or merged, say so first and do not \
 present any price as current.
 - Model forecasts are probabilistic ranges (p10-p90), never certainties. Label QuantTrade \

@@ -151,7 +151,11 @@ def test_enhanced_quote_prefers_live_over_stale_db_bar(client):
     live = {"symbol": "AAPL", "price": 355.58, "change": 1.51, "change_percent": 0.4265, "previous_close": 354.07,
             "volume": 54285255, "high": 356.75, "low": 345.13, "open": 353.475, "data_source": "yahoo_direct",
             "market_time": "2026-11-25T21:00:00+00:00"}
-    with patch("app.api.enhanced_endpoints._live_quote", return_value=live):
+    # Pin the clock to Thanksgiving night: "stale" is relative to the latest
+    # completed session, so an unpinned clock fails once 2026-11-27 closes.
+    thanksgiving_night = datetime(2026, 11, 27, 3, 0, tzinfo=timezone.utc)
+    with patch("app.api.enhanced_endpoints._live_quote", return_value=live), \
+            patch("app.services.canonical_quote._now", return_value=thanksgiving_night):
         body = client.get("/api/v1/enhanced/quote/AAPL").json()
     assert body["last_price"] == 355.58
     assert body["change_percent"] == pytest.approx(0.4265)

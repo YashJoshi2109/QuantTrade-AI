@@ -55,6 +55,17 @@ class QuoteFact(Fact):
     age_minutes: Optional[float] = None     # age of quote_time when the pack was built
     stale: Optional[bool] = None            # older than the freshness limit for market_now
     freshness_note: Optional[str] = None
+    # Canonical quote (app.services.canonical_quote): price/change above are
+    # ALWAYS the regular session. session_date is the regular session the
+    # price is from, previous_close_date the close the change is measured to.
+    session_date: Optional[str] = None
+    previous_close_date: Optional[str] = None
+    # Pre-market / after-hours / overnight print, reported separately and
+    # never as `price`. extended_change_percent is vs the regular price.
+    extended_price: Optional[float] = None
+    extended_change_percent: Optional[float] = None
+    extended_session: Optional[str] = None
+    extended_time: Optional[str] = None
 
     def label(self) -> str:
         return f"{self.ticker} quote"
@@ -64,6 +75,12 @@ class QuoteFact(Fact):
         if self.price is not None:
             chg = f" ({self.change_percent:+.2f}%)" if self.change_percent is not None else ""
             d["snippet"] = f"${self.price:,.2f}{chg}" + (f", market {self.market_session.lower()}" if self.market_session else "")
+            if self.extended_price is not None:
+                from app.services.canonical_quote import extended_label
+                ext = extended_label({"price": self.extended_price, "session": self.extended_session,
+                                      "change_percent": self.extended_change_percent})
+                if ext:
+                    d["snippet"] += f" · {ext}"
         return d
 
 

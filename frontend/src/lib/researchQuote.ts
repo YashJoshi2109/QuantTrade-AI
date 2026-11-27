@@ -12,6 +12,7 @@
  */
 
 import { isNumber } from './format'
+import { extendedBadge, type CanonicalExtended, type CanonicalQuoteInfo, type ExtendedBadge } from './canonicalQuote'
 
 export interface RealtimeQuoteLike {
   price?: number | null
@@ -22,6 +23,9 @@ export interface RealtimeQuoteLike {
   low?: number | null
   data_source?: string
   latency_ms?: number
+  /** canonical extended-hours print (never the headline price) */
+  extended?: CanonicalExtended | null
+  stale?: boolean
 }
 
 export interface TickerQuoteLike {
@@ -31,6 +35,7 @@ export interface TickerQuoteLike {
   volume?: number | null
   day_high?: number | null
   day_low?: number | null
+  quote?: CanonicalQuoteInfo | null
 }
 
 export interface BarLike {
@@ -48,6 +53,10 @@ export interface ResolvedPriceInfo {
   dataSource?: string
   latency?: number
   hasPrice: boolean
+  /** "After hours 423.01 +4.18%" badge, shown next to (not as) the price. */
+  extended?: ExtendedBadge | null
+  /** the price predates the latest completed session */
+  stale?: boolean
 }
 
 const num = (v: unknown, fallback = 0): number => (isNumber(v) ? v : fallback)
@@ -69,6 +78,8 @@ export function resolvePriceInfo(
       dataSource: realtime.data_source,
       latency: realtime.latency_ms,
       hasPrice: true,
+      extended: extendedBadge(realtime.extended ?? ticker?.quote?.extended),
+      stale: realtime.stale === true,
     }
   }
 
@@ -80,8 +91,10 @@ export function resolvePriceInfo(
       volume: positive(ticker.volume) ? ticker.volume : undefined,
       high: ticker.day_high,
       low: ticker.day_low,
-      dataSource: 'profile',
+      dataSource: ticker.quote?.source ?? 'profile',
       hasPrice: true,
+      extended: extendedBadge(ticker.quote?.extended),
+      stale: ticker.quote?.stale === true,
     }
   }
 
