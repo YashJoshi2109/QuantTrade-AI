@@ -96,7 +96,7 @@ export default function MoversHeatmap({
           const tc = textForChange(r.change_percent)
           const pct = r.change_percent >= 0 ? '+' : ''
           return (
-            <Link
+            <Link prefetch={false}
               key={r.symbol}
               href={`/research?symbol=${encodeURIComponent(r.symbol)}`}
               className={`${bg} rounded-md p-2 sm:p-2.5 flex flex-col items-center justify-center min-h-[56px] sm:min-h-[60px] border border-line-subtle transition-all hover:brightness-110 hover:scale-[1.02] hover:z-[1] hover:shadow-lg`}

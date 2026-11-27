@@ -156,7 +156,7 @@ function NewsCardItem({ item, index }: { item: NewsArticle; index: number }) {
         {item.related_tickers && item.related_tickers.length > 0 && (
           <div className="flex gap-1 mt-1.5 flex-wrap">
             {item.related_tickers.slice(0, 4).map((ticker) => (
-              <Link
+              <Link prefetch={false}
                 key={ticker}
                 href={`/research?symbol=${ticker}`}
                 onClick={(e) => e.stopPropagation()}

@@ -210,7 +210,7 @@ export function CompanyCell({ r, size = 32, prefix }: { r: DividendRow; size?: n
 
 export function AlertBell({ symbol }: { symbol: string }) {
   return (
-    <Link
+    <Link prefetch={false}
       href={`/alerts?symbol=${encodeURIComponent(symbol)}`}
       onClick={(e) => e.stopPropagation()}
       title={`Set a price alert for ${symbol}`}
@@ -239,7 +239,7 @@ export function DividendStats({ c, compact = false }: { c: DividendsController; 
       <StatCard compact={compact} tone="emerald" label={compact ? 'Top indicated yield' : 'Highest indicated yield'} icon={icon(<Percent />)} loading={loading}
         value={s.top?.yield_pct ?? null} format={(n) => `${n.toFixed(2)}%`}
         reason="No row this week has both an indicated annual dividend and a price"
-        sub={s.top ? <span title={YIELD_TITLE}><Link href={`/research?symbol=${encodeURIComponent(s.top.symbol)}`} className="font-semibold text-fg-secondary hover:underline">{s.top.symbol}</Link> · Nasdaq indicated ÷ last price</span> : 'No priced rows'} />
+        sub={s.top ? <span title={YIELD_TITLE}><Link prefetch={false} href={`/research?symbol=${encodeURIComponent(s.top.symbol)}`} className="font-semibold text-fg-secondary hover:underline">{s.top.symbol}</Link> · Nasdaq indicated ÷ last price</span> : 'No priced rows'} />
       <StatCard compact={compact} tone="indigo" label="Yield coverage" icon={icon(<Gauge />)} loading={loading}
         value={noData ? null : s.withYield} reason="Dividend calendar unavailable"
         bar={s.total ? s.withYield / s.total : 0}
@@ -404,7 +404,7 @@ export function IncomeCard({ c, compact = false }: { c: DividendsController; com
         <ul className="mt-2 divide-y divide-line-subtle text-sm">
           {d.holdings.map((h) => (
             <li key={h.symbol} className="flex items-center justify-between gap-3 py-2">
-              <Link href={`/research?symbol=${encodeURIComponent(h.symbol)}`} className="flex min-w-0 items-center gap-2">
+              <Link prefetch={false} href={`/research?symbol=${encodeURIComponent(h.symbol)}`} className="flex min-w-0 items-center gap-2">
                 <TickerLogo symbol={h.symbol} companyName={h.name} size={22} />
                 <span className="min-w-0">
                   <span className="block font-semibold text-fg-primary">{h.symbol} <span className="text-[11px] font-normal text-fg-muted">{h.shares.toLocaleString('en-US', { maximumFractionDigits: 4 })} sh</span></span>
@@ -506,7 +506,7 @@ export function DividendSnapshot({ r, today }: { r: DividendRow | null; today: s
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <CompanyCell r={r} size={40} />
-        <Link href={`/research?symbol=${encodeURIComponent(r.symbol)}`} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
+        <Link prefetch={false} href={`/research?symbol=${encodeURIComponent(r.symbol)}`} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
           Research <ExternalLink className="h-3 w-3" />
         </Link>
       </div>

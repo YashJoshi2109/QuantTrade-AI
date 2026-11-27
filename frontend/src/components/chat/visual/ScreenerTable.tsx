@@ -164,7 +164,7 @@ export default function ScreenerTable({ data: initialData }: Props) {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.03 }}
                   >
-                    <Link
+                    <Link prefetch={false}
                       href={`/research?symbol=${item.symbol}`}
                       className={`grid grid-cols-[1fr_60px_70px_70px] items-center px-2.5 py-2 hover:bg-white/[0.02] transition-colors group ${
                         i % 2 === 0 ? 'bg-white/[0.01]' : ''

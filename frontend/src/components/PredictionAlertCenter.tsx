@@ -60,7 +60,7 @@ export default function PredictionAlertCenter() {
               <div className="p-3 text-xs text-fg-muted">No active alerts.</div>
             ) : (
               topAlerts.map((a, i) => (
-                <Link
+                <Link prefetch={false}
                   key={`${a.symbol}-${a.timeframe}-${a.direction}-${i}`}
                   href={`/research?symbol=${a.symbol}`}
                   className="block px-3 py-2 border-b last:border-b-0 border-line-subtle hover:bg-surface-hover transition-colors"

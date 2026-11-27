@@ -170,7 +170,7 @@ export default function PortfolioMobile() {
                             <TickerLogo symbol={h.symbol} size={32} />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-baseline justify-between gap-2">
-                                <Link href={`/research?symbol=${h.symbol}`} className="font-semibold text-fg-primary">{h.symbol}</Link>
+                                <Link prefetch={false} href={`/research?symbol=${h.symbol}`} className="font-semibold text-fg-primary">{h.symbol}</Link>
                                 <span className="tabular-nums text-sm font-semibold text-fg-primary">{fmtMoney(h.market_value)}</span>
                               </div>
                               <div className="flex items-baseline justify-between gap-2 text-[11px]">

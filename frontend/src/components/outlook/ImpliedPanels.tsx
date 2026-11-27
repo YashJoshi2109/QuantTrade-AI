@@ -448,7 +448,7 @@ export function PerceptionPanel({ symbol, compact = false }: { symbol: string; c
               ? `Model: ${d.model.name || 'SARIMAX'} as of ${fmtDate(d.model.as_of, true)}, volatility ${d.model.vol_annualized_pct ?? '—'}% annualised; forecast to ${d.model.horizon_max ?? '—'} sessions. `
               : 'The statistical forecast is unavailable for this symbol right now. '}
             A wider market range than the model usually reflects the volatility risk premium and event risk (earnings, macro) that a price-only model does not see.{' '}
-            <Link href={`/research?symbol=${encodeURIComponent(symbol)}`} className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">Full forecast in Research</Link>
+            <Link prefetch={false} href={`/research?symbol=${encodeURIComponent(symbol)}`} className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">Full forecast in Research</Link>
           </p>
         </>
       )}

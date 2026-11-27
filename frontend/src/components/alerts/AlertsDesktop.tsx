@@ -100,7 +100,7 @@ export default function AlertsDesktop() {
                       return (
                         <tr key={a.id} className="border-t border-line-subtle hover:bg-surface-raised/40">
                           <td className="px-4 py-3">
-                            <Link href={`/research?symbol=${a.symbol}`} className="flex items-center gap-2">
+                            <Link prefetch={false} href={`/research?symbol=${a.symbol}`} className="flex items-center gap-2">
                               <TickerLogo symbol={a.symbol} size={24} />
                               <span>
                                 <span className="block font-semibold text-fg-primary">{a.symbol}</span>

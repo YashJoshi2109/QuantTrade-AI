@@ -44,7 +44,7 @@ function StockRow({ stock, rank, tab }: { stock: StockPerformance; rank: number;
   const up = isNumber(pct) && pct >= 0
 
   return (
-    <Link
+    <Link prefetch={false}
       href={`/research?symbol=${encodeURIComponent(stock.symbol)}`}
       className="flex items-center gap-3 px-4 py-3 active:bg-surface-hover transition-colors border-b border-line-subtle last:border-b-0"
     >

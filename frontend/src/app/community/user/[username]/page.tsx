@@ -449,7 +449,7 @@ export default function UserProfilePage() {
                   ) : (
                     <div className="space-y-2">
                       {comments.map((comment: any) => (
-                        <Link key={comment.id} href={`/community/post/${comment.post_id}`}
+                        <Link prefetch={false} key={comment.id} href={`/community/post/${comment.post_id}`}
                           className="block bg-surface-base border border-line-subtle rounded-xl p-4 hover:border-line-default transition-colors group">
                           {comment.post_title && (
                             <div className="text-xs text-fg-muted mb-2 flex items-center gap-1">
@@ -546,7 +546,7 @@ export default function UserProfilePage() {
                 </p>
                 <div className="space-y-1.5">
                   {profile.communities.slice(0, 6).map((c) => (
-                    <Link key={c.slug} href={`/community/${c.slug}`}
+                    <Link prefetch={false} key={c.slug} href={`/community/${c.slug}`}
                       className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-surface-hover transition-colors group">
                       <span className="text-sm text-fg-secondary group-hover:text-white transition-colors">c/{c.name}</span>
                       <ChevronRight className="w-3.5 h-3.5 text-fg-muted group-hover:text-fg-muted transition-colors" />

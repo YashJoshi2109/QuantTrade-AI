@@ -210,7 +210,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <Link
+                      <Link prefetch={false}
                         href={`/research?symbol=${impact.ticker}`}
                         className="text-sm font-bold text-fg-primary hover:text-sky-400 transition-colors"
                       >
@@ -283,7 +283,7 @@ function EventImpactView({ event, onClose }: { event: GlobalEvent; onClose: () =
                   {impact.related_etfs && impact.related_etfs.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {impact.related_etfs.slice(0, 4).map(etf => (
-                        <Link key={etf} href={`/research?symbol=${etf}`} className="px-1.5 py-0.5 bg-surface-hover rounded text-[9px] text-sky-400 hover:text-sky-300 transition-colors">
+                        <Link prefetch={false} key={etf} href={`/research?symbol=${etf}`} className="px-1.5 py-0.5 bg-surface-hover rounded text-[9px] text-sky-400 hover:text-sky-300 transition-colors">
                           {etf}
                         </Link>
                       ))}

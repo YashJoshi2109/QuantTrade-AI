@@ -66,7 +66,7 @@ function TickerChip({ item }: { item: TickerItem }) {
   if (item.isIndex) return content
 
   return (
-    <Link href={`/research?symbol=${encodeURIComponent(item.symbol)}`}>{content}</Link>
+    <Link prefetch={false} href={`/research?symbol=${encodeURIComponent(item.symbol)}`}>{content}</Link>
   )
 }
 

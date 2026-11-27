@@ -597,7 +597,7 @@ export function SecurityOverview({ r, actions, onClose, sheet = false }: { r: Sc
           {actions.busy === r.symbol ? <Loader2 className="h-4 w-4 animate-spin" /> : isAdded ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
           {isAdded ? 'In watchlist' : 'Add to watchlist'}
         </button>
-        <Link href={`/alerts?symbol=${encodeURIComponent(r.symbol)}`} className={`${btn} border border-line-default text-fg-primary hover:bg-surface-hover`}>
+        <Link prefetch={false} href={`/alerts?symbol=${encodeURIComponent(r.symbol)}`} className={`${btn} border border-line-default text-fg-primary hover:bg-surface-hover`}>
           <BellPlus className="h-4 w-4" /> Set alert
         </Link>
       </div>

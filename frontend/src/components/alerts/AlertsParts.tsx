@@ -302,7 +302,7 @@ function SuggestionCard({
       <div className="flex items-center gap-2 pr-7">
         <TickerLogo symbol={s.symbol} size={28} />
         <div className="min-w-0">
-          <Link href={`/research?symbol=${s.symbol}`} className="block font-semibold leading-tight text-fg-primary">{s.symbol}</Link>
+          <Link prefetch={false} href={`/research?symbol=${s.symbol}`} className="block font-semibold leading-tight text-fg-primary">{s.symbol}</Link>
           <span className="block truncate text-[11px] text-fg-muted">
             {s.current_price != null ? `$${s.current_price.toFixed(2)}` : s.name ?? ''}
             {s.change_percent != null && (

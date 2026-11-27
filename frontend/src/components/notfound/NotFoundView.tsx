@@ -119,7 +119,7 @@ export default function NotFoundView() {
             <ul className="mt-2.5 flex flex-wrap justify-center gap-2">
               {POPULAR_TICKERS.map((t) => (
                 <li key={t.symbol}>
-                  <Link
+                  <Link prefetch={false}
                     href={`/research?symbol=${t.symbol}`}
                     title={t.name}
                     className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white/80 px-3 font-mono text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-sky-300 hover:text-sky-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 motion-reduce:hover:translate-y-0 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-sky-400/40 dark:hover:text-sky-300"

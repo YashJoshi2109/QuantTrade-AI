@@ -68,7 +68,7 @@ function MoverRow({
 
   return (
     <motion.div variants={up ? slideInLeft : slideInRight}>
-      <Link
+      <Link prefetch={false}
         href={`/research?symbol=${encodeURIComponent(stock.symbol)}`}
         className={`flex items-center justify-between px-5 py-3 transition-all duration-150 group ${
           up

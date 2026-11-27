@@ -50,7 +50,7 @@ export default function UnknownTicker({
         <ul className="mt-5 flex flex-wrap justify-center gap-2" aria-label="Suggested tickers">
           {suggestions.map((t) => (
             <li key={t.symbol}>
-              <Link
+              <Link prefetch={false}
                 href={`/research?symbol=${encodeURIComponent(t.symbol)}`}
                 className="group inline-flex h-9 items-center gap-2 rounded-xl border border-line-subtle bg-white px-3 text-sm transition hover:border-sky-300 dark:bg-[#141b28] dark:hover:border-sky-400/40"
               >

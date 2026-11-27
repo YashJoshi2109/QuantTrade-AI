@@ -430,7 +430,7 @@ export function EarningsSnapshot({ r, today }: { r: EarningsRow | null; today: s
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <CompanyCell r={r} size={40} />
-        <Link href={`/research?symbol=${encodeURIComponent(r.symbol)}`} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
+        <Link prefetch={false} href={`/research?symbol=${encodeURIComponent(r.symbol)}`} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
           Research <ExternalLink className="h-3 w-3" />
         </Link>
       </div>
