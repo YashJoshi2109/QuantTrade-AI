@@ -51,6 +51,7 @@ import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 import { pickMetric, resolvePriceInfo } from '@/lib/researchQuote'
 import OptionChainPanel from '@/components/research/OptionChainPanel'
 import EarningsShortInterestPanel from '@/components/research/EarningsShortInterestPanel'
+import EarningsBadge from '@/components/earnings/EarningsBadge'
 import { CompanyFolioPanel } from '@/components/research/CompanyFolioPanel'
 import TechnicalAnalysisGauge from '@/components/TechnicalAnalysisGauge'
 import AskCopilotButton from '@/components/copilot/AskCopilotButton'
@@ -331,6 +332,7 @@ export default function MobileResearch() {
             </button>
           </div>
         </div>
+        <EarningsBadge symbol={symbolFromUrl} variant="mobile" className="ml-10 mt-1" />
       </header>
 
       <TickerIdentityBanner identity={tickerIdentity} compact />

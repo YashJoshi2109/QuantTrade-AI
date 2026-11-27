@@ -19,6 +19,7 @@ import { sanitizeQuoteSummaryCompanyName } from '@/lib/company-display-name'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 import type { ChartSeriesType } from '@/components/Chart'
 import TickerLogo from '@/components/TickerLogo'
+import EarningsBadge from '@/components/earnings/EarningsBadge'
 import AskCopilotButton from '@/components/copilot/AskCopilotButton'
 import Link from 'next/link'
 import { GitCompareArrows } from 'lucide-react'
@@ -290,6 +291,7 @@ export function ResearchChartHeader({
                   {tickerInfo.industry}
                 </span>
               )}
+              <EarningsBadge symbol={selectedSymbol} variant="desktop" />
             </div>
           </div>
           </div>

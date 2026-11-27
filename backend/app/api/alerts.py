@@ -5,6 +5,8 @@ Price / indicator alerts API. Auth required; users only see their own alerts
   GET    /api/v1/alerts               list (+ current price per symbol)
   GET    /api/v1/alerts/conditions    supported conditions and threshold bounds
   POST   /api/v1/alerts               create {symbol, condition, threshold, repeat?, notify_email?, note?}
+                                      condition "earnings_within_days": threshold = whole days (1-30);
+                                      fires once per earnings report
   PATCH  /api/v1/alerts/{id}          edit threshold/repeat/notify_email/note, or status active|paused
   DELETE /api/v1/alerts/{id}
 
@@ -37,7 +39,10 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 MAX_ALERTS_PER_USER = 50
 SYMBOL_RE = re.compile(r"^[A-Z0-9.\-]{1,10}$")
-ConditionName = Literal["price_above", "price_below", "change_up_pct", "change_down_pct", "rsi_above", "rsi_below"]
+ConditionName = Literal[
+    "price_above", "price_below", "change_up_pct", "change_down_pct", "rsi_above", "rsi_below",
+    "earnings_within_days",
+]
 
 
 def _check_threshold(condition: str, threshold: float) -> None:
@@ -46,6 +51,8 @@ def _check_threshold(condition: str, threshold: float) -> None:
         raise ValueError(
             f"threshold for {condition} must be between {spec.min_threshold:g} and {spec.max_threshold:g}"
         )
+    if spec.metric == "earnings" and threshold != int(threshold):
+        raise ValueError("threshold for earnings_within_days must be a whole number of days")
 
 
 class AlertCreate(BaseModel):
@@ -108,6 +115,7 @@ def _out(a: PriceAlert, quote: Optional[dict] = None, name: Optional[str] = None
         "name": name,
         "condition": a.condition,
         "condition_label": CONDITIONS[a.condition].label,
+        "metric": CONDITIONS[a.condition].metric,
         "threshold": a.threshold,
         "status": a.status,
         "repeat": bool(a.repeat),
@@ -119,6 +127,7 @@ def _out(a: PriceAlert, quote: Optional[dict] = None, name: Optional[str] = None
         "last_triggered_value": a.last_triggered_value,
         "last_checked_at": a.last_checked_at,
         "last_value": a.last_value,
+        "last_event_key": a.last_event_key,
         "current_price": m["price"],
         "change_percent": m["change"],
         "created_at": a.created_at,

@@ -12,6 +12,7 @@ import {
   CONDITION_META,
   CONDITION_ORDER,
   describeAlert,
+  isEarningsCondition,
   useAlertMutations,
   useAlerts,
   validateThreshold,
@@ -69,13 +70,23 @@ export function Overlay({
   )
 }
 
-export function AlertForm({ initialSymbol = '', onDone }: { initialSymbol?: string; onDone: () => void }) {
+export function AlertForm({
+  initialSymbol = '', initialCondition = 'price_above', onDone,
+}: { initialSymbol?: string; initialCondition?: AlertCondition; onDone: () => void }) {
   const toast = useToast()
   const { create } = useAlertMutations()
   const [symbol, setSymbol] = useState(initialSymbol)
-  const [condition, setCondition] = useState<AlertCondition>('price_above')
-  const [threshold, setThreshold] = useState('')
-  const [repeat, setRepeat] = useState(false)
+  const [condition, setCondition] = useState<AlertCondition>(initialCondition)
+  const [threshold, setThreshold] = useState(isEarningsCondition(initialCondition) ? '3' : '')
+  // Earnings alerts default to every quarter (each report still fires only once).
+  const [repeat, setRepeat] = useState(isEarningsCondition(initialCondition))
+  const pickCondition = (c: AlertCondition) => {
+    if (isEarningsCondition(c) !== isEarningsCondition(condition)) {
+      setRepeat(isEarningsCondition(c))
+      setThreshold(isEarningsCondition(c) ? '3' : '')
+    }
+    setCondition(c)
+  }
   const [email, setEmail] = useState(false)
   const [note, setNote] = useState('')
   const meta = CONDITION_META[condition]
@@ -107,7 +118,7 @@ export function AlertForm({ initialSymbol = '', onDone }: { initialSymbol?: stri
       </div>
       <div>
         <label className={labelCls} htmlFor="al-cond">Condition</label>
-        <select id="al-cond" className={inputCls} value={condition} onChange={(e) => setCondition(e.target.value as AlertCondition)}>
+        <select id="al-cond" className={inputCls} value={condition} onChange={(e) => pickCondition(e.target.value as AlertCondition)}>
           {CONDITION_ORDER.map((c) => (
             <option key={c} value={c}>{CONDITION_META[c].label}</option>
           ))}
@@ -116,7 +127,7 @@ export function AlertForm({ initialSymbol = '', onDone }: { initialSymbol?: stri
       </div>
       <div>
         <label className={labelCls} htmlFor="al-thr">
-          Level {meta.unit === '$' ? '(USD)' : meta.unit === '%' ? '(%)' : '(0–100)'}
+          {meta.unit === 'days' ? 'Days before the report (1–30)' : `Level ${meta.unit === '$' ? '(USD)' : meta.unit === '%' ? '(%)' : '(0–100)'}`}
         </label>
         <input id="al-thr" className={inputCls} type="number" step={meta.step} min={meta.min} max={meta.max} value={threshold} onChange={(e) => setThreshold(e.target.value)} required />
         {err && <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">{err}</p>}
@@ -129,7 +140,11 @@ export function AlertForm({ initialSymbol = '', onDone }: { initialSymbol?: stri
         <input type="checkbox" className="mt-0.5" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
         <span>
           Repeat
-          <span className="block text-[11px] text-fg-muted">Keep the alert on after it fires. It re-arms once the condition is no longer met.</span>
+          <span className="block text-[11px] text-fg-muted">
+            {isEarningsCondition(condition)
+              ? 'Keep the alert on for future quarters. Each report notifies you once.'
+              : 'Keep the alert on after it fires. It re-arms once the condition is no longer met.'}
+          </span>
         </span>
       </label>
       <label className="flex items-start gap-2 text-sm text-fg-primary">
@@ -161,11 +176,15 @@ export function useAlertsController() {
   const [filter, setFilter] = useState<AlertFilter>('all')
   const [createOpen, setCreateOpen] = useState(false)
   const [prefill, setPrefill] = useState('')
+  const [prefillCondition, setPrefillCondition] = useState<AlertCondition>('price_above')
 
   // /alerts?symbol=NVDA opens the create form for that ticker.
   useEffect(() => {
     try {
-      const s = new URLSearchParams(window.location.search).get('symbol')
+      const params = new URLSearchParams(window.location.search)
+      const s = params.get('symbol')
+      const cond = params.get('condition') as AlertCondition | null
+      if (cond && cond in CONDITION_META) setPrefillCondition(cond)
       if (s && /^[A-Za-z0-9.\-]{1,10}$/.test(s)) {
         setPrefill(s.toUpperCase())
         setCreateOpen(true)
@@ -204,7 +223,7 @@ export function useAlertsController() {
   return {
     isAuthenticated, authLoading, loading: q.isLoading, error: q.error as Error | null,
     alerts, shown, counts, limit: q.data?.limit ?? 50,
-    filter, setFilter, createOpen, setCreateOpen, prefill, setPrefill, toggle, remove,
+    filter, setFilter, createOpen, setCreateOpen, prefill, setPrefill, prefillCondition, toggle, remove,
   }
 }
 
