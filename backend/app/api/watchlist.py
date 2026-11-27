@@ -170,6 +170,10 @@ def add_to_watchlist(
             detail=f"Symbol '{symbol}' is already in your watchlist"
         )
 
+    # Keep the default Marketwatch list in step (app.services.marketwatch).
+    from app.services.marketwatch import mirror_classic_add
+    mirror_classic_add(db, user.id, db_symbol.symbol)
+
     return WatchlistItemResponse(
         id=watchlist_item.id,
         symbol=db_symbol.symbol,
@@ -219,5 +223,8 @@ def remove_from_watchlist(
 
     db.delete(item)
     db.commit()
+
+    from app.services.marketwatch import mirror_classic_remove
+    mirror_classic_remove(db, user.id, normalized_symbol)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
