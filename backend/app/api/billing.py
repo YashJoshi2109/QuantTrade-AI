@@ -479,6 +479,30 @@ def get_subscription_status(
     user_id = int(current_user["user_id"])
     sub = db.query(Subscription).filter(Subscription.user_id == user_id).first()
 
+    # Admin entitlements: ADMIN_EMAILS (verified) = top tier with every feature;
+    # an admin plan override forces Pro / Free. Stripe stays the source otherwise.
+    from app.api.auth import is_admin_user
+    from app.models.user import User as _User
+    from app.services.account_controls import get_controls
+    _u = db.query(_User).filter(_User.id == user_id).first()
+    _c = get_controls(db, user_id)
+    if _u is not None and is_admin_user(_u):
+        return SubscriptionStatusResponse(
+            has_active=True, is_pro=True, plan_label="Admin (all features)",
+            status=sub.status if sub else None, price_id=sub.price_id if sub else None,
+            current_period_end=sub.current_period_end if sub else None,
+            cancel_at_period_end=sub.cancel_at_period_end if sub else None,
+        )
+    if _c is not None and _c.plan_override == "pro" and not (sub and subscription_entitled(sub)):
+        return SubscriptionStatusResponse(has_active=True, is_pro=True, plan_label="QuantTrade Pro (granted)")
+    if _c is not None and _c.plan_override == "free":
+        return SubscriptionStatusResponse(
+            has_active=False, is_pro=False, plan_label="Free",
+            status=sub.status if sub else None, price_id=sub.price_id if sub else None,
+            current_period_end=sub.current_period_end if sub else None,
+            cancel_at_period_end=sub.cancel_at_period_end if sub else None,
+        )
+
     if not sub:
         return SubscriptionStatusResponse(
             has_active=False,

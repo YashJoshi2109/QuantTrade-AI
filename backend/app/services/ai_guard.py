@@ -123,8 +123,11 @@ _TIER_DEFAULTS: Dict[str, Dict[str, int]] = {
               "images_per_day": 5,   "tts_chars_per_day": 3_000},
     "pro":   {"req_per_min": 15, "req_per_day": 200,  "tokens_per_day": 1_600_000,
               "images_per_day": 50,  "tts_chars_per_day": 30_000},
-    "admin": {"req_per_min": 60, "req_per_day": 2000, "tokens_per_day": 5_000_000,
-              "images_per_day": 500, "tts_chars_per_day": 300_000},
+    # Top tier (ADMIN_EMAILS + verified): no per-user quota (-1 = unlimited).
+    # Still bounded by the global / hourly / per-provider budgets, which every
+    # reserve() checks regardless of tier. Env LLM_ADMIN_* can re-impose caps.
+    "admin": {"req_per_min": -1, "req_per_day": -1, "tokens_per_day": -1,
+              "images_per_day": -1, "tts_chars_per_day": -1},
 }
 
 _PROVIDER_BUDGET_DEFAULTS: Dict[str, float] = {
@@ -530,9 +533,27 @@ class GuardContext:
     # evaluation run: charged ONLY to the eval bucket (LLM_EVAL_DAILY_BUDGET_USD),
     # never to the global / provider / system / per-user counters
     is_eval: bool = False
+    # Admin-set per-user values that replace the tier's (user_account_controls).
+    limits_override: Optional[Dict[str, int]] = None
 
     def snapshot(self) -> "GuardContext":
-        return GuardContext(self.feature, self.user_id, self.tier, self.ip, self.system, self.is_eval)
+        return GuardContext(self.feature, self.user_id, self.tier, self.ip, self.system, self.is_eval,
+                            dict(self.limits_override) if self.limits_override else None)
+
+
+OVERRIDABLE_LIMITS = ("req_per_min", "req_per_day", "tokens_per_day", "images_per_day", "tts_chars_per_day")
+
+
+def limits_for(ctx: "GuardContext") -> Dict[str, int]:
+    """Tier limits with any admin override applied (-1 = unlimited)."""
+    lim = tier_limits(ctx.tier)
+    for k, v in (ctx.limits_override or {}).items():
+        if k in OVERRIDABLE_LIMITS and v is not None:
+            try:
+                lim[k] = int(v)
+            except (TypeError, ValueError):
+                pass
+    return lim
 
 
 _ctx: contextvars.ContextVar[Optional[GuardContext]] = contextvars.ContextVar("ai_guard_ctx", default=None)
@@ -664,7 +685,7 @@ def admit_request(ctx: GuardContext, kind: str = "llm") -> None:
         raise _budget_error(paused)
     if ctx.system or ctx.user_id is None:
         return
-    lim = tier_limits(ctx.tier)
+    lim = limits_for(ctx)
     glim = global_limits()
     now = _now()
     reasons = ["rpm"]
@@ -862,7 +883,7 @@ def reserve(
         keys["sys_day"] = _k("sys", "cost", _day(now))
         reasons.append("system_day")
 
-    lim = tier_limits(ctx.tier) if not ctx.system and ctx.user_id is not None else None
+    lim = limits_for(ctx) if not ctx.system and ctx.user_id is not None else None
     unit_key_limit = None
     if lim is not None:
         if unit_kind is None:
@@ -1239,8 +1260,28 @@ def cache_key(*parts: Any) -> str:
 # ─── Read-side helpers (usage endpoints) ─────────────────────────────────────
 
 
-def usage_summary(user_id: int, tier: str) -> Dict[str, Any]:
-    lim = tier_limits(tier)
+USER_COUNTER_NAMES = ("req", "tok", "in", "out", "cost", "images", "tts_chars", "cache_read", "denied")
+
+
+def reset_user_counters(user_id: int) -> Dict[str, int]:
+    """Zero today's per-user counters (admin "reset quota"). Returns the values
+    cleared. The burst (per-minute) buckets expire on their own within 2 min."""
+    d = _day()
+    keys = [_k("u", user_id, n, d) for n in USER_COUNTER_NAMES]
+
+    def op(st):
+        vals = st.get_many(keys)
+        for k, v in zip(keys, vals):
+            if v:
+                st.incr(k, -int(v), _DAY_TTL)
+        return dict(zip(USER_COUNTER_NAMES, vals))
+
+    cleared, _ = _run(op)
+    return cleared
+
+
+def usage_summary(user_id: int, tier: str, limits_override: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
+    lim = limits_for(GuardContext(feature="summary", user_id=user_id, tier=tier, limits_override=limits_override))
     d = _day()
     names = ["req", "tok", "in", "out", "cost", "images", "tts_chars"]
     try:
@@ -1251,16 +1292,21 @@ def usage_summary(user_id: int, tier: str) -> Dict[str, Any]:
     scale = (lambda x: _scale(x, st)) if st is not None else (lambda x: x)
     req_lim, tok_lim = scale(lim["req_per_day"]), scale(lim["tokens_per_day"])
     paused = budget_paused()
+
+    def remaining(limit: int, used: int) -> int:
+        return -1 if limit < 0 else max(0, limit - used)  # -1 = unlimited
+
     return {
         "tier": tier,
+        "unlimited": req_lim < 0 and tok_lim < 0,
         "paused": bool(paused),
         "paused_message": BUDGET_PAUSED_DETAIL if paused else None,
         "requests_used": v["req"],
         "requests_limit": req_lim,
-        "requests_remaining": max(0, req_lim - v["req"]),
+        "requests_remaining": remaining(req_lim, v["req"]),
         "tokens_used": v["tok"],
         "tokens_limit": tok_lim,
-        "tokens_remaining": max(0, tok_lim - v["tok"]),
+        "tokens_remaining": remaining(tok_lim, v["tok"]),
         "input_tokens": v["in"],
         "output_tokens": v["out"],
         "cost_usd": round(v["cost"] / 1e6, 4),

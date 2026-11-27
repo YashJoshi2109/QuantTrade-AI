@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
 
 // Routes where the floating AI Copilot button should NOT appear
-const HIDDEN_ON: string[] = ['/auth', '/terms', '/legal', '/game', '/copilot']
+const HIDDEN_ON: string[] = ['/auth', '/terms', '/legal', '/game', '/copilot', '/admin']
 
 // Routes where the copilot button is hidden on ALL screen sizes (desktop + mobile)
 const HIDDEN_ALL: string[] = ['/community']

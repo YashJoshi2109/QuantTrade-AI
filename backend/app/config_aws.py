@@ -64,6 +64,10 @@ def inject_aws_secrets():
     total = len(loaded)
     differs: set = set()
     for key, value in loaded.items():
+        # A nested JSON value (e.g. GOOGLE_ANALYTICS_SA_JSON stored as an
+        # object, not a string) must stay JSON, not become a Python repr.
+        if isinstance(value, (dict, list)):
+            value = json.dumps(value)
         # An empty env value is unset: compose writes `KEY=${KEY:-}`, so a key
         # with no GitHub secret arrived as "" and shadowed Secrets Manager
         # (ALPACA_API_KEY, 2026-11-27).

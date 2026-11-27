@@ -61,6 +61,11 @@ class Trace:
         self.data["stages_ms"]["total"] = int((time.perf_counter() - self.t0) * 1000)
         logger.info(json.dumps(self.data, default=str, separators=(",", ":")))
         _export(self.data)
+        try:  # admin console AI observability (no prompt / answer text)
+            from app.services.admin_metrics import record_copilot_trace
+            record_copilot_trace(self.data)
+        except Exception:  # noqa: BLE001
+            pass
         return self.data
 
 

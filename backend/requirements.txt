@@ -93,6 +93,7 @@ bcrypt>=4.0.0
 feedparser>=6.0.0
 PyJWT>=2.8.0
 google-auth>=2.23.0
+psutil==7.2.2  # admin console host CPU / memory
 google-auth-oauthlib>=1.1.0
 google-auth-httplib2>=0.1.1
 email-validator>=2.1.0

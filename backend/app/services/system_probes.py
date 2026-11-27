@@ -629,12 +629,27 @@ async def probe_copilot(ctx: ProbeContext) -> ProbeResult:
 
 # ── registry ─────────────────────────────────────────────────────────────
 
+def _db_label() -> str:
+    """Name the database by what it really is (prod: AWS RDS PostgreSQL)."""
+    import os
+    from urllib.parse import urlsplit
+    try:
+        host = (urlsplit(os.getenv("DATABASE_URL") or "").hostname or "").lower()
+    except ValueError:
+        host = ""
+    if host.endswith(".rds.amazonaws.com"):
+        return "AWS RDS PostgreSQL"
+    if host.endswith(".neon.tech"):
+        return "Neon PostgreSQL"
+    return "PostgreSQL"
+
+
 def default_probes() -> List[Probe]:
     P = Probe
     return [
         P("api", "API server", "core", 1, probe_api, timeout_s=5, critical=True,
           method="Event-loop lag + uptime of this process", can_cost=False),
-        P("postgres", "PostgreSQL", "core", 5, probe_postgres, timeout_s=5, critical=True,
+        P("postgres", _db_label(), "core", 5, probe_postgres, timeout_s=5, critical=True,
           method="SELECT 1 via the app pool", can_cost=False),
         P("redis", "Redis", "core", 2, probe_redis, timeout_s=3,
           method="PING on the app's client", can_cost=False),

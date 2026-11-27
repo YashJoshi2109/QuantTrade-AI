@@ -354,6 +354,14 @@ class JobManager:
                 self._persist(j)
         return j
 
+    def jobs_for_owner(self, owner: str) -> list:
+        """Job metadata (no results) for the admin console, newest first. Jobs
+        live in memory / Redis with a TTL, so this is recent history only."""
+        with self._lock:
+            jobs = [j for j in self._jobs.values() if j.owner == owner]
+        jobs.sort(key=lambda j: j.created, reverse=True)
+        return [j.public(include_result=False) for j in jobs[:50]]
+
     def stats(self) -> dict:
         """Queue depth and the most recent finished job (system status page)."""
         with self._lock:

@@ -127,6 +127,7 @@ from app.models.news_item import NewsItem as _NewsItem  # noqa: F401  (news_item
 from app.models.price_alert import PriceAlert as _PriceAlert  # noqa: F401  (price_alerts table)
 from app.models.marketwatch import MarketwatchList as _MarketwatchList  # noqa: F401  (marketwatch tables)
 from app.models.screener_snapshot import ScreenerSnapshot as _ScreenerSnapshot  # noqa: F401  (screener_snapshots table)
+from app.models import admin as _admin_models  # noqa: F401  (admin console tables)
 
 
 def _create_db_tables():
@@ -146,6 +147,16 @@ def _create_db_tables():
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
         print("✅ Database tables created/verified successfully")
+        try:
+            from app.models.admin import install_audit_guard
+            install_audit_guard(engine)
+        except Exception as e:
+            print(f"⚠️ admin_audit_log guard not installed (run scripts/create_admin_console_tables.py): {e}")
+        try:
+            from app.services.admin_metrics import record_deploy
+            record_deploy()
+        except Exception as e:
+            print(f"⚠️ deploy event not recorded: {e}")
         try:
             from app.models.price_alert import ensure_price_alert_columns
             ensure_price_alert_columns(engine)
@@ -451,6 +462,9 @@ async def lifespan(app: FastAPI):
 
             _provider_meter.install()
             status_collector = build_collector(app=app, redis=getattr(app.state, "redis", None))
+            # Admin console: persisted status history (30-day availability) + ops events.
+            from app.services.admin_metrics import status_history_loop
+            status_collector.add_task(status_history_loop)
             _system_status.set_collector(status_collector)
             status_collector.start()
         except Exception as e:
@@ -573,6 +587,10 @@ app.add_middleware(CacheControlMiddleware)
 # Added before CORS so CORS wraps it and cache HITs still get CORS headers.
 from app.middleware.redis_cache import RedisCacheMiddleware  # noqa: E402
 app.add_middleware(RedisCacheMiddleware)
+
+# Admin console API metrics (latency / status ring buffer; in-process only).
+from app.services.admin_metrics import RequestMetricsMiddleware  # noqa: E402
+app.add_middleware(RequestMetricsMiddleware)
 
 # CORS middleware
 # Get allowed origins from environment or use defaults
@@ -731,6 +749,10 @@ app.include_router(forecast_api.router, prefix="/api/v1", tags=["forecast"])
 # Live system status (every dependency, polled every second by the top-bar pill)
 from app.api import system_status as system_status_api
 app.include_router(system_status_api.router, prefix="/api/v1", tags=["system"])
+
+# Admin console (every route enforces admin server-side; non-admins get 404)
+from app.api import admin as admin_api
+app.include_router(admin_api.router, prefix="/api/v1/admin", tags=["admin"])
 
 # Static files — serve locally-uploaded community media (fallback when R2 is not configured)
 import pathlib as _pathlib
