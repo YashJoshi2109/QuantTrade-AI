@@ -11,6 +11,7 @@ import { BellPlus, Check, ChevronLeft, ChevronRight, Loader2, Plus, RotateCcw, X
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/components/Toast'
 import { addToWatchlist } from '@/lib/api'
+import { usePersistedQuery } from '@/lib/persistedQuery'
 import {
   EMPTY_STATE,
   PAGE_SIZE,
@@ -51,7 +52,8 @@ export function useScreenerController() {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
-  const qs = params?.toString() ?? ''
+  // Filters + sort live in the URL; the last screen is remembered per user and restored on a bare /screener.
+  const qs = usePersistedQuery('screener.query', params?.toString() ?? '')
   const state = useMemo(() => parseScreenerParams(qs), [qs])
 
   // Latest screen, also covering edits made before the URL round-trip lands.

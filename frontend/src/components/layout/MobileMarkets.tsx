@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { BarChart3, Globe } from 'lucide-react'
 import MobileSymbolSearch from '@/components/ui/mobile-symbol-search'
 import { Continent } from '@/lib/world-exchanges'
+import { useMarketsContinent, useMarketsCurrency } from '@/lib/marketsPrefs'
 import {
   ContinentTabBar,
   CurrencySelector,
@@ -75,8 +76,9 @@ function MarketPulse({ continent }: { continent: Continent }) {
 export default function MobileMarkets() {
   const router = useRouter()
   const [search, setSearch] = useState('')
-  const [activeContinent, setActiveContinent] = useState<Continent>('global')
-  const [displayCurrency, setDisplayCurrency] = useState('USD')
+  // Region and currency persist per user (lib/marketsPrefs, shared with desktop).
+  const [activeContinent, setActiveContinent] = useMarketsContinent()
+  const [displayCurrency, setDisplayCurrency] = useMarketsCurrency()
   const { data: currencyRates = {} } = useCurrencyRates()
 
   const { data: usSectors } = useQuery({

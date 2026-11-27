@@ -13,6 +13,7 @@ import NormalizedLineChart from '@/components/charts/NormalizedLineChart'
 import TickerLogo from '@/components/TickerLogo'
 import { searchSymbols, type SearchResult } from '@/lib/api'
 import { EXPERIMENTAL_LABEL } from '@/lib/forecastHonesty'
+import { oneOf, usePersistentState } from '@/lib/persistentState'
 import { lastValue } from '@/lib/lineChart'
 import {
   COMPARE_COLORS,
@@ -47,7 +48,7 @@ const QUICK_SETS = [
 export default function CompareView({ symbols, variant }: { symbols: string[]; variant: 'desktop' | 'mobile' }) {
   const router = useRouter()
   const mobile = variant === 'mobile'
-  const [range, setRange] = useState<PerfRange>('1Y')
+  const [range, setRange] = usePersistentState<PerfRange>('compare.range', '1Y', { version: 1, validate: oneOf(PERF_RANGES) })
 
   const setSymbols = (next: string[]) => router.replace(compareHref(next), { scroll: false })
   const add = (sym: string) => {

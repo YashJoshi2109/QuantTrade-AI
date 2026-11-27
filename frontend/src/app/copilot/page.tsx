@@ -70,6 +70,7 @@ import { buildStarterPrompts, readRecentTickers, rememberRecentTicker } from '@/
 import { answerTone, classifyCopilotError, type CopilotLimitNotice } from '@/lib/copilot-trust'
 import { usePortfolioDetail, usePortfolioList } from '@/lib/usePortfolios'
 import { cn } from '@/lib/utils'
+import { clearPersisted, readPersisted, writePersisted } from '@/lib/persistentState'
 
 // ─── Technical Signals Card ───────────────────────────────────────────────────
 
@@ -570,7 +571,29 @@ interface Msg extends CopilotMessageView {
 }
 
 const HISTORY_OPEN_KEY = 'qt.copilot.history-open'
-const SESSION_KEY = 'qt_copilot_session'
+/** Per-user persisted key (lib/persistentState): open conversation + draft. */
+const SESSION_KEY = 'copilot.session'
+const SESSION_MAX_MESSAGES = 60
+
+interface CopilotSession {
+  messages: Msg[]
+  conversationId: string | null
+  input: string
+}
+
+function parseCopilotSession(v: unknown): CopilotSession | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const s = v as Partial<CopilotSession>
+  const messages = Array.isArray(s.messages)
+    ? s.messages.filter((m): m is Msg => !!m && typeof m === 'object' && typeof m.id === 'string'
+        && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+    : []
+  return {
+    messages,
+    conversationId: typeof s.conversationId === 'string' ? s.conversationId : null,
+    input: typeof s.input === 'string' ? s.input : '',
+  }
+}
 
 function statusFor(stage: Stage, symbol: string | null): string {
   if (stage === 'data' || (stage === 'intent' && symbol)) {
@@ -629,6 +652,7 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
 
   // ── Restore the open conversation after navigating away and back ──
   const sessionSaveRef = useRef({ messages, activeConversationId, input })
+  const loadConversationRef = useRef<((id: string) => Promise<void>) | null>(null)
   useEffect(() => {
     sessionSaveRef.current = { messages, activeConversationId, input }
   }, [messages, activeConversationId, input])
@@ -642,39 +666,55 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
     } catch {
       /* storage blocked */
     }
-    let raw: string | null = null
-    try {
-      raw = sessionStorage.getItem(SESSION_KEY)
-    } catch {
-      raw = null
+    // Per-user, survives reloads and closing the tab (lib/persistentState).
+    if (!isVisible()) return
+    const saved = readPersisted<CopilotSession>(SESSION_KEY, { version: 1, validate: parseCopilotSession })
+    if (!saved) return
+    if (saved.messages.length) {
+      setMessages(saved.messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp), streaming: false })))
+    } else if (saved.conversationId) {
+      // Only the id was kept (e.g. the transcript was too big to store): reload it from the server.
+      loadConversationRef.current?.(saved.conversationId)
     }
-    if (!raw || !isVisible()) return
-    try {
-      sessionStorage.removeItem(SESSION_KEY)
-      const saved = JSON.parse(raw) as { messages?: Msg[]; conversationId?: string | null; input?: string }
-      if (saved.messages?.length) {
-        setMessages(saved.messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp), streaming: false })))
-      }
-      if (saved.conversationId) setActiveConversationId(saved.conversationId)
-      if (saved.input) setInput(saved.input)
-    } catch {
-      /* corrupted session */
-    }
+    if (saved.conversationId) setActiveConversationId(saved.conversationId)
+    if (saved.input) setInput(saved.input)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    return () => {
-      if (!isVisible()) return
-      const { messages: m, activeConversationId: cid, input: inp } = sessionSaveRef.current
-      if (!m.length && !cid && !inp) return
-      try {
-        sessionStorage.setItem(SESSION_KEY, JSON.stringify({ messages: m.filter((x) => !x.streaming), conversationId: cid, input: inp }))
-      } catch {
-        /* storage full */
-      }
+  // Save the open conversation and the draft as they change (debounced), and on leave.
+  const saveSession = useCallback(() => {
+    if (!isVisible()) return
+    const { messages: m, activeConversationId: cid, input: inp } = sessionSaveRef.current
+    if (!m.length && !cid && !inp) {
+      clearPersisted(SESSION_KEY)
+      return
     }
+    const kept = m.filter((x) => !x.streaming).slice(-SESSION_MAX_MESSAGES)
+    const data: CopilotSession = { messages: kept, conversationId: cid, input: inp }
+    // Too big for storage: keep the id and draft; the transcript reloads from the server.
+    if (!writePersisted(SESSION_KEY, data, { version: 1 })) writePersisted(SESSION_KEY, { ...data, messages: [] }, { version: 1 })
   }, [isVisible])
+
+  const sessionReady = useRef(false)
+  useEffect(() => {
+    // Skip the first run: it would overwrite the saved session before the restore above lands.
+    if (!sessionReady.current) {
+      sessionReady.current = true
+      return
+    }
+    if (streaming) return
+    const t = setTimeout(saveSession, 400)
+    return () => clearTimeout(t)
+  }, [messages, activeConversationId, input, streaming, saveSession])
+
+  useEffect(() => {
+    const onHide = () => saveSession()
+    window.addEventListener('pagehide', onHide)
+    return () => {
+      window.removeEventListener('pagehide', onHide)
+      saveSession()
+    }
+  }, [saveSession])
 
   const toggleHistory = (open?: boolean) => {
     setShowHistory((prev) => {
@@ -760,6 +800,7 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
     setAnalysisData(lastData ? (lastData.payload_json as StockAnalysisData) : null)
     scrollToEnd()
   }, [isMobile, scrollToEnd])
+  loadConversationRef.current = loadConversation
 
   const handleDeleteConversation = useCallback(async (id: string) => {
     await deleteConversation(id)

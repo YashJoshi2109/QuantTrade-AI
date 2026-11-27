@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { User, checkSession, logout as authLogout, login as authLogin, register as authRegister, googleVerify as authGoogleVerify, setToken, setUser as storeUser } from '@/lib/auth'
+import { setPersistUser } from '@/lib/persistentState'
 
 export type AuthMethod = 'jwt'
 
@@ -39,6 +40,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Check JWT session first
       const jwtResult = await checkSession()
       if (jwtResult.user) {
+        // Keep the synchronous user hint fresh so persisted page state is
+        // keyed to the right user on the very first render next time.
+        try {
+          storeUser(jwtResult.user)
+        } catch {
+          /* storage blocked */
+        }
         setUser(jwtResult.user)
         setAuthMethod('jwt')
         setIsLoading(false)
@@ -60,6 +68,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refreshSession()
   }, [])
+
+  // Scope persisted UI state (lib/persistentState) to the signed-in user.
+  useEffect(() => {
+    if (isLoading) return
+    setPersistUser(user ? user.id : null)
+  }, [user, isLoading])
 
   // JWT Auth Methods
   const login = async (email: string, password: string, turnstileToken?: string) => {
