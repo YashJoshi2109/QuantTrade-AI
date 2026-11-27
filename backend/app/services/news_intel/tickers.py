@@ -97,8 +97,8 @@ _BRAND_ALIASES = {
     "lilly": "LLY", "eli lilly": "LLY", "berkshire": "BRK.B", "berkshire hathaway": "BRK.B",
     "google": "GOOGL", "tsmc": "TSM", "p&g": "PG", "procter": "PG", "goldman": "GS",
     "facebook": "META", "instagram": "META", "whatsapp": "META", "pepsi": "PEP", "coke": "KO",
-    "supermicro": "SMCI", "super micro": "SMCI", "hynix": "SKHY", "warner bros": "WBD",
-    "citi": "C", "bny": "BK", "schwab": "SCHW",
+    "supermicro": "SMCI", "super micro": "SMCI", "hynix": "SKHY",
+    "citi": "C", "bny": "BNY", "schwab": "SCHW",
 }
 
 _SUFFIX = re.compile(

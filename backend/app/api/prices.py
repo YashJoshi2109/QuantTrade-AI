@@ -106,7 +106,7 @@ def get_prices(
 
     bars = _query_bars(db, db_symbol.id, start, end, limit)
     if not auto_sync:
-        return bars
+        return _clean_response_bars(db, symbol_upper, bars)
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     synced = False
@@ -157,7 +157,33 @@ def get_prices(
 
     if not bars:
         logger.warning(f"No price bars found for {symbol_upper} in range {start} to {end}")
-    return bars
+    return _clean_response_bars(db, symbol_upper, bars)
+
+
+def _clean_response_bars(db: Session, symbol_upper: str, bars: list) -> list:
+    """Never emit a bar without a close (PARA 2026-11-23 was all-null).
+
+    Bars with an unusable close are repaired from Alpaca SIP daily bars when
+    possible (and the stored row is fixed), otherwise dropped; missing
+    open/high/low are filled from the close.
+    """
+    from app.services.bar_hygiene import clean_bar_dicts, is_valid_bar, repair_bars_from_sip, _as_date
+
+    if bars and not all(is_valid_bar(b) for b in bars) and _should_attempt((symbol_upper, "sip-repair")):
+        try:
+            fixes = repair_bars_from_sip(symbol_upper, bars)
+            for b in bars:
+                d = _as_date(b.timestamp)
+                if not is_valid_bar(b) and d in fixes:
+                    o, h, l, c, v = fixes[d]
+                    b.open, b.high, b.low, b.close, b.volume = o, h, l, c, int(v)
+            if fixes:
+                db.commit()
+                logger.info("Repaired %d null daily bars for %s from Alpaca SIP", len(fixes), symbol_upper)
+        except Exception as e:
+            db.rollback()
+            logger.warning("SIP repair failed for %s: %s", symbol_upper, e)
+    return [PriceBarResponse(**b) for b in clean_bar_dicts(bars)]
 
 
 @router.get("/prices/{symbol}/intraday", response_model=List[PriceBarResponse])
@@ -167,6 +193,14 @@ async def get_intraday_prices(
     days: int = Query(1, ge=1, le=30, description="Days of intraday data"),
     extended_hours: bool = Query(False, description="Include pre-market and after-hours data"),
 ):
+    """Intraday OHLCV bars; bars without a usable close are dropped."""
+    from app.services.bar_hygiene import clean_bar_dicts
+
+    bars = await _fetch_intraday_prices(symbol, interval, days, extended_hours)
+    return [PriceBarResponse(**b) for b in clean_bar_dicts(bars or [])]
+
+
+async def _fetch_intraday_prices(symbol: str, interval: str, days: int, extended_hours: bool):
     """
     Get intraday OHLCV bars for candlestick charts.
 
@@ -460,6 +494,11 @@ def _db_fallback_quote(db: Session, symbol: str) -> dict:
 @router.get("/prices/{symbol}/quote")
 async def get_quote(symbol: str, db: Session = Depends(get_db)):
     """Get live quote for a symbol from Alpha Vantage"""
+    from app.services.ticker_lifecycle import inactive_quote_error
+
+    gone = inactive_quote_error(symbol)
+    if gone is not None:
+        raise gone
     try:
         # Try Alpha Vantage GLOBAL_QUOTE
         if settings.ALPHA_VANTAGE_API_KEY:

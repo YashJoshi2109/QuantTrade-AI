@@ -143,7 +143,11 @@ def _norm_hour(raw: Any) -> Optional[str]:
 
 
 def _norm_symbol(raw: Any) -> str:
-    return str(raw or "").strip().upper()
+    """Upper-cased symbol; "" for retired tickers so calendars skip them."""
+    from app.services.ticker_lifecycle import is_retired
+
+    sym = str(raw or "").strip().upper()
+    return "" if is_retired(sym) else sym
 
 
 # ── source parsers ───────────────────────────────────────────────────────────

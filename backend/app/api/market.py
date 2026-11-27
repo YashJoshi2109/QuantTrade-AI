@@ -84,7 +84,7 @@ SP500_STOCKS = {
         ("WEX", "WEX Inc"),
         ("BOX", "Box Inc"), ("PEGA", "Pegasystems Inc"),
         ("FOUR", "Shift4 Payments"),
-        ("RIOT", "Riot Platforms"), ("MARA", "Marathon Digital"), ("DELL", "Dell Technologies"),
+        ("RIOT", "Riot Platforms"), ("MARA", "MARA Holdings"), ("DELL", "Dell Technologies"),
         ("SMCI", "Super Micro Computer"), ("IOT", "Samsara Inc"), ("CRDO", "Credo Technology"),
         ("FLEX", "Flex Ltd"), ("HPE", "Hewlett Packard Enterprise"), ("ANET", "Arista Networks"),
         ("NTAP", "NetApp Inc"), ("FFIV", "F5 Inc"), ("CTSH", "Cognizant Technology"),
@@ -125,7 +125,7 @@ SP500_STOCKS = {
         ("AXP", "American Express"), ("C", "Citigroup Inc"), ("SPGI", "S&P Global"),
         ("CME", "CME Group"), ("PNC", "PNC Financial"), ("USB", "US Bancorp"),
         ("TFC", "Truist Financial"), ("MCO", "Moody's Corp"), ("ICE", "Intercontinental Exch"),
-        ("COF", "Capital One"), ("AIG", "AIG Inc"),
+        ("COF", "Capital One"), ("AIG", "American International Group"),
         ("PRU", "Prudential Financial"), ("MET", "MetLife Inc"), ("AFL", "Aflac Inc"),
         ("ALL", "Allstate Corp"), ("MTB", "M&T Bank"), ("FITB", "Fifth Third Bancorp"),
         ("RF", "Regions Financial"), ("KEY", "KeyCorp"), ("CFG", "Citizens Financial"),
@@ -306,7 +306,7 @@ SP500_STOCKS = {
         ("AES", "AES Corp"), ("PCG", "PG&E Corp"), ("EIX", "Edison International"),
         ("CNP", "CenterPoint Energy"), ("AEE", "Ameren Corp"), ("LNT", "Alliant Energy"),
         ("EVRG", "Evergy Inc"), ("PEG", "Public Service Enterprise"),
-        ("BKH", "Black Hills Corp"), ("AVA", "Avista Corp"),
+        ("BKH", "Bright Horizon Energy (fka Black Hills)"), ("AVA", "Avista Corp"),
         ("SR", "Spire Inc"), ("WTRG", "Essential Utilities"),
         ("CWT", "California Water Svc"), ("MSEX", "Middlesex Water"),
         ("UTL", "Unitil Corp"), ("IDA", "IDACORP Inc"), ("OGS", "ONE Gas Inc"),
@@ -326,7 +326,7 @@ SP500_STOCKS = {
         ("SUI", "Sun Communities"), ("ELS", "Equity LifeStyle Prop"),
         ("MAA", "Mid-America Apartment"), ("CPT", "Camden Property Trust"),
         ("UDR", "UDR Inc"), ("ESS", "Essex Property Trust"),
-        ("BXP", "Boston Properties"), ("SLG", "SL Green Realty"), ("VNO", "Vornado Realty"),
+        ("BXP", "BXP Inc"), ("SLG", "SL Green Realty"), ("VNO", "Vornado Realty"),
         ("HIW", "Highwoods Properties"), ("DEI", "Douglas Emmett"),
         ("CUBE", "CubeSmart"),
         ("REXR", "Rexford Industrial"), ("STAG", "STAG Industrial"), ("FR", "First Industrial"),
@@ -414,9 +414,13 @@ SP500_STOCKS = {
 
 def _flatten_sp500_symbol_rows() -> List[tuple]:
     """All (symbol, name, sector) rows for one bulk quote fetch."""
+    from app.services.ticker_lifecycle import excluded_from_curated
+
     rows: List[tuple] = []
     for sector_name, stock_list in SP500_STOCKS.items():
         for symbol, name in stock_list:
+            if excluded_from_curated(symbol):  # retired / reused (ticker_lifecycle)
+                continue
             rows.append((symbol, name, sector_name))
     return rows
 
@@ -788,6 +792,11 @@ def get_exchange_universe(  # sync: DB + blocking FMP sync run in the threadpool
             )
         except Exception as e:
             logger.warning(f"Live sync fallback failed for {exchange}: {e}")
+
+    # Retired tickers (renamed / acquired / delisted) and reused ones (the
+    # ranked row describes the former large-cap) never appear in the list.
+    from app.services.ticker_lifecycle import drop_inactive, excluded_from_curated
+    rows = [r for r in drop_inactive(rows, key=lambda r: r.symbol, db=db) if not excluded_from_curated(r.symbol)]
 
     return {
         "exchange": exchange,

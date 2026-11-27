@@ -46,8 +46,8 @@ import { CompanyFolioPanel } from '@/components/research/CompanyFolioPanel'
 import FullscreenChartModal from '@/components/research/FullscreenChartModal'
 import { getExchangeTimezone } from '@/lib/world-exchanges'
 import { isCompanyAsset } from '@/lib/assetType'
-import { displayCompanyName, identityWarning } from '@/lib/tickerIdentity'
-import { TickerIdentityBanner, useTickerIdentity } from '@/components/research/TickerIdentityBanner'
+import { displayCompanyName, tickerBannerState } from '@/lib/tickerIdentity'
+import { RetiredPricePlaceholder, TickerIdentityBanner, useTickerIdentity } from '@/components/research/TickerIdentityBanner'
 
 type ChartPeriod = ResearchChartPeriod
 
@@ -325,11 +325,15 @@ function ResearchContent() {
   const [tab, setTab] = useResearchTab()
   const keyStats = keyStatsSource(tickerInfo, priceInfo, fundamentals)
   const indicatorsLoading = loading && !indicators
+  // Retired tickers (SQ, PXD, ...): hide every price-dependent panel instead of
+  // rendering nulls; the banner links the successor.
+  const bannerState = tickerBannerState(tickerIdentity)
+  const hidePrice = !!bannerState?.hidePricePanels
 
   return (
     <AppLayout symbol={selectedSymbol}>
       <div className="mx-auto w-full max-w-[1600px] p-6">
-        {identityWarning(tickerIdentity) && (
+        {bannerState && (
           <div className="mb-4">
             <TickerIdentityBanner identity={tickerIdentity} />
           </div>
@@ -352,10 +356,15 @@ function ResearchContent() {
               syncing={syncing}
             />
 
+            {hidePrice ? (
+              <RetiredPricePlaceholder identity={tickerIdentity} />
+            ) : (
+            <>
             <ResearchStatsCard
               source={keyStats}
               price={priceInfo.hasPrice ? priceInfo.price : null}
               loading={tickerInfoLoading && !tickerInfo}
+              fieldNotes={fundamentals?.field_notes}
             />
 
             <ResearchChartCard
@@ -391,6 +400,8 @@ function ResearchContent() {
               quoteLoading={quoteLoading}
               quoteActivityFingerprint={quoteActivityFingerprint}
             />
+            </>
+            )}
 
             <ResearchTabPanels
               tab={tab}
@@ -413,6 +424,8 @@ function ResearchContent() {
 
           {/* Right rail */}
           <aside className="min-w-0 space-y-4" aria-label="Technical analysis" data-testid="technical-rail">
+            {!hidePrice && (
+            <>
             <h2 className="pt-1 text-[15px] font-semibold text-fg-primary">Technical analysis</h2>
             <TrendSummaryCard inputs={technicals} loading={indicatorsLoading} />
             <RsiCard inputs={technicals} loading={indicatorsLoading} />
@@ -422,6 +435,8 @@ function ResearchContent() {
             <p className="px-1 text-[11px] leading-snug text-fg-muted">
               Indicators from daily closes (SMA, RSI 14, MACD 12/26/9, Bollinger 20/2). Hover the info icons for how each label is derived. Not investment advice.
             </p>
+            </>
+            )}
             {showCompanyPanels && (
               <section aria-label="Company folio" className="pt-2">
                 <h2 className="pb-3 text-[15px] font-semibold text-fg-primary">Company Folio</h2>

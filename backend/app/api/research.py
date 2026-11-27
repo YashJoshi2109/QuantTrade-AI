@@ -140,6 +140,20 @@ def ticker_identity_endpoint(ticker: str, db: Session = Depends(get_db)):
     succ = out.get("successor_symbol")
     out["successor_listed"] = bool(succ) and db.query(Symbol.id).filter(Symbol.symbol == succ).first() is not None
     out["known_symbol"] = sym is not None
+    # Lifecycle (retired / reused tickers): drives the "stopped trading" banner
+    # and hides price panels for inactive symbols on desktop and mobile.
+    from app.services.ticker_lifecycle import lifecycle_payload
+
+    life = lifecycle_payload(upper, sym)
+    out.update(life)
+    if life["lifecycle_status"] != "active":
+        out["status"] = "changed"
+        out["note"] = out.get("note") or life["status_note"]
+        out["former_name"] = out.get("former_name") or life["former_name"]
+        if not out.get("successor_symbol") and life["successor_symbol"]:
+            out["successor_symbol"] = life["successor_symbol"]
+            out["successor_listed"] = db.query(Symbol.id).filter(
+                Symbol.symbol == life["successor_symbol"]).first() is not None
     return out
 
 
@@ -180,6 +194,19 @@ def _resolve_cik(upper: str) -> str:
     if not _sec_mod._CIK_CACHE:  # SEC ticker map never loaded: SEC unreachable, not "no filer"
         raise _sec_error(503, "sec_unavailable", "SEC EDGAR is temporarily unavailable", retry_after=30)
     raise _sec_error(404, "no_sec_filer", f"{upper} is not in SEC EDGAR's ticker registry")
+
+
+def _edgar_row(db: Session, symbol_id: int, ticker: str):
+    """The CompanyEDGAR row for a symbol, or its share-class sibling's.
+
+    company_edgar.cik is unique, so GOOG and GOOGL (one filer) share one row,
+    owned by whichever class synced first.
+    """
+    row = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == symbol_id).first()
+    if row is not None:
+        return row
+    cik = get_cik(ticker)
+    return db.query(CompanyEDGAR).filter(CompanyEDGAR.cik == cik).first() if cik else None
 
 
 def _filer_type(db: Session, symbol_id: Optional[int], cik: Optional[str]) -> str:
@@ -263,7 +290,7 @@ def company_overview(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpoo
     from app.services.copilot.viewed import record_view
     record_view(upper)
 
-    edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym.id).first()
+    edgar = _edgar_row(db, sym.id, upper)
 
     if not edgar:
         sym_id, sym_name = sym.id, sym.name
@@ -276,7 +303,7 @@ def company_overview(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpoo
             raise _sec_error(503, "sync_pending", result["message"], retry_after=10)
         if result["status"] == "error":
             raise _sec_error(503, "sec_unavailable", result.get("message") or "EDGAR sync failed", retry_after=30)
-        edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym_id).first()
+        edgar = _edgar_row(db, sym_id, upper)
         if not edgar:
             raise _sec_error(503, "sec_unavailable", "EDGAR data not available yet", retry_after=30)
 
@@ -463,7 +490,7 @@ async def get_ai_insights(
     ]
 
     edgar = await asyncio.to_thread(
-        lambda: db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym.id).first()
+        lambda: _edgar_row(db, sym.id, ticker.upper())
     )
     company_info = {
         "company_name": edgar.company_name if edgar else ticker,

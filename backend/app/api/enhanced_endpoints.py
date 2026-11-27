@@ -68,6 +68,10 @@ class QuoteResponse(BaseModel):
     session: Optional[str] = None         # session of last_price: "regular"
     source: Optional[str] = None
     quote_version: Optional[int] = None
+    # Ticker lifecycle (app.services.ticker_lifecycle): "active" | "reused".
+    # Retired tickers never get here: the endpoint answers 410 status=inactive.
+    lifecycle_status: Optional[str] = None
+    data_quality: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -78,9 +82,14 @@ def canonical_quote_response(symbol: str, q: dict, start_time: Optional[datetime
     not already)."""
     from app.services.canonical_quote import canonicalize
 
+    from app.services.ticker_lifecycle import lifecycle_payload
+
     c = canonicalize(q) or {}
     start_time = start_time or datetime.utcnow()
+    life = lifecycle_payload(symbol)
     return QuoteResponse(
+        lifecycle_status=life["lifecycle_status"],
+        data_quality=life["data_quality"],
         symbol=symbol,
         last_price=float(c["price"]),
         change=c.get("change"),
@@ -180,6 +189,12 @@ def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
         except Exception:
             return default
     
+    from app.services.ticker_lifecycle import inactive_quote_error
+
+    gone = inactive_quote_error(symbol)
+    if gone is not None:
+        raise gone
+
     try:
         # The canonical quote (QuoteCacheService, the same quote_snapshots row
         # the copilot / watchlist / portfolio / alerts read) comes first. A DB
@@ -213,10 +228,13 @@ def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
         # Get latest price from database
         # Bars with a NULL close (partial ingests, delisted tickers) must not be
         # served as a quote: PARA returned last_price=null with a volume.
-        latest_price = db.query(PriceBar).filter(
+        # Postgres stores provider NaN as NaN (not NULL), so filter in Python too.
+        from app.services.bar_hygiene import is_valid_bar
+        recent_bars = [b for b in db.query(PriceBar).filter(
             PriceBar.symbol_id == db_symbol.id,
             PriceBar.close.isnot(None),
-        ).order_by(PriceBar.timestamp.desc()).first()
+        ).order_by(PriceBar.timestamp.desc()).limit(10).all() if is_valid_bar(b)]
+        latest_price = recent_bars[0] if recent_bars else None
         
         if not latest_price:
             fallback_data = EnhancedDataFetcher.fetch_realtime_quote(symbol.upper(), db)
@@ -240,11 +258,7 @@ def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
         stale = not db_bar_is_current(latest_price.timestamp)
 
         # Get previous price for change calculation
-        prev_price = db.query(PriceBar).filter(
-            PriceBar.symbol_id == db_symbol.id,
-            PriceBar.close.isnot(None),
-            PriceBar.timestamp < latest_price.timestamp
-        ).order_by(PriceBar.timestamp.desc()).first()
+        prev_price = recent_bars[1] if len(recent_bars) > 1 else None
         
         base = prev_price.close if prev_price else latest_price.open
         change = (latest_price.close - base) if base else None
@@ -787,7 +801,7 @@ def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
             "profit_margin", "operating_margin", "gross_margin", "roe", "roa", "roi",
             "dividend_yield", "debt_to_equity")})
 
-    return {
+    payload = {
         "symbol": db_symbol.symbol,
         "asset_type": classify_asset_type(db_symbol.symbol, db_symbol.asset_type),
         "company_name": fundamentals.company_name or db_symbol.name,
@@ -838,6 +852,99 @@ def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
         
         "fetched_at": fundamentals.fetched_at
     }
+    return _complete_and_sanitize(db, db_symbol, payload)
+
+
+def _reference_price(db: Session, db_symbol) -> Optional[float]:
+    """Canonical cached quote (no provider call), else the last valid daily close."""
+    from app.models.price import PriceBar
+    from app.services.bar_hygiene import finite_pos
+
+    try:
+        q = QuoteCacheService(db).get_cached_quote(db_symbol.symbol)
+        p = finite_pos((q or {}).get("price"))
+        if p:
+            return p
+    except Exception:
+        pass
+    bar = (db.query(PriceBar.close).filter(PriceBar.symbol_id == db_symbol.id, PriceBar.close > 0)
+           .order_by(PriceBar.timestamp.desc()).first())
+    return finite_pos(bar[0]) if bar else None
+
+
+def _yf_shares_outstanding(symbol: str) -> Optional[float]:
+    try:
+        import yfinance as yf
+        from app.services.bar_hygiene import finite_pos
+        from app.services.ticker_validation import yahoo_symbol
+
+        return finite_pos(yf.Ticker(yahoo_symbol(symbol)).fast_info.get("shares"))
+    except Exception:
+        return None
+
+
+def _bar_range_52w(db: Session, symbol_id: int):
+    """(low, high, sessions) over the last 252 clean daily bars after any split break."""
+    from app.models.price import PriceBar
+    from app.services.bar_hygiene import clean_bar_dicts, clean_tail_start
+
+    rows = (db.query(PriceBar).filter(PriceBar.symbol_id == symbol_id)
+            .order_by(PriceBar.timestamp.desc()).limit(260).all())
+    bars = clean_bar_dicts(reversed(rows))
+    if not bars:
+        return None
+    bars = bars[clean_tail_start([b["close"] for b in bars]):][-252:]
+    return min(b["low"] for b in bars), max(b["high"] for b in bars), len(bars)
+
+
+def _complete_and_sanitize(db: Session, db_symbol, payload: dict) -> dict:
+    """Fill omitted market cap / P/E / 52w range from data we hold, then drop
+    implausible values (app.services.fundamental_sanity). Notes per field."""
+    from app.models.edgar import FinancialStatement
+    from app.services.fundamental_sanity import fill_missing, sanitize, sec_ttm_eps_and_shares
+    from app.services.ticker_lifecycle import lifecycle_payload
+
+    try:
+        price = _reference_price(db, db_symbol)
+        is_fund = payload.get("asset_type") in ("etf", "fund", "index")
+        ttm_eps = shares = None
+        eps_source = ""
+        if not is_fund and (payload.get("market_cap") is None or payload.get("pe_ratio") is None):
+            stmts = (db.query(FinancialStatement).filter(FinancialStatement.symbol_id == db_symbol.id)
+                     .order_by(FinancialStatement.period_end_date.desc()).limit(12).all())
+            ttm_eps, shares, eps_source = sec_ttm_eps_and_shares(stmts)
+        shares_source = "SEC XBRL diluted shares"
+        if shares is None and payload.get("market_cap") is None and not is_fund:
+            shares = _yf_shares_outstanding(db_symbol.symbol)
+            shares_source = "yfinance shares outstanding"
+        payload = sanitize(payload, price)
+        payload = fill_missing(payload, price, ttm_eps=ttm_eps, shares=shares, eps_source=eps_source,
+                               shares_source=shares_source, is_fund=is_fund)
+        notes = payload["field_notes"]
+        if payload.get("week_52_high") is None or payload.get("week_52_low") is None:
+            rng = _bar_range_52w(db, db_symbol.id)
+            if rng and price:
+                lo, hi, n = rng
+                ok = lo <= price * 1.03 and hi >= price * 0.97
+                if ok:
+                    payload["week_52_low"], payload["week_52_high"] = lo, hi
+                    src = f"high/low of the last {n} daily bars"
+                    if n < 250:
+                        src += f" (only {n} sessions of clean history)"
+                    for k in ("week_52_low", "week_52_high"):
+                        notes[k] = {"status": "derived", "source": src}
+        life = lifecycle_payload(db_symbol.symbol, db_symbol)
+        if life["data_quality"] != "ok":
+            payload["data_quality"] = life["data_quality"]
+        elif any(v.get("status") == "implausible" for v in notes.values()):
+            payload["data_quality"] = "limited"
+        else:
+            payload["data_quality"] = "ok"
+        payload["reference_price"] = price
+    except Exception as e:  # completeness is best effort; never fail the endpoint
+        logger.warning("fundamentals completeness failed for %s: %s", db_symbol.symbol, e)
+        payload.setdefault("field_notes", {})
+    return payload
 
 
 @router.post("/fundamentals/{symbol}/sync", dependencies=[Depends(require_admin)])

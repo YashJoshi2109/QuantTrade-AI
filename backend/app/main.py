@@ -149,6 +149,11 @@ def _create_db_tables():
             ensure_price_alert_columns(engine)
         except Exception as e:
             print(f"⚠️ price_alerts column migration failed (run scripts/add_price_alert_event_key_column.py): {e}")
+        try:
+            from app.models.symbol import ensure_symbol_lifecycle_columns
+            ensure_symbol_lifecycle_columns(engine)
+        except Exception as e:
+            print(f"⚠️ symbols lifecycle column migration failed (run scripts/add_symbol_lifecycle_columns.py): {e}")
     except Exception as e:
         error_msg = str(e)
         if "already exists" in error_msg or "DuplicateTable" in error_msg:

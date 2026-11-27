@@ -54,6 +54,24 @@ KNOWN_TICKER_CHANGES: dict[str, dict[str, str]] = {
     },
 }
 
+
+def _merge_lifecycle() -> None:
+    """Every audited retirement (app.services.ticker_lifecycle) is also a known
+    ticker change, so identity/copilot flag SQ, PXD, MMC, SATS... too. The
+    hand-written entries above win where both exist."""
+    from app.services.ticker_lifecycle import RETIREMENTS
+
+    for sym, r in RETIREMENTS.items():
+        if sym in KNOWN_TICKER_CHANGES:
+            continue
+        entry = {"former_name": r.former_name, "note": r.note}
+        if r.successor:
+            entry["successor"] = r.successor
+        KNOWN_TICKER_CHANGES[sym] = entry
+
+
+_merge_lifecycle()
+
 _STOP_WORDS = {
     "inc", "incorporated", "corp", "corporation", "co", "company", "ltd", "limited",
     "plc", "llc", "lp", "holdings", "holding", "group", "the", "class", "sa", "nv",
@@ -106,7 +124,7 @@ def identity_check(ticker: str, listed_name: Optional[str], filer_name: Optional
     known = KNOWN_TICKER_CHANGES.get(t)
     if known:
         out["former_name"] = known["former_name"]
-        out["successor_symbol"] = known["successor"]
+        out["successor_symbol"] = known.get("successor")
         out["identity_note"] = f"{known['note']} {t} now refers to {filer_name}."
     return out
 
