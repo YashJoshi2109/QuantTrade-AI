@@ -24,6 +24,8 @@ import AskCopilotButton from '@/components/copilot/AskCopilotButton'
 import Link from 'next/link'
 import { GitCompareArrows } from 'lucide-react'
 import { compareHref } from '@/lib/compare'
+import type { ExtendedBadge } from '@/lib/canonicalQuote'
+import { ExtendedHoursBadge } from '@/components/quote/ExtendedHoursBadge'
 
 export type ResearchChartPeriod = '1D' | '5D' | '1M' | '3M' | '6M' | '1Y' | '2Y' | '5Y'
 
@@ -55,6 +57,8 @@ export interface ResearchChartHeaderProps {
     latency?: number
     /** false until some source returned a real (> 0) price. */
     hasPrice?: boolean
+    /** extended-hours print, shown beside (never as) the regular price */
+    extended?: ExtendedBadge | null
   }
   quoteLoading: boolean
   priceTick: 'up' | 'down' | null
@@ -331,6 +335,7 @@ export function ResearchChartHeader({
                 {isPositive ? '+' : ''}
                 {formatPercent(priceInfo.percent, 2)}
               </span>
+              <ExtendedHoursBadge badge={priceInfo.extended} className="self-center" />
               {isNumber(priceInfo.volume) && priceInfo.volume > 0 && (
                 <span className="font-mono text-[11px] text-fg-muted">
                   Vol {formatNumber(priceInfo.volume / 1_000_000, 2)}M

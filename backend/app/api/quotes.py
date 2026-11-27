@@ -74,6 +74,12 @@ class QuoteResponse(BaseModel):
     # as the day's close.
     market_time: Optional[str] = None
     session: Optional[str] = None
+    # Canonical contract (app.services.canonical_quote): price/change are the
+    # regular session; an extended-hours print is only in `extended`.
+    regular: Optional[Dict[str, Any]] = None
+    extended: Optional[Dict[str, Any]] = None
+    as_of: Optional[str] = None
+    stale: Optional[bool] = None
     cached: bool = False
     unavailable: bool = False
     message: Optional[str] = None
@@ -147,6 +153,8 @@ async def get_quotes(
             data_source=data.get('data_source'),
             market_time=data.get('market_time'),
             session=_session_of(data),
+            regular=data.get("regular"), extended=data.get("extended"),
+            as_of=data.get("as_of"), stale=data.get("stale"),
             cached=data.get('cached', False),
             unavailable=data.get('unavailable', False),
             message=data.get('message')
@@ -197,6 +205,8 @@ async def get_quote(
         data_source=data.get('data_source'),
         market_time=data.get('market_time'),
         session=_session_of(data),
+        regular=data.get("regular"), extended=data.get("extended"),
+        as_of=data.get("as_of"), stale=data.get("stale"),
         cached=data.get('cached', False),
         unavailable=data.get('unavailable', False),
         message=data.get('message')

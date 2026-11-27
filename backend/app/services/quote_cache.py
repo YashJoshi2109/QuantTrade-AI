@@ -36,6 +36,17 @@ import concurrent.futures
 
 from app.models.quote_snapshot import QuoteSnapshot
 from app.config import settings
+from app.services.canonical_quote import QUOTE_VERSION, canonicalize
+
+
+def _canonical_or_none(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Cached payload in the canonical contract, or None when it cannot be."""
+    if data.get('quote_version') == QUOTE_VERSION:
+        return data
+    c = canonicalize(data)
+    if not c or c.get('unavailable') or c.get('needs_regular') or not c.get('price'):
+        return None
+    return c
 
 
 class QuoteCacheService:
@@ -167,6 +178,28 @@ class QuoteCacheService:
             print(f"yfinance sync error for {symbol}: {e}")
             return None
     
+    @staticmethod
+    def _yahoo_prev_close_by_calendar(chart: Dict[str, Any], meta: Dict[str, Any]) -> Optional[float]:
+        """Close of previous_trading_day(session of regularMarketTime) from the
+        chart's daily bars, or None when that bar is not in the response."""
+        try:
+            from app.services import market_calendar as mc
+            rmt = meta.get("regularMarketTime")
+            stamps = chart.get("timestamp") or []
+            closes = (chart.get("indicators", {}).get("quote") or [{}])[0].get("close") or []
+            if not rmt or not stamps:
+                return None
+            session_date = datetime.fromtimestamp(rmt, tz=timezone.utc).astimezone(mc.ET).date()
+            if not mc.is_trading_day(session_date):
+                session_date = mc.previous_trading_day(session_date)
+            want = mc.previous_trading_day(session_date)
+            for ts, c in zip(stamps, closes):
+                if c is not None and datetime.fromtimestamp(ts, tz=timezone.utc).astimezone(mc.ET).date() == want:
+                    return float(c)
+        except Exception:
+            return None
+        return None
+
     async def _fetch_from_yahoo_direct(self, symbol: str) -> Optional[Dict[str, Any]]:
         """Fetch quote directly from Yahoo Finance API (no library dependency)"""
         try:
@@ -219,6 +252,12 @@ class QuoteCacheService:
                 valid_closes = [c for c in close_prices if c is not None]
                 if len(valid_closes) >= 2:
                     previous_close = valid_closes[-2]
+                # Better: the close of the trading day before the session the
+                # price is from (NYSE calendar), matched by bar date, so a
+                # partial/missing bar for today cannot shift the baseline.
+                keyed = self._yahoo_prev_close_by_calendar(chart, meta)
+                if keyed:
+                    previous_close = keyed
             else:
                 open_price = 0
                 high_price = meta.get("regularMarketDayHigh", 0) or 0
@@ -409,23 +448,34 @@ class QuoteCacheService:
         8. Robinhood (US stocks, requires credentials)
         9. TradingView API (final fallback)
         """
+        # Every provider payload leaves here in the canonical contract
+        # (app.services.canonical_quote): headline = regular session, any
+        # pre/after-hours/overnight print in `extended`.
+        from app.services.canonical_quote import attach_extended, canonicalize
+
         # 1. Public.com (real-time quotes)
-        quote = await self._fetch_from_public(symbol)
-        if quote and quote.get('price') and quote.get('price') > 0:
-            # Public.com may return change_percent=0 after market close when
-            # oneDayChange is absent and previousClose is unavailable.
-            # Supplement with Yahoo Direct change data in that case.
-            if not quote.get('change_percent') and not quote.get('change'):
-                yahoo = await self._fetch_from_yahoo_direct(symbol)
-                if yahoo and (yahoo.get('change_percent') or yahoo.get('change')):
-                    quote['change'] = yahoo.get('change', 0)
-                    quote['change_percent'] = yahoo.get('change_percent', 0)
-                    quote['previous_close'] = yahoo.get('previous_close', 0)
-                # A 0% quote is the classic signature of a delisted ticker; keep
-                # Yahoo's last-trade time so it can be recognised as stale.
-                if yahoo and yahoo.get('market_time') and not quote.get('market_time'):
-                    quote['market_time'] = yahoo['market_time']
-            return quote
+        public = await self._fetch_from_public(symbol)
+        if public and public.get('price') and public.get('price') > 0:
+            quote = canonicalize(public)
+            if quote and not quote.get('needs_regular'):
+                return quote
+            # Public's print is extended-hours (or has no usable baseline) and
+            # it did not say what the regular close was: take the regular
+            # session from Yahoo and keep Public's print as `extended`. (The
+            # old code spliced Yahoo's change onto Public's overnight price.)
+            yahoo = await self._fetch_from_yahoo_direct(symbol)
+            if yahoo and yahoo.get('price'):
+                merged = attach_extended(yahoo, public)
+                if merged and not merged.get('needs_regular'):
+                    return merged
+            if quote and quote.get('regular'):
+                return quote  # regular price known, baseline unknown: change 0
+
+        provider = await self._fetch_from_regular_providers(symbol)
+        return canonicalize(provider) if provider else None
+
+    async def _fetch_from_regular_providers(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Fallback chain after Public.com (raw provider payloads)."""
 
         # 2. Yahoo Finance direct API
         quote = await self._fetch_from_yahoo_direct(symbol)
@@ -651,7 +701,11 @@ class QuoteCacheService:
                 if fetched_at.tzinfo is None:
                     fetched_at = fetched_at.replace(tzinfo=timezone.utc)
                 age = (now - fetched_at).total_seconds()
-                if age < min(ttl or 0, session_ttl):
+                # One cache row per symbol, one meaning: pre-contract rows are
+                # canonicalised on read, and one whose regular price cannot be
+                # derived (an overnight print stored as `price`) is a miss.
+                data = _canonical_or_none(data)
+                if data is not None and age < min(ttl or 0, session_ttl):
                     data['cached'] = True
                     data['cache_age_seconds'] = age
                     results[symbol] = data
@@ -708,9 +762,10 @@ class QuoteCacheService:
                     from app.services.tradingview_fetcher import TradingViewFetcher
                     tv_quotes = await TradingViewFetcher.get_quotes_bulk(failed_symbols)
                     
+                    from app.services.canonical_quote import canonicalize
                     for symbol, quote in tv_quotes.items():
                         if quote and quote.get("price") and quote.get("price") > 0:
-                            results[symbol.upper()] = quote
+                            results[symbol.upper()] = canonicalize(quote)
                         else:
                             # Still failed, mark as unavailable
                             results[symbol.upper()] = {
@@ -742,8 +797,8 @@ class QuoteCacheService:
             QuoteSnapshot.symbol == symbol.upper()
         ).first()
         
-        if snapshot and self._is_cache_fresh(snapshot):
-            data = snapshot.payload.copy()
+        data = _canonical_or_none(dict(snapshot.payload or {})) if snapshot else None
+        if snapshot and data is not None and self._is_cache_fresh(snapshot):
             data['cached'] = True
             return data
         
