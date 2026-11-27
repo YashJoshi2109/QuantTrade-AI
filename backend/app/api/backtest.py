@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List
+from app.api.auth import _guard_token
 from app.db.database import get_db
 from app.models.symbol import Symbol
 from app.services.backtest_engine import (
@@ -278,6 +279,54 @@ def run_backtest(request: BacktestRequest):
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
     return result
+
+
+@router.post("/backtest/jobs", status_code=202)
+def start_backtest_job(request: BacktestRequest, user_id: int = Depends(_guard_token)):
+    """Same backtest as ``POST /backtest``, run as a background job so it keeps
+    going when the user leaves the page. Poll ``GET /backtest/v2/jobs/{id}``;
+    re-attach with ``GET /backtest/v2/jobs/latest?kind=classic``."""
+    from app.services.backtesting.engine import BacktestTimeout
+    from app.services.backtesting.jobs import AlreadyRunning, QueueFull, manager
+
+    try:
+        start_date, end_date = _parse_dates(request.start_date, request.end_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use ISO format.")
+    if request.strategy not in STRATEGY_REGISTRY:
+        raise HTTPException(status_code=400, detail=f"Unknown strategy: {request.strategy}")
+
+    def work(progress, deadline, should_cancel):
+        progress("Fetching adjusted bars and running the strategy", 0.1)
+        try:
+            result = _run_single_backtest(
+                db=None, ticker=request.symbol, start_date=start_date, end_date=end_date,
+                strategy=request.strategy, initial_capital=request.initial_capital,
+                strategy_params=request.strategy_params, position_sizing=request.position_sizing,
+                commission_rate=request.commission_rate, slippage_rate=request.slippage_rate,
+                stop_loss_pct=request.stop_loss_pct, take_profit_pct=request.take_profit_pct,
+                trailing_stop_pct=request.trailing_stop_pct, max_pyramiding=request.max_pyramiding,
+                walk_forward=request.walk_forward, walk_forward_train_pct=request.walk_forward_train_pct,
+                monte_carlo=request.monte_carlo, monte_carlo_sims=request.monte_carlo_sims,
+                benchmark_ticker=request.benchmark,
+                deadline=min(deadline, time.monotonic() + L.RUN_TIME_BUDGET_S),
+            )
+        except BacktestTimeout:
+            raise
+        if "error" in result:
+            raise ValueError(result["error"])
+        # Plain JSON (numpy scalars and timestamps) so the durable snapshot round-trips.
+        from fastapi.encoders import jsonable_encoder
+
+        return jsonable_encoder(result, custom_encoder={np.generic: lambda v: v.item()})
+
+    try:
+        job = manager.submit(str(user_id), work, kind="classic")
+    except AlreadyRunning:
+        raise HTTPException(status_code=409, detail="You already have a backtest running. Wait for it or cancel it.")
+    except QueueFull:
+        raise HTTPException(status_code=429, detail="The backtest queue is full. Try again in a minute.")
+    return job.public(include_result=False)
 
 
 @router.post("/backtest/compare")

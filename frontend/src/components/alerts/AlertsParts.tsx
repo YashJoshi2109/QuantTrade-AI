@@ -4,20 +4,29 @@
  * Shared by AlertsDesktop and AlertsMobile: the create form, the overlay
  * container (modal / bottom sheet) and the page controller hook.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Loader2, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import Link from 'next/link'
+import { Check, Loader2, LogIn, Plus, Sparkles, X } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/components/Toast'
+import TickerLogo from '@/components/TickerLogo'
 import {
   CONDITION_META,
   CONDITION_ORDER,
+  SOURCE_META,
   describeAlert,
   isEarningsCondition,
+  readDismissed,
+  useAddSuggestion,
   useAlertMutations,
+  useAlertSuggestions,
   useAlerts,
   validateThreshold,
+  visibleSuggestions,
+  writeDismissed,
   type AlertCondition,
   type AlertStatus,
+  type AlertSuggestion,
   type PriceAlert,
 } from '@/lib/alerts'
 
@@ -203,6 +212,7 @@ export function useAlertsController() {
   const shown = filter === 'all' ? alerts : alerts.filter((a) => a.status === filter)
 
   const toggle = (a: PriceAlert) => {
+    if (a.id < 0) return // optimistic row from a one-click suggestion, not saved yet
     const next = a.status === 'active' ? 'paused' : 'active'
     m.update.mutate(
       { id: a.id, status: next },
@@ -213,6 +223,7 @@ export function useAlertsController() {
     )
   }
   const remove = (a: PriceAlert) => {
+    if (a.id < 0) return
     if (!window.confirm(`Delete the ${a.symbol} alert (${describeAlert(a).toLowerCase()})?`)) return
     m.remove.mutate(a.id, {
       onSuccess: () => toast.success('Alert deleted'),
@@ -225,6 +236,168 @@ export function useAlertsController() {
     alerts, shown, counts, limit: q.data?.limit ?? 50,
     filter, setFilter, createOpen, setCreateOpen, prefill, setPrefill, prefillCondition, toggle, remove,
   }
+}
+
+/** Suggestions state shared by desktop and mobile: fetch, dismiss (localStorage), optimistic add. */
+export function useSuggestedAlerts(signedIn: boolean, alerts: PriceAlert[], enabled: boolean) {
+  const toast = useToast()
+  const q = useAlertSuggestions(signedIn, enabled)
+  const add = useAddSuggestion()
+  const [dismissed, setDismissed] = useState<Record<string, number>>({})
+  const [added, setAdded] = useState<Record<string, true>>({})
+  const [pending, setPending] = useState<string | null>(null)
+  useEffect(() => setDismissed(readDismissed()), [])
+
+  const all = useMemo(() => q.data?.suggestions ?? [], [q.data])
+  const shown = useMemo(() => visibleSuggestions(all, { ...dismissed, ...added }, alerts), [all, dismissed, added, alerts])
+
+  const dismiss = useCallback((s: AlertSuggestion) => {
+    setDismissed((d) => {
+      const next = { ...d, [s.id]: Date.now() }
+      writeDismissed(next)
+      return next
+    })
+  }, [])
+
+  const addOne = (s: AlertSuggestion) => {
+    setPending(s.id)
+    setAdded((m) => ({ ...m, [s.id]: true })) // optimistic: card leaves right away
+    add.mutate(s, {
+      onSuccess: () => toast.success(`Alert set: ${s.symbol} ${describeAlert(s).toLowerCase()}`),
+      onError: (e) => {
+        setAdded((m) => {
+          const next = { ...m }
+          delete next[s.id]
+          return next
+        })
+        toast.error(e instanceof Error ? e.message : 'Could not add alert')
+      },
+      onSettled: () => setPending(null),
+    })
+  }
+
+  return {
+    shown, loading: q.isLoading, error: q.error as Error | null,
+    personalized: !!q.data?.personalized, dismiss, add: addOne, pending,
+  }
+}
+
+function SuggestionCard({
+  s, signedIn, onAdd, onDismiss, busy, compact,
+}: {
+  s: AlertSuggestion; signedIn: boolean; onAdd: () => void; onDismiss: () => void; busy: boolean; compact?: boolean
+}) {
+  const src = SOURCE_META[s.source]
+  return (
+    <li className={`relative flex flex-col rounded-xl border border-line-subtle bg-surface-raised p-3 ${compact ? 'w-[264px] shrink-0 snap-start' : ''}`}>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label={`Dismiss ${s.symbol} suggestion`}
+        className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full text-fg-muted hover:bg-surface-base hover:text-fg-primary"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+      <div className="flex items-center gap-2 pr-7">
+        <TickerLogo symbol={s.symbol} size={28} />
+        <div className="min-w-0">
+          <Link href={`/research?symbol=${s.symbol}`} className="block font-semibold leading-tight text-fg-primary">{s.symbol}</Link>
+          <span className="block truncate text-[11px] text-fg-muted">
+            {s.current_price != null ? `$${s.current_price.toFixed(2)}` : s.name ?? ''}
+            {s.change_percent != null && (
+              <span className={s.change_percent >= 0 ? 'ml-1 text-emerald-600 dark:text-emerald-400' : 'ml-1 text-red-600 dark:text-red-400'}>
+                {s.change_percent >= 0 ? '+' : ''}{s.change_percent.toFixed(2)}%
+              </span>
+            )}
+          </span>
+        </div>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${src.cls}`}>{src.label}</span>
+        <span className="text-[11px] font-medium text-fg-secondary">{s.label}</span>
+      </div>
+      <p className="mt-1.5 text-sm font-medium text-fg-primary">{describeAlert(s)}</p>
+      <p className="mt-1 flex-1 text-[12px] leading-snug text-fg-muted">{s.reason}</p>
+      {signedIn ? (
+        <button
+          type="button"
+          onClick={onAdd}
+          disabled={busy}
+          className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-[#fff] hover:bg-indigo-500 active:scale-[0.98] disabled:opacity-60"
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add alert
+        </button>
+      ) : (
+        <Link
+          href="/auth"
+          className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-lg border border-line-default px-3 py-1.5 text-sm font-semibold text-fg-primary hover:bg-surface-base"
+        >
+          <LogIn className="h-4 w-4" /> Sign in to add
+        </Link>
+      )}
+    </li>
+  )
+}
+
+/**
+ * "Suggested for you": one-click alert ideas from the user's holdings, watchlist,
+ * 52-week extremes, today's movers and upcoming earnings. ``prominent`` is used when
+ * the user has no alerts yet (more cards, bigger heading).
+ */
+export function SuggestedAlerts({
+  variant, signedIn, alerts, prominent = false, atLimit = false,
+}: { variant: 'desktop' | 'mobile'; signedIn: boolean; alerts: PriceAlert[]; prominent?: boolean; atLimit?: boolean }) {
+  const sg = useSuggestedAlerts(signedIn, alerts, !atLimit)
+  const [expanded, setExpanded] = useState(false)
+  if (atLimit || sg.error || (!sg.loading && sg.shown.length === 0)) return null
+  const mobile = variant === 'mobile'
+  const cap = mobile ? sg.shown.length : prominent || expanded ? 9 : 3
+  const list = sg.shown.slice(0, cap)
+  const title = signedIn ? 'Suggested for you' : 'Ideas to watch'
+  const sub = signedIn
+    ? sg.personalized
+      ? 'From your holdings, watchlist and today’s market. One click adds the alert; you can edit or delete it later.'
+      : 'From today’s market. Add stocks to your portfolio or watchlist for personal suggestions.'
+    : 'Market-based ideas. Sign in to add them and get suggestions for your own holdings.'
+
+  return (
+    <section aria-label={title} className={mobile ? '' : prominent ? 'mb-6' : 'mb-5'}>
+      <div className="mb-2 flex items-end justify-between gap-3">
+        <div>
+          <h2 className={`flex items-center gap-1.5 font-semibold text-fg-primary ${prominent && !mobile ? 'text-lg' : 'text-sm'}`}>
+            <Sparkles className="h-4 w-4 text-indigo-500" /> {title}
+          </h2>
+          <p className="mt-0.5 text-[11px] text-fg-muted">{sub}</p>
+        </div>
+        {!mobile && !prominent && sg.shown.length > 3 && (
+          <button type="button" onClick={() => setExpanded((v) => !v)} className="shrink-0 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+            {expanded ? 'Show fewer' : `Show all (${Math.min(sg.shown.length, 9)})`}
+          </button>
+        )}
+      </div>
+      {sg.loading ? (
+        <div className={mobile ? '-mx-4 flex gap-2 overflow-hidden px-4' : `grid gap-3 ${GRID3}`}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className={`h-44 animate-pulse rounded-xl border border-line-subtle bg-surface-raised ${mobile ? 'w-[264px] shrink-0' : ''}`} />
+          ))}
+        </div>
+      ) : (
+        <ul className={mobile ? '-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide' : `grid gap-3 ${GRID3}`}>
+          {list.map((s) => (
+            <SuggestionCard
+              key={s.id}
+              s={s}
+              signedIn={signedIn}
+              compact={mobile}
+              busy={sg.pending === s.id}
+              onAdd={() => sg.add(s)}
+              onDismiss={() => sg.dismiss(s)}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
+  )
 }
 
 export const FILTERS: { id: AlertFilter; label: string }[] = [

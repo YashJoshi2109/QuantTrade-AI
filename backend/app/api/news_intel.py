@@ -72,6 +72,8 @@ def news_feed(
         "items": [store.serialize(r) for r in items],
         "category_counts": {k: int(counts.get(k, 0)) for k in CATEGORY_KEYS},
         "as_of": now.isoformat().replace("+00:00", "Z"),
+        # Additive: start of stored coverage, for an honest empty state.
+        "coverage_since": store.coverage_since(db),
     }
 
 

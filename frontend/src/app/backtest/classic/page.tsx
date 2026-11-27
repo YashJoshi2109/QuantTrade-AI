@@ -11,8 +11,10 @@ import Link from 'next/link'
 import AppLayout from '@/components/AppLayout'
 import { motion, AnimatePresence } from 'framer-motion'
 import MobileLayout from '@/components/layout/MobileLayout'
-import { runBacktest, BacktestResult, BacktestRequest, getBacktestDateRange, type BacktestDateRange } from '@/lib/api'
+import { getBacktestDateRange, type BacktestDateRange } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
+import { formToRequest, useClassicBacktest } from '@/lib/classicBacktest'
+import { isBool, oneOf, usePersistentState } from '@/lib/persistentState'
 import ResultsDashboard from '@/components/backtest/ResultsDashboard'
 import TradeJournal from '@/components/backtest/TradeJournal'
 import ComparisonView from '@/components/backtest/ComparisonView'
@@ -138,6 +140,30 @@ const GLOW_COLORS: Record<string, string> = {
   orange: 'shadow-orange-500/20', fuchsia: 'shadow-fuchsia-500/20',
 }
 
+function strategyName(id: string): string {
+  return STRATEGIES.find(s => s.id === id)?.name ?? id
+}
+
+/** Saved parameters for a strategy over its defaults (unknown keys dropped). */
+function paramsFor(id: string, saved: Record<string, Record<string, number>>): Record<string, number> {
+  const s = STRATEGIES.find(st => st.id === id) ?? STRATEGIES[0]
+  const p: Record<string, number> = {}
+  s.params.forEach(sp => { p[sp.key] = saved[id]?.[sp.key] ?? sp.default })
+  return p
+}
+
+/** Seconds since `startedAt` (ms), ticking once a second; 0 when null. */
+function useElapsedSec(startedAt: number | null): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (startedAt == null) return
+    setNow(Date.now())
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [startedAt])
+  return startedAt == null ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000))
+}
+
 /* ── Tab definitions ───────────────────────────────────────────────── */
 
 type TabId = 'builder' | 'results' | 'journal' | 'compare' | 'scanner' | 'risk'
@@ -207,41 +233,33 @@ function GlassSection({ title, icon: Icon, right, children, className = '' }: {
 /* ── Main Desktop Page ──────────────────────────────────────────────── */
 
 function DesktopBacktestPage() {
-  /* ── Form state ── */
-  const [symbol, setSymbol] = useState('AAPL')
-  const [strategy, setStrategy] = useState('rsi_ma_crossover')
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date(); d.setFullYear(d.getFullYear() - 2); return d.toISOString().split('T')[0]
+  /* ── UI state (tab persisted per user) ── */
+  const [activeTab, setActiveTab] = usePersistentState<TabId>('classicBacktest.tab.desktop', 'builder', {
+    version: 1, validate: oneOf<TabId>(['builder', 'results', 'journal', 'compare', 'scanner', 'risk']),
   })
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0])
-  const [initialCapital, setInitialCapital] = useState(100000)
-  const [positionSizing, setPositionSizing] = useState('fixed')
-  const [commissionRate, setCommissionRate] = useState(0.001)
-  const [slippageRate, setSlippageRate] = useState(0.0005)
-  const [stopLoss, setStopLoss] = useState<number | null>(null)
-  const [takeProfit, setTakeProfit] = useState<number | null>(null)
-  const [trailingStop, setTrailingStop] = useState<number | null>(null)
-  const [maxPyramiding, setMaxPyramiding] = useState(1)
-  const [walkForward, setWalkForward] = useState(false)
-  const [monteCarlo, setMonteCarlo] = useState(true)
-  const [benchmark, setBenchmark] = useState('SPY')
+  const [showAdvanced, setShowAdvanced] = usePersistentState('classicBacktest.advancedOpen', false, { validate: isBool })
 
-  /* ── UI state ── */
-  const [activeTab, setActiveTab] = useState<TabId>('builder')
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<BacktestResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [elapsedSec, setElapsedSec] = useState(0)
-  const abortRef = useRef<AbortController | null>(null)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  /* ── Form, result and the server job: persisted, shared with mobile ── */
+  const bt = useClassicBacktest({ strategyName, onResult: () => setActiveTab('results') })
+  const {
+    form, setForm, result, error, setError, setSymbol, setStrategy, setStartDate, setEndDate, setInitialCapital,
+    setPositionSizing, setCommissionRate, setSlippageRate, setStopLoss, setTakeProfit, setTrailingStop,
+    setMaxPyramiding, setWalkForward, setMonteCarlo, setBenchmark,
+  } = bt
+  const {
+    symbol, strategy, startDate, endDate, initialCapital, positionSizing, commissionRate, slippageRate, stopLoss,
+    takeProfit, trailingStop, maxPyramiding, walkForward, monteCarlo, benchmark,
+  } = form
+  const loading = bt.running
+  const elapsedSec = useElapsedSec(bt.running ? bt.startedAt : null)
 
-  const selectedStrat = STRATEGIES.find(s => s.id === strategy)!
-  const [stratParams, setStratParams] = useState<Record<string, number>>(() => {
-    const p: Record<string, number> = {}
-    selectedStrat.params.forEach(sp => { p[sp.key] = sp.default })
-    return p
-  })
+  const stratParams = useMemo(() => paramsFor(strategy, form.params), [strategy, form.params])
+  const setStratParams = useCallback((next: Record<string, number> | ((p: Record<string, number>) => Record<string, number>)) => {
+    setForm((f) => {
+      const prev = paramsFor(f.strategy, f.params)
+      return { ...f, params: { ...f.params, [f.strategy]: typeof next === 'function' ? next(prev) : next } }
+    })
+  }, [setForm])
 
   /* ── Symbol search autocomplete ── */
   const [symbolQuery, setSymbolQuery] = useState('')
@@ -331,89 +349,21 @@ function DesktopBacktestPage() {
   }
 
   const handleStrategyChange = useCallback((id: string) => {
-    setStrategy(id)
-    const s = STRATEGIES.find(st => st.id === id)!
-    const p: Record<string, number> = {}
-    s.params.forEach(sp => { p[sp.key] = sp.default })
-    setStratParams(p)
-  }, [])
+    // Switching strategy starts from that strategy's defaults (as before).
+    setForm((f) => ({ ...f, strategy: id, params: { ...f.params, [id]: paramsFor(id, {}) } }))
+  }, [setForm])
 
   const handleCancel = useCallback(() => {
-    abortRef.current?.abort()
-    abortRef.current = null
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
-    setLoading(false)
-    setElapsedSec(0)
-  }, [])
+    bt.cancel()
+  }, [bt])
 
+  // The job runs on the server: leaving the page does not stop it, and the
+  // result (or progress) is shown again on return.
   const handleRunBacktest = useCallback(async () => {
-    abortRef.current?.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
-    setLoading(true)
-    setError(null)
-    setResult(null)
-    setElapsedSec(0)
-
-    const startTime = Date.now()
-    timerRef.current = setInterval(() => setElapsedSec(Math.floor((Date.now() - startTime) / 1000)), 1000)
-
-    // Minimum animation duration so the pipeline visualization is always visible
-    const MIN_ANIMATION_MS = 4000
-    const animationFloor = new Promise(r => setTimeout(r, MIN_ANIMATION_MS))
-
-    try {
-      const req: BacktestRequest = {
-        symbol: symbol.toUpperCase(),
-        start_date: startDate + 'T00:00:00',
-        end_date: endDate + 'T23:59:59',
-        strategy,
-        initial_capital: initialCapital,
-        strategy_params: stratParams,
-        position_sizing: positionSizing,
-        commission_rate: commissionRate,
-        slippage_rate: slippageRate,
-        stop_loss_pct: stopLoss,
-        take_profit_pct: takeProfit,
-        trailing_stop_pct: trailingStop,
-        max_pyramiding: maxPyramiding,
-        walk_forward: walkForward,
-        monte_carlo: monteCarlo,
-        benchmark,
-      }
-      // Run backtest + wait for minimum animation time in parallel
-      const [res] = await Promise.all([runBacktest(req, controller.signal), animationFloor])
-
-      // Validate results — zero trades / zero return with no equity movement = empty result
-      const hasNoTrades = !res.total_trades || res.total_trades === 0
-      const hasNoReturn = res.total_return === 0 && res.sharpe_ratio === 0 && res.win_rate === 0
-      const hasNoEquity = !res.equity_curve || res.equity_curve.length <= 1
-
-      if (hasNoTrades && hasNoReturn) {
-        setError(
-          hasNoEquity
-            ? `No trades generated for ${symbol.toUpperCase()} with ${STRATEGIES.find(s => s.id === strategy)?.name ?? strategy}. Try a different date range, strategy, or check that market data is available.`
-            : `Strategy produced 0 trades — parameters may be too restrictive or insufficient data for ${symbol.toUpperCase()} in the selected period. If your initial capital ($${initialCapital.toLocaleString()}) is less than the stock price, increase it so at least 1 share can be purchased.`
-        )
-      } else {
-        setResult(res)
-        setActiveTab('results')
-      }
-    } catch (err: any) {
-      // Still wait for animation floor so error state shows properly
-      const elapsed = Date.now() - startTime
-      if (elapsed < MIN_ANIMATION_MS) {
-        await new Promise(r => setTimeout(r, MIN_ANIMATION_MS - elapsed))
-      }
-      if (!controller.signal.aborted) {
-        setError(err.message || 'Failed to run backtest')
-      }
-    } finally {
-      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
-      setLoading(false)
-      setElapsedSec(0)
-    }
-  }, [symbol, startDate, endDate, strategy, initialCapital, stratParams, positionSizing, commissionRate, slippageRate, stopLoss, takeProfit, trailingStop, maxPyramiding, walkForward, monteCarlo, benchmark])
+    if (bt.running) return
+    bt.setResult(null)
+    await bt.run(formToRequest(form, stratParams))
+  }, [bt, form, stratParams])
 
   const currentStrat = STRATEGIES.find(s => s.id === strategy)!
 
@@ -1010,18 +960,14 @@ function DesktopBacktestPage() {
 /* ── Mobile version ─────────────────────────────────────────────────── */
 
 function MobileBacktestPage() {
-  const [symbol, setSymbol] = useState('AAPL')
-  const [strategy, setStrategy] = useState('rsi_ma_crossover')
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date(); d.setFullYear(d.getFullYear() - 2); return d.toISOString().split('T')[0]
+  const [activeTab, setActiveTab] = usePersistentState<'config' | 'results'>('classicBacktest.tab.mobile', 'config', {
+    version: 1, validate: oneOf(['config', 'results'] as const),
   })
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0])
-  const [initialCapital, setInitialCapital] = useState(100000)
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<BacktestResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'config' | 'results'>('config')
-  const abortRef = useRef<AbortController | null>(null)
+  // Same persisted form, result and server job as the desktop view.
+  const bt = useClassicBacktest({ strategyName, onResult: () => setActiveTab('results') })
+  const { form, result, error, setSymbol, setStrategy, setStartDate, setEndDate, setInitialCapital } = bt
+  const { symbol, strategy, startDate, endDate, initialCapital } = form
+  const loading = bt.running
   const [dateRange, setDateRange] = useState<BacktestDateRange | null>(null)
 
   useEffect(() => {
@@ -1043,44 +989,17 @@ function MobileBacktestPage() {
       } catch {}
     }, 300)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [symbol])
+  }, [symbol, setStartDate, setEndDate])
 
   const handleCancel = useCallback(() => {
-    abortRef.current?.abort()
-    abortRef.current = null
-    setLoading(false)
-  }, [])
+    bt.cancel()
+  }, [bt])
 
+  // Runs on the server: leaving the page does not stop it.
   const handleRun = async () => {
-    abortRef.current?.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
-    setLoading(true); setError(null); setResult(null)
-    const startTime = Date.now()
-    const MIN_MS = 4000
-    try {
-      const req: BacktestRequest = {
-        symbol: symbol.toUpperCase(),
-        start_date: startDate + 'T00:00:00',
-        end_date: endDate + 'T23:59:59',
-        strategy, initial_capital: initialCapital, monte_carlo: true,
-      }
-      const [res] = await Promise.all([runBacktest(req, controller.signal), new Promise(r => setTimeout(r, MIN_MS))])
-      const hasNoTrades = !res.total_trades || res.total_trades === 0
-      const hasNoReturn = res.total_return === 0 && res.sharpe_ratio === 0 && res.win_rate === 0
-      if (hasNoTrades && hasNoReturn) {
-        setError(`No trades generated for ${symbol.toUpperCase()}. Try different parameters or date range.`)
-      } else {
-        setResult(res)
-        setActiveTab('results')
-      }
-    } catch (err: any) {
-      const elapsed = Date.now() - startTime
-      if (elapsed < MIN_MS) await new Promise(r => setTimeout(r, MIN_MS - elapsed))
-      if (!controller.signal.aborted) {
-        setError(err.message || 'Failed')
-      }
-    } finally { setLoading(false) }
+    if (bt.running) return
+    bt.setResult(null)
+    await bt.run(formToRequest(form, paramsFor(strategy, form.params)))
   }
 
   return (

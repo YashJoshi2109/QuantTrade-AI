@@ -48,6 +48,8 @@ export interface ResearchChartHeaderProps {
   setChartShowVolume?: (v: boolean) => void
   setChartLogScale?: (v: boolean) => void
   setChartShowGrid?: (v: boolean) => void
+  /** Restore default chart settings (they persist between visits). */
+  onResetChart?: () => void
   priceInfo: {
     price: number
     change: number
@@ -152,6 +154,7 @@ export function ResearchChartHeader({
   setChartShowVolume,
   setChartLogScale,
   setChartShowGrid,
+  onResetChart,
   priceInfo,
   quoteLoading,
   priceTick,
@@ -543,6 +546,16 @@ export function ResearchChartHeader({
                       />
                       Logarithmic scale
                     </label>
+                    {onResetChart && (
+                      <button
+                        type="button"
+                        onClick={onResetChart}
+                        className="mt-1 self-start text-[11px] font-medium text-blue-500 hover:underline"
+                        title="Chart settings are remembered between visits"
+                      >
+                        Reset chart settings
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

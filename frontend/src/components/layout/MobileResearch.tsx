@@ -58,6 +58,8 @@ import TechnicalAnalysisGauge from '@/components/TechnicalAnalysisGauge'
 import AskCopilotButton from '@/components/copilot/AskCopilotButton'
 import { GitCompareArrows } from 'lucide-react'
 import { compareHref } from '@/lib/compare'
+import { oneOf, usePersistentState } from '@/lib/persistentState'
+import { MOBILE_TABS, MOBILE_TIMEFRAMES, useResearchSymbol } from '@/lib/researchPrefs'
 
 const TIMEFRAMES = ['1D', '1W', '1M', '3M', '1Y', 'All'] as const
 type Timeframe = (typeof TIMEFRAMES)[number]
@@ -66,10 +68,11 @@ export default function MobileResearch() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
-  const symbolFromUrl = (searchParams?.get('symbol') || 'NVDA').toUpperCase()
+  // Last symbol, timeframe and tab persist per user (lib/researchPrefs, shared with desktop).
+  const symbolFromUrl = useResearchSymbol(searchParams?.get('symbol'))
 
-  const [timeframe, setTimeframe] = useState<Timeframe>('3M')
-  const [activeTab, setActiveTab] = useState<MobileResearchTab>('overview')
+  const [timeframe, setTimeframe] = usePersistentState<Timeframe>('research.mobile.timeframe', '3M', { version: 1, validate: oneOf(MOBILE_TIMEFRAMES) })
+  const [activeTab, setActiveTab] = usePersistentState<MobileResearchTab>('research.mobile.tab', 'overview', { version: 1, validate: oneOf(MOBILE_TABS) })
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
 

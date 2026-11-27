@@ -5,7 +5,7 @@ import { BellRing, Loader2, LogIn, Mail, Pause, Play, Plus, Repeat, Trash2 } fro
 import AppLayout from '@/components/AppLayout'
 import TickerLogo from '@/components/TickerLogo'
 import { STATUS_STYLE, describeAlert, distanceToLevel, earningsCountdown } from '@/lib/alerts'
-import { AlertForm, FILTERS, Overlay, relTime, useAlertsController } from './AlertsParts'
+import { AlertForm, FILTERS, Overlay, SuggestedAlerts, relTime, useAlertsController } from './AlertsParts'
 
 export default function AlertsDesktop() {
   const c = useAlertsController()
@@ -40,6 +40,7 @@ export default function AlertsDesktop() {
         {c.authLoading || (c.isAuthenticated && c.loading) ? (
           <div className="hud-card flex h-56 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-fg-muted" /></div>
         ) : !c.isAuthenticated ? (
+          <>
           <div className="hud-card p-12 text-center">
             <LogIn className="mx-auto mb-4 h-10 w-10 text-fg-muted" />
             <h2 className="text-lg font-semibold text-fg-primary">Sign in to set price alerts</h2>
@@ -48,14 +49,20 @@ export default function AlertsDesktop() {
               <LogIn className="h-4 w-4" /> Sign in
             </Link>
           </div>
+          <div className="mt-6"><SuggestedAlerts variant="desktop" signedIn={false} alerts={[]} prominent /></div>
+          </>
         ) : c.alerts.length === 0 ? (
+          <>
+          <SuggestedAlerts variant="desktop" signedIn alerts={c.alerts} prominent />
           <div className="hud-card mx-auto max-w-lg p-8">
-            <h2 className="mb-1 text-lg font-semibold text-fg-primary">Create your first alert</h2>
+            <h2 className="mb-1 text-lg font-semibold text-fg-primary">Create your own alert</h2>
             <p className="mb-5 text-sm text-fg-muted">Up to {c.limit} alerts. Checked about every 5 minutes.</p>
             <AlertForm initialSymbol={c.prefill} initialCondition={c.prefillCondition} onDone={() => undefined} />
           </div>
+          </>
         ) : (
           <>
+            <SuggestedAlerts variant="desktop" signedIn alerts={c.alerts} atLimit={c.alerts.length >= c.limit} />
             <div className="mb-4 flex gap-1 rounded-xl border border-line-subtle bg-surface-base p-1" role="tablist" aria-label="Filter alerts">
               {FILTERS.map((f) => (
                 <button

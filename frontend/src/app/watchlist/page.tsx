@@ -48,6 +48,7 @@ import { SkeletonWatchlistTable, SkeletonText } from '@/components/Skeleton'
 import TickerLogo from '@/components/TickerLogo'
 import { GitCompareArrows } from 'lucide-react'
 import { compareHref } from '@/lib/compare'
+import { isStr, oneOf, usePersistentState } from '@/lib/persistentState'
 import WatchlistPortfolioPanel from '@/components/portfolio/WatchlistPortfolioPanel'
 
 interface WatchlistItemWithPrice extends WatchlistItem {
@@ -80,7 +81,7 @@ const CHART_PALETTE = [
 
 function WatchlistPerformanceChart({ watchlist }: { watchlist: WatchlistItemWithPrice[] }) {
   const t = useThemeTokens()
-  const [chartFilter, setChartFilter] = useState('')
+  const [chartFilter, setChartFilter] = usePersistentState('watchlist.chartFilter', '', { validate: isStr })
 
   // All stocks with valid chart data
   const chartableStocks = useMemo(() => {
@@ -556,7 +557,8 @@ function DesktopWatchlistPage() {
   const [selectedIndex, setSelectedIndex] = useState(-1)
 
   // Tab: watchlist, or a summary of the user's real portfolios (/portfolio)
-  const [activeTab, setActiveTab] = useState<ActiveTab>('watchlist')
+  // View toggle persists per user, shared with the mobile view.
+  const [activeTab, setActiveTab] = usePersistentState<ActiveTab>('watchlist.tab', 'watchlist', { version: 1, validate: oneOf(['watchlist', 'portfolio'] as const) })
 
   // Refs
   const isAddingRef = useRef(false)

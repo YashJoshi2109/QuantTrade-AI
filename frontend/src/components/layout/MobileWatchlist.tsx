@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import { isStr, oneOf, usePersistentState } from '@/lib/persistentState'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Plus,
@@ -45,10 +46,11 @@ export default function MobileWatchlist() {
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const queryClient = useQueryClient()
 
-  const [filter, setFilter] = useState('')
+  const [filter, setFilter] = usePersistentState('watchlist.mobile.filter', '', { validate: isStr })
   const [showAdd, setShowAdd] = useState(false)
   const [addQuery, setAddQuery] = useState('')
-  const [activeTab, setActiveTab] = useState<ActiveTab>('watchlist')
+  // View toggle persists per user, shared with the desktop view.
+  const [activeTab, setActiveTab] = usePersistentState<ActiveTab>('watchlist.tab', 'watchlist', { version: 1, validate: oneOf(['watchlist', 'portfolio'] as const) })
 
   const { data: items = [], isLoading, refetch } = useQuery<WatchlistItem[]>({
     queryKey: ['watchlist'],

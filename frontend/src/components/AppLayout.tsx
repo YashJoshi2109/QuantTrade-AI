@@ -33,6 +33,7 @@ import {
   Brain,
   Filter,
   CalendarDays,
+  Coins,
 } from 'lucide-react'
 import ApiStatsMonitor from './ApiStatsMonitor'
 import UnifiedNotificationCenter from './UnifiedNotificationCenter'
@@ -204,6 +205,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
       { id: 'watchlist', label: 'Watchlist', icon: Bookmark, href: '/watchlist' },
       { id: 'portfolio', label: 'Portfolio', icon: Briefcase, href: '/portfolio' },
       { id: 'earnings', label: 'Earnings', icon: CalendarDays, href: '/earnings' },
+      { id: 'dividends', label: 'Dividends', icon: Coins, href: '/dividends' },
       { id: 'research', label: 'Research', icon: FileText, href: '/research' },
       { id: 'screener', label: 'Screener', icon: Filter, href: '/screener' },
       { id: 'backtest', label: 'Backtest', icon: Activity, href: '/backtest' },

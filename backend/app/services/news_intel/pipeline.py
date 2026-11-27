@@ -415,6 +415,7 @@ class NewsIntelService:
         await asyncio.to_thread(get_sentiment_classifier().load)
         await asyncio.to_thread(get_categorizer().load)
         await self._reclassify_if_taxonomy_changed()
+        await self._retag_if_tagger_changed()
         try:
             rows = await asyncio.to_thread(self._db_call, _seed_rows)
             for cid, title, urls, titles, ingested in rows:
@@ -445,6 +446,32 @@ class NewsIntelService:
         try:
             if self.redis is not None:
                 await self.redis.set(key, version)
+        except Exception:
+            pass
+        return n
+
+    async def _retag_if_tagger_changed(self) -> int:
+        """Once per tagger version: add tickers the current rules find to the
+        stored items (14-day retention) so ticker feeds are not empty until
+        the old items age out."""
+        from app.services.news_intel.tickers import TAGGER_VERSION
+
+        key = "qt:news:tagger_version"
+        try:
+            if self.redis is not None and (await self.redis.get(key)) == TAGGER_VERSION:
+                return 0
+        except Exception:
+            pass
+        tix = get_ticker_index()
+        try:
+            n = await asyncio.to_thread(self._db_call, store.retag_recent, tix.extract)
+            logger.info("news-intel tagger v%s: re-tagged %d stored items", TAGGER_VERSION, n)
+        except Exception as e:
+            logger.warning("news-intel retag failed: %s", e)
+            return 0
+        try:
+            if self.redis is not None:
+                await self.redis.set(key, TAGGER_VERSION)
         except Exception:
             pass
         return n

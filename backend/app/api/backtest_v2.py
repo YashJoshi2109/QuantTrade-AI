@@ -4,17 +4,21 @@ robustness, run as background jobs.
     GET    /backtest/v2/meta              indicators, operators, presets, limits
     POST   /backtest/v2/validate          check a spec (422 with reasons)
     POST   /backtest/v2/jobs              start a job -> {id}
+    GET    /backtest/v2/jobs/latest       the caller's newest job (re-attach), or null
     GET    /backtest/v2/jobs/{id}         status / progress / result
-    DELETE /backtest/v2/jobs/{id}         cancel
+    DELETE /backtest/v2/jobs/{id}         cancel; ?forget=true also drops a finished result
 
 Every handler is a plain ``def`` (threadpool) and none touches the DB. Auth
 uses the JWT-only guard, so no DB connection is held. The work itself runs
 in ``backtesting.jobs`` (a 1-thread pool with a queue and a time budget).
+Job snapshots also go to Redis for 24 h, so a result survives leaving the
+page, a reload, another device, or a backend restart.
 """
 from __future__ import annotations
 
 import copy
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -75,17 +79,35 @@ def start_job(req: RunRequest, user_id: int = Depends(_guard_token)):
     return job.public(include_result=False)
 
 
+@router.get("/backtest/v2/jobs/latest")
+def latest_job(kind: Literal["lab", "classic"] = "lab", include_result: bool = True,
+               user_id: int = Depends(_guard_token)):
+    """The caller's newest job of ``kind`` (active first), so a page reopened
+    on any device can re-attach. ``null`` when there is none."""
+    return manager.latest_public(str(user_id), kind=kind, include_result=include_result)
+
+
 @router.get("/backtest/v2/jobs/{job_id}")
 def get_job(job_id: str, user_id: int = Depends(_guard_token)):
-    job = manager.get(job_id, str(user_id))
+    job = manager.get_public(job_id, str(user_id))
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found or expired")
-    return job.public()
+    return job
 
 
 @router.delete("/backtest/v2/jobs/{job_id}")
-def cancel_job(job_id: str, user_id: int = Depends(_guard_token)):
-    job = manager.cancel(job_id, str(user_id))
-    if job is None:
+def cancel_job(job_id: str, forget: bool = False, user_id: int = Depends(_guard_token)):
+    """Cancel an active job. With ``forget=true`` a finished job's stored
+    result is dropped too (the Lab's Reset)."""
+    owner = str(user_id)
+    if forget:
+        if not manager.forget(job_id, owner):
+            raise HTTPException(status_code=404, detail="Job not found or expired")
+        return manager.get_public(job_id, owner, include_result=False) or {"id": job_id, "status": "forgotten"}
+    job = manager.cancel(job_id, owner)
+    if job is not None:
+        return job.public(include_result=False)
+    snap = manager.get_public(job_id, owner, include_result=False)
+    if snap is None:
         raise HTTPException(status_code=404, detail="Job not found or expired")
-    return job.public(include_result=False)
+    return snap

@@ -5,7 +5,7 @@ import { FlaskConical, Loader2 } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import {
   Card, ChartLegend, Disclaimer, DrawdownChart, EquityChart, MetricsGrid, MonthlyHeatmap, ParametersEditor,
-  PresetPicker, RobustnessEditor, RobustnessPanel, RollingSharpeChart, RulesEditor, RulesSummary, RunBar, SettingsEditor, SignInPrompt,
+  PresetPicker, RobustnessEditor, RobustnessPanel, RollingSharpeChart, RulesEditor, RulesSummary, RunBar, RunningBanner, SettingsEditor, SignInPrompt,
   TradeExport, TradeTable, WarningsList,
 } from './LabParts'
 import { useBacktestLab, type LabTab } from './useBacktestLab'
@@ -52,6 +52,8 @@ export default function LabDesktop() {
             </button>
           ))}
         </div>
+
+        {c.tab !== 'builder' && <div className="mb-4"><RunningBanner c={c} /></div>}
 
         {c.metaLoading || !c.spec ? (
           <div className="hud-card flex h-64 items-center justify-center">
