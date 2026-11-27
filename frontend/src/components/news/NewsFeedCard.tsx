@@ -47,23 +47,33 @@ export function SentimentPill({
   )
 }
 
+const IMPACT_HELP =
+  'Impact 0-100: how much this story is likely to matter, from sentiment strength, source credibility, ' +
+  'the size of the companies involved, recency and how many outlets carry it. 70+ high, 40-69 medium, below 40 low.'
+
 export function ImpactMeter({ impact, compact = false }: { impact: number; compact?: boolean }) {
   const badge = impactBadge(impact)
   const v = Math.max(0, Math.min(100, Math.round(impact || 0)))
+  const level = badge.level === 'high' ? 'High' : badge.level === 'medium' ? 'Med' : 'Low'
   return (
     <span
-      className="inline-flex items-center gap-1.5"
+      className="inline-flex cursor-help items-center gap-1.5"
       role="meter"
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={v}
       aria-label={`${badge.label}: ${v} of 100`}
-      title={`${badge.label} (${v}/100)`}
+      title={`${badge.label} · ${v}/100\n${IMPACT_HELP}`}
     >
-      <span className={`relative h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10 ${compact ? 'w-8' : 'w-12'}`}>
-        <span className={`absolute inset-y-0 left-0 rounded-full ${badge.bar}`} style={{ width: `${v}%` }} />
+      {!compact && <span className="text-[9px] font-semibold uppercase tracking-wider text-fg-muted">Impact</span>}
+      <span className={`relative h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10 ${compact ? 'w-8' : 'w-14'}`}>
+        {/* min 6% so a low score still shows a visible stub of colour */}
+        <span className={`absolute inset-y-0 left-0 rounded-full ${badge.bar}`} style={{ width: `${Math.max(v, 6)}%` }} />
       </span>
-      <span className={`font-mono text-[10px] ${badge.text}`}>{v}</span>
+      <span className={`font-mono text-[10px] tabular-nums ${badge.text}`}>
+        {v}
+        {!compact && <span className="ml-1 font-sans text-[9px] font-medium">{level}</span>}
+      </span>
     </span>
   )
 }
