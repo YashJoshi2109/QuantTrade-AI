@@ -1,5 +1,6 @@
 'use client'
 
+import { exchangeLabel } from '@/lib/researchTechnicals'
 import { motion } from 'framer-motion'
 import {
   BarChart3,
@@ -145,9 +146,12 @@ export interface CompanyFolioPanelProps {
   symbol: string
   info: TickerInfo | undefined
   isLoading: boolean
+  /** Narrow column (Research right rail): one/two-column layouts regardless
+   *  of viewport width, since the lg:/sm: breakpoints track the window. */
+  compact?: boolean
 }
 
-export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanelProps) {
+export function CompanyFolioPanel({ symbol, info, isLoading, compact = false }: CompanyFolioPanelProps) {
   const [bioExpanded, setBioExpanded] = useState(false)
 
   if (isLoading && !info) {
@@ -163,7 +167,7 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
                 <div className="h-3 w-full max-w-md animate-pulse rounded bg-surface-hover" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className={compact ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-2 gap-2 sm:grid-cols-4'}>
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="h-14 animate-pulse rounded-lg bg-surface-hover" />
               ))}
@@ -396,7 +400,7 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className={compact ? 'flex flex-col gap-4' : 'flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'}>
               <div className="min-w-0 flex-1">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <Building2 className="h-5 w-5 shrink-0 text-[#007AFF]" />
@@ -442,7 +446,7 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
                   )}
                   {info.exchange_display && (
                     <span className="rounded-md bg-surface-raised px-2 py-0.5 font-mono text-[10px] text-fg-muted">
-                      {info.exchange_display} · {info.currency}
+                      {exchangeLabel(info.exchange_display)} · {info.currency}
                     </span>
                   )}
                 </div>
@@ -526,7 +530,7 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
               <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                 Executive team
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className={compact ? 'grid grid-cols-1 gap-2' : 'grid grid-cols-2 gap-2 sm:grid-cols-4'}>
                 {info.officers.slice(0, 4).map((o, i) => (
                   <div
                     key={`${o.name}-${i}`}
@@ -547,7 +551,7 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
 
           {/* Financials strip — only cells with real values */}
           {financialStripMetrics.length > 0 && (
-            <div className="grid grid-cols-2 divide-x divide-y divide-line-subtle sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))]">
+            <div className={compact ? 'grid grid-cols-2 divide-x divide-y divide-line-subtle' : 'grid grid-cols-2 divide-x divide-y divide-line-subtle sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))]'}>
               {financialStripMetrics.map((m) => (
                 <div key={m.label} className="flex flex-col gap-0.5 p-3">
                   <span className="text-[9px] uppercase tracking-wider text-fg-muted">{m.label}</span>
@@ -567,10 +571,10 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
           {bottomCardsCount > 0 && (
             <div
               className={cn(
-                'grid grid-cols-1 gap-4 p-4 lg:p-5',
-                bottomCardsCount === 1 && 'lg:grid-cols-1',
-                bottomCardsCount === 2 && 'lg:grid-cols-2',
-                bottomCardsCount >= 3 && 'lg:grid-cols-3',
+                compact ? 'grid grid-cols-1 gap-3 p-3' : 'grid grid-cols-1 gap-4 p-4 lg:p-5',
+                !compact && bottomCardsCount === 1 && 'lg:grid-cols-1',
+                !compact && bottomCardsCount === 2 && 'lg:grid-cols-2',
+                !compact && bottomCardsCount >= 3 && 'lg:grid-cols-3',
               )}
             >
               {marginEntries.length > 0 && (
@@ -613,7 +617,9 @@ export function CompanyFolioPanel({ symbol, info, isLoading }: CompanyFolioPanel
             <div
               className={cn(
                 'grid divide-x divide-y divide-line-subtle border-t border-line-subtle',
-                priceTargetStrip.length <= 4
+                compact
+                  ? 'grid-cols-2'
+                  : priceTargetStrip.length <= 4
                   ? 'grid-cols-2 sm:grid-cols-4'
                   : priceTargetStrip.length <= 6
                     ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'

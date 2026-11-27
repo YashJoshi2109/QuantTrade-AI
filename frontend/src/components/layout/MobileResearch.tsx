@@ -56,6 +56,7 @@ import { ResearchStatsCard } from '@/components/research/ResearchStatsCard'
 import { ResearchTabPanels } from '@/components/research/ResearchTabs'
 import { ExtendedPill, companyHeadline } from '@/components/research/ResearchChartHeader'
 import { BollingerCard, MacdCard, MovingAveragesCard, RsiCard, TrendSummaryCard } from '@/components/research/TechnicalCards'
+import { CompanyFolioPanel } from '@/components/research/CompanyFolioPanel'
 import { buildCopilotHref } from '@/lib/copilot-handoff'
 import { compareHref } from '@/lib/compare'
 import { cn } from '@/lib/utils'
@@ -529,6 +530,14 @@ export default function MobileResearch() {
       <MovingAveragesCard inputs={technicals} loading={indicatorsLoading} showTrend />
       <TrendSummaryCard inputs={technicals} loading={indicatorsLoading} />
       <BollingerCard inputs={technicals} loading={indicatorsLoading} />
+
+      {/* ── Company Folio: right after the technicals, as on desktop's rail ── */}
+      {showCompanyPanels && (
+        <section aria-label="Company folio">
+          <h2 className="pb-2 text-[15px] font-semibold text-fg-primary">Company Folio</h2>
+          <CompanyFolioPanel symbol={symbolFromUrl} info={tickerInfo} isLoading={tickerInfoLoading} compact />
+        </section>
+      )}
 
       {/* ── Same tab set as desktop ── */}
       <ResearchTabPanels
