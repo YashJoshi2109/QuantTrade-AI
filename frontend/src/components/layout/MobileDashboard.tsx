@@ -300,7 +300,7 @@ export default function MobileDashboard() {
 
       {/* Search overlay */}
       {showSearch && (
-        <div className="fixed inset-0 z-50 bg-surface-base/98 backdrop-blur-xl flex flex-col animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-white/95 dark:bg-[#0b0f17]/95 backdrop-blur-xl flex flex-col animate-fade-in">
           <div className="flex items-center gap-2 px-4 pt-safe pb-3 border-b border-line-subtle">
             <button
               type="button"
