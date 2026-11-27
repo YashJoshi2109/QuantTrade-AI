@@ -83,6 +83,8 @@ class UserProfileResponse(BaseModel):
     created_at: Optional[datetime] = None
     is_following: bool = False  # Whether the requesting user follows this user
     badges: List[str] = []
+    is_bot: bool = False          # automated community bot account
+    bot_slug: Optional[str] = None  # -> /community/bots/{bot_slug} (methodology page)
 
     class Config:
         from_attributes = True
@@ -135,6 +137,22 @@ def _get_user_or_404(db: Session, user_id: int) -> User:
             detail="User not found",
         )
     return user
+
+
+def _bot_slug(db: Session, user: User) -> Optional[str]:
+    """Slug of the community bot this account belongs to, or None (cached per request on the user)."""
+    cached = getattr(user, "_qt_bot_slug", False)
+    if cached is not False:
+        return cached
+    slug = None
+    try:
+        from app.models.community_bot import CommunityBot
+        row = db.query(CommunityBot.slug).filter(CommunityBot.user_id == user.id).first()
+        slug = row[0] if row else None
+    except Exception:  # table missing on an un-migrated DB
+        db.rollback()
+    user._qt_bot_slug = slug
+    return slug
 
 
 def _is_following(db: Session, follower_id: int, following_id: int) -> bool:
@@ -235,7 +253,9 @@ def get_user_profile_by_username(
         following_count=getattr(user, "following_count", 0) or 0,
         created_at=user.created_at,
         is_following=following,
-        badges=_compute_badges(user),
+        badges=_compute_badges(user) + (["bot"] if _bot_slug(db, user) else []),
+        is_bot=_bot_slug(db, user) is not None,
+        bot_slug=_bot_slug(db, user),
     )
 
 
@@ -311,7 +331,9 @@ def get_user_profile(
         following_count=getattr(user, "following_count", 0) or 0,
         created_at=user.created_at,
         is_following=following,
-        badges=_compute_badges(user),
+        badges=_compute_badges(user) + (["bot"] if _bot_slug(db, user) else []),
+        is_bot=_bot_slug(db, user) is not None,
+        bot_slug=_bot_slug(db, user),
     )
 
 

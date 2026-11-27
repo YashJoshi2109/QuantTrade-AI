@@ -193,6 +193,8 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         return None
+    if _is_bot_account(user):
+        return None  # bot accounts never authenticate (community bots post server-side)
     from app.services.account_controls import get_controls, token_allowed
     if not token_allowed(get_controls(db, user.id), sv):
         return None
@@ -242,7 +244,7 @@ def require_auth(
     _guard_token validates JWT first; DB is only acquired for valid tokens.
     Suspended accounts get 403; tokens issued before a revocation get 401."""
     user = db.query(User).filter(User.id == user_id).first()
-    if not user:
+    if not user or _is_bot_account(user):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
@@ -256,6 +258,12 @@ def require_auth(
     from app.services.admin_metrics import touch_activity
     touch_activity(user.id)
     return user
+
+
+def _is_bot_account(user: User) -> bool:
+    """Community bot accounts (reserved .invalid email domain) are not loginable."""
+    from app.services.community_bots.accounts import is_bot_email
+    return is_bot_email(getattr(user, "email", None))
 
 
 
@@ -470,6 +478,13 @@ def _register_sync(user_data: UserRegister, response: Response, db: Session, req
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
+        )
+
+    # "*_bot" usernames are reserved for labelled community bot accounts.
+    if (user_data.username or "").strip().lower().endswith("_bot"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Usernames ending in _bot are reserved for automated accounts"
         )
 
     # Check if username exists

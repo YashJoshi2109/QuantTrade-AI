@@ -55,6 +55,7 @@ from app.api import copilot as copilot_api
 from app.api import ideas
 from app.api import model_index as model_index_api
 from app.api import community, posts, comments, notifications, users, search
+from app.api import community_bots as community_bots_api
 from app.api import bookmarks, uploads, reactions
 from app.api import mlops
 from app.api import moderation as moderation_api
@@ -100,6 +101,7 @@ from app.models.community import (
     ModerationReport, ModerationAction, AuditLog,
     CommunityBan,
 )
+from app.models.community_bot import CommunityBot as _CommunityBot  # noqa: F401  (community_bots tables)
 from app.models.global_monitor import (
     GlobalEvent,
     CountryInstability,
@@ -293,6 +295,15 @@ def _start_scheduler():
         # Market open full scan at 9:30 AM ET (13:30 UTC)
         sched.add_job(market_open_scan, CronTrigger(hour=13, minute=30),
                       id="market_open_scan", replace_existing=True)
+        # Community bots: labelled, rate-limited data posts (ET cron per slot).
+        # Kill switches (COMMUNITY_BOTS_ENABLED / COMMUNITY_BOTS_DISABLED / admin
+        # flag) are read at run time, so jobs are always registered.
+        try:
+            from app.services.community_bots.scheduler import register_bot_jobs
+            bot_jobs = register_bot_jobs(sched)
+            print(f"🤖 Community bots scheduled: {len(bot_jobs)} jobs")
+        except Exception as e:
+            print(f"⚠️ Community bot scheduling failed: {e}")
         # (SEC filing index refresh for the copilot runs in the news-worker:
         #  app.services.copilot.sec_refresh — never in the API process.)
 
@@ -660,6 +671,8 @@ app.include_router(posts.router, prefix="/api/v1", tags=["posts"])
 app.include_router(comments.router, prefix="/api/v1", tags=["comments"])
 app.include_router(notifications.router, prefix="/api/v1", tags=["notifications"])
 app.include_router(users.router, prefix="/api/v1", tags=["users"])
+# Community bots — automated, labelled data posts (methodology, admin switches)
+app.include_router(community_bots_api.router, prefix="/api/v1", tags=["community-bots"])
 
 # Bookmarks — save/unsave posts
 app.include_router(bookmarks.router, prefix="/api/v1", tags=["bookmarks"])

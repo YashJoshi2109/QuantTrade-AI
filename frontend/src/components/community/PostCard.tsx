@@ -19,6 +19,9 @@ import {
 } from 'lucide-react'
 import { votePost, bookmarkPost, unbookmarkPost, addReaction, removeReaction, fetchReactions, resolveMediaUrl, type CommunityPost, type ReactionSummary } from '@/lib/api'
 import ReportModal from '@/components/community/ReportModal'
+import BotBadge from '@/components/community/BotBadge'
+import BotPostBlock from '@/components/community/BotPostBlock'
+import { botProfileHref, botSlugOf } from '@/lib/communityBots'
 import { useStockSnapshot } from '@/context/StockSnapshotContext'
 
 /** Render simple markdown subset to HTML for post body previews */
@@ -253,6 +256,8 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
     }, [showShareMenu])
 
     const sentiment = post.sentiment ? sentimentConfig[post.sentiment.toLowerCase()] : null
+    const isBot = !!(post.is_bot || post.author?.is_bot)
+    const botSlug = botSlugOf(post)
 
     return (
       <motion.div
@@ -281,11 +286,12 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
               </>
             )}
             <Link prefetch={false}
-              href={`/community/user/${post.author?.username ?? 'unknown'}`}
+              href={isBot && botSlug ? botProfileHref(botSlug) : `/community/user/${post.author?.username ?? 'unknown'}`}
               className="text-fg-muted hover:text-fg-secondary transition-colors"
             >
-              {post.author?.username ?? 'unknown'}
+              {isBot && post.bot?.bot?.display_name ? post.bot.bot.display_name : (post.author?.username ?? 'unknown')}
             </Link>
+            {isBot && <BotBadge slug={botSlug} />}
             <span className="text-fg-muted">·</span>
             <span className="text-fg-muted">{timeAgo(post.created_at)}</span>
 
@@ -317,8 +323,11 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
             </h3>
           </Link>
 
+          {/* Automated bot post: structured data block (labels, sources, as-of) */}
+          {isBot && post.bot ? <BotPostBlock payload={post.bot} compact /> : null}
+
           {/* Body preview */}
-          {post.body && (
+          {post.body && !(isBot && post.bot) && (
             <div
               className="text-[13px] text-fg-secondary line-clamp-3 mb-2 leading-relaxed"
               dangerouslySetInnerHTML={{ __html: renderBodyMarkdown(post.body) }}

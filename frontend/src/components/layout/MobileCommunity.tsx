@@ -28,6 +28,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { COMMUNITY_COMPOSE_SIGN_IN } from '@/lib/authRedirect'
+import ShowBotsToggle from '@/components/community/ShowBotsToggle'
+import { useShowBotPosts } from '@/lib/communityBots'
 
 type SortTab = 'hot' | 'new' | 'top' | 'rising' | 'following'
 
@@ -62,6 +64,7 @@ export default function MobileCommunity() {
   const { user, isAuthenticated } = useAuth()
   const router = useRouter()
   const [loadError, setLoadError] = useState(false)
+  const [showBots, setShowBots, botsReady] = useShowBotPosts(isAuthenticated)
 
   // Same rule as desktop: posting needs an account, so signed-out visitors
   // go to sign-in and come back with the composer open.
@@ -150,8 +153,8 @@ export default function MobileCommunity() {
     try {
       const c = reset ? undefined : (cursorRef.current ?? undefined)
       const data = sortKey === 'following'
-        ? await fetchFeed('hot', c, 15, time)
-        : await fetchPopularFeed(c, 15, sortKey, time)
+        ? await fetchFeed('hot', c, 15, time, showBots)
+        : await fetchPopularFeed(c, 15, sortKey, time, showBots)
       const newPosts = data.posts || []
       if (reset) setPosts(newPosts)
       else setPosts((prev) => [...prev, ...newPosts])
@@ -166,9 +169,12 @@ export default function MobileCommunity() {
     } finally {
       setLoading(false); setLoadingMore(false)
     }
-  }, [toastError])
+  }, [toastError, showBots])
 
-  useEffect(() => { loadFeed(sort, true, timeFilter) }, [sort, timeFilter])
+  useEffect(() => {
+    if (botsReady) loadFeed(sort, true, timeFilter)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sort, timeFilter, showBots, botsReady])
 
   // Infinite scroll
   useEffect(() => {
@@ -326,6 +332,7 @@ export default function MobileCommunity() {
             ))}
           </div>
         )}
+        <ShowBotsToggle checked={showBots} onChange={setShowBots} className="px-4 pb-2" />
       </header>
 
       {/* ── Feed ── */}

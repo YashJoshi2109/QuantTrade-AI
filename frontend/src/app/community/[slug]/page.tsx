@@ -10,6 +10,9 @@ import MobileLayout from '@/components/layout/MobileLayout'
 import { fetchCommunity, joinCommunity, leaveCommunity, normalizePosts, type Community, type CommunityPost } from '@/lib/api'
 import PostCard from '@/components/community/PostCard'
 import { FeedSkeleton } from '@/components/community/Skeletons'
+import ShowBotsToggle from '@/components/community/ShowBotsToggle'
+import { useShowBotPosts } from '@/lib/communityBots'
+import { useAuth } from '@/contexts/AuthContext'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -38,6 +41,8 @@ export default function CommunityDetailPage() {
   const [posts, setPosts] = useState<CommunityPost[]>([])
   const [loading, setLoading] = useState(true)
   const [joining, setJoining] = useState(false)
+  const { isAuthenticated } = useAuth()
+  const [showBots, setShowBots, botsReady] = useShowBotPosts(isAuthenticated)
 
   const sort = (searchParams.get('sort') as SortTab) || 'hot'
   const time = searchParams.get('time') || 'all'
@@ -50,10 +55,11 @@ export default function CommunityDetailPage() {
   }, [router, slug])
 
   useEffect(() => {
-    if (!slug) return
+    if (!slug || !botsReady) return
     setLoading(true)
     const params = new URLSearchParams({ sort, limit: '20' })
     if (sort === 'top') params.set('time', time)
+    if (!showBots) params.set('include_bots', 'false')
     Promise.all([
       fetchCommunity(slug),
       fetch(`${API_URL}/api/v1/communities/${slug}/posts?${params}`, { credentials: 'include' })
@@ -63,7 +69,7 @@ export default function CommunityDetailPage() {
       setCommunity(comm)
       setPosts(normalizePosts(feedData.posts || feedData.items || []))
     }).finally(() => setLoading(false))
-  }, [slug, sort, time])
+  }, [slug, sort, time, showBots, botsReady])
 
   const handleJoinLeave = async () => {
     if (!community || joining) return
@@ -251,6 +257,8 @@ export default function CommunityDetailPage() {
                 </select>
               </div>
             )}
+
+            <ShowBotsToggle checked={showBots} onChange={setShowBots} className="px-1 mb-3" />
 
             {/* Posts */}
             {posts.length === 0 ? (
