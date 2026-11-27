@@ -290,9 +290,12 @@ def build_base_case(fin: CompanyFinancials, market: MarketInputs, p: Optional[Di
     prior = fin.years[-2] if len(fin.years) >= 2 else None
     kd = W.cost_of_debt(y.datum("interest_expense"), y.datum("total_debt"),
                         prior.datum("total_debt") if prior else None, rf.value, log,
-                        spread=p.get("debt_spread"))
-    if y.datum("interest_expense") is not None:
-        inputs["interest_expense"] = y.datum("interest_expense").to_dict()
+                        spread=p.get("debt_spread"), interest_expense_debt=y.datum("interest_expense_debt"),
+                        finance_lease_interest=y.datum("finance_lease_interest"),
+                        operating_income=y.datum("operating_income"))
+    for k in ("interest_expense", "interest_expense_debt", "finance_lease_interest"):
+        if y.datum(k) is not None:
+            inputs[k] = y.datum(k).to_dict()
     mcap = price_rep * shares.value if price_rep else None
     if mcap is None:
         if p.get("wacc") is None:

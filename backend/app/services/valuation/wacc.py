@@ -5,7 +5,10 @@ Formulas (all reported back in the output):
   beta        = cov(r_i, r_m) / var(r_m)           (OLS slope of r_i on r_m)
   SE(beta)    = sqrt( SSR / (n - 2) / sum((r_m - mean r_m)^2) )
   Ke          = rf + beta * ERP                     (CAPM)
-  Kd          = interest expense / average(total debt at FY end, prior FY end)
+  Kd          = debt interest / average(total debt at FY end, prior FY end), where debt
+                interest = InterestExpenseDebt, else interest expense - finance-lease interest;
+                used only inside [1%, 15%] and consistent with the synthetic rating from
+                interest coverage, else rf + rating-proxy spread (labelled an assumption)
   Kd after tax= Kd * (1 - marginal tax rate)
   WACC        = E/(D+E) * Ke + D/(D+E) * Kd * (1 - t),  E = price * shares out, D = book debt
 """
@@ -127,28 +130,106 @@ def regress_beta(stock_prices: pd.Series, market_prices: pd.Series, *, frequency
                       benchmark=benchmark, source=source)
 
 
+# Implied pre-tax cost of debt outside this band is never used (fall back to rf + spread).
+KD_BOUNDS = (0.01, 0.15)
+# Synthetic rating from interest coverage (EBIT / interest expense) -> default
+# spread over the risk-free rate.  Approximates Damodaran's large-firm
+# synthetic-rating table (Jan 2025 update); an ASSUMPTION, labelled as such.
+SYNTHETIC_RATINGS = (  # (min coverage, rating, spread)
+    (8.5, "AAA", 0.0059), (6.5, "AA", 0.0070), (5.5, "A+", 0.0092), (4.25, "A", 0.0107),
+    (3.0, "A-", 0.0121), (2.5, "BBB", 0.0147), (2.25, "BB+", 0.0183), (2.0, "BB", 0.0220),
+    (1.75, "B+", 0.0279), (1.5, "B", 0.0333), (1.25, "B-", 0.0409), (0.8, "CCC", 0.0600),
+    (0.65, "CC", 0.0800), (0.2, "C", 0.1000), (float("-inf"), "D", 0.1200))
+SYNTHETIC_RATING_RATIONALE = ("synthetic rating from interest coverage (operating income / debt interest), "
+                              "spread per an approximation of Damodaran's large-firm table (Jan 2025); "
+                              "a proxy for credit quality, not an agency rating")
+# implied cost of debt must lie within [0.5x, 1.5x] of rf + rating spread to count
+# as consistent with the company's credit quality
+KD_CREDIT_BAND = (0.5, 1.5)
+
+
+def synthetic_rating(coverage: Optional[float]) -> Optional[Dict[str, Any]]:
+    if coverage is None or not math.isfinite(coverage):
+        return None
+    for lo, rating, spread in SYNTHETIC_RATINGS:
+        if coverage >= lo:
+            return {"rating": rating, "spread": spread, "interest_coverage": round(coverage, 2)}
+    return None
+
+
+def debt_interest(interest_expense: Optional[Datum], interest_expense_debt: Optional[Datum] = None,
+                  finance_lease_interest: Optional[Datum] = None) -> Optional[Dict[str, Any]]:
+    """Interest on debt only.  Prefer InterestExpenseDebt; otherwise total
+    interest expense minus finance-lease interest when both are reported
+    (MSFT's InterestExpenseNonoperating includes finance-lease interest)."""
+    if interest_expense_debt is not None and interest_expense_debt.value > 0:
+        return {"value": interest_expense_debt.value, "tag": interest_expense_debt.tag,
+                "accession": interest_expense_debt.accession, "formula": "interest expense on debt (InterestExpenseDebt)"}
+    if interest_expense is None or interest_expense.value <= 0:
+        return None
+    if finance_lease_interest is not None and 0 < finance_lease_interest.value < interest_expense.value:
+        return {"value": interest_expense.value - finance_lease_interest.value,
+                "tag": f"{interest_expense.tag} - {finance_lease_interest.tag}", "accession": interest_expense.accession,
+                "formula": "interest expense - finance-lease interest expense",
+                "finance_lease_interest_excluded": finance_lease_interest.value}
+    return {"value": interest_expense.value, "tag": interest_expense.tag, "accession": interest_expense.accession,
+            "formula": "interest expense (as reported; may include lease / other non-debt interest)"}
+
+
 def cost_of_debt(interest_expense: Optional[Datum], debt_now: Optional[Datum], debt_prior: Optional[Datum],
-                 rf: float, log: AssumptionLog, spread: Optional[float] = None) -> Dict[str, Any]:
-    """Pre-tax cost of debt = interest expense / average debt, with explicit fallback."""
-    sp = DEFAULT_DEBT_SPREAD if spread is None else spread
+                 rf: float, log: AssumptionLog, spread: Optional[float] = None, *,
+                 interest_expense_debt: Optional[Datum] = None, finance_lease_interest: Optional[Datum] = None,
+                 operating_income: Optional[Datum] = None) -> Dict[str, Any]:
+    """Pre-tax cost of debt = debt interest / average debt, sanity-bounded.
+
+    The implied rate is used only when it lies within KD_BOUNDS and (when
+    operating income is known) within KD_CREDIT_BAND of rf + the synthetic-
+    rating spread; otherwise rf + spread is used and labelled an assumption."""
     if debt_now is None or debt_now.value <= 0:
         return {"pre_tax": None, "method": "no debt reported", "note": "no debt in XBRL; debt weight is 0"}
-    if interest_expense is not None and interest_expense.value > 0:
-        avg = (debt_now.value + debt_prior.value) / 2 if debt_prior is not None and debt_prior.value > 0 else debt_now.value
-        kd = interest_expense.value / avg
-        formula = ("interest expense / average(total debt at FY end, prior FY end)" if debt_prior is not None
-                   and debt_prior.value > 0 else "interest expense / total debt at FY end")
-        if 0.0 < kd <= 0.20:
-            return {"pre_tax": kd, "method": "implied from filings", "formula": formula,
-                    "interest_expense": interest_expense.value, "average_debt": avg,
-                    "interest_tag": interest_expense.tag, "accession": interest_expense.accession,
-                    "note": "reported interest expense can include finance-lease and other interest while debt "
-                            "excludes leases, which biases this rate upward"}
-        note = f"implied {pct(kd)}% looks implausible (interest tag may include non-debt items)"
+    di = debt_interest(interest_expense, interest_expense_debt, finance_lease_interest)
+    cov = (operating_income.value / di["value"]) if di and operating_income is not None else None
+    rating = synthetic_rating(cov)
+    if spread is not None:
+        sp, sp_why = spread, "caller-supplied spread"
+    elif rating is not None:
+        sp, sp_why = rating["spread"], f"{rating['rating']} {SYNTHETIC_RATING_RATIONALE}"
     else:
+        sp, sp_why = DEFAULT_DEBT_SPREAD, DEBT_SPREAD_RATIONALE
+    expected = rf + sp
+    if di is not None:
+        avg = (debt_now.value + debt_prior.value) / 2 if debt_prior is not None and debt_prior.value > 0 else debt_now.value
+        kd = di["value"] / avg
+        formula = (f"{di['formula']} / average(total debt at FY end, prior FY end)" if debt_prior is not None
+                   and debt_prior.value > 0 else f"{di['formula']} / total debt at FY end")
+        in_bounds = KD_BOUNDS[0] <= kd <= KD_BOUNDS[1]
+        consistent = rating is None or KD_CREDIT_BAND[0] * expected <= kd <= KD_CREDIT_BAND[1] * expected
+        detail = {"implied_pre_tax": kd, "interest_expense": di["value"], "average_debt": avg,
+                  "interest_tag": di["tag"], "accession": di["accession"], "formula": formula}
+        if di.get("finance_lease_interest_excluded") is not None:
+            detail["finance_lease_interest_excluded"] = di["finance_lease_interest_excluded"]
+        if rating is not None:
+            detail["synthetic_rating"] = rating["rating"]
+            detail["interest_coverage"] = rating["interest_coverage"]
+        if in_bounds and consistent:
+            return {"pre_tax": kd, "method": "implied from filings", **detail,
+                    "note": "book interest on debt / average book debt (operating leases excluded)"}
+        if not in_bounds:
+            note = (f"implied {pct(kd)}% looks implausible: outside the {pct(KD_BOUNDS[0])}-{pct(KD_BOUNDS[1])}% range "
+                    "(interest tag may include non-debt items or debt is mis-tagged)")
+        else:
+            note = (f"implied {pct(kd)}% is inconsistent with credit quality ({rating['rating']} synthetic rating, "
+                    f"interest coverage {rating['interest_coverage']}x implies about {pct(expected)}%)")
+    else:
+        detail = {}
         note = "interest expense not reported in XBRL for the latest fiscal year"
-    log.add("pre_tax_cost_of_debt", pct(rf + sp), f"{note}. {DEBT_SPREAD_RATIONALE}")
-    return {"pre_tax": rf + sp, "method": "assumption: risk-free + spread", "note": note, "spread": sp}
+    log.add("pre_tax_cost_of_debt", pct(expected),
+            f"{note}. ASSUMPTION: risk-free + {pct(sp)}% spread ({sp_why}).")
+    out = {"pre_tax": expected, "method": "assumption: risk-free + spread", "note": note, "spread": sp,
+           "spread_basis": sp_why, **{k: v for k, v in detail.items() if k != "formula"}}
+    if rating is not None:
+        out["synthetic_rating"] = rating["rating"]
+    return out
 
 
 def compute_wacc(*, rf: Datum, beta: float, erp: float, market_cap: float, total_debt: float,

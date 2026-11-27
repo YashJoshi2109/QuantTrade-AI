@@ -146,7 +146,9 @@ def test_progress_is_streamed_with_meaningful_labels():
 
 def test_tool_call_budget_is_enforced(monkeypatch):
     monkeypatch.setattr(planner, "DEEP_MAX_TOOL_CALLS", 2)
-    q = BY_ID["Q13"]          # valuation_scenarios needs a model-issued call (not prefetchable)
+    # no prefetch: every planned step needs a model-issued call, which the budget caps
+    monkeypatch.setattr(planner, "DEEP_PREFETCH_MAX", 0)
+    q = BY_ID["Q13"]
     r = _run(q)
     errs = [d for n, d in r["events"] if n == "tool" and d["status"] == "error"]
     assert any("tool budget exhausted" in (d.get("error") or "") for d in errs)

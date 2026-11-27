@@ -66,6 +66,10 @@ class CopilotRequest:
     symbol: Optional[str] = None
     conversation_id: Optional[str] = None
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    # evaluation run (scripts/run_institutional_eval.py --live): every AI call is
+    # charged to the eval budget only (ai_guard LLM_EVAL_DAILY_BUDGET_USD), never
+    # to the system or user budgets. Not settable from the public API.
+    eval: bool = False
 
 
 @dataclass
@@ -165,6 +169,11 @@ class CopilotEngine:
     async def run(self, req: CopilotRequest) -> AsyncIterator[Event]:
         from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
         conversation_id = req.conversation_id or str(uuid.uuid4())
+        if req.eval:
+            from app.services import ai_guard
+            cur = ai_guard.current_context()
+            if cur is None or not cur.is_eval:
+                ai_guard.set_context(ai_guard.eval_guard_context("copilot_eval"))
         trace = Trace(req.request_id, req.user_id)
         trace.set(conversation_id=conversation_id, question_chars=len(req.message or ""))
         deep = planner.is_deep(req.message)

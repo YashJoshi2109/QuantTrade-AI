@@ -13,7 +13,11 @@ Layers (all counters are UTC-day / UTC-hour / minute buckets):
   2. Global spend circuit breaker: every call *reserves* an estimated cost
      before it runs and *reconciles* with the provider's real usage after.
      Limits: global daily + hourly USD, per-provider daily USD, and a separate
-     daily USD cap for system/background jobs.  When a budget is exhausted,
+     daily USD cap for system/background jobs.  Copilot evaluations
+     (GuardContext.is_eval, e.g. scripts/run_institutional_eval.py --live)
+     are charged ONLY to their own bucket, LLM_EVAL_DAILY_BUDGET_USD (default
+     0 = evals cannot spend), never to the global, provider, system or
+     per-user counters.  When a budget is exhausted,
      user-triggered calls get HTTP 503 "AI features are paused for today
      (budget reached)."
   3. Input/output caps (prompt chars, turns, max_tokens, TTS chars) are read
@@ -149,6 +153,8 @@ def global_limits() -> Dict[str, float]:
         "daily_usd": _env_float("LLM_DAILY_BUDGET_USD", 5.0),
         "hourly_usd": _env_float("LLM_HOURLY_BUDGET_USD", 1.5),
         "system_daily_usd": _env_float("LLM_SYSTEM_DAILY_BUDGET_USD", 1.0),
+        # dedicated bucket for offline/live copilot evaluations; 0 = evals cannot spend
+        "eval_daily_usd": _env_float("LLM_EVAL_DAILY_BUDGET_USD", 0.0),
         "ip_req_per_day": _env_float("AI_IP_REQ_PER_DAY", 60),
         "og_images_per_day": _env_float("AI_OG_IMAGES_PER_DAY", 20),
         "embed_tokens_per_day": _env_float("AI_EMBED_TOKENS_PER_DAY", 20_000_000),
@@ -521,9 +527,12 @@ class GuardContext:
     tier: str = "free"
     ip: Optional[str] = None
     system: bool = False
+    # evaluation run: charged ONLY to the eval bucket (LLM_EVAL_DAILY_BUDGET_USD),
+    # never to the global / provider / system / per-user counters
+    is_eval: bool = False
 
     def snapshot(self) -> "GuardContext":
-        return GuardContext(self.feature, self.user_id, self.tier, self.ip, self.system)
+        return GuardContext(self.feature, self.user_id, self.tier, self.ip, self.system, self.is_eval)
 
 
 _ctx: contextvars.ContextVar[Optional[GuardContext]] = contextvars.ContextVar("ai_guard_ctx", default=None)
@@ -551,6 +560,31 @@ def set_context(ctx: GuardContext) -> None:
 def system_context(feature: str):
     with use_context(GuardContext(feature=feature, system=True, tier="system")) as c:
         yield c
+
+
+def eval_guard_context(feature: str = "copilot_eval") -> GuardContext:
+    return GuardContext(feature=feature, tier="eval", is_eval=True)
+
+
+@contextlib.contextmanager
+def eval_context(feature: str = "copilot_eval"):
+    """Charge every AI call inside to the eval bucket only (see GuardContext.is_eval)."""
+    with use_context(eval_guard_context(feature)) as c:
+        yield c
+
+
+EVAL_DISABLED_DETAIL = ("Evaluation budget is not enabled (LLM_EVAL_DAILY_BUDGET_USD=0); evals never spend "
+                        "the system or user budgets.")
+EVAL_EXHAUSTED_DETAIL = "Evaluation budget for today (LLM_EVAL_DAILY_BUDGET_USD) is exhausted."
+
+
+def _eval_error(reason: str) -> AIQuotaError:
+    detail = EVAL_DISABLED_DETAIL if reason == "eval_disabled" else EVAL_EXHAUSTED_DETAIL
+    return AIQuotaError(status.HTTP_503_SERVICE_UNAVAILABLE, detail, reason, retry_after=_seconds_to_midnight())
+
+
+def _eval_key(now: Optional[datetime] = None) -> str:
+    return _k("eval", "cost", _day(now))
 
 
 def _resolve_ctx(ctx: Optional[GuardContext]) -> GuardContext:
@@ -609,7 +643,21 @@ def admit_request(ctx: GuardContext, kind: str = "llm") -> None:
     kind="media" — image / voice: its own burst bucket (4x the LLM one) and no
                    daily request count; images/day and TTS chars/day are enforced
                    per call by reserve().  Both kinds count toward the IP cap.
-    Raises AIQuotaError (503 budget / 429 limits)."""
+    Raises AIQuotaError (503 budget / 429 limits).
+
+    An eval context only checks the eval bucket (it never counts toward user,
+    IP or global request limits)."""
+    if ctx.is_eval:
+        lim = global_limits()["eval_daily_usd"]
+        if lim <= 0:
+            raise _eval_error("eval_disabled")
+        try:
+            (spent,), st = _run(lambda st: st.get_many([_eval_key()]))
+        except Exception:  # noqa: BLE001
+            raise _eval_error("eval_day") from None
+        if spent >= _scale(_micro(lim), st):
+            raise _eval_error("eval_day")
+        return
     paused = budget_paused()
     if paused:
         _record_denial(ctx, paused)
@@ -695,7 +743,7 @@ class Reservation:
     def _adjust(self, cost_delta: int, token_delta: int, unit_delta: int) -> None:
         def op(st):
             if cost_delta:
-                for name in ("g_day", "g_hour", "p_day", "sys_day"):
+                for name in ("g_day", "g_hour", "p_day", "sys_day", "eval_day"):
                     if name in self.keys:
                         st.incr(self.keys[name], cost_delta, _HOUR_TTL if name == "g_hour" else _DAY_TTL)
             if token_delta and "u_tok" in self.keys:
@@ -759,6 +807,11 @@ class Reservation:
                 "cost_usd": round(cost, 6),
                 "status": status_,
                 "is_system": bool(self.ctx.system),
+            } if not self.ctx.is_eval else {
+                "user_id": None, "feature": ("eval:" + (self.ctx.feature or "unknown"))[:64],
+                "provider": self.provider, "model": (self.model or "unknown")[:120], "input_tokens": total_in,
+                "output_tokens": int(output_tokens), "units": float(units or 0), "cost_usd": round(cost, 6),
+                "status": status_, "is_system": False,
             })
         except Exception:  # noqa: BLE001
             pass
@@ -796,6 +849,9 @@ def reserve(
     est_tokens = int(est_input_tokens + est_output_tokens)
     glim = global_limits()
     now = _now()
+    if ctx.is_eval:
+        return _reserve_eval(ctx, provider, model, est_cost, est_tokens, unit_kind, units, cost_per_unit_usd,
+                             glim["eval_daily_usd"], now)
     keys = {
         "g_day": _k("g", "cost", _day(now)),
         "g_hour": _k("g", "costh", _hour(now)),
@@ -854,6 +910,24 @@ def reserve(
         unit_kind=unit_kind, reserved_units=float(units), keys=keys,
         cost_per_unit_usd=cost_per_unit_usd,
     )
+
+
+def _reserve_eval(ctx: GuardContext, provider: str, model: str, est_cost: int, est_tokens: int,
+                  unit_kind: Optional[str], units: float, cost_per_unit_usd: Optional[float],
+                  limit_usd: float, now: datetime) -> Reservation:
+    """Eval calls: one counter (eval:cost:<day>) against LLM_EVAL_DAILY_BUDGET_USD.
+    Nothing is charged to the global, provider, system or per-user counters."""
+    if limit_usd <= 0:
+        _record_denial(ctx, "eval_disabled")
+        raise _eval_error("eval_disabled")
+    key = _eval_key(now)
+    failed, _ = _run(lambda st: st.check_and_incr([(key, est_cost, _scale(_micro(limit_usd), st), _DAY_TTL)]))
+    if failed:
+        _record_denial(ctx, "eval_day")
+        raise _eval_error("eval_day")
+    return Reservation(ctx=ctx, provider=provider, model=model, reserved_micro=est_cost,
+                       reserved_tokens=est_tokens if unit_kind is None else 0, unit_kind=unit_kind,
+                       reserved_units=float(units), keys={"eval_day": key}, cost_per_unit_usd=cost_per_unit_usd)
 
 
 def reserve_system(feature: str, est_tokens: int, provider: str = "bedrock",
@@ -1203,7 +1277,7 @@ def global_summary() -> Dict[str, Any]:
     glim = global_limits()
     d, h = _day(), _hour()
     keys = [_k("g", "cost", d), _k("g", "costh", h), _k("sys", "cost", d), _k("g", "og_images", d),
-            _k("g", "embed_tokens", d)] + [_k("p", p, "cost", d) for p in PROVIDERS]
+            _k("g", "embed_tokens", d)] + [_k("p", p, "cost", d) for p in PROVIDERS] + [_eval_key()]
     try:
         vals, st = _run(lambda s: s.get_many(keys))
     except Exception:  # noqa: BLE001
@@ -1219,6 +1293,8 @@ def global_summary() -> Dict[str, Any]:
         "hourly_budget_usd": glim["hourly_usd"],
         "system_spent_usd": round(vals[2] / 1e6, 4),
         "system_budget_usd": glim["system_daily_usd"],
+        "eval_spent_usd": round(vals[5 + len(PROVIDERS)] / 1e6, 4),
+        "eval_budget_usd": glim["eval_daily_usd"],
         "og_images_today": vals[3],
         "embed_tokens_today": vals[4],
         "providers": providers,

@@ -28,6 +28,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, AsyncIterator, Dict, List, Optional, Sequence, Tuple
 
 from app.services.copilot.tools import all_tool_specs
+from app.services.copilot.valuation_tools import FCFF_TOOLS as _VAL_FCFF_TOOLS
 
 # ── budgets (env-configurable) ───────────────────────────────────────────────
 DEEP_MODE = os.getenv("COPILOT_DEEP_MODE", "auto").lower()            # auto | always | never
@@ -108,7 +109,9 @@ CAPABILITIES: Tuple[Capability, ...] = (
                r"altman|z-score|piotroski|f-score|beneish|m-score|distress",
                ("altman", "piotroski", "beneish", "distress", "z-score", "zscore", "f-score", "m-score"), FUND),
     Capability("leverage_liquidity", "Leverage, liquidity, interest coverage, debt maturities",
-               r"interest coverage|debt maturity|maturity schedule|liquidity|leverage",
+               # "financial leverage" (DuPont) and "operating leverage" (margins) are other questions
+               r"interest coverage|debt maturit\w*|maturity schedule|liquidity|solvency|"
+               r"(?<!financial )(?<!operating )\bleverage\b",
                ("coverage", "maturity", "liquidity", "leverage", "debt", "solvency"), FUND),
     Capability("wacc", "Cost of capital (WACC / CAPM)", r"\bwacc\b|cost of capital|discount rates?",
                ("wacc", "cost of capital", "capm", "discount rate", "cost of equity"), VAL),
@@ -129,8 +132,10 @@ CAPABILITIES: Tuple[Capability, ...] = (
                ("monte", "carlo", "monte carlo", "simulation", "simulations", "probabilistic", "stochastic"),
                VAL + QUANT),
     Capability("scenarios", "Scenario / stress analysis",
-               r"scenarios?|stress|bull|bear|downside|shock|tariffs?|export restrictions?|geopolitical|"
-               r"appreciation of the us dollar|correction",
+               # "downside beta" is a risk metric; a "sector correction" in a portfolio question is the
+               # portfolio tool's hypothetical shock, not a company DCF scenario
+               r"scenarios?|\bstress|bull|bear|downside(?! (?:beta|deviation|capture|volatility))|shock|tariffs?|"
+               r"export restrictions?|geopolitical|appreciation of the us dollar",
                ("scenario", "scenarios", "stress", "shock", "bull", "bear", "what-if"), VAL + QUANT),
     Capability("volatility_regime", "Volatility, Hurst exponent, autocorrelation, regimes",
                r"volatility|hurst|autocorrelation|regime|mean reversion|momentum",
@@ -145,10 +150,14 @@ CAPABILITIES: Tuple[Capability, ...] = (
     Capability("backtest", "Strategy backtest", r"backtest|strategy|\brsi\b|moving average|buy-and-hold|slippage|out-of-sample",
                ("backtest", "strategy", "rsi", "signal", "slippage", "transaction cost"), QUANT),
     Capability("portfolio", "Portfolio correlation / risk contribution",
-               r"portfolio|correlations?|diversif|marginal contribution|factor concentration",
+               # "securities portfolio" (bank AFS/HTM) and "autocorrelation" are not portfolio questions
+               r"(?<!securities )(?<!investment )\bportfolio\b|\bcorrelations?\b|diversif|marginal contribution|"
+               r"factor concentration",
                ("portfolio", "correlation", "covariance", "diversification", "contribution", "factor"), QUANT),
     Capability("macro_factors", "Rates / macro factor sensitivity",
-               r"treasury|yields?\b|interest rates?|basis[- ]points?|macro|us dollar|consumer discretionary",
+               # "free cash flow yield" / "dividend yield" are valuation multiples, not rates
+               r"treasury|(?<!flow )(?<!fcf )(?<!dividend )(?<!earnings )\byields?\b|interest rates?|basis[- ]points?|"
+               r"macro|us dollar|consumer discretionary",
                ("macro", "rates", "treasury", "yield", "factor", "fred"), QUANT + ("macro_", "get_macro"),
                exclude=("get_risk_metrics",)),                  # market beta is not a macro-factor exposure
     Capability("bank_rate_sensitivity", "Bank rate sensitivity (NII, deposits, AOCI, credit losses)",
@@ -196,12 +205,19 @@ class PlanStep:
     status: str = "planned"            # planned | in_context | done | partial | failed | unavailable
     fact_ids: List[str] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
+    note: Optional[str] = None
+    shared_with: List[str] = field(default_factory=list)   # step ids whose prefetch calls cover this step
 
     def public(self) -> Dict[str, Any]:
-        return {"id": self.id, "need": self.need, "capability": self.capability, "status": self.status,
-                "tools": self.tools, "computation": self.computation,
-                "calls": [{"tool": c.tool, "args": c.args} for c in self.calls],
-                "fact_ids": self.fact_ids[:12], "errors": self.errors[:3]}
+        d = {"id": self.id, "need": self.need, "capability": self.capability, "status": self.status,
+             "tools": self.tools, "computation": self.computation,
+             "calls": [{"tool": c.tool, "args": c.args} for c in self.calls],
+             "fact_ids": self.fact_ids[:12], "errors": self.errors[:3]}
+        if self.note:
+            d["note"] = self.note
+        if self.shared_with:
+            d["covered_by"] = self.shared_with
+        return d
 
 
 @dataclass
@@ -313,6 +329,82 @@ def question_hints(q: str) -> Dict[str, Any]:
     return h
 
 
+# ── scenario shocks named in the question ──────────────────────────────────
+# shock key -> (keyword regex, sign applied to an explicit "N%" in the clause).
+# Keys are the valuation scenario engine's shock names (valuation.scenarios.SHOCKS).
+_SHOCK_WORDS: Tuple[Tuple[str, str, float], ...] = (
+    ("reporting_currency_appreciation",
+     r"(?:apprecia\w*|strengthen\w*|strong(?:er)?|rise|rising|gains?)\W+(?:\w+\W+){0,4}?(?:u\.?s\.?\s+)?dollar|"
+     r"(?:u\.?s\.?\s+)?dollar\W+(?:\w+\W+){0,2}?(?:apprecia\w*|strengthen\w*|rises?|gains?)|\busd\s*\+", 1.0),
+    ("tariff_rate", r"tariffs?", 1.0),
+    ("demand_decline",
+     r"(?:declin\w*|lower|weak\w*|fall\w*|slow\w*|drop\w*|reduc\w*)\s+(?:\w+\s+){0,3}?(?:demand|spending|volumes?)|"
+     r"(?:demand|spending|volumes?)\s+(?:\w+\s+){0,2}?(?:declin\w*|falls?|drops?|slow\w*|weaken\w*)", 1.0),
+    ("cogs_inflation",
+     r"(?:manufacturing|input|production|component|unit|raw[- ]material)\s+costs?|cost inflation|\bcogs\b\s+(?:inflation|increase)",
+     1.0),
+    ("revenue_change", r"export restrictions?|export controls?|loss of (?:\w+\s+){0,2}revenue", -1.0),
+    ("gross_margin_change", r"margin (?:deterioration|compression|pressure|erosion|decline)", -1.0),
+    ("rate_shock", r"interest[- ]rates?\s+(?:rise|increase|shock)|treasury yields?|basis[- ]points?", 1.0),
+)
+_PCT = re.compile(r"([+-]?\d+(?:\.\d+)?)\s*(?:%|percent\b|per cent\b)")
+_BP = re.compile(r"(\d+)[- ]?(?:basis[- ]points?|bps?\b)")
+_TARIFF_SHARE = re.compile(r"(\d+(?:\.\d+)?)\s*%\s+of\s+(?:its\s+|their\s+)?(?:cogs|cost of (?:goods|revenue|sales))", re.I)
+
+
+def question_shocks(q: str) -> Dict[str, Any]:
+    """Scenario shocks the question names.  Returns
+    {"shocks": {key: fraction}} for shocks with an explicit size,
+    {"default_shocks": [keys]} for shocks named without one, and
+    {"structure": {...}} for structural inputs it states (tariff-exposed COGS
+    share).  A tariff shock without an exposed-COGS share is left to the tool
+    to report as not computable; nothing here is guessed."""
+    out: Dict[str, Any] = {}
+    shocks: Dict[str, float] = {}
+    named: List[str] = []
+    text = q or ""
+    share = _TARIFF_SHARE.search(text)
+    if share:
+        out["structure"] = {"tariff_exposed_cogs_share": float(share.group(1)) / 100}
+    for clause in re.split(r"[;:]|,\s*|\s+and\s+|\s+while\s+", text, flags=re.I):
+        for key, rx, sign in _SHOCK_WORDS:
+            if key in shocks or key in named or not re.search(rx, clause, re.I):
+                continue
+            if key == "rate_shock":
+                bp = _BP.search(clause)
+                if bp:
+                    shocks[key] = int(bp.group(1)) / 10000
+                else:
+                    named.append(key)
+                continue
+            m = _PCT.search(clause if not share else clause.replace(share.group(0), ""))
+            if m:
+                v = abs(float(m.group(1))) / 100
+                if key == "reporting_currency_appreciation" and re.search(r"deprecia|weak", clause, re.I):
+                    v = -v
+                shocks[key] = sign * v
+            else:
+                named.append(key)
+    if shocks:
+        out["shocks"] = shocks
+    named = [k for k in named if k not in shocks]
+    if named:
+        out["default_shocks"] = named
+    return out
+
+
+# Banks: an FCFF DCF (and everything built on it) is not meaningful when
+# deposits and borrowings are operating liabilities; route to rate sensitivity
+# and an excess-return framing instead.
+BANK_HINTS = re.compile(r"net interest income|\bnii\b|deposit (?:costs?|betas?)|\bdeposits\b|\bbanks?\b|"
+                        r"\bbanking\b|loan losses|credit losses|net interest margin", re.I)
+FCFF_TOOLS = tuple(sorted(_VAL_FCFF_TOOLS))
+BANK_RATE_TOOL = "valuation_rate_sensitivity"
+BANK_NOTE = ("Bank: FCFF DCF tools are not used (deposits/borrowings are operating liabilities, so FCFF and WACC "
+             "are not meaningful). Use the disclosed NII rate sensitivity and an excess-return framing: value = "
+             "book equity + PV((ROE - cost of equity) x book equity), cost of equity from CAPM.")
+
+
 # property name -> hint key
 _ARG_ALIASES = {
     "years": "lookback_years", "lookback_years": "lookback_years", "n_years": "lookback_years",
@@ -322,7 +414,7 @@ _ARG_ALIASES = {
     "num_simulations": "n_simulations", "n_paths": "n_simulations", "paths": "n_simulations",
     "n_events": "n_events", "quarters": "n_events", "n_quarters": "n_events", "events": "n_events",
     "windows": "windows", "event_window": "event_window", "window_days": "event_window",
-    "shock_bps": "shock_bps", "rate_shock_bps": "shock_bps", "bps": "shock_bps",
+    "shock_bps": "shock_bps", "rate_shock_bps": "shock_bps", "bps": "shock_bps", "shock_bp": "shock_bps",
     "confidence": "confidence", "confidence_level": "confidence", "var_confidence": "confidence",
     "benchmark": "benchmark", "market": "benchmark",
     "forms": "forms", "filing_types": "forms", "n_filings": "n_filings", "count": "n_filings",
@@ -382,6 +474,8 @@ def suggest_calls(spec: Dict[str, Any], tickers: Sequence[str], hints: Dict[str,
     props: Dict[str, Any] = schema.get("properties") or {}
     required = list(schema.get("required") or [])
     base: Dict[str, Any] = {}
+    scen = (question_shocks(question) if "reporting_currency_appreciation" in
+            str((props.get("shocks") or {}).get("description") or "") else {})
     for p, prop in props.items():
         key = _ARG_ALIASES.get(p)
         if key and key in hints:
@@ -390,6 +484,12 @@ def suggest_calls(spec: Dict[str, Any], tickers: Sequence[str], hints: Dict[str,
                 base[p] = v
         elif p == "query":
             base[p] = cap.query or cap.label
+        elif p == "shocks" and scen.get("shocks"):
+            base[p] = scen["shocks"]                     # sizes stated in the question
+        elif p == "use_default_shocks" and scen.get("default_shocks"):
+            base[p] = scen["default_shocks"]             # named without a size: tool applies documented defaults
+        elif p == "structure" and scen.get("structure"):
+            base[p] = scen["structure"]
     # required enum selectors (section / topic ...) named by the question or the capability
     variants: List[Dict[str, Any]] = [{}]
     for p in required:
@@ -458,12 +558,22 @@ def build_plan(question: str, tickers: Sequence[str], extra: Optional[Dict[str, 
                 budget={"max_tool_rounds": DEEP_MAX_TOOL_ROUNDS, "max_tool_calls": DEEP_MAX_TOOL_CALLS,
                         "tool_timeout_s": DEEP_TOOL_TIMEOUT_S, "parallel": DEEP_PARALLEL, "hints": hints})
     n_prefetch = 0
+    bank = bool(BANK_HINTS.search(question or ""))
     for cap in CAPABILITIES:
         if not re.search(cap.pattern, question or "", re.I):
             continue
+        if cap.key == "portfolio" and len(tickers) < 2:
+            continue                       # a one-name "portfolio" has no correlations / risk contributions
         tools = discover_tools(cap, specs)
+        note = None
+        if bank and any(t["name"] in FCFF_TOOLS for t in tools):
+            tools = [t for t in tools if t["name"] not in FCFF_TOOLS]
+            if cap.key in ("dcf", "sensitivity", "scenarios", "reverse_dcf", "monte_carlo") and BANK_RATE_TOOL in by_name \
+                    and all(t["name"] != BANK_RATE_TOOL for t in tools):
+                tools = [by_name[BANK_RATE_TOOL]] + tools[:MAX_TOOLS_PER_STEP - 1]
+            note = BANK_NOTE
         step = PlanStep(id=f"S{len(plan.steps) + 1}", capability=cap.key, need=cap.label,
-                        computation=cap.computation, tools=[t["name"] for t in tools])
+                        computation=cap.computation, tools=[t["name"] for t in tools], note=note)
         if not tools:
             step.status = "unavailable"
             step.errors.append("no registered tool performs this computation")
@@ -476,7 +586,10 @@ def build_plan(question: str, tickers: Sequence[str], extra: Optional[Dict[str, 
                 for args in suggest_calls(t, tickers, hints, cap, question):
                     if n_prefetch >= DEEP_PREFETCH_MAX:
                         break
-                    if any(c.tool == t["name"] and c.args == args for s in plan.steps for c in s.calls):
+                    owner = next((s for s in plan.steps for c in s.calls if c.tool == t["name"] and c.args == args), None)
+                    if owner is not None:              # already prefetched for another step: share its result
+                        if owner.id not in step.shared_with:
+                            step.shared_with.append(owner.id)
                         continue
                     step.calls.append(PlannedCall(t["name"], args, progress_label(
                         t["name"], args, by_name.get(t["name"]), (extra or {}).get(t["name"], {}).get("progress")
@@ -530,6 +643,14 @@ async def prefetch(plan: Plan, executor, parallel: int = DEEP_PARALLEL
     await asyncio.gather(*tasks, return_exceptions=True)
     for s in plan.steps:
         if s.calls:
+            ok = bool(s.fact_ids)
+            s.status = "done" if ok and not s.errors else "partial" if ok else "failed"
+    by_id = {s.id: s for s in plan.steps}
+    for s in plan.steps:
+        if not s.calls and s.shared_with:      # covered entirely by another step's calls
+            owners = [by_id[i] for i in s.shared_with if i in by_id]
+            s.fact_ids = [f for o in owners for f in o.fact_ids]
+            s.errors = [e for o in owners for e in o.errors]
             ok = bool(s.fact_ids)
             s.status = "done" if ok and not s.errors else "partial" if ok else "failed"
 

@@ -69,6 +69,7 @@ TOOL_TIMEOUTS.update({n: fundamentals_tools.TOOL_TIMEOUT_S for n in fundamentals
 # Quant / risk engine (app.services.quant)
 TOOL_SPECS += quant_tools.QUANT_TOOL_SPECS
 TOOL_TIMEOUTS.update({n: quant_tools.QUANT_TOOL_TIMEOUT_S for n in quant_tools.QUANT_TOOL_NAMES})
+TOOL_TIMEOUTS["analyze_portfolio_risk"] = quant_tools.PORTFOLIO_TOOL_TIMEOUT_S
 # Valuation engine tools (app.services.copilot.valuation_tools)
 from app.services.copilot.valuation_tools import (TOOL_TIMEOUT_S as _VAL_TIMEOUT_S,  # noqa: E402
                                                   VALUATION_TOOL_NAMES, VALUATION_TOOL_SPECS, run_valuation_tool)

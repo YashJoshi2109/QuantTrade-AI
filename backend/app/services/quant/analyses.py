@@ -19,6 +19,7 @@ required series cannot be loaded; nothing is filled in.
 from __future__ import annotations
 
 import math
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Sequence
 
@@ -56,6 +57,23 @@ def _load(p: QuantData, sym: str, start: datetime, end: datetime) -> tuple[pd.Se
                               "from any provider (yfinance, Alpaca, FMP, Finnhub, our database)")
     close = ps.df["close"].astype(float)
     return close, {"source": ps.source, "adjusted": bool(ps.adjusted), "warnings": list(ps.warnings)}
+
+
+PORTFOLIO_FETCH_WORKERS = 6
+
+
+def _load_many(p: QuantData, syms: Sequence[str], start: datetime, end: datetime) -> Dict[str, object]:
+    """_load for several symbols in parallel threads: {symbol: (close, meta) | Exception}."""
+    def one(sym: str):
+        try:
+            return _load(p, sym, start, end)
+        except Exception as e:  # noqa: BLE001 - returned to the caller, which decides
+            return e
+    syms = list(dict.fromkeys(syms))
+    if not syms:
+        return {}
+    with ThreadPoolExecutor(max_workers=min(PORTFOLIO_FETCH_WORKERS, len(syms))) as pool:
+        return dict(zip(syms, pool.map(one, syms)))
 
 
 def _info(meta: dict, s: pd.Series) -> dict:
@@ -581,14 +599,22 @@ def portfolio_risk(tickers: Sequence[str], weights: Optional[Sequence[float]] = 
     stats_start = end - timedelta(days=int(years * 365.25) + 5)
     hist_start = min(stats_start, datetime(2018, 9, 1))
     closes, metas = {}, {}
+    # Price histories (and sectors) are fetched concurrently: with 6+ names plus
+    # SPY / QQQ / sector ETFs, sequential provider calls exceeded the tool timeout.
+    loaded = _load_many(p, list(syms) + ["SPY", "QQQ"], hist_start, end)
     for s in syms:
-        closes[s], metas[s] = _load(p, s, hist_start, end)
+        res = loaded[s]
+        if isinstance(res, Exception):
+            raise res
+        closes[s], metas[s] = res
     refs = {}
     for b in ("SPY", "QQQ"):
-        try:
-            refs[b], metas[b] = _load(p, b, hist_start, end)
-        except DataUnavailable:
-            pass
+        res = loaded[b]
+        if isinstance(res, DataUnavailable):
+            continue
+        if isinstance(res, Exception):
+            raise res
+        refs[b], metas[b] = res
     if "SPY" not in refs:
         raise DataUnavailable("SPY (market factor) price data unavailable")
 
@@ -614,8 +640,10 @@ def portfolio_risk(tickers: Sequence[str], weights: Optional[Sequence[float]] = 
 
     # sectors
     sectors, sector_src = {}, {}
+    with ThreadPoolExecutor(max_workers=min(PORTFOLIO_FETCH_WORKERS, len(syms))) as pool:
+        infos = dict(zip(syms, pool.map(p.sector, syms)))
     for s in syms:
-        info = p.sector(s)
+        info = infos[s]
         sectors[s] = info.get("sector") if info else None
         sector_src[s] = info.get("source") if info else "unavailable"
     sw: Dict[str, float] = {}
@@ -628,13 +656,16 @@ def portfolio_risk(tickers: Sequence[str], weights: Optional[Sequence[float]] = 
         fac_px["QQQ"] = refs["QQQ"]
     etf_for = {}
     if include_sector_etfs:
+        wanted = sorted({e for e in (pf.SECTOR_ETF.get((sectors[s] or "").lower()) for s in syms)
+                         if e and e not in fac_px})
+        for etf, res in _load_many(p, wanted, stats_start, end).items():
+            if isinstance(res, DataUnavailable):
+                continue
+            if isinstance(res, Exception):
+                raise res
+            fac_px[etf], metas[etf] = res
         for s in syms:
             etf = pf.SECTOR_ETF.get((sectors[s] or "").lower())
-            if etf and etf not in fac_px:
-                try:
-                    fac_px[etf], metas[etf] = _load(p, etf, stats_start, end)
-                except DataUnavailable:
-                    etf = None
             if etf and etf in fac_px:
                 etf_for[s] = etf
     fr = pd.concat(fac_px, axis=1).pct_change()

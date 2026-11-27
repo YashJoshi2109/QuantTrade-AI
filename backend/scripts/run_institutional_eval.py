@@ -9,7 +9,9 @@ Modes
                       provider chain (COPILOT_MODEL_DEEP first if set) and the
                       tools registered in this checkout. Uses the DATABASE_URL in
                       your environment: point it at a dev / staging database,
-                      never production. Spends AI budget.
+                      never production. Spends ONLY the dedicated eval budget
+                      (LLM_EVAL_DAILY_BUDGET_USD, default 0 = every model call is
+                      refused); never the system or user budgets.
 
   --base-url URL      hit a deployed copilot over HTTP SSE, e.g.
                       --base-url https://<api-host>/api/v1 --token <JWT>
@@ -60,11 +62,15 @@ async def run_live_inprocess(q: dict):
     from app.db.database import SessionLocal
     from app.services.copilot.engine import CopilotEngine, CopilotRequest
     from app.services.copilot.memory import InMemoryStore
+    from app.services import ai_guard
     db = SessionLocal()
     try:
         eng = CopilotEngine(db, memory_store=InMemoryStore(), use_pack_cache=False)
-        return [ev async for ev in eng.run(CopilotRequest(message=q["question"], user_id=0,
-                                                          conversation_id=f"inst-live-{q['id']}"))]
+        # eval=True: spend is charged only to LLM_EVAL_DAILY_BUDGET_USD (default 0 = refused),
+        # never to the system or user budgets
+        with ai_guard.eval_context("copilot_eval"):
+            return [ev async for ev in eng.run(CopilotRequest(message=q["question"], user_id=0,
+                                                              conversation_id=f"inst-live-{q['id']}", eval=True))]
     finally:
         db.close()
 
@@ -83,6 +89,8 @@ async def run_http(q: dict, base_url: str, token: str, timeout_s: float):
             async for line in resp.aiter_lines():
                 if line.startswith("event: "):
                     name = line[7:].strip()
+                elif line.startswith("data: ") and name == "heartbeat":
+                    name = ""                       # SSE keepalive, not part of the answer
                 elif line.startswith("data: ") and name:
                     try:
                         events.append((name, json.loads(line[6:])))
@@ -153,7 +161,8 @@ async def main() -> int:
                "tools": [d["name"] for n, d in events if n == "tool" and d.get("status") == "done"],
                "tool_errors": [d.get("error") for n, d in events if n == "tool" and d.get("status") == "error"],
                "untraceable": pc.get("unverified_numbers") or [], "not_executed": pc.get("not_executed") or [],
-               "model": done.get("model"), "errors": [d.get("message") for n, d in events if n == "error"]}
+               "model": done.get("model"), "errors": [d.get("message") for n, d in events if n == "error"],
+               "stages_ms": done.get("latency_ms")}
         if a.verbose:
             row["answer"] = h.answer_text(events)
         rows.append(row)

@@ -204,3 +204,37 @@ def test_portfolio_and_backtest_tools(fixture_db):
     text, facts, err = asyncio.run(ex.run("earnings_event_study", {"ticker": "AAPL", "window_pre": -1, "window_post": 1}))
     assert not err, text
     assert facts[0].result["results"]["events"][0]["event_window"][0] < facts[0].result["results"]["events"][0]["day0"]
+
+
+def test_portfolio_risk_fetches_histories_concurrently():
+    """Live eval: the 6-name portfolio question timed out fetching ~11 price
+    histories one after another. They are now fetched in parallel threads."""
+    import threading
+    import time
+
+    class Slow(FakeQuantData):
+        def __init__(self):
+            super().__init__()
+            self.active = 0
+            self.peak = 0
+            self.lock = threading.Lock()
+
+        def prices(self, symbol, start, end):
+            with self.lock:
+                self.active += 1
+                self.peak = max(self.peak, self.active)
+            time.sleep(0.05)
+            try:
+                return super().prices(symbol, start, end)
+            finally:
+                with self.lock:
+                    self.active -= 1
+
+    slow = Slow()
+    qd.set_provider(slow)
+    syms = ["NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "TSLA"]
+    out = qa.portfolio_risk(syms)
+    assert slow.peak >= 4
+    assert set(syms) | {"SPY"} <= set(slow.calls)
+    rc = out["results"]["risk_contributions"]
+    assert sum(rc[s]["percent_of_risk"] for s in syms) == pytest.approx(100.0, abs=0.05)
