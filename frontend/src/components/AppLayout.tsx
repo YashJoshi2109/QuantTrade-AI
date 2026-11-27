@@ -68,7 +68,7 @@ function HeaderTooltip({
     <div className="relative group">
       {children}
       <div className="pointer-events-none absolute top-full right-0 mt-2 w-52 rounded-lg border border-line-subtle bg-surface-base/95 px-3 py-2 text-[10px] opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all shadow-xl z-50">
-        <div className="text-slate-200 font-semibold">{label}</div>
+        <div className="text-fg-primary font-semibold">{label}</div>
         <div className="text-fg-muted mt-0.5">{detail}</div>
       </div>
     </div>
@@ -315,7 +315,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-8 h-8 rounded-xl bg-surface-base/60 border border-cyan-500/20 flex items-center justify-center overflow-hidden">
-              <img src="/logo.png" alt="QuantTrade AI" className="w-7 h-7 object-contain" />
+              <img src="/logo.png" alt="QuantTrade AI" className="brand-logo w-7 h-7 object-contain scale-150" />
             </div>
             <span className="hidden sm:block text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
               QuantTrade AI

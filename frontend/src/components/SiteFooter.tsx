@@ -47,7 +47,7 @@ export default function SiteFooter() {
       {/* Outer container */}
       <div className="max-w-6xl mx-auto">
         {/* Top CTA bar — hidden on mobile to reduce footer bulk */}
-        <div className="hidden md:block relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0B1220] via-[#020617] to-[#0B1220] border border-sky-500/20 shadow-[0_0_40px_rgba(56,189,248,0.25)] px-5 sm:px-8 py-6 sm:py-7 mb-4">
+        <div className="force-dark force-dark-band hidden md:block relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0B1220] via-[#020617] to-[#0B1220] border border-sky-500/20 shadow-[0_0_40px_rgba(56,189,248,0.25)] px-5 sm:px-8 py-6 sm:py-7 mb-4">
           <div className="pointer-events-none absolute -right-24 -top-24 h-48 w-48 rounded-full bg-cyan-500/30 blur-3xl" />
           <div className="pointer-events-none absolute -left-16 bottom-0 h-40 w-40 rounded-full bg-indigo-500/25 blur-3xl" />
 
@@ -180,7 +180,7 @@ export default function SiteFooter() {
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-slate-800/80 pt-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-line-subtle pt-3">
             <p className="text-[11px] text-fg-muted">
               © {new Date().getFullYear()}{' '}
               <span className="text-fg-secondary">QuantTrade AI</span>. All rights reserved.
@@ -196,9 +196,9 @@ export default function SiteFooter() {
               .
             </p>
             <div className="flex flex-wrap gap-3 text-[11px] text-fg-muted">
-              <Link href="/terms" className="hover:text-fg-secondary transition-colors">Privacy Policy</Link>
+              <Link href="/terms#privacy" className="hover:text-fg-secondary transition-colors">Privacy Policy</Link>
               <Link href="/terms" className="hover:text-fg-secondary transition-colors">Terms of Service</Link>
-              <Link href="/about" className="hover:text-fg-secondary transition-colors">Risk Disclosure</Link>
+              <Link href="/terms#risk" className="hover:text-fg-secondary transition-colors">Risk Disclosure</Link>
             </div>
           </div>
         </div>

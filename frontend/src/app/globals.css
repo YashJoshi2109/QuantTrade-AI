@@ -2573,3 +2573,47 @@ html.light .placeholder-slate-600::placeholder {
 :where(html.light) .text-zinc-300\/90 {
   color: #3f3f46;
 }
+
+/* ======================================================
+   SHELL CONSISTENCY HELPERS
+   ====================================================== */
+
+/* .force-dark — a surface designed dark in both themes (auth screen, footer
+   newsletter band). The light-theme overrides above repaint text-white and
+   slate text as dark ink, which made these surfaces dark-on-dark. Re-assert
+   the dark palette inside the scope. */
+html .force-dark:not(.force-dark-band) {
+  background-color: #060b12 !important;
+}
+html .force-dark { color-scheme: dark; }
+html.light .force-dark .text-white { color: #ffffff !important; }
+html.light .force-dark .text-slate-400 { color: #94a3b8 !important; }
+html.light .force-dark .text-slate-500 { color: #64748b !important; }
+html.light .force-dark .text-slate-600 { color: #475569 !important; }
+html.light .force-dark .bg-\[\#0A0E1A\] { background-color: #0a0e1a !important; }
+html.light .force-dark .bg-\[\#0D1117\] { background-color: #0d1117 !important; }
+html.light .force-dark .bg-\[\#101928\] { background-color: #101928 !important; }
+
+/* .brand-logo — the bull mark is thin cyan line-art on transparency; on light
+   surfaces it washed out. Deepen it in light mode only. */
+html.light .brand-logo {
+  filter: brightness(0.62) saturate(1.8) contrast(1.15);
+}
+
+/* .keep-cols — opt out of the global "every grid collapses to one column on
+   phones" rule for compact stat strips designed to stay in a row. */
+@media (max-width: 1024px) {
+  .keep-cols.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .keep-cols.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 640px) {
+  .keep-cols.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .keep-cols.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .keep-cols.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+}
+
+/* text-cyan-100 is near-white; on light surfaces (pricing "on Pro" notices,
+   manage-billing button) it was unreadable. */
+:where(html.light) .text-cyan-100 {
+  color: #0e7490;
+}

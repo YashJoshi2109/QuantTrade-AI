@@ -1,20 +1,23 @@
 'use client'
 
 import { motion, type Variants } from 'framer-motion'
-import { TrendingUp, Shield, Zap, Globe, Lock } from 'lucide-react'
+import { TrendingUp, Shield, Fingerprint, FileText, Ban } from 'lucide-react'
 import { AuthLiveTickerCard } from './AuthLiveTickerCard'
 
+// Only claims the product can stand behind. (Earlier copy advertised
+// "SOC 2 compliant", "94.2% accuracy" and "real-time execution": none of
+// those is true — QuantTrade never places orders and has no SOC 2 report.)
 const TRUST_BADGES = [
-  { icon: Shield, label: 'Bank-grade encryption' },
-  { icon: Lock, label: 'SOC 2 compliant' },
-  { icon: Globe, label: 'Global market access' },
-  { icon: Zap, label: 'Real-time execution' },
+  { icon: Shield, label: 'Encrypted in transit (TLS)' },
+  { icon: Fingerprint, label: 'Passkey sign-in' },
+  { icon: FileText, label: 'Cited sources & filings' },
+  { icon: Ban, label: 'Research only, no trading' },
 ]
 
 const STATS = [
-  { label: 'Assets Analyzed', value: '12,400+' },
-  { label: 'Avg. Accuracy', value: '94.2%' },
-  { label: 'Markets Covered', value: '60+' },
+  { label: 'US stocks & ETFs', value: 'Research' },
+  { label: 'Rule backtests', value: 'Strategy Lab' },
+  { label: 'Cited answers', value: 'Copilot' },
 ]
 
 const containerVariants: Variants = {
@@ -95,7 +98,7 @@ export function AuthBrandPanel() {
             <span className="text-[#00D4FF]">Think Faster.</span>
           </h1>
           <p className="text-[#64748B] text-sm leading-relaxed max-w-xs">
-            AI-powered market intelligence, real-time analysis, and institutional-grade tools for the modern trader.
+            AI research on US stocks and ETFs: cited answers, filings, rule backtests and price alerts. Research only, never trade execution.
           </p>
         </motion.div>
 

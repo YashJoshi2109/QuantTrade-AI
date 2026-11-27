@@ -10,6 +10,7 @@ import { Check, Loader2, LogIn, Plus, Sparkles, X } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/components/Toast'
 import TickerLogo from '@/components/TickerLogo'
+import { Skeleton } from '@/components/Skeleton'
 import {
   CONDITION_META,
   CONDITION_ORDER,
@@ -406,6 +407,31 @@ export const FILTERS: { id: AlertFilter; label: string }[] = [
   { id: 'triggered', label: 'Triggered' },
   { id: 'paused', label: 'Paused' },
 ]
+
+/** Loading placeholder shaped like the alert list (filter tabs, then rows). */
+export function AlertsListSkeleton({ rows = 4, compact = false }: { rows?: number; compact?: boolean }) {
+  return (
+    <div aria-busy="true" aria-label="Loading alerts">
+      <div className="mb-4 flex gap-1 rounded-xl border border-line-subtle bg-surface-base p-1">
+        {FILTERS.map((f) => (
+          <Skeleton key={f.id} className={compact ? 'h-7 w-16 rounded-full' : 'h-8 w-20 rounded-lg'} />
+        ))}
+      </div>
+      <div className="space-y-2">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 rounded-xl border border-line-subtle bg-surface-raised p-3">
+            <Skeleton variant="circular" className="h-9 w-9 shrink-0" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-3 w-2/3" />
+            </div>
+            <Skeleton className="h-5 w-16 rounded-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export function relTime(iso: string | null): string {
   if (!iso) return '—'

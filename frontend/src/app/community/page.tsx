@@ -35,6 +35,7 @@ import EmptyState from '@/components/community/EmptyStates'
 import { FeedSkeleton } from '@/components/community/Skeletons'
 import { useKeyboardShortcuts, ShortcutHelpModal } from '@/components/community/KeyboardShortcuts'
 import { useToast } from '@/components/Toast'
+import { COMMUNITY_COMPOSE_SIGN_IN } from '@/lib/authRedirect'
 import {
   fetchFeed,
   fetchPopularFeed,
@@ -90,7 +91,7 @@ export default function CommunityPage() {
   return (
     <>
       <div className="hidden lg:block">
-        <Suspense fallback={<AppLayout><div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500" /></div></AppLayout>}>
+        <Suspense fallback={<AppLayout><div className="mx-auto max-w-[640px] py-4"><FeedSkeleton count={5} /></div></AppLayout>}>
           <CommunityPageInner />
         </Suspense>
       </div>
@@ -105,9 +106,20 @@ export default function CommunityPage() {
 
 function CommunityPageInner() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const searchParams = useSearchParams()
   const { success: toastSuccess, error: toastError } = useToast()
+  const [loadError, setLoadError] = useState(false)
+
+  // Posting needs an account. Signed-out visitors go to sign-in and come
+  // back with the composer open instead of hitting a 401 on submit.
+  const openComposer = useCallback(() => {
+    if (!isAuthenticated) {
+      router.push(COMMUNITY_COMPOSE_SIGN_IN)
+      return
+    }
+    setShowCreate(true)
+  }, [isAuthenticated, router])
 
   const sortParam = (searchParams.get('sort') as SortTab) || 'hot'
   const timeParam = searchParams.get('time') || 'all'
@@ -273,8 +285,13 @@ function CommunityPageInner() {
 
       setCursor(data.next_cursor)
       setHasMore(!!data.next_cursor)
+      setLoadError(false)
     } catch {
       toastError('Failed to load posts')
+      // An empty feed after a failed request is an error, not "no posts".
+      if (isReset) setLoadError(true)
+      // Stop the infinite-scroll sentinel from re-firing a failing request.
+      setHasMore(false)
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -419,7 +436,7 @@ function CommunityPageInner() {
   }, [])
 
   const { showHelp, setShowHelp } = useKeyboardShortcuts({
-    onCreatePost: () => setShowCreate(true),
+    onCreatePost: () => openComposer(),
     onNavigate: (direction) => {
       setFocusedIndex((prev) => {
         const next = direction === 'next'
@@ -487,17 +504,19 @@ function CommunityPageInner() {
             <div className="px-2 sm:px-4 py-3 sm:py-4 pb-36 lg:pb-4">
               {/* Create Post Bar — hidden on mobile where FAB is used */}
               <div className="hidden sm:flex items-center gap-3 bg-surface-raised border border-line-subtle rounded-xl px-4 py-2.5 mb-3">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center text-xs font-bold text-blue-400 shrink-0 ring-1 ring-white/[0.06]">
-                  U
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center text-xs font-bold text-blue-400 shrink-0 ring-1 ring-white/[0.06]" aria-hidden>
+                  {isAuthenticated && user
+                    ? (user.username || user.full_name || '?').slice(0, 2).toUpperCase()
+                    : <Users className="w-4 h-4" />}
                 </div>
                 <button
-                  onClick={() => setShowCreate(true)}
+                  onClick={() => openComposer()}
                   className="flex-1 text-left px-4 py-2 bg-surface-raised border border-line-subtle rounded-full text-sm text-fg-muted hover:bg-surface-hover hover:border-line-default hover:text-fg-secondary transition-all"
                 >
-                  Create a post
+                  {isAuthenticated ? 'Create a post' : 'Sign in to post'}
                 </button>
                 <button
-                  onClick={() => setShowCreate(true)}
+                  onClick={() => openComposer()}
                   className="p-2 rounded-full text-fg-muted hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
                   title="Create post"
                 >
@@ -507,7 +526,7 @@ function CommunityPageInner() {
 
               {/* ── Full-Width Sort Tabs ── */}
               <div className="bg-surface-raised border border-line-subtle rounded-xl mb-3 overflow-hidden">
-                <div className="flex overflow-x-auto scrollbar-none">
+                <div className="flex overflow-x-auto scrollbar-none" role="tablist" aria-label="Sort posts">
                   {SORT_TABS.map(({ key, label, icon: Icon }) => (
                     <button
                       key={key}
@@ -515,14 +534,16 @@ function CommunityPageInner() {
                         setSort(key)
                         if (key !== 'top') setTimeFilter('all')
                       }}
-                      className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium transition-all flex-1 min-w-0 border-b-2 whitespace-nowrap ${
+                      role="tab"
+                      aria-selected={sort === key}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-3 text-xs sm:text-sm font-medium transition-all flex-1 shrink-0 border-b-2 whitespace-nowrap ${
                         sort === key
                           ? 'border-blue-500 text-fg-primary bg-surface-hover'
                           : 'border-transparent text-fg-muted hover:text-fg-secondary hover:bg-surface-hover'
                       }`}
                     >
                       <Icon className={`w-4 h-4 shrink-0 ${sort === key ? 'text-blue-400' : ''}`} />
-                      <span className="truncate">{label}</span>
+                      <span>{label}</span>
                     </button>
                   ))}
                 </div>
@@ -557,11 +578,17 @@ function CommunityPageInner() {
               {/* ── Posts Feed ── */}
               {loading ? (
                 <FeedSkeleton count={5} />
+              ) : loadError && posts.length === 0 ? (
+                <EmptyState
+                  variant="error"
+                  ctaLabel="Retry"
+                  onCta={() => loadFeed(sort, true, timeFilter)}
+                />
               ) : posts.length === 0 ? (
                 <EmptyState
                   variant="no-posts"
                   ctaLabel="Create the first post"
-                  onCta={() => setShowCreate(true)}
+                  onCta={() => openComposer()}
                 />
               ) : (
                 <div className="space-y-2">
