@@ -11,6 +11,8 @@ import {
   Loader2, Lock,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import SignInPrompt from '@/components/ui/SignInPrompt'
+import { Skeleton } from '@/components/Skeleton'
 import MLStatusPanels, { EmptyReason } from '@/components/mlops/MLStatusPanels'
 
 const API = process.env.NEXT_PUBLIC_API_URL || ''
@@ -159,32 +161,36 @@ export default function MobileMLOps() {
   }, [])
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) { router.push('/auth?redirect=/mlops'); return }
+    if (isLoading || !isAuthenticated) return
     fetchData()
     const int = setInterval(fetchData, 30_000)
     return () => clearInterval(int)
   }, [fetchData, isAuthenticated, isLoading, router])
 
-  if (isLoading || !isAuthenticated) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center flex-col gap-4 bg-surface-base px-6">
-        {isLoading ? (
-          <Loader2 className="w-6 h-6 animate-spin text-fg-muted" />
-        ) : (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="text-center">
-            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600/30 to-cyan-600/30 border border-purple-500/20 flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-7 h-7 text-purple-400" />
-            </div>
-            <h2 className="text-lg font-bold text-fg-primary mb-2">Sign In Required</h2>
-            <p className="text-sm text-fg-muted mb-6">MLOps is restricted to authenticated users.</p>
-            <button
-              onClick={() => router.push('/auth?redirect=/mlops')}
-              className="px-6 py-2.5 bg-gradient-to-r from-purple-600/80 to-cyan-600/80 text-white text-sm font-semibold rounded-xl"
-            >
-              Sign In
-            </button>
-          </motion.div>
-        )}
+      <div className="min-h-screen bg-surface-base px-4 pt-6 space-y-4" aria-busy="true" aria-label="Loading MLOps">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-9 w-full rounded-full" />
+        <div className="grid grid-cols-2 gap-3 keep-cols">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        </div>
+        <Skeleton className="h-48 rounded-xl" />
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-surface-base px-4 pt-10">
+        <h1 className="mb-6 text-3xl font-bold text-fg-primary">MLOps</h1>
+        <SignInPrompt
+          compact
+          icon={Lock}
+          title="Sign in to open MLOps"
+          description="Training runs, the model registry and drift monitoring are available to signed-in accounts."
+          returnTo="/mlops"
+        />
       </div>
     )
   }

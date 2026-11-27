@@ -7,11 +7,225 @@
   "evaluated_at": "2026-11-26",
   "reason": "The served LSTM has never passed the 10-condition walk-forward promotion gate. The Phase 9 research candidate (h20 LightGBM, OHLCV + SEC filing recency) passed 9/10 in a purged backtest but is not deployed: no serving pipeline, survivorship-biased universe, IC not significant at 5%. See docs/ML_PHASE9_IC_RESEARCH.md.",
   "research_candidate": {
+    "phase": "phase10_gate_v2",
+    "evaluated_at": "2026-11-27",
     "model_family": "h20_lightgbm_cross_sectional_ranker",
-    "variant": "sec_pit",
-    "gates_passed": 9,
+    "variant": "v2_full_mn_ivol",
+    "description": "v2_full_ivol trained on the market-neutral target",
+    "gates_passed": 8,
     "gates_total": 10,
-    "deployed": false
+    "gates_required": 8,
+    "robust": false,
+    "robustness": {
+      "n_runs": 1,
+      "n_planned": 9,
+      "skipped_reason": "primary run fails Mean WF IC > 0.03",
+      "mandatory_checks": [
+        "Mean WF IC > 0.03"
+      ],
+      "min_gates": 8,
+      "max_gates": 8,
+      "median_gates": 8.0,
+      "runs_passing": 0,
+      "all_pass": false
+    },
+    "verdict": "NOT_READY",
+    "deployed": false,
+    "mean_ic": -0.0003,
+    "ic_tstat_nonoverlap": -0.04,
+    "placebo_ic": 0.0003,
+    "scorecard": [
+      {
+        "key": "mean_wf_ic_gt_threshold",
+        "label": "Mean WF IC > 0.03",
+        "value": -0.000260094606285755,
+        "threshold": "> 0.03",
+        "unit": "ic",
+        "passed": false
+      },
+      {
+        "key": "ic_hit_rate_gt_threshold",
+        "label": "IC hit rate > 55%",
+        "value": 0.4740740740740741,
+        "threshold": "> 55%",
+        "unit": "pct",
+        "passed": false
+      },
+      {
+        "key": "beats_spy_cumulative",
+        "label": "Cum return > SPY",
+        "value": 1.086717598471885,
+        "threshold": "> SPY 66.2%",
+        "unit": "pct",
+        "passed": true
+      },
+      {
+        "key": "sharpe_gt_spy_sharpe",
+        "label": "Sharpe > SPY Sharpe",
+        "value": 1.0603134412252757,
+        "threshold": "> SPY 1.03",
+        "unit": "num",
+        "passed": true
+      },
+      {
+        "key": "maxdd_lte_spy_maxdd",
+        "label": "Max DD <= SPY max DD",
+        "value": -0.18461820830291376,
+        "threshold": "|DD| <= SPY -20.9%",
+        "unit": "pct",
+        "passed": true
+      },
+      {
+        "key": "max_symbol_frequency_ok",
+        "label": "Max symbol frequency <= 40%",
+        "value": 0.3125,
+        "threshold": "<= 40%",
+        "unit": "pct",
+        "passed": true
+      },
+      {
+        "key": "max_symbol_return_contribution_ok",
+        "label": "Max symbol return contrib <= 20%",
+        "value": 0.047099360872613405,
+        "threshold": "<= 20%",
+        "unit": "pct",
+        "passed": true
+      },
+      {
+        "key": "max_sector_return_contribution_ok",
+        "label": "Max sector contrib <= 35%",
+        "value": 0.17463418460778196,
+        "threshold": "<= 35%",
+        "unit": "pct",
+        "passed": true
+      },
+      {
+        "key": "correction_regime_ic_ok",
+        "label": "Correction regime IC > -0.05",
+        "value": 0.09831047721361383,
+        "threshold": "> -0.05",
+        "unit": "ic",
+        "passed": true
+      },
+      {
+        "key": "regime_positive_fraction_ok",
+        "label": ">= 60% regimes positive IC",
+        "value": 0.6,
+        "threshold": ">= 60%",
+        "unit": "pct",
+        "passed": true
+      }
+    ],
+    "failed_gates": [
+      "Mean WF IC > 0.03",
+      "IC hit rate > 55%"
+    ],
+    "before": {
+      "variant": "p9_sec_pit",
+      "gates_passed": 9,
+      "mean_ic": 0.0362,
+      "scorecard": [
+        {
+          "key": "mean_wf_ic_gt_threshold",
+          "label": "Mean WF IC > 0.03",
+          "value": 0.03622352412300222,
+          "threshold": "> 0.03",
+          "unit": "ic",
+          "passed": true
+        },
+        {
+          "key": "ic_hit_rate_gt_threshold",
+          "label": "IC hit rate > 55%",
+          "value": 0.5873015873015873,
+          "threshold": "> 55%",
+          "unit": "pct",
+          "passed": true
+        },
+        {
+          "key": "beats_spy_cumulative",
+          "label": "Cum return > SPY",
+          "value": 1.6551675847079008,
+          "threshold": "> SPY 66.2%",
+          "unit": "pct",
+          "passed": true
+        },
+        {
+          "key": "sharpe_gt_spy_sharpe",
+          "label": "Sharpe > SPY Sharpe",
+          "value": 1.2075096357703967,
+          "threshold": "> SPY 1.03",
+          "unit": "num",
+          "passed": true
+        },
+        {
+          "key": "maxdd_lte_spy_maxdd",
+          "label": "Max DD <= SPY max DD",
+          "value": -0.22961554404332762,
+          "threshold": "|DD| <= SPY -20.9%",
+          "unit": "pct",
+          "passed": false
+        },
+        {
+          "key": "max_symbol_frequency_ok",
+          "label": "Max symbol frequency <= 40%",
+          "value": 0.3541666666666667,
+          "threshold": "<= 40%",
+          "unit": "pct",
+          "passed": true
+        },
+        {
+          "key": "max_symbol_return_contribution_ok",
+          "label": "Max symbol return contrib <= 20%",
+          "value": 0.05161741392942206,
+          "threshold": "<= 20%",
+          "unit": "pct",
+          "passed": true
+        },
+        {
+          "key": "max_sector_return_contribution_ok",
+          "label": "Max sector contrib <= 35%",
+          "value": 0.27626195383568236,
+          "threshold": "<= 35%",
+          "unit": "pct",
+          "passed": true
+        },
+        {
+          "key": "correction_regime_ic_ok",
+          "label": "Correction regime IC > -0.05",
+          "value": 0.18308239558395709,
+          "threshold": "> -0.05",
+          "unit": "ic",
+          "passed": true
+        },
+        {
+          "key": "regime_positive_fraction_ok",
+          "label": ">= 60% regimes positive IC",
+          "value": 0.8,
+          "threshold": ">= 60%",
+          "unit": "pct",
+          "passed": true
+        }
+      ]
+    },
+    "variants": {
+      "p9_sec_pit": 9,
+      "v2_full": 7,
+      "v2_full_ivol": 7,
+      "v2_full_mn_ivol": 8,
+      "v2_ohlcv_ivol": 8
+    },
+    "data": {
+      "source": "panel",
+      "n_symbols": 220,
+      "date_min": "2018-01-02",
+      "date_max": "2024-11-29",
+      "ohlcv_sha256_16": "14c269918dbc4c33"
+    },
+    "oos_period": [
+      "2021-01-04",
+      "2024-09-30"
+    ],
+    "n_variants_tested": 5
   },
   "benchmark_test": {
     "benchmark": "ARIMA(0,1,0)",

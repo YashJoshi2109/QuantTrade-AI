@@ -28,7 +28,7 @@ export default function ChatHeader({
           <div className="relative">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00D9FF] via-[#0066FF] to-[#7C3AED] p-[1.5px] shadow-lg shadow-cyan-500/20">
               <div className="w-full h-full rounded-[10px] bg-[#0A0E1A] flex items-center justify-center overflow-hidden">
-                <Image src="/logo.png" alt="QuantTrade AI" width={24} height={24} className="object-contain" />
+                <Image src="/logo.png" alt="QuantTrade AI" width={24} height={24} className="brand-logo object-contain scale-150" />
               </div>
             </div>
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#0A0E1A]" />

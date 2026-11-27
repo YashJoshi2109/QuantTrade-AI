@@ -34,6 +34,8 @@ import {
   type Notification,
 } from '@/lib/api'
 import { filterNotificationsByCategory, type NotificationCategory } from '@/lib/notification-feed'
+import { Skeleton } from '@/components/Skeleton'
+import SignInPrompt from '@/components/ui/SignInPrompt'
 
 type Category = NotificationCategory
 
@@ -127,18 +129,25 @@ export default function NotificationsPage() {
   const [hasMore, setHasMore] = useState(false)
   const [category, setCategory] = useState<Category>('all')
   const [markingAll, setMarkingAll] = useState(false)
+  // A failed fetch is not "no notifications": show an error with a retry
+  // instead of the empty inbox, and keep whatever was already on screen.
+  const [loadError, setLoadError] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const lastCountRef = useRef(0)
 
   const load = useCallback(async (lim: number, silent = false) => {
     if (!silent) setLoading(true)
+    else setRefreshing(true)
     try {
       const data = await fetchNotifications(lim)
       const items: Notification[] = data.notifications || []
       setAllNotifications(items)
       setHasMore(items.length === lim)
+      setLoadError(false)
     } catch {
-      setAllNotifications([])
+      setLoadError(true)
     } finally {
+      setRefreshing(false)
       setLoading(false)
       setLoadingMore(false)
     }
@@ -266,18 +275,27 @@ export default function NotificationsPage() {
               </div>
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-fg-primary">Notifications</h1>
-                <p className="text-xs text-fg-muted mt-0.5">
-                  {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+                <p className="text-xs text-fg-muted mt-0.5 tabular-nums">
+                  {!isAuthenticated
+                    ? 'Replies, mentions and triggered price alerts'
+                    : loading
+                    ? 'Loading…'
+                    : unreadCount > 0
+                    ? `${unreadCount} unread`
+                    : 'All caught up'}
                 </p>
               </div>
             </div>
+            {isAuthenticated && (
             <div className="flex items-center gap-2">
               <button
                 onClick={() => load(limit, true)}
-                className="p-2 rounded-lg text-fg-muted hover:text-fg-primary hover:bg-surface-raised transition-colors"
+                disabled={refreshing || loading}
+                className="p-2 rounded-lg text-fg-muted hover:text-fg-primary hover:bg-surface-raised transition-colors disabled:opacity-50"
                 title="Refresh"
+                aria-label="Refresh notifications"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
               {unreadCount > 0 && (
                 <button
@@ -290,15 +308,26 @@ export default function NotificationsPage() {
                 </button>
               )}
             </div>
+            )}
           </div>
 
+          {!authLoading && !isAuthenticated ? (
+            <SignInPrompt
+              icon={Bell}
+              title="Sign in to see your notifications"
+              description="Replies, mentions, follows and triggered price alerts are tied to your account."
+            />
+          ) : (
+          <>
           {/* Category Tabs */}
-          <div className="flex gap-1 bg-surface-base border border-line-subtle rounded-xl p-1 mb-5 overflow-x-auto">
+          <div className="flex gap-1 bg-surface-base border border-line-subtle rounded-xl p-1 mb-5 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Notification categories">
             {CATEGORIES.map((cat) => {
               const badge = counts[cat.id]
               return (
                 <button
                   key={cat.id}
+                  role="tab"
+                  aria-selected={category === cat.id}
                   onClick={() => setCategory(cat.id)}
                   className={`flex items-center gap-1.5 flex-shrink-0 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     category === cat.id
@@ -318,20 +347,34 @@ export default function NotificationsPage() {
           </div>
 
           {/* List */}
-          {loading ? (
-            <div className="space-y-2">
+          {loading || authLoading ? (
+            <div className="space-y-2" aria-busy="true" aria-label="Loading notifications">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="hud-card p-4 animate-pulse">
-                  <div className="flex gap-3">
-                    <div className="w-9 h-9 bg-surface-raised rounded-lg" />
+                <div key={i} className="rounded-xl border border-line-subtle bg-surface-raised/60 p-3 sm:p-4">
+                  <div className="flex gap-3 items-start">
+                    <Skeleton className="w-9 h-9 shrink-0 rounded-lg" />
                     <div className="flex-1 space-y-2">
-                      <div className="h-4 w-3/4 bg-surface-raised rounded" />
-                      <div className="h-3 w-1/2 bg-surface-raised rounded" />
+                      <Skeleton className="h-2.5 w-14" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
                     </div>
-                    <div className="h-3 w-12 bg-surface-raised rounded" />
+                    <Skeleton className="h-3 w-12" />
                   </div>
                 </div>
               ))}
+            </div>
+          ) : loadError && allNotifications.length === 0 ? (
+            <div className="hud-card p-10 text-center" role="alert">
+              <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+              <h3 className="text-base font-semibold text-fg-primary mb-1">Couldn&apos;t load notifications</h3>
+              <p className="text-sm text-fg-muted max-w-xs mx-auto">Your notifications are safe. The request failed; try again.</p>
+              <button
+                type="button"
+                onClick={() => load(limit)}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-line-default px-3.5 py-2 text-sm font-medium text-fg-primary hover:bg-surface-hover transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" /> Retry
+              </button>
             </div>
           ) : displayed.length === 0 ? (
             <motion.div
@@ -402,12 +445,12 @@ export default function NotificationsPage() {
                             <span className="text-[11px] text-fg-muted whitespace-nowrap">
                               {relativeTime(notification.created_at)}
                             </span>
-                            <ChevronRight className="w-3.5 h-3.5 text-fg-muted opacity-0 group-hover:opacity-60 transition-opacity" />
                           </div>
                         </div>
-                        {/* Action buttons — visible on hover */}
+                        {/* Action buttons: hover/focus on desktop, always on touch.
+                            Bottom-right so they never cover the timestamp. */}
                         <div
-                          className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute bottom-1.5 right-1.5 flex gap-0.5 rounded-lg bg-surface-raised/95 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {!notification.is_read && (
@@ -456,6 +499,8 @@ export default function NotificationsPage() {
                 Showing {displayed.length} notification{displayed.length !== 1 ? 's' : ''}
               </p>
             </>
+          )}
+          </>
           )}
         </div>
       </div>

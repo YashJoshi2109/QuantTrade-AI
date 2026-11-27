@@ -66,6 +66,53 @@ def ml_model_promoted() -> bool:
     return gates_ok and benchmark_edge() is not False
 
 
+# What the product serves instead of an un-validated model.
+BASELINE_SERVED = ("statistical forecast (ARIMA/ETS/Theta mean + GJR-GARCH bands, band width "
+                   "calibrated on walk-forward tests and checked for coverage on held-out tests)")
+
+
+def research_candidate() -> dict | None:
+    rc = ml_model_status().get("research_candidate")
+    return rc if isinstance(rc, dict) else None
+
+
+def ranker_servable() -> bool:
+    """The cross-sectional ranker may be shown as a signal only when its gate
+    holds on every robustness re-run AND an inference path is deployed."""
+    rc = research_candidate()
+    if not rc:
+        return False
+    req = int(rc.get("gates_required") or 8)
+    return (rc.get("verdict") == "READY" and bool(rc.get("robust")) and bool(rc.get("deployed"))
+            and int(rc.get("gates_passed") or 0) >= req
+            and int((rc.get("robustness") or {}).get("min_gates") or 0) >= req)
+
+
+def serving_decision() -> dict:
+    """Which model the product actually serves, and why (shown in /forecast + MLOps)."""
+    if ml_model_promoted():
+        return {"signal_model": ml_model_status().get("served_model"), "baseline": None,
+                "reason": "The served ML model passed its validation gate."}
+    if ranker_servable():
+        rc = research_candidate() or {}
+        return {"signal_model": f"{rc.get('model_family')} ({rc.get('variant')})", "baseline": None,
+                "reason": "The ranker passed its gate on every robustness re-run and is deployed."}
+    rc = research_candidate()
+    why = "No ML model has passed its validation gate"
+    if rc:
+        rob = rc.get("robustness") or {}
+        if rc.get("gates_passed") is not None and rob.get("skipped_reason"):
+            why += (f" (best research model: {rc['gates_passed']}/{rc.get('gates_total', 10)} on its "
+                    f"primary run, but its {rob['skipped_reason'].replace('primary run fails ', '')} "
+                    "check fails, so its predictions carry no measurable ranking signal)")
+        elif rc.get("gates_passed") is not None and rob.get("min_gates") is not None:
+            why += (f" (best research model: {rc['gates_passed']}/{rc.get('gates_total', 10)} on its "
+                    f"primary run, {rob['min_gates']}/{rc.get('gates_total', 10)} on its weakest re-run, "
+                    f"{rc.get('gates_required', 8)} required on every run)")
+    return {"signal_model": None, "baseline": BASELINE_SERVED,
+            "reason": why + ", so no ML signal is shown. Forecasts come from the statistical baseline."}
+
+
 def ml_status_summary() -> dict:
     """Compact, user-facing description of the served ML model's validation state."""
     s = ml_model_status()
@@ -95,6 +142,7 @@ def ml_status_summary() -> dict:
         "gates_required": s["gates_required"],
         "evaluated_at": s.get("evaluated_at"),
         "note": note,
+        "serving": serving_decision(),
     }
 
 

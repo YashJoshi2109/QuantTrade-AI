@@ -26,15 +26,17 @@ import {
   type Community,
 } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
+import { useRouter } from 'next/navigation'
+import { COMMUNITY_COMPOSE_SIGN_IN } from '@/lib/authRedirect'
 
 type SortTab = 'hot' | 'new' | 'top' | 'rising' | 'following'
 
 const SORT_TABS: { key: SortTab; label: string; Icon: typeof Flame }[] = [
-  { key: 'hot', label: '🔥 Hot', Icon: Flame },
-  { key: 'new', label: '⚡ New', Icon: Clock },
-  { key: 'top', label: '📈 Top', Icon: TrendingUp },
-  { key: 'rising', label: '🚀 Rising', Icon: Zap },
-  { key: 'following', label: '👥 Following', Icon: Users },
+  { key: 'hot', label: 'Hot', Icon: Flame },
+  { key: 'new', label: 'New', Icon: Clock },
+  { key: 'top', label: 'Top', Icon: TrendingUp },
+  { key: 'rising', label: 'Rising', Icon: Zap },
+  { key: 'following', label: 'Following', Icon: Users },
 ]
 
 const MAX_BODY = 10_000
@@ -57,7 +59,27 @@ function renderMarkdownPreview(text: string): string {
 
 export default function MobileCommunity() {
   const { success: toastSuccess, error: toastError } = useToast()
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
+  const router = useRouter()
+  const [loadError, setLoadError] = useState(false)
+
+  // Same rule as desktop: posting needs an account, so signed-out visitors
+  // go to sign-in and come back with the composer open.
+  const openComposer = useCallback(() => {
+    if (!isAuthenticated) {
+      router.push(COMMUNITY_COMPOSE_SIGN_IN)
+      return
+    }
+    setShowCreate(true)
+  }, [isAuthenticated, router])
+
+  // Arriving from sign-in (/community?create=true) opens the composer.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (new URLSearchParams(window.location.search).get('create') === 'true' && isAuthenticated) {
+      setShowCreate(true)
+    }
+  }, [isAuthenticated])
 
   // Feed state
   const [sort, setSort] = useState<SortTab>('hot')
@@ -136,8 +158,11 @@ export default function MobileCommunity() {
       cursorRef.current = data.next_cursor
       setCursor(data.next_cursor)
       setHasMore(!!data.next_cursor)
+      setLoadError(false)
     } catch {
       toastError('Failed to load posts')
+      if (reset) setLoadError(true)
+      setHasMore(false)
     } finally {
       setLoading(false); setLoadingMore(false)
     }
@@ -240,19 +265,22 @@ export default function MobileCommunity() {
           <div className="flex items-center gap-2">
             <Link
               href="/community/search"
+              aria-label="Search community"
               className="w-8 h-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center text-fg-secondary active:scale-90"
             >
               <Search className="w-4 h-4" />
             </Link>
             <Link
               href="/community/messages"
+              aria-label="Messages"
               className="w-8 h-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center text-fg-secondary active:scale-90"
             >
               <MessageCircle className="w-4 h-4" />
             </Link>
             <button
-              onClick={() => setShowCreate(true)}
-              className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 active:scale-90"
+              onClick={() => openComposer()}
+              aria-label={isAuthenticated ? 'Create a post' : 'Sign in to post'}
+              className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-[#fff] active:scale-90"
             >
               <PenSquare className="w-4 h-4" />
             </button>
@@ -260,17 +288,20 @@ export default function MobileCommunity() {
         </div>
 
         {/* Sort Tabs */}
-        <div className="flex gap-2 px-4 pb-2.5 overflow-x-auto scrollbar-hide">
-          {SORT_TABS.map(({ key, label }) => (
+        <div className="flex gap-2 px-4 pb-2.5 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Sort posts">
+          {SORT_TABS.map(({ key, label, Icon }) => (
             <button
               key={key}
+              role="tab"
+              aria-selected={sort === key}
               onClick={() => { setSort(key); if (key !== 'top') setTimeFilter('all') }}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium border transition-all active:scale-95 ${
+              className={`flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-medium border transition-all active:scale-95 ${
                 sort === key
-                  ? 'bg-blue-500 text-white border-blue-500 shadow-sm shadow-blue-500/30'
+                  ? 'bg-blue-600 text-[#fff] border-blue-600'
                   : 'bg-surface-raised text-fg-secondary border-line-subtle'
               }`}
             >
+              <Icon className="w-3 h-3" aria-hidden />
               {label}
             </button>
           ))}
@@ -301,8 +332,10 @@ export default function MobileCommunity() {
       <section className="px-2 pt-3 space-y-2">
         {loading ? (
           <FeedSkeleton count={4} />
+        ) : loadError && posts.length === 0 ? (
+          <EmptyState variant="error" ctaLabel="Retry" onCta={() => loadFeed(sort, true, timeFilter)} />
         ) : posts.length === 0 ? (
-          <EmptyState variant="no-posts" ctaLabel="Create the first post" onCta={() => setShowCreate(true)} />
+          <EmptyState variant="no-posts" ctaLabel="Create the first post" onCta={() => openComposer()} />
         ) : (
           <>
             {posts.map((post, i) => (
@@ -473,9 +506,9 @@ export default function MobileCommunity() {
                   <div className="grid grid-cols-4 gap-2">
                     {[
                       { value: '', label: 'None', cls: '' },
-                      { value: 'Bullish', label: '📈 Bullish', cls: 'bullish' },
-                      { value: 'Bearish', label: '📉 Bearish', cls: 'bearish' },
-                      { value: 'Neutral', label: '➡️ Neutral', cls: 'neutral' },
+                      { value: 'Bullish', label: 'Bullish', cls: 'bullish' },
+                      { value: 'Bearish', label: 'Bearish', cls: 'bearish' },
+                      { value: 'Neutral', label: 'Neutral', cls: 'neutral' },
                     ].map((s) => (
                       <button
                         key={s.value}

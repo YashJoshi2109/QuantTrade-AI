@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { BellRing, Loader2, LogIn, Mail, Pause, Play, Plus, Repeat, Trash2 } from 'lucide-react'
+import { BellRing, Mail, Pause, Play, Plus, Repeat, Trash2 } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import TickerLogo from '@/components/TickerLogo'
 import { STATUS_STYLE, describeAlert, distanceToLevel, earningsCountdown } from '@/lib/alerts'
-import { AlertForm, FILTERS, Overlay, SuggestedAlerts, relTime, useAlertsController } from './AlertsParts'
+import { AlertForm, AlertsListSkeleton, FILTERS, Overlay, SuggestedAlerts, relTime, useAlertsController } from './AlertsParts'
+import SignInPrompt from '@/components/ui/SignInPrompt'
 
 export default function AlertsDesktop() {
   const c = useAlertsController()
@@ -38,17 +39,14 @@ export default function AlertsDesktop() {
         </div>
 
         {c.authLoading || (c.isAuthenticated && c.loading) ? (
-          <div className="hud-card flex h-56 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-fg-muted" /></div>
+          <AlertsListSkeleton rows={5} />
         ) : !c.isAuthenticated ? (
           <>
-          <div className="hud-card p-12 text-center">
-            <LogIn className="mx-auto mb-4 h-10 w-10 text-fg-muted" />
-            <h2 className="text-lg font-semibold text-fg-primary">Sign in to set price alerts</h2>
-            <p className="mx-auto mt-1 max-w-md text-sm text-fg-muted">Alerts are tied to your account and delivered to your notifications.</p>
-            <Link href="/auth" className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-[#fff] hover:bg-indigo-500">
-              <LogIn className="h-4 w-4" /> Sign in
-            </Link>
-          </div>
+          <SignInPrompt
+            icon={BellRing}
+            title="Sign in to set price alerts"
+            description="Alerts are tied to your account and delivered to your notifications."
+          />
           <div className="mt-6"><SuggestedAlerts variant="desktop" signedIn={false} alerts={[]} prominent /></div>
           </>
         ) : c.alerts.length === 0 ? (

@@ -6,7 +6,7 @@ vi.hoisted(() => {
 })
 
 import MLStatusPanels from './MLStatusPanels'
-import { fetchFailureMessage, gateHeadline, type MlopsStatus } from '@/lib/mlopsStatus'
+import { fetchFailureMessage, formatGateValue, gateHeadline, robustnessLine, type MlopsStatus } from '@/lib/mlopsStatus'
 import { basketCoverageNote } from '@/lib/basketCoverage'
 
 const fetchMock = vi.fn()
@@ -83,7 +83,58 @@ describe('MLStatusPanels', () => {
   })
 })
 
+describe('gate scorecard', () => {
+  const rc = {
+    model_family: 'h20_lightgbm_cross_sectional_ranker', variant: 'v2_full_ivol', gates_passed: 8, gates_total: 10,
+    gates_required: 8, robust: false, verdict: 'NOT_READY' as const, deployed: false,
+    robustness: { n_runs: 9, min_gates: 6, max_gates: 9, median_gates: 8, runs_passing: 5, all_pass: false },
+    scorecard: [
+      { key: 'mean_wf_ic_gt_threshold', label: 'Mean WF IC > 0.03', value: 0.0312, threshold: '> 0.03', unit: 'ic' as const, passed: true },
+      { key: 'maxdd_lte_spy_maxdd', label: 'Max DD <= SPY max DD', value: -0.2301, threshold: '|DD| <= SPY -20.9%', unit: 'pct' as const, passed: false },
+    ],
+    before: { variant: 'p9_sec_pit', gates_passed: 9, mean_ic: 0.0362, scorecard: [
+      { key: 'mean_wf_ic_gt_threshold', label: 'Mean WF IC > 0.03', value: 0.0362, threshold: '> 0.03', unit: 'ic' as const, passed: true },
+    ] },
+  }
+
+  it.each([false, true])('shows each check with value, before and PASS/FAIL (compact=%s)', async (compact) => {
+    fetchMock.mockResolvedValue(jsonResponse({
+      ...EMPTY_STATUS,
+      gate: { ...EMPTY_STATUS.gate, research_candidate: rc,
+        serving: { signal_model: null, baseline: 'statistical forecast', reason: 'No ML model has passed its validation gate.' } },
+    }))
+    render(<MLStatusPanels compact={compact} />)
+    expect(await screen.findByText('Gate scorecard')).toBeTruthy()
+    expect(screen.getByText('+0.0312')).toBeTruthy()
+    expect(screen.getByText('+0.0362')).toBeTruthy()
+    expect(screen.getByText('-23.0%')).toBeTruthy()
+    expect(screen.getAllByText('PASS').length).toBe(1)
+    expect(screen.getAllByText('FAIL').length).toBe(1)
+    expect(screen.getByText(/6–9\/10 across 9 re-runs/)).toBeTruthy()
+    expect(screen.getByText(/statistical baseline, no ML signal/)).toBeTruthy()
+  })
+
+  it('renders a layout-shaped skeleton while loading', () => {
+    fetchMock.mockReturnValue(new Promise(() => {}))
+    render(<MLStatusPanels />)
+    expect(screen.getByLabelText('Loading MLOps status').getAttribute('aria-busy')).toBe('true')
+  })
+})
+
 describe('helpers', () => {
+  it('formatGateValue uses each unit', () => {
+    expect(formatGateValue({ value: 0.03621, unit: 'ic' })).toBe('+0.0362')
+    expect(formatGateValue({ value: -0.0512, unit: 'ic' })).toBe('-0.0512')
+    expect(formatGateValue({ value: 0.587, unit: 'pct' })).toBe('58.7%')
+    expect(formatGateValue({ value: 1.2075, unit: 'num' })).toBe('1.21')
+    expect(formatGateValue({ value: null, unit: 'num' })).toBe('--')
+  })
+
+  it('robustnessLine says when a model was never re-run', () => {
+    expect(robustnessLine({ gates_passed: 9, gates_total: 10 })).toBe('9/10 on one run; not robustness-tested')
+    expect(robustnessLine(null)).toBeNull()
+  })
+
   it('gateHeadline says NOT READY and never-tested', () => {
     expect(gateHeadline(EMPTY_STATUS.gate)).toBe('NOT READY · never gate-tested (8/10 required)')
     expect(gateHeadline({ ...EMPTY_STATUS.gate, gates_passed: 7 })).toBe('NOT READY · 7/10 gates passed (8 required)')

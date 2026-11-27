@@ -77,10 +77,10 @@ const TRADING_PRO_FEATURES = [
 ]
 
 const TRUST = [
-  { icon: Shield, label: 'Bank-grade encryption' },
-  { icon: Lock, label: 'Stripe-secured' },
+  { icon: Shield, label: 'Encrypted in transit (TLS)' },
+  { icon: Lock, label: 'Payments by Stripe' },
   { icon: Clock, label: 'Cancel anytime' },
-  { icon: Users, label: '10,000+ traders' },
+  { icon: Users, label: 'Research only, no trading' },
 ]
 
 function usePricingLogic() {
@@ -143,7 +143,7 @@ function FreeCard({
   href: string
 }) {
   return (
-    <div className="relative rounded-2xl border border-line-subtle bg-gradient-to-b from-slate-900/75 to-slate-950/90 backdrop-blur-sm p-8 flex flex-col h-full overflow-hidden">
+    <div className="relative rounded-2xl border border-line-subtle bg-surface-raised p-8 flex flex-col h-full overflow-hidden">
       <div className="pointer-events-none absolute -right-8 -top-8 h-36 w-36 rounded-full bg-cyan-500/[0.06] blur-2xl" />
       <div className="relative mb-5">
         <div className="text-[11px] font-black uppercase tracking-widest text-fg-muted mb-2">Free</div>
@@ -329,7 +329,7 @@ function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic
 
   return (
     <div className="space-y-4 pb-4">
-      <header className="sticky top-0 z-30 bg-[#0A0E1A]/95 backdrop-blur-xl border-b border-line-subtle pt-safe pb-3 px-2">
+      <header className="sticky top-0 z-30 bg-surface-base border-b border-line-subtle pt-safe pb-3 px-2">
         <h1 className="text-[20px] font-bold text-fg-primary text-center">Choose Your Plan</h1>
         <p className="text-[12px] text-fg-muted text-center mb-4 px-1 leading-relaxed">
           Pro is one bill for research tools and the full CoinRealm game—nothing extra for the game.
@@ -344,7 +344,7 @@ function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic
         )}
 
         <div className="flex flex-col items-center gap-3">
-          <div className="inline-flex bg-[#1A2332] border border-line-subtle rounded-full p-1 shadow-inner">
+          <div className="inline-flex bg-surface-raised border border-line-subtle rounded-full p-1">
             <button
               type="button"
               onClick={() => setBillingInterval('monthly')}
@@ -480,12 +480,12 @@ function MobileProCard({
     billingInterval === 'yearly' ? `Billed $${PRO_YEARLY_TOTAL}/year · Save $${ANNUAL_SAVINGS}` : undefined
 
   return (
-    <div className="rounded-2xl border border-[#00D9FF]/50 bg-gradient-to-br from-[#00D9FF]/15 via-[#0A0E1A] to-[#141B2D] p-5 relative overflow-hidden shadow-2xl">
+    <div className="rounded-2xl border border-[#00D9FF]/50 bg-gradient-to-br from-[#00D9FF]/15 via-surface-raised to-surface-raised p-5 relative overflow-hidden shadow-lg">
       <div className="absolute top-0 right-0 bg-gradient-to-l from-white/10 to-transparent w-full h-full opacity-50 pointer-events-none" />
 
       <div className="flex items-start justify-between relative z-10 mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#0A0E1A] border border-line-default flex items-center justify-center shadow-lg">
+          <div className="w-11 h-11 rounded-xl bg-surface-base border border-line-default flex items-center justify-center shadow-lg">
             <Crown className="w-5 h-5 text-[#00D9FF]" />
           </div>
           <div>
@@ -555,9 +555,9 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
           <motion.div className="text-center mb-10" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-center justify-center gap-3 mb-8">
               <div className="w-9 h-9 rounded-xl bg-surface-raised border border-cyan-500/20 overflow-hidden">
-                <Image src="/logo.png" alt="QuantTrade" width={36} height={36} className="object-contain" />
+                <Image src="/logo.png" alt="QuantTrade" width={36} height={36} className="brand-logo object-contain scale-150" />
               </div>
-              <span className="text-xl font-black bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+              <span className="text-xl font-black text-fg-primary">
                 QuantTrade AI
               </span>
             </div>

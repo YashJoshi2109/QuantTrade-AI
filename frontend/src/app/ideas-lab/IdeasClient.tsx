@@ -167,19 +167,22 @@ function BasketLoader({ progress: externalProgress }: { progress?: number }) {
 
 function SkeletonCard() {
   return (
-    <div className="bg-surface-raised border border-line-subtle/50 rounded-2xl p-5 animate-pulse">
+    // Placeholder blocks use surface-hover: the previous surface-raised blocks
+    // sat on a surface-raised card and were invisible.
+    <div className="bg-surface-raised border border-line-subtle/50 rounded-2xl p-5 animate-pulse" aria-hidden>
       <div className="flex items-center gap-3 mb-4">
-        <div className="h-7 w-16 bg-surface-raised rounded-full" />
-        <div className="h-4 w-24 bg-surface-raised rounded" />
-        <div className="ml-auto h-8 w-14 bg-surface-raised rounded-lg" />
+        <div className="h-5 w-16 bg-surface-hover rounded-full" />
+        <div className="h-4 w-24 bg-surface-hover rounded" />
+        <div className="ml-auto h-12 w-12 bg-surface-hover rounded-full" />
       </div>
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="h-12 bg-surface-hover rounded-xl" />
-        <div className="h-12 bg-surface-hover rounded-xl" />
-        <div className="h-12 bg-surface-hover rounded-xl" />
+      <div className="keep-cols grid grid-cols-4 gap-2 mb-4">
+        <div className="h-10 bg-surface-hover rounded-lg" />
+        <div className="h-10 bg-surface-hover rounded-lg" />
+        <div className="h-10 bg-surface-hover rounded-lg" />
+        <div className="h-10 bg-surface-hover rounded-lg" />
       </div>
-      <div className="h-3 w-full bg-surface-raised rounded mb-2" />
-      <div className="h-3 w-2/3 bg-surface-raised rounded" />
+      <div className="h-2 w-full bg-surface-hover rounded-full mb-3" />
+      <div className="h-9 w-full bg-surface-hover rounded-xl" />
     </div>
   )
 }
@@ -312,7 +315,7 @@ function IdeaCard({ idea, index }: { idea: TradeIdea; index: number }) {
           </div>
 
           {/* Price levels */}
-          <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="keep-cols grid grid-cols-3 gap-2 mb-4">
             <div className="bg-surface-raised/30 rounded-xl px-3 py-2 text-center">
               <div className="text-[9px] text-fg-muted uppercase tracking-wider mb-0.5">Entry</div>
               <div className="text-sm font-black text-fg-primary font-mono">
@@ -657,8 +660,15 @@ function BasketCard({
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${categoryColors[index.category] || 'bg-surface-raised border-line-default text-fg-muted'}`}>
                 {index.category}
               </span>
-              <span className={`text-[10px] font-bold ${riskColors[index.risk_profile] || 'text-fg-muted'}`}>
-                {index.risk_profile} Risk
+              {/* risk_profile is the basket's design target; the "Measured
+                  risk" stat below is computed from the current holdings, so
+                  the two can differ. Label both so they don't read as a
+                  contradiction. */}
+              <span
+                className={`text-[10px] font-bold ${riskColors[index.risk_profile] || 'text-fg-muted'}`}
+                title="The risk level this basket is designed for"
+              >
+                Target: {index.risk_profile} risk
               </span>
             </div>
             <h3 className="text-base font-black text-fg-primary">{index.short_name}</h3>
@@ -672,16 +682,16 @@ function BasketCard({
 
         {/* Quick stats when data available */}
         {hasData && (
-          <div className="grid grid-cols-4 gap-2 mb-3">
+          <div className="keep-cols grid grid-cols-4 gap-2 mb-3">
             {[
-              { label: 'Holdings', value: snapshot!.num_holdings, color: 'text-fg-primary' },
-              { label: 'Avg Score', value: `${snapshot!.avg_ai_score?.toFixed(0)}`, color: 'text-cyan-400' },
-              { label: 'Beta', value: snapshot!.portfolio_beta?.toFixed(2), color: 'text-blue-400' },
-              { label: 'Risk', value: snapshot!.risk_level, color: riskColors[snapshot!.risk_level || ''] || 'text-fg-muted' },
+              { label: 'Holdings', value: snapshot!.num_holdings ?? '—', color: 'text-fg-primary', title: undefined },
+              { label: 'Avg score', value: snapshot!.avg_ai_score != null ? snapshot!.avg_ai_score.toFixed(0) : '—', color: 'text-fg-primary', title: 'Average model score of the holdings, 0–100' },
+              { label: 'Beta', value: snapshot!.portfolio_beta != null ? snapshot!.portfolio_beta.toFixed(2) : '—', color: 'text-fg-primary', title: 'Weighted beta vs the S&P 500' },
+              { label: 'Measured risk', value: snapshot!.risk_level || '—', color: riskColors[snapshot!.risk_level || ''] || 'text-fg-muted', title: "Computed from the current holdings' risk scores" },
             ].map(s => (
-              <div key={s.label} className="bg-surface-raised/30 rounded-lg px-2 py-1.5 text-center">
-                <div className="text-[8px] text-fg-muted uppercase">{s.label}</div>
-                <div className={`text-xs font-black font-mono ${s.color}`}>{s.value}</div>
+              <div key={s.label} className="bg-surface-hover/40 rounded-lg px-1.5 py-1.5 text-center min-w-0" title={s.title}>
+                <div className="text-[9px] text-fg-muted uppercase tracking-wide truncate">{s.label}</div>
+                <div className={`text-xs font-bold font-mono tabular-nums ${s.color}`}>{s.value}</div>
               </div>
             ))}
           </div>
@@ -971,7 +981,7 @@ function DesktopIdeasLab() {
                     <LiveIndicator status={connectionStatus} sources={dataSources} />
                   </div>
                   <p className="text-[11px] text-fg-muted mt-0.5">
-                    Real-time AI stock baskets & trade setups
+                    AI stock baskets and trade setups for research
                   </p>
                 </div>
               </div>
@@ -1454,7 +1464,7 @@ function MobileIdeasLab() {
             </div>
 
             {/* Quick stats */}
-            <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="keep-cols grid grid-cols-3 gap-2 mb-4">
               <div className="bg-surface-raised/80 dark:bg-[#0F1629]/80 border border-line-subtle/50 rounded-xl px-3 py-2 text-center">
                 <div className="text-[9px] text-fg-muted uppercase">Ideas</div>
                 <div className="text-base font-black text-fg-primary font-mono">{ideas.length}</div>

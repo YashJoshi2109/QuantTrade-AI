@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { BellRing, Loader2, LogIn, Mail, Pause, Play, Plus, Repeat, Trash2 } from 'lucide-react'
+import { BellRing, Mail, Pause, Play, Plus, Repeat, Trash2 } from 'lucide-react'
 import TickerLogo from '@/components/TickerLogo'
 import { STATUS_STYLE, describeAlert, distanceToLevel, earningsCountdown } from '@/lib/alerts'
-import { AlertForm, FILTERS, Overlay, SuggestedAlerts, relTime, useAlertsController } from './AlertsParts'
+import { AlertForm, AlertsListSkeleton, FILTERS, Overlay, SuggestedAlerts, relTime, useAlertsController } from './AlertsParts'
+import SignInPrompt from '@/components/ui/SignInPrompt'
 
 export default function AlertsMobile() {
   const c = useAlertsController()
@@ -33,16 +34,15 @@ export default function AlertsMobile() {
       </p>
 
       {c.authLoading || (c.isAuthenticated && c.loading) ? (
-        <div className="flex h-40 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-fg-muted" /></div>
+        <AlertsListSkeleton rows={4} compact />
       ) : !c.isAuthenticated ? (
         <>
-          <div className="rounded-2xl border border-line-subtle bg-surface-raised p-6 text-center">
-            <LogIn className="mx-auto mb-3 h-8 w-8 text-fg-muted" />
-            <p className="text-sm font-semibold text-fg-primary">Sign in to set price alerts</p>
-            <Link href="/auth" className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-[#fff]">
-              <LogIn className="h-4 w-4" /> Sign in
-            </Link>
-          </div>
+          <SignInPrompt
+            compact
+            icon={BellRing}
+            title="Sign in to set price alerts"
+            description="Alerts are tied to your account and delivered to your notifications."
+          />
           <SuggestedAlerts variant="mobile" signedIn={false} alerts={[]} prominent />
         </>
       ) : c.alerts.length === 0 ? (
