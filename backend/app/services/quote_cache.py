@@ -43,6 +43,12 @@ def _canonical_or_none(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Cached payload in the canonical contract, or None when it cannot be."""
     if data.get('quote_version') == QUOTE_VERSION:
         return data
+    if data.get('quote_version') is not None:
+        # A row from an older contract version is a miss. Re-canonicalising
+        # it looked like a regular quote (it already was one), kept the old
+        # fields and re-stamped it current: after the v3 bump NVDA kept its
+        # overnight volume (1.9M vs 366.6M) from v2 rows.
+        return None
     c = canonicalize(data)
     if not c or c.get('unavailable') or c.get('needs_regular') or not c.get('price'):
         return None
