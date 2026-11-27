@@ -164,9 +164,147 @@ export const alertsApi = {
   update: (id: number, body: Partial<Pick<PriceAlert, 'threshold' | 'repeat' | 'notify_email' | 'note'>> & { status?: 'active' | 'paused' }) =>
     req<PriceAlert>(`/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   remove: (id: number) => req<void>(`/${id}`, { method: 'DELETE' }),
+  suggestions: (limit = 12) => req<SuggestionsResponse>(`/suggestions?limit=${limit}`),
+}
+
+// ── Suggested alerts (GET /api/v1/alerts/suggestions) ─────────────────────────
+
+export type SuggestionSource =
+  | 'portfolio'
+  | 'watchlist'
+  | 'near_52w_high'
+  | 'near_52w_low'
+  | 'top_mover'
+  | 'upcoming_earnings'
+
+export interface AlertSuggestion {
+  /** Stable "SYMBOL:condition:threshold"; used for dismissal. */
+  id: string
+  symbol: string
+  name: string | null
+  condition: AlertCondition
+  condition_label: string
+  threshold: number
+  /** Human reason, e.g. "AAPL is 1.2% below its 52-week high of $X". */
+  reason: string
+  source: SuggestionSource
+  /** Short headline, e.g. "Stop-loss", "Breakout". */
+  label: string
+  current_price: number | null
+  change_percent: number | null
+  repeat: boolean
+  note: string | null
+  score: number
+}
+
+export interface SuggestionsResponse {
+  suggestions: AlertSuggestion[]
+  signed_in: boolean
+  personalized: boolean
+  as_of: string
+}
+
+export const SOURCE_META: Record<SuggestionSource, { label: string; cls: string }> = {
+  portfolio: { label: 'Your portfolio', cls: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/25' },
+  watchlist: { label: 'Watchlist', cls: 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/25' },
+  near_52w_high: { label: 'Near 52w high', cls: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25' },
+  near_52w_low: { label: 'Near 52w low', cls: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/25' },
+  top_mover: { label: 'Top mover', cls: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25' },
+  upcoming_earnings: { label: 'Earnings soon', cls: 'bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/25' },
+}
+
+export function suggestionToInput(s: AlertSuggestion): AlertInput {
+  return {
+    symbol: s.symbol,
+    condition: s.condition,
+    threshold: s.threshold,
+    repeat: s.repeat,
+    notify_email: false,
+    note: s.note || undefined,
+  }
+}
+
+/** Dismissed suggestion ids -> dismissed-at (ms). Per browser; a dismissal lasts a week. */
+export const DISMISS_KEY = 'qt:alert-suggestions:dismissed'
+export const DISMISS_TTL_MS = 7 * 24 * 3600 * 1000
+
+export function pruneDismissed(map: Record<string, number>, now: number): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const [k, t] of Object.entries(map || {})) {
+    if (typeof t === 'number' && now - t < DISMISS_TTL_MS) out[k] = t
+  }
+  return out
+}
+
+export function readDismissed(now = Date.now()): Record<string, number> {
+  try {
+    const raw = window.localStorage.getItem(DISMISS_KEY)
+    return pruneDismissed(raw ? (JSON.parse(raw) as Record<string, number>) : {}, now)
+  } catch {
+    return {}
+  }
+}
+
+export function writeDismissed(map: Record<string, number>): void {
+  try {
+    window.localStorage.setItem(DISMISS_KEY, JSON.stringify(map))
+  } catch {
+    /* private mode / blocked storage: dismissal lasts for this page view only */
+  }
+}
+
+/** Suggestions still worth showing: not dismissed, not just added, not already an alert. */
+export function visibleSuggestions(
+  list: AlertSuggestion[],
+  hidden: Record<string, unknown>,
+  alerts: Pick<PriceAlert, 'symbol' | 'condition' | 'status'>[] = [],
+): AlertSuggestion[] {
+  const have = new Set(alerts.filter((a) => a.status !== 'triggered').map((a) => `${a.symbol}:${a.condition}`))
+  return list.filter((s) => !(s.id in hidden) && !have.has(`${s.symbol}:${s.condition}`))
 }
 
 const KEY = ['price-alerts'] as const
+const SUGGEST_KEY = ['price-alert-suggestions'] as const
+
+export function useAlertSuggestions(signedIn: boolean, enabled = true) {
+  return useQuery({
+    queryKey: [...SUGGEST_KEY, signedIn],
+    queryFn: () => alertsApi.suggestions(12),
+    enabled,
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+    retry: 1,
+  })
+}
+
+/** One-click add with an optimistic row in the alerts list (rolled back on error). */
+export function useAddSuggestion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (s: AlertSuggestion) => alertsApi.create(suggestionToInput(s)),
+    onMutate: async (s) => {
+      await qc.cancelQueries({ queryKey: KEY })
+      const prev = qc.getQueryData<{ alerts: PriceAlert[]; limit: number }>(KEY)
+      if (prev) {
+        const temp: PriceAlert = {
+          id: -Date.now(), symbol: s.symbol, name: s.name, condition: s.condition, condition_label: s.condition_label,
+          threshold: s.threshold, status: 'active', repeat: s.repeat, armed: true, notify_email: false, note: s.note,
+          trigger_count: 0, last_triggered_at: null, last_triggered_value: null, last_checked_at: null, last_value: null,
+          last_event_key: null, current_price: s.current_price, change_percent: s.change_percent, created_at: new Date().toISOString(),
+        }
+        qc.setQueryData(KEY, { ...prev, alerts: [temp, ...prev.alerts] })
+      }
+      return { prev }
+    },
+    onError: (_e, _s, ctx) => {
+      if (ctx?.prev) qc.setQueryData(KEY, ctx.prev)
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: KEY })
+      qc.invalidateQueries({ queryKey: SUGGEST_KEY })
+    },
+  })
+}
 
 export function useAlerts(enabled: boolean) {
   return useQuery({ queryKey: KEY, queryFn: alertsApi.list, enabled, refetchInterval: 60_000, staleTime: 20_000 })
