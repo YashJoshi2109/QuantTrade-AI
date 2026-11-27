@@ -463,11 +463,12 @@ class QuoteCacheService:
             # it did not say what the regular close was: take the regular
             # session from Yahoo and keep Public's print as `extended`. (The
             # old code spliced Yahoo's change onto Public's overnight price.)
-            yahoo = await self._fetch_from_yahoo_direct(symbol)
-            if yahoo and yahoo.get('price'):
-                merged = attach_extended(yahoo, public)
-                if merged and not merged.get('needs_regular'):
-                    return merged
+            for regular_src in (self._fetch_from_yahoo_direct, self._fetch_from_alpaca):
+                reg = await regular_src(symbol)
+                if reg and reg.get('price'):
+                    merged = attach_extended(reg, public)
+                    if merged and not merged.get('needs_regular'):
+                        return merged
             if quote and quote.get('regular'):
                 return quote  # regular price known, baseline unknown: change 0
 
@@ -479,6 +480,11 @@ class QuoteCacheService:
 
         # 2. Yahoo Finance direct API
         quote = await self._fetch_from_yahoo_direct(symbol)
+        if quote and quote.get('price') and quote.get('price') > 0:
+            return quote
+
+        # 2b. Alpaca (official keyed API: IEX live trade + SIP daily bars)
+        quote = await self._fetch_from_alpaca(symbol)
         if quote and quote.get('price') and quote.get('price') > 0:
             return quote
 

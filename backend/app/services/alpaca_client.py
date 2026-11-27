@@ -71,6 +71,41 @@ def _get_trading_client():
         return None
 
 
+ALPACA_DATA_URL = "https://data.alpaca.markets"
+
+
+def _data_get(path: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """GET on Alpaca's market-data REST API (no SDK needed). None on failure."""
+    if not settings.ALPACA_API_KEY or not settings.ALPACA_SECRET_KEY:
+        return None
+    try:
+        import httpx
+
+        r = httpx.get(ALPACA_DATA_URL + path, params=params, timeout=8.0, headers={
+            "APCA-API-KEY-ID": settings.ALPACA_API_KEY,
+            "APCA-API-SECRET-KEY": settings.ALPACA_SECRET_KEY,
+        })
+        if r.status_code != 200:
+            logger.debug("Alpaca %s -> HTTP %s", path, r.status_code)
+            return None
+        return r.json()
+    except Exception as e:
+        logger.debug(f"Alpaca {path} failed: {e}")
+        return None
+
+
+def _latest_iex_trade(symbol: str) -> Optional[Dict[str, Any]]:
+    body = _data_get(f"/v2/stocks/{symbol}/trades/latest", {"feed": "iex"})
+    t = (body or {}).get("trade") or {}
+    try:
+        price = float(t["p"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if price <= 0 or not t.get("t"):
+        return None
+    return {"price": price, "time": str(t["t"]).replace("Z", "+00:00")}
+
+
 class AlpacaClient:
     """Alpaca Markets data client for historical bars and quotes."""
 
@@ -194,54 +229,93 @@ class AlpacaClient:
         return df
 
     def get_quote(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Quote in the provider-payload shape app.services.canonical_quote reads.
+
+        The free (paper) data plan gives real-time trades from IEX only
+        (~2-3% of volume) and consolidated SIP history older than 15 minutes.
+        So: the live price is the latest IEX trade, *with its timestamp* (an
+        after-hours IEX trade must land in `extended`, not the headline), and
+        the regular session's close / previous close / volume / range come
+        from SIP daily bars, i.e. the official consolidated figures. The old
+        version used the IEX snapshot's daily bar (IEX-only volume, IEX close)
+        and no trade time.
         """
-        Fetch latest quote/snapshot from Alpaca.
-        Returns standardized quote dict or None.
-        """
-        client = _get_stock_client()
-        if client is None:
+        sym = symbol.upper()
+        bars = self.get_daily_bars_sip([sym]).get(sym) or []
+        trade = _latest_iex_trade(sym)
+        if not bars and not trade:
             return None
 
-        try:
-            from alpaca.data.requests import StockLatestQuoteRequest, StockSnapshotRequest
+        from app.services import market_calendar as mc
 
-            # Use snapshot for richer data (OHLCV + quote)
-            snapshot = client.get_stock_snapshot(
-                StockSnapshotRequest(symbol_or_symbols=symbol.upper())
-            )
+        payload: Dict[str, Any] = {"symbol": sym, "data_source": "alpaca", "market_cap": None,
+                                   "timestamp": datetime.now(timezone.utc).isoformat()}
+        if trade:
+            payload["price"] = trade["price"]
+            payload["market_time"] = trade["time"]
+        else:
+            # Bars only: the last completed session's close is the price.
+            d, *_ = bars[-1]
+            payload["price"] = bars[-1][4]
+            payload["market_time"] = datetime.combine(d, mc.close_time(d), tzinfo=mc.ET).isoformat()
 
-            if not snapshot:
-                return None
+        from app.services.public_client import reference_session
 
-            snap = snapshot.get(symbol.upper()) if isinstance(snapshot, dict) else snapshot
-            if not snap:
-                return None
+        ref, session = reference_session(payload)
+        by_date = {b[0]: b for b in bars}
+        ref_bar = by_date.get(ref)
+        if session == mc.REGULAR:
+            # Live (or closing) regular-session print: its baseline is the
+            # previous session's close; today's partial SIP bar (15 min
+            # delayed) carries the consolidated volume / range so far.
+            if ref_bar:
+                payload["previous_close"] = ref_bar[4]
+            today = by_date.get(mc._to_et(datetime.fromisoformat(payload["market_time"])).date())
+            if today:
+                payload.update(open=today[1], high=today[2], low=today[3], volume=int(today[5]))
+        elif ref_bar:
+            # Extended-hours print: canonical_quote takes the regular close,
+            # the close before it and the session bar from these fields.
+            payload["reference_close_date"] = ref.isoformat()
+            payload["reference_close"] = ref_bar[4]
+            prior = by_date.get(mc.previous_trading_day(ref))
+            if prior:
+                payload["reference_prior_close"] = prior[4]
+            payload["reference_bar"] = {"open": ref_bar[1], "high": ref_bar[2],
+                                        "low": ref_bar[3], "volume": ref_bar[5]}
+        return payload
 
-            price = float(snap.latest_trade.price) if snap.latest_trade else 0
-            if price <= 0:
-                return None
+    def get_daily_bars_sip(self, symbols, days: int = 14) -> Dict[str, list]:
+        """Consolidated (SIP) daily bars per symbol: [(et_date, o, h, l, c, v)],
+        oldest first. Ends 16 minutes ago (the free plan's SIP delay)."""
+        if not settings.ALPACA_API_KEY or not settings.ALPACA_SECRET_KEY or not symbols:
+            return {}
+        from app.services import market_calendar as mc
 
-            prev_close = float(snap.previous_daily_bar.close) if snap.previous_daily_bar else price
-            change = price - prev_close
-            change_pct = (change / prev_close * 100) if prev_close else 0
-
-            return {
-                "symbol": symbol.upper(),
-                "price": round(price, 2),
-                "change": round(change, 2),
-                "change_percent": round(change_pct, 4),
-                "volume": int(snap.daily_bar.volume) if snap.daily_bar else 0,
-                "high": round(float(snap.daily_bar.high), 2) if snap.daily_bar else 0,
-                "low": round(float(snap.daily_bar.low), 2) if snap.daily_bar else 0,
-                "open": round(float(snap.daily_bar.open), 2) if snap.daily_bar else 0,
-                "previous_close": round(prev_close, 2),
-                "market_cap": None,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "data_source": "alpaca",
-            }
-        except Exception as e:
-            logger.debug(f"Alpaca quote failed for {symbol}: {e}")
-            return None
+        now = datetime.now(timezone.utc)
+        params = {
+            "symbols": ",".join(s.upper() for s in symbols),
+            "timeframe": "1Day",
+            "start": (now - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "end": (now - timedelta(minutes=16)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "feed": "sip",
+            "adjustment": "raw",
+            "limit": 10000,
+        }
+        body = _data_get("/v2/stocks/bars", params)
+        out: Dict[str, list] = {}
+        for sym, rows in ((body or {}).get("bars") or {}).items():
+            parsed = []
+            for r in rows or []:
+                try:
+                    ts = datetime.fromisoformat(str(r["t"]).replace("Z", "+00:00"))
+                    parsed.append((mc._to_et(ts).date(), float(r["o"]), float(r["h"]),
+                                   float(r["l"]), float(r["c"]), float(r["v"])))
+                except (KeyError, TypeError, ValueError):
+                    continue
+            if parsed:
+                out[sym.upper()] = sorted(parsed)
+        return out
 
     def get_intraday_bars(
         self,

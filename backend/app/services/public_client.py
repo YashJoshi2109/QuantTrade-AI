@@ -204,8 +204,10 @@ def _fetch_previous_closes(symbols, ref_dates: Optional[Dict[str, Any]] = None) 
             group_by="ticker", auto_adjust=False, threads=False, timeout=10,
         )
         if data is None or data.empty:
-            return out
-        for sym in missing:
+            missing_from_yf = missing
+        else:
+            missing_from_yf = []
+        for sym in ([] if missing_from_yf else missing):
             try:
                 frame = data[sym] if isinstance(data.columns, pd.MultiIndex) else data
                 closes = frame["Close"].dropna()
@@ -246,7 +248,39 @@ def _fetch_previous_closes(symbols, ref_dates: Optional[Dict[str, Any]] = None) 
                 continue
     except Exception as e:
         logger.debug(f"previous-close lookup failed: {e}")
+    still = [s for s in missing if s not in out]
+    if still:
+        _fill_from_alpaca(still, ref_dates, today, out)
     return out
+
+
+def _fill_from_alpaca(symbols, ref_dates, today, out: Dict[str, float]) -> None:
+    """Same reference figures from Alpaca's consolidated daily bars, for
+    symbols yfinance could not serve (Yahoo blocks / rate limits)."""
+    try:
+        from app.services import market_calendar as mc
+        from app.services.alpaca_client import alpaca_client
+
+        bars = alpaca_client.get_daily_bars_sip(symbols)
+    except Exception as e:
+        logger.debug(f"Alpaca previous-close fallback failed: {e}")
+        return
+    for sym in symbols:
+        rows = bars.get(sym.upper()) or []
+        ref = ref_dates.get(sym)
+        rows = [r for r in rows if (r[0] <= ref if ref is not None else r[0] < today)]
+        if not rows or (ref is not None and rows[-1][0] != ref):
+            continue
+        d, o, h, l, c, v = rows[-1]
+        if c <= 0:
+            continue
+        out[sym] = c
+        key = (sym, ref if ref is not None else today)
+        _prev_close_cache[key] = c
+        if ref is not None:
+            _ref_bar_cache[key] = {k: x for k, x in (("volume", v), ("open", o), ("high", h), ("low", l)) if x > 0}
+            if len(rows) >= 2 and rows[-2][0] == mc.previous_trading_day(ref) and rows[-2][4] > 0:
+                _prior_close_cache[key] = rows[-2][4]
 
 
 def _apply_previous_close(quote: Dict[str, Any], prev_close: float) -> None:
