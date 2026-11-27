@@ -252,13 +252,6 @@ export function toneClass(v: number | null | undefined): string {
   return v > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
 }
 
-export function rsiClass(v: number | null | undefined): string {
-  if (v == null) return 'text-fg-secondary'
-  if (v <= 30) return 'text-emerald-600 dark:text-emerald-400'
-  if (v >= 70) return 'text-red-600 dark:text-red-400'
-  return 'text-fg-primary'
-}
-
 export const FLAG_TEXT: Record<string, string> = {
   negative_earnings: 'Loss-making: no P/E',
   negative_equity: 'Negative book equity: ROE and D/E not meaningful',
@@ -275,6 +268,14 @@ export const FLAG_TEXT: Record<string, string> = {
 
 // ── columns (desktop table headers; mobile uses the same labels and sort keys) ──
 
+/**
+ * The snapshot takes dividend_yield from the fundamentals provider without
+ * re-deriving it (backend/app/services/screener_service.py): yfinance reports
+ * trailingAnnualDividendYield (TTM), Finviz its "Dividend %" (indicated annual).
+ */
+export const DIVIDEND_YIELD_DEFINITION =
+  'Annual dividend yield as reported by the fundamentals provider (trailing 12 months from Yahoo Finance, indicated annual from Finviz)'
+
 export type RowKey = keyof Pick<ScreenerRow,
   'price' | 'change_1d_pct' | 'change_1m_pct' | 'market_cap' | 'pe_ratio' | 'ps_ratio' | 'dividend_yield_pct' |
   'revenue_growth_yoy_pct' | 'profit_margin_pct' | 'roe_pct' | 'debt_to_equity' | 'rsi_14' |
@@ -287,14 +288,14 @@ export const METRIC_COLUMNS: MetricColumn[] = [
   { key: 'change_1d_pct', sort: 'change_1d', label: '1D', short: '1D', format: (r) => fmtPct(r.change_1d_pct, true, 2), tone: (r) => toneClass(r.change_1d_pct) },
   { key: 'change_1m_pct', sort: 'change_1m', label: '1M', short: '1M', format: (r) => fmtPct(r.change_1m_pct, true), tone: (r) => toneClass(r.change_1m_pct) },
   { key: 'market_cap', sort: 'market_cap', label: 'Mkt cap', short: 'Mkt cap', format: (r) => fmtMarketCap(r.market_cap) },
-  { key: 'pe_ratio', sort: 'pe', label: 'P/E', short: 'P/E', format: (r) => fmtRatio(r.pe_ratio) },
-  { key: 'ps_ratio', sort: 'ps', label: 'P/S', short: 'P/S', format: (r) => fmtRatio(r.ps_ratio) },
-  { key: 'dividend_yield_pct', sort: 'dividend_yield', label: 'Div yield', short: 'Yield', format: (r) => fmtPct(r.dividend_yield_pct, false, 2) },
+  { key: 'pe_ratio', sort: 'pe', label: 'P/E', short: 'P/E', format: (r) => fmtRatio(r.pe_ratio), title: 'Price / earnings, trailing twelve months' },
+  { key: 'ps_ratio', sort: 'ps', label: 'P/S', short: 'P/S', format: (r) => fmtRatio(r.ps_ratio), title: 'Price / sales, trailing twelve months' },
+  { key: 'dividend_yield_pct', sort: 'dividend_yield', label: 'Div yield', short: 'Yield', format: (r) => fmtPct(r.dividend_yield_pct, false, 2), title: DIVIDEND_YIELD_DEFINITION },
   { key: 'revenue_growth_yoy_pct', sort: 'revenue_growth', label: 'Rev growth', short: 'Rev YoY', format: (r) => fmtPct(r.revenue_growth_yoy_pct, true), tone: (r) => toneClass(r.revenue_growth_yoy_pct), title: 'Revenue growth, latest fiscal quarter year over year' },
   { key: 'profit_margin_pct', sort: 'profit_margin', label: 'Margin', short: 'Margin', format: (r) => fmtPct(r.profit_margin_pct), title: 'Net profit margin' },
   { key: 'roe_pct', sort: 'roe', label: 'ROE', short: 'ROE', format: (r) => fmtPct(r.roe_pct), title: 'Return on equity' },
   { key: 'debt_to_equity', sort: 'debt_to_equity', label: 'D/E', short: 'D/E', format: (r) => fmtRatio(r.debt_to_equity, 2), title: 'Debt to equity' },
-  { key: 'rsi_14', sort: 'rsi', label: 'RSI', short: 'RSI', format: (r) => fmtRatio(r.rsi_14, 0), tone: (r) => rsiClass(r.rsi_14), title: 'RSI(14), daily' },
+  { key: 'rsi_14', sort: 'rsi', label: 'RSI', short: 'RSI', format: (r) => fmtRatio(r.rsi_14, 0), title: 'RSI(14) from daily closes. 30 or lower is often read as oversold, 70+ as overbought' },
   { key: 'price_vs_sma50_pct', sort: 'vs_sma50', label: 'vs 50D', short: 'vs 50D', format: (r) => fmtPct(r.price_vs_sma50_pct, true), tone: (r) => toneClass(r.price_vs_sma50_pct), title: 'Price vs 50-day simple moving average' },
   { key: 'price_vs_sma200_pct', sort: 'vs_sma200', label: 'vs 200D', short: 'vs 200D', format: (r) => fmtPct(r.price_vs_sma200_pct, true), tone: (r) => toneClass(r.price_vs_sma200_pct), title: 'Price vs 200-day simple moving average' },
 ]
@@ -400,4 +401,124 @@ export function useScreenerMeta() {
 export function describePreset(p: ScreenerPreset): string {
   const s = parseScreenerParams(new URLSearchParams(p.params))
   return filterChips(s).map((c) => c.label).join(', ')
+}
+
+// ── presets (client copy of backend PRESETS) ─────────────────────────────────
+// The server applies a preset from its id (backend/app/services/screener_service.py
+// PRESETS); this copy lets the UI show the exact rule before any request.
+// screener.test.ts checks it against the backend file so the two cannot drift.
+
+export interface PresetDef { id: PresetId; label: string; description: string; params: Record<string, string> }
+
+export const PRESETS: readonly PresetDef[] = [
+  { id: 'value', label: 'Value', description: 'Low P/E and P/S with manageable debt.',
+    params: { pe_max: '15', ps_max: '3', de_max: '1.5', sort: 'pe', order: 'asc' } },
+  { id: 'growth', label: 'Growth', description: 'Revenue up 20%+ year over year.',
+    params: { rev_growth_min: '20', sort: 'revenue_growth', order: 'desc' } },
+  { id: 'dividend', label: 'Dividend', description: 'Yield of 3%+ from companies worth $2B or more.',
+    params: { div_yield_min: '3', mcap_min: '2', sort: 'dividend_yield', order: 'desc' } },
+  { id: 'quality', label: 'Quality', description: 'ROE 15%+, profit margin 15%+, debt/equity under 1.',
+    params: { roe_min: '15', margin_min: '15', de_max: '1', sort: 'roe', order: 'desc' } },
+  { id: 'oversold', label: 'Oversold (RSI<30)', description: 'RSI(14) at or below 30.',
+    params: { rsi_max: '30', sort: 'rsi', order: 'asc' } },
+  { id: 'momentum', label: 'Momentum', description: 'Above the 50- and 200-day averages and up 5%+ over a month.',
+    params: { sma50: 'above', sma200: 'above', chg1m_min: '5', sort: 'change_1m', order: 'desc' } },
+]
+export const PRESET_BY_ID = Object.fromEntries(PRESETS.map((p) => [p.id, p])) as Record<PresetId, PresetDef>
+
+/** The filters and sort a preset applies, as a screen without the preset id. */
+export function presetFilters(id: PresetId): ScreenerState {
+  const s = parseScreenerParams(new URLSearchParams(PRESET_BY_ID[id].params))
+  return { ...s, preset: undefined }
+}
+
+/** Human rule for a preset, e.g. "P/E ≤ 15x, P/S ≤ 3x, Debt / equity ≤ 1.5x · sorted by P/E, low to high". */
+export function presetRule(id: PresetId): string {
+  const s = presetFilters(id)
+  const rules = filterChips(s).map((c) => c.label).join(', ')
+  const sort = s.sort ? ` · sorted by ${SORT_LABELS[s.sort]}, ${s.order === 'asc' ? 'low to high' : 'high to low'}` : ''
+  return `${rules}${sort}`
+}
+
+/** What the server filters on: the preset's filters with explicit ones layered over them (server rule: explicit params win). */
+export function effectiveState(s: ScreenerState): ScreenerState {
+  if (!s.preset) return s
+  const base = presetFilters(s.preset)
+  return {
+    ...s,
+    ranges: { ...base.ranges, ...s.ranges },
+    sma: { ...base.sma, ...s.sma },
+    sectors: s.sectors.length ? s.sectors : base.sectors,
+    sort: s.sort ?? base.sort,
+    order: s.sort ? s.order : base.order,
+  }
+}
+
+/** Every criterion that narrows the screen, preset ones included. */
+export function activeCriteriaCount(s: ScreenerState): number {
+  return activeFilterCount(effectiveState(s))
+}
+
+export const NO_FILTERS_TEXT = 'No active filters · Select a preset or define your own criteria.'
+
+/** One-line description of the active screen for the results header. */
+export function describeScreen(s: ScreenerState): string {
+  const own = filterChips(s).map((c) => c.label)
+  if (!s.preset && !own.length) return NO_FILTERS_TEXT
+  const parts: string[] = []
+  if (s.preset) parts.push(`${PRESET_BY_ID[s.preset].label}: ${filterChips(presetFilters(s.preset)).map((c) => c.label).join(', ')}`)
+  if (own.length) parts.push(own.join(', '))
+  return parts.join(' · ')
+}
+
+// ── view tabs (column sets) ──────────────────────────────────────────────────
+
+export const VIEW_IDS = ['overview', 'valuation', 'growth', 'technicals', 'dividends'] as const
+export type ViewId = (typeof VIEW_IDS)[number]
+
+export const VIEWS: { id: ViewId; label: string; columns: RowKey[] }[] = [
+  { id: 'overview', label: 'Overview', columns: ['price', 'change_1d_pct', 'change_1m_pct', 'market_cap', 'pe_ratio', 'ps_ratio', 'dividend_yield_pct'] },
+  { id: 'valuation', label: 'Valuation', columns: ['price', 'market_cap', 'pe_ratio', 'ps_ratio', 'dividend_yield_pct', 'debt_to_equity'] },
+  { id: 'growth', label: 'Growth', columns: ['price', 'change_1m_pct', 'revenue_growth_yoy_pct', 'profit_margin_pct', 'roe_pct', 'market_cap'] },
+  { id: 'technicals', label: 'Technicals', columns: ['price', 'change_1d_pct', 'change_1m_pct', 'rsi_14', 'price_vs_sma50_pct', 'price_vs_sma200_pct'] },
+  { id: 'dividends', label: 'Dividends', columns: ['price', 'dividend_yield_pct', 'pe_ratio', 'profit_margin_pct', 'debt_to_equity', 'market_cap'] },
+]
+
+const COLUMN_BY_KEY = Object.fromEntries(METRIC_COLUMNS.map((c) => [c.key, c])) as Record<RowKey, MetricColumn>
+
+export function metricColumn(key: RowKey): MetricColumn {
+  return COLUMN_BY_KEY[key]
+}
+
+export function viewColumns(id: ViewId): MetricColumn[] {
+  return (VIEWS.find((v) => v.id === id) ?? VIEWS[0]).columns.map((k) => COLUMN_BY_KEY[k])
+}
+
+/** Mobile card second line: the view's metrics minus price and 1D (shown top right), at most `n`. */
+export function cardColumns(id: ViewId, n = 4): MetricColumn[] {
+  return viewColumns(id).filter((c) => c.key !== 'price' && c.key !== 'change_1d_pct').slice(0, n)
+}
+
+// ── missing values ───────────────────────────────────────────────────────────
+
+const OUTLIER_FLAG: Partial<Record<RowKey, string>> = {
+  pe_ratio: 'pe_outlier', ps_ratio: 'ps_outlier', dividend_yield_pct: 'dividend_yield_outlier',
+  revenue_growth_yoy_pct: 'revenue_growth_outlier', profit_margin_pct: 'margin_outlier', roe_pct: 'roe_outlier',
+  debt_to_equity: 'debt_to_equity_outlier', change_1d_pct: 'change_outlier', change_1m_pct: 'change_outlier',
+  market_cap: 'market_cap_outlier',
+}
+
+/** Why a cell shows "—" (tooltip text), or null when the value is present. */
+export function missingReason(r: ScreenerRow, key: RowKey): string | null {
+  const v = r[key]
+  if (v != null && Number.isFinite(v)) return null
+  if (key === 'pe_ratio' && r.flags.includes('negative_earnings')) return FLAG_TEXT.negative_earnings
+  if ((key === 'roe_pct' || key === 'debt_to_equity') && r.flags.includes('negative_equity')) return FLAG_TEXT.negative_equity
+  const flag = OUTLIER_FLAG[key]
+  if (flag && r.flags.includes(flag)) return FLAG_TEXT[flag]
+  if (key === 'rsi_14' || key === 'change_1m_pct') return 'Unavailable: not enough daily price history'
+  if (key === 'price_vs_sma50_pct') return 'Unavailable: fewer than 50 daily closes'
+  if (key === 'price_vs_sma200_pct') return 'Unavailable: fewer than 200 daily closes'
+  if (key === 'dividend_yield_pct') return 'Unavailable: no dividend yield reported (the company may not pay one)'
+  return 'Unavailable from our data sources'
 }
