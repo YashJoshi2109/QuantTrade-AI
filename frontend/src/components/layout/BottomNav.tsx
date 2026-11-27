@@ -29,6 +29,7 @@ const MORE_PATHS = [
   '/portfolio',
   '/screener',
   '/earnings',
+  '/dividends',
   '/ideas-lab',
   '/community',
   '/backtest',

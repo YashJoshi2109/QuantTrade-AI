@@ -8,6 +8,7 @@ import {
   Briefcase,
   CalendarDays,
   ChevronRight,
+  Coins,
   DollarSign,
   FileText,
   Filter,
@@ -191,6 +192,12 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
               title="Earnings Calendar"
               description="Upcoming reports, EPS and revenue vs. estimates."
               href="/earnings"
+            />
+            <MenuItem
+              icon={<Coins className="w-4 h-4 text-emerald-500" />}
+              title="Dividends"
+              description="Ex-dividend calendar and your projected dividend income."
+              href="/dividends"
             />
             <MenuItem
               icon={<MessageCircle className="w-4 h-4 text-cyan-400" />}
