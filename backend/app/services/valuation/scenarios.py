@@ -40,6 +40,22 @@ SHOCKS = {
     "capex_change": "change in annual capex vs the latest FY, e.g. 0.20 = +20%",
     "rate_shock": "parallel interest-rate shift as a fraction, e.g. 0.01 = +100bp",
 }
+# Documented default sizes, used only when a shock is requested without a size
+# (or when no shock is given at all). Every use is reported as an ASSUMPTION.
+DEFAULT_SHOCK_SIZES: Dict[str, tuple] = {
+    "reporting_currency_appreciation": (0.10, "USD +10% vs all currencies: about a 1.5-2 sd annual move of the "
+                                              "trade-weighted dollar index"),
+    "demand_decline": (0.05, "-5% unit volume: a mild cyclical slowdown"),
+    "cogs_inflation": (0.03, "+3% unit cost: roughly one year of above-trend input-cost inflation"),
+    "revenue_change": (-0.05, "-5% revenue not driven by volume (e.g. export restrictions on a product line)"),
+    "gross_margin_change": (-0.02, "-2pp gross margin: competitive price pressure"),
+    "rate_shock": (0.01, "+100bp parallel shift in rates"),
+    "tariff_rate": (0.10, "10% incremental tariff on the exposed share of COGS"),
+    "capex_change": (0.20, "+20% annual capex for capex_shock_years"),
+    "opex_change": (0.05, "+5% operating expenses"),
+}
+# Run when the caller names no shock at all.
+DEFAULT_SCENARIO_SET = ("reporting_currency_appreciation", "demand_decline", "cogs_inflation", "rate_shock")
 # Structural parameters: documented defaults, always listed as assumptions.
 STRUCTURAL_DEFAULTS = {
     "foreign_revenue_share": (None, "share of revenue outside the home country; from the 10-K/20-F XBRL "

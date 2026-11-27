@@ -55,6 +55,11 @@ DURATION_CONCEPTS: Dict[str, Tuple[str, Dict[str, List[str]]]] = {
         "us-gaap": ["InterestExpense", "InterestExpenseNonoperating", "InterestExpenseDebt",
                     "InterestAndDebtExpense"],
         "ifrs-full": ["InterestExpense", "FinanceCosts"]}),
+    # debt-only interest (cost of debt): InterestExpense / InterestExpenseNonoperating
+    # can include finance-lease interest, which is excluded when tagged separately
+    "interest_expense_debt": ("ccy", {"us-gaap": ["InterestExpenseDebt"]}),
+    "finance_lease_interest": ("ccy", {"us-gaap": ["FinanceLeaseInterestExpense"],
+                                       "ifrs-full": ["InterestExpenseOnLeaseLiabilities"]}),
     "d_and_a": ("ccy", {
         "us-gaap": ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization",
                     "DepreciationAmortizationAndAccretionNet", "Depreciation"],

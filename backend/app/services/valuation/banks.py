@@ -33,6 +33,39 @@ _LABEL = re.compile(r"(net interest income|\bNII\b|earnings[- ]at[- ]risk)", re.
 _MULT = {"billions": 1e9, "millions": 1e6, "thousands": 1e3}
 
 
+BANK_DEPOSITS_SHARE = 0.30     # deposits / total assets at or above this => deposit-funded bank
+
+
+def bank_profile(fin) -> Optional[Dict[str, Any]]:
+    """Evidence that the company is a deposit-taking bank (XBRL Deposits /
+    InterestExpenseDeposits), or None. Used to refuse FCFF-based valuation."""
+    y = fin.latest if getattr(fin, "years", None) else None
+    vals = {}
+    for k in ("deposits", "total_assets"):
+        d = (fin.balance or {}).get(k) or (y.datum(k) if y is not None else None)
+        vals[k] = d.value if d is not None else None
+    dep, assets = vals["deposits"], vals["total_assets"]
+    share = dep / assets if dep and assets else None
+    has_dep_interest = y is not None and y.get("interest_expense_deposits") is not None
+    if (share is not None and share >= BANK_DEPOSITS_SHARE) or (dep and has_dep_interest):
+        return {"deposits": dep, "total_assets": assets,
+                "deposits_to_assets_pct": pct(share) if share is not None else None,
+                "reports_interest_expense_on_deposits": has_dep_interest}
+    return None
+
+
+def fcff_not_applicable(ticker: str, tool: str, profile: Dict[str, Any]) -> str:
+    share = profile.get("deposits_to_assets_pct")
+    ev = f"deposits are {share}% of total assets" if share is not None else "it reports interest expense on deposits"
+    return (f"{tool} is not applicable to {ticker}: it is a bank ({ev}, SEC XBRL). An FCFF DCF treats debt as "
+            "financing and interest as a financing cost, but for a bank deposits and borrowings are operating "
+            "liabilities and interest expense is its cost of goods, so free cash flow to the firm, WACC and the "
+            "EV-to-equity bridge are not meaningful. Use valuation_rate_sensitivity (disclosed net interest income "
+            "sensitivity, cost of deposits, AFS/HTM securities) and an excess-return framing: equity value = book "
+            "equity + PV((ROE - cost of equity) x book equity), with the cost of equity from CAPM "
+            "(valuation_wacc reports it).")
+
+
 def _shock_header(line: str) -> List[int]:
     out = []
     for m in _SHOCK.finditer(line):

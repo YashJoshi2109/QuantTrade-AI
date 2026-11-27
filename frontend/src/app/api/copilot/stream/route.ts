@@ -3,12 +3,23 @@ import { NextRequest } from 'next/server'
 /**
  * SSE proxy to backend /api/v1/copilot/stream
  * Forwards auth token and streams back SSE events
+ *
+ * Deployment: production runs this route inside the self-hosted Next.js
+ * standalone Node server (docker `frontend` on EC2, behind nginx
+ * `location = /api/copilot/stream`, 600s read timeout, no buffering), which
+ * applies no route time limit; `maxDuration` only matters on Vercel. Deep
+ * copilot answers can take ~5 minutes (prefetch waves of up to 60s tools,
+ * up to 6 model rounds, a repair pass), so the route uses the Node.js runtime
+ * (Vercel honours maxDuration there; Edge ignores it) at 300s, the Vercel
+ * default ceiling on every plan. The backend sends a `heartbeat` SSE event
+ * after 15s of silence, so no proxy idle timeout cuts a long tool phase.
  */
 
 const API_URL = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || ''
 
-export const runtime = 'edge'
-export const maxDuration = 120
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 300
 
 export async function POST(request: NextRequest) {
   let body: Record<string, unknown>
@@ -42,6 +53,9 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify(body),
+      cache: 'no-store',
+      // client closed the tab / pressed stop -> stop the backend stream too
+      signal: request.signal,
     })
 
     if (!backendRes.ok) {

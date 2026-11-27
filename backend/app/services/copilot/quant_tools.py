@@ -25,6 +25,8 @@ from typing import Any, Dict, List, Literal, Optional
 from app.services.copilot.models import Fact
 
 QUANT_TOOL_TIMEOUT_S = 45.0
+# up to 10 names + SPY/QQQ + sector ETFs of history (fetched in parallel threads)
+PORTFOLIO_TOOL_TIMEOUT_S = 60.0
 
 _T = {"type": "string"}
 _BENCH = {"type": "string", "description": "ETF, default SPY"}

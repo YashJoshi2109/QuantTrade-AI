@@ -9,7 +9,10 @@ GET  /api/v1/copilot/ingest/status     admin: last SEC refresh status
 GET  /api/v1/copilot/health            Qdrant + pinned embedder config (no paid call)
 
 SSE events: intent, context, structured_data (legacy cards), tool, token,
-citation, error, done.  `done` carries per-stage latency, guard usage and —
+citation, error, done, heartbeat.  `heartbeat` ({"ts"}) is sent whenever the
+engine has been silent for COPILOT_SSE_HEARTBEAT_S (default 15s) so nginx /
+Cloudflare / the Next proxy never cut a deep answer during a long tool phase;
+clients ignore it.  `done` carries per-stage latency, guard usage and —
 when post-checks changed the streamed text — `final_text` to replace it.
 Deep (multi-part) questions also stream `plan` (planned computations and the
 tools discovered for each, re-sent after prefetch with statuses) and
@@ -22,8 +25,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime, timezone
-from typing import AsyncGenerator, List, Optional
+from typing import Any, AsyncGenerator, AsyncIterator, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -49,6 +53,55 @@ class CopilotStreamRequest(BaseModel):
 
 def _sse(event: str, data) -> str:
     return f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n"
+
+
+try:
+    HEARTBEAT_S = max(1.0, float(os.getenv("COPILOT_SSE_HEARTBEAT_S", "15")))
+except ValueError:
+    HEARTBEAT_S = 15.0
+_END = object()
+
+
+async def with_heartbeat(events: AsyncIterator[Tuple[str, Any]], interval: Optional[float] = None
+                         ) -> AsyncIterator[Tuple[str, Any]]:
+    """Yield the engine's events, plus ("heartbeat", {"ts"}) after every
+    ``interval`` seconds without one.  The engine runs in ONE background task
+    (its context, including the AI-guard context, is copied once at start); an
+    engine exception is re-raised here; closing this generator cancels the engine."""
+    interval = HEARTBEAT_S if interval is None else interval
+    q: asyncio.Queue = asyncio.Queue()
+
+    async def pump():
+        try:
+            async for ev in events:
+                await q.put(ev)
+        except asyncio.CancelledError:
+            raise
+        except BaseException as exc:  # noqa: BLE001 - re-raised in the consumer
+            await q.put(exc)
+        finally:
+            q.put_nowait(_END)
+
+    task = asyncio.create_task(pump())
+    try:
+        while True:
+            try:
+                item = await asyncio.wait_for(q.get(), timeout=interval)
+            except asyncio.TimeoutError:
+                yield "heartbeat", {"ts": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+                continue
+            if item is _END:
+                return
+            if isinstance(item, BaseException):
+                raise item
+            yield item
+    finally:
+        if not task.done():
+            task.cancel()
+            try:
+                await task
+            except BaseException:  # noqa: BLE001
+                pass
 
 
 def _persist_history(db: Session, user_id: int, conversation_id: str, request_id: str,
@@ -87,7 +140,7 @@ async def _stream(req: CopilotStreamRequest, db: Session, user: User,
                           conversation_id=req.conversation_id)
     answer, intent, symbol, conv_id = [], "text", None, req.conversation_id
     try:
-        async for name, data in engine.run(creq):
+        async for name, data in with_heartbeat(engine.run(creq)):
             if name == "intent":
                 intent, symbol = data.get("intent", "text"), data.get("symbol")
                 if symbol:

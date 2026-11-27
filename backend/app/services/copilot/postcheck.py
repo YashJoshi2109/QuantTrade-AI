@@ -19,14 +19,38 @@ from typing import Dict, List, Optional, Sequence
 from app.services.copilot.registry import FactRegistry, numbers_in_text
 
 CITE_RE = re.compile(r"\[((?:[a-z]+:[^\[\]\s,;]+)(?:\s*[,;]\s*[a-z]+:[^\[\]\s,;]+)*)\]")
+_MONTH = r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?"
+# Identifiers and labels: digits inside them are never claims.  Order matters:
+# whole identifiers (accession numbers, ids) are masked before the shorter
+# date / label patterns, so a date-shaped run INSIDE an accession number can
+# never be carved out and leave a stray fragment that looks like a figure.
+# Masked spans are filled with "_" (a word character), so a digit left next to
+# a masked span fails NUM_RE's boundaries instead of being read as a number.
+_ID_MASKS = [
+    re.compile(r"(?<![\w-])\d{10}-\d{2}-\d{6}(?![\w-])"),                    # SEC accession 0000950170-25-012345
+    re.compile(r"(?<![\w-])\d+(?:-\d+){2,}(?![\w-])"),                       # other hyphenated digit chains
+    re.compile(r"\bCIK\s*(?:#|no\.?|number)?\s*:?\s*\d{1,10}\b", re.I),     # CIK 0000789019
+    re.compile(r"\b(?:CUSIP|ISIN|SEDOL|FIGI|LEI)\s*(?:#|no\.?)?\s*:?\s*[0-9A-Z]{6,20}\b", re.I),
+    re.compile(r"\b[A-Z]{2}[0-9A-Z]{9}\d\b"),                                 # ISIN US5949181045
+    re.compile(r"\b(?=[0-9A-Z]{0,8}[A-Z])(?=[0-9A-Z]{0,8}\d)[0-9A-Z]{9}\b"),  # alphanumeric CUSIP 02079K305
+    re.compile(r"\b[a-z]{2,12}:[\w.\-]+(?::[\w.\-]+)+"),                     # bare fact ids val:dcf:MSFT:1a2b3c
+]
 _MASKS = [
-    re.compile(r"\d{4}-\d{2}-\d{2}(?:[T ][\d:.+Z-]+)?"),       # dates / timestamps
-    re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b"),                # times
-    re.compile(r"\b\d{1,2}-[A-Z]\b|\b10-[KQ]\b|\b8-K\b"),        # form names
-    re.compile(r"\b(?:Q[1-4]|FY|H[12])\s?'?\d{2,4}\b", re.I),   # period labels
-    re.compile(r"\bp\d{2}\b", re.I),                            # p10 / p90
+    re.compile(r"(?<![\w-])\d{4}-\d{2}-\d{2}(?:[T ][\d:.+Z-]+)?(?![\w-])"),  # dates / timestamps
+    re.compile(r"(?<![\w/])\d{1,2}/\d{1,2}/\d{2,4}(?![\w/])"),             # 6/30/2025
+    re.compile(rf"\b{_MONTH}\s+\d{{1,2}}(?:st|nd|rd|th)?,?\s+\d{{4}}\b", re.I),  # June 30, 2025
+    re.compile(rf"\b\d{{1,2}}\s+{_MONTH}\s+\d{{4}}\b", re.I),              # 30 June 2025
+    re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b"),                            # times
+    re.compile(r"\b\d{1,2}-[A-Z]\b|\b10-[KQ]\b|\b8-K\b"),                    # form names
+    re.compile(r"\b(?:Q[1-4]|FY|H[12])\s?'?\d{2,4}(?:/\d{2,4})?\b", re.I),  # period labels FY2025, Q3 2025
+    re.compile(r"\b[1-4]Q\s?'?\d{2,4}\b", re.I),                            # 3Q25
+    re.compile(r"\bfiscal(?:\s+year)?\s+'?\d{2,4}\b", re.I),                # fiscal 2025 / fiscal year 2025
+    re.compile(r"\bp\d{2}\b", re.I),                                        # p10 / p90
     re.compile(r"\bItem\s+\d+[A-Z]?\b", re.I),
 ]
+_TOKEN_LEAD = re.compile(r"^(?:[([{~≈<>+*\"'“‘]|[A-Z]{0,3}[$€£¥])+")
+_TOKEN_TAIL = re.compile(r"[)\]}.,;:!?*\"'”’]+$")
+_RANGE_PART = re.compile(r"^\$?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:%|x|×|[TBMK]|bn|mn|bps|pp)?$")
 NUM_RE = re.compile(
     r"(?<![\w.])(?P<neg>[-−])?(?P<cur>\$)?(?P<int>\d{1,3}(?:,\d{3})+|\d+)(?P<dec>\.\d+)?"
     r"(?:\s?(?P<unit>%|percent\b|pp\b|bps\b|x\b|×|trillion\b|billion\b|million\b|thousand\b|bn\b|mn\b|[TBMK]\b))?"
@@ -123,18 +147,49 @@ def _matches(n: float, decimals: int, unit: str, pool: Sequence[float], rel: flo
     return False
 
 
+def mask_identifiers(text: str) -> str:
+    """Same-length copy of ``text`` with citations blanked (spaces: a figure
+    right before ``[id]`` is still checked) and identifiers / dates / period
+    labels filled with "_" so no digit inside them is read as a figure."""
+    masked = CITE_RE.sub(lambda m: " " * len(m.group(0)), text)
+    for rx in _ID_MASKS + _MASKS:
+        masked = rx.sub(lambda m: "_" * len(m.group(0)), masked)
+    return masked
+
+
+def _inside_token(masked: str, start: int, end: int) -> bool:
+    """True when the figure at [start, end) is only part of a larger
+    whitespace-delimited token (``100/200``, ``A1-5``, ``x12.5y``): such a
+    token is an identifier or label, never a stand-alone claim."""
+    a = start
+    while a > 0 and not masked[a - 1].isspace():
+        a -= 1
+    b = end
+    while b < len(masked) and not masked[b].isspace():
+        b += 1
+    tok = _TOKEN_TAIL.sub("", _TOKEN_LEAD.sub("", masked[a:b]))
+    num = masked[start:end].strip()
+    if not tok or tok == num or tok.lstrip("$") == num.lstrip("$"):
+        return False
+    # a range of figures ("5-10%", "$5-$7", "1.2x–1.5x") is still a claim
+    parts = re.split(r"[-–—]", tok)
+    if len(parts) == 2 and all(_RANGE_PART.match(p) for p in parts) and re.search(r"[%xX$TBMK]|bn|mn|bps|pp", tok):
+        return False
+    return True
+
+
 def ground_numbers(text: str, registry: FactRegistry, question: str = "",
                    block_with: Optional[str] = None, strict: bool = False) -> tuple[str, int, List[str]]:
     """Mark (default) or, with ``block_with``, replace every figure that does not
     match a context / tool value."""
-    masked = CITE_RE.sub(lambda m: " " * len(m.group(0)), text)
-    for rx in _MASKS:
-        masked = rx.sub(lambda m: " " * len(m.group(0)), masked)
+    masked = mask_identifiers(text)
     pool = _value_pool(registry, derived=not strict) + [abs(v) for v in numbers_in_text(question)]
     rel = 0.001 if strict else 0.005
     checked = 0
     bad: List[tuple[int, int, str]] = []
     for m in NUM_RE.finditer(masked):
+        if _inside_token(masked, m.start(), m.end()):
+            continue                                    # part of an identifier / larger token
         raw_int = m.group("int").replace(",", "")
         dec = m.group("dec") or ""
         unit = m.group("unit") or ""

@@ -39,6 +39,12 @@ class ValuationFact(Fact):
     assumptions: List[Dict[str, Any]] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
     headline: Optional[str] = None
+    # base-year filing the computation is anchored on (SEC companyfacts "accn"),
+    # so the Sources list cites the real accession number
+    filing_type: Optional[str] = None
+    filed_date: Optional[str] = None
+    accession: Optional[str] = None
+    period: Optional[str] = None
 
     def label(self) -> str:
         return f"{self.ticker} {self.title}"
@@ -106,8 +112,12 @@ VALUATION_TOOL_SPECS: List[Dict[str, Any]] = [
     _spec("valuation_scenarios",
           "Scenario engine on the latest FY: FX via disclosed geographic revenue mix, tariffs/cost via COGS, "
           "demand, revenue, margin, opex, capex and rate shocks -> individual and combined EPS and DCF value "
-          "impacts. `shocks` = individual+combined; `scenarios` = named cases.",
+          "impacts. `shocks` = individual+combined; `scenarios` = named cases; `use_default_shocks` = shocks "
+          "named without a size (documented default sizes, reported as assumptions). With none of these, a "
+          "documented default set runs (USD +10%, demand -5%, COGS +3%, rates +100bp), labelled as assumptions.",
           {"shocks": _SHOCKS,
+           "use_default_shocks": {"type": "array", "items": {"type": "string", "enum": sorted(SC.SHOCKS)},
+                                  "description": "shock names to run at their documented default size"},
            "scenarios": {"type": "array", "maxItems": 5, "items": {"type": "object", "properties": {
                "name": {"type": "string"}, "rationale": {"type": "string"}, "shocks": _SHOCKS},
                "required": ["name", "shocks"]}},
@@ -126,6 +136,9 @@ VALUATION_TOOL_SPECS: List[Dict[str, Any]] = [
            "securities_duration_years": {"type": "number", "description": "as disclosed"}}),
 ]
 VALUATION_TOOL_NAMES = {t["name"] for t in VALUATION_TOOL_SPECS}
+# tools built on the FCFF DCF: refused for banks (see banks.fcff_not_applicable)
+FCFF_TOOLS = {"valuation_dcf", "valuation_reverse_dcf", "valuation_monte_carlo", "valuation_scenarios",
+              "valuation_bull_bear"}
 _SHORT = {"valuation_wacc": "wacc", "valuation_dcf": "dcf", "valuation_reverse_dcf": "rdcf",
           "valuation_monte_carlo": "mc", "valuation_scenarios": "scen", "valuation_bull_bear": "bbb",
           "valuation_rate_sensitivity": "rates"}
@@ -199,7 +212,7 @@ def _wacc_block(case: BaseCase) -> Dict[str, Any]:
     w = W.wacc_payload(case.wacc) if case.wacc.get("weight_equity") is not None else {
         "wacc_pct": pct(case.assumptions.wacc), "note": "WACC supplied by caller (no market value of equity)"}
     w["wacc_used_pct"] = pct(case.assumptions.wacc)
-    w["cost_of_debt"] = {k: (pct(v) if k in ("pre_tax", "spread") and isinstance(v, float) else
+    w["cost_of_debt"] = {k: (pct(v) if k in ("pre_tax", "spread", "implied_pre_tax") and isinstance(v, float) else
                              (r(v, 0) if isinstance(v, float) else v))
                          for k, v in (case.wacc.get("cost_of_debt_detail") or {}).items()}
     if case.market.beta is not None:
@@ -283,12 +296,17 @@ async def _run(name: str, data: ValuationData, pack, p: Dict[str, Any], args: Di
     t = pack.ticker
     quote = pack.quote
     title = _TITLE[name]
-    mk = lambda result, case=None, headline=None, assumptions=None, warnings=None, inputs=None: ValuationFact(
-        id="", source=ENGINE_SOURCE, as_of=(quote.session_date or quote.as_of) if quote else None, ticker=t,
-        tool=name, title=title, result=result,
-        inputs=inputs if inputs is not None else (case.inputs if case else {}),
-        assumptions=(case.log.to_list() if case else []) + (assumptions or []),
-        warnings=(case.warnings if case else []) + (warnings or []), headline=headline)
+    def mk(result, case=None, headline=None, assumptions=None, warnings=None, inputs=None, year=None):
+        y = year if year is not None else (case.base_year if case else None)
+        return ValuationFact(
+            id="", source=ENGINE_SOURCE, as_of=(quote.session_date or quote.as_of) if quote else None, ticker=t,
+            tool=name, title=title, result=result,
+            inputs=inputs if inputs is not None else (case.inputs if case else {}),
+            assumptions=(case.log.to_list() if case else []) + (assumptions or []),
+            warnings=(case.warnings if case else []) + (warnings or []), headline=headline,
+            filing_type=getattr(y, "form", None), filed_date=getattr(y, "filed", None),
+            accession=getattr(y, "accession", None),
+            period=(f"FY{y.fiscal_year} (ended {y.period_end})" if y is not None else None))
 
     if name == "valuation_rate_sensitivity":
         fin = await data.financials(t)
@@ -305,7 +323,12 @@ async def _run(name: str, data: ValuationData, pack, p: Dict[str, Any], args: Di
         if dn:
             head = (f"+{shock}bp: NII change {dn['up']['nii_change']} (EPS {dn['up']['eps_impact']}); "
                     f"-{shock}bp: NII change {dn['down']['nii_change']} (EPS {dn['down']['eps_impact']})")
-        return mk(res, headline=head, assumptions=res.pop("assumptions"), inputs={})
+        return mk(res, headline=head, assumptions=res.pop("assumptions"), inputs={}, year=fin.latest)
+
+    if name in FCFF_TOOLS:
+        prof = banks.bank_profile(await data.financials(t))
+        if prof is not None:
+            raise LookupError(banks.fcff_not_applicable(t, name, prof))
 
     case, s_px = await build_case(data, t, quote, p)
     meta = _base_meta(case)
@@ -314,7 +337,12 @@ async def _run(name: str, data: ValuationData, pack, p: Dict[str, Any], args: Di
     if name == "valuation_wacc":
         w = _wacc_block(case)
         res = {"meta": meta, "wacc": w}
-        return mk(res, case, headline=f"WACC {w['wacc_pct']}% (Ke {w.get('cost_of_equity_pct')}%, beta {w.get('beta_used')})")
+        bank_warn = None
+        if banks.bank_profile(case.fin) is not None:
+            bank_warn = [f"{t} is a bank: WACC (and the debt weight) is not meaningful for valuing it; use the "
+                         "cost of equity (CAPM) in an excess-return model instead"]
+        return mk(res, case, headline=f"WACC {w['wacc_pct']}% (Ke {w.get('cost_of_equity_pct')}%, beta {w.get('beta_used')})",
+                  warnings=bank_warn)
 
     if name == "valuation_dcf":
         d = D.run_dcf(case.revenue0, a, case.bridge, case.base_year.fiscal_year)
@@ -360,23 +388,40 @@ async def _run(name: str, data: ValuationData, pack, p: Dict[str, Any], args: Di
                          "growth sd 0.5pp, independent) unless overridden"}])
 
     if name == "valuation_scenarios":
-        shocks = args.get("shocks") or None
         named = args.get("scenarios") or None
-        if not shocks and not named:
-            raise ValueError("pass shocks and/or scenarios")
-        need_geo = any((sc or {}).get("reporting_currency_appreciation") for sc in
-                       [shocks or {}] + [s.get("shocks") or {} for s in (named or [])])
-        geo = (await data.geo_mix(t, case.fin)
-               if need_geo and (args.get("structure") or {}).get("foreign_revenue_share") is None else None)
         structure = args.get("structure") or {}
+        if not isinstance(structure, dict):
+            raise ValueError("structure must be an object")
         bad = set(structure) - set(SC.STRUCTURAL_DEFAULTS)
         if bad:
             raise ValueError(f"unknown structure keys {sorted(bad)}; allowed: {sorted(SC.STRUCTURAL_DEFAULTS)}")
+        shocks, defaulted, skipped = _resolve_shocks(args.get("shocks"), args.get("use_default_shocks"), named,
+                                                     structure)
+        need_geo = any((sc or {}).get("reporting_currency_appreciation") for sc in
+                       [shocks or {}] + [s.get("shocks") or {} for s in (named or [])])
+        geo = (await data.geo_mix(t, case.fin)
+               if need_geo and structure.get("foreign_revenue_share") is None else None)
+        if (shocks.get("reporting_currency_appreciation") and "reporting_currency_appreciation" in defaulted
+                and structure.get("foreign_revenue_share") is None and not (geo or {}).get("foreign_share")):
+            # a defaulted FX shock with no disclosed geographic mix is dropped, not failed
+            shocks.pop("reporting_currency_appreciation")
+            defaulted.pop("reporting_currency_appreciation")
+            skipped.append("reporting_currency_appreciation: no geographic revenue split in the latest annual XBRL "
+                           "filing, so the FX shock was not computed (pass structure.foreign_revenue_share)")
+        if not shocks and not named:
+            raise ValueError("no computable shock: " + "; ".join(skipped) if skipped else "pass shocks and/or scenarios")
         sp = {k: structure.get(k) for k in SC.STRUCTURAL_DEFAULTS}
-        res = SC.run_scenarios(case, shocks, named, sp, geo)
+        res = SC.run_scenarios(case, shocks or None, named, sp, geo)
         if geo:
             res["geographic_revenue_mix"] = geo
         extra_assumptions = res.pop("assumptions")
+        if defaulted:
+            res["default_shocks_applied"] = {k: v for k, (v, _) in defaulted.items()}
+            extra_assumptions = [{"name": f"shock_size:{k}", "value": v, "kind": "assumption",
+                                  "rationale": f"ASSUMPTION (documented default; the question gave no size): {why}"}
+                                 for k, (v, why) in defaulted.items()] + extra_assumptions
+        if skipped:
+            res["shocks_not_computed"] = skipped
         res = {"meta": meta, "wacc": _wacc_block(case), **res}
         head = None
         if res.get("combined"):
@@ -385,7 +430,7 @@ async def _run(name: str, data: ValuationData, pack, p: Dict[str, Any], args: Di
         elif res.get("scenarios"):
             head = "; ".join(f"{x['scenario']}: EPS {x['eps_change_pct']}%, DCF value {x['value_change_pct']}%"
                              for x in res["scenarios"])
-        return mk(res, case, headline=head, assumptions=extra_assumptions)
+        return mk(res, case, headline=head, assumptions=extra_assumptions, warnings=skipped or None)
 
     if name == "valuation_bull_bear":
         dd = SC.drawdown_periods(s_px) if s_px is not None else None
@@ -398,6 +443,43 @@ async def _run(name: str, data: ValuationData, pack, p: Dict[str, Any], args: Di
         return mk(res, case, headline=head)
 
     raise LookupError(f"unhandled tool {name}")
+
+
+def _resolve_shocks(raw_shocks: Any, use_default: Any, named: Any, structure: Dict[str, Any]
+                    ) -> Tuple[Dict[str, float], Dict[str, Tuple[float, str]], List[str]]:
+    """Explicit shocks + documented defaults for shocks named without a size;
+    the default scenario set when nothing at all is given. Returns
+    (shocks, {defaulted key: (size, rationale)}, [not computed: reason])."""
+    if raw_shocks is not None and not isinstance(raw_shocks, dict):
+        raise ValueError("shocks must be an object of fractions")
+    shocks: Dict[str, float] = {}
+    for k, v in (raw_shocks or {}).items():
+        if k not in SC.SHOCKS:
+            raise ValueError(f"unknown shock {k!r}; allowed: {sorted(SC.SHOCKS)}")
+        try:
+            shocks[k] = float(v)
+        except (TypeError, ValueError):
+            raise ValueError(f"shock {k} must be a number (fraction)") from None
+    want = list(use_default or [])
+    if not isinstance(want, list):
+        raise ValueError("use_default_shocks must be a list of shock names")
+    if not shocks and not named and not want:
+        want = list(SC.DEFAULT_SCENARIO_SET)
+    defaulted: Dict[str, Tuple[float, str]] = {}
+    skipped: List[str] = []
+    for k in want:
+        if k not in SC.DEFAULT_SHOCK_SIZES:
+            raise ValueError(f"unknown shock {k!r}; allowed: {sorted(SC.DEFAULT_SHOCK_SIZES)}")
+        if k in shocks:
+            continue
+        if k == "tariff_rate" and structure.get("tariff_exposed_cogs_share") is None:
+            skipped.append("tariff_rate: the share of COGS subject to the tariff is not disclosed in XBRL, so the "
+                           "tariff shock was not computed (pass structure.tariff_exposed_cogs_share)")
+            continue
+        size, why = SC.DEFAULT_SHOCK_SIZES[k]
+        shocks[k] = size
+        defaulted[k] = (size, why)
+    return shocks, defaulted, skipped
 
 
 def _pe_history(case: BaseCase, prices) -> List[Dict[str, Any]]:

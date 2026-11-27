@@ -916,7 +916,7 @@
       },
       "spec": {
         "name": "valuation_scenarios",
-        "description": "Scenario engine on the latest FY: FX via disclosed geographic revenue mix, tariffs/cost via COGS, demand, revenue, margin, opex, capex and rate shocks -> individual and combined EPS and DCF value impacts. `shocks` = individual+combined; `scenarios` = named cases.",
+        "description": "Scenario engine on the latest FY: FX via disclosed geographic revenue mix, tariffs/cost via COGS, demand, revenue, margin, opex, capex and rate shocks -> individual and combined EPS and DCF value impacts. `shocks` = individual+combined; `scenarios` = named cases; `use_default_shocks` = shocks named without a size (documented default sizes, reported as assumptions). With none of these, a documented default set runs (USD +10%, demand -5%, COGS +3%, rates +100bp), labelled as assumptions.",
         "input_schema": {
           "type": "object",
           "properties": {
@@ -927,6 +927,24 @@
             "shocks": {
               "type": "object",
               "description": "Shocks as fractions: reporting_currency_appreciation, demand_decline, revenue_change, tariff_rate, cogs_inflation, gross_margin_change, opex_change, capex_change, rate_shock (e.g. reporting_currency_appreciation 0.10 = USD +10%, rate_shock 0.01 = +100bp)."
+            },
+            "use_default_shocks": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "capex_change",
+                  "cogs_inflation",
+                  "demand_decline",
+                  "gross_margin_change",
+                  "opex_change",
+                  "rate_shock",
+                  "reporting_currency_appreciation",
+                  "revenue_change",
+                  "tariff_rate"
+                ]
+              },
+              "description": "shock names to run at their documented default size"
             },
             "scenarios": {
               "type": "array",
