@@ -13,6 +13,8 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
+from app.services.copilot.filings_rag.tools import (FILINGS_TOOL_NAMES, FILINGS_TOOL_SPECS,
+                                                    FILINGS_TOOL_TIMEOUTS)
 from app.services.copilot.models import Fact, TickerContextPack, compact_fact
 from app.services.copilot.registry import FactRegistry
 
@@ -57,7 +59,11 @@ TOOL_SPECS: List[Dict[str, Any]] = [
          "sector": {"type": "string"}, "min_market_cap": {"type": "number"}},
          "required": ["direction"], "additionalProperties": False}},
 ]
+# SEC filings RAG (verbatim excerpts + citations, section diffs, disclosures)
+TOOL_SPECS += FILINGS_TOOL_SPECS
 TOOL_NAMES = {t["name"] for t in TOOL_SPECS}
+# per-tool timeouts; filings tools may download + parse several 10-Ks on first use
+TOOL_TIMEOUTS: Dict[str, float] = {**FILINGS_TOOL_TIMEOUTS}
 
 
 def lc_tools() -> List[Dict[str, Any]]:
@@ -127,7 +133,8 @@ class ToolExecutor:
         if name not in TOOL_NAMES:
             return f"unknown tool {name}", [], True
         try:
-            facts, payload = await asyncio.wait_for(self._dispatch(name, args or {}), TOOL_TIMEOUT_S)
+            facts, payload = await asyncio.wait_for(self._dispatch(name, args or {}),
+                                                    TOOL_TIMEOUTS.get(name, TOOL_TIMEOUT_S))
         except asyncio.TimeoutError:
             return f"{name} timed out", [], True
         except LookupError as e:
@@ -150,6 +157,9 @@ class ToolExecutor:
             if f is None:
                 raise LookupError("market movers not available")
             return [f], compact_fact(f)
+        if name in FILINGS_TOOL_NAMES:
+            from app.services.copilot.filings_rag.tools import run_filings_tool
+            return await run_filings_tool(self, name, a)
         if name == "compare_tickers":
             packs = [await self._pack(t) for t in (a.get("tickers") or [])[:3]]
             missing = [t for t, p in zip(a.get("tickers") or [], packs) if p is None]
