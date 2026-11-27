@@ -24,8 +24,8 @@ import asyncio
 import math
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, case
+from sqlalchemy.orm import Session, joinedload, object_session
+from sqlalchemy import func, case, or_
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel, Field
@@ -37,6 +37,7 @@ from app.models.community import (
     ModerationReport, AuditLog,
 )
 from app.api.auth import get_current_user, require_auth
+from app.models.community_bot import BOT_SOURCE_PLATFORM, CommunityBotPost
 from app.services.reputation_service import reputation_service
 from app.services.moderation_service import moderation_service
 from app.services.redis_cache_service import cache_service
@@ -81,6 +82,7 @@ class AuthorInfo(BaseModel):
     username: str
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
+    is_bot: bool = False
 
     class Config:
         from_attributes = True
@@ -109,6 +111,10 @@ class PostResponse(BaseModel):
     source_url: Optional[str] = None
     source_platform: Optional[str] = None
     disclaimer: str = "This is community discussion, not financial advice. Always do your own research."
+    # Community bots: is_bot posts are automated; `bot` carries the structured
+    # payload (tables, chart, sources, as-of, labels) rendered by the UI.
+    is_bot: bool = False
+    bot: Optional[dict] = None
 
     class Config:
         from_attributes = True
@@ -128,19 +134,51 @@ class PaginatedPosts(BaseModel):
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-def _author_info(user: User) -> AuthorInfo:
+def _author_info(user: User, is_bot: bool = False) -> AuthorInfo:
     return AuthorInfo(
         id=user.id,
         username=user.username,
         full_name=user.full_name,
         avatar_url=user.avatar_url,
+        is_bot=is_bot,
     )
+
+
+def _is_bot_post(post: Post) -> bool:
+    return getattr(post, "source_platform", None) == BOT_SOURCE_PLATFORM
+
+
+def _bot_payload_map(db: Session, posts: List[Post]) -> dict:
+    """{post_id: payload} for the bot posts in a page (one query)."""
+    ids = [p.id for p in posts if _is_bot_post(p)]
+    if not ids:
+        return {}
+    try:
+        rows = db.query(CommunityBotPost.post_id, CommunityBotPost.payload).filter(
+            CommunityBotPost.post_id.in_(ids)).all()
+    except Exception as exc:  # table missing on an un-migrated DB: render as plain posts
+        logger.warning("community_bot_posts lookup failed: %s", exc)
+        db.rollback()
+        return {}
+    return {pid: payload for pid, payload in rows}
+
+
+def _exclude_bots(q, include_bots: bool):
+    if include_bots:
+        return q
+    return q.filter(or_(Post.source_platform.is_(None), Post.source_platform != BOT_SOURCE_PLATFORM))
 
 
 def _post_to_response(
     post: Post,
     user_vote: Optional[int] = None,
+    bot_payload: Optional[dict] = None,
 ) -> PostResponse:
+    is_bot = _is_bot_post(post)
+    if is_bot and bot_payload is None:
+        sess = object_session(post)
+        if sess is not None:
+            bot_payload = _bot_payload_map(sess, [post]).get(post.id)
     return PostResponse(
         id=post.id,
         title=post.title,
@@ -159,10 +197,13 @@ def _post_to_response(
         updated_at=post.updated_at,
         community_slug=post.community.slug if post.community else None,
         community_name=post.community.name if post.community else None,
-        author=_author_info(post.author) if post.author else None,
+        author=_author_info(post.author, is_bot=is_bot) if post.author else None,
         user_vote=user_vote,
         source_url=getattr(post, 'source_url', None),
         source_platform=getattr(post, 'source_platform', None),
+        disclaimer=(bot_payload or {}).get("disclaimer") or PostResponse.model_fields["disclaimer"].default,
+        is_bot=is_bot,
+        bot=bot_payload if is_bot else None,
     )
 
 
@@ -544,6 +585,7 @@ def community_posts(
     sort: str = Query("hot", pattern="^(hot|new|top)$"),
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    include_bots: bool = Query(True, description="false hides automated bot posts"),
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user),
 ):
@@ -557,6 +599,7 @@ def community_posts(
         .options(joinedload(Post.author), joinedload(Post.community))
         .filter(Post.community_id == community.id, Post.is_removed == False)
     )
+    q = _exclude_bots(q, include_bots)
 
     if cursor is not None:
         q = q.filter(Post.id < cursor)
@@ -574,8 +617,9 @@ def community_posts(
     if current_user and posts:
         votes_map = _bulk_user_votes(db, current_user.id, [p.id for p in posts])
 
+    bot_map = _bot_payload_map(db, posts)
     items = [
-        _post_to_response(p, user_vote=votes_map.get(p.id))
+        _post_to_response(p, user_vote=votes_map.get(p.id), bot_payload=bot_map.get(p.id))
         for p in posts
     ]
     next_cursor = posts[-1].id if len(posts) == limit else None
@@ -589,6 +633,7 @@ def user_feed(
     time: str = Query("all", pattern="^(day|week|month|year|all)$"),
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    include_bots: bool = Query(True, description="false hides automated bot posts"),
     db: Session = Depends(get_db),
     user: User = Depends(require_auth),
 ):
@@ -616,6 +661,7 @@ def user_feed(
             Post.is_removed == False,
         )
     )
+    q = _exclude_bots(q, include_bots)
 
     if cursor is not None:
         q = q.filter(Post.id < cursor)
@@ -625,8 +671,9 @@ def user_feed(
 
     votes_map = _bulk_user_votes(db, user.id, [p.id for p in posts]) if posts else {}
 
+    bot_map = _bot_payload_map(db, posts)
     items = [
-        _post_to_response(p, user_vote=votes_map.get(p.id))
+        _post_to_response(p, user_vote=votes_map.get(p.id), bot_payload=bot_map.get(p.id))
         for p in posts
     ]
     next_cursor = posts[-1].id if len(posts) == limit else None
@@ -640,6 +687,7 @@ async def popular_feed(
     time: str = Query("all", pattern="^(day|week|month|year|all)$"),
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    include_bots: bool = Query(True, description="false hides automated bot posts"),
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user),
 ):
@@ -649,7 +697,7 @@ async def popular_feed(
     Time filter (only for top): day, week, month, year, all.
     """
     # Cache the public (non-user-specific) feed data for 60 seconds
-    cache_key = f"qt:feed:popular:{sort}:{time}:{cursor}"
+    cache_key = f"qt:feed:popular:{sort}:{time}:{cursor}:{limit}:{'b' if include_bots else 'nb'}"
 
     def _compute_popular():
         q = (
@@ -657,11 +705,13 @@ async def popular_feed(
             .options(joinedload(Post.author), joinedload(Post.community))
             .filter(Post.is_removed == False)
         )
+        q = _exclude_bots(q, include_bots)
         if cursor is not None:
             q = q.filter(Post.id < cursor)
         q = _apply_feed_sort(q, sort, time)
         posts = q.limit(limit).all()
-        items = [_post_to_response(p) for p in posts]
+        bot_map = _bot_payload_map(db, posts)
+        items = [_post_to_response(p, bot_payload=bot_map.get(p.id)) for p in posts]
         nc = posts[-1].id if len(posts) == limit else None
         return {"items": [i.model_dump() for i in items], "next_cursor": nc}
 
@@ -703,6 +753,7 @@ async def trending_tickers(
                 FROM posts, unnest(tickers) AS ticker
                 WHERE created_at > :cutoff
                   AND is_removed = false
+                  AND (source_platform IS NULL OR source_platform != 'qt_bot')
                   AND ticker IS NOT NULL
                   AND ticker != ''
                 GROUP BY ticker
@@ -736,6 +787,8 @@ async def market_mood(
         rows = (
             db.query(Post.sentiment, func.count(Post.id))
             .filter(Post.created_at > cutoff, Post.is_removed == False, Post.sentiment.isnot(None))
+            # Community mood is what people say: automated bot posts are excluded.
+            .filter(or_(Post.source_platform.is_(None), Post.source_platform != BOT_SOURCE_PLATFORM))
             .group_by(Post.sentiment)
             .all()
         )
@@ -787,6 +840,7 @@ def ticker_feed(
     symbol: str,
     cursor: Optional[int] = Query(None, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    include_bots: bool = Query(True, description="false hides automated bot posts"),
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user),
 ):
@@ -801,6 +855,7 @@ def ticker_feed(
             _tickers_contains(db, ticker),
         )
     )
+    q = _exclude_bots(q, include_bots)
 
     if cursor is not None:
         q = q.filter(Post.id < cursor)
@@ -811,8 +866,9 @@ def ticker_feed(
     if current_user and posts:
         votes_map = _bulk_user_votes(db, current_user.id, [p.id for p in posts])
 
+    bot_map = _bot_payload_map(db, posts)
     items = [
-        _post_to_response(p, user_vote=votes_map.get(p.id))
+        _post_to_response(p, user_vote=votes_map.get(p.id), bot_payload=bot_map.get(p.id))
         for p in posts
     ]
     next_cursor = posts[-1].id if len(posts) == limit else None

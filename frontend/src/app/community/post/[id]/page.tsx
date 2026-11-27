@@ -36,6 +36,9 @@ import {
   type CommunityPost,
 } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
+import BotBadge from '@/components/community/BotBadge'
+import BotPostBlock from '@/components/community/BotPostBlock'
+import { botProfileHref, botSlugOf } from '@/lib/communityBots'
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -454,6 +457,8 @@ export default function PostThreadPage() {
 
   // ── Render ─────────────────────────────────────────────────
 
+  const isBotPost = !!(post?.is_bot || post?.author?.is_bot)
+
   const content = (
     <div className="min-h-screen pb-safe">
       {/* Mobile Header */}
@@ -565,11 +570,12 @@ export default function PostThreadPage() {
                   <span className="text-fg-muted">·</span>
                   <span>Posted by</span>
                   <Link prefetch={false}
-                    href={post.author?.username ? `/community/user/${post.author.username}` : '#'}
+                    href={isBotPost && botSlugOf(post) ? botProfileHref(botSlugOf(post)!) : post.author?.username ? `/community/user/${post.author.username}` : '#'}
                     className="text-fg-muted hover:text-blue-400 transition-colors font-medium"
                   >
-                    {post.author?.username || 'Anonymous'}
+                    {isBotPost && post.bot?.bot?.display_name ? post.bot.bot.display_name : (post.author?.username || 'Anonymous')}
                   </Link>
+                  {isBotPost && <BotBadge slug={botSlugOf(post)} />}
                   <span className="text-fg-muted">·</span>
                   <span
                     className="flex items-center gap-1 text-fg-muted"
@@ -609,8 +615,11 @@ export default function PostThreadPage() {
                   <MediaGallery urls={post.media_urls} />
                 )}
 
+                {/* Automated bot post: full data block with labels, sources and as-of */}
+                {isBotPost && post.bot && <BotPostBlock payload={post.bot} />}
+
                 {/* Post body */}
-                {post.body && (
+                {post.body && !(isBotPost && post.bot) && (
                   <div className="text-sm sm:text-[15px] text-fg-secondary leading-relaxed whitespace-pre-wrap break-words mb-4 overflow-x-hidden">
                     {post.body}
                   </div>

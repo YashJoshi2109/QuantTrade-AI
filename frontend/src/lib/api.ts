@@ -13,6 +13,7 @@ import type { TickerContext } from '@/lib/copilot-engine'
 import { HttpError, isRateLimited, throwIfRateLimited } from '@/lib/httpError'
 import type { CanonicalExtended, CanonicalRegular } from '@/lib/canonicalQuote'
 import type { BasketDataCoverage } from '@/lib/basketCoverage'
+import type { BotPayload, CommunityBotInfo } from '@/lib/communityBots'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -1472,6 +1473,7 @@ export interface UserPreferences {
   data_sources?: { sec?: boolean; social?: boolean; technical?: boolean }
   notifications?: Record<string, boolean>
   pro_alerts?: { watchlist_price?: boolean; watchlist_news?: boolean }
+  community?: { show_bot_posts?: boolean }
 }
 
 async function getAuthJsonHeaders() {
@@ -2049,6 +2051,27 @@ export async function fetchOptionChain(symbol: string, expiration: string): Prom
 
 // ── Community API ──────────────────────────────────────────────────────
 
+export type { BotPayload, CommunityBotInfo } from './communityBots'
+
+/** `include_bots=false` only when bot posts are hidden (server default: shown). */
+function withBots(params: URLSearchParams, includeBots: boolean) {
+  if (!includeBots) params.set('include_bots', 'false')
+  return params
+}
+
+export async function fetchCommunityBots(): Promise<{ bots: CommunityBotInfo[]; rules: string[] }> {
+  const res = await apiFetch(`${API_URL}/api/v1/community-bots`)
+  if (!res.ok) return { bots: [], rules: [] }
+  return res.json()
+}
+
+export async function fetchCommunityBot(slug: string): Promise<(CommunityBotInfo & { recent_posts: CommunityPost[] }) | null> {
+  const res = await apiFetch(`${API_URL}/api/v1/community-bots/${encodeURIComponent(slug)}`)
+  if (!res.ok) return null
+  const data = await res.json()
+  return { ...data, recent_posts: normalizePosts(data.recent_posts || []) }
+}
+
 export interface CommunityPost {
   id: number
   title: string
@@ -2067,8 +2090,11 @@ export interface CommunityPost {
   is_locked?: boolean
   created_at: string
   updated_at?: string
-  author: { id: number; username: string; full_name?: string; avatar_url?: string | null }
+  author: { id: number; username: string; full_name?: string; avatar_url?: string | null; is_bot?: boolean }
   community: { slug: string; name: string; icon?: string }
+  /** Automated community-bot post (labelled; see lib/communityBots). */
+  is_bot?: boolean
+  bot?: BotPayload | null
   // Flat fields from backend (before normalization)
   community_slug?: string
   community_name?: string
@@ -2123,8 +2149,8 @@ export interface Notification {
   created_at: string
 }
 
-export async function fetchFeed(sort: string = 'hot', cursor?: number, limit: number = 20, time?: string) {
-  const params = new URLSearchParams({ sort, limit: String(limit) })
+export async function fetchFeed(sort: string = 'hot', cursor?: number, limit: number = 20, time?: string, includeBots: boolean = true) {
+  const params = withBots(new URLSearchParams({ sort, limit: String(limit) }), includeBots)
   if (cursor) params.set('cursor', String(cursor))
   if (time && sort === 'top') params.set('time', time)
   const res = await apiFetch(`${API_URL}/api/v1/feed?${params}`)
@@ -2136,8 +2162,8 @@ export async function fetchFeed(sort: string = 'hot', cursor?: number, limit: nu
   }
 }
 
-export async function fetchPopularFeed(cursor?: number, limit: number = 20, sort: string = 'hot', time?: string) {
-  const params = new URLSearchParams({ sort, limit: String(limit) })
+export async function fetchPopularFeed(cursor?: number, limit: number = 20, sort: string = 'hot', time?: string, includeBots: boolean = true) {
+  const params = withBots(new URLSearchParams({ sort, limit: String(limit) }), includeBots)
   if (cursor) params.set('cursor', String(cursor))
   if (time && sort === 'top') params.set('time', time)
   const res = await apiFetch(`${API_URL}/api/v1/feed/popular?${params}`)
