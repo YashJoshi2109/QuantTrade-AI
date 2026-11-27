@@ -7,8 +7,9 @@ says that anything inside a context block is data, never instructions.
 """
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
-from typing import Dict, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from app.services.copilot.models import TickerContextPack
 from app.services.copilot.tools import context_block
@@ -52,6 +53,42 @@ def system_prompt() -> str:
     return SYSTEM_PROMPT
 
 
+# ── Anthropic prompt caching ─────────────────────────────────────────────────
+# Prefix order is tools -> system -> messages.  The tool schemas and system
+# prompt are byte-identical for every user and request, so a breakpoint on
+# the system block caches both (reads cost 10% of input).  A second breakpoint
+# goes on the newest message each round, so tool-loop round N+1 re-reads the
+# whole earlier conversation (ticker pack, tool results) from cache instead
+# of paying for it again.  Per-request data is always AFTER the stable prefix.
+CACHE_PROVIDERS = ("anthropic", "bedrock")
+_EPHEMERAL = {"type": "ephemeral"}
+
+
+def prompt_cache_enabled(provider: str) -> bool:
+    return provider in CACHE_PROVIDERS and os.getenv("COPILOT_PROMPT_CACHE", "1").lower() not in ("0", "false", "no")
+
+
+def system_message(provider: str, cache: Optional[bool] = None):
+    """SystemMessage for one provider.  Direct Anthropic gets a text block with
+    cache_control; Bedrock gets a plain string (langchain-aws adds the
+    cachePoint from the ``cache_control`` call kwarg); OpenAI/OpenRouter and
+    scripted models get a plain string (no caching params ever sent)."""
+    from langchain_core.messages import SystemMessage
+    cache = prompt_cache_enabled(provider) if cache is None else cache
+    if provider == "anthropic" and cache:
+        return SystemMessage(content=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": dict(_EPHEMERAL)}])
+    return SystemMessage(SYSTEM_PROMPT)
+
+
+def cache_call_kwargs(provider: str, cache: Optional[bool] = None) -> Dict[str, Any]:
+    """Per-call kwargs for astream().  Both langchain-anthropic and
+    langchain-aws (Converse) take ``cache_control`` and put a breakpoint on
+    the last message; langchain-aws also adds cachePoints after the system
+    prompt and the tool list."""
+    cache = prompt_cache_enabled(provider) if cache is None else cache
+    return {"cache_control": dict(_EPHEMERAL)} if cache and provider in CACHE_PROVIDERS else {}
+
+
 def pack_block(pack: TickerContextPack) -> str:
     return context_block(f"ticker_pack:{pack.ticker}", pack.built_at, pack.llm_payload())
 
@@ -70,11 +107,21 @@ def user_turn(question: str, packs: Sequence[TickerContextPack], memory_summary:
     return "\n\n".join(parts)
 
 
-def history_messages(turns: Sequence[Dict[str, str]], max_turns: int = 6) -> List[tuple]:
+HISTORY_TURNS = int(os.getenv("COPILOT_HISTORY_TURNS", "4"))          # 2 exchanges
+HISTORY_CHARS = int(os.getenv("COPILOT_HISTORY_CHARS", "900"))
+
+
+def history_messages(turns: Sequence[Dict[str, str]], max_turns: int = HISTORY_TURNS,
+                     max_chars: int = HISTORY_CHARS) -> List[tuple]:
+    """Recent turns for follow-ups ("what about its margins?").  Earlier
+    answers are kept only up to their lead (the direct answer comes first);
+    the numbers they quoted are re-supplied by the current ticker pack."""
     out = []
     for t in list(turns)[-max_turns:]:
         role = "human" if t.get("role") == "user" else "ai"
-        content = (t.get("content") or "")[:1500]
+        content = (t.get("content") or "")
+        if len(content) > max_chars:
+            content = content[:max_chars].rsplit(" ", 1)[0] + " ..."
         if content:
             out.append((role, content))
     return out

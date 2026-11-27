@@ -11,6 +11,7 @@ answer is written:
 """
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterator, List, Literal, Optional
 
@@ -330,23 +331,89 @@ class TickerContextPack(BaseModel):
         }
 
     def llm_payload(self) -> Dict[str, Any]:
-        """What the model sees (JSON in a user-role <context> block)."""
-        drop = {"kind", "ticker"}
+        """What the model sees (compact JSON in a user-role <context> block).
 
-        def d(x: BaseModel) -> Dict[str, Any]:
-            return {k: v for k, v in x.model_dump(exclude_none=True).items() if k not in drop}
-
-        return {
+        Size matters: this block is re-sent on every model round.  Latest
+        LLM_STATEMENT_QUARTERS quarters + LLM_STATEMENT_YEARS fiscal years
+        (YoY growth is precomputed, so older periods are not needed for it;
+        get_financials returns all of them), the LLM_NEWS highest-impact news
+        items with clipped summaries, filing passages clipped to
+        LLM_FILING_CHARS.  Facts keep their ids; nulls and fields that repeat
+        another field (period == id, as_of == period_end ...) are dropped."""
+        quarters = [s for s in self.statements if s.fiscal_quarter][:LLM_STATEMENT_QUARTERS]
+        years = [s for s in self.statements if not s.fiscal_quarter][:LLM_STATEMENT_YEARS]
+        shown = len(quarters) + len(years)
+        out: Dict[str, Any] = {
             "ticker": self.ticker,
             "name": self.name,
             "asset_type": self.asset_type,
-            "identity": self.identity.model_dump(exclude_none=True),
-            "quote": d(self.quote) if self.quote else None,
-            "fundamentals": d(self.fundamentals) if self.fundamentals else None,
-            "financial_statements": [d(s) for s in self.statements],
-            "forecast": d(self.forecast) if self.forecast else None,
-            "technicals": d(self.technicals) if self.technicals else None,
-            "news_last_7d": [d(n) for n in self.news],
-            "filing_excerpts": [d(c) for c in self.filings],
+            "identity": self.identity.model_dump(exclude_none=True) if self.identity.status != "ok" or self.identity.note else None,
+            "quote": compact_fact(self.quote) if self.quote else None,
+            "fundamentals": compact_fact(self.fundamentals) if self.fundamentals else None,
+            "financial_statements": [compact_fact(s) for s in quarters + years] or None,
+            "financial_statements_more": (f"{len(self.statements) - shown} older periods: call get_financials"
+                                          if len(self.statements) > shown else None),
+            "forecast": compact_fact(self.forecast) if self.forecast else None,
+            "technicals": compact_fact(self.technicals) if self.technicals else None,
+            "news_last_7d": [compact_fact(n) for n in self.news[:LLM_NEWS]] or None,
+            "filing_excerpts": [compact_fact(c) for c in self.filings] or None,
             "unavailable": self.errors or None,
         }
+        return {k: v for k, v in out.items() if v is not None}
+
+
+# ── compact serialisation for the model ─────────────────────────────────────
+LLM_STATEMENT_QUARTERS = int(os.getenv("COPILOT_LLM_QUARTERS", "4"))
+LLM_STATEMENT_YEARS = int(os.getenv("COPILOT_LLM_YEARS", "2"))
+LLM_NEWS = int(os.getenv("COPILOT_LLM_NEWS", "5"))
+LLM_NEWS_SUMMARY_CHARS = 240
+LLM_FILING_CHARS = int(os.getenv("COPILOT_LLM_FILING_CHARS", "1400"))
+
+# Fields the model never needs (duplicates of another field, UI-only, or
+# internal); everything not listed is kept.
+_DROP_ALWAYS = {"kind", "ticker"}
+_DROP_BY_KIND: Dict[str, set] = {
+    # id carries the period, period_label the fiscal year/quarter, form the source
+    "statement": {"source", "as_of", "period", "fiscal_year", "fiscal_quarter"},
+    "news": {"url", "tickers", "published_at", "sentiment_score", "source"},
+    "filing": {"url", "accession", "score", "filed_date"},
+    "forecast": {"generated_at"},
+    "technicals": {"source"},
+}
+
+
+def _clip(text: str, n: int) -> str:
+    if len(text) <= n:
+        return text
+    cut = text[:n]
+    stop = max(cut.rfind(". "), cut.rfind("; "))
+    return (cut[:stop + 1] if stop > n * 0.6 else cut.rsplit(" ", 1)[0]) + " ..."
+
+
+def _num(v: Any) -> Any:
+    """Shorter JSON for numbers without changing what can be cited: whole or
+    large values lose the '.0' / float noise, small ones keep 4 decimals."""
+    if isinstance(v, float):
+        if abs(v) >= 1000 or v == int(v):
+            return int(round(v))
+        return round(v, 4)
+    if isinstance(v, dict):
+        return {k: _num(x) for k, x in v.items() if x is not None}
+    if isinstance(v, list):
+        return [_num(x) for x in v]
+    return v
+
+
+def compact_fact(f: Fact) -> Dict[str, Any]:
+    drop = _DROP_ALWAYS | _DROP_BY_KIND.get(f.kind, set())
+    d = {k: _num(v) for k, v in f.model_dump(exclude_none=True).items() if k not in drop}
+    if d.get("suspicious") is False:
+        d.pop("suspicious")
+    if f.kind == "news" and d.get("summary"):
+        d["summary"] = _clip(d["summary"], LLM_NEWS_SUMMARY_CHARS)
+    if f.kind == "filing" and d.get("text"):
+        d["text"] = _clip(d["text"], LLM_FILING_CHARS)
+    if f.kind == "forecast":
+        for h in d.get("horizons") or []:
+            h.pop("date", None)
+    return d
