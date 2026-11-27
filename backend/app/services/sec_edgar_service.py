@@ -163,7 +163,11 @@ _INCOME_TAGS = {
     "revenue": ["RevenuesNetOfInterestExpense", "Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "RevenueFromContractWithCustomerIncludingAssessedTax"],
     "gross_profit": ["GrossProfit"],
     "operating_income": ["OperatingIncomeLoss"],
-    "net_income": ["NetIncomeLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"],
+    # ProfitLoss (consolidated, incl. noncontrolling interests) is the last
+    # resort: AEIS stopped tagging NetIncomeLoss after Q2 2025 and tags only
+    # ProfitLoss, so every later quarter showed net income "—". Per period,
+    # NetIncomeLoss still wins whenever it is reported.
+    "net_income": ["NetIncomeLoss", "NetIncomeLossAvailableToCommonStockholdersBasic", "ProfitLoss"],
     "eps_basic": ["EarningsPerShareBasic"],
     "eps_diluted": ["EarningsPerShareDiluted"],
     "shares_basic": ["WeightedAverageNumberOfSharesOutstandingBasic"],
@@ -223,7 +227,7 @@ _CASHFLOW_TAGS = {
 _DA_TAGS = ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationAmortizationAndAccretionNet"]
 
 # Bump when parsing changes so rows stored by an older parser get re-synced.
-PARSER_VERSION = 4  # 3: bank revenue tag + period discovery from revenue ∪ net income; 4: bank cash/debt fallbacks
+PARSER_VERSION = 5  # 3: bank revenue tag + period discovery from revenue ∪ net income; 4: bank cash/debt fallbacks; 5: ProfitLoss net-income fallback
 
 _QUARTER_DAYS = (75, 105)
 _ANNUAL_DAYS = (340, 390)

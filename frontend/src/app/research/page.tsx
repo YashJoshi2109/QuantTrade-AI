@@ -38,6 +38,7 @@ import { useToast } from '@/components/Toast'
 import { SkeletonChart, SkeletonIndicators, SkeletonText, Skeleton } from '@/components/Skeleton'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 import { resolvePriceInfo } from '@/lib/researchQuote'
+import { keyStatsSource } from '@/lib/researchKeyStats'
 import { useChartPrefs, useResearchSymbol } from '@/lib/researchPrefs'
 import { ResearchChartHeader, type ResearchChartPeriod } from '@/components/research/ResearchChartHeader'
 import { CompanyFolioPanel } from '@/components/research/CompanyFolioPanel'
@@ -521,6 +522,7 @@ function ResearchContent() {
                 tickerInfo={headerTickerInfo}
                 companyNameFallback={displayCompanyName(fundamentals?.company_name, tickerIdentity)}
                 profileLoading={tickerInfoLoading}
+                keyStats={keyStatsSource(tickerInfo, priceInfo, fundamentals)}
                 chartPeriod={chartPeriod}
                 chartSeriesType={chartSeriesType}
                 chartShowMa={chartShowMa}

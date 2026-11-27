@@ -37,7 +37,16 @@ interface ChartProps {
   comparisonData?: { symbol: string; data: PriceBar[]; color: string }[]
   /** IANA timezone of the exchange (e.g. 'America/New_York', 'Europe/London') */
   exchangeTimezone?: string
+  /** Line / area colour follows the range direction (green up, red down) instead of the default blue. */
+  trend?: 'up' | 'down'
+  /** Airy sheet look (mobile): no axis borders, ~4 right-axis labels, thin volume strip. */
+  minimal?: boolean
 }
+
+const TREND = {
+  up: { line: '#22c55e', top: 'rgba(34,197,94,0.28)', bottom: 'rgba(34,197,94,0.0)' },
+  down: { line: '#ef4444', top: 'rgba(239,68,68,0.28)', bottom: 'rgba(239,68,68,0.0)' },
+} as const
 
 // Deduplicate timestamps — lightweight-charts requires strictly increasing times
 function dedup<T extends { time: Time }>(arr: T[]): T[] {
@@ -63,6 +72,8 @@ export default function Chart({
   activePanes = [],
   comparisonData,
   exchangeTimezone = 'America/New_York',
+  trend,
+  minimal = false,
 }: ChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -146,9 +157,20 @@ export default function Chart({
       height: chartContainerRef.current.clientHeight,
       grid: { vertLines: { color: gridColor }, horzLines: { color: gridColor } },
       crosshair: { mode: 0 },
-      rightPriceScale: { borderColor: borderClr, mode: logScale ? 1 : 0 },
-      timeScale: { borderColor: borderClr, timeVisible: true, secondsVisible: false, rightOffset: 5, minBarSpacing: 1 },
+      rightPriceScale: minimal
+        ? { borderVisible: false, mode: logScale ? 1 : 0, scaleMargins: { top: 0.08, bottom: 0.2 } }
+        : { borderColor: borderClr, mode: logScale ? 1 : 0 },
+      timeScale: minimal
+        ? { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 2, minBarSpacing: 0.5, fixLeftEdge: true, fixRightEdge: true }
+        : { borderColor: borderClr, timeVisible: true, secondsVisible: false, rightOffset: 5, minBarSpacing: 1 },
+      ...(minimal ? { handleScroll: false, handleScale: false } : {}),
     })
+    if (minimal) {
+      // Fewer, rounder right-axis labels: lightweight-charts spaces labels by
+      // font size, so a larger gap yields ~4 labels on a 250px chart.
+      chart.applyOptions({ layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor, fontSize: 11 } })
+      chart.priceScale('right').applyOptions({ entireTextOnly: true, minimumWidth: 48 })
+    }
 
     chartRef.current = chart
     if (chartId) setChartApiForSync(chart)
@@ -167,7 +189,7 @@ export default function Chart({
       mainSeriesRef.current = null
       extraSeriesRef.current = []
     }
-  }, [showGrid, logScale, chartId, isDark])
+  }, [showGrid, logScale, chartId, isDark, minimal])
 
   // Create main series
   useEffect(() => {
@@ -189,7 +211,7 @@ export default function Chart({
         borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350',
       })
     } else if (seriesType === 'line') {
-      mainSeriesRef.current = chart.addLineSeries({ color: '#38bdf8', lineWidth: 2 })
+      mainSeriesRef.current = chart.addLineSeries({ color: trend ? TREND[trend].line : '#38bdf8', lineWidth: 2 })
     } else if (seriesType === 'baseline') {
       mainSeriesRef.current = chart.addBaselineSeries({
         baseValue: { type: 'price', price: 0 },
@@ -199,11 +221,13 @@ export default function Chart({
         lineWidth: 2,
       })
     } else {
+      const c = trend ? TREND[trend] : { line: '#38bdf8', top: 'rgba(56,189,248,0.35)', bottom: 'rgba(56,189,248,0.02)' }
       mainSeriesRef.current = chart.addAreaSeries({
-        lineColor: '#38bdf8', topColor: 'rgba(56,189,248,0.35)', bottomColor: 'rgba(56,189,248,0.02)', lineWidth: 2,
+        lineColor: c.line, topColor: c.top, bottomColor: c.bottom, lineWidth: 2,
+        ...(minimal ? { priceLineVisible: false, crosshairMarkerRadius: 3 } : {}),
       })
     }
-  }, [seriesType])
+  }, [seriesType, trend, minimal])
 
   // Set data + indicators
   useEffect(() => {
@@ -307,8 +331,13 @@ export default function Chart({
         case 'volume': {
           if (rawCandles.some((c) => c.volume > 0)) {
             const volSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: 'vol' })
-            chart.priceScale('vol').applyOptions({ scaleMargins: { top: Math.max(top, 0.75), bottom: 0 } })
-            volSeries.setData(dedup(rawCandles.map((c) => ({ time: c.time, value: c.volume, color: c.close >= c.open ? 'rgba(38,166,154,0.35)' : 'rgba(239,83,80,0.35)' }))))
+            chart.priceScale('vol').applyOptions({ scaleMargins: { top: minimal ? 0.88 : Math.max(top, 0.75), bottom: 0 } })
+            if (minimal) volSeries.applyOptions({ priceLineVisible: false, lastValueVisible: false })
+            const volColor = (c: { close: number; open: number }) =>
+              minimal
+                ? (isDark ? 'rgba(148,163,184,0.35)' : 'rgba(100,116,139,0.3)')
+                : c.close >= c.open ? 'rgba(38,166,154,0.35)' : 'rgba(239,83,80,0.35)'
+            volSeries.setData(dedup(rawCandles.map((c) => ({ time: c.time, value: c.volume, color: volColor(c) }))))
             extraSeriesRef.current.push(volSeries)
           }
           break
@@ -407,7 +436,7 @@ export default function Chart({
     }
 
     chart.timeScale().fitContent()
-  }, [rawCandles, seriesType, overlays, panes, comparisonData, symbol])
+  }, [rawCandles, seriesType, overlays, panes, comparisonData, symbol, trend, minimal, isDark])
 
   return (
     <div className="w-full h-full">
