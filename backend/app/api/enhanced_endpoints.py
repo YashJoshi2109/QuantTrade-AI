@@ -55,9 +55,72 @@ class QuoteResponse(BaseModel):
     data_source: str
     latency_ms: int
     timestamp: datetime
-    
+    previous_close: Optional[float] = None
+    # True when the only price available is an older daily bar than the
+    # latest completed session (the live providers all failed).
+    stale: bool = False
+
     class Config:
         from_attributes = True
+
+
+def _bar_session_date(ts: datetime):
+    """ET trading date of a daily bar timestamp (bars are stamped at
+    midnight ET, i.e. 04:00/05:00 UTC)."""
+    from datetime import timezone as _tz
+    from app.services import market_calendar as mc
+
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=_tz.utc)
+    return ts.astimezone(mc.ET).date()
+
+
+def db_bar_is_current(bar_ts: datetime, now: Optional[datetime] = None) -> bool:
+    """Can the latest stored daily bar stand in for a quote right now?
+
+    Only when it is the bar of the latest completed session AND the regular
+    session is not running (during the session a daily bar is never live).
+    The old endpoint served the newest DB bar unconditionally: on
+    Thanksgiving 2026 it showed AAPL 354.07 (+1.43%), the Nov 24 bar, while
+    the Nov 25 close was 355.58 (+0.43%).
+    """
+    from app.services import market_calendar as mc
+
+    if mc.session_at(now) == mc.REGULAR:
+        return False
+    return _bar_session_date(bar_ts) >= mc.last_completed_session(now)
+
+
+def _run_async(fn, *args):
+    """Run a coroutine function from this sync (threadpool) endpoint."""
+    import anyio
+
+    try:
+        return anyio.from_thread.run(fn, *args)
+    except RuntimeError:  # not inside an anyio worker thread (direct call / tests)
+        return asyncio.run(fn(*args))
+
+
+def _live_quote(symbol: str, db: Session) -> Optional[dict]:
+    try:
+        q = _run_async(QuoteCacheService(db).get_quote, symbol)
+    except Exception as e:  # provider/network failure: caller falls back
+        logger.info("live quote failed for %s: %s", symbol, e)
+        return None
+    if not q or q.get("unavailable") or not q.get("price") or float(q["price"]) <= 0:
+        return None
+    return q
+
+
+def _parse_dt(value) -> datetime:
+    from datetime import timezone as _tz
+
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return datetime.now(_tz.utc)
 
 
 @router.get("/quote/{symbol}", response_model=QuoteResponse)
@@ -127,6 +190,26 @@ def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
                 timestamp=fallback_data.get("timestamp") or datetime.utcnow()
             )
         
+        if not db_bar_is_current(latest_price.timestamp):
+            live = _live_quote(symbol.upper(), db)
+            if live:
+                return QuoteResponse(
+                    symbol=symbol.upper(),
+                    last_price=float(live["price"]),
+                    change=live.get("change"),
+                    change_percent=live.get("change_percent"),
+                    volume=int(live.get("volume") or 0),
+                    high=live.get("high") or None,
+                    low=live.get("low") or None,
+                    open=live.get("open") or None,
+                    previous_close=live.get("previous_close") or None,
+                    data_source=live.get("data_source") or "live",
+                    latency_ms=int((datetime.utcnow() - start_time).total_seconds() * 1000),
+                    timestamp=_parse_dt(live.get("market_time") or live.get("timestamp")),
+                )
+        from app.services.market_calendar import last_completed_session
+        stale = _bar_session_date(latest_price.timestamp) < last_completed_session()
+
         # Get previous price for change calculation
         prev_price = db.query(PriceBar).filter(
             PriceBar.symbol_id == db_symbol.id,
@@ -151,7 +234,9 @@ def get_realtime_quote(symbol: str, db: Session = Depends(get_db)):
             "open": float(latest_price.open) if latest_price.open is not None else None,
             "data_source": "database",
             "latency_ms": latency_ms,
-            "timestamp": latest_price.timestamp
+            "timestamp": latest_price.timestamp,
+            "previous_close": float(base) if base else None,
+            "stale": stale,
         }
         
         return QuoteResponse(**quote_data)

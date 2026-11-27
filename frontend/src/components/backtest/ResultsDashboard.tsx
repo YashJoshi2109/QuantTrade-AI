@@ -562,7 +562,8 @@ export default function ResultsDashboard({ result }: ResultsDashboardProps) {
               positive={mc.probability_of_profit >= 50}
             />
             <MetricCard
-              label="P(Ruin)"
+              /* probability_of_ruin = share of bootstrap paths with a drawdown deeper than 50% */
+              label="P(DD > 50%)"
               value={fmtPct(mc.probability_of_ruin)}
               positive={mc.probability_of_ruin < 5}
             />

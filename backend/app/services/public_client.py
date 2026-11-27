@@ -117,7 +117,7 @@ async def _get_async_client():
 # are forward-compatible hooks for raw/dict payloads that include them.
 _REGULAR_LAST_KEYS = ("regularMarketLast", "regular_market_last", "regularLast", "regular_last")
 
-# (symbol, ET date) -> previous session close, filled from daily bars.
+# (symbol, reference session date) -> that session's close, from daily bars.
 _prev_close_cache: Dict[tuple, float] = {}
 
 
@@ -129,17 +129,52 @@ def _et_today():
         return datetime.now(timezone.utc).date()
 
 
-def _fetch_previous_closes(symbols: List[str]) -> Dict[str, float]:
-    """Close of the last completed session before today (ET) per symbol.
+def _parse_ts(value) -> Optional[datetime]:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    try:
+        ts = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
 
-    One batched yfinance daily download; results cached for the ET day.
-    Blocking — call via asyncio.to_thread.
+
+def reference_session(quote: Dict[str, Any], now: Optional[datetime] = None) -> tuple:
+    """(reference close date, session of the print) for one quote.
+
+    The reference close is the last regular-session close at or before the
+    print (market_calendar.last_completed_session). A print in a closed
+    window (after 20:00 ET, before 04:00 ET, weekends, holidays) can only be an
+    overnight-venue trade, so its session is reported as "overnight".
+    """
+    from app.services import market_calendar as mc
+
+    printed = _parse_ts(quote.get("market_time"))
+    at = printed or now or datetime.now(timezone.utc)
+    session = mc.print_session(at) if printed else mc.session_at(at)
+    if session == mc.REGULAR:
+        # Includes the closing print at 16:00:00: its baseline is the prior
+        # session, not the close it just made.
+        return mc.previous_trading_day(mc._to_et(at).date()), session
+    return mc.last_completed_session(at), session
+
+
+def _fetch_previous_closes(symbols, ref_dates: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
+    """Close of each symbol's reference session, from daily bars.
+
+    ``ref_dates`` maps symbol -> the session date whose close is the baseline
+    (see reference_session). Without it the baseline is the last session
+    before today (ET), the old behaviour. One batched yfinance download;
+    results are cached per (symbol, date). Blocking: call via asyncio.to_thread.
     """
     today = _et_today()
+    ref_dates = ref_dates or {}
     out: Dict[str, float] = {}
     missing = []
     for sym in symbols:
-        cached = _prev_close_cache.get((sym, today))
+        cached = _prev_close_cache.get((sym, ref_dates.get(sym, today)))
         if cached:
             out[sym] = cached
         else:
@@ -153,7 +188,7 @@ def _fetch_previous_closes(symbols: List[str]) -> Dict[str, float]:
         import pandas as pd
 
         data = yf.download(
-            missing, period="7d", interval="1d", progress=False,
+            missing, period="10d", interval="1d", progress=False,
             group_by="ticker", auto_adjust=False, threads=False, timeout=10,
         )
         if data is None or data.empty:
@@ -162,12 +197,20 @@ def _fetch_previous_closes(symbols: List[str]) -> Dict[str, float]:
             try:
                 frame = data[sym] if isinstance(data.columns, pd.MultiIndex) else data
                 closes = frame["Close"].dropna()
-                closes = closes[[d.date() < today for d in closes.index]]
+                ref = ref_dates.get(sym)
+                if ref is not None:
+                    closes = closes[[d.date() <= ref for d in closes.index]]
+                    # The reference session's own bar must be present; an older
+                    # bar would silently re-create the two-sessions-back baseline.
+                    if not len(closes) or closes.index[-1].date() != ref:
+                        continue
+                else:
+                    closes = closes[[d.date() < today for d in closes.index]]
                 if len(closes):
                     val = float(closes.iloc[-1])
                     if val > 0:
                         out[sym] = val
-                        _prev_close_cache[(sym, today)] = val
+                        _prev_close_cache[(sym, ref if ref is not None else today)] = val
             except Exception:
                 continue
     except Exception as e:
@@ -285,19 +328,30 @@ class PublicClient:
     """Public.com API client for real-time quotes and option data."""
 
     async def _fill_previous_closes(self, results: Dict[str, Dict[str, Any]]) -> None:
-        """Give quotes without a previous close a self-consistent baseline.
+        """Rebase every equity quote on its reference session's close.
 
-        Public's SDK quote carries no previous close, which left change=0 and
-        let downstream code pair Public's price with another provider's change.
+        Public's quote either has no previous close (change=0, which let
+        downstream code pair Public's price with another provider's change) or
+        one that is not the close before the print: on Thanksgiving 2026 at
+        21:21 ET it reported AAPL 357.75 (an overnight print) against 354.07,
+        the Nov 24 close, i.e. +1.04% instead of +0.61% vs the Nov 25 close
+        355.58. The baseline now always comes from daily bars for the session
+        market_calendar says the print belongs after; Public's own figure is
+        kept only when the bars are unavailable.
         """
-        need = [
-            sym for sym, q in results.items()
-            if not q.get("previous_close") and not sym.endswith("-USD")
-        ]
-        if not need:
+        ref_dates: Dict[str, Any] = {}
+        for sym, q in results.items():
+            if sym.endswith("-USD"):
+                continue
+            ref, session = reference_session(q)
+            q["session"] = session
+            q["reference_close_date"] = ref.isoformat()
+            ref_dates[sym] = ref
+        if not ref_dates:
             return
         try:
-            prevs = await asyncio.wait_for(asyncio.to_thread(_fetch_previous_closes, need), timeout=12)
+            prevs = await asyncio.wait_for(
+                asyncio.to_thread(_fetch_previous_closes, list(ref_dates), ref_dates), timeout=12)
         except Exception as e:
             logger.debug(f"Public.com previous-close fill failed: {e}")
             return

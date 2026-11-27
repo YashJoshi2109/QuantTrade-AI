@@ -5,7 +5,7 @@ import { FlaskConical, Loader2 } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import {
   Card, ChartLegend, Disclaimer, DrawdownChart, EquityChart, MetricsGrid, MonthlyHeatmap, ParametersEditor,
-  PresetPicker, RobustnessEditor, RobustnessPanel, RulesEditor, RulesSummary, RunBar, SettingsEditor, SignInPrompt,
+  PresetPicker, RobustnessEditor, RobustnessPanel, RollingSharpeChart, RulesEditor, RulesSummary, RunBar, SettingsEditor, SignInPrompt,
   TradeExport, TradeTable, WarningsList,
 } from './LabParts'
 import { useBacktestLab, type LabTab } from './useBacktestLab'
@@ -81,6 +81,7 @@ export default function LabDesktop() {
               <EquityChart r={r} height={320} />
             </Card>
             <Card title="Drawdown"><DrawdownChart r={r} height={160} /></Card>
+            <Card title={`Rolling Sharpe (${r.series.rolling_sharpe_window ?? 126}-day)`}><RollingSharpeChart r={r} height={160} /></Card>
             <Card title="Monthly returns (%)"><MonthlyHeatmap r={r} /></Card>
             {r.warnings.length > 0 && <Card title="Notes on this result"><WarningsList r={r} /></Card>}
           </div>

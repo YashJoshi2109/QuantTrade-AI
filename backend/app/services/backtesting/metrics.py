@@ -14,6 +14,13 @@ Conventions (all documented in docs/BACKTESTING.md):
 * Max drawdown duration is the longest peak-to-recovery stretch, in bars and
   calendar days; an unrecovered drawdown runs to the last bar.
 * Alpha / beta are OLS on **date-aligned** daily returns (inner join).
+* ``rf`` is an annual risk-free rate as a fraction (0.04 = 4%), de-annualised
+  arithmetically (``rf / ppy`` per period). It moves Sharpe, Sortino and
+  alpha only; volatility, drawdown and returns are unaffected.
+* Exposure-adjusted CAGR is CAGR divided by the average share of equity
+  deployed, i.e. the growth rate per unit of capital actually at risk.
+* Historical VaR / CVaR (95%) are one-day figures from the empirical
+  distribution of daily returns, reported as (negative) percentages.
 """
 from __future__ import annotations
 
@@ -203,9 +210,24 @@ def compute_metrics(
         "total_commission": _f(total_commission, 2),
         "bars": int(len(equity)),
     }
+    out["risk_free_rate_pct"] = _f(rf * 100, 3)
     if gross_exposure is not None and len(gross_exposure):
         out["exposure_pct"] = _f((gross_exposure > 1e-9).mean() * 100, 2)
-        out["avg_gross_exposure_pct"] = _f(gross_exposure.mean() * 100, 2)
+        avg_gross = float(gross_exposure.mean())
+        out["avg_gross_exposure_pct"] = _f(avg_gross * 100, 2)
+        out["exposure_adjusted_cagr_pct"] = _f(cagr / avg_gross * 100 if cagr is not None and avg_gross > 1e-9 else None, 3)
+    r_np = rets.to_numpy(dtype=float)
+    if len(r_np) >= 20:
+        q = float(np.percentile(r_np, 5))
+        out["var_95_daily_pct"] = _f(q * 100, 3)
+        out["cvar_95_daily_pct"] = _f(float(r_np[r_np <= q].mean()) * 100, 3)
+    else:
+        out["var_95_daily_pct"] = out["cvar_95_daily_pct"] = None
+    monthly, _ = calendar_returns(equity, initial)
+    mvals = [x["return_pct"] for x in monthly if x["return_pct"] is not None]
+    out["best_month_pct"] = _f(max(mvals), 3) if mvals else None
+    out["worst_month_pct"] = _f(min(mvals), 3) if mvals else None
+    out["positive_months_pct"] = _f(sum(v > 0 for v in mvals) / len(mvals) * 100, 2) if mvals else None
     avg_eq = float(equity.mean())
     out["turnover_annual"] = _f(traded_notional / avg_eq / yrs if yrs > 0 and avg_eq > 0 else None, 3)
     out.update(trade_stats(trades))
@@ -235,10 +257,27 @@ def downsample_index(n: int, max_points: int = 600) -> np.ndarray:
     return idx
 
 
-def series_payload(equity: pd.Series, initial: float, benchmark: Optional[pd.Series], max_points: int = 600) -> dict:
+ROLLING_SHARPE_WINDOW = 126  # ~6 months of trading days
+
+
+def rolling_sharpe(equity: pd.Series, ppy: int, window: int = ROLLING_SHARPE_WINDOW, rf: float = 0.0) -> pd.Series:
+    """Trailing ``window``-bar annualised Sharpe of daily excess returns.
+
+    NaN until a full window exists, and where the window has no variance
+    (flat, out of the market), so a flat stretch never reads as 0 or inf.
+    """
+    ex = equity.pct_change() - rf / ppy
+    m = ex.rolling(window, min_periods=window).mean()
+    sd = ex.rolling(window, min_periods=window).std(ddof=1)
+    return (m / sd.where(sd > 1e-12) * math.sqrt(ppy)).reindex(equity.index)
+
+
+def series_payload(equity: pd.Series, initial: float, benchmark: Optional[pd.Series], max_points: int = 600,
+                   ppy: int = 252, rf: float = 0.0) -> dict:
     """Chart series on one shared date grid (equity, benchmark rebased to the
-    same starting capital, drawdown %)."""
+    same starting capital, drawdown %, trailing 6-month Sharpe)."""
     dd = drawdown_stats(equity)["drawdown"]
+    rs = rolling_sharpe(equity, ppy, rf=rf)
     b = None
     if benchmark is not None and len(benchmark):
         b = benchmark.reindex(equity.index).ffill()
@@ -254,5 +293,6 @@ def series_payload(equity: pd.Series, initial: float, benchmark: Optional[pd.Ser
             "equity": _f(equity.iloc[k], 2),
             "benchmark": _f(b.iloc[k], 2) if b is not None else None,
             "drawdown_pct": _f(dd.iloc[k] * 100, 3),
+            "rolling_sharpe": _f(rs.iloc[k], 3),
         })
-    return {"points": rows, "sampled": len(keep) < len(equity)}
+    return {"points": rows, "sampled": len(keep) < len(equity), "rolling_sharpe_window": ROLLING_SHARPE_WINDOW}

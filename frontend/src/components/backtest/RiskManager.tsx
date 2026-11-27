@@ -20,6 +20,7 @@ import {
   Layers,
 } from 'lucide-react'
 import type { BacktestResult } from '@/lib/api'
+import { fmtDrawdown, pctToFraction } from '@/lib/legacyBacktest'
 import type { LucideIcon } from 'lucide-react'
 
 /* ─── Types ────────────────────────────────────────────────── */
@@ -35,9 +36,6 @@ function fmt(n: number, decimals = 2): string {
   return n.toFixed(decimals)
 }
 
-function fmtPct(n: number): string {
-  return `${(n * 100).toFixed(2)}%`
-}
 
 function fmtDollar(n: number): string {
   return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -347,8 +345,9 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
   const [stopLossPrice, setStopLossPrice] = useState(145)
 
   /* --- Kelly state --- */
+  // win_rate arrives in percent (60 = 60%); Kelly and the 0.1-0.9 slider need a fraction.
   const [kellyWinRate, setKellyWinRate] = useState(
-    result ? result.win_rate : 0.55
+    result ? clamp(pctToFraction(result.win_rate), 0.1, 0.9) : 0.55
   )
   const [kellyWinLoss, setKellyWinLoss] = useState(
     result && result.avg_loss !== 0
@@ -395,9 +394,10 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
     if (!result) return null
     // Higher is riskier. We invert "good" metrics.
     const sharpeScore = clamp((2.0 - result.sharpe_ratio) / 2.0, 0, 1) * 25
-    const ddScore = clamp(Math.abs(result.max_drawdown) / 0.5, 0, 1) * 25
-    const varScore = clamp(Math.abs(result.var_95) / 0.1, 0, 1) * 20
-    const winRateScore = clamp((0.6 - result.win_rate) / 0.6, 0, 1) * 15
+    // max_drawdown, var_95 and win_rate are percent units in the classic API.
+    const ddScore = clamp(Math.abs(pctToFraction(result.max_drawdown)) / 0.5, 0, 1) * 25
+    const varScore = clamp(Math.abs(pctToFraction(result.var_95)) / 0.1, 0, 1) * 20
+    const winRateScore = clamp((0.6 - pctToFraction(result.win_rate)) / 0.6, 0, 1) * 15
     const pfScore = clamp((2.0 - result.profit_factor) / 2.0, 0, 1) * 15
     const raw = sharpeScore + ddScore + varScore + winRateScore + pfScore
     return {
@@ -443,10 +443,11 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
   /* --- Recommended max position based on volatility --- */
   const maxPositionByVol = useMemo(() => {
     if (!result) return null
-    const vol = result.annualized_volatility
-    if (vol === 0) return 100
-    // Lower vol => larger position allowed. Scale inversely.
-    return clamp(20 / (vol * 100), 2, 100)
+    const vol = result.annualized_volatility // percent per year, e.g. 23.4
+    if (!vol) return 100
+    // Position that would run at a 20%/yr volatility budget: 20 / 23.4 -> 85%.
+    // (Was 20 / (vol * 100) with vol already in percent: always clamped to 2%.)
+    return clamp((20 / vol) * 100, 2, 100)
   }, [result])
 
   /* --- Position heat map data --- */
@@ -793,20 +794,20 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
           {/* VaR bars */}
           <div className="space-y-3">
             <RiskBar
-              label="Value at Risk (95%)"
-              value={result.var_95 * 100}
+              label="1-day VaR (95%)"
+              value={result.var_95}
               max={20}
               color="amber"
             />
             <RiskBar
-              label="Value at Risk (99%)"
-              value={result.var_99 * 100}
+              label="1-day VaR (99%)"
+              value={result.var_99}
               max={30}
               color="red"
             />
             <RiskBar
               label="Max Drawdown"
-              value={Math.abs(result.max_drawdown) * 100}
+              value={Math.abs(result.max_drawdown)}
               max={60}
               color="red"
             />
@@ -942,13 +943,13 @@ export default function RiskManager({ result, initialCapital }: RiskManagerProps
               <span className="text-[10px] text-fg-muted">
                 Historical max drawdown for this strategy was{' '}
                 <span className="text-red-400 font-mono font-semibold">
-                  {fmtPct(result.max_drawdown)}
+                  {fmtDrawdown(result.max_drawdown)}
                 </span>
-                {' '}lasting{' '}
+                {' '}with the longest underwater stretch lasting{' '}
                 <span className="text-fg-secondary font-mono">
                   {result.max_drawdown_duration}
                 </span>{' '}
-                days to recover.
+                trading days.
               </span>
             </div>
           )}

@@ -77,6 +77,7 @@ def block_bootstrap(returns: pd.Series, initial: float, sims: int = 500, mean_bl
         "simulations": sims, "mean_block_bars": mean_block, "seed": seed,
         "final_return_pct": {q: round(_pct(final * 100, v), 3) for q, v in
                              (("p5", 5), ("p25", 25), ("p50", 50), ("p75", 75), ("p95", 95))},
+        "mean_final_return_pct": round(float(np.mean(final) * 100), 3),
         "cagr_pct": {q: round(_pct(cagr * 100, v), 3) for q, v in (("p5", 5), ("p50", 50), ("p95", 95))},
         "max_drawdown_pct": {q: round(_pct(mdd * 100, v), 3) for q, v in (("p5", 5), ("p50", 50), ("p95", 95))},
         "probability_of_loss_pct": round(float((final < 0).mean() * 100), 2),

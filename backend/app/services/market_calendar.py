@@ -135,6 +135,42 @@ def previous_trading_day(d: date) -> date:
     return d
 
 
+def last_completed_session(at: Optional[datetime] = None) -> date:
+    """Trading day of the most recent regular-session close at or before ``at``.
+
+    This is the reference close for any price printed at ``at``: during the
+    regular session or pre-market of day D it is the prior trading day; after
+    D's close, overnight and on holidays/weekends it is D (or the last trading
+    day before the holiday). Thanksgiving 2026-11-26 21:00 ET -> 2026-11-25.
+    """
+    et = _to_et(at)
+    d = et.date()
+    if is_trading_day(d) and et.time() >= close_time(d):
+        return d
+    return previous_trading_day(d)
+
+
+OVERNIGHT = "overnight"
+
+
+def print_session(at: datetime) -> str:
+    """Session a *trade print* at ``at`` belongs to.
+
+    Like session_at, except a print inside a closed window (20:00-04:00 ET,
+    weekends, holidays) can only come from an overnight venue, so it is
+    "overnight" rather than "closed". The closing auction prints at the close
+    time itself (16:00:00, a second or two after), so a print within a minute
+    of the close is still the regular session.
+    """
+    s = session_at(at)
+    if s == AFTER_HOURS:
+        et = _to_et(at)
+        close_dt = datetime.combine(et.date(), close_time(et.date()), tzinfo=ET)
+        if et - close_dt < timedelta(seconds=60):
+            return REGULAR
+    return OVERNIGHT if s == CLOSED else s
+
+
 def next_open(at: Optional[datetime] = None) -> datetime:
     et = _to_et(at)
     d = et.date()
