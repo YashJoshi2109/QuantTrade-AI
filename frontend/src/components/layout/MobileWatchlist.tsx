@@ -1,450 +1,315 @@
 'use client'
 
+/**
+ * Mobile Marketwatch: the phone counterpart of components/marketwatch/MarketwatchDesktop.
+ * Same controller (useMarketwatchController), same lists, prices and P&L; only the
+ * layout differs. Named watchlist pills + Holdings, search-to-add, dense rows with a
+ * stored-close sparkline, tap a row for the stock sheet (chart, stats, alert, holding),
+ * "Edit" mode to reorder or remove rows. Nothing here places an order.
+ */
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { isStr, oneOf, usePersistentState } from '@/lib/persistentState'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { ArrowDown, ArrowUp, Check, LogIn, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { useMarketwatchController } from '@/components/marketwatch/useMarketwatchController'
 import {
-  Plus,
-  Search,
-  Trash2,
-  Loader2,
-  LogIn,
-  ArrowUpRight,
-  RefreshCw,
-  TrendingUp,
-  TrendingDown,
-  Briefcase,
-  Filter,
-  X,
-} from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
-import TickerLogo from '@/components/TickerLogo'
-import { GitCompareArrows } from 'lucide-react'
-import { compareHref } from '@/lib/compare'
-import WatchlistPortfolioPanel from '@/components/portfolio/WatchlistPortfolioPanel'
+  HeldBadge, HoldingsEmpty, HoldingsSummary, ListTabs, SearchAdd, WatchRowsSkeleton,
+} from '@/components/marketwatch/MarketwatchParts'
+import MobileStockSheet from '@/components/marketwatch/MobileStockSheet'
+import PriceAlertDialog from '@/components/marketwatch/PriceAlertDialog'
+import AddHoldingDialog from '@/components/marketwatch/AddHoldingDialog'
 import {
-  addToWatchlist,
-  getWatchlist,
-  removeFromWatchlist,
-  searchSymbols,
-  syncSymbol,
-  WatchlistItem,
-  SearchResult,
-  fetchQuote,
-  QuoteData,
-} from '@/lib/api'
-import { formatNumber, formatPercent, isNumber } from '@/lib/format'
+  SORT_LABEL, dirClass, fmtLtp, fmtSigned, quoteFromHolding, sparkPoints, useSparklines, useWatchQuotes,
+  type SortMode, type WatchQuote,
+} from '@/lib/marketwatch'
+import { fmtMoney, fmtPct, fmtQty } from '@/lib/portfolio'
+import { useMarketRefreshInterval } from '@/hooks/useMarketRefresh'
+import { Skeleton } from '@/components/Skeleton'
 
-interface WatchlistQuote extends QuoteData {
-  name?: string | null
+const SPARK_W = 56
+const SPARK_H = 22
+
+function Spark({ values }: { values?: number[] }) {
+  const pts = values ? sparkPoints(values, SPARK_W, SPARK_H) : ''
+  if (!pts) return <span className="block h-[22px] w-14" aria-hidden />
+  const up = values![values!.length - 1] >= values![0]
+  return (
+    <svg width={SPARK_W} height={SPARK_H} viewBox={`0 0 ${SPARK_W} ${SPARK_H}`} aria-hidden className="shrink-0">
+      <polyline points={pts} fill="none" stroke={up ? '#10b981' : '#ef4444'} strokeWidth={1.25} strokeLinejoin="round" />
+    </svg>
+  )
 }
 
-type ActiveTab = 'watchlist' | 'portfolio'
-
 export default function MobileWatchlist() {
-  const { isAuthenticated, isLoading: authLoading } = useAuth()
-  const queryClient = useQueryClient()
+  const c = useMarketwatchController()
+  const [sheet, setSheet] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [menu, setMenu] = useState(false)
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const refresh = useMarketRefreshInterval({ liveInterval: 15_000, extendedInterval: 60_000, closedInterval: 300_000 })
 
-  const [filter, setFilter] = usePersistentState('watchlist.mobile.filter', '', { validate: isStr })
-  const [showAdd, setShowAdd] = useState(false)
-  const [addQuery, setAddQuery] = useState('')
-  // View toggle persists per user, shared with the desktop view.
-  const [activeTab, setActiveTab] = usePersistentState<ActiveTab>('watchlist.tab', 'watchlist', { version: 1, validate: oneOf(['watchlist', 'portfolio'] as const) })
+  const list = c.activeList
+  const listIdx = list ? c.lists.findIndex((l) => l.id === list.id) : -1
+  const symbols = useMemo(() => c.items.map((i) => i.symbol), [c.items])
+  const sparks = useSparklines(symbols, !c.isHoldings)
 
-  const { data: items = [], isLoading, refetch } = useQuery<WatchlistItem[]>({
-    queryKey: ['watchlist'],
-    queryFn: getWatchlist,
-    enabled: isAuthenticated,
-    staleTime: 30000,
-  })
+  // The sheet needs a full quote even when opened from Holdings (rows carry the LTP only).
+  const sheetNeedsQuote = !!sheet && !c.quotes[sheet]
+  const extra = useWatchQuotes(sheetNeedsQuote && sheet ? [sheet] : [], refresh)
+  const quoteFor = (s: string | null | undefined): WatchQuote | undefined => (s ? c.quotes[s] ?? extra.data?.[s] : undefined)
+  const sheetName = sheet ? c.rawItems.find((i) => i.symbol === sheet)?.name ?? c.holdingRows.find((h) => h.symbol === sheet)?.name ?? null : null
+  const sheetPositions = useMemo(() => c.holdingRows.filter((h) => h.symbol === sheet), [c.holdingRows, sheet])
 
-  const symbols = useMemo(() => items.map((i) => i.symbol), [items])
-
-  const { data: quotes = [], isLoading: quotesLoading } = useQuery<WatchlistQuote[]>({
-    queryKey: ['watchlist.quotes', symbols.join(',')],
-    queryFn: async () => {
-      const quoteList = await Promise.all(
-        symbols.map(async (s) => {
-          const q = await fetchQuote(s, 'normal')
-          const item = items.find((i) => i.symbol === s)
-          return { ...q, name: item?.name ?? null }
-        })
-      )
-      return quoteList
-    },
-    enabled: isAuthenticated && symbols.length > 0,
-    refetchInterval: 10000,
-    staleTime: 5000,
-  })
-
-  const filtered = useMemo(() => {
-    const q = filter.trim().toLowerCase()
-    if (!q) return quotes
-    return quotes.filter(
-      (x) => x.symbol.toLowerCase().includes(q) || (x.name || '').toLowerCase().includes(q)
-    )
-  }, [filter, quotes])
-
-  const stats = useMemo(() => {
-    const gainers = quotes.filter(q => isNumber(q.change_percent) && q.change_percent > 0).length
-    const losers = quotes.filter(q => isNumber(q.change_percent) && q.change_percent < 0).length
-    const topGainer = quotes.reduce((max, q) =>
-      (q.change_percent || 0) > (max?.change_percent || -Infinity) ? q : max, quotes[0])
-    const topLoser = quotes.reduce((min, q) =>
-      (q.change_percent || 0) < (min?.change_percent || Infinity) ? q : min, quotes[0])
-    const avgChange = quotes.length > 0
-      ? quotes.reduce((sum, q) => sum + (q.change_percent || 0), 0) / quotes.length
-      : 0
-    return { gainers, losers, topGainer, topLoser, avgChange }
-  }, [quotes])
-
-  const addMutation = useMutation({
-    mutationFn: async (symbol: string) => {
-      await syncSymbol(symbol)
-      return addToWatchlist({ symbol })
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['watchlist'] })
-    },
-  })
-
-  const removeMutation = useMutation({
-    mutationFn: removeFromWatchlist,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['watchlist'] })
-    },
-  })
-
-  const { data: searchResults = [], isLoading: searching } = useQuery<SearchResult[]>({
-    queryKey: ['watchlist.search', addQuery],
-    queryFn: () => searchSymbols(addQuery, 10),
-    enabled: showAdd && addQuery.trim().length > 0,
-    staleTime: 0,
-  })
-
-  if (!authLoading && !isAuthenticated) {
+  if (!c.authLoading && !c.isAuthenticated) {
     return (
       <div className="space-y-4">
-        <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe pb-2 px-1">
-          <h1 className="text-xl font-semibold text-fg-primary">Watchlist</h1>
-          <p className="text-[11px] text-fg-secondary">Save symbols and track them in real time.</p>
+        <header className="sticky top-0 z-30 border-b border-line-subtle bg-surface-base/95 px-1 pb-2 pt-safe backdrop-blur-xl">
+          <h1 className="text-xl font-semibold text-fg-primary">Marketwatch</h1>
+          <p className="text-[11px] text-fg-secondary">Multiple watchlists, live prices, alerts and holdings.</p>
         </header>
-        <div className="rounded-2xl bg-surface-raised border border-line-subtle p-5 text-center">
-          <LogIn className="w-10 h-10 text-[#00D9FF] mx-auto mb-3" />
-          <h2 className="text-[15px] font-semibold text-fg-primary">Sign in to use Watchlist</h2>
-          <p className="text-[11px] text-fg-secondary mt-1">
-            Your watchlist is tied to your account so it syncs across devices.
-          </p>
-          <Link
-            href="/auth"
-            className="inline-flex items-center justify-center mt-4 w-full h-11 rounded-full bg-[#00D9FF] text-[#0A0E1A] font-semibold text-[13px]"
-          >
-            Sign In / Register
+        <div className="rounded-2xl border border-line-subtle bg-surface-raised p-5 text-center">
+          <LogIn className="mx-auto mb-3 h-10 w-10 text-fg-muted" aria-hidden />
+          <h2 className="text-[15px] font-semibold text-fg-primary">Sign in to use Marketwatch</h2>
+          <p className="mt-1 text-[11px] text-fg-secondary">Your watchlists are tied to your account so they sync across devices.</p>
+          <Link href="/auth" className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-full bg-indigo-600 text-[13px] font-semibold text-[#fff]">
+            Sign in / Register
           </Link>
         </div>
       </div>
     )
   }
 
+  const dialogQuote = c.dialog ? quoteFor(c.dialog.symbol) ?? quoteFromHolding(c.dialog.symbol, c.holdingRows) : undefined
+
   return (
     <div className="space-y-3 pb-4">
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe pb-2 px-1">
+      <header className="sticky top-0 z-30 space-y-2 border-b border-line-subtle bg-surface-base/95 px-1 pb-2 pt-safe backdrop-blur-xl">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-fg-primary">Watchlist</h1>
-            <p className="text-[11px] text-fg-secondary">
-              {items.length} symbols • quotes refresh every 10s
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold text-fg-primary">Marketwatch</h1>
+            <p className="truncate text-[11px] text-fg-muted">
+              {c.isHoldings
+                ? 'Holdings across your portfolios'
+                : list
+                  ? `${list.items.length} symbol${list.items.length === 1 ? '' : 's'} · regular-session prices`
+                  : ' '}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => { refetch(); queryClient.invalidateQueries({ queryKey: ['watchlist.quotes'] }) }}
-              disabled={isLoading}
-              className="h-9 w-9 rounded-full bg-surface-raised border border-line-subtle text-fg-secondary flex items-center justify-center active:scale-95 disabled:opacity-50"
-              aria-label="Refresh"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
-            {items.length >= 2 && (
-              <Link
-                href={compareHref(items.slice(0, 4).map((w) => w.symbol))}
-                className="h-9 w-9 rounded-full bg-surface-raised border border-line-subtle text-fg-secondary flex items-center justify-center active:scale-95"
-                aria-label="Compare watchlist symbols"
+          {!c.isHoldings && list && (
+            <div className="relative flex items-center gap-1.5">
+              {list.items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setEditing((e) => !e)}
+                  aria-pressed={editing}
+                  className={`h-8 rounded-full border px-3 text-xs font-semibold ${editing ? 'border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300' : 'border-line-subtle bg-surface-raised text-fg-secondary'}`}
+                >
+                  {editing ? 'Done' : 'Edit'}
+                </button>
+              )}
+              <button
+                type="button"
+                aria-label="Watchlist options"
+                aria-expanded={menu}
+                onClick={() => { setMenu((m) => !m); setConfirmDelete(false) }}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-line-subtle bg-surface-raised text-fg-secondary"
               >
-                <GitCompareArrows className="w-4 h-4" />
-              </Link>
-            )}
-            <button
-              type="button"
-              onClick={() => setShowAdd(true)}
-              className="h-9 px-3 rounded-full bg-[#00D9FF] text-[#0A0E1A] text-[12px] font-semibold inline-flex items-center gap-2 active:scale-[0.98]"
-            >
-              <Plus className="w-4 h-4" />
-              Add
-            </button>
-          </div>
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+              {menu && (
+                <div role="menu" className="absolute right-0 top-full z-40 mt-1 w-56 rounded-xl border border-line-default bg-white py-1 text-sm shadow-xl dark:bg-slate-900">
+                  <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Sort</p>
+                  {(Object.keys(SORT_LABEL) as SortMode[]).map((k) => (
+                    <button key={k} type="button" role="menuitemradio" aria-checked={c.sort === k} onClick={() => { c.setSort(k); setMenu(false) }} className="flex w-full items-center justify-between px-3 py-2 text-left text-fg-secondary">
+                      {SORT_LABEL[k]} {c.sort === k && <Check className="h-4 w-4 text-indigo-500" />}
+                    </button>
+                  ))}
+                  <div className="my-1 border-t border-line-subtle" />
+                  <button type="button" role="menuitem" onClick={() => { setRenaming(list.name); setMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-fg-secondary"><Pencil className="h-4 w-4" /> Rename</button>
+                  <button type="button" role="menuitem" disabled={listIdx <= 0} onClick={() => { c.shiftList(list.id, -1); setMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-fg-secondary disabled:opacity-40"><ArrowUp className="h-4 w-4 -rotate-90" /> Move tab left</button>
+                  <button type="button" role="menuitem" disabled={listIdx >= c.lists.length - 1} onClick={() => { c.shiftList(list.id, 1); setMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-fg-secondary disabled:opacity-40"><ArrowDown className="h-4 w-4 -rotate-90" /> Move tab right</button>
+                  {list.is_default ? (
+                    <p className="px-3 py-2 text-[11px] text-fg-muted">Default list: also your Watchlist on other pages.</p>
+                  ) : (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        if (!confirmDelete) return setConfirmDelete(true)
+                        c.deleteList(list.id)
+                        setMenu(false)
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 dark:text-red-400"
+                    >
+                      <Trash2 className="h-4 w-4" /> {confirmDelete ? 'Tap again to delete' : 'Delete watchlist'}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex gap-1 mt-3 bg-surface-raised rounded-xl p-1">
-          <button
-            onClick={() => setActiveTab('watchlist')}
-            className={`flex-1 h-8 rounded-lg text-[12px] font-semibold transition-all ${
-              activeTab === 'watchlist'
-                ? 'bg-[#00D9FF]/20 text-[#00D9FF] border border-[#00D9FF]/30'
-                : 'text-fg-secondary'
-            }`}
+        {c.loading ? (
+          <div className="flex gap-2"><Skeleton className="h-8 w-24 rounded-full" /><Skeleton className="h-8 w-20 rounded-full" /><Skeleton className="h-8 w-24 rounded-full" /></div>
+        ) : (
+          <ListTabs
+            compact
+            lists={c.lists}
+            activeKey={c.isHoldings ? 'holdings' : String(list?.id ?? '')}
+            onSelect={(k) => { c.setActiveKey(k); setEditing(false); setMenu(false) }}
+            onCreate={c.createList}
+            holdingsCount={c.holdings.data ? c.holdingRows.length : null}
+            canCreate={c.lists.length < c.limits.lists}
+          />
+        )}
+
+        {renaming != null && list && (
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              c.renameList(list.id, renaming)
+              setRenaming(null)
+            }}
           >
-            Watchlist
-          </button>
-          <button
-            onClick={() => setActiveTab('portfolio')}
-            className={`flex-1 h-8 rounded-lg text-[12px] font-semibold transition-all flex items-center justify-center gap-1.5 ${
-              activeTab === 'portfolio'
-                ? 'bg-[#00D9FF]/20 text-[#00D9FF] border border-[#00D9FF]/30'
-                : 'text-fg-secondary'
-            }`}
-          >
-            <Briefcase className="w-3.5 h-3.5" />
-            Portfolio
-          </button>
-        </div>
+            <input
+              autoFocus
+              value={renaming}
+              maxLength={40}
+              onChange={(e) => setRenaming(e.target.value)}
+              aria-label="Watchlist name"
+              className="h-10 min-w-0 flex-1 rounded-lg border border-line-default bg-surface-raised px-3 text-sm text-fg-primary focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
+            <button type="submit" className="h-10 rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-[#fff]">Save</button>
+            <button type="button" onClick={() => setRenaming(null)} className="h-10 rounded-lg border border-line-subtle px-3 text-xs text-fg-secondary">Cancel</button>
+          </form>
+        )}
+
+        {c.loading ? (
+          <Skeleton className="h-10 w-full rounded-lg" />
+        ) : !c.isHoldings && list ? (
+          <SearchAdd compact listName={list.name} inList={(s) => list.items.some((i) => i.symbol === s)} onAdd={c.add} adding={c.adding} />
+        ) : null}
       </header>
 
-      {/* ─── WATCHLIST TAB ─── */}
-      {activeTab === 'watchlist' && (
-        <>
-          {/* KPI Stats Cards */}
-          {quotes.length > 0 && (
-            <section className="px-1">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-2xl bg-surface-raised border border-line-subtle p-3">
-                  <p className="text-[10px] text-fg-muted uppercase tracking-wider">Total Symbols</p>
-                  <p className="text-[20px] font-bold text-fg-primary mt-0.5">{quotes.length}</p>
-                  <p className="text-[10px] text-fg-secondary">{stats.gainers} up, {stats.losers} down</p>
-                </div>
-                <div className="rounded-2xl bg-surface-raised border border-line-subtle p-3">
-                  <p className="text-[10px] text-fg-muted uppercase tracking-wider">Avg Change</p>
-                  <p className={`text-[20px] font-bold mt-0.5 ${stats.avgChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {stats.avgChange >= 0 ? '+' : ''}{stats.avgChange.toFixed(2)}%
-                  </p>
-                  <p className="text-[10px] text-fg-secondary">Across {quotes.length} symbols</p>
-                </div>
-                <div className="rounded-2xl bg-surface-raised border border-line-subtle p-3">
-                  <p className="text-[10px] text-fg-muted uppercase tracking-wider">Top Gainer</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <TrendingUp className="w-4 h-4 text-emerald-400" />
-                    <p className="text-[16px] font-bold text-emerald-400">{stats.topGainer?.symbol || '—'}</p>
-                  </div>
-                  <p className="text-[10px] text-emerald-400/70">
-                    {isNumber(stats.topGainer?.change_percent) ? `+${stats.topGainer!.change_percent.toFixed(2)}%` : '—'}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-surface-raised border border-line-subtle p-3">
-                  <p className="text-[10px] text-fg-muted uppercase tracking-wider">Top Loser</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <TrendingDown className="w-4 h-4 text-red-400" />
-                    <p className="text-[16px] font-bold text-red-400">{stats.topLoser?.symbol || '—'}</p>
-                  </div>
-                  <p className="text-[10px] text-red-400/70">
-                    {isNumber(stats.topLoser?.change_percent) ? `${stats.topLoser!.change_percent.toFixed(2)}%` : '—'}
-                  </p>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Search Filter */}
-          <section className="px-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
-              <input
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder="Search watchlist..."
-                aria-label="Search watchlist"
-                className="w-full h-10 rounded-full bg-surface-raised border border-line-subtle pl-9 pr-3 text-[13px] text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
-              />
-            </div>
-          </section>
-
-          {/* Watchlist Cards */}
-          <section className="px-1 space-y-2">
-            {(isLoading || quotesLoading) &&
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-20 rounded-2xl bg-surface-raised border border-line-subtle animate-pulse" />
-              ))}
-
-            {!isLoading && items.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-line-default p-6 text-center">
-                <p className="text-[13px] text-fg-secondary">No stocks in your watchlist</p>
-                <p className="text-[11px] text-fg-muted mt-1">Add your first symbol to begin tracking.</p>
-                <button
-                  type="button"
-                  onClick={() => setShowAdd(true)}
-                  className="mt-4 w-full h-11 rounded-full bg-[#00D9FF] text-[#0A0E1A] font-semibold text-[13px]"
-                >
-                  Add your first stock
-                </button>
-              </div>
-            )}
-
-            {!quotesLoading &&
-              filtered.map((q) => {
-                const isUp = isNumber(q.change_percent) && q.change_percent >= 0
-                return (
-                  <div
-                    key={q.symbol}
-                    className="rounded-2xl bg-surface-raised border border-line-subtle p-4 flex items-center justify-between"
-                  >
-                    <div className="min-w-0 flex items-center gap-3">
-                      <TickerLogo symbol={q.symbol} companyName={q.name} size={40} className="shrink-0" />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/research?symbol=${encodeURIComponent(q.symbol)}`}
-                            className="text-[16px] font-semibold text-fg-primary"
-                          >
-                            {q.symbol}
-                          </Link>
-                          <ArrowUpRight className="w-4 h-4 text-fg-muted" />
+      <section className="overflow-hidden rounded-2xl border border-line-subtle bg-surface-raised/40">
+        {c.error ? (
+          <p role="alert" className="p-4 text-xs text-red-600 dark:text-red-400">{c.error.message || 'Could not load watchlists'}</p>
+        ) : c.loading ? (
+          <WatchRowsSkeleton rows={7} />
+        ) : c.isHoldings ? (
+          c.holdings.isLoading ? (
+            <WatchRowsSkeleton rows={5} />
+          ) : c.holdings.error ? (
+            <p role="alert" className="p-4 text-xs text-red-600 dark:text-red-400">Could not load holdings.</p>
+          ) : c.holdingRows.length === 0 ? (
+            <HoldingsEmpty />
+          ) : (
+            <>
+              <div className="p-3"><HoldingsSummary rows={c.holdingRows} /></div>
+              <ul className="border-t border-line-subtle">
+                {c.holdingRows.map((h) => (
+                  <li key={`${h.portfolio_id}-${h.symbol}`}>
+                    <button type="button" onClick={() => setSheet(h.symbol)} className="flex h-14 w-full items-center gap-2 border-b border-line-subtle px-3 text-left active:bg-surface-hover">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[15px] font-semibold text-fg-primary">{h.symbol}</span>
+                          {h.simulated && <span className="rounded bg-amber-500/10 px-1 text-[10px] font-medium text-amber-700 dark:text-amber-400">Paper</span>}
                         </div>
-                        <p className="text-[11px] text-fg-muted truncate max-w-[200px]">
-                          {q.name || '—'}
-                        </p>
+                        <div className="truncate text-[11px] tabular-nums text-fg-muted">{fmtQty(h.quantity)} @ {fmtLtp(h.avg_cost)} · {h.portfolio_name}</div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <p className="text-[14px] font-mono text-fg-primary">
-                          ${formatNumber(q.price, 2)}
-                        </p>
-                        <p className={`text-[11px] font-mono ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {isUp ? '+' : ''}
-                          {formatPercent(q.change_percent, 2)}
-                        </p>
-                      </div>
-                      <Link
-                        href={compareHref([q.symbol])}
-                        className="h-9 w-9 rounded-full bg-surface-base border border-line-subtle text-fg-secondary flex items-center justify-center active:scale-95"
-                        aria-label={`Compare ${q.symbol}`}
-                      >
-                        <GitCompareArrows className="w-4 h-4" />
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => removeMutation.mutate(q.symbol)}
-                        disabled={removeMutation.isPending}
-                        className="h-9 w-9 rounded-full bg-surface-base border border-line-subtle text-fg-secondary flex items-center justify-center active:scale-95 disabled:opacity-60"
-                        aria-label={`Remove ${q.symbol}`}
-                      >
-                        {removeMutation.isPending ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                      <div className="text-right tabular-nums">
+                        {h.price == null ? (
+                          <span className="text-xs text-fg-muted">No quote</span>
                         ) : (
-                          <Trash2 className="w-4 h-4" />
+                          <>
+                            <div className={`text-sm font-semibold ${dirClass(h.unrealized_pnl)}`}>{fmtMoney(h.unrealized_pnl, { signed: true })}</div>
+                            <div className="text-[11px] text-fg-muted">LTP {fmtLtp(h.price)} <span className={dirClass(h.unrealized_pnl_percent)}>{fmtPct(h.unrealized_pnl_percent)}</span></div>
+                          </>
                         )}
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-          </section>
-        </>
-      )}
-
-      {/* ─── PORTFOLIO TAB: summary of the real /portfolio data ─── */}
-      {activeTab === 'portfolio' && <WatchlistPortfolioPanel variant="mobile" />}
-
-      {/* ─── ADD SYMBOL MODAL ─── */}
-      {showAdd && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end md:hidden"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowAdd(false)
-          }}
-        >
-          <div className="w-full max-w-md mx-auto rounded-t-3xl bg-surface-base/95 border-t border-line-subtle pb-safe animate-slide-in-bottom">
-            <div className="px-4 pt-3 pb-2">
-              <div className="mx-auto h-1 w-10 rounded-full bg-surface-raised mb-3" />
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-fg-primary">Add to Watchlist</h3>
-                  <p className="text-[11px] text-fg-secondary">Search tickers or company names.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAdd(false)}
-                  className="h-8 w-8 rounded-full bg-surface-raised border border-line-subtle text-fg-secondary flex items-center justify-center"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="relative mt-3">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
-                <input
-                  value={addQuery}
-                  onChange={(e) => setAddQuery(e.target.value)}
-                  placeholder="e.g. NVDA, Booking, Tesla..."
-                  className="w-full h-10 rounded-full bg-surface-raised border border-line-subtle pl-9 pr-3 text-[13px] text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-[#00D9FF]/60"
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            <div className="px-4 pb-4 max-h-[55vh] overflow-y-auto scrollbar-hide">
-              {searching && (
-                <div className="py-6 text-center text-[11px] text-fg-muted">
-                  Searching…
-                </div>
-              )}
-              {!searching && addQuery.trim() && searchResults.length === 0 && (
-                <div className="py-6 text-center text-[11px] text-fg-muted">
-                  No matches. Try a different query.
-                </div>
-              )}
-              <div className="space-y-2">
-                {searchResults.map((r) => {
-                  const disabled =
-                    addMutation.isPending || items.some((i) => i.symbol === r.symbol)
-                  return (
-                    <button
-                      key={r.symbol}
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => {
-                        addMutation.mutate(r.symbol)
-                        setShowAdd(false)
-                        setAddQuery('')
-                      }}
-                      className="w-full rounded-2xl bg-surface-raised border border-line-subtle p-3 text-left active:scale-[0.98] disabled:opacity-60"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0">
-                          <p className="text-[13px] font-semibold text-fg-primary">{r.symbol}</p>
-                          <p className="text-[11px] text-fg-muted truncate">{r.name}</p>
-                        </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#00D9FF]/10 text-[#00D9FF] border border-[#00D9FF]/30">
-                          Add
-                        </span>
                       </div>
                     </button>
-                  )
-                })}
-              </div>
-
-              {addMutation.isPending && (
-                <div className="mt-3 text-[11px] text-fg-muted flex items-center gap-2">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Adding…
-                </div>
-              )}
-            </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )
+        ) : !list || list.items.length === 0 ? (
+          <div className="px-6 py-10 text-center">
+            <p className="text-sm font-semibold text-fg-primary">{list?.name ?? 'Watchlist'} is empty</p>
+            <p className="mt-1 text-xs text-fg-muted">Search a ticker or company name above to add it.</p>
           </div>
-        </div>
-      )}
+        ) : (
+          <>
+            {c.quotesError && <p role="status" className="px-3 pt-2 text-[11px] text-amber-600 dark:text-amber-400">Prices are temporarily unavailable; retrying.</p>}
+            {editing && c.sort !== 'manual' && (
+              <p className="px-3 pt-2 text-[11px] text-fg-muted">Sorted by {SORT_LABEL[c.sort]}. Switch the sort to “My order” to reorder.</p>
+            )}
+            <ul>
+              {c.items.map((it, i) => {
+                const q = c.quotes[it.symbol]
+                const pending = c.quotesLoading && !q
+                return (
+                  <li key={it.symbol} className="flex h-14 items-center border-b border-line-subtle last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => (editing ? undefined : setSheet(it.symbol))}
+                      disabled={editing}
+                      className="flex h-full min-w-0 flex-1 items-center gap-2 px-3 text-left active:bg-surface-hover disabled:cursor-default"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[15px] font-semibold text-fg-primary">{it.symbol}</span>
+                          <HeldBadge h={c.held[it.symbol]} />
+                        </div>
+                        <div className="truncate text-[11px] text-fg-muted">{it.name ?? it.exchange ?? ' '}</div>
+                      </div>
+                      {!editing && <Spark values={sparks.data?.[it.symbol]} />}
+                      {!editing && (
+                        <div className="w-[5.5rem] text-right tabular-nums">
+                          {pending ? (
+                            <div className="flex flex-col items-end gap-1"><Skeleton className="h-3.5 w-14" /><Skeleton className="h-3 w-10" /></div>
+                          ) : !q || q.unavailable ? (
+                            <span className="text-xs text-fg-muted">No quote</span>
+                          ) : (
+                            <>
+                              <div className={`text-sm font-semibold ${dirClass(q.change)}`}>{fmtLtp(q.price)}</div>
+                              <div className={`text-[11px] ${dirClass(q.change)}`}>{fmtSigned(q.change_percent)}%</div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </button>
+                    {editing && (
+                      <div className="flex shrink-0 items-center gap-1 pr-2">
+                        <button type="button" aria-label={`Move ${it.symbol} up`} disabled={c.sort !== 'manual' || i === 0} onClick={() => c.move(i, i - 1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-line-subtle text-fg-secondary disabled:opacity-30"><ArrowUp className="h-4 w-4" /></button>
+                        <button type="button" aria-label={`Move ${it.symbol} down`} disabled={c.sort !== 'manual' || i === c.items.length - 1} onClick={() => c.move(i, i + 1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-line-subtle text-fg-secondary disabled:opacity-30"><ArrowDown className="h-4 w-4" /></button>
+                        <button type="button" aria-label={`Remove ${it.symbol}`} onClick={() => c.remove(it.symbol)} className="flex h-9 w-9 items-center justify-center rounded-full border border-line-subtle text-red-500"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </>
+        )}
+      </section>
+
+      <p className="px-1 text-center text-[10px] text-fg-muted">Alerts notify only. Nothing on this page places an order.</p>
+
+      <MobileStockSheet
+        open={!!sheet && !c.dialog}
+        symbol={sheet}
+        name={sheetName}
+        quote={quoteFor(sheet)}
+        positions={sheetPositions}
+        onClose={() => setSheet(null)}
+        onAlert={(s) => c.openDialog('alert', s)}
+        onHolding={(s) => c.openDialog('holding', s)}
+      />
+      <PriceAlertDialog variant="sheet" open={c.dialog?.kind === 'alert'} symbol={c.dialog?.symbol ?? null} quote={dialogQuote} onClose={c.closeDialog} />
+      <AddHoldingDialog variant="sheet" open={c.dialog?.kind === 'holding'} symbol={c.dialog?.symbol ?? null} quote={dialogQuote} onClose={c.closeDialog} />
     </div>
   )
 }

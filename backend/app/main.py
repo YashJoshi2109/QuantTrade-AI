@@ -123,6 +123,7 @@ from app.models.ml_training import (
 from app.models.edgar import CompanyEDGAR, FinancialStatement
 from app.models.news_item import NewsItem as _NewsItem  # noqa: F401  (news_items table)
 from app.models.price_alert import PriceAlert as _PriceAlert  # noqa: F401  (price_alerts table)
+from app.models.marketwatch import MarketwatchList as _MarketwatchList  # noqa: F401  (marketwatch tables)
 from app.models.screener_snapshot import ScreenerSnapshot as _ScreenerSnapshot  # noqa: F401  (screener_snapshots table)
 
 
@@ -663,6 +664,10 @@ app.include_router(portfolios_api.router, prefix="/api/v1")
 # Price / indicator alerts — user-defined, evaluated by the user_price_alerts job
 from app.api import alerts as alerts_api  # noqa: E402
 app.include_router(alerts_api.router, prefix="/api/v1")
+
+# Marketwatch — multiple named watchlists + computed Holdings list (read-only, no orders)
+from app.api import marketwatch as marketwatch_api  # noqa: E402
+app.include_router(marketwatch_api.router, prefix="/api/v1")
 
 # Stock screener — fundamental + technical filters over a DB-built snapshot
 from app.api import screener as screener_api  # noqa: E402

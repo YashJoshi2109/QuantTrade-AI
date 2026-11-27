@@ -490,6 +490,11 @@ jobs:
               python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/add_price_alert_event_key_column.py', run_name='__main__')" \
               || echo "⚠️ last_event_key migration failed — run on PostgreSQL: ALTER TABLE price_alerts ADD COLUMN IF NOT EXISTS last_event_key VARCHAR(32);"
             
+            echo "🧱 Applying DB migration marketwatch_lists / marketwatch_items (if missing)..."
+            docker compose -f docker-compose.prod.yml exec -T backend \
+              python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/create_marketwatch_tables.py', run_name='__main__')" \
+              || echo "⚠️ marketwatch migration failed — run scripts/create_marketwatch_tables.py manually"
+
             echo "🧱 Applying DB migration price_bars unique (symbol_id, timestamp) (if missing)..."
             docker compose -f docker-compose.prod.yml exec -T backend \
               python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/add_price_bars_unique_index.py', run_name='__main__')" \
