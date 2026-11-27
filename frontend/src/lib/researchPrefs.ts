@@ -80,5 +80,5 @@ export function useChartPrefs() {
 
 // ── Mobile ──────────────────────────────────────────────────────────────
 
-export const MOBILE_TIMEFRAMES = ['1D', '1W', '1M', '3M', '1Y', 'All'] as const
+export const MOBILE_TIMEFRAMES = ['1D', '1W', '1M', '3M', '6M', 'YTD', '1Y', '2Y'] as const
 export const MOBILE_TABS = ['overview', 'financials', 'options', 'technicals', 'company'] as const

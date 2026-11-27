@@ -18,6 +18,57 @@ export interface KeyStatsSource {
   avg_volume?: number | null
 }
 
+/** Fields read from /api/quotes/ticker (TickerInfo) for the grid. */
+export interface KeyStatsTicker extends KeyStatsSource {
+  eps?: number | null
+}
+
+/** Fields read from the resolved live quote (lib/researchQuote ResolvedPriceInfo). */
+export interface KeyStatsLive {
+  volume?: number | null
+  high?: number | null
+  low?: number | null
+}
+
+/** Fields read from DB fundamentals (/api/v1/enhanced/fundamentals). */
+export interface KeyStatsFundamentals {
+  market_cap?: number | null
+  pe_ratio?: number | null
+  week_52_high?: number | null
+  week_52_low?: number | null
+}
+
+function first(...values: Array<number | null | undefined>): number | undefined {
+  for (const v of values) if (positive(v)) return v
+  return undefined
+}
+
+/**
+ * One merge rule for desktop and MobileResearch: the live quote wins for the
+ * intraday figures (Vol / High / Low), the ticker quote for the session open
+ * and averages, and DB fundamentals only fill a gap the quote left.
+ */
+export function keyStatsSource(
+  ticker: KeyStatsTicker | null | undefined,
+  live?: KeyStatsLive | null,
+  fundamentals?: KeyStatsFundamentals | null,
+): KeyStatsSource {
+  const t = ticker ?? {}
+  const l = live ?? {}
+  const f = fundamentals ?? {}
+  return {
+    open: first(t.open),
+    day_high: first(l.high, t.day_high),
+    day_low: first(l.low, t.day_low),
+    volume: first(l.volume, t.volume),
+    pe_ratio: first(t.pe_ratio, f.pe_ratio),
+    market_cap: first(t.market_cap, f.market_cap),
+    week_52_high: first(t.week_52_high, f.week_52_high),
+    week_52_low: first(t.week_52_low, f.week_52_low),
+    avg_volume: first(t.avg_volume),
+  }
+}
+
 export interface KeyStat {
   label: string
   value: string

@@ -39,15 +39,17 @@ import { isCompanyAsset } from '@/lib/assetType'
 import { displayCompanyName } from '@/lib/tickerIdentity'
 import { TickerIdentityBanner, useTickerIdentity } from '@/components/research/TickerIdentityBanner'
 import Chart from '@/components/Chart'
+import type { PaneIndicatorId } from '@/lib/indicators'
 import { Skeleton } from '@/components/Skeleton'
-import { keyStatsColumns } from '@/lib/researchKeyStats'
+import { keyStatsSource } from '@/lib/researchKeyStats'
+import { KeyStatsGrid } from '@/components/research/KeyStatsGrid'
 import LiveNews from '@/components/LiveNews'
 import KeyFactorsPanel from '@/components/KeyFactorsPanel'
 import FundamentalsPanel from '@/components/FundamentalsPanel'
 import SecEdgarPanel from '@/components/research/SecEdgarPanel'
 import ForecastPanel from '@/components/research/ForecastPanel'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
-import { pickMetric, resolvePriceInfo } from '@/lib/researchQuote'
+import { resolvePriceInfo } from '@/lib/researchQuote'
 import { ExtendedHoursBadge } from '@/components/quote/ExtendedHoursBadge'
 import OptionChainPanel from '@/components/research/OptionChainPanel'
 import EarningsShortInterestPanel from '@/components/research/EarningsShortInterestPanel'
@@ -60,8 +62,9 @@ import { compareHref } from '@/lib/compare'
 import { oneOf, usePersistentState } from '@/lib/persistentState'
 import { MOBILE_TABS, MOBILE_TIMEFRAMES, useResearchSymbol } from '@/lib/researchPrefs'
 
-const TIMEFRAMES = ['1D', '1W', '1M', '3M', '1Y', 'All'] as const
+const TIMEFRAMES = MOBILE_TIMEFRAMES
 type Timeframe = (typeof TIMEFRAMES)[number]
+const VOLUME_PANE: PaneIndicatorId[] = ['volume']
 
 export default function MobileResearch() {
   const router = useRouter()
@@ -70,7 +73,7 @@ export default function MobileResearch() {
   // Last symbol, timeframe and tab persist per user (lib/researchPrefs, shared with desktop).
   const symbolFromUrl = useResearchSymbol(searchParams?.get('symbol'))
 
-  const [timeframe, setTimeframe] = usePersistentState<Timeframe>('research.mobile.timeframe', '3M', { version: 1, validate: oneOf(MOBILE_TIMEFRAMES) })
+  const [timeframe, setTimeframe] = usePersistentState<Timeframe>('research.mobile.timeframe', '3M', { version: 2, validate: oneOf(MOBILE_TIMEFRAMES) })
   const [activeTab, setActiveTab] = usePersistentState<MobileResearchTab>('research.mobile.tab', 'overview', { version: 1, validate: oneOf(MOBILE_TABS) })
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
@@ -168,12 +171,20 @@ export default function MobileResearch() {
       case '3M':
         start.setDate(now.getDate() - 90)
         break
+      case '6M':
+        start.setDate(now.getDate() - 182)
+        break
+      case 'YTD':
+        start.setMonth(0, 1)
+        start.setHours(0, 0, 0, 0)
+        break
       case '1Y':
         start.setDate(now.getDate() - 365)
         break
-      case 'All':
+      case '2Y':
       default:
-        return { startIso: undefined, endIso: undefined }
+        start.setDate(now.getDate() - 730)
+        break
     }
     return { startIso: start.toISOString(), endIso: end }
   }, [timeframe])
@@ -222,10 +233,13 @@ export default function MobileResearch() {
   const change = priceInfo.change
   const isUp = isNumber(pct) && pct >= 0
 
-  const marketCap = pickMetric(tickerInfo?.market_cap, fundamentals?.market_cap)
-  const pe = pickMetric(tickerInfo?.pe_ratio, fundamentals?.pe_ratio)
   const eps = isNumber(tickerInfo?.eps) && tickerInfo.eps !== 0 ? tickerInfo.eps : fundamentals?.eps
-  const high52 = pickMetric(tickerInfo?.week_52_high, fundamentals?.week_52_high)
+
+  const companyName = displayCompanyName(tickerInfo?.name || fundamentals?.company_name, tickerIdentity)
+  const keyStats = keyStatsSource(tickerInfo, priceInfo, fundamentals)
+  // Chart colour follows the range shown (Apple Stocks): green when the
+  // selected range closed at or above where it opened.
+  const rangeUp = prices && prices.length > 1 ? prices[prices.length - 1].close >= prices[0].close : isUp
 
   const aiReport = useMemo(() => {
     const rsi = indicators?.indicators?.rsi
@@ -269,30 +283,34 @@ export default function MobileResearch() {
     <div className="space-y-4 pb-32 pb-safe">
       {/* ── Header ── */}
       <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe pb-2 px-1">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <Link
               href="/"
-              className="h-8 w-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center active:scale-95"
+              className="h-8 w-8 shrink-0 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center active:scale-95"
             >
               <ArrowLeft className="w-4 h-4 text-fg-primary" />
             </Link>
-            <div>
-              <div className="flex items-center gap-1">
-                <h1 className="text-[18px] font-semibold text-fg-primary">
-                  {symbolFromUrl}
-                </h1>
-              </div>
-              <p className="text-[11px] text-fg-secondary">
-                {displayCompanyName(fundamentals?.company_name, tickerIdentity) || 'Company overview'}
-              </p>
+            {/* Apple Stocks style: bold ticker + muted company name on one line. */}
+            <div className="flex min-w-0 items-baseline gap-2">
+              <h1 className="text-[22px] font-bold leading-none tracking-tight text-fg-primary">
+                {symbolFromUrl}
+              </h1>
+              {companyName ? (
+                <p className="min-w-0 truncate text-[13px] text-fg-muted" data-testid="mobile-research-name">
+                  {companyName}
+                </p>
+              ) : tickerInfoLoading ? (
+                <Skeleton className="h-3.5 w-28" />
+              ) : null}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
             {/* Search button */}
             <button
               type="button"
               onClick={() => setShowSearch(true)}
+              aria-label="Search symbols"
               className="h-8 w-8 rounded-full bg-surface-raised border border-line-subtle flex items-center justify-center active:scale-95"
             >
               <Search className="w-3.5 h-3.5 text-fg-primary" />
@@ -301,7 +319,9 @@ export default function MobileResearch() {
             <button
               type="button"
               onClick={handleSync}
-              className="h-8 px-3 rounded-full bg-surface-raised border border-line-subtle text-[11px] text-fg-primary inline-flex items-center gap-1 active:scale-95 disabled:opacity-60"
+              aria-label="Sync data"
+              title="Sync data"
+              className="h-8 w-8 rounded-full bg-surface-raised border border-line-subtle text-fg-primary inline-flex items-center justify-center active:scale-95 disabled:opacity-60"
               disabled={syncing}
             >
               {syncing ? (
@@ -309,7 +329,6 @@ export default function MobileResearch() {
               ) : (
                 <RefreshCw className="w-3.5 h-3.5" />
               )}
-              Sync
             </button>
             {/* Watch button */}
             <button
@@ -318,7 +337,9 @@ export default function MobileResearch() {
                 if (!isWatched && isAuthenticated) watchMutation.mutate()
               }}
               disabled={watchMutation.isPending || isWatched}
-              className={`h-8 px-3 rounded-full border text-[11px] inline-flex items-center gap-1 active:scale-95 disabled:opacity-60 ${
+              aria-label={isWatched ? 'Saved to watchlist' : 'Add to watchlist'}
+              title={isWatched ? 'Saved to watchlist' : 'Add to watchlist'}
+              className={`h-8 w-8 rounded-full border inline-flex items-center justify-center active:scale-95 disabled:opacity-60 ${
                 isWatched
                   ? 'bg-[#00D9FF]/10 border-[#00D9FF]/30 text-[#00D9FF]'
                   : 'bg-surface-raised border-line-subtle text-fg-primary'
@@ -331,7 +352,6 @@ export default function MobileResearch() {
               ) : (
                 <Bookmark className="w-3.5 h-3.5" />
               )}
-              {isWatched ? 'Saved' : 'Watch'}
             </button>
           </div>
         </div>
@@ -431,11 +451,10 @@ export default function MobileResearch() {
                 <Skeleton className="h-4 w-24" />
               </div>
             )}
-            <p className="mt-1.5 text-[11px] text-fg-muted">
-              {timeframe === 'All' ? 'Max range' : `Past ${timeframe}`}
-              {(tickerInfo?.exchange_display || tickerInfo?.exchange) &&
-                ` · ${tickerInfo?.exchange_display || tickerInfo?.exchange}`}
-              {tickerInfo?.currency ? ` · ${tickerInfo.currency}` : ''}
+            <p className="mt-1.5 text-[12px] text-fg-muted" data-testid="mobile-research-venue">
+              {[tickerInfo?.exchange_display || tickerInfo?.exchange, tickerInfo?.currency]
+                .filter(Boolean)
+                .join(' · ') || '\u00a0'}
             </p>
             {priceInfo.hasPrice && <ExtendedHoursBadge badge={priceInfo.extended} className="mt-1" />}
           </div>
@@ -445,23 +464,37 @@ export default function MobileResearch() {
           </div>
         </div>
 
-        <div className="flex items-stretch gap-2">
-          <div className="min-w-0 flex-1">
-            <AskCopilotButton symbol={symbolFromUrl} variant="mobile" />
-          </div>
-          <Link
-            href={compareHref([symbolFromUrl])}
-            className="flex shrink-0 items-center gap-1.5 rounded-2xl border border-line-subtle bg-surface-raised px-3 text-[12px] font-semibold text-fg-secondary active:scale-[0.98]"
-          >
-            <GitCompareArrows className="h-4 w-4" aria-hidden />
-            Compare
-          </Link>
+        {/* Timeframes: one row, the selected range is a filled rounded pill. */}
+        <div className="flex items-center justify-between gap-0.5" role="group" aria-label="Chart range">
+          {TIMEFRAMES.map((tf) => (
+            <button
+              key={tf}
+              type="button"
+              aria-pressed={timeframe === tf}
+              onClick={() => setTimeframe(tf)}
+              className={`flex-1 h-7 min-h-0 rounded-full text-[12px] font-semibold tabular-nums transition-colors ${
+                timeframe === tf
+                  ? 'bg-[color-mix(in_srgb,var(--text-primary)_14%,transparent)] text-fg-primary'
+                  : 'text-fg-muted'
+              }`}
+            >
+              {tf}
+            </button>
+          ))}
         </div>
 
-        <div className="rounded-2xl bg-surface-raised border border-line-subtle overflow-hidden">
-          <div className="h-[250px] chart-grid bg-surface-base">
+        <div className="overflow-hidden">
+          <div className="h-[250px]">
             {prices && prices.length > 0 ? (
-              <Chart data={prices} symbol={symbolFromUrl} />
+              <Chart
+                data={prices}
+                symbol={symbolFromUrl}
+                seriesType="area"
+                trend={rangeUp ? 'up' : 'down'}
+                activePanes={VOLUME_PANE}
+                showGrid={false}
+                minimal
+              />
             ) : pricesLoading ? (
               <div className="h-full p-3 flex flex-col gap-2" aria-busy="true" aria-label="Loading chart">
                 <div className="flex gap-2">
@@ -477,25 +510,6 @@ export default function MobileResearch() {
             )}
           </div>
         </div>
-
-        {/* Timeframes */}
-        <div className="flex items-center justify-between gap-1" role="group" aria-label="Chart range">
-          {TIMEFRAMES.map((tf) => (
-            <button
-              key={tf}
-              type="button"
-              aria-pressed={timeframe === tf}
-              onClick={() => setTimeframe(tf)}
-              className={`flex-1 rounded-full py-1.5 text-[12px] font-semibold tabular-nums transition-colors ${
-                timeframe === tf
-                  ? 'bg-fg-primary/10 text-fg-primary'
-                  : 'text-fg-muted'
-              }`}
-            >
-              {tf}
-            </button>
-          ))}
-        </div>
       </section>
 
       {syncError && (
@@ -509,45 +523,30 @@ export default function MobileResearch() {
 
       {/* ── Key Stats ── */}
       <section className="px-1">
-        {/* Apple Stocks style: 3 columns, label left / value right, thin dividers. */}
-        <div className="overflow-x-auto border-y border-line-subtle" data-testid="mobile-key-stats">
-          {tickerInfoLoading && !tickerInfo ? (
-            <div className="grid grid-cols-3 min-w-[360px] divide-x divide-line-subtle py-2" aria-busy="true" aria-label="Loading key stats">
-              {[0, 1, 2].map((c) => (
-                <div key={c} className="space-y-2 px-2.5">
-                  {[0, 1, 2].map((r) => (
-                    <div key={r} className="flex justify-between gap-2">
-                      <Skeleton className="h-3 w-8" />
-                      <Skeleton className="h-3 w-12" />
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 min-w-[360px] divide-x divide-line-subtle py-2">
-              {keyStatsColumns({
-                ...tickerInfo,
-                // Fill gaps from DB fundamentals only where the live quote has none.
-                market_cap: marketCap ?? tickerInfo?.market_cap,
-                pe_ratio: pe ?? tickerInfo?.pe_ratio,
-                week_52_high: high52 ?? tickerInfo?.week_52_high,
-              }).map((col, c) => (
-                <dl key={c} className="space-y-1.5 px-2.5">
-                  {col.map((s) => (
-                    <div key={s.label} className="flex items-baseline justify-between gap-2 text-[12px]">
-                      <dt className="text-fg-muted whitespace-nowrap">{s.label}</dt>
-                      <dd className="font-semibold text-fg-primary tabular-nums whitespace-nowrap">{s.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              ))}
-            </div>
-          )}
-        </div>
+        <KeyStatsGrid
+          source={keyStats}
+          loading={tickerInfoLoading && !tickerInfo}
+          className="border-y border-line-subtle"
+          testId="mobile-key-stats"
+        />
         {isNumber(eps) && (
           <p className="mt-1.5 text-[11px] text-fg-muted tabular-nums">EPS (TTM) {formatNumber(eps, 2)}</p>
         )}
+      </section>
+
+      <section className="px-1">
+        <div className="flex items-stretch gap-2">
+          <div className="min-w-0 flex-1">
+            <AskCopilotButton symbol={symbolFromUrl} variant="mobile" />
+          </div>
+          <Link
+            href={compareHref([symbolFromUrl])}
+            className="flex shrink-0 items-center gap-1.5 rounded-2xl border border-line-subtle bg-surface-raised px-3 text-[12px] font-semibold text-fg-secondary active:scale-[0.98]"
+          >
+            <GitCompareArrows className="h-4 w-4" aria-hidden />
+            Compare
+          </Link>
+        </div>
       </section>
 
       {/* ── Tabs ── */}
