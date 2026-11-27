@@ -13,6 +13,8 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
+from app.services.copilot import fundamentals_tools
+from app.services.copilot import quant_tools
 from app.services.copilot.filings_rag.tools import (FILINGS_TOOL_NAMES, FILINGS_TOOL_SPECS,
                                                     FILINGS_TOOL_TIMEOUTS)
 from app.services.copilot.models import Fact, TickerContextPack, compact_fact
@@ -59,11 +61,24 @@ TOOL_SPECS: List[Dict[str, Any]] = [
          "sector": {"type": "string"}, "min_market_cap": {"type": "number"}},
          "required": ["direction"], "additionalProperties": False}},
 ]
+# Per-tool time limits for tools that legitimately take longer than TOOL_TIMEOUT_S.
+TOOL_TIMEOUTS: Dict[str, float] = {}
+# Fundamentals engine (SEC XBRL statements, forensic / capital-efficiency / distress / peer analytics)
+TOOL_SPECS += fundamentals_tools.TOOL_SPECS
+TOOL_TIMEOUTS.update({n: fundamentals_tools.TOOL_TIMEOUT_S for n in fundamentals_tools.TOOL_NAMES})
+# Quant / risk engine (app.services.quant)
+TOOL_SPECS += quant_tools.QUANT_TOOL_SPECS
+TOOL_TIMEOUTS.update({n: quant_tools.QUANT_TOOL_TIMEOUT_S for n in quant_tools.QUANT_TOOL_NAMES})
+# Valuation engine tools (app.services.copilot.valuation_tools)
+from app.services.copilot.valuation_tools import (TOOL_TIMEOUT_S as _VAL_TIMEOUT_S,  # noqa: E402
+                                                  VALUATION_TOOL_NAMES, VALUATION_TOOL_SPECS, run_valuation_tool)
+TOOL_SPECS.extend(VALUATION_TOOL_SPECS)
+TOOL_TIMEOUTS.update({n: _VAL_TIMEOUT_S for n in VALUATION_TOOL_NAMES})
 # SEC filings RAG (verbatim excerpts + citations, section diffs, disclosures)
 TOOL_SPECS += FILINGS_TOOL_SPECS
-TOOL_NAMES = {t["name"] for t in TOOL_SPECS}
 # per-tool timeouts; filings tools may download + parse several 10-Ks on first use
-TOOL_TIMEOUTS: Dict[str, float] = {**FILINGS_TOOL_TIMEOUTS}
+TOOL_TIMEOUTS.update(FILINGS_TOOL_TIMEOUTS)
+TOOL_NAMES = {t["name"] for t in TOOL_SPECS}
 
 
 def lc_tools() -> List[Dict[str, Any]]:
@@ -147,6 +162,12 @@ class ToolExecutor:
         return context_block(f"tool:{name}", as_of, payload), facts, False
 
     async def _dispatch(self, name: str, a: Dict[str, Any]):
+        if name in fundamentals_tools.TOOL_NAMES:
+            return await fundamentals_tools.dispatch(name, a, pack=self._pack, sources=self.sources)
+        if name in quant_tools.QUANT_TOOL_NAMES:
+            return await quant_tools.dispatch(self, name, a)
+        if name in VALUATION_TOOL_NAMES:
+            return await run_valuation_tool(self, name, a)
         if name == "get_macro":
             facts = await self.sources.macro(list(a.get("indicators") or []))
             if not facts:
