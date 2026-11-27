@@ -25,6 +25,7 @@ export interface KeyStatsTicker extends KeyStatsSource {
 
 /** Fields read from the resolved live quote (lib/researchQuote ResolvedPriceInfo). */
 export interface KeyStatsLive {
+  open?: number | null
   volume?: number | null
   high?: number | null
   low?: number | null
@@ -57,7 +58,7 @@ export function keyStatsSource(
   const l = live ?? {}
   const f = fundamentals ?? {}
   return {
-    open: first(t.open),
+    open: first(l.open, t.open),
     day_high: first(l.high, t.day_high),
     day_low: first(l.low, t.day_low),
     volume: first(l.volume, t.volume),
