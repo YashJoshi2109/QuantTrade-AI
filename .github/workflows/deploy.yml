@@ -517,6 +517,11 @@ jobs:
               python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/add_symbol_lifecycle_columns.py', run_name='__main__')" \
               || echo "⚠️ symbols lifecycle migration failed — run scripts/add_symbol_lifecycle_columns.py manually"
 
+            echo "🧱 Applying DB migration community bot tables + bot accounts (if missing)..."
+            docker compose -f docker-compose.prod.yml exec -T backend \
+              python -c "from app.config_aws import inject_aws_secrets; inject_aws_secrets(); import runpy; runpy.run_path('scripts/seed_community_bots.py', run_name='__main__')" \
+              || echo "⚠️ community bots migration failed — run scripts/seed_community_bots.py manually"
+
             # ===== POST-DEPLOY CLEANUP =====
             echo "🧹 Post-deploy cleanup..."
             docker image prune -af || true

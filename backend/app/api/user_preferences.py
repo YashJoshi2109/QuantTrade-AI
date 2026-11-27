@@ -30,6 +30,7 @@ class PreferencesPatch(BaseModel):
     data_sources: Dict[str, bool] | None = None
     notifications: Dict[str, bool] | None = None
     pro_alerts: Dict[str, bool] | None = None
+    community: Dict[str, bool] | None = None
 
 
 @router.get("/preferences")

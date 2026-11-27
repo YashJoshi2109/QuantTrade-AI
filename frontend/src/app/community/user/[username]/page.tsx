@@ -21,9 +21,12 @@ import {
   Share2,
   ChevronRight,
   Home,
+  Bot,
 } from 'lucide-react'
 import PostCard from '@/components/community/PostCard'
 import AppLayout from '@/components/AppLayout'
+import BotBadge from '@/components/community/BotBadge'
+import { botProfileHref } from '@/lib/communityBots'
 import MobileLayout from '@/components/layout/MobileLayout'
 import { useAuth } from '@/contexts/AuthContext'
 import {
@@ -54,11 +57,14 @@ interface UserProfile {
   is_following: boolean
   joined_at: string
   communities?: { slug: string; name: string }[]
+  is_bot?: boolean
+  bot_slug?: string | null
 }
 
 /* ── Badge Config ──────────────────────────────────────────── */
 
 const BADGE_CONFIG: Record<string, { label: string; emoji: string; color: string; bg: string }> = {
+  bot: { label: 'Automated account', emoji: '🤖', color: 'text-indigo-400', bg: 'bg-indigo-500/10 border-indigo-500/30' },
   verified_trader: { label: 'Verified Trader', emoji: '✓', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
   top_analyst: { label: 'Top Analyst', emoji: '📊', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/30' },
   early_adopter: { label: 'Early Adopter', emoji: '🚀', color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/30' },
@@ -291,6 +297,7 @@ export default function UserProfilePage() {
                     {profile.badges.includes('verified_trader') && (
                       <span className="ml-1.5 inline-flex items-center justify-center w-4.5 h-4.5 bg-blue-500 rounded-full text-[10px] text-white font-bold">✓</span>
                     )}
+                    {profile.is_bot && <BotBadge slug={profile.bot_slug} className="ml-2 align-middle" />}
                   </h1>
                   <p className="text-sm text-fg-muted">u/{profile.username}</p>
                 </div>
@@ -307,13 +314,13 @@ export default function UserProfilePage() {
                     {followLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : following ? <UserMinus className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
                     {following ? 'Following' : 'Follow'}
                   </button>
-                  <Link
+                  {!profile.is_bot && <Link
                     href={`/community/messages/new?new=${profile.username}`}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-surface-raised text-fg-primary border border-line-subtle hover:bg-surface-active hover:text-fg-primary transition-colors min-h-[36px]"
                   >
                     <MessageSquare className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Message</span>
-                  </Link>
+                  </Link>}
                   <button
                     onClick={handleShare}
                     className="p-2 rounded-full bg-surface-raised border border-line-subtle text-fg-muted hover:text-fg-primary hover:bg-surface-active transition-colors"
@@ -327,6 +334,20 @@ export default function UserProfilePage() {
               {/* Bio */}
               {profile.bio && (
                 <p className="text-sm text-fg-secondary mt-2 leading-relaxed">{profile.bio}</p>
+              )}
+
+              {profile.is_bot && profile.bot_slug && (
+                <Link prefetch={false}
+                  href={botProfileHref(profile.bot_slug)}
+                  className="mt-2.5 flex items-start gap-2 rounded-xl border border-indigo-500/25 bg-indigo-500/[0.07] px-3 py-2 text-xs text-fg-secondary hover:border-indigo-500/40"
+                >
+                  <Bot className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" aria-hidden />
+                  <span>
+                    This is an automated account. Its posts are generated from market data by fixed rules,
+                    labelled with sources and an as-of time, and are not investment advice.{' '}
+                    <span className="text-blue-400 font-medium">Read the methodology →</span>
+                  </span>
+                </Link>
               )}
 
               {/* Meta info chips */}
