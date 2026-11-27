@@ -106,13 +106,18 @@ export default function ChartSnapshot({ symbol, data }: Props) {
         wickUpColor: '#00E676',
       })
 
-      const candleData = priceData.map((d: any) => {
+      // Rows with a null close (delisted symbols, provider gaps) make
+      // lightweight-charts throw; drop them and fill missing o/h/l from close.
+      const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+      const goodBars = priceData.filter((d: any) => fin(d.close))
+      const candleData = goodBars.map((d: any) => {
         const ts = d.timestamp || d.date
+        const open = fin(d.open) ? d.open : d.close
         return {
           time: typeof ts === 'string' ? ts.split('T')[0] : ts,
-          open: d.open,
-          high: d.high,
-          low: d.low,
+          open,
+          high: Math.max(fin(d.high) ? d.high : d.close, open, d.close),
+          low: Math.min(fin(d.low) ? d.low : d.close, open, d.close),
           close: d.close,
         }
       })
@@ -127,11 +132,11 @@ export default function ChartSnapshot({ symbol, data }: Props) {
         scaleMargins: { top: 0.8, bottom: 0 },
       })
 
-      const volData = priceData.map((d: any) => {
+      const volData = goodBars.map((d: any) => {
         const ts = d.timestamp || d.date
         return {
           time: typeof ts === 'string' ? ts.split('T')[0] : ts,
-          value: d.volume || 0,
+          value: fin(d.volume) ? d.volume : 0,
           color: d.close >= d.open ? 'rgba(0,230,118,0.15)' : 'rgba(255,82,82,0.15)',
         }
       })

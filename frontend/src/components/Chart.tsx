@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { Component, type ReactNode, useEffect, useRef, useState, useMemo } from 'react'
 import {
   createChart,
   ColorType,
@@ -59,7 +59,37 @@ function dedup<T extends { time: Time }>(arr: T[]): T[] {
   })
 }
 
-export default function Chart({
+/** Contain chart-library errors to the chart: one bad data row must never
+ *  take down the page around it (PARA, 2026-11-27). Resets on symbol change. */
+class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  componentDidCatch(error: Error) {
+    console.error('Chart failed to render:', error)
+  }
+  render() {
+    if (this.state.failed) {
+      return (
+        <div className="flex h-full min-h-[160px] w-full items-center justify-center rounded-lg text-[12px] text-fg-muted">
+          Chart unavailable for this data.
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+export default function Chart(props: ChartProps) {
+  return (
+    <ChartBoundary key={`${props.symbol}:${props.data?.length ?? 0}`}>
+      <ChartInner {...props} />
+    </ChartBoundary>
+  )
+}
+
+function ChartInner({
   data,
   symbol,
   seriesType = 'candlestick',
@@ -120,18 +150,28 @@ export default function Chart({
         get(tzParts, 'hour'), get(tzParts, 'minute'), get(tzParts, 'second'))
       return (tzD - utcD) / 60000
     }
-    const mapped = data.map((bar) => {
+    // Bars with a null/NaN close (delisted symbols such as PARA, provider gaps)
+    // made lightweight-charts throw "Area series item data value must be a
+    // number, got=object, value=null", which crashed the whole Research page.
+    // Drop them; fill a missing open/high/low from the close.
+    const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+    const mapped = data.flatMap((bar) => {
+      const close = num(bar.close)
       const d = new Date(bar.timestamp)
+      if (close === null || Number.isNaN(d.getTime())) return []
       const offsetMin = tzOffsetMinutes(d, exchangeTimezone)
       const utcSec = Math.floor(d.getTime() / 1000)
-      return {
+      const open = num(bar.open) ?? close
+      const high = Math.max(num(bar.high) ?? close, open, close)
+      const low = Math.min(num(bar.low) ?? close, open, close)
+      return [{
         time: (utcSec + offsetMin * 60) as Time,
-        open: bar.open,
-        high: bar.high,
-        low: bar.low,
-        close: bar.close,
-        volume: bar.volume || 0,
-      }
+        open,
+        high,
+        low,
+        close,
+        volume: num(bar.volume) ?? 0,
+      }]
     })
     // lightweight-charts throws "data must be asc ordered" on duplicate or
     // out-of-order times (prod had 63 duplicated WDAY daily bars). Sort and keep
