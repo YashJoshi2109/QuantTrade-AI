@@ -29,6 +29,28 @@ from app.db.database import get_db
 from app.services.quote_cache import QuoteCacheService
 
 
+def _session_of(data: Dict[str, Any]) -> Optional[str]:
+    if data.get('session'):
+        return data['session']
+    if data.get('data_source') in ('yahoo_direct', 'yfinance'):
+        return 'regular'  # these providers return the regular-session price only
+    mt = data.get('market_time')
+    if not mt:
+        return None
+    try:
+        from app.services import market_calendar as mc
+        ts = datetime.fromisoformat(str(mt).replace('Z', '+00:00'))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=mc.ET)
+        # Daily-bar providers stamp a date (midnight ET): that is a session
+        # close, not an overnight print.
+        if len(str(mt)) <= 10 or ts.astimezone(mc.ET).time() == datetime.min.time():
+            return mc.REGULAR
+        return mc.print_session(ts)
+    except Exception:
+        return None
+
+
 router = APIRouter()
 
 
@@ -46,6 +68,12 @@ class QuoteResponse(BaseModel):
     market_cap: Optional[float] = None
     timestamp: Optional[str] = None
     data_source: Optional[str] = None
+    # Time of the last trade (not the fetch time) and the session it printed
+    # in: regular | pre-market | after-hours | overnight. A UI should label a
+    # non-regular price ("After hours", "Overnight") instead of passing it off
+    # as the day's close.
+    market_time: Optional[str] = None
+    session: Optional[str] = None
     cached: bool = False
     unavailable: bool = False
     message: Optional[str] = None
@@ -117,6 +145,8 @@ async def get_quotes(
             market_cap=data.get('market_cap'),
             timestamp=data.get('timestamp'),
             data_source=data.get('data_source'),
+            market_time=data.get('market_time'),
+            session=_session_of(data),
             cached=data.get('cached', False),
             unavailable=data.get('unavailable', False),
             message=data.get('message')
@@ -165,6 +195,8 @@ async def get_quote(
         market_cap=data.get('market_cap'),
         timestamp=data.get('timestamp'),
         data_source=data.get('data_source'),
+        market_time=data.get('market_time'),
+        session=_session_of(data),
         cached=data.get('cached', False),
         unavailable=data.get('unavailable', False),
         message=data.get('message')

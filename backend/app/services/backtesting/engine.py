@@ -465,7 +465,10 @@ def run_engine(
             close_position(n - 1, sym, last_close[sym], "end_of_period", None)
         eq_out[-1] = cash
         cash_out[-1] = cash
-        gross_out[-1] = 0.0
+        # gross_out[-1] keeps the exposure marked at that close: the position
+        # was held through the last bar and only liquidated at its close.
+        # Zeroing it under-stated exposure by one bar (SPY 1y buy-and-hold
+        # showed 99.21% instead of 99.60%).
     else:
         for sym, p in positions.items():
             open_pos.append({"symbol": sym, "side": "LONG" if p.direction > 0 else "SHORT", "quantity": p.qty,

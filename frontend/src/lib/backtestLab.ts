@@ -50,6 +50,8 @@ export interface StrategySpec {
   commission_bps: number
   slippage_bps: number
   borrow_bps_annual: number
+  /** Annual risk-free rate in percent (4 = 4%), used by Sharpe, Sortino and alpha. */
+  risk_free_rate_pct?: number
   sizing: 'fixed_dollar' | 'pct_equity' | 'vol_target'
   sizing_value: number
   vol_lookback: number
@@ -140,6 +142,8 @@ export interface SeriesPoint {
   equity: number | null
   benchmark: number | null
   drawdown_pct: number | null
+  /** Trailing annualised Sharpe over series.rolling_sharpe_window bars (null until a full window). */
+  rolling_sharpe?: number | null
 }
 
 export interface Band {
@@ -185,7 +189,7 @@ export interface LabResult {
   execution: Record<string, unknown>
   data: Record<string, { source: string; adjusted: boolean; first_bar: string; last_bar: string }>
   metrics: Metrics
-  series: { points: SeriesPoint[]; sampled: boolean }
+  series: { points: SeriesPoint[]; sampled: boolean; rolling_sharpe_window?: number }
   monthly_returns: { year: number; month: number; return_pct: number | null }[]
   yearly_returns: { year: number; return_pct: number | null }[]
   trades: LabTrade[]
@@ -309,7 +313,7 @@ export function baseSpec(): StrategySpec {
   return {
     symbols: ['SPY'], start_date: yearsAgo(10), end_date: new Date().toISOString().slice(0, 10), benchmark: 'SPY',
     entry: { logic: 'all', rules: [] }, exit: null, parameters: {}, param_grid: {}, side: 'long',
-    initial_capital: 10_000, commission_bps: 1, slippage_bps: 5, borrow_bps_annual: 0,
+    initial_capital: 10_000, commission_bps: 1, slippage_bps: 5, borrow_bps_annual: 0, risk_free_rate_pct: 0,
     sizing: 'pct_equity', sizing_value: 1, vol_lookback: 20, max_position_weight: 1, max_gross_exposure: 1,
     stop_loss_pct: null, take_profit_pct: null, trailing_stop_pct: null, max_hold_bars: null,
     signal_frequency: 'daily', rebalance: 'none', fractional_shares: true,
@@ -320,7 +324,7 @@ export function baseSpec(): StrategySpec {
 export function specFromPreset(p: Preset, keep?: Partial<StrategySpec>): StrategySpec {
   const s = { ...baseSpec(), ...structuredClone(p.spec) } as StrategySpec
   if (keep) {
-    for (const k of ['start_date', 'end_date', 'initial_capital', 'commission_bps', 'slippage_bps', 'benchmark'] as const) {
+    for (const k of ['start_date', 'end_date', 'initial_capital', 'commission_bps', 'slippage_bps', 'benchmark', 'risk_free_rate_pct'] as const) {
       if (keep[k] !== undefined) (s as unknown as Record<string, unknown>)[k] = keep[k]
     }
   }
@@ -494,20 +498,43 @@ export const METRIC_DEFS: MetricDef[] = [
   { key: 'total_return_pct', label: 'Total return', format: 'pct', hint: 'Final equity vs. starting capital, after all costs.', higherIsBetter: true },
   { key: 'cagr_pct', label: 'CAGR', format: 'pct', hint: 'Compound annual growth, using calendar years.', higherIsBetter: true },
   { key: 'volatility_pct', label: 'Volatility', format: 'pct_unsigned', hint: 'Annualised standard deviation of daily returns.' },
-  { key: 'sharpe', label: 'Sharpe', format: 'ratio', hint: 'Annualised mean / std of daily returns (rf = 0).', higherIsBetter: true },
-  { key: 'sortino', label: 'Sortino', format: 'ratio', hint: 'Like Sharpe, but only downside deviation counts as risk.', higherIsBetter: true },
+  { key: 'sharpe', label: 'Sharpe', format: 'ratio', hint: 'Annualised (x sqrt 252) mean / std of daily returns in excess of the risk-free rate.', higherIsBetter: true },
+  { key: 'sortino', label: 'Sortino', format: 'ratio', hint: 'Like Sharpe, but only downside deviation below the risk-free rate counts as risk.', higherIsBetter: true },
   { key: 'calmar', label: 'Calmar', format: 'ratio', hint: 'CAGR divided by the maximum drawdown.', higherIsBetter: true },
   { key: 'max_drawdown_pct', label: 'Max drawdown', format: 'pct', hint: 'Largest peak-to-trough fall in equity.' },
   { key: 'max_drawdown_duration_days', label: 'Longest drawdown', format: 'days', hint: 'Calendar days from a peak until equity recovered (or the end).' },
   { key: 'win_rate_pct', label: 'Win rate', format: 'pct_unsigned', hint: 'Share of closed trades with positive net P&L.' },
   { key: 'profit_factor', label: 'Profit factor', format: 'ratio', hint: 'Gross profit / gross loss across trades.', higherIsBetter: true },
   { key: 'total_trades', label: 'Trades', format: 'int', hint: 'Closed trades (positions are closed on the last bar).' },
-  { key: 'exposure_pct', label: 'Exposure', format: 'pct_unsigned', hint: 'Share of days with any open position.' },
-  { key: 'turnover_annual', label: 'Turnover', format: 'x', hint: 'Traded notional per year as a multiple of average equity.' },
-  { key: 'alpha_pct', label: 'Alpha', format: 'pct', hint: 'Annualised return not explained by benchmark beta.', higherIsBetter: true },
+  { key: 'exposure_pct', label: 'Exposure', format: 'pct_unsigned', hint: 'Share of days with any open position at the close.' },
+  { key: 'exposure_adjusted_cagr_pct', label: 'CAGR / exposure', format: 'pct', hint: 'CAGR divided by the average share of equity deployed: growth per unit of capital actually at risk.', higherIsBetter: true },
+  { key: 'turnover_annual', label: 'Turnover', format: 'x', hint: 'Traded notional per year (buys + sells) as a multiple of average equity.' },
+  { key: 'alpha_pct', label: 'Alpha', format: 'pct', hint: 'Annualised return not explained by benchmark beta (OLS on daily excess returns).', higherIsBetter: true },
   { key: 'beta', label: 'Beta', format: 'ratio', hint: 'Sensitivity of daily returns to the benchmark.' },
+  { key: 'correlation', label: 'Correlation', format: 'ratio', hint: 'Correlation of daily returns with the benchmark.' },
+  { key: 'tracking_error_pct', label: 'Tracking error', format: 'pct_unsigned', hint: 'Annualised std of daily active returns (strategy - benchmark).' },
+  { key: 'information_ratio', label: 'Info ratio', format: 'ratio', hint: 'Annualised active return / tracking error.', higherIsBetter: true },
+  { key: 'var_95_daily_pct', label: 'VaR 95% (1d)', format: 'pct', hint: 'Historical one-day 95% value at risk: the 5th percentile of daily returns.' },
+  { key: 'cvar_95_daily_pct', label: 'CVaR 95% (1d)', format: 'pct', hint: 'Expected shortfall: mean daily return on the worst 5% of days.' },
+  { key: 'best_month_pct', label: 'Best month', format: 'pct', hint: 'Best calendar-month return.' },
+  { key: 'worst_month_pct', label: 'Worst month', format: 'pct', hint: 'Worst calendar-month return.' },
+  { key: 'positive_months_pct', label: 'Up months', format: 'pct_unsigned', hint: 'Share of calendar months with a positive return.' },
   { key: 'total_commission', label: 'Costs paid', format: 'money', hint: 'Commissions charged (slippage is in the fill prices).' },
 ]
+
+/** Ratios that depend on the risk-free rate carry it in the label ("Sharpe · rf 4%"). */
+const RF_METRICS = new Set(['sharpe', 'sortino', 'alpha_pct'])
+
+export function metricLabel(d: MetricDef, m: Metrics | undefined): string {
+  if (!RF_METRICS.has(d.key)) return d.label
+  const rf = num(m?.risk_free_rate_pct) ?? 0
+  return `${d.label} · rf ${Number(rf.toFixed(2))}%`
+}
+
+/** A one-trial deflated Sharpe is the probabilistic Sharpe ratio (PSR). */
+export function dsrTitle(d: Pick<DeflatedSharpe, 'trials'> | null | undefined): string {
+  return d && d.trials > 1 ? `Deflated Sharpe (${d.trials} trials)` : 'Probabilistic Sharpe'
+}
 
 export function formatMetric(v: unknown, f: MetricFormat): string {
   const n = num(v)

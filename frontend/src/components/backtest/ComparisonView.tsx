@@ -13,6 +13,7 @@ import {
 } from 'recharts'
 import { compareStrategies, CompareResult, BacktestResult } from '@/lib/api'
 import { useThemeTokens } from '@/hooks/useThemeTokens'
+import { blendEquityCurves, fmtDrawdown, fmtPctUnits } from '@/lib/legacyBacktest'
 
 /* ------------------------------------------------------------------ */
 /*  Types & Constants                                                  */
@@ -70,8 +71,10 @@ function fmt(val: number, decimals = 2): string {
   return val.toFixed(decimals)
 }
 
+// The classic API already reports percentages in percent units (286.04 =
+// +286.04%); this used to multiply by 100 again and showed 28604.00%.
 function fmtPct(val: number): string {
-  return `${(val * 100).toFixed(2)}%`
+  return fmtPctUnits(val)
 }
 
 function normalize(
@@ -100,7 +103,7 @@ const METRIC_DEFS: MetricDef[] = [
   { label: 'Sortino Ratio', key: 'sortino_ratio', format: (v) => fmt(v), higherIsBetter: true },
   { label: 'Calmar Ratio', key: 'calmar_ratio', format: (v) => fmt(v), higherIsBetter: true },
   { label: 'Win Rate', key: 'win_rate', format: fmtPct, higherIsBetter: true },
-  { label: 'Max Drawdown', key: 'max_drawdown', format: fmtPct, higherIsBetter: false },
+  { label: 'Max Drawdown', key: 'max_drawdown', format: (v) => fmtDrawdown(v), higherIsBetter: false },
   { label: 'Profit Factor', key: 'profit_factor', format: (v) => fmt(v), higherIsBetter: true },
   { label: 'Total Trades', key: 'total_trades', format: (v) => fmt(v, 0), higherIsBetter: false },
   { label: 'Expectancy', key: 'expectancy', format: (v) => `$${fmt(v)}`, higherIsBetter: true },
@@ -234,29 +237,17 @@ export default function ComparisonView({
     })
   }, [strategies])
 
-  /* Combined portfolio metrics */
+  /* Combined portfolio metrics: computed from the blended daily equity, not
+     weighted averages of each strategy's Sharpe / drawdown (a mix
+     diversifies, so averaging overstates its risk). */
   const combinedMetrics = useMemo(() => {
     if (!strategies.length || !Object.keys(allocations).length) return null
     const totalAlloc = Object.values(allocations).reduce((a, b) => a + b, 0)
     if (totalAlloc === 0) return null
-
-    const weighted = (key: keyof BacktestResult) => {
-      return strategies.reduce((acc, s) => {
-        const w = (allocations[s.strategy] || 0) / totalAlloc
-        return acc + (Number(s[key]) || 0) * w
-      }, 0)
-    }
-
-    return {
-      total_return: weighted('total_return'),
-      sharpe_ratio: weighted('sharpe_ratio'),
-      sortino_ratio: weighted('sortino_ratio'),
-      calmar_ratio: weighted('calmar_ratio'),
-      win_rate: weighted('win_rate'),
-      max_drawdown: weighted('max_drawdown'),
-      profit_factor: weighted('profit_factor'),
-      expectancy: weighted('expectancy'),
-    }
+    return blendEquityCurves(
+      strategies.map((s) => s.equity_curve_raw ?? s.equity_curve ?? []),
+      strategies.map((s) => allocations[s.strategy] || 0),
+    )
   }, [strategies, allocations])
 
   /* Best / Worst per metric row */
@@ -275,9 +266,9 @@ export default function ComparisonView({
           // For max drawdown (negative): less negative is better
           // For total trades / avg duration: lower is not necessarily better/worse, but we still highlight extremes
           if (m.key === 'max_drawdown') {
-            // max_drawdown is negative, closer to 0 is better
-            if (v > values[bestIdx]) bestIdx = i
-            if (v < values[worstIdx]) worstIdx = i
+            // max_drawdown is a positive magnitude (31.4 = -31.4%): smaller is better
+            if (v < values[bestIdx]) bestIdx = i
+            if (v > values[worstIdx]) worstIdx = i
           } else {
             if (v < values[bestIdx]) bestIdx = i
             if (v > values[worstIdx]) worstIdx = i
@@ -709,14 +700,14 @@ export default function ComparisonView({
               {combinedMetrics && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
-                    { label: 'Return', value: fmtPct(combinedMetrics.total_return), positive: combinedMetrics.total_return > 0 },
+                    { label: 'Return', value: fmtPctUnits(combinedMetrics.total_return, 2, true), positive: combinedMetrics.total_return > 0 },
+                    { label: 'CAGR', value: fmtPctUnits(combinedMetrics.cagr, 2, true), positive: combinedMetrics.cagr > 0 },
+                    { label: 'Volatility', value: fmtPctUnits(combinedMetrics.annualized_volatility), positive: combinedMetrics.annualized_volatility < 20 },
                     { label: 'Sharpe', value: fmt(combinedMetrics.sharpe_ratio), positive: combinedMetrics.sharpe_ratio > 1 },
                     { label: 'Sortino', value: fmt(combinedMetrics.sortino_ratio), positive: combinedMetrics.sortino_ratio > 1 },
                     { label: 'Calmar', value: fmt(combinedMetrics.calmar_ratio), positive: combinedMetrics.calmar_ratio > 1 },
-                    { label: 'Win Rate', value: fmtPct(combinedMetrics.win_rate), positive: combinedMetrics.win_rate > 0.5 },
-                    { label: 'Max DD', value: fmtPct(combinedMetrics.max_drawdown), positive: combinedMetrics.max_drawdown > -0.1 },
-                    { label: 'Profit Factor', value: fmt(combinedMetrics.profit_factor), positive: combinedMetrics.profit_factor > 1 },
-                    { label: 'Expectancy', value: `$${fmt(combinedMetrics.expectancy)}`, positive: combinedMetrics.expectancy > 0 },
+                    { label: 'Max DD', value: fmtDrawdown(combinedMetrics.max_drawdown), positive: combinedMetrics.max_drawdown < 10 },
+                    { label: 'Days', value: String(combinedMetrics.bars), positive: true },
                   ].map((m) => (
                     <div
                       key={m.label}

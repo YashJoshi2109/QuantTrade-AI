@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { FlaskConical, Loader2 } from 'lucide-react'
 import {
   Card, ChartLegend, Disclaimer, DrawdownChart, EquityChart, MetricsGrid, MonthlyHeatmap, ParametersEditor,
-  PresetPicker, RobustnessEditor, RobustnessPanel, RulesEditor, RulesSummary, RunBar, RunningBanner, SettingsEditor, SignInPrompt,
+  PresetPicker, RobustnessEditor, RobustnessPanel, RollingSharpeChart, RulesEditor, RulesSummary, RunBar, RunningBanner, SettingsEditor, SignInPrompt,
   TradeCards, TradeExport, WarningsList,
 } from './LabParts'
 import { useBacktestLab, type LabTab } from './useBacktestLab'
@@ -67,6 +67,7 @@ export default function LabMobile() {
           <MetricsGrid r={r} columns="grid-cols-[repeat(2,minmax(0,1fr))]" />
           <Card title="Equity vs benchmark"><EquityChart r={r} height={220} /><div className="mt-2"><ChartLegend r={r} /></div></Card>
           <Card title="Drawdown"><DrawdownChart r={r} height={120} /></Card>
+          <Card title={`Rolling Sharpe (${r.series.rolling_sharpe_window ?? 126}-day)`}><RollingSharpeChart r={r} height={120} /></Card>
           <Card title="Monthly returns (%)"><MonthlyHeatmap r={r} /></Card>
           {r.warnings.length > 0 && <Card title="Notes"><WarningsList r={r} /></Card>}
         </>
