@@ -1,91 +1,29 @@
 'use client'
 
-import { motion } from 'framer-motion'
-import {
-  Loader2,
-  RefreshCw,
-  SlidersHorizontal,
-  Star,
-  TrendingDown,
-  TrendingUp,
-  X,
-} from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from 'react'
+import { GitCompareArrows, Loader2, RefreshCw, Sparkles, Star, X } from 'lucide-react'
+import Link from 'next/link'
+import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { QuoteActivityFlash } from '@/components/QuoteActivityFlash'
-import { formatNumber, formatPercent, isNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { sanitizeQuoteSummaryCompanyName } from '@/lib/company-display-name'
 import type { TickerInfo } from '@/app/api/quotes/ticker/route'
 import type { ChartSeriesType } from '@/components/Chart'
 import TickerLogo from '@/components/TickerLogo'
 import EarningsBadge from '@/components/earnings/EarningsBadge'
-import AskCopilotButton from '@/components/copilot/AskCopilotButton'
-import Link from 'next/link'
-import { GitCompareArrows } from 'lucide-react'
+import { CardSkeleton as Skeleton } from './ResearchCard'
+import { buildCopilotHref } from '@/lib/copilot-handoff'
 import { compareHref } from '@/lib/compare'
 import type { ExtendedBadge } from '@/lib/canonicalQuote'
-import { ExtendedHoursBadge } from '@/components/quote/ExtendedHoursBadge'
-import { KeyStatsGrid } from '@/components/research/KeyStatsGrid'
-import type { KeyStatsSource } from '@/lib/researchKeyStats'
+import { DESKTOP_PERIODS } from '@/lib/researchPrefs'
+import { exchangeLabel, fmtChange, fmtNum, fmtSigned, toneText } from '@/lib/researchTechnicals'
 
 export type ResearchChartPeriod = '1D' | '5D' | '1M' | '3M' | '6M' | '1Y' | '2Y' | '5Y'
 
-export interface ResearchChartHeaderProps {
-  selectedSymbol: string
-  tickerInfo: TickerInfo | undefined
-  /** When Yahoo profile is slow/missing, use Finviz/backend fundamentals name */
-  companyNameFallback?: string | null
-  /** True while `/api/quotes/ticker` is still resolving */
-  profileLoading?: boolean
-  /** Merged quote + fundamentals for the shared key-stats grid (lib/researchKeyStats). */
-  keyStats?: KeyStatsSource
-  chartPeriod: ResearchChartPeriod
-  chartSeriesType: ChartSeriesType
-  chartShowMa: boolean
-  chartShowVolume?: boolean
-  chartLogScale?: boolean
-  chartShowGrid?: boolean
-  setChartPeriod: (p: ResearchChartPeriod) => void
-  setChartSeriesType: (t: ChartSeriesType) => void
-  setChartShowMa: (v: boolean) => void
-  setChartShowVolume?: (v: boolean) => void
-  setChartLogScale?: (v: boolean) => void
-  setChartShowGrid?: (v: boolean) => void
-  /** Restore default chart settings (they persist between visits). */
-  onResetChart?: () => void
-  priceInfo: {
-    price: number
-    change: number
-    percent: number
-    volume?: number | null
-    dataSource?: string
-    latency?: number
-    /** false until some source returned a real (> 0) price. */
-    hasPrice?: boolean
-    /** extended-hours print, shown beside (never as) the regular price */
-    extended?: ExtendedBadge | null
-  }
-  quoteLoading: boolean
-  priceTick: 'up' | 'down' | null
-  quoteActivityFingerprint: number
-  priceDataLength: number
-  advancedOpen: boolean
-  setAdvancedOpen: (o: boolean | ((b: boolean) => boolean)) => void
-  advancedRef: Ref<HTMLDivElement>
-  inWatchlist: boolean
-  watchlistBusy: boolean
-  onWatchlistToggle: () => void
-  onSyncData: () => void
-  syncing: boolean
-}
-
 /**
- * Renders the Chart Settings panel on document.body, anchored under its button.
- * Rendering it inline left it clipped: the header lives inside a transformed
- * `motion.div` (own stacking context) and a clipping card, so no z-index could
- * lift it above the chart. Marked with data-chart-settings-portal so the
- * page's outside-click handler treats clicks inside it as "inside".
+ * Renders a popover on document.body, anchored under its button. Rendering it
+ * inline left it clipped by the card (overflow hidden / own stacking context).
+ * Marked with data-chart-settings-portal so outside-click handlers treat
+ * clicks inside it as "inside".
  */
 export function AnchoredPopover({
   anchor,
@@ -141,446 +79,268 @@ export function AnchoredPopover({
   )
 }
 
-export function ResearchChartHeader({
-  selectedSymbol,
-  tickerInfo,
-  companyNameFallback,
-  profileLoading = false,
-  keyStats,
-  chartPeriod,
-  chartSeriesType,
-  chartShowMa,
-  chartShowVolume = false,
-  chartLogScale = false,
-  chartShowGrid = true,
-  setChartPeriod,
-  setChartSeriesType,
-  setChartShowMa,
-  setChartShowVolume,
-  setChartLogScale,
-  setChartShowGrid,
-  onResetChart,
-  priceInfo,
-  quoteLoading,
-  priceTick,
-  quoteActivityFingerprint,
-  priceDataLength,
-  advancedOpen,
-  setAdvancedOpen,
-  advancedRef,
-  inWatchlist,
-  watchlistBusy,
-  onWatchlistToggle,
-  onSyncData,
-  syncing,
-}: ResearchChartHeaderProps) {
-  const isPositive = isNumber(priceInfo.percent) ? priceInfo.percent >= 0 : false
-  const advancedButtonRef = useRef<HTMLButtonElement>(null)
+// ── Chart settings panel (desktop settings icon; moved from the old header) ──
 
-  const rawCompany =
-    tickerInfo?.name?.trim() ||
-    (typeof companyNameFallback === 'string' ? companyNameFallback.trim() : '') ||
-    ''
-  const companyName = rawCompany
-    ? sanitizeQuoteSummaryCompanyName(rawCompany, selectedSymbol)
-    : ''
-  const headline = companyName || selectedSymbol
+export interface ChartSettingsProps {
+  chartPeriod: ResearchChartPeriod
+  setChartPeriod: (p: ResearchChartPeriod) => void
+  chartSeriesType: ChartSeriesType
+  setChartSeriesType: (t: ChartSeriesType) => void
+  chartShowMa: boolean
+  setChartShowMa: (v: boolean) => void
+  chartShowVolume: boolean
+  setChartShowVolume: (v: boolean) => void
+  chartLogScale: boolean
+  setChartLogScale: (v: boolean) => void
+  chartShowGrid: boolean
+  setChartShowGrid: (v: boolean) => void
+  onResetChart?: () => void
+  onClose: () => void
+}
 
-  const quoteStatusStrip = (
+const pill = (active: boolean) =>
+  cn(
+    'rounded-md border px-2.5 py-1 text-[11px] font-medium tabular-nums transition-colors',
+    active
+      ? 'border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500'
+      : 'border-line-default text-fg-muted hover:text-fg-primary',
+  )
+
+export function ChartSettingsPanel(p: ChartSettingsProps) {
+  const maAllowed = p.chartSeriesType === 'candlestick' || p.chartSeriesType === 'heikin-ashi'
+  return (
     <div
-      className={cn(
-        'flex w-full flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border border-line-subtle',
-        'bg-surface-glass px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm sm:gap-x-3',
-      )}
-      aria-label="Quote feed status"
+      className="rs-card w-[min(100vw-2rem,22rem)] max-h-[70vh] space-y-4 overflow-y-auto p-4 text-left shadow-theme-lg"
+      role="dialog"
+      aria-label="Chart options"
     >
-      <span className="text-[9px] font-bold uppercase tracking-wider text-fg-muted">Live quote</span>
-      <span className="hidden h-3 w-px bg-line-default sm:block" aria-hidden />
-      {priceInfo.dataSource && !quoteLoading ? (
-        <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] text-emerald-400">
-          {priceInfo.dataSource}
-        </span>
-      ) : quoteLoading ? (
-        <span className="rounded-md border border-line-subtle bg-surface-raised px-2 py-0.5 font-mono text-[10px] text-fg-muted">
-          Connecting…
-        </span>
-      ) : null}
-      {isNumber(priceInfo.latency) && priceInfo.latency < 500 && !quoteLoading && (
-        <span className="rounded-md border border-cyan-500/25 bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] text-cyan-300">
-          {priceInfo.latency}ms
-        </span>
-      )}
-      <div className="flex items-center gap-1.5">
-        <span className="text-[9px] text-fg-muted">Activity</span>
-        <QuoteActivityFlash fingerprint={quoteActivityFingerprint} />
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-bold text-fg-primary">Chart settings</span>
+        <button type="button" onClick={p.onClose} className="rounded p-1 text-fg-muted hover:text-fg-primary" aria-label="Close">
+          <X className="h-4 w-4" />
+        </button>
       </div>
-      <span className="hidden h-3 w-px bg-line-default sm:block" aria-hidden />
-      {/* Inline period selector — always visible */}
-      <div className="flex items-center gap-0.5">
-        {(['1D', '5D', '1M', '3M', '6M', '1Y'] as const).map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => setChartPeriod(p)}
-            className={cn(
-              'rounded px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors',
-              chartPeriod === p
-                ? p === '1D' || p === '5D'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                  : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                : 'text-fg-muted hover:text-fg-secondary hover:bg-surface-hover',
-            )}
-          >
-            {p}
-          </button>
-        ))}
+      <div>
+        <div className="mb-2 text-[10px] uppercase tracking-wide text-fg-muted">Timeframe</div>
+        <div className="flex flex-wrap gap-1.5">
+          {DESKTOP_PERIODS.map((id) => (
+            <button key={id} type="button" onClick={() => p.setChartPeriod(id)} className={pill(p.chartPeriod === id)}>
+              {id}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="mb-2 text-[10px] uppercase tracking-wide text-fg-muted">Chart type</div>
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              ['candlestick', 'Candles'],
+              ['heikin-ashi', 'Heikin-Ashi'],
+              ['line', 'Line'],
+              ['area', 'Area'],
+              ['baseline', 'Baseline'],
+            ] as const
+          ).map(([id, label]) => (
+            <button key={id} type="button" onClick={() => p.setChartSeriesType(id)} className={pill(p.chartSeriesType === id)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="mb-2 text-[10px] uppercase tracking-wide text-fg-muted">Overlays &amp; display</div>
+        <div className="space-y-2 text-xs text-fg-secondary">
+          <label className="flex cursor-pointer select-none items-center gap-2">
+            <input type="checkbox" checked={p.chartShowMa} onChange={(e) => p.setChartShowMa(e.target.checked)} disabled={!maAllowed} className="accent-blue-600" />
+            <span className={maAllowed ? '' : 'opacity-40'}>SMA 20 / EMA 50</span>
+          </label>
+          <label className="flex cursor-pointer select-none items-center gap-2">
+            <input type="checkbox" checked={p.chartShowVolume} onChange={(e) => p.setChartShowVolume(e.target.checked)} className="accent-blue-600" />
+            Volume histogram
+          </label>
+          <label className="flex cursor-pointer select-none items-center gap-2">
+            <input type="checkbox" checked={p.chartShowGrid} onChange={(e) => p.setChartShowGrid(e.target.checked)} className="accent-blue-600" />
+            Grid lines
+          </label>
+          <label className="flex cursor-pointer select-none items-center gap-2">
+            <input type="checkbox" checked={p.chartLogScale} onChange={(e) => p.setChartLogScale(e.target.checked)} className="accent-blue-600" />
+            Logarithmic scale
+          </label>
+          {p.onResetChart && (
+            <button
+              type="button"
+              onClick={p.onResetChart}
+              className="mt-1 text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400"
+              title="Chart settings are remembered between visits"
+            >
+              Reset chart settings
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
+}
 
+// ── Extended-hours pill ────────────────────────────────────────────────
+
+/**
+ * "Pre-market $353.09 (+3.14%)": the canonical quote's extended print, tinted
+ * by direction. Hidden when there is no extended session print. Shown next to
+ * (never as) the regular-session price.
+ */
+export function ExtendedPill({ badge, className }: { badge?: ExtendedBadge | null; className?: string }) {
+  if (!badge) return null
+  const when = badge.time
+    ? new Date(badge.time).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' ET'
+    : undefined
+  const pct = badge.changePercent === null ? null : `${fmtSigned(badge.changePercent, 2)}%`
+  const tone = badge.changePercent === null ? 'neutral' : badge.up ? 'up' : 'down'
   return (
-    <div className="relative overflow-hidden border-b border-blue-500/10">
-      {/* Flowing mesh + gradient (atmospheric, low contrast) */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.55]"
-        aria-hidden
-      >
-        <div
-          className={cn(
-            'absolute -inset-[35%] animate-research-flow bg-[length:400%_400%]',
-            'bg-gradient-to-br from-[rgba(0,122,255,0.22)] via-[rgba(99,102,241,0.12)] to-[rgba(6,182,212,0.18)]',
-          )}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-surface-base via-surface-base/88 to-transparent" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(0,122,255,0.25),transparent)]" />
-        <div
-          className="absolute inset-y-0 -left-1/3 w-1/2 bg-gradient-to-r from-white/[0.04] to-transparent animate-research-sheen opacity-40"
-          style={{ animationDelay: '1.2s' }}
-        />
-      </div>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] tabular-nums',
+        tone === 'up' && 'border-emerald-500/30 bg-emerald-500/10',
+        tone === 'down' && 'border-red-500/30 bg-red-500/10',
+        tone === 'neutral' && 'border-line-subtle',
+        className,
+      )}
+      title={`${badge.label} trade${when ? ` at ${when}` : ''}, vs the regular-session close`}
+      aria-label={badge.text}
+      data-testid="extended-hours-badge"
+    >
+      <span className="text-fg-muted">{badge.label}</span>
+      <span className="font-semibold text-fg-primary">${fmtNum(badge.price, 2)}</span>
+      {pct && <span className={cn('font-medium', toneText(tone))}>({pct})</span>}
+    </span>
+  )
+}
 
-      {/* Side-by-side only from 1800px: the action column (4 buttons + quote strip) is
-          ~640px wide, so at lg/xl it squeezed the company name to "A…". */}
-      <div className="relative z-10 flex flex-col gap-4 p-4 sm:p-5 min-[1800px]:flex-row min-[1800px]:items-start min-[1800px]:justify-between min-[1800px]:gap-6">
-        <motion.div
-          className="min-w-0 flex-1 space-y-3"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <TickerLogo
-              symbol={selectedSymbol}
-              companyName={companyName || undefined}
-              size={40}
-              className="rounded-xl border border-blue-500/20 hidden sm:block"
-            />
-            <div className="min-w-0 flex-1">
-            <h2 className="font-display text-2xl font-black leading-[1.15] tracking-tight text-white sm:text-3xl truncate">
-              {headline}
-            </h2>
-            {profileLoading && !companyName && (
-              <p className="mt-1.5 text-[11px] text-fg-muted">Loading company profile…</p>
+// ── Desktop header ──────────────────────────────────────────────────────
+
+export function companyHeadline(symbol: string, name?: string | null): string {
+  const raw = (name ?? '').trim()
+  return raw ? sanitizeQuoteSummaryCompanyName(raw, symbol) : ''
+}
+
+export interface ResearchPriceHeaderProps {
+  symbol: string
+  tickerInfo: TickerInfo | undefined
+  companyNameFallback?: string | null
+  profileLoading: boolean
+  priceInfo: {
+    price: number
+    change: number
+    percent: number
+    hasPrice?: boolean
+    extended?: ExtendedBadge | null
+  }
+  quoteLoading: boolean
+  priceTick: 'up' | 'down' | null
+  inWatchlist: boolean
+  watchlistBusy: boolean
+  onWatchlistToggle: () => void
+  onSyncData: () => void
+  syncing: boolean
+}
+
+const iconBtn =
+  'inline-flex h-9 w-9 items-center justify-center rounded-full border border-line-default text-fg-secondary transition-colors hover:text-fg-primary hover:bg-surface-hover disabled:opacity-50'
+
+/** Desktop Research header: identity row + price row (design mock). */
+export function ResearchPriceHeader(p: ResearchPriceHeaderProps) {
+  const name = companyHeadline(p.symbol, p.tickerInfo?.name || p.companyNameFallback)
+  const meta = [p.symbol, exchangeLabel(p.tickerInfo?.exchange_display || p.tickerInfo?.exchange), p.tickerInfo?.sector].filter(Boolean).join(' · ')
+  const up = p.priceInfo.percent >= 0
+  const hasPrice = p.priceInfo.hasPrice ?? p.priceInfo.price > 0
+  return (
+    <header className="space-y-3" data-testid="research-header">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <TickerLogo symbol={p.symbol} companyName={name || undefined} size={48} className="rounded-xl border border-line-subtle" />
+          <div className="min-w-0">
+            {name ? (
+              <h1 className="truncate text-2xl font-bold leading-tight tracking-tight text-fg-primary">{name}</h1>
+            ) : p.profileLoading ? (
+              <Skeleton className="h-7 w-56" />
+            ) : (
+              <h1 className="truncate text-2xl font-bold leading-tight tracking-tight text-fg-primary">{p.symbol}</h1>
             )}
-            <div className="mt-2.5 flex min-w-0 flex-wrap items-center gap-2">
-              {companyName ? (
-                <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 font-mono text-xs font-bold uppercase tracking-wider text-blue-200">
-                  {selectedSymbol}
-                </span>
-              ) : null}
-              {tickerInfo?.exchange_display && (
-                <span className="rounded-md border border-blue-500/25 bg-blue-500/10 px-2 py-0.5 font-mono text-[10px] text-blue-300">
-                  {tickerInfo.exchange_display}
-                </span>
-              )}
-              {tickerInfo?.sector && (
-                <span className="rounded-md border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300">
-                  {tickerInfo.sector}
-                </span>
-              )}
-              {tickerInfo?.industry && (
-                <span className="hidden max-w-[14rem] truncate text-[10px] text-fg-muted lg:inline">
-                  {tickerInfo.industry}
-                </span>
-              )}
-              <EarningsBadge symbol={selectedSymbol} variant="desktop" />
+            <div className="mt-0.5 flex min-w-0 items-center gap-2">
+              <p className="truncate text-[13px] text-fg-muted" data-testid="research-meta" title={p.tickerInfo?.industry || undefined}>
+                {meta}
+              </p>
+              <EarningsBadge symbol={p.symbol} variant="mobile" />
             </div>
           </div>
-          </div>
-
-          {!(priceInfo.hasPrice ?? priceInfo.price > 0) ? (
-            <div className="flex flex-wrap items-end gap-3" aria-busy="true" aria-label="Loading quote">
-              <span className="h-8 w-32 animate-pulse rounded-lg bg-surface-raised sm:h-9" />
-              <span className="h-7 w-20 animate-pulse rounded-lg bg-surface-raised" />
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-end gap-3">
-              <span
-                className={cn(
-                  'font-mono text-2xl font-black text-white transition-colors duration-300 sm:text-3xl',
-                  priceTick === 'up' && 'quote-price-flash-up',
-                  priceTick === 'down' && 'quote-price-flash-down',
-                )}
-              >
-                ${formatNumber(priceInfo.price, 2)}
-                {quoteLoading && (
-                  <Loader2 className="ml-2 inline h-4 w-4 animate-spin text-blue-400" />
-                )}
-              </span>
-              <span
-                className={cn(
-                  'flex items-center gap-1 rounded-lg border px-2.5 py-1 text-sm font-bold',
-                  isPositive
-                    ? 'border-green-500/25 bg-green-500/10 text-green-400'
-                    : 'border-red-500/25 bg-red-500/10 text-red-400',
-                )}
-              >
-                {isPositive ? (
-                  <TrendingUp className="h-3.5 w-3.5" />
-                ) : (
-                  <TrendingDown className="h-3.5 w-3.5" />
-                )}
-                {isPositive ? '+' : ''}
-                {isNumber(priceInfo.change) && priceInfo.change !== 0 ? `${formatNumber(priceInfo.change, 2)} (` : ''}
-                {formatPercent(priceInfo.percent, 2)}
-                {isNumber(priceInfo.change) && priceInfo.change !== 0 ? ')' : ''}
-              </span>
-              <ExtendedHoursBadge badge={priceInfo.extended} className="self-center" />
-              {!keyStats && isNumber(priceInfo.volume) && priceInfo.volume > 0 && (
-                <span className="font-mono text-[11px] text-fg-muted">
-                  Vol {formatNumber(priceInfo.volume / 1_000_000, 2)}M
-                </span>
-              )}
-              {tickerInfo && tickerInfo.target_price > 0 && (
-                <span className="hidden font-mono text-[11px] text-[#007AFF] sm:inline">
-                  PT ${formatNumber(tickerInfo.target_price, 2)}
-                </span>
-              )}
-            </div>
-          )}
-          {keyStats && (
-            <KeyStatsGrid
-              source={keyStats}
-              loading={profileLoading && !tickerInfo}
-              className="max-w-2xl border-t border-line-subtle"
-              testId="research-key-stats"
-            />
-          )}
-        </motion.div>
-
-        <motion.div
-          className="flex w-full flex-shrink-0 flex-col gap-2.5 min-[1800px]:w-auto min-[1800px]:min-w-[19rem]"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.08, duration: 0.35 }}
-        >
-          <div className="flex flex-wrap items-center justify-start gap-2 min-[1800px]:justify-end">
-            <AskCopilotButton symbol={selectedSymbol} variant="desktop" />
-            <button
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
             type="button"
-            onClick={onWatchlistToggle}
-            disabled={watchlistBusy}
-            aria-pressed={inWatchlist}
-            className={cn(
-              'hud-card group flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all disabled:opacity-50',
-              inWatchlist
-                ? 'border-amber-500/40 bg-amber-500/15 text-amber-300 hover:bg-amber-500/20'
-                : 'bg-amber-500/5 text-amber-500 hover:border-amber-500/30 hover:text-amber-400',
-            )}
+            onClick={p.onWatchlistToggle}
+            disabled={p.watchlistBusy}
+            aria-pressed={p.inWatchlist}
+            aria-label={p.inWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
+            title={p.inWatchlist ? 'In watchlist' : 'Add to watchlist'}
+            className={iconBtn}
           >
-            <Star
-              className={cn(
-                'h-4 w-4 shrink-0',
-                inWatchlist ? 'fill-amber-400 text-amber-300' : 'text-amber-500 group-hover:fill-amber-400/40',
-              )}
-              aria-hidden
-            />
-            {watchlistBusy ? 'Saving…' : inWatchlist ? 'In watchlist' : 'Watchlist'}
-            </button>
-            <Link
-              href={compareHref([selectedSymbol])}
-              className="hud-card flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-fg-secondary transition-all hover:border-indigo-500/30 hover:text-fg-primary"
-            >
-              <GitCompareArrows className="h-4 w-4 shrink-0" aria-hidden />
-              Compare
-            </Link>
-            <button
-            type="button"
-            onClick={onSyncData}
-            disabled={syncing}
-            className="hud-card flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-fg-secondary transition-all hover:border-blue-500/30 hover:text-white disabled:opacity-50"
-          >
-            {syncing ? (
+            {p.watchlistBusy ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <RefreshCw className="h-4 w-4" />
+              <Star className={cn('h-4 w-4', p.inWatchlist && 'fill-amber-400 text-amber-500')} />
             )}
-            Sync Data
-            </button>
-            <div className="relative shrink-0" ref={advancedRef}>
-            <button
-              ref={advancedButtonRef}
-              type="button"
-              onClick={() => setAdvancedOpen((o) => !o)}
-              className={cn(
-                'hud-card flex items-center justify-center gap-2 border px-4 py-2 text-sm font-medium transition-all',
-                advancedOpen
-                  ? 'border-blue-500/40 bg-blue-500/20 text-blue-300'
-                  : 'border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20',
-              )}
-              aria-expanded={advancedOpen}
-              aria-haspopup="dialog"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              Advanced
-            </button>
-              {advancedOpen ? (
-              <AnchoredPopover anchor={advancedButtonRef.current}>
-              <div
-                className="w-[min(100vw-2rem,22rem)] max-h-[70vh] overflow-y-auto space-y-4 rounded-xl border border-line-default bg-surface-overlay backdrop-blur-xl p-4 text-left shadow-theme-lg"
-                role="dialog"
-                aria-label="Chart options"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-white">Chart Settings</span>
-                  <button
-                    type="button"
-                    onClick={() => setAdvancedOpen(false)}
-                    className="rounded p-1 text-fg-muted hover:text-white"
-                    aria-label="Close"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {/* Period */}
-                <div>
-                  <div className="mb-2 text-[10px] uppercase tracking-wide text-fg-muted">Timeframe</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(
-                      [
-                        ['1D', '1D'],
-                        ['5D', '5D'],
-                        ['1M', '1M'],
-                        ['3M', '3M'],
-                        ['6M', '6M'],
-                        ['1Y', '1Y'],
-                        ['2Y', '2Y'],
-                        ['5Y', '5Y'],
-                      ] as const
-                    ).map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setChartPeriod(id)}
-                        className={cn(
-                          'rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors',
-                          chartPeriod === id
-                            ? id === '1D' || id === '5D'
-                              ? 'border-cyan-500/50 bg-cyan-500/25 text-cyan-200'
-                              : 'border-blue-500/50 bg-blue-500/25 text-blue-200'
-                            : 'border-line-default bg-surface-raised text-fg-muted hover:text-white',
-                        )}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Chart Type */}
-                <div>
-                  <div className="mb-2 text-[10px] uppercase tracking-wide text-fg-muted">Chart Type</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(
-                      [
-                        ['candlestick', 'Candles'],
-                        ['heikin-ashi', 'Heikin-Ashi'],
-                        ['line', 'Line'],
-                        ['area', 'Area'],
-                        ['baseline', 'Baseline'],
-                      ] as const
-                    ).map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setChartSeriesType(id)}
-                        className={cn(
-                          'rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors',
-                          chartSeriesType === id
-                            ? 'border-cyan-500/45 bg-cyan-500/20 text-cyan-200'
-                            : 'border-line-default bg-surface-raised text-fg-muted hover:text-white',
-                        )}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Overlays & Display */}
-                <div>
-                  <div className="mb-2 text-[10px] uppercase tracking-wide text-fg-muted">Overlays & Display</div>
-                  <div className="space-y-2">
-                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-fg-secondary">
-                      <input
-                        type="checkbox"
-                        checked={chartShowMa}
-                        onChange={(e) => setChartShowMa(e.target.checked)}
-                        disabled={chartSeriesType !== 'candlestick' && chartSeriesType !== 'heikin-ashi'}
-                        className="rounded border-slate-600 accent-blue-500"
-                      />
-                      <span className={chartSeriesType !== 'candlestick' && chartSeriesType !== 'heikin-ashi' ? 'opacity-40' : ''}>
-                        SMA 20 / EMA 50
-                      </span>
-                    </label>
-                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-fg-secondary">
-                      <input
-                        type="checkbox"
-                        checked={chartShowVolume}
-                        onChange={(e) => setChartShowVolume?.(e.target.checked)}
-                        className="rounded border-slate-600 accent-blue-500"
-                      />
-                      Volume histogram
-                    </label>
-                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-fg-secondary">
-                      <input
-                        type="checkbox"
-                        checked={chartShowGrid}
-                        onChange={(e) => setChartShowGrid?.(e.target.checked)}
-                        className="rounded border-slate-600 accent-blue-500"
-                      />
-                      Grid lines
-                    </label>
-                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-fg-secondary">
-                      <input
-                        type="checkbox"
-                        checked={chartLogScale}
-                        onChange={(e) => setChartLogScale?.(e.target.checked)}
-                        className="rounded border-slate-600 accent-blue-500"
-                      />
-                      Logarithmic scale
-                    </label>
-                    {onResetChart && (
-                      <button
-                        type="button"
-                        onClick={onResetChart}
-                        className="mt-1 self-start text-[11px] font-medium text-blue-500 hover:underline"
-                        title="Chart settings are remembered between visits"
-                      >
-                        Reset chart settings
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-              </AnchoredPopover>
-              ) : null}
-            </div>
-          </div>
-          {quoteStatusStrip}
-        </motion.div>
+          </button>
+          <Link href={compareHref([p.symbol])} className={iconBtn} aria-label={`Compare ${p.symbol}`} title="Compare">
+            <GitCompareArrows className="h-4 w-4" />
+          </Link>
+          <button type="button" onClick={p.onSyncData} disabled={p.syncing} className={iconBtn} aria-label="Sync data" title="Sync data">
+            {p.syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          </button>
+          <Link
+            href={buildCopilotHref(p.symbol.toUpperCase())}
+            data-testid="ask-copilot"
+            aria-label={`Chat with Copilot about ${p.symbol.toUpperCase()}`}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-blue-600 px-4 text-[13px] font-semibold text-white transition hover:bg-blue-700"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden />
+            Copilot
+          </Link>
+        </div>
       </div>
-    </div>
+
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        {hasPrice ? (
+          <div className="flex items-baseline gap-3 tabular-nums" data-testid="research-price">
+            <span
+              className={cn(
+                'text-4xl font-semibold tracking-tight text-fg-primary',
+                p.priceTick === 'up' && 'quote-price-flash-up',
+                p.priceTick === 'down' && 'quote-price-flash-down',
+              )}
+            >
+              ${fmtNum(p.priceInfo.price, 2)}
+            </span>
+            <span className={cn('text-lg font-medium', toneText(up ? 'up' : 'down'))} data-testid="research-change">
+              {fmtChange(p.priceInfo.change, p.priceInfo.percent)}
+            </span>
+            {p.quoteLoading && <Loader2 className="h-4 w-4 animate-spin self-center text-fg-muted" aria-label="Updating quote" />}
+          </div>
+        ) : (
+          <div className="flex items-baseline gap-3" aria-busy="true" aria-label="Loading quote">
+            <Skeleton className="h-10 w-40" />
+            <Skeleton className="h-6 w-32" />
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          {p.tickerInfo && p.tickerInfo.target_price > 0 && (
+            <span className="text-[12px] tabular-nums text-fg-muted" title="Mean analyst price target">
+              Analyst target ${fmtNum(p.tickerInfo.target_price, 2)}
+            </span>
+          )}
+          {hasPrice && <ExtendedPill badge={p.priceInfo.extended} />}
+        </div>
+      </div>
+    </header>
   )
 }

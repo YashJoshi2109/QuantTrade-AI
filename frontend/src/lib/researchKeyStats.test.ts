@@ -37,4 +37,9 @@ describe('researchKeyStats', () => {
       market_cap: undefined, week_52_high: undefined, week_52_low: undefined, avg_volume: undefined,
     })
   })
+
+  it('prefers the live quote open and falls back to the ticker open', () => {
+    expect(keyStatsSource({ open: 100 }, { open: 101.5 }).open).toBe(101.5)
+    expect(keyStatsSource({ open: 100 }, { open: null }).open).toBe(100)
+  })
 })

@@ -64,7 +64,7 @@ export default function IndicatorToolbar({
   const paneItems = filtered.filter((i) => i.type === 'pane')
 
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-line-subtle bg-surface-glass overflow-x-auto">
+    <div className="flex items-center gap-1.5 px-3 py-1.5 border-y border-line-subtle overflow-x-auto">
       {/* Add indicator button */}
       <div ref={menuRef} className="relative shrink-0">
         <button

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { atmStrike } from './OptionChainPanel'
 import { fcfDisplay, fyEndLabel, isFinancialSic, periodLabel } from './SecEdgarPanel'
-import { MOBILE_RESEARCH_TABS } from '@/components/layout/MobileResearch'
+import { RESEARCH_TABS, RESEARCH_TAB_LABELS, MOBILE_TIMEFRAMES, mobileRangeStart } from '@/lib/researchPrefs'
 import type { OptionContract } from '@/lib/api'
 
 const contract = (strike: number, mid: number | null): OptionContract =>
@@ -49,8 +49,18 @@ describe('free cash flow display', () => {
   })
 })
 
-describe('mobile research tabs', () => {
-  it('give every desktop panel group a tab', () => {
-    expect(MOBILE_RESEARCH_TABS.map((t) => t.key)).toEqual(['overview', 'financials', 'options', 'technicals', 'company'])
+describe('research tabs (desktop and mobile share one set)', () => {
+  it('give every panel group a tab, in mock order', () => {
+    expect(RESEARCH_TABS).toEqual(['overview', 'fundamentals', 'financials', 'news', 'ai'])
+    expect(RESEARCH_TABS.map((t) => RESEARCH_TAB_LABELS[t])).toEqual(['Overview', 'Fundamentals', 'Financials', 'News', 'AI Insights'])
+  })
+})
+
+describe('mobile ranges', () => {
+  it('match the mock pills and go back the right distance', () => {
+    expect(MOBILE_TIMEFRAMES).toEqual(['1D', '5D', '1M', '3M', '6M', '1Y', 'ALL'])
+    const now = new Date('2026-11-27T12:00:00Z')
+    expect(mobileRangeStart('1Y', now).getUTCFullYear()).toBe(2025)
+    expect(mobileRangeStart('ALL', now).getUTCFullYear()).toBeLessThanOrEqual(1997)
   })
 })

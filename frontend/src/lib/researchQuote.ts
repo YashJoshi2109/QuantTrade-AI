@@ -21,6 +21,7 @@ export interface RealtimeQuoteLike {
   volume?: number | null
   high?: number | null
   low?: number | null
+  open?: number | null
   data_source?: string
   latency_ms?: number
   /** canonical extended-hours print (never the headline price) */
@@ -50,6 +51,8 @@ export interface ResolvedPriceInfo {
   volume?: number
   high?: number | null
   low?: number | null
+  /** regular-session open from the live quote (null when the provider gave none) */
+  open?: number | null
   dataSource?: string
   latency?: number
   hasPrice: boolean
@@ -75,6 +78,7 @@ export function resolvePriceInfo(
       volume: positive(realtime.volume) ? realtime.volume : positive(ticker?.volume) ? ticker!.volume! : undefined,
       high: realtime.high,
       low: realtime.low,
+      open: positive(realtime.open) ? realtime.open : null,
       dataSource: realtime.data_source,
       latency: realtime.latency_ms,
       hasPrice: true,
