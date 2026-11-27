@@ -573,3 +573,41 @@ def project_income(holdings: Dict[str, float], histories: Dict[str, Optional[dic
             "amount": "latest regular per-share dividend, held flat (no growth assumed)",
         },
     }
+
+
+# ── per-symbol history (snapshot mini chart) ────────────────────────────────
+
+def history_payload(symbol: str, history: Optional[dict], today: date) -> dict:
+    """Cash dividends paid over the last ~3 years for one symbol (oldest first), plus the
+    trailing-12-month total and the inferred frequency. ``available`` is False when the
+    upstream lookup failed (unknown), which is different from "pays no dividend"."""
+    if history is None:
+        return {"symbol": symbol, "available": False, "payments": [], "ttm_total": None,
+                "ttm_count": 0, "frequency": None, "frequency_label": None,
+                "next_ex_date": None, "next_pay_date": None, "source": "yfinance"}
+    payments = []
+    for item in history.get("dividends") or []:
+        try:
+            d, a = item
+            day = date.fromisoformat(str(d))
+        except (TypeError, ValueError):
+            continue
+        amt = _finite(a)
+        if amt and amt > 0 and day <= today:
+            payments.append({"ex_date": day.isoformat(), "amount": round(amt, 6)})
+    payments.sort(key=lambda p: p["ex_date"])
+    cutoff = today - timedelta(days=365)
+    ttm = [p for p in payments if date.fromisoformat(p["ex_date"]) > cutoff]
+    freq = frequency_from_dates([date.fromisoformat(p["ex_date"]) for p in payments])
+    return {
+        "symbol": symbol,
+        "available": True,
+        "payments": payments,
+        "ttm_total": round(sum(p["amount"] for p in ttm), 6) if ttm else None,
+        "ttm_count": len(ttm),
+        "frequency": freq,
+        "frequency_label": FREQUENCIES.get(freq) if freq else None,
+        "next_ex_date": history.get("next_ex_date"),
+        "next_pay_date": history.get("next_pay_date"),
+        "source": "yfinance",
+    }

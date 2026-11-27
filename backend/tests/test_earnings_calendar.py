@@ -297,6 +297,70 @@ def test_next_endpoint(api_env, monkeypatch):
     assert api_env.get("/api/v1/earnings/next/bad%20sym").status_code == 422
 
 
+# ── EPS history ──────────────────────────────────────────────────────────────
+
+SURPRISES = [
+    {"actual": 1.64, "estimate": 1.6, "period": "2026-09-30", "quarter": 3, "year": 2026, "symbol": "AAPL"},
+    {"actual": 1.57, "estimate": 1.43, "period": "2026-06-30", "quarter": 2, "year": 2026, "symbol": "AAPL"},
+    {"actual": None, "estimate": 1.7, "period": "2026-12-31", "quarter": 4, "year": 2026},  # not reported
+    {"actual": 1.65, "estimate": None, "period": "2026-03-31", "quarter": 1, "year": 2026},
+    {"actual": 2.0, "estimate": 2.1, "period": "bad"},
+    "junk",
+]
+
+
+def test_parse_finnhub_surprises():
+    rows = cal.parse_finnhub_surprises(SURPRISES)
+    assert [r["label"] for r in rows] == ["Q1 2026", "Q2 2026", "Q3 2026"]  # oldest first
+    assert rows[0]["eps_estimate"] is None and rows[0]["surprise_pct"] is None  # missing stays null
+    assert rows[2]["surprise_pct"] == pytest.approx(2.5)
+    assert cal.parse_finnhub_surprises({"error": "x"}) == []
+
+
+def test_fetch_eps_history_fallback_and_cache():
+    calls = {"fh": 0, "yf": 0}
+
+    def fh(sym):
+        calls["fh"] += 1
+        return cal.parse_finnhub_surprises(SURPRISES)  # 3 quarters -> also try yfinance
+
+    def yf(sym):
+        calls["yf"] += 1
+        return [{"period": f"2025-0{i}-01", "label": "x", "eps_actual": 1.0, "eps_estimate": 1.0,
+                 "surprise_pct": 0.0} for i in range(1, 10)]
+
+    out = asyncio.run(cal.fetch_eps_history("aapl", finnhub_fn=fh, yf_fn=yf))
+    assert out["available"] and out["source"] == "yfinance" and len(out["quarters"]) == 8
+    asyncio.run(cal.fetch_eps_history("AAPL", finnhub_fn=fh, yf_fn=yf))
+    assert calls == {"fh": 1, "yf": 1}  # cached
+
+    four = [{"period": f"2026-0{i}-28", "label": f"Q{i} 2026", "eps_actual": 1.0, "eps_estimate": 0.9,
+             "surprise_pct": 11.11} for i in range(1, 5)]
+
+    def yf_down(sym):
+        raise RuntimeError("yfinance down")
+
+    out = asyncio.run(cal.fetch_eps_history("MSFT", finnhub_fn=lambda s: four, yf_fn=yf_down))
+    assert out["available"] and out["source"] == "finnhub" and len(out["quarters"]) == 4
+    out = asyncio.run(cal.fetch_eps_history("NVDA", finnhub_fn=lambda s: four, yf_fn=lambda s: four[:2]))
+    assert out["source"] == "finnhub"  # fallback used only when it has more quarters
+
+    failed = asyncio.run(cal.fetch_eps_history("FAIL", finnhub_fn=lambda s: None, yf_fn=lambda s: None))
+    assert failed == {"symbol": "FAIL", "available": False, "quarters": [], "source": None}
+
+
+def test_history_endpoint(api_env, monkeypatch):
+    from app.api import earnings as api
+
+    async def fake(sym):
+        return {"symbol": sym, "available": True, "quarters": cal.parse_finnhub_surprises(SURPRISES), "source": "finnhub"}
+
+    monkeypatch.setattr(api.cal, "fetch_eps_history", fake)
+    body = api_env.get("/api/v1/earnings/history/aapl").json()
+    assert body["symbol"] == "AAPL" and len(body["quarters"]) == 3 and body["source"] == "finnhub"
+    assert api_env.get("/api/v1/earnings/history/bad%20sym").status_code == 422
+
+
 # ── earnings pre-alerts ──────────────────────────────────────────────────────
 
 @pytest.fixture

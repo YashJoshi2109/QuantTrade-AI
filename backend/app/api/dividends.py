@@ -7,6 +7,9 @@ Dividend calendar + projected dividend income.
       frequency, and forward (indicated) yield = indicated annual / last price (our DB,
       else the latest daily close from yfinance; "—" when unknown).
       scope=watchlist|portfolio needs auth.
+  GET /api/v1/dividends/history/{symbol}
+      Cash dividends paid over the last ~3 years (yfinance, cached 12h), the trailing-
+      12-month total and the inferred frequency. available=false when the lookup failed.
   GET /api/v1/dividends/income[?portfolio_id=N]
       Auth. Projected dividend income for the next 12 months by pay month, from the
       user's tracked (non-paper) portfolios, or one owned portfolio.
@@ -16,6 +19,7 @@ Data + math: app.services.dividend_calendar (Nasdaq calendar, yfinance history).
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Literal, Optional, Set
 
@@ -30,6 +34,7 @@ from app.services import dividend_calendar as dc
 router = APIRouter(prefix="/dividends", tags=["dividends"])
 
 MAX_ROWS = 3000
+SYMBOL_RE = re.compile(r"^[A-Z0-9.\-]{1,10}$")
 MAX_SANE_YIELD_PCT = 40.0  # above this the price or amount is almost certainly stale / special
 
 
@@ -259,4 +264,15 @@ async def projected_income(
         if total is not None and priced and market_value > 0 else None,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     })
+    return body
+
+
+@router.get("/history/{symbol}")
+async def dividend_history(symbol: str):
+    sym = (symbol or "").strip().upper()
+    if not SYMBOL_RE.match(sym):
+        raise HTTPException(status_code=422, detail="invalid symbol")
+    histories = await dc.fetch_histories([sym])
+    body = dc.history_payload(sym, histories.get(sym), dc.today_et())
+    body["generated_at"] = datetime.now(timezone.utc).isoformat()
     return body

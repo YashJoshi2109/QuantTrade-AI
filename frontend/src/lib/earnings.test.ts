@@ -14,9 +14,9 @@ import {
   weekDays,
   weekRangeLabel,
   weekStart,
+  sortEarningsRows,
   type EarningsRow,
 } from './earnings'
-import { sortForDay, alertHref } from '@/components/earnings/EarningsParts'
 import { CONDITION_META, earningsCountdown, formatThreshold, validateThreshold } from './alerts'
 
 const row = (o: Partial<EarningsRow>): EarningsRow => ({
@@ -96,7 +96,7 @@ describe('earnings grouping + query', () => {
     const g = groupByDay(rows, weekDays('2026-11-30'))
     expect(Object.keys(g)).toHaveLength(5)
     expect(g['2026-11-30']).toEqual([])
-    expect(sortForDay(g['2026-12-01']).map((r) => r.symbol)).toEqual(['B', 'A', 'C'])
+    expect(sortEarningsRows(g['2026-12-01'], 'market_cap', 'desc').map((r) => r.symbol)).toEqual(['B', 'A', 'C'])
     expect(g['2026-12-03'].map((r) => r.symbol)).toEqual(['D'])
   })
 
@@ -105,7 +105,6 @@ describe('earnings grouping + query', () => {
       .toBe('start=2026-11-30&end=2026-12-06')
     expect(calendarQuery({ start: '2026-11-30', end: '2026-12-06', scope: 'watchlist', cap: 'mega', sector: 'Technology' }))
       .toBe('start=2026-11-30&end=2026-12-06&scope=watchlist&cap=mega&sector=Technology')
-    expect(alertHref('BRK.B')).toBe('/alerts?symbol=BRK.B&condition=earnings_within_days')
   })
 })
 

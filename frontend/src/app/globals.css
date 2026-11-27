@@ -2638,3 +2638,76 @@ html.light .brand-logo {
 .dark .rs-card-inset {
   background-color: #141b28;
 }
+
+/* ── Earnings + Dividends calendars (.cal-*) ──────────────────────────────────
+   Frosted glass with an opaque-enough tint. --surface-base is transparent in
+   dark mode (and `body > div > div` backgrounds are stripped), so these classes
+   carry their own background in both themes. All motion stops under
+   prefers-reduced-motion. */
+.cal-glass {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.9));
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 28px -18px rgba(15, 23, 42, 0.18);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+}
+.dark .cal-glass {
+  background: linear-gradient(180deg, rgba(22, 30, 46, 0.9), rgba(13, 19, 31, 0.9));
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 16px 36px -20px rgba(0, 0, 0, 0.7);
+}
+.cal-solid { background-color: #ffffff; }
+.dark .cal-solid { background-color: #111827; }
+.cal-inset { background-color: rgba(241, 245, 249, 0.85); }
+.dark .cal-inset { background-color: rgba(255, 255, 255, 0.035); }
+.cal-sheet { background-color: #ffffff; }
+.dark .cal-sheet { background-color: #0f1520; }
+
+/* Thin accent line along the top edge with a slow drifting sheen. */
+.cal-accent { overflow: hidden; }
+.cal-accent::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cal-accent, #6366f1), transparent);
+  background-size: 200% 100%;
+  opacity: 0.75;
+  animation: cal-sheen 7s ease-in-out infinite;
+  pointer-events: none;
+}
+/* Soft gradient glow behind a hero card's contents. */
+.cal-glow::after {
+  content: "";
+  position: absolute;
+  inset: -40% -10% auto auto;
+  width: 55%;
+  height: 120%;
+  background: radial-gradient(closest-side, var(--cal-accent, #6366f1), transparent);
+  opacity: 0.09;
+  filter: blur(10px);
+  animation: cal-drift 14s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+.dark .cal-glow::after { opacity: 0.16; }
+.cal-lift { transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+.cal-lift:hover { transform: translateY(-2px); box-shadow: 0 18px 32px -20px rgba(15, 23, 42, 0.35); }
+.dark .cal-lift:hover { box-shadow: 0 18px 36px -18px rgba(0, 0, 0, 0.8); }
+.cal-row-in { animation: cal-fade-up 0.38s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: calc(var(--i, 0) * 16ms); }
+.cal-grow-x { transform-origin: left center; animation: cal-grow-x 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.cal-grow-y { transform-origin: center bottom; animation: cal-grow-y 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: calc(var(--i, 0) * 35ms); }
+.cal-bar-anim { transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1), height 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.cal-scroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.cal-scroll::-webkit-scrollbar { display: none; }
+@keyframes cal-sheen { 0%, 100% { background-position: 100% 0; } 50% { background-position: 0 0; } }
+@keyframes cal-drift { from { transform: translate(0, 0); } to { transform: translate(-18%, 12%); } }
+@keyframes cal-fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes cal-grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes cal-grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .cal-accent::before, .cal-glow::after, .cal-row-in, .cal-grow-x, .cal-grow-y { animation: none !important; }
+  .cal-lift, .cal-bar-anim { transition: none !important; }
+  .cal-lift:hover { transform: none; }
+}
