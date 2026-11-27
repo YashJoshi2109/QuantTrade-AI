@@ -239,7 +239,7 @@ export default function TrendingSidebar() {
                 const isPositive = quote && quote.change_percent > 0
                 const isNegative = quote && quote.change_percent < 0
                 return (
-                  <Link
+                  <Link prefetch={false}
                     key={ticker.symbol}
                     href={`/research?symbol=${ticker.symbol}`}
                     className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-surface-hover transition-colors group"
@@ -315,7 +315,7 @@ export default function TrendingSidebar() {
                 key={community.slug}
                 className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-surface-hover transition-colors group"
               >
-                <Link
+                <Link prefetch={false}
                   href={`/community/${community.slug}`}
                   className="flex items-center gap-2.5 flex-1 min-w-0"
                 >

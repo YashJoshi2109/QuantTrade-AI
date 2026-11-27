@@ -51,7 +51,7 @@ export default function WatchlistPortfolioPanel({ variant }: { variant: 'desktop
       <ul className={mobile ? 'space-y-2' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3'}>
         {ports.map((p) => (
           <li key={p.id}>
-            <Link
+            <Link prefetch={false}
               href="/portfolio"
               onClick={() => {
                 try {

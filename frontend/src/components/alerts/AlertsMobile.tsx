@@ -84,7 +84,7 @@ export default function AlertsMobile() {
                       <TickerLogo symbol={a.symbol} size={32} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <Link href={`/research?symbol=${a.symbol}`} className="font-semibold text-fg-primary">{a.symbol}</Link>
+                          <Link prefetch={false} href={`/research?symbol=${a.symbol}`} className="font-semibold text-fg-primary">{a.symbol}</Link>
                           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${STATUS_STYLE[a.status]}`}>{a.status}</span>
                         </div>
                         <p className="text-xs text-fg-secondary">{describeAlert(a)}</p>

@@ -181,7 +181,7 @@ export default function IpoRadarWidget({
             </div>
           )
           return href ? (
-            <Link key={`${ipo.date}-${sym}-${idx}`} href={href} className="block">
+            <Link prefetch={false} key={`${ipo.date}-${sym}-${idx}`} href={href} className="block">
               {Inner}
             </Link>
           ) : (
@@ -210,7 +210,7 @@ export default function IpoRadarWidget({
           </div>
         )
         return href ? (
-          <Link key={`${ipo.date}-${sym}-${idx}`} href={href} className="shrink-0">
+          <Link prefetch={false} key={`${ipo.date}-${sym}-${idx}`} href={href} className="shrink-0">
             {Inner}
           </Link>
         ) : (

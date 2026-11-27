@@ -142,7 +142,7 @@ function MobileCommunitySearchContent() {
               <div className="space-y-2 px-2">
                 {allCommunities.length > 0 ? (
                   allCommunities.map((c) => (
-                    <Link 
+                    <Link prefetch={false} 
                       key={c.slug} 
                       href={`/community/${c.slug}`}
                       className="flex items-center gap-3 p-3 bg-surface-raised rounded-xl border border-line-subtle active:bg-white/5"
@@ -183,7 +183,7 @@ function MobileCommunitySearchContent() {
                 <div className="space-y-2 px-2">
                   {communities.length > 0 ? (
                     communities.map((c) => (
-                      <Link 
+                      <Link prefetch={false} 
                         key={c.slug} 
                         href={`/community/${c.slug}`}
                         className="flex items-center gap-3 p-3 bg-surface-raised rounded-xl border border-line-subtle active:bg-white/5"

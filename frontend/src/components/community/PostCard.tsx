@@ -271,7 +271,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           <div className="flex items-center gap-1.5 text-xs mb-2 flex-wrap">
             {post.community?.slug && (
               <>
-                <Link
+                <Link prefetch={false}
                   href={`/community/${post.community.slug}`}
                   className="font-semibold text-fg-secondary hover:text-fg-primary transition-colors"
                 >
@@ -280,7 +280,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
                 <span className="text-fg-muted">·</span>
               </>
             )}
-            <Link
+            <Link prefetch={false}
               href={`/community/user/${post.author?.username ?? 'unknown'}`}
               className="text-fg-muted hover:text-fg-secondary transition-colors"
             >
@@ -311,7 +311,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           </div>
 
           {/* Title */}
-          <Link href={`/community/post/${post.id}`} className="block">
+          <Link prefetch={false} href={`/community/post/${post.id}`} className="block">
             <h3 className="text-[15px] font-medium text-fg-primary leading-snug mb-1 group-hover:text-fg-primary transition-colors cursor-pointer">
               {post.title}
             </h3>
@@ -327,7 +327,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
 
           {/* Media thumbnail(s) */}
           {post.media_urls && post.media_urls.length > 0 && (
-            <Link href={`/community/post/${post.id}`} className="block mb-2 rounded-xl overflow-hidden">
+            <Link prefetch={false} href={`/community/post/${post.id}`} className="block mb-2 rounded-xl overflow-hidden">
               {post.media_urls[0].match(/\.(mp4|webm|ogg)(\?|$)/i) ? (
                 <video
                   src={resolveMediaUrl(post.media_urls[0])}
@@ -420,7 +420,7 @@ const PostCard = forwardRef<HTMLDivElement, PostCardProps>(
           </button>
 
           {/* Comments pill */}
-          <Link
+          <Link prefetch={false}
             href={`/community/post/${post.id}`}
             className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-surface-raised rounded-full text-xs text-fg-muted hover:text-fg-primary hover:bg-surface-hover transition-colors min-h-[44px] sm:min-h-0"
           >

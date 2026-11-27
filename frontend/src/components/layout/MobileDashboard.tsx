@@ -363,7 +363,7 @@ export default function MobileDashboard() {
             )}
             {!moversLoading &&
               topGainers.map((stock, idx) => (
-                <Link
+                <Link prefetch={false}
                   key={stock.symbol || `gainer-${idx}`}
                   href={`/research?symbol=${stock.symbol}`}
                   className="w-[130px] h-[130px] rounded-2xl bg-surface-raised border border-emerald-500/20 backdrop-blur-xl p-3 flex flex-col justify-between active:scale-[0.97] transition-transform"
@@ -422,7 +422,7 @@ export default function MobileDashboard() {
             )}
             {!moversLoading &&
               topLosers.map((stock, idx) => (
-                <Link
+                <Link prefetch={false}
                   key={stock.symbol || `loser-${idx}`}
                   href={`/research?symbol=${stock.symbol}`}
                   className="w-[130px] h-[130px] rounded-2xl bg-surface-raised border border-red-500/20 backdrop-blur-xl p-3 flex flex-col justify-between active:scale-[0.97] transition-transform"

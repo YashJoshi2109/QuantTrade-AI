@@ -325,7 +325,7 @@ export default function UnifiedNotificationCenter() {
                         !n.is_read ? 'bg-cyan-500/[0.03]' : ''
                       }`}
                     >
-                      <Link
+                      <Link prefetch={false}
                         href={n.action_url || '/notifications'}
                         onClick={() => setOpen(false)}
                         className="flex flex-1 items-start gap-2.5 px-3 py-2.5 hover:bg-surface-hover transition-colors min-w-0"

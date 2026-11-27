@@ -299,7 +299,7 @@ function IdeaCard({ idea, index }: { idea: TradeIdea; index: number }) {
               <div className="flex items-center gap-2.5">
                 <TickerLogo symbol={idea.symbol} companyName={idea.company_name} size={32} />
                 <div className="flex items-baseline gap-2 min-w-0">
-                  <Link
+                  <Link prefetch={false}
                     href={`/research?symbol=${idea.symbol}`}
                     onClick={e => e.stopPropagation()}
                     className="text-lg font-black text-fg-primary hover:text-cyan-300 transition-colors font-mono"
@@ -420,7 +420,7 @@ function IdeaCard({ idea, index }: { idea: TradeIdea; index: number }) {
                       </div>
                     </div>
                   </div>
-                  <Link
+                  <Link prefetch={false}
                     href={`/research?symbol=${idea.symbol}`}
                     onClick={e => e.stopPropagation()}
                     className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-bold hover:bg-cyan-500/20 transition-all"

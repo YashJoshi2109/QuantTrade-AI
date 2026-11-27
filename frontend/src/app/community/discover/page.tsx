@@ -295,7 +295,7 @@ export default function DiscoverPage() {
                       {community.icon || community.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <Link
+                      <Link prefetch={false}
                         href={`/community?c=${community.slug}`}
                         className="text-sm font-semibold text-fg-primary hover:text-blue-400 transition-colors truncate block"
                       >

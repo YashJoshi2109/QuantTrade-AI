@@ -159,7 +159,7 @@ export default function GlobalStockTicker({ events }: Props) {
         <Marquee speed={35} gradient={false} pauseOnHover>
           <div className="flex items-center gap-6 pr-6 pl-4 py-1.5">
             {tickers.map((entry) => (
-              <Link
+              <Link prefetch={false}
                 key={entry.ticker}
                 href={entry.href || `/research?symbol=${entry.ticker}`}
                 className="flex items-center gap-1.5 hover:opacity-80 transition-opacity group"

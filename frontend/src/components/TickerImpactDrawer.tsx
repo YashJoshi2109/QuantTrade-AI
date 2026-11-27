@@ -102,7 +102,7 @@ export default function TickerImpactDrawer({ event, onClose }: Props) {
                 {/* Ticker Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <Link
+                    <Link prefetch={false}
                       href={`/research?symbol=${impact.ticker}`}
                       className="text-base font-bold text-fg-primary hover:text-sky-400 transition-colors"
                     >
@@ -201,7 +201,7 @@ export default function TickerImpactDrawer({ event, onClose }: Props) {
                     <div className="text-xs text-fg-muted mb-1.5">Related ETFs</div>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {impact.related_etfs.map(etf => (
-                        <Link
+                        <Link prefetch={false}
                           key={etf}
                           href={`/research?symbol=${etf}`}
                           className="px-2 py-1 bg-surface-raised/50 rounded text-xs text-sky-400 hover:bg-surface-raised transition-colors"
@@ -219,7 +219,7 @@ export default function TickerImpactDrawer({ event, onClose }: Props) {
                     <div className="text-xs text-fg-muted mb-1.5">Peer Stocks</div>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {impact.peer_tickers.slice(0, 5).map(peer => (
-                        <Link
+                        <Link prefetch={false}
                           key={peer}
                           href={`/research?symbol=${peer}`}
                           className="px-2 py-1 bg-surface-raised/50 rounded text-xs text-fg-secondary hover:text-fg-primary hover:bg-surface-raised transition-colors"

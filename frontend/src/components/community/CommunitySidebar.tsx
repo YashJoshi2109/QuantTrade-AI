@@ -175,7 +175,7 @@ export default function CommunitySidebar() {
               ) : (
                 <>
                   {visibleMy.map((community) => (
-                    <Link
+                    <Link prefetch={false}
                       key={community.slug}
                       href={`/community/${community.slug}`}
                       className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-all duration-150 group ${
@@ -237,7 +237,7 @@ export default function CommunitySidebar() {
                     key={community.slug}
                     className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm text-fg-muted hover:bg-surface-hover transition-colors group"
                   >
-                    <Link
+                    <Link prefetch={false}
                       href={`/community/${community.slug}`}
                       className="flex items-center gap-2.5 flex-1 min-w-0"
                     >

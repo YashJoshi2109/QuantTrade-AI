@@ -195,7 +195,7 @@ export default function CompareView({ symbols, variant }: { symbols: string[]; v
                           <div className="flex items-center justify-end gap-1.5">
                             <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: COMPARE_COLORS[i] }} aria-hidden />
                             {!mobile && <TickerLogo symbol={s} size={20} />}
-                            <Link href={`/research?symbol=${s}`} className="font-semibold text-fg-primary hover:underline">
+                            <Link prefetch={false} href={`/research?symbol=${s}`} className="font-semibold text-fg-primary hover:underline">
                               {s}
                             </Link>
                           </div>
@@ -244,7 +244,7 @@ export default function CompareView({ symbols, variant }: { symbols: string[]; v
 
           <div className="flex flex-wrap gap-2">
             {symbols.map((s) => (
-              <Link
+              <Link prefetch={false}
                 key={s}
                 href={`/research?symbol=${s}`}
                 className="inline-flex items-center gap-1 rounded-lg border border-line-default px-3 py-1.5 text-xs font-medium text-fg-secondary hover:bg-surface-raised hover:text-fg-primary"

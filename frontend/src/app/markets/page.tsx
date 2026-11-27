@@ -619,7 +619,7 @@ export function ExchangeSectorHeatmap({ continent }: { continent: Continent }) {
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-px bg-surface-base p-px">
               {sector.stocks.map((stock) => (
-                <Link
+                <Link prefetch={false}
                   key={stock.symbol}
                   href={`/research?symbol=${stock.symbol}`}
                   title={`${stock.name}\n${stock.currency} ${stock.price.toFixed(2)}\n${stock.change_percent >= 0 ? '+' : ''}${stock.change_percent.toFixed(2)}%`}
@@ -1038,7 +1038,7 @@ function DesktopMarketsPage() {
                       </div>
                       <div className="divide-y divide-line-subtle">
                         {sector.stocks.slice(0, 10).map((stock, stockIdx) => (
-                          <Link
+                          <Link prefetch={false}
                             key={stock.symbol || `${sector.sector}-${stock.name || stockIdx}`}
                             href={`/research?symbol=${stock.symbol}`}
                               className="flex items-center justify-between p-2 sm:p-3 hover:bg-surface-hover transition-colors"

@@ -247,7 +247,7 @@ function WorldIndicesBar({
                   const up = m.change_percent >= 0
                   const displayPrice = convertPrice(m.price, m.currency || 'USD')
                   return (
-                    <Link
+                    <Link prefetch={false}
                       key={`${m.symbol}-${it.role}-${i}`}
                       href={`/research?symbol=${encodeURIComponent(m.symbol)}`}
                       className="shrink-0 flex items-center gap-2 px-3 py-2 border-r border-line-subtle text-left transition-colors hover:bg-emerald-500/5 group"
@@ -598,7 +598,7 @@ function PredictionAlertsWidget({ contextSymbols }: { contextSymbols?: Set<strin
               )
             }
             return display.slice(0, 6).map((alert, idx) => (
-            <Link
+            <Link prefetch={false}
               key={`${alert.symbol}-${idx}`}
               href={`/research?symbol=${alert.symbol}`}
               className="flex items-start gap-2.5 p-3 hover:bg-surface-hover transition-colors group"
@@ -756,7 +756,7 @@ function WatchlistSnapshot({ toolbarClassName }: { toolbarClassName?: string }) 
               const q = quoteMap[item.symbol]
               const up = q ? q.change_percent >= 0 : null
               return (
-                <Link
+                <Link prefetch={false}
                   key={item.symbol}
                   href={`/research?symbol=${item.symbol}`}
                   className="flex items-center justify-between p-3 hover:bg-cyan-500/5 transition-colors group"
@@ -959,7 +959,7 @@ function ContinentIndicesGrid({
               </div>
               <div className="text-[10px] text-fg-muted truncate mt-0.5">{q.shortName}</div>
             </button>
-            <Link
+            <Link prefetch={false}
               href={`/research?symbol=${encodeURIComponent(q.symbol)}`}
               className="absolute top-2 right-2 p-1 rounded-md text-[9px] text-fg-muted hover:text-[#007AFF] hover:bg-surface-raised/80"
               title="Open in Research"
@@ -1032,7 +1032,7 @@ function MajorIndicesMacroGrid({
             const displayPrice = level ? q.price : convertPrice(q.price, q.currency)
             const isMacro = q.exchangeId === 'macro'
             return (
-              <Link
+              <Link prefetch={false}
                 key={q.symbol}
                 href={`/research?symbol=${encodeURIComponent(displaySymbol(q))}`}
                 title={q.name}
@@ -1118,7 +1118,7 @@ function ContinentMoversPanel({
             <div className="flex items-center justify-center h-20 text-fg-muted text-xs">No data</div>
           ) : (
             gainers.map((s, i) => (
-              <Link
+              <Link prefetch={false}
                 key={s.symbol}
                 href={`/research?symbol=${s.symbol}`}
                 className="flex items-center justify-between px-4 py-2.5 hover:bg-emerald-500/5 transition-all group"
@@ -1157,7 +1157,7 @@ function ContinentMoversPanel({
             <div className="flex items-center justify-center h-20 text-fg-muted text-xs">No data</div>
           ) : (
             losers.map((s, i) => (
-              <Link
+              <Link prefetch={false}
                 key={s.symbol}
                 href={`/research?symbol=${s.symbol}`}
                 className="flex items-center justify-between px-4 py-2.5 hover:bg-red-500/5 transition-all group"
@@ -1572,7 +1572,7 @@ function DesktopHome() {
                       <SkeletonMoversSection count={8} />
                     ) : topGainers.length > 0 ? (
                       topGainers.map((stock, idx: number) => (
-                        <Link
+                        <Link prefetch={false}
                           key={stock.symbol || `gainer-${idx}`}
                           href={`/research?symbol=${stock.symbol}`}
                           className="flex items-center justify-between px-4 py-2.5 hover:bg-emerald-500/5 border-b border-line-subtle/30 transition-all group"
@@ -1660,7 +1660,7 @@ function DesktopHome() {
                       <SkeletonMoversSection count={8} />
                     ) : topLosers.length > 0 ? (
                       topLosers.map((stock, idx: number) => (
-                        <Link
+                        <Link prefetch={false}
                           key={stock.symbol || `loser-${idx}`}
                           href={`/research?symbol=${stock.symbol}`}
                           className="flex items-center justify-between px-4 py-2.5 hover:bg-red-500/5 border-b border-line-subtle/30 transition-all group"
@@ -1950,7 +1950,7 @@ function DesktopHome() {
                           regionMoversLoading ? (
                             <div className="h-4 w-24 bg-surface-hover rounded animate-pulse" />
                           ) : topGainers[0] ? (
-                            <Link
+                            <Link prefetch={false}
                               href={`/research?symbol=${encodeURIComponent(topGainers[0].symbol)}`}
                               className="flex items-center justify-between gap-2 group"
                             >

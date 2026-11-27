@@ -1,133 +1,159 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  acquireLogoSlot,
+  isLogoMiss,
+  isLogoOk,
+  logoProxyUrl,
+  markLogoMiss,
+  markLogoOk,
+} from '@/lib/logoCache'
 
 /**
- * Derive a TradingView `s3-symbol-logo` slug from a Yahoo-style company name.
+ * Candidate image URLs, in order: an explicit `logoSrc` the API returned, then our
+ * same-origin `/api/logo` proxy (server-side cache over Logo.dev / FMP / Finnhub).
+ * No client-side guessing of third-party URLs: every miss falls straight to initials.
+ * URLs already known to miss (this session or the last day) are skipped.
  */
-function tradingViewSlugFromCompanyName(name: string): string | null {
-  let s = name.trim().toLowerCase()
-  if (!s) return null
-  s = s.replace(/&/g, 'and')
-  for (;;) {
-    const next = s
-      .replace(
-        /\s*,?\s*(incorporated|inc\.?|corp\.?|corporation|plc|ltd\.?|limited|s\.a\.|s\.p\.a\.|n\.v\.|n\.v\b|se\b|ag\b|spa\b|holdings?|holding|group|co\.|company)\s*$/i,
-        '',
-      )
-      .trim()
-    if (next === s) break
-    s = next
-  }
-  s = s.replace(/[''`]/g, '')
-  s = s.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-  return s.length >= 2 ? s : null
-}
-
-function tradingViewSlugCandidates(name: string): string[] {
-  const full = tradingViewSlugFromCompanyName(name)
-  if (!full) return []
-  const parts = full.split('-').filter(Boolean)
+export function logoCandidates(ticker: string, explicitSrc?: string | null): string[] {
+  if (!ticker) return []
   const out: string[] = []
-  for (let n = parts.length; n >= 1; n--) {
-    const slug = parts.slice(0, n).join('-')
-    if (slug.length >= 2) out.push(slug)
-  }
-  return Array.from(new Set(out))
-}
-
-/** Same-origin Next proxy (backend + Logo.dev + Finnhub fallbacks on server). */
-function nextLogoProxyUrl(ticker: string): string {
-  return `/api/logo?symbol=${encodeURIComponent(ticker)}`
-}
-
-function buildLogoCandidateUrls(
-  ticker: string,
-  companyName: string | null | undefined,
-  explicitSrc: string | null | undefined,
-): string[] {
-  const out: string[] = []
-  const push = (u: string) => {
-    if (u && !out.includes(u)) out.push(u)
-  }
-
   const direct = explicitSrc?.trim()
-  if (direct) push(direct)
+  if (direct) out.push(direct)
+  const proxy = logoProxyUrl(ticker)
+  if (!out.includes(proxy)) out.push(proxy)
+  return out.filter((u) => !isLogoMiss(u))
+}
 
-  push(nextLogoProxyUrl(ticker))
-
-  const pub = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN?.trim()
-  if (pub) {
-    push(
-      `https://img.logo.dev/ticker/${encodeURIComponent(ticker)}?token=${encodeURIComponent(pub)}`,
-    )
-  }
-
-  for (const slug of tradingViewSlugCandidates(companyName || '')) {
-    push(`https://s3-symbol-logo.tradingview.com/${slug}.svg`)
-    push(`https://s3-symbol-logo.tradingview.com/${slug}--big.svg`)
-  }
-
-  return out
+function Initials({ ticker, size, className }: { ticker: string; size: number; className: string }) {
+  return (
+    <div
+      className={`flex items-center justify-center rounded-lg bg-surface-raised/80 border border-line-subtle text-fg-muted font-bold shrink-0 ${className}`}
+      style={{ width: size, height: size, fontSize: size * 0.38 }}
+      aria-hidden
+    >
+      {ticker.slice(0, 2)}
+    </div>
+  )
 }
 
 /**
- * Ticker logos: `/api/logo` (server proxies Logo.dev / Finnhub / backend), optional
- * `NEXT_PUBLIC_LOGO_DEV_TOKEN`, then TradingView name slugs. No hardcoded API keys in client code.
+ * Ticker logo with an initials fallback. The image is requested only once the logo is
+ * near the viewport, through a shared concurrency limiter, and a miss is remembered so
+ * no other row (or later visit) asks for the same symbol again.
  */
 export default function TickerLogo({
   symbol,
   size = 28,
   className = '',
-  companyName,
   logoSrc,
 }: {
   symbol: string
   size?: number
   className?: string
+  /** Kept for call-site compatibility; names are no longer used to guess logo URLs. */
   companyName?: string | null
   logoSrc?: string | null
 }) {
   const ticker = symbol?.toUpperCase().replace(/[^A-Z0-9]/g, '') || ''
-  const urls = useMemo(
-    () => (ticker ? buildLogoCandidateUrls(ticker, companyName, logoSrc) : []),
-    [ticker, companyName, logoSrc],
-  )
-
+  const urls = useMemo(() => logoCandidates(ticker, logoSrc), [ticker, logoSrc])
   const [index, setIndex] = useState(0)
+  const [visible, setVisible] = useState(false)
+  // The URL that currently holds a limiter slot (or was a known hit), and the one that loaded.
+  const [grantedFor, setGrantedFor] = useState<string | null>(null)
+  const [loadedFor, setLoadedFor] = useState<string | null>(null)
+  const holder = useRef<HTMLSpanElement>(null)
+  const release = useRef<(() => void) | null>(null)
+
+  const src = index < urls.length ? urls[index] : null
 
   useEffect(() => {
     setIndex(0)
-  }, [ticker, urls.join('|')])
+  }, [ticker, logoSrc])
+
+  // Defer the request until the logo is (nearly) on screen.
+  useEffect(() => {
+    if (visible || !src) return
+    const el = holder.current
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setVisible(true)
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true)
+          io.disconnect()
+        }
+      },
+      { rootMargin: '200px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [visible, src])
+
+  // Take a slot from the shared limiter before rendering the <img>. Known hits are
+  // already in the browser cache, so they skip the queue.
+  useEffect(() => {
+    if (!visible || !src) return
+    if (isLogoOk(src)) {
+      setGrantedFor(src)
+      return
+    }
+    const rel = acquireLogoSlot(() => setGrantedFor(src))
+    release.current = rel
+    return () => {
+      rel()
+      if (release.current === rel) release.current = null
+    }
+  }, [visible, src])
 
   if (!ticker) return null
+  if (!src) return <Initials ticker={ticker} size={size} className={className} />
 
-  if (!urls.length || index >= urls.length) {
-    return (
-      <div
-        className={`flex items-center justify-center rounded-lg bg-surface-raised/80 border border-line-subtle text-fg-muted font-bold shrink-0 ${className}`}
-        style={{ width: size, height: size, fontSize: size * 0.38 }}
-      >
-        {ticker.slice(0, 2)}
-      </div>
-    )
+  const settle = () => {
+    release.current?.()
+    release.current = null
   }
-
-  const src = urls[index]
+  const loaded = loadedFor === src
 
   return (
-    <img
-      key={src}
-      src={src}
-      alt={`${ticker} logo`}
-      width={size}
-      height={size}
-      className={`rounded-lg object-contain shrink-0 ${className}`}
+    <span
+      ref={holder}
+      className={`relative inline-flex shrink-0 ${className}`}
       style={{ width: size, height: size }}
-      onError={() => setIndex((i) => i + 1)}
-      loading="lazy"
-      referrerPolicy="no-referrer"
-    />
+    >
+      {!loaded && (
+        <span className="absolute inset-0">
+          <Initials ticker={ticker} size={size} className="" />
+        </span>
+      )}
+      {visible && grantedFor === src && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={src}
+          src={src}
+          alt={`${ticker} logo`}
+          width={size}
+          height={size}
+          decoding="async"
+          className="relative rounded-lg object-contain"
+          style={{ width: size, height: size, opacity: loaded ? 1 : 0 }}
+          onLoad={() => {
+            markLogoOk(src)
+            settle()
+            setLoadedFor(src)
+          }}
+          onError={() => {
+            markLogoMiss(src)
+            settle()
+            setIndex((i) => i + 1)
+          }}
+          referrerPolicy="no-referrer"
+        />
+      )}
+    </span>
   )
 }
 

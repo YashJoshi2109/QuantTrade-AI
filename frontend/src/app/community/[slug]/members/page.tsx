@@ -81,7 +81,7 @@ export default function CommunityMembersPage() {
               const badge = roleBadge[m.role] || roleBadge.member
               const Icon = badge.icon
               return (
-                <Link
+                <Link prefetch={false}
                   key={m.user_id}
                   href={`/community/user/${m.username}`}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-raised hover:bg-surface-hover transition-colors group"

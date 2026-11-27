@@ -93,7 +93,7 @@ export function TickerChips({ tickers, max = 4 }: { tickers: string[]; max?: num
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       {shown.map((t) => (
-        <Link
+        <Link prefetch={false}
           key={t}
           href={`/research?symbol=${encodeURIComponent(t)}`}
           className="rounded border border-blue-500/25 bg-blue-500/10 px-1.5 py-0.5 font-mono text-[9px] text-blue-700 dark:text-blue-300 transition-colors hover:border-blue-400/60 hover:text-blue-900 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60"

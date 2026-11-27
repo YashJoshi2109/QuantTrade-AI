@@ -156,7 +156,7 @@ function Breadcrumb({ post }: { post: CommunityPost | null }) {
       {post?.community && (
         <>
           <ChevronRight className="w-3 h-3 text-fg-muted" />
-          <Link
+          <Link prefetch={false}
             href={`/community/${post.community.slug}`}
             className="hover:text-fg-secondary transition-colors font-medium text-fg-muted"
           >
@@ -554,7 +554,7 @@ export default function PostThreadPage() {
                 {/* Meta: community + author + time */}
                 <div className="flex items-center gap-1.5 text-xs text-fg-muted mb-2 flex-wrap">
                   {post.community?.slug && (
-                    <Link
+                    <Link prefetch={false}
                       href={`/community/${post.community.slug}`}
                       className="flex items-center gap-1 font-semibold text-fg-secondary hover:text-fg-primary transition-colors"
                     >
@@ -564,7 +564,7 @@ export default function PostThreadPage() {
                   )}
                   <span className="text-fg-muted">·</span>
                   <span>Posted by</span>
-                  <Link
+                  <Link prefetch={false}
                     href={post.author?.username ? `/community/user/${post.author.username}` : '#'}
                     className="text-fg-muted hover:text-blue-400 transition-colors font-medium"
                   >
@@ -590,7 +590,7 @@ export default function PostThreadPage() {
                   <div className="flex items-center gap-2 flex-wrap mb-3">
                     <SentimentBadge sentiment={post.sentiment} />
                     {post.tickers?.map((ticker) => (
-                      <Link
+                      <Link prefetch={false}
                         key={ticker}
                         href={`/research?symbol=${ticker}`}
                         className="inline-flex items-center text-[11px] font-mono font-bold

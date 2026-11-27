@@ -158,7 +158,7 @@ export default function PortfolioDesktop() {
                             {s.holdings.map((h) => (
                               <tr key={h.symbol} className="border-t border-line-subtle hover:bg-surface-raised/40">
                                 <td className="px-4 py-2.5">
-                                  <Link href={`/research?symbol=${h.symbol}`} className="flex items-center gap-2">
+                                  <Link prefetch={false} href={`/research?symbol=${h.symbol}`} className="flex items-center gap-2">
                                     <TickerLogo symbol={h.symbol} size={24} />
                                     <span>
                                       <span className="block font-semibold text-fg-primary">{h.symbol}</span>

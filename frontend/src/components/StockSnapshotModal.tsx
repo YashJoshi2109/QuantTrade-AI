@@ -470,7 +470,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
                       </div>
 
                       {/* Open in Research */}
-                      <Link href={`/research?symbol=${stock.symbol}`}
+                      <Link prefetch={false} href={`/research?symbol=${stock.symbol}`}
                         className="flex items-center justify-center w-8 h-8 rounded-xl bg-surface-raised border border-line-default text-fg-secondary hover:text-[#00D4FF] hover:border-[#00D4FF]/30 transition-all shadow-theme-sm"
                         title="Open in Research">
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -564,7 +564,7 @@ export default function StockSnapshotModal({ stock, onClose, onAddToWatchlist }:
 
                   {/* CTA */}
                   <div className="p-4 border-t border-line-subtle shrink-0 space-y-2">
-                    <Link href={`/research?symbol=${stock.symbol}`}
+                    <Link prefetch={false} href={`/research?symbol=${stock.symbol}`}
                       className="mac-btn mac-btn-lg w-full flex items-center justify-center gap-2 text-[11px]"
                       style={{ background: 'linear-gradient(135deg, rgba(0,122,255,0.3), rgba(0,212,255,0.2))', borderColor: 'rgba(0,122,255,0.5)', color: '#60b0ff' }}
                       onClick={onClose}>

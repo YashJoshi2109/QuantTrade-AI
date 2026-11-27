@@ -470,7 +470,7 @@ export function WatchRow({
       {/* hover actions (Kite-style), replace the figures in place */}
       <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
         {actions.onChart && <IconAction label={`Chart ${s} (C)`} onClick={() => actions.onChart?.(s)}><LineChart className="h-3.5 w-3.5" /></IconAction>}
-        <Link
+        <Link prefetch={false}
           href={researchHref(s)}
           onClick={(e) => e.stopPropagation()}
           title={`Research ${s} (Enter)`}
@@ -586,7 +586,7 @@ export function HoldingRowView({
         )}
       </div>
       <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-        <Link href={researchHref(h.symbol)} onClick={(e) => e.stopPropagation()} className="flex h-7 items-center rounded-md border border-line-default bg-white px-2 text-[11px] font-semibold text-fg-secondary hover:text-fg-primary dark:bg-slate-900">Research</Link>
+        <Link prefetch={false} href={researchHref(h.symbol)} onClick={(e) => e.stopPropagation()} className="flex h-7 items-center rounded-md border border-line-default bg-white px-2 text-[11px] font-semibold text-fg-secondary hover:text-fg-primary dark:bg-slate-900">Research</Link>
         <IconAction label={`Price alert on ${h.symbol}`} onClick={() => onAlert(h.symbol)}><BellRing className="h-3.5 w-3.5" /></IconAction>
         {!h.simulated && <IconAction label={`Add more ${h.symbol}`} onClick={() => onHolding(h.symbol)}><Plus className="h-3.5 w-3.5" /></IconAction>}
       </div>
