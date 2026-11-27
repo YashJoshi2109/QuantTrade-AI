@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchQuote, fetchFinnhubQuote } from '@/lib/api'
+import { backoffInterval, QUOTE_POLL } from '@/lib/queryPolicy'
+import { usePhaseInterval } from '@/hooks/useMarketRefresh'
 
 export interface Quote {
   symbol: string
@@ -23,30 +25,41 @@ export interface IndexQuote extends Quote {
 interface UseRealtimeQuoteOptions {
   symbol: string
   enabled?: boolean
+  /** Base poll interval (ms). Default: market-phase aware QUOTE_POLL (20s / 60s / 120s). */
   refetchInterval?: number
   priority?: 'high' | 'normal'
   useFinnhub?: boolean
+  /** false = fetch once but do not poll (e.g. the profile says the ticker does not exist) */
+  poll?: boolean
 }
 
 /**
- * Hook for fetching real-time stock quotes with automatic updates
- * Uses enhanced endpoint with priority support for rate limiting
+ * Hook for fetching real-time stock quotes with automatic updates.
+ *
+ * Every observer of a given (symbol, priority, source) shares one query, and
+ * React Query polls a key at the smallest interval any observer asks for, so
+ * callers should leave `refetchInterval` unset and get the shared,
+ * market-phase-aware default. 429s back off (honouring Retry-After) and are
+ * never retried immediately (lib/queryPolicy).
  */
-export function useRealtimeQuote({ 
-  symbol, 
+export function useRealtimeQuote({
+  symbol,
   enabled = true,
-  refetchInterval = 5000, // 5 seconds default
+  refetchInterval,
   priority = 'normal',
-  useFinnhub = false
+  useFinnhub = false,
+  poll = true,
 }: UseRealtimeQuoteOptions) {
+  const phaseBase = usePhaseInterval(QUOTE_POLL)
+  const base = refetchInterval ?? phaseBase
   return useQuery<Quote>({
-    queryKey: ['realtimeQuote', symbol, priority],
+    queryKey: ['realtimeQuote', symbol, priority, useFinnhub ? 'finnhub' : 'enhanced'],
     queryFn: () => useFinnhub ? fetchFinnhubQuote(symbol, priority) : fetchQuote(symbol, priority),
     enabled: enabled && !!symbol,
-    refetchInterval, // Auto-refresh
-    staleTime: priority === 'high' ? 2000 : 5000, // High priority = fresher data
-    retry: 2,
-    retryDelay: 1000,
+    refetchInterval: backoffInterval(poll ? base : false),
+    staleTime: Math.min(base / 2, 10_000),
+    // Polled anyway; a focus refetch would only add a burst on tab switch.
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -61,11 +74,11 @@ export function useRealtimeQuotes(
   return useQuery<IndexQuote[]>({
     queryKey: ['realtimeQuotes', symbols, priority],
     queryFn: async () => {
-      const promises = symbols.map(symbol => fetchQuote(symbol, priority))
-      return Promise.all(promises)
+      const settled = await Promise.allSettled(symbols.map((symbol) => fetchQuote(symbol, priority)))
+      return settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []))
     },
     enabled: symbols.length > 0,
-    refetchInterval,
+    refetchInterval: backoffInterval(refetchInterval),
     staleTime: priority === 'high' ? 3000 : 5000,
   })
 }

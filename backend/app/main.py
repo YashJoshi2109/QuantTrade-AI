@@ -549,43 +549,10 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# ── Rate limiting middleware (per-IP, in-memory) ─────────────────────
-import time as _time
-from collections import defaultdict as _defaultdict
-
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Simple per-IP rate limiter. Rejects with 429 when exceeded."""
-
-    def __init__(self, app, requests_per_minute: int = 120):
-        super().__init__(app)
-        self.rpm = requests_per_minute
-        self._hits: dict[str, list[float]] = _defaultdict(list)
-
-    async def dispatch(self, request: Request, call_next):
-        # Skip rate limiting for health/internal endpoints
-        path = request.url.path
-        # /api/v1/system/status is polled every second by every open tab; it is
-        # served from memory (and micro-cached by nginx), so it is exempt.
-        if path in ("/health", "/health/ready", "/", "/docs", "/openapi.json", "/api/v1/system/status"):
-            return await call_next(request)
-
-        client_ip = request.client.host if request.client else "unknown"
-        now = _time.time()
-        window = now - 60
-
-        # Clean old entries and check
-        hits = self._hits[client_ip]
-        self._hits[client_ip] = hits = [t for t in hits if t > window]
-
-        if len(hits) >= self.rpm:
-            return JSONResponse(
-                status_code=429,
-                content={"detail": "Rate limit exceeded. Try again shortly."},
-                headers={"Retry-After": "60"},
-            )
-
-        hits.append(now)
-        return await call_next(request)
+# ── Rate limiting middleware (per user / real client IP, in-memory) ──
+# Keys on the real client behind Cloudflare/nginx (not the proxy's IP) and gives
+# public cached market GETs their own generous bucket. See app/middleware/rate_limit.py.
+from app.middleware.rate_limit import RateLimitMiddleware  # noqa: E402
 
 app.add_middleware(RateLimitMiddleware, requests_per_minute=300)
 app.add_middleware(CacheControlMiddleware)

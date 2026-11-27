@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchMarketStatus } from '@/lib/api'
+import { fetchMarketStatus, type MarketStatus } from '@/lib/api'
+import { marketPhaseFrom } from '@/lib/marketPhase'
+import { backoffInterval, type MarketPhase, type PhaseIntervals } from '@/lib/queryPolicy'
 
 interface MarketRefreshConfig {
   /** Refresh interval during live market hours (ms). Default 15s */
@@ -19,39 +20,42 @@ const DEFAULTS: Required<MarketRefreshConfig> = {
   closedInterval: 300_000,
 }
 
+/** One market-status query app-wide (header pill, ticker, polling intervals). */
+export const MARKET_STATUS_KEY = ['marketStatus'] as const
+
+export const marketStatusQuery = {
+  queryKey: MARKET_STATUS_KEY,
+  queryFn: fetchMarketStatus,
+  staleTime: 60_000,
+  refetchInterval: backoffInterval(120_000),
+}
+
+export function useMarketStatus() {
+  return useQuery<MarketStatus>(marketStatusQuery)
+}
+
+/** 'open' | 'extended' | 'closed' (backend status, NY clock fallback). */
+export function useMarketPhase(): MarketPhase {
+  const { data } = useMarketStatus()
+  return marketPhaseFrom(data)
+}
+
+/** Base poll interval (ms) for the current market phase. */
+export function usePhaseInterval(intervals: PhaseIntervals): number {
+  return intervals[useMarketPhase()]
+}
+
 /**
  * Returns the appropriate refetch interval based on live market status.
- * Checks market status every 60s and adjusts the interval accordingly.
  */
 export function useMarketRefreshInterval(config?: MarketRefreshConfig): number {
   const { liveInterval, extendedInterval, closedInterval } = { ...DEFAULTS, ...config }
-
-  const { data: status } = useQuery({
-    queryKey: ['market-status'],
-    queryFn: fetchMarketStatus,
-    staleTime: 60_000,
-    refetchInterval: 60_000,
-  })
-
-  if (!status) return closedInterval
-
-  if (status.is_open) return liveInterval
-
-  // Extended hours heuristic: weekday but market closed
-  if (status.is_weekday && !status.is_open) return extendedInterval
-
-  return closedInterval
+  return usePhaseInterval({ open: liveInterval, extended: extendedInterval, closed: closedInterval })
 }
 
 /**
  * Boolean: true when the market is currently live.
  */
 export function useMarketIsLive(): boolean {
-  const { data: status } = useQuery({
-    queryKey: ['market-status'],
-    queryFn: fetchMarketStatus,
-    staleTime: 60_000,
-    refetchInterval: 60_000,
-  })
-  return status?.is_open ?? false
+  return useMarketPhase() === 'open'
 }

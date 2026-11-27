@@ -1,0 +1,199 @@
+/* Timeline: rally candles 0-0.9s, crash 1.0-1.7s (drop + shake), 404 badge
+   ~1.7s, recovery 1.9-2.5s, line draw across, then a gentle idle pulse. */
+
+.scene {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  color: #10b981; /* area tint */
+}
+
+.grid line {
+  stroke: currentColor;
+  stroke-opacity: 0.08;
+  stroke-dasharray: 3 6;
+}
+:global(.dark) .grid line {
+  stroke: #94a3b8;
+  stroke-opacity: 0.12;
+}
+
+.line {
+  fill: none;
+  stroke: #0ea5e9;
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 2.6s cubic-bezier(0.55, 0.05, 0.3, 1) 0.15s forwards;
+}
+:global(.dark) .line {
+  stroke: #38bdf8;
+}
+
+.area {
+  opacity: 0;
+  animation: fade 0.8s ease-out 2.4s forwards;
+}
+
+.candle {
+  transform-box: view-box;
+  opacity: 0;
+}
+.candle rect {
+  stroke-width: 1;
+}
+.wick {
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+.up rect {
+  fill: #10b981;
+  stroke: #059669;
+}
+.up .wick {
+  stroke: #059669;
+}
+.down rect {
+  fill: #f43f5e;
+  stroke: #e11d48;
+}
+.down .wick {
+  stroke: #e11d48;
+}
+
+.rally {
+  animation: grow 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.25) forwards;
+  animation-delay: calc(var(--i) * 0.12s + 0.1s);
+}
+.crash {
+  animation: plunge 0.5s cubic-bezier(0.6, 0, 0.8, 0.4) forwards;
+  animation-delay: calc(1s + (var(--i) - 7) * 0.16s);
+}
+.recover {
+  animation: grow 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.25) forwards;
+  animation-delay: calc(1.9s + (var(--i) - 11) * 0.15s);
+}
+
+.crashLabel {
+  transform-box: view-box;
+  opacity: 0;
+  animation: swing 0.9s cubic-bezier(0.3, 1.6, 0.5, 1) 1.65s forwards;
+}
+.leader {
+  stroke: #e11d48;
+  stroke-width: 1.5;
+  stroke-dasharray: 2 3;
+}
+.badge {
+  fill: #fff1f2;
+  stroke: #fda4af;
+}
+.badgeText {
+  fill: #be123c;
+  font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:global(.dark) .badge {
+  fill: rgba(244, 63, 94, 0.14);
+  stroke: rgba(244, 63, 94, 0.55);
+}
+:global(.dark) .badgeText {
+  fill: #fda4af;
+}
+
+.dotWrap {
+  opacity: 0;
+  animation: fade 0.4s ease-out 2.6s forwards;
+}
+.dot {
+  fill: #10b981;
+}
+.dotPulse {
+  fill: #10b981;
+  opacity: 0.35;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pulse 1.8s ease-out 2.8s infinite;
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes fade {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes grow {
+  0% {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+@keyframes plunge {
+  0% {
+    opacity: 0;
+    transform: translateY(-40px) scaleY(0.3);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(6px) scaleY(1.06);
+  }
+  80% {
+    transform: translateY(-2px) rotate(-1.5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes swing {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) rotate(-14deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(2px) rotate(6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .line,
+  .area,
+  .candle,
+  .crashLabel,
+  .dotWrap,
+  .dotPulse {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+  .line {
+    stroke-dashoffset: 0;
+  }
+  .dotPulse {
+    opacity: 0;
+  }
+}

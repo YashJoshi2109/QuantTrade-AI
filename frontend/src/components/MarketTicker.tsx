@@ -13,6 +13,7 @@ import {
 import { formatPercent, isNumber } from '@/lib/format'
 import { displaySymbol, formatLevelOrPrice, isIndexLevel } from '@/lib/quoteDisplay'
 import { useMarketRefreshInterval } from '@/hooks/useMarketRefresh'
+import { useMarketIndices, useMarketMovers, useSectorPerformance } from '@/lib/marketQueries'
 
 interface TickerItem {
   symbol: string
@@ -70,32 +71,10 @@ function TickerChip({ item }: { item: TickerItem }) {
 }
 
 export default function MarketTicker() {
-  const refreshInterval = useMarketRefreshInterval({
-    liveInterval: 30_000,
-    extendedInterval: 120_000,
-    closedInterval: 300_000,
-  })
-
-  const { data: indices } = useQuery({
-    queryKey: ['marketIndices'],
-    queryFn: () => fetchMarketIndices(),
-    refetchInterval: refreshInterval,
-    staleTime: 15_000,
-  })
-
-  const { data: movers } = useQuery({
-    queryKey: ['marketMovers'],
-    queryFn: () => fetchMarketMovers(),
-    refetchInterval: refreshInterval,
-    staleTime: 15_000,
-  })
-
-  const { data: sectors } = useQuery({
-    queryKey: ['sectorPerformance'],
-    queryFn: () => fetchSectorPerformance(),
-    refetchInterval: refreshInterval * 2,
-    staleTime: 30_000,
-  })
+  // Shared app-wide queries (lib/marketQueries): market-phase intervals + 429 backoff.
+  const { data: indices } = useMarketIndices()
+  const { data: movers } = useMarketMovers()
+  const { data: sectors } = useSectorPerformance()
 
   const tickerItems = useMemo(() => {
     const items: TickerItem[] = []

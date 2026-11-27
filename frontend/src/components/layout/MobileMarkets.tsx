@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchSectorPerformance } from '@/lib/api'
 import { useExchangeHeatmap } from '@/hooks/useExchangeHeatmap'
 import { computeBreadth } from '@/lib/marketBreadth'
+import { useSectorPerformance } from '@/lib/marketQueries'
 
 function MarketPulse({ continent }: { continent: Continent }) {
   const { data, isLoading } = useExchangeHeatmap(continent)
@@ -81,12 +82,7 @@ export default function MobileMarkets() {
   const [displayCurrency, setDisplayCurrency] = useMarketsCurrency()
   const { data: currencyRates = {} } = useCurrencyRates()
 
-  const { data: usSectors } = useQuery({
-    queryKey: ['sectorPerformance'],
-    queryFn: () => fetchSectorPerformance(),
-    refetchInterval: 120000,
-    staleTime: 60000,
-  })
+  const { data: usSectors } = useSectorPerformance()
 
   return (
     <div className="flex flex-col min-h-screen bg-surface-base pb-24">

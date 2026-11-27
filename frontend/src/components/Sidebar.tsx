@@ -13,8 +13,7 @@ import {
   User,
   Swords,
 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import { fetchLiveVisitors } from '@/lib/monitor-extended-api'
+import { useLiveVisitors } from '@/lib/marketQueries'
 import LiveVisitorCounter from '@/components/ui/live-visitor'
 import ThemeToggle from '@/components/ui/theme-toggle'
 
@@ -25,12 +24,7 @@ interface SidebarProps {
 
 export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const pathname = usePathname()
-  const { data: gaData } = useQuery({
-    queryKey: ['live-visitors'],
-    queryFn: fetchLiveVisitors,
-    refetchInterval: 30_000,
-    staleTime: 25_000,
-  })
+  const { data: gaData } = useLiveVisitors()
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/' },
     { id: 'markets', label: 'Markets', icon: TrendingUp, href: '/markets' },

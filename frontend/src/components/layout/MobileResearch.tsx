@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
@@ -22,19 +22,10 @@ import {
   X,
 } from 'lucide-react'
 import {
-  fetchPrices,
-  fetchIntradayPrices,
-  fetchIndicators,
   syncSymbol,
-  fetchFundamentals,
-  searchSymbols,
   addToWatchlist,
   removeFromWatchlist,
   getWatchlist,
-  FundamentalsData,
-  PriceBar,
-  Indicators,
-  SearchResult,
   WatchlistItem,
 } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
@@ -45,11 +36,22 @@ import { displayCompanyName, tickerBannerState } from '@/lib/tickerIdentity'
 import { RetiredPricePlaceholder, TickerIdentityBanner, useTickerIdentity } from '@/components/research/TickerIdentityBanner'
 import Chart from '@/components/Chart'
 import TickerLogo from '@/components/TickerLogo'
+import MobileSearchSheet from '@/components/search/MobileSearchSheet'
 import type { PaneIndicatorId } from '@/lib/indicators'
 import { CardSkeleton as Skeleton } from '@/components/research/ResearchCard'
 import { keyStatsSource } from '@/lib/researchKeyStats'
-import type { TickerInfo } from '@/app/api/quotes/ticker/route'
-import { resolvePriceInfo } from '@/lib/researchQuote'
+import {
+  isNotFoundError,
+  researchKeys,
+  useResearchFundamentals,
+  useResearchIndicators,
+  useResearchPrices,
+  useResearchStatus,
+  useTickerInfo,
+  type PriceRange,
+} from '@/lib/researchData'
+import { ResearchStatusBanner } from '@/components/research/ResearchStatusBanner'
+import UnknownTicker from '@/components/research/UnknownTicker'
 import EarningsBadge from '@/components/earnings/EarningsBadge'
 import FullscreenChartModal from '@/components/research/FullscreenChartModal'
 import { ResearchStatsCard } from '@/components/research/ResearchStatsCard'
@@ -92,8 +94,16 @@ const roundBtn =
  * a sticky "Ask AI Copilot" action bar. Cards and rules are shared with the
  * desktop page (components/research/*, lib/researchTechnicals).
  */
+/** Bars for a mobile timeframe (shared cache keys via lib/researchData). */
+function mobilePriceRange(tf: MobileTimeframe): PriceRange {
+  if (tf === '1D') return { kind: 'intraday', interval: '1m', days: 1, extendedHours: false }
+  if (tf === '5D') return { kind: 'intraday', interval: '5m', days: 5, extendedHours: false }
+  const now = new Date()
+  const days = Math.round((now.getTime() - mobileRangeStart(tf, now).getTime()) / 86_400_000)
+  return { kind: 'daily', days, limit: tf === 'ALL' ? 5000 : 500 }
+}
+
 export default function MobileResearch() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   // Last symbol, timeframe and tab persist per user (lib/researchPrefs, shared with desktop).
@@ -128,39 +138,8 @@ export default function MobileResearch() {
     }
   }, [menuOpen])
 
-  /* ── Search state ── */
+  /* ── Search (shared full-screen sheet: components/search) ── */
   const [showSearch, setShowSearch] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const searchInputRef = useRef<HTMLInputElement>(null)
-
-  const { data: searchResults = [], isLoading: searching } = useQuery<SearchResult[]>({
-    queryKey: ['mobile.search', searchQuery],
-    queryFn: () => searchSymbols(searchQuery, 10),
-    enabled: showSearch && searchQuery.trim().length > 0,
-    staleTime: 0,
-  })
-
-  useEffect(() => {
-    if (showSearch) {
-      setTimeout(() => searchInputRef.current?.focus(), 100)
-    } else {
-      setSearchQuery('')
-    }
-  }, [showSearch])
-
-  const handleSearchSelect = useCallback(
-    async (symbol: string) => {
-      setShowSearch(false)
-      setSearchQuery('')
-      try {
-        await syncSymbol(symbol)
-      } catch {
-        /* ignore */
-      }
-      router.push(`/research?symbol=${symbol}`)
-    },
-    [router],
-  )
 
   /* ── Watchlist ── */
   const { isAuthenticated } = useAuth()
@@ -200,50 +179,31 @@ export default function MobileResearch() {
   }
 
   /* ── Data fetching ── */
-  const { data: realtimeQuote, isLoading: quoteLoading } = useRealtimeQuote({
+  // Core sources: same React Query keys and status hook as desktop Research
+  // (lib/researchData), so both views share one cache and one banner.
+  const tickerQ = useTickerInfo(symbolFromUrl)
+  const { data: tickerInfo, isPending: tickerInfoLoading } = tickerQ
+  const quoteQ = useRealtimeQuote({
     symbol: symbolFromUrl,
-    refetchInterval: 5000,
     priority: 'high',
     useFinnhub: true,
+    poll: !isNotFoundError(tickerQ.error),
   })
-
-  const { data: fundamentals, isLoading: fundamentalsLoading } = useQuery<FundamentalsData>({
-    queryKey: ['mobile.fundamentals', symbolFromUrl],
-    queryFn: () => fetchFundamentals(symbolFromUrl),
-    staleTime: 5 * 60 * 1000,
-  })
-
-  const isIntraday = timeframe === '1D' || timeframe === '5D'
-  const { data: prices, isLoading: pricesLoading } = useQuery<PriceBar[]>({
-    queryKey: ['mobile.prices', symbolFromUrl, timeframe],
-    queryFn: () => {
-      if (isIntraday) {
-        return fetchIntradayPrices(symbolFromUrl, timeframe === '1D' ? '1m' : '5m', timeframe === '1D' ? 1 : 5)
-      }
-      const end = new Date()
-      return fetchPrices(symbolFromUrl, mobileRangeStart(timeframe, end).toISOString(), end.toISOString(), timeframe === 'ALL' ? 5000 : 500)
-    },
-    staleTime: isIntraday ? 30_000 : 60_000,
-    retry: 1,
-  })
-
-  const { data: indicators, isLoading: indicatorsLoading } = useQuery<Indicators>({
-    queryKey: ['mobile.indicators', symbolFromUrl],
-    queryFn: () => fetchIndicators(symbolFromUrl),
-    staleTime: 60 * 1000,
-    retry: 1,
-  })
-
-  // Same source as desktop (/api/quotes/ticker, shared React Query cache key).
-  const { data: tickerInfo, isPending: tickerInfoLoading } = useQuery<TickerInfo>({
-    queryKey: ['tickerInfo', symbolFromUrl],
-    queryFn: async () => {
-      const res = await fetch(`/api/quotes/ticker?symbol=${encodeURIComponent(symbolFromUrl)}`)
-      if (!res.ok) throw new Error('Not found')
-      return res.json()
-    },
-    staleTime: 300_000,
-    retry: 1,
+  const { data: realtimeQuote, isLoading: quoteLoading } = quoteQ
+  const fundamentalsQ = useResearchFundamentals(symbolFromUrl)
+  const { data: fundamentals, isPending: fundamentalsLoading } = fundamentalsQ
+  const priceRange = useMemo(() => mobilePriceRange(timeframe), [timeframe])
+  const pricesQ = useResearchPrices(symbolFromUrl, priceRange)
+  const { data: prices, isPending: pricesLoading } = pricesQ
+  const indicatorsQ = useResearchIndicators(symbolFromUrl)
+  const { data: indicators, isPending: indicatorsLoading } = indicatorsQ
+  const researchStatus = useResearchStatus({
+    symbol: symbolFromUrl,
+    quote: quoteQ,
+    tickerInfo: tickerQ,
+    prices: pricesQ,
+    indicators: indicatorsQ,
+    fundamentals: fundamentalsQ,
   })
 
   // Index / ETF symbols hide company-only panels (same helper as desktop).
@@ -253,7 +213,7 @@ export default function MobileResearch() {
   const hidePrice = !!tickerBannerState(tickerIdentity)?.hidePricePanels
 
   // Realtime -> ticker profile -> daily bars; never show a placeholder $0.00.
-  const priceInfo = resolvePriceInfo(realtimeQuote, tickerInfo, prices)
+  const priceInfo = researchStatus.priceInfo
   const livePrice = priceInfo.hasPrice ? priceInfo.price : null
   const isUp = priceInfo.percent >= 0
   const technicals = useTechnicalInputs(indicators, livePrice)
@@ -274,15 +234,23 @@ export default function MobileResearch() {
     try {
       await syncSymbol(symbolFromUrl)
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['mobile.prices', symbolFromUrl] }),
-        queryClient.invalidateQueries({ queryKey: ['mobile.indicators', symbolFromUrl] }),
-        queryClient.invalidateQueries({ queryKey: ['mobile.fundamentals', symbolFromUrl] }),
+        queryClient.invalidateQueries({ queryKey: ['research.prices', symbolFromUrl] }),
+        queryClient.invalidateQueries({ queryKey: researchKeys.indicators(symbolFromUrl) }),
+        queryClient.invalidateQueries({ queryKey: researchKeys.fundamentals(symbolFromUrl) }),
       ])
     } catch (err) {
       setSyncError(err instanceof Error ? err.message : 'Failed to sync data')
     } finally {
       setSyncing(false)
     }
+  }
+
+  if (researchStatus.kind === 'not_found') {
+    return (
+      <div className="space-y-3 pb-20 pt-3" data-testid="mobile-research">
+        <UnknownTicker symbol={symbolFromUrl} onRetry={researchStatus.retry} compact />
+      </div>
+    )
   }
 
   return (
@@ -362,66 +330,11 @@ export default function MobileResearch() {
         </div>
         <EarningsBadge symbol={symbolFromUrl} variant="mobile" className="ml-[50px] mt-1" />
       </header>
+      <ResearchStatusBanner status={researchStatus} compact />
 
       <TickerIdentityBanner identity={tickerIdentity} compact />
 
-      {/* ── Search overlay ── */}
-      {showSearch && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-white/95 backdrop-blur-xl dark:bg-[#0b0f17]/95">
-          <div className="border-b border-line-subtle px-4 pb-3 pt-safe">
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowSearch(false)}
-                aria-label="Close search"
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-line-subtle bg-surface-raised"
-              >
-                <X className="h-4 w-4 text-fg-secondary" />
-              </button>
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-muted" />
-                <input
-                  ref={searchInputRef}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by ticker or company name..."
-                  aria-label="Search by ticker or company name"
-                  className="h-10 w-full rounded-full border border-line-subtle bg-surface-raised pl-9 pr-3 text-[13px] text-fg-primary placeholder:text-fg-muted focus:outline-none focus:ring-1 focus:ring-blue-500/60"
-                />
-              </div>
-            </div>
-          </div>
-          <div className="flex-1 space-y-2 overflow-y-auto px-4 pt-3">
-            {searching && (
-              <div className="py-8 text-center text-[11px] text-fg-muted">
-                <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-blue-500" />
-                Searching...
-              </div>
-            )}
-            {!searching && searchQuery.trim() && searchResults.length === 0 && (
-              <div className="py-8 text-center text-[11px] text-fg-muted">No matches found. Try a different query.</div>
-            )}
-            {searchResults.map((r) => (
-              <button
-                key={r.symbol}
-                type="button"
-                onClick={() => handleSearchSelect(r.symbol)}
-                className="w-full rounded-2xl border border-line-subtle bg-surface-raised p-3 text-left active:scale-[0.98]"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0">
-                    <p className="text-[14px] font-semibold text-fg-primary">{r.symbol}</p>
-                    <p className="truncate text-[11px] text-fg-muted">{r.name}</p>
-                  </div>
-                  {r.sector && (
-                    <span className="rounded-full border border-line-subtle bg-surface-raised px-2 py-0.5 text-[10px] text-fg-secondary">{r.sector}</span>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <MobileSearchSheet open={showSearch} onClose={() => setShowSearch(false)} />
 
       {hidePrice && <RetiredPricePlaceholder identity={tickerIdentity} compact />}
 
@@ -512,11 +425,11 @@ export default function MobileResearch() {
               <Skeleton className="w-full flex-1" />
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center text-[12px] text-fg-muted">No chart data. Try Sync.</div>
+            <div className="flex h-full items-center justify-center text-[12px] text-fg-muted">{pricesQ.isError ? 'Price history is temporarily unavailable. Retrying automatically.' : 'No chart data. Try Sync.'}</div>
           )}
         </div>
         <div className="border-t border-line-subtle px-3 py-2 text-[11px] text-fg-muted">
-          {isIntraday ? (timeframe === '1D' ? '1-min bars' : '5-min bars') : 'Daily bars'}
+          {priceRange.kind === 'intraday' ? (timeframe === '1D' ? '1-min bars' : '5-min bars') : 'Daily bars'}
           {priceInfo.dataSource ? ` · Quote: ${priceInfo.dataSource}` : ''}
         </div>
       </section>

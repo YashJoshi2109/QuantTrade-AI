@@ -17,6 +17,7 @@ import {
   StockPerformance,
 } from '@/lib/api'
 import { formatNumber, formatPercent, isNumber } from '@/lib/format'
+import { useMarketMovers } from '@/lib/marketQueries'
 
 const API = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -95,12 +96,7 @@ function MobileMoversPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('gainers')
 
-  const { data: movers, isLoading, refetch } = useQuery<MarketMovers>({
-    queryKey: ['marketMovers'],
-    queryFn: () => fetchMarketMovers(),
-    refetchInterval: 120000,
-    staleTime: 60000,
-  })
+  const { data: movers, isLoading, refetch } = useMarketMovers()
 
   // Sort by volume for "active" tab
   const activeByVolume = useMemo(() => {
