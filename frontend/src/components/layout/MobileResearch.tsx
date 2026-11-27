@@ -554,7 +554,7 @@ export default function MobileResearch() {
       {/* ── Sticky action bar (sits above the bottom nav) ── */}
       <div
         className="fixed inset-x-0 z-30 px-4 md:hidden"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 120px)' }}
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 136px)' }}
         data-testid="mobile-action-bar"
       >
         <div className="rs-card mx-auto flex max-w-md items-center gap-2 p-2 shadow-theme-lg">
