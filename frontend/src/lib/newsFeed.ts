@@ -87,6 +87,8 @@ export interface NewsFeedResponse {
   items: NewsFeedItem[]
   category_counts: Record<string, number>
   as_of: string
+  /** Oldest stored item (ISO): how far back an empty result actually looked. */
+  coverage_since?: string | null
 }
 
 export interface NewsFeedResult extends NewsFeedResponse {
@@ -640,6 +642,52 @@ export function normalizeFeedResponse(raw: unknown): NewsFeedResponse {
     items: Array.isArray(r.items) ? r.items.map((i) => normalizeItem(i)) : [],
     category_counts: r.category_counts && typeof r.category_counts === 'object' ? r.category_counts : {},
     as_of: r.as_of ?? new Date().toISOString(),
+    coverage_since: typeof r.coverage_since === 'string' ? r.coverage_since : null,
+  }
+}
+
+/**
+ * Whole days of coverage behind an empty result ("last 3 days"), from the
+ * feed's `coverage_since`. Null when unknown; at least 1.
+ */
+export function coverageDays(coverageSince: string | null | undefined, now: number = Date.now()): number | null {
+  if (!coverageSince) return null
+  const t = Date.parse(coverageSince)
+  if (!Number.isFinite(t) || t > now) return null
+  return Math.max(1, Math.round((now - t) / 86_400_000))
+}
+
+/** Honest empty-state line for a ticker feed: says what window was searched. */
+export function emptyTickerMessage(symbol: string, coverageSince: string | null | undefined, now: number = Date.now()): string {
+  const days = coverageDays(coverageSince, now)
+  if (days == null) return `No ${symbol} stories in recent coverage.`
+  return `No ${symbol} stories in the last ${days} ${days === 1 ? 'day' : 'days'}.`
+}
+
+export interface SecFiling {
+  form_type: string
+  filing_date: string
+  url: string
+  description?: string | null
+}
+
+/**
+ * The company's latest SEC filings (EDGAR, via the research API). Fallback
+ * content for a quiet ticker news card, so it returns [] on any error.
+ */
+export async function fetchRecentFilings(symbol: string, limit = 4, signal?: AbortSignal): Promise<SecFiling[]> {
+  try {
+    const qs = new URLSearchParams({ form_types: '10-K,10-Q,8-K', limit: String(limit) })
+    const res = await fetch(`${API_URL}/api/v1/research/${encodeURIComponent(symbol)}/filings?${qs.toString()}`, {
+      signal,
+      headers: { Accept: 'application/json' },
+    })
+    if (!res.ok) return []
+    const body = (await res.json().catch(() => null)) as { filings?: unknown } | null
+    if (!body || !Array.isArray(body.filings)) return []
+    return (body.filings as SecFiling[]).filter((f) => f && f.url && f.form_type).slice(0, limit)
+  } catch {
+    return []
   }
 }
 
