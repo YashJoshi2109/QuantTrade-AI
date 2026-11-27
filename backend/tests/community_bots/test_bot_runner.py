@@ -75,7 +75,8 @@ def test_bot_tokens_never_authenticate(SL):
     s = SL()
     bot_uid = s.query(CommunityBot).first().user_id
     with pytest.raises(HTTPException):
-        require_auth(user_id=bot_uid, db=s)
+        from types import SimpleNamespace
+        require_auth(SimpleNamespace(state=SimpleNamespace(token_sv=0)), user_id=bot_uid, db=s)
 
     class Req:
         cookies = {}

@@ -172,6 +172,12 @@ class Settings(BaseSettings):
     
     # Admin
     ADMIN_EMAILS: str = ""  # comma-separated list
+    # Optional read-only DB role for the admin database explorer (defense in depth).
+    ADMIN_DB_READONLY_URL: Optional[str] = None
+    # Admin Traffic page (GA4 Data API + Search Console). Key JSON never logged.
+    GA4_PROPERTY_ID: Optional[str] = None
+    GSC_SITE_URL: Optional[str] = None
+    GOOGLE_ANALYTICS_SA_JSON: Optional[str] = None
 
     # App settings
     DEBUG: bool = True

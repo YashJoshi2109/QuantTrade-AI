@@ -317,7 +317,7 @@ class CopilotEngine:
                 cache_on = prompt_cache_enabled(handle.provider) and handle.model not in _CACHE_REJECTED
                 messages[0] = system_message(handle.provider, cache=cache_on, deep=deep)
                 call_kw = cache_call_kwargs(handle.provider, cache=cache_on)
-                trace.set(prompt_cache=cache_on)
+                trace.set(prompt_cache=cache_on, chain_index=idx)
                 for rnd in range(max_rounds + 1):
                     rounds = rnd + 1
                     full = None

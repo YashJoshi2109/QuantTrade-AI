@@ -41,8 +41,13 @@ def client_ip(request: Request) -> str:
 
 
 def resolve_tier(db: Session, user: User) -> str:
+    """admin (ADMIN_EMAILS + verified) > admin plan override > Stripe entitlement."""
     if is_admin_user(user):
         return "admin"
+    from app.services.account_controls import PLAN_OVERRIDES, get_controls
+    c = get_controls(db, user.id)
+    if c is not None and c.plan_override in PLAN_OVERRIDES:
+        return c.plan_override
     try:
         from app.services.billing_service import is_premium
 
@@ -66,7 +71,10 @@ def build_context(request: Request, user: Optional[User], db: Session, feature: 
     if _require_verified() and not getattr(user, "is_verified", False):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Verify your email address to use AI features.")
-    return GuardContext(feature=feature, user_id=user.id, tier=resolve_tier(db, user), ip=client_ip(request))
+    from app.services.account_controls import get_controls
+    c = get_controls(db, user.id)
+    return GuardContext(feature=feature, user_id=user.id, tier=resolve_tier(db, user), ip=client_ip(request),
+                        limits_override=(c.ai_quota_override or None) if c is not None else None)
 
 
 def require_llm_quota(feature: str):
@@ -99,7 +107,10 @@ def require_media_quota(feature: str):
 
 @router.get("/me/ai-usage")
 def my_ai_usage(user: User = Depends(require_auth), db: Session = Depends(get_db)):
-    return ai_guard.usage_summary(user.id, resolve_tier(db, user))
+    from app.services.account_controls import get_controls
+    c = get_controls(db, user.id)
+    return ai_guard.usage_summary(user.id, resolve_tier(db, user),
+                                  (c.ai_quota_override or None) if c is not None else None)
 
 
 # ── Admin endpoint ───────────────────────────────────────────────────────────
