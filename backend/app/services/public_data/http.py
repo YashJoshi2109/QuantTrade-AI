@@ -83,10 +83,21 @@ class _HostThrottle:
 _THROTTLE = _HostThrottle()
 
 
+_SECRET_PARAMS = re.compile(r"(?i)([?&](?:api_?key|apikey|token|access_token|key|registrationkey)=)[^&#]*")
+_SECRET_BODY_KEYS = {"registrationkey", "api_key", "apikey", "token"}
+
+
+def redact_url(url: str) -> str:
+    """URL with credential query values masked; safe for logs, errors and cache keys."""
+    return _SECRET_PARAMS.sub(r"\1***", url)
+
+
 def _cache_name(url: str, body: Optional[dict]) -> str:
-    key = url + (repr(sorted(body.items())) if body else "")
+    # Credentials never feed the cache name: same data whichever key fetched it.
+    clean = {k: v for k, v in (body or {}).items() if k.lower() not in _SECRET_BODY_KEYS}
+    key = redact_url(url) + (repr(sorted(clean.items())) if clean else "")
     safe = re.sub(r"[^A-Za-z0-9._-]", "_", urlsplit(url).netloc + urlsplit(url).path)[-80:]
-    return f"{safe}_{hashlib.sha1(key.encode()).hexdigest()[:16]}"
+    return f"{safe}_{hashlib.sha256(key.encode()).hexdigest()[:16]}"
 
 
 class LiveFetcher:
@@ -122,9 +133,9 @@ class LiveFetcher:
                 time.sleep(1.5 * (attempt + 1))
                 continue
             if r.status_code >= 400:
-                raise FetchError(f"HTTP {r.status_code} for {url}")
+                raise FetchError(f"HTTP {r.status_code} for {redact_url(url)}")
             return r
-        raise FetchError(f"{url} unavailable ({last})")
+        raise FetchError(f"{redact_url(url)} unavailable ({last})")
 
     def get(self, url: str, *, ttl_h: Optional[float] = 24, method: str = "GET",
             json_body: Optional[dict] = None, accept: str = "*/*") -> bytes:
@@ -138,14 +149,14 @@ class LiveFetcher:
         r = self._request(url, method, json_body, accept, stream=False)
         data = r.content
         if len(data) > MAX_BYTES:
-            raise FetchError(f"response larger than {MAX_BYTES} bytes: {url}")
+            raise FetchError(f"response larger than {MAX_BYTES} bytes: {redact_url(url)}")
         try:
             p.parent.mkdir(parents=True, exist_ok=True)
             tmp = p.with_suffix(f".tmp{os.getpid()}{threading.get_ident()}")
             tmp.write_bytes(gzip.compress(data, compresslevel=5))
             os.replace(tmp, p)
         except OSError as e:
-            logger.warning("public-data cache write failed for %s: %s", url, e)
+            logger.warning("public-data cache write failed for %s: %s", redact_url(url), e)
         return data
 
     def download(self, url: str, *, ttl_h: Optional[float] = None) -> Path:
@@ -163,7 +174,7 @@ class LiveFetcher:
                 if n > MAX_BYTES:
                     fh.close()
                     tmp.unlink(missing_ok=True)
-                    raise FetchError(f"download larger than {MAX_BYTES} bytes: {url}")
+                    raise FetchError(f"download larger than {MAX_BYTES} bytes: {redact_url(url)}")
                 fh.write(chunk)
         os.replace(tmp, p)
         return p
