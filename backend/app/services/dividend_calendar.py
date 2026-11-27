@@ -64,7 +64,7 @@ HISTORY_CONCURRENCY = 6
 MAX_HOLDINGS = 60
 DEFAULT_PAY_LAG_DAYS = 21
 
-FREQUENCIES: Dict[int, str] = {12: "Monthly", 4: "Quarterly", 2: "Semi-annual", 1: "Annual"}
+FREQUENCIES: Dict[int, str] = {52: "Weekly", 26: "Biweekly", 12: "Monthly", 4: "Quarterly", 2: "Semi-annual", 1: "Annual"}
 
 
 def today_et(now: Optional[datetime] = None) -> date:
@@ -96,11 +96,11 @@ def _us_date(raw: Any) -> Optional[str]:
 
 
 def frequency_from_ratio(amount: Optional[float], annual: Optional[float]) -> Optional[int]:
-    """Payments per year implied by indicated annual / per-payment amount (1, 2, 4, 12)."""
+    """Payments per year implied by indicated annual / per-payment amount (1, 2, 4, 12, 26, 52)."""
     if not amount or not annual or amount <= 0 or annual <= 0:
         return None
     ratio = annual / amount
-    for n in (12, 4, 2, 1):
+    for n in (52, 26, 12, 4, 2, 1):
         if abs(ratio - n) <= max(0.15 * n, 0.25):
             return n
     return None
@@ -320,6 +320,87 @@ async def fetch_histories(symbols: Iterable[str], *, history_fn: Optional[Histor
             out[s] = h
 
     await asyncio.gather(*(one(s) for s in todo))
+    return out
+
+
+# ── last close (yfinance batch) for yield on symbols we do not track ─────────
+
+TTL_CLOSE = 6 * 3600
+TTL_CLOSE_MISS = 3600
+CLOSE_BATCH = 200
+CLOSE_BUDGET_S = 8.0
+
+CloseFn = Callable[[List[str]], Dict[str, Optional[float]]]
+
+
+def _yf_last_closes_sync(symbols: List[str]) -> Dict[str, Optional[float]]:
+    """Blocking batch lookup of the latest daily close (last 5 sessions) per symbol.
+    Symbols yfinance cannot price map to None."""
+    import yfinance as yf
+
+    out: Dict[str, Optional[float]] = {s: None for s in symbols}
+    for i in range(0, len(symbols), CLOSE_BATCH):
+        chunk = symbols[i:i + CLOSE_BATCH]
+        try:
+            df = yf.download(chunk, period="5d", interval="1d", progress=False,
+                             auto_adjust=False, threads=True, group_by="ticker")
+        except Exception as exc:  # noqa: BLE001
+            logger.info("yfinance batch close failed: %s", exc)
+            continue
+        if df is None or getattr(df, "empty", True):
+            continue
+        for s in chunk:
+            try:
+                multi = getattr(df.columns, "nlevels", 1) > 1
+                col = df[s]["Close"] if multi else df["Close"]
+                vals = [v for v in (_finite(x) for x in col.tolist()) if v and v > 0]
+                out[s] = vals[-1] if vals else None
+            except Exception:  # noqa: BLE001 - symbol missing from the frame
+                out[s] = None
+    return out
+
+
+async def fetch_last_closes(symbols: Iterable[str], *, close_fn: Optional[CloseFn] = None,
+                            budget_s: float = CLOSE_BUDGET_S) -> Dict[str, Optional[float]]:
+    """Latest daily close per symbol, Redis-cached (6h hit, 1h miss). Never raises.
+    When the upstream lookup exceeds ``budget_s`` the symbols stay unpriced for this
+    request (the fetch keeps running and fills the cache for the next one)."""
+    from app.services.redis_cache_service import cache_service
+
+    close_fn = close_fn or _yf_last_closes_sync
+    syms = sorted({s.upper() for s in symbols if s})
+    out: Dict[str, Optional[float]] = {}
+    todo: List[str] = []
+    for s in syms:
+        cached = await cache_service.get(f"qt:div:px:{s}")
+        if cached is None:
+            todo.append(s)
+        else:
+            out[s] = _finite(cached.get("price")) if isinstance(cached, dict) else None
+    if not todo:
+        return out
+
+    async def run() -> Dict[str, Optional[float]]:
+        try:
+            got = await asyncio.to_thread(close_fn, todo)
+        except Exception:  # noqa: BLE001
+            logger.exception("last-close lookup failed")
+            return {}
+        for s in todo:
+            p = _finite(got.get(s))
+            p = p if p and p > 0 else None
+            await cache_service.set(f"qt:div:px:{s}", {"price": p}, TTL_CLOSE if p else TTL_CLOSE_MISS)
+            got[s] = p
+        return got
+
+    task = asyncio.ensure_future(run())
+    try:
+        got = await asyncio.wait_for(asyncio.shield(task), timeout=budget_s)
+    except asyncio.TimeoutError:
+        logger.info("last-close lookup over %.1fs budget; %d symbols unpriced this request", budget_s, len(todo))
+        got = {}
+    for s in todo:
+        out[s] = _finite(got.get(s))
     return out
 
 

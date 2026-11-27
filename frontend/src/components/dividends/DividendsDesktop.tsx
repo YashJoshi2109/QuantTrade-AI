@@ -1,17 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import { AlertTriangle, Briefcase, ChevronLeft, ChevronRight, Coins, Loader2, LogIn } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Briefcase, CalendarX2, ChevronLeft, ChevronRight, Coins, Loader2, LogIn } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import TickerLogo from '@/components/TickerLogo'
+import { Skeleton } from '@/components/Skeleton'
+import { SkeletonDataTable, SkeletonSummaryChart } from '@/components/ui/data-skeletons'
 import { dayLabel, weekRangeLabel } from '@/lib/calendarDates'
 import {
+  daysUntil,
   fmtMoney,
   fmtPerShare,
   fmtShortDate,
   fmtYield,
+  relDays,
   STATUS_TEXT,
   type DividendRow,
+  type DividendSortKey,
 } from '@/lib/dividends'
 import {
   CalendarNote,
@@ -23,9 +28,13 @@ import {
   type DividendsController,
 } from './DividendsParts'
 
+const YIELD_TITLE = 'Forward (indicated) yield: indicated annual dividend ÷ last price. Not trailing-12-month.'
+
 function IncomeSection({ c }: { c: DividendsController }) {
   const d = c.incomeData
-  if (c.authLoading) return null
+  if (c.authLoading || (c.isAuthenticated && c.income.isLoading)) {
+    return <section className="hud-card mb-6 p-5" aria-label="Loading projected income"><SkeletonSummaryChart /></section>
+  }
   if (!c.isAuthenticated) {
     return (
       <section className="hud-card mb-6 flex items-center justify-between gap-4 p-5">
@@ -33,14 +42,11 @@ function IncomeSection({ c }: { c: DividendsController }) {
           <h2 className="text-base font-semibold text-fg-primary">Projected dividend income</h2>
           <p className="mt-0.5 text-sm text-fg-muted">Sign in and track a portfolio to see your next 12 months of dividend income by month.</p>
         </div>
-        <Link href="/auth" className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-[#fff] hover:bg-indigo-500">
+        <Link href="/auth" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-[#fff] hover:bg-indigo-500">
           <LogIn className="h-4 w-4" /> Sign in
         </Link>
       </section>
     )
-  }
-  if (c.income.isLoading) {
-    return <section className="hud-card mb-6 flex h-48 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-fg-muted" /></section>
   }
   if (c.income.error || !d) {
     return (
@@ -58,7 +64,7 @@ function IncomeSection({ c }: { c: DividendsController }) {
             {d.has_tracked_portfolio || c.portfolioId ? 'This portfolio has no open holdings yet.' : 'Add your holdings to a tracked portfolio to project dividend income.'}
           </p>
         </div>
-        <Link href="/portfolio" className="inline-flex items-center gap-1.5 rounded-lg border border-line-default px-4 py-2 text-sm font-semibold text-fg-primary hover:bg-surface-raised">
+        <Link href="/portfolio" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-line-default px-4 py-2 text-sm font-semibold text-fg-primary hover:bg-surface-raised">
           <Briefcase className="h-4 w-4" /> Go to Portfolio
         </Link>
       </section>
@@ -71,8 +77,8 @@ function IncomeSection({ c }: { c: DividendsController }) {
           <h2 className="text-base font-semibold text-fg-primary">Projected dividend income · next 12 months</h2>
           <div className="mt-1 flex items-baseline gap-3">
             <span className="text-3xl font-bold tabular-nums text-fg-primary" data-testid="income-total">{fmtMoney(d.total_12m)}</span>
-            <span className="text-sm text-fg-muted">
-              ≈ {fmtMoney(d.total_12m != null ? d.total_12m / 12 : null)}/mo · portfolio yield {fmtYield(d.portfolio_yield_pct)}
+            <span className="text-sm tabular-nums text-fg-muted">
+              ≈ {fmtMoney(d.total_12m != null ? d.total_12m / 12 : null)}/mo · <span title={YIELD_TITLE}>fwd yield</span> {fmtYield(d.portfolio_yield_pct)}
             </span>
           </div>
         </div>
@@ -98,7 +104,7 @@ function IncomeSection({ c }: { c: DividendsController }) {
               <th className="px-3 py-2 font-medium">Frequency</th>
               <th className="px-3 py-2 text-right font-medium">Per payment</th>
               <th className="px-3 py-2 text-right font-medium">Annual / share</th>
-              <th className="px-3 py-2 text-right font-medium">Yield</th>
+              <th className="px-3 py-2 text-right font-medium" title={YIELD_TITLE}>Fwd yield</th>
               <th className="px-3 py-2 font-medium">Next ex-date</th>
               <th className="px-3 py-2 font-medium">Next pay</th>
               <th className="py-2 pl-3 text-right font-medium">12-mo income</th>
@@ -123,8 +129,8 @@ function IncomeSection({ c }: { c: DividendsController }) {
                 <td className="px-3 py-2.5 text-right tabular-nums">{fmtPerShare(h.amount_per_share)}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{fmtPerShare(h.annual_per_share)}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{fmtYield(h.yield_pct)}</td>
-                <td className="px-3 py-2.5 text-fg-secondary">{fmtShortDate(h.next_ex_date)}</td>
-                <td className="px-3 py-2.5 text-fg-secondary">{fmtShortDate(h.next_pay_date)}</td>
+                <td className="px-3 py-2.5 tabular-nums text-fg-secondary">{fmtShortDate(h.next_ex_date)}</td>
+                <td className="px-3 py-2.5 tabular-nums text-fg-secondary">{fmtShortDate(h.next_pay_date)}</td>
                 <td className="py-2.5 pl-3 text-right font-semibold tabular-nums text-fg-primary">{fmtMoney(h.projected_income)}</td>
               </tr>
             ))}
@@ -136,7 +142,31 @@ function IncomeSection({ c }: { c: DividendsController }) {
   )
 }
 
-function CalRow({ r }: { r: DividendRow }) {
+function SortTh({ c, k, label, align = 'right', title }: {
+  c: DividendsController; k: DividendSortKey; label: string; align?: 'left' | 'right'; title?: string
+}) {
+  const active = c.sort.key === k
+  const Icon = !active ? ArrowUpDown : c.sort.dir === 'asc' ? ArrowUp : ArrowDown
+  return (
+    <th
+      className={`px-3 py-2 font-medium ${align === 'right' ? 'text-right' : 'text-left'}`}
+      aria-sort={active ? (c.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      title={title}
+    >
+      <button
+        type="button"
+        onClick={() => c.setSort(k)}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-fg-primary ${active ? 'text-fg-primary' : ''} ${align === 'right' ? 'flex-row-reverse' : ''}`}
+      >
+        {label}
+        <Icon className={`h-3 w-3 ${active ? '' : 'opacity-40'}`} />
+      </button>
+    </th>
+  )
+}
+
+function CalRow({ r, today }: { r: DividendRow; today: string }) {
+  const payIn = relDays(daysUntil(r.pay_date, today))
   return (
     <tr className="border-t border-line-subtle hover:bg-surface-raised/40" data-testid="dividend-row">
       <td className="px-4 py-2.5">
@@ -145,32 +175,79 @@ function CalRow({ r }: { r: DividendRow }) {
           <span className="min-w-0">
             <span className="flex items-center gap-1.5">
               <span className="font-semibold text-fg-primary">{r.symbol}</span>
-              {r.in_portfolio && <span className="rounded bg-emerald-500/10 px-1 text-[9px] font-bold uppercase text-emerald-700 dark:text-emerald-400">Held</span>}
+              {r.in_portfolio && <span className="rounded bg-sky-500/10 px-1 text-[9px] font-bold uppercase text-sky-700 dark:text-sky-400">Held</span>}
               {r.in_watchlist && <span className="rounded bg-indigo-500/10 px-1 text-[9px] font-bold uppercase text-indigo-600 dark:text-indigo-400">Watch</span>}
             </span>
-            <span className="block max-w-[260px] truncate text-[11px] text-fg-muted">{r.name || '—'}</span>
+            <span className="block max-w-[240px] truncate text-[11px] text-fg-muted" title={r.name || undefined}>{r.name || '—'}</span>
           </span>
         </Link>
       </td>
-      <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-fg-primary">{fmtPerShare(r.amount)}</td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-fg-secondary">{fmtPerShare(r.annual_dividend)}</td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-fg-primary">{fmtYield(r.yield_pct)}</td>
+      <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-fg-primary">{fmtPerShare(r.amount)}</td>
       <td className="px-3 py-2.5 text-fg-secondary">{r.frequency_label || '—'}</td>
-      <td className="px-3 py-2.5 text-fg-secondary">{fmtShortDate(r.record_date)}</td>
-      <td className="px-3 py-2.5 text-fg-secondary">{fmtShortDate(r.pay_date)}</td>
+      <td className="px-3 py-2.5 text-right tabular-nums text-fg-secondary">{fmtPerShare(r.annual_dividend)}</td>
+      <td className="px-3 py-2.5 text-right tabular-nums text-fg-secondary" title={r.price_source === 'last_close' ? 'Latest daily close' : undefined}>
+        {r.price != null ? fmtMoney(r.price) : '—'}
+      </td>
+      <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-fg-primary">{fmtYield(r.yield_pct)}</td>
+      <td className="px-3 py-2.5 tabular-nums text-fg-secondary">{fmtShortDate(r.record_date)}</td>
+      <td className="px-3 py-2.5 tabular-nums text-fg-secondary">
+        {fmtShortDate(r.pay_date)}
+        {payIn && <span className="ml-1.5 text-[11px] text-fg-muted">{payIn}</span>}
+      </td>
     </tr>
+  )
+}
+
+function SummaryStrip({ c }: { c: DividendsController }) {
+  const s = c.summary
+  const cell = 'flex flex-col gap-0.5 px-4 py-2.5'
+  const label = 'text-[10px] font-medium uppercase tracking-wide text-fg-muted'
+  if (c.calLoading) {
+    return (
+      <div className="hud-card mb-4 grid grid-cols-4 divide-x divide-line-subtle p-0">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className={cell}><Skeleton className="h-2.5 w-20" /><Skeleton className="mt-1 h-4 w-16" /></div>
+        ))}
+      </div>
+    )
+  }
+  return (
+    <div className="hud-card mb-4 grid grid-cols-4 divide-x divide-line-subtle p-0" aria-label="Summary">
+      <div className={cell}><span className={label}>Going ex-dividend</span><span className="text-base font-semibold tabular-nums text-fg-primary">{s.total}</span></div>
+      <div className={cell}>
+        <span className={label} title={YIELD_TITLE}>Highest fwd yield</span>
+        {s.top ? (
+          <Link href={`/research?symbol=${encodeURIComponent(s.top.symbol)}`} className="text-base font-semibold tabular-nums text-fg-primary hover:underline">
+            {fmtYield(s.top.yield_pct)} <span className="text-xs font-medium text-fg-muted">{s.top.symbol}</span>
+          </Link>
+        ) : <span className="text-base font-semibold text-fg-muted">—</span>}
+      </div>
+      <div className={cell}>
+        <span className={label}>Yield coverage</span>
+        <span className="text-base font-semibold tabular-nums text-fg-primary">
+          {s.withYield}<span className="text-xs font-medium text-fg-muted"> / {s.total} priced</span>
+        </span>
+      </div>
+      <div className={cell}>
+        <span className={label}>Yours</span>
+        <span className="text-base font-semibold tabular-nums text-fg-primary">
+          {c.isAuthenticated ? <>{s.held} held · {s.watched} watched</> : <Link href="/auth" className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">Sign in to match</Link>}
+        </span>
+      </div>
+    </div>
   )
 }
 
 export default function DividendsDesktop() {
   const c = useDividendsController()
   const data = c.cal.data
+  const weekEmpty = !c.calLoading && data?.source_ok && (data.total ?? 0) === 0
   return (
     <AppLayout>
       <div className="mx-auto max-w-[1280px] px-6 py-6">
         <div className="mb-5 flex items-center gap-3">
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-2.5">
-            <Coins className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          <div className="rounded-xl border border-line-subtle bg-surface-raised p-2.5">
+            <Coins className="h-5 w-5 text-sky-600 dark:text-sky-400" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-fg-primary">Dividends</h1>
@@ -185,9 +262,9 @@ export default function DividendsDesktop() {
             <h2 className="text-lg font-semibold text-fg-primary">Ex-dividend calendar</h2>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => c.shiftWeek(-1)} aria-label="Previous week" className="rounded-lg border border-line-default p-2 text-fg-secondary hover:bg-surface-raised"><ChevronLeft className="h-4 w-4" /></button>
-              <span className="min-w-[170px] text-center text-sm font-semibold text-fg-primary" aria-live="polite">{weekRangeLabel(c.monday)}</span>
+              <span className="min-w-[170px] text-center text-sm font-semibold tabular-nums text-fg-primary" aria-live="polite">{weekRangeLabel(c.monday)}</span>
               <button type="button" onClick={() => c.shiftWeek(1)} aria-label="Next week" className="rounded-lg border border-line-default p-2 text-fg-secondary hover:bg-surface-raised"><ChevronRight className="h-4 w-4" /></button>
-              <button type="button" onClick={c.goToday} className="rounded-lg border border-line-default px-3 py-1.5 text-sm font-medium text-fg-primary hover:bg-surface-raised">Today</button>
+              <button type="button" onClick={c.goToday} disabled={c.isThisWeek && c.day === null} className="rounded-lg border border-line-default px-3 py-1.5 text-sm font-medium text-fg-primary hover:bg-surface-raised disabled:opacity-50">Today</button>
             </div>
           </div>
           <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -216,7 +293,7 @@ export default function DividendsDesktop() {
             <button type="button" role="tab" aria-selected={c.day === null} onClick={() => c.setDay(null)}
               className={`rounded-xl border px-3 py-2 text-left ${c.day === null ? 'border-indigo-500/40 bg-indigo-500/10' : 'border-line-subtle bg-surface-base hover:bg-surface-raised'}`}>
               <span className="block text-xs font-semibold text-fg-primary">Whole week</span>
-              <span className="block text-[11px] text-fg-muted">{c.calLoading ? '…' : `${data?.total ?? 0} ex-dates`}</span>
+              <span className="block h-4 text-[11px] tabular-nums text-fg-muted">{c.calLoading ? <Skeleton className="mt-1 h-2.5 w-14" /> : `${data?.total ?? 0} ex-dates`}</span>
             </button>
             {c.days.map((d) => (
               <button key={d} type="button" role="tab" aria-selected={c.day === d} onClick={() => c.setDay(d)}
@@ -225,17 +302,34 @@ export default function DividendsDesktop() {
                   {dayLabel(d)}
                   {d === c.today && <span className="rounded bg-amber-500/15 px-1 text-[9px] font-bold uppercase text-amber-700 dark:text-amber-400">Today</span>}
                 </span>
-                <span className="block text-[11px] text-fg-muted">{c.calLoading ? '…' : `${c.grouped[d]?.length ?? 0} going ex`}</span>
+                <span className="block h-4 text-[11px] tabular-nums text-fg-muted">{c.calLoading ? <Skeleton className="mt-1 h-2.5 w-12" /> : `${c.grouped[d]?.length ?? 0} going ex`}</span>
               </button>
             ))}
           </div>
 
+          {!c.calError && !(data && !data.source_ok) && !weekEmpty && <SummaryStrip c={c} />}
+
           {c.calError ? (
             <div className="hud-card flex items-center gap-3 p-6 text-sm text-fg-secondary"><AlertTriangle className="h-5 w-5 text-amber-500" /> Could not load the dividend calendar.</div>
           ) : c.calLoading ? (
-            <div className="hud-card flex h-48 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-fg-muted" /></div>
+            <section className="hud-card overflow-hidden p-0" aria-label="Loading ex-dividend dates">
+              <div className="border-b border-line-subtle px-4 py-3"><Skeleton className="h-3.5 w-48" /></div>
+              <SkeletonDataTable rows={10} columns={8} />
+            </section>
           ) : data && !data.source_ok ? (
             <div className="hud-card flex items-center gap-3 p-6 text-sm text-fg-secondary"><AlertTriangle className="h-5 w-5 text-amber-500" /> Dividend calendar data is unavailable right now.</div>
+          ) : weekEmpty ? (
+            <div className="hud-card flex flex-col items-center gap-2 px-6 py-10 text-center">
+              <CalendarX2 className="h-7 w-7 text-fg-muted" />
+              <p className="text-sm font-semibold text-fg-primary">
+                {c.scope === 'all' ? 'No stocks go ex-dividend this week.' : `None of your ${c.scope === 'watchlist' ? 'watchlist' : 'portfolio'} stocks go ex-dividend this week.`}
+              </p>
+              <p className="text-xs text-fg-muted">Try the next week{c.scope !== 'all' ? ' or switch to All stocks' : ''}.</p>
+              <div className="mt-2 flex gap-2">
+                <button type="button" onClick={() => c.shiftWeek(1)} className="rounded-lg border border-line-default px-3 py-1.5 text-sm font-medium text-fg-primary hover:bg-surface-raised">Next week</button>
+                {c.scope !== 'all' && <button type="button" onClick={() => c.setScope('all')} className="rounded-lg border border-line-default px-3 py-1.5 text-sm font-medium text-fg-primary hover:bg-surface-raised">All stocks</button>}
+              </div>
+            </div>
           ) : (
             <div className="space-y-4">
               {c.visibleDays.map((d) => {
@@ -245,33 +339,37 @@ export default function DividendsDesktop() {
                 return (
                   <section key={d} className="hud-card overflow-hidden p-0" aria-label={`Ex-dividend ${dayLabel(d, 'long')}`}>
                     <header className="flex items-center justify-between border-b border-line-subtle px-4 py-2.5">
-                      <h3 className="text-sm font-semibold text-fg-primary">Ex-dividend {dayLabel(d, 'long')}</h3>
-                      <span className="text-xs text-fg-muted">{rows.length} stock{rows.length === 1 ? '' : 's'}</span>
+                      <h3 className="text-sm font-semibold text-fg-primary">
+                        Ex-dividend {dayLabel(d, 'long')}
+                        {d === c.today && <span className="ml-2 rounded bg-amber-500/15 px-1 text-[9px] font-bold uppercase text-amber-700 dark:text-amber-400">Today</span>}
+                      </h3>
+                      <span className="text-xs tabular-nums text-fg-muted">{rows.length} stock{rows.length === 1 ? '' : 's'}</span>
                     </header>
                     {rows.length === 0 ? (
-                      <p className="px-4 py-6 text-center text-sm text-fg-muted">{c.scope !== 'all' ? 'None of your stocks go ex-dividend this day.' : 'No ex-dividend dates.'}</p>
+                      <p className="px-4 py-6 text-center text-sm text-fg-muted">{c.scope !== 'all' ? 'None of your stocks go ex-dividend this day.' : 'No ex-dividend dates this day.'}</p>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="whitespace-nowrap text-left text-[11px] uppercase tracking-wide text-fg-muted">
-                              <th className="px-4 py-2 font-medium">Stock</th>
-                              <th className="px-3 py-2 text-right font-medium">Dividend</th>
-                              <th className="px-3 py-2 text-right font-medium">Annual</th>
-                              <th className="px-3 py-2 text-right font-medium">Yield</th>
+                              <SortTh c={c} k="symbol" label="Stock" align="left" />
+                              <SortTh c={c} k="amount" label="Dividend / sh" />
                               <th className="px-3 py-2 font-medium">Frequency</th>
+                              <SortTh c={c} k="annual" label="Indicated annual" />
+                              <SortTh c={c} k="price" label="Price" />
+                              <SortTh c={c} k="yield" label="Fwd yield" title={YIELD_TITLE} />
                               <th className="px-3 py-2 font-medium">Record</th>
-                              <th className="px-3 py-2 font-medium">Pay date</th>
+                              <SortTh c={c} k="pay_date" label="Pay date" align="left" />
                             </tr>
                           </thead>
-                          <tbody>{shown.map((r) => <CalRow key={`${r.symbol}-${r.ex_date}-${r.amount}`} r={r} />)}</tbody>
+                          <tbody>{shown.map((r) => <CalRow key={`${r.symbol}-${r.ex_date}-${r.amount}`} r={r} today={c.today} />)}</tbody>
                         </table>
                       </div>
                     )}
                     {!open && rows.length > PER_DAY_PREVIEW && (
                       <button type="button" onClick={() => c.setExpanded((e) => ({ ...e, [d]: true }))}
                         className="w-full border-t border-line-subtle py-2 text-xs font-medium text-indigo-600 hover:bg-surface-raised dark:text-indigo-400">
-                        Show all {rows.length} (highest yield first)
+                        Show all {rows.length}
                       </button>
                     )}
                   </section>

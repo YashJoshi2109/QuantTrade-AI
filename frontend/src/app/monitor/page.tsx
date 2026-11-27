@@ -307,8 +307,12 @@ function MonitorDesktop() {
                       <h1 className="text-sm font-black text-fg-primary tracking-tight">GLOBAL MONITOR</h1>
                       {isLoading ? (
                         <RefreshCw className="w-3 h-3 text-sky-400 animate-spin" />
+                      ) : feedState === 'offline' || feedState === 'stale' ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-[9px] text-amber-600 dark:text-amber-400 font-bold">
+                          <Radio className="w-2 h-2" /> FEED OFFLINE
+                        </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[9px] text-emerald-400 font-bold">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">
                           <Radio className="w-2 h-2 animate-pulse" /> LIVE
                         </span>
                       )}
@@ -609,7 +613,7 @@ function MonitorDesktop() {
                 {!globeExpanded && (
                   <div style={{ height: '540px' }}>
                     <Suspense fallback={<PanelShimmer height="h-full" />}>
-                      <EventImpactPanel selectedEvent={selectedEvent} selectedCountry={selectedCountry} mapData={mapData ?? null} onClear={handleClearSelection} />
+                      <EventImpactPanel selectedEvent={selectedEvent} selectedCountry={selectedCountry} mapData={mapData ?? null} onClear={handleClearSelection} feedDown={feedState === 'offline' || feedState === 'stale'} />
                     </Suspense>
                   </div>
                 )}
@@ -632,7 +636,7 @@ function MonitorDesktop() {
                   </div>
                   <div style={{ height: '400px' }}>
                     <Suspense fallback={<PanelShimmer height="h-full" />}>
-                      <EventImpactPanel selectedEvent={selectedEvent} selectedCountry={selectedCountry} mapData={mapData ?? null} onClear={handleClearSelection} />
+                      <EventImpactPanel selectedEvent={selectedEvent} selectedCountry={selectedCountry} mapData={mapData ?? null} onClear={handleClearSelection} feedDown={feedState === 'offline' || feedState === 'stale'} />
                     </Suspense>
                   </div>
                 </div>
@@ -743,11 +747,11 @@ function MonitorMobile() {
                   <Image src="/logo.png" alt="QuantTrade AI" width={32} height={32} className="object-contain" />
                 </div>
                 <div>
-                  <h1 className="text-base font-black bg-gradient-to-r from-white to-sky-400 bg-clip-text text-transparent">Global Monitor</h1>
+                  <h1 className="text-base font-black bg-gradient-to-r from-slate-900 to-sky-600 dark:from-white dark:to-sky-400 bg-clip-text text-transparent">Global Monitor</h1>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="relative flex h-1.5 w-1.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                      {!feedDown && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />}
+                      <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${feedDown ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                     </span>
                     <p className="text-[10px] text-fg-secondary font-mono">{isLoading ? 'SYNCING...' : feedDown ? 'EVENT FEED OFFLINE' : `LIVE · ${events.length} EVENTS`}</p>
                   </div>

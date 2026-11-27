@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { SkeletonDataTable } from '@/components/ui/data-skeletons'
 import AppLayout from '@/components/AppLayout'
 import TickerLogo from '@/components/TickerLogo'
 import { formatMarketCap } from '@/lib/valuation'
@@ -180,7 +181,7 @@ export default function EarningsDesktop() {
             <AlertTriangle className="h-5 w-5 text-amber-500" /> Could not load the earnings calendar: {c.error.message}
           </div>
         ) : c.loading ? (
-          <div className="hud-card flex h-56 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-fg-muted" /></div>
+          <div className="hud-card overflow-hidden p-0"><SkeletonDataTable rows={10} columns={10} rowHeight={61} /></div>
         ) : c.data && !c.data.sources.finnhub && !c.data.sources.nasdaq ? (
           <div className="hud-card flex items-center gap-3 p-6 text-sm text-fg-secondary">
             <AlertTriangle className="h-5 w-5 text-amber-500" /> Earnings data is unavailable right now. Try again in a few minutes.

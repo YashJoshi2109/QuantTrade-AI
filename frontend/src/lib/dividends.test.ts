@@ -7,7 +7,11 @@ import {
   fmtYield,
   groupByExDate,
   monthLabel,
+  daysUntil,
+  relDays,
   sortByYield,
+  sortDividendRows,
+  summarize,
   sumMonths,
   type DividendRow,
 } from './dividends'
@@ -72,5 +76,34 @@ describe('calendar dates', () => {
     expect(dayLabel('2026-11-30')).toBe('Mon, Nov 30')
     expect(weekRangeLabel('2026-11-30')).toBe('Nov 30 – Dec 4, 2026')
     expect(todayNY(new Date('2026-11-27T03:00:00Z'))).toBe('2026-11-26')
+  })
+})
+
+describe('dividend sorting and summary', () => {
+  const rows = [
+    row({ symbol: 'B', yield_pct: 2, amount: 0.5, pay_date: '2026-12-10', price: 50 }),
+    row({ symbol: 'A', yield_pct: null, amount: 1, pay_date: null }),
+    row({ symbol: 'C', yield_pct: 5, amount: 0.1, pay_date: '2026-12-01', price: 8, in_portfolio: true }),
+  ]
+  it('sorts by any key with unknown values last in both directions', () => {
+    expect(sortDividendRows(rows, 'yield', 'desc').map((r) => r.symbol)).toEqual(['C', 'B', 'A'])
+    expect(sortDividendRows(rows, 'yield', 'asc').map((r) => r.symbol)).toEqual(['B', 'C', 'A'])
+    expect(sortDividendRows(rows, 'pay_date', 'asc').map((r) => r.symbol)).toEqual(['C', 'B', 'A'])
+    expect(sortDividendRows(rows, 'amount', 'desc').map((r) => r.symbol)).toEqual(['A', 'B', 'C'])
+    expect(sortDividendRows(rows, 'symbol', 'asc').map((r) => r.symbol)).toEqual(['A', 'B', 'C'])
+  })
+  it('summarizes counts and the top known yield', () => {
+    const s = summarize(rows)
+    expect(s).toMatchObject({ total: 3, withYield: 2, held: 1, watched: 0 })
+    expect(s.top?.symbol).toBe('C')
+    expect(summarize([]).top).toBeNull()
+  })
+  it('counts days to a date', () => {
+    expect(daysUntil('2026-12-04', '2026-11-27')).toBe(7)
+    expect(daysUntil(null, '2026-11-27')).toBeNull()
+    expect(relDays(0)).toBe('today')
+    expect(relDays(3)).toBe('in 3d')
+    expect(relDays(-2)).toBe('2d ago')
+    expect(relDays(null)).toBe('')
   })
 })

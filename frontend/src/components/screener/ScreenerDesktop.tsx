@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Filter, Loader2 } from 'lucide-react'
+import { SkeletonDataTable } from '@/components/ui/data-skeletons'
 import AppLayout from '@/components/AppLayout'
 import TickerLogo from '@/components/TickerLogo'
 import { FLAG_TEXT, METRIC_COLUMNS, nextSort, type SortField } from '@/lib/screener'
@@ -83,7 +84,7 @@ export default function ScreenerDesktop() {
                   <AlertTriangle className="h-4 w-4" /> {c.error.message}
                 </div>
               ) : c.loading ? (
-                <div className="flex h-64 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-fg-muted" /></div>
+                <SkeletonDataTable rows={12} columns={11} rowHeight={57} />
               ) : c.rows.length === 0 ? (
                 <EmptyState c={c} />
               ) : (

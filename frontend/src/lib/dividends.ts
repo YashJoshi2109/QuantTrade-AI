@@ -22,6 +22,8 @@ export interface DividendRow {
   frequency: number | null
   frequency_label: string | null
   price: number | null
+  /** "db" = our fundamentals / latest stored bar; "last_close" = latest daily close (yfinance). */
+  price_source?: 'db' | 'last_close' | null
   yield_pct: number | null
   in_watchlist: boolean
   in_portfolio: boolean
@@ -147,6 +149,84 @@ export function groupByExDate(rows: DividendRow[], days: string[]): Record<strin
 /** Highest yield first; unknown yield last, then by symbol. */
 export function sortByYield(rows: DividendRow[]): DividendRow[] {
   return [...rows].sort((a, b) => (b.yield_pct ?? -1) - (a.yield_pct ?? -1) || a.symbol.localeCompare(b.symbol))
+}
+
+export type DividendSortKey = 'yield' | 'symbol' | 'amount' | 'annual' | 'price' | 'pay_date'
+export type SortDir = 'asc' | 'desc'
+
+export const SORT_OPTIONS: { key: DividendSortKey; label: string; defaultDir: SortDir }[] = [
+  { key: 'yield', label: 'Fwd yield', defaultDir: 'desc' },
+  { key: 'amount', label: 'Dividend / share', defaultDir: 'desc' },
+  { key: 'annual', label: 'Indicated annual', defaultDir: 'desc' },
+  { key: 'price', label: 'Price', defaultDir: 'desc' },
+  { key: 'pay_date', label: 'Pay date', defaultDir: 'asc' },
+  { key: 'symbol', label: 'Symbol', defaultDir: 'asc' },
+]
+
+function sortValue(r: DividendRow, key: DividendSortKey): number | string | null {
+  switch (key) {
+    case 'yield': return finite(r.yield_pct) ? r.yield_pct : null
+    case 'amount': return finite(r.amount) ? r.amount : null
+    case 'annual': return finite(r.annual_dividend) ? r.annual_dividend : null
+    case 'price': return finite(r.price) ? r.price : null
+    case 'pay_date': return r.pay_date || null
+    case 'symbol': return r.symbol
+  }
+}
+
+/** Sort by any column; unknown values always sink to the bottom (either direction), ties by symbol. */
+export function sortDividendRows(rows: DividendRow[], key: DividendSortKey, dir: SortDir): DividendRow[] {
+  const sign = dir === 'asc' ? 1 : -1
+  return [...rows].sort((a, b) => {
+    const va = sortValue(a, key)
+    const vb = sortValue(b, key)
+    if (va === null && vb === null) return a.symbol.localeCompare(b.symbol)
+    if (va === null) return 1
+    if (vb === null) return -1
+    const c = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb))
+    return c !== 0 ? c * sign : a.symbol.localeCompare(b.symbol)
+  })
+}
+
+/** Whole calendar days from `today` to `iso` (negative = past); null when unknown. */
+export function daysUntil(iso: string | null | undefined, today: string): number | null {
+  if (!iso) return null
+  const [y, m, d] = iso.split('-').map(Number)
+  const [ty, tm, td] = today.split('-').map(Number)
+  if (!y || !m || !d || !ty || !tm || !td) return null
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86_400_000)
+}
+
+/** "today", "in 3d", "5d ago"; "" when unknown. */
+export function relDays(n: number | null): string {
+  if (n === null) return ''
+  if (n === 0) return 'today'
+  return n > 0 ? `in ${n}d` : `${-n}d ago`
+}
+
+export interface WeekSummary {
+  total: number
+  withYield: number
+  held: number
+  watched: number
+  top: DividendRow | null
+}
+
+/** Header strip for the calendar: counts and the highest known yield in view. */
+export function summarize(rows: DividendRow[]): WeekSummary {
+  let top: DividendRow | null = null
+  let withYield = 0
+  let held = 0
+  let watched = 0
+  for (const r of rows) {
+    if (finite(r.yield_pct)) {
+      withYield++
+      if (!top || (r.yield_pct as number) > (top.yield_pct as number)) top = r
+    }
+    if (r.in_portfolio) held++
+    if (r.in_watchlist) watched++
+  }
+  return { total: rows.length, withYield, held, watched, top }
 }
 
 async function getJson<T>(path: string): Promise<T> {
