@@ -170,9 +170,12 @@ def reclassify_other(db: Session, classify_titles, hours: int = 48) -> int:
     return changed
 
 
-def retag_recent(db: Session, extract, hours: int = 14 * 24, batch: int = 500) -> int:
+def retag_recent(db: Session, extract, hours: int = 14 * 24, batch: int = 500,
+                 retract=frozenset()) -> int:
     """Re-run ticker extraction on stored items and ADD any newly found
-    tickers (never removes provider/earlier tags). Used once per tagger
+    tickers. Earlier tags are kept, except symbols in `retract` (tags a
+    previous tagger version added wrongly) which are dropped when the
+    current rules do not find them in the story. Used once per tagger
     version so a tagging fix also covers items already in the table.
     `extract(title, summary) -> [symbols]`. Returns rows changed."""
     cutoff = utcnow() - timedelta(hours=hours)
@@ -190,8 +193,10 @@ def retag_recent(db: Session, extract, hours: int = 14 * 24, batch: int = 500) -
             break
         for row in rows:
             current = list(row.tickers or [])
-            merged = current + [t for t in extract(row.title or "", row.summary or "") if t not in current]
-            if len(merged) != len(current):
+            found = extract(row.title or "", row.summary or "")
+            kept = [t for t in current if t not in retract or t in found]
+            merged = kept + [t for t in found if t not in kept]
+            if merged != current:
                 row.tickers = merged[:10]
                 changed += 1
         db.commit()

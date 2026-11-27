@@ -204,3 +204,50 @@ def test_worker_warm_retags_once_per_version(session_factory, idx, monkeypatch):
     assert asyncio.run(svc._retag_if_tagger_changed()) == 0      # version already applied
     with session_factory() as db:
         assert db.query(NewsItem).one().tickers == ["AMD"]
+
+
+# ── A place name is never a short brand ──────────────────────────────────────
+# "Taiwan Semiconductor" minus its descriptor left "Taiwan", so prod tagged
+# every Taiwan story TSM (headlines below from the TSM feed, 2026-11-27).
+
+def _tsm_index():
+    idx = TickerIndex()
+    idx.load_rows([("TSM", "Taiwan Semiconductor", 1.78e12), ("NVDA", "NVIDIA Corp", 2.2e12)])
+    return idx
+
+
+@pytest.mark.parametrize("title", [
+    "Stock market jitters weigh on Taiwan consumer confidence: Survey",
+    "ZAKSIMLAB Expands Global Sales Channels Following Kombucha Exports to Hong Kong and Taiwan",
+    "Foreign investors have sold a record $33 billion of Taiwan stocks in November",
+])
+def test_taiwan_alone_does_not_tag_tsm(title):
+    assert "TSM" not in _tsm_index().extract(title)
+
+
+@pytest.mark.parametrize("title", [
+    "TSMC lifts capex guidance as AI demand stays strong",
+    "Taiwan Semiconductor beats on revenue",
+    "TSM shares rise after monthly sales report",
+])
+def test_tsm_still_tagged_by_name_alias_or_ticker(title):
+    assert "TSM" in _tsm_index().extract(title)
+
+
+def test_retag_retracts_wrong_tsm_tags_only(session_factory):
+    from app.services.news_intel import store
+
+    idx = _tsm_index()
+    now = datetime.now(timezone.utc)
+    with session_factory() as db:
+        _add(db, "t1", "Stock market jitters weigh on Taiwan consumer confidence: Survey", ["TSM"], now - timedelta(hours=3))
+        _add(db, "t2", "TSMC lifts capex guidance as AI demand stays strong", ["TSM"], now - timedelta(hours=2))
+        _add(db, "t3", "Asian stocks rally as Taiwan, South Korea rebound; Nvidia risks linger", ["NVDA", "TSM"], now - timedelta(hours=1))
+        db.commit()
+        n = store.retag_recent(db, idx.extract, retract=frozenset({"TSM"}))
+        got = {r.cluster_id: list(r.tickers) for r in db.query(NewsItem).all()}
+        assert got["t1"] == []                      # "Taiwan" alone: TSM removed
+        assert got["t2"] == ["TSM"]                 # TSMC: kept
+        assert got["t3"] == ["NVDA"]                # other tags untouched
+        assert n == 2
+        assert store.retag_recent(db, idx.extract, retract=frozenset({"TSM"})) == 0

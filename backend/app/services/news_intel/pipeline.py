@@ -454,7 +454,7 @@ class NewsIntelService:
         """Once per tagger version: add tickers the current rules find to the
         stored items (14-day retention) so ticker feeds are not empty until
         the old items age out."""
-        from app.services.news_intel.tickers import TAGGER_VERSION
+        from app.services.news_intel.tickers import TAGGER_RETRACT, TAGGER_VERSION
 
         key = "qt:news:tagger_version"
         try:
@@ -464,7 +464,8 @@ class NewsIntelService:
             pass
         tix = get_ticker_index()
         try:
-            n = await asyncio.to_thread(self._db_call, store.retag_recent, tix.extract)
+            n = await asyncio.to_thread(self._db_call, store.retag_recent, tix.extract,
+                                        retract=TAGGER_RETRACT)
             logger.info("news-intel tagger v%s: re-tagged %d stored items", TAGGER_VERSION, n)
         except Exception as e:
             logger.warning("news-intel retag failed: %s", e)

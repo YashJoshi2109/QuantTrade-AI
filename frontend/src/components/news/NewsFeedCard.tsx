@@ -60,7 +60,7 @@ export function ImpactMeter({ impact, compact = false }: { impact: number; compa
       aria-label={`${badge.label}: ${v} of 100`}
       title={`${badge.label} (${v}/100)`}
     >
-      <span className={`relative h-1.5 overflow-hidden rounded-full bg-surface-overlay ${compact ? 'w-8' : 'w-12'}`}>
+      <span className={`relative h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10 ${compact ? 'w-8' : 'w-12'}`}>
         <span className={`absolute inset-y-0 left-0 rounded-full ${badge.bar}`} style={{ width: `${v}%` }} />
       </span>
       <span className={`font-mono text-[10px] ${badge.text}`}>{v}</span>
