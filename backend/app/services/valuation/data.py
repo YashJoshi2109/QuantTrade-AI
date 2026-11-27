@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 _CACHE: Dict[Tuple[str, str], Tuple[float, Any]] = {}
 TTL = {"fin": 6 * 3600, "px": 3600, "rf": 3600, "fx": 3600, "geo": 6 * 3600}
-PRICE_SOURCE = "daily bars via DataFetcher (yfinance auto-adjusted closes; Alpaca / Alpha Vantage fallback)"
+PRICE_SOURCE = "daily bars: Alpaca SIP (split+dividend adjusted); fallback DataFetcher (yfinance auto-adjusted, Alpha Vantage)"
 
 # reporting currency -> (FRED series, quote convention). "per_usd": units of ccy per 1 USD.
 FX_SERIES = {"TWD": ("DEXTAUS", "per_usd"), "JPY": ("DEXJPUS", "per_usd"), "KRW": ("DEXKOUS", "per_usd"),
@@ -84,6 +84,19 @@ class ValuationData:
             return hit
 
         def load():
+            # Alpaca SIP first: official consolidated, split+dividend adjusted
+            # dailies (~9 years on the free plan); yfinance & co. as fallback.
+            from datetime import datetime, timedelta, timezone
+            try:
+                from app.services.alpaca_client import alpaca_client
+                end = datetime.now(timezone.utc)
+                a = alpaca_client.get_daily_history_sip(t, end - timedelta(days=int(366 * max(int(years), 1)) + 7), end)
+                if a is not None and not a.empty and len(a) > 50:
+                    s = a["close"].astype(float).dropna()
+                    s.index = pd.DatetimeIndex(s.index).normalize()
+                    return s[~s.index.duplicated(keep="last")].sort_index()
+            except Exception:
+                pass
             from app.services.data_fetcher import DataFetcher
             df = DataFetcher.fetch_historical_data(t, period=f"{max(int(years), 1)}y")
             if df is None or df.empty or "close" not in df:
