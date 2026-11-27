@@ -113,3 +113,9 @@ __all__ = [
 
 # Async report job results (app.services.reports, DungBeetle pattern)
 from app.models.report_job import ReportResult
+
+# Free / public-domain datasets (SEC FSDS, Form 4, 13F, FINRA, Treasury/FRED/BLS/Fama-French, filing text metrics)
+from app.models.public_data import (  # noqa: E402,F401
+    PublicDataLoad, PitFundamentalFact, InsiderTransaction, InstitutionalHolding,
+    InstitutionalOwnershipSummary, ShortInterest, ShortSaleVolume, MacroObservation, FilingLanguageMetric,
+)

@@ -3,7 +3,8 @@
   financials     SEC XBRL companyfacts (sec_edgar_service.get_company_facts) -> parse_companyfacts,
                  or an injected FundamentalsProvider (the fundamentals engine)
   prices         daily bars via DataFetcher (yfinance auto-adjusted closes; Alpaca / Alpha Vantage fallback)
-  risk_free      FRED DGS10 via the copilot macro source; US Treasury daily par yield curve CSV fallback
+  risk_free      FRED DGS10 via the copilot macro source; then the Treasury 10Y par yield stored by the
+                 public-data jobs (macro_observations); then the live Treasury yield curve CSV
   fx             FRED H.10 daily exchange rates (DEXTAUS, DEXJPUS, ...)
   geo_mix        latest 10-K / 20-F XBRL instance (dimensional revenue facts)
   filings        the copilot filing search (ticker-scoped)
@@ -16,7 +17,7 @@ import csv
 import io
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -206,7 +207,22 @@ def parse_treasury_csv(text: str) -> Optional[Datum]:
                  as_of=best[0].isoformat(), tag="daily_treasury_yield_curve:10 Yr", unit="fraction")
 
 
+def _stored_treasury_10y() -> Optional[Datum]:
+    """10Y par yield stored daily by the public-data refresh (macro_observations)."""
+    from app.services.public_data.macro import stored_rate_series
+    now = datetime.now(timezone.utc).date()
+    hit = stored_rate_series(["UST_10Y"], (now - timedelta(days=10)).isoformat(), now.isoformat())
+    if not hit or not hit[1]:
+        return None
+    d = max(hit[1])
+    return Datum(value=hit[1][d] / 100.0, source="US Treasury daily par yield curve (10-year), stored daily",
+                 as_of=d, tag="UST_10Y", unit="fraction")
+
+
 def _treasury_10y() -> Optional[Datum]:
+    stored = _stored_treasury_10y()
+    if stored is not None:
+        return stored
     import requests
     now = datetime.now(timezone.utc)
     for year in (now.year, now.year - 1):

@@ -284,6 +284,13 @@ def _start_scheduler():
                       id="market_open_scan", replace_existing=True)
         # (SEC filing index refresh for the copilot runs in the news-worker:
         #  app.services.copilot.sec_refresh — never in the API process.)
+        # Free/public datasets (SEC FSDS, Form 4, 13F, FINRA, Treasury/FRED/BLS,
+        # Fama-French, filing language metrics): schedule in public_data.service.
+        try:
+            from app.services.public_data.service import schedule as _schedule_public_data
+            _schedule_public_data(sched)
+        except Exception as e:
+            print(f"⚠️ Public-data jobs not scheduled: {e}")
 
         sched.start()
         _scheduler = sched
@@ -714,6 +721,10 @@ app.include_router(predictions.router, prefix="/api/v1", tags=["predictions"])
 # Statistical forecasting — ARIMA/ETS/Theta ensemble + calibrated GARCH bands
 from app.api import forecast as forecast_api
 app.include_router(forecast_api.router, prefix="/api/v1", tags=["forecast"])
+
+# Free / public datasets: SEC FSDS (PIT fundamentals), Form 4, 13F, FINRA, Treasury/FRED/BLS/Fama-French
+from app.api import public_data as public_data_api
+app.include_router(public_data_api.router, prefix="/api/v1", tags=["public-datasets"])
 
 # Live system status (every dependency, polled every second by the top-bar pill)
 from app.api import system_status as system_status_api

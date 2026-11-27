@@ -1409,6 +1409,262 @@
           }
         }
       }
+    },
+    "insider_activity": {
+      "spec": {
+        "name": "insider_activity",
+        "description": "SEC Form 4 insider transactions: open-market buys/sells, net insider activity (90/180/365d), insiders, 10b5-1 plan sales, filing links.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            },
+            "days": {
+              "type": "integer",
+              "minimum": 30,
+              "maximum": 365
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "progress": "Reading SEC Form 4 filings for {ticker}",
+      "responses": {
+        "*": {
+          "title": "{ticker} insider activity (SEC Form 4)",
+          "source": "SEC EDGAR Form 4 (recorded fixture)",
+          "as_of": "2026-11-23",
+          "values": {
+            "open_market_buys_180d": 0,
+            "open_market_sells_180d": 41,
+            "net_insider_value_180d": -812345678.0,
+            "distinct_sellers_180d": 6
+          }
+        }
+      }
+    },
+    "institutional_ownership": {
+      "spec": {
+        "name": "institutional_ownership",
+        "description": "SEC 13F institutional ownership: holders count, total shares, top holders and quarter-over-quarter change. Lagging (quarter end, filed up to 45 days later).",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            },
+            "top": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "progress": "Reading SEC 13F holdings for {ticker}",
+      "responses": {
+        "*": {
+          "title": "{ticker} institutional ownership (SEC 13F)",
+          "source": "SEC Form 13F data sets (recorded fixture)",
+          "as_of": "2026-06-30",
+          "values": {
+            "holders": 5698,
+            "total_shares": 16160000000.0,
+            "holders_change_qoq": 179,
+            "shares_change_qoq_pct": 8.24
+          }
+        }
+      }
+    },
+    "short_interest": {
+      "spec": {
+        "name": "short_interest",
+        "description": "FINRA short interest (bi-monthly, days to cover) and Reg SHO daily short-sale volume ratio.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "progress": "Reading FINRA short interest for {ticker}",
+      "responses": {
+        "*": {
+          "title": "{ticker} short interest (FINRA)",
+          "source": "FINRA (recorded fixture)",
+          "as_of": "2026-11-13",
+          "values": {
+            "shares_short": 305326286.0,
+            "days_to_cover": 1.0,
+            "short_volume_ratio_pct": 38.1
+          }
+        }
+      }
+    },
+    "treasury_yield_curve": {
+      "spec": {
+        "name": "treasury_yield_curve",
+        "description": "US Treasury daily par yield curve (1M-30Y) with 30d/1y-ago curves, 10y-2y and 10y-3m spreads, T-bill, CPI YoY, unemployment (FRED/BLS).",
+        "input_schema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
+      },
+      "progress": "Reading the US Treasury yield curve",
+      "responses": {
+        "*": {
+          "title": "US Treasury par yield curve",
+          "source": "US Treasury (recorded fixture)",
+          "as_of": "2026-11-27",
+          "values": {
+            "yield_3m_pct": 4.35,
+            "yield_2y_pct": 4.69,
+            "yield_10y_pct": 4.94,
+            "spread_10y_2y_bp": 25.0
+          }
+        }
+      }
+    },
+    "factor_regression": {
+      "spec": {
+        "name": "factor_regression",
+        "description": "Fama-French 3/5-factor regression of a stock's daily excess returns: market, size, value, profitability, investment betas, t-stats, R2, annualised alpha.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            },
+            "years": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "model": {
+              "type": "string",
+              "enum": [
+                "ff3",
+                "ff5"
+              ]
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "progress": "Running a Fama-French regression for {ticker}",
+      "responses": {
+        "*": {
+          "title": "{ticker} Fama-French 5-factor regression",
+          "source": "Ken French Data Library (recorded fixture)",
+          "as_of": "2026-09-30",
+          "values": {
+            "market_beta": 1.62,
+            "smb": -0.21,
+            "hml": -0.74,
+            "rmw": 0.35,
+            "cma": -0.52,
+            "r_squared": 0.51,
+            "alpha_annualised_pct": 31.4
+          }
+        }
+      }
+    },
+    "filing_language_metrics": {
+      "spec": {
+        "name": "filing_language_metrics",
+        "description": "10-K/10-Q text metrics: length, Fog/Flesch readability, tone word counts, and cosine similarity of risk factors and MD&A vs the prior filing.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "progress": "Measuring filing language for {ticker}",
+      "responses": {
+        "*": {
+          "title": "{ticker} filing language metrics",
+          "source": "SEC EDGAR 10-K/10-Q (recorded fixture)",
+          "as_of": "2026-02-25",
+          "values": {
+            "risk_factors_words": 18234,
+            "fog": 19.8,
+            "flesch": 18.2,
+            "risk_factor_similarity_prev": 0.962
+          }
+        }
+      }
+    },
+    "pit_fundamentals": {
+      "spec": {
+        "name": "pit_fundamentals",
+        "description": "Point-in-time fundamentals as originally filed and known on a past date (SEC Financial Statement Data Sets): no look-ahead, for backtests.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticker": {
+              "type": "string"
+            },
+            "as_of": {
+              "type": "string",
+              "description": "YYYY-MM-DD"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 20
+            }
+          },
+          "required": [
+            "ticker",
+            "as_of"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "progress": "Reading point-in-time SEC fundamentals for {ticker}",
+      "responses": {
+        "*": {
+          "title": "{ticker} point-in-time fundamentals",
+          "source": "SEC FSDS (recorded fixture)",
+          "as_of": "2024-06-30",
+          "values": {
+            "revenue": 26044000000.0,
+            "net_income": 14881000000.0
+          }
+        }
+      }
     }
   }
 }
