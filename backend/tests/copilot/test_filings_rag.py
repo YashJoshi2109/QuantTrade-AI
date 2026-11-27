@@ -350,9 +350,9 @@ def test_list_filings(svc):
 # ── registry wiring ──────────────────────────────────────────────────────────
 
 def test_tools_registered_with_schemas():
-    from app.services.copilot.tools import TOOL_NAMES, TOOL_TIMEOUTS, lc_tools
+    from app.services.copilot.tools import PLUGIN_TOOLS, TOOL_NAMES, TOOL_TIMEOUTS, lc_tools
     names = {t["name"] for t in lc_tools()}
-    assert FT.FILINGS_TOOL_NAMES <= names <= TOOL_NAMES
+    assert FT.FILINGS_TOOL_NAMES <= names <= TOOL_NAMES | set(PLUGIN_TOOLS)
     for t in FT.FILINGS_TOOL_SPECS:
         assert t["input_schema"]["required"][0] == "ticker" and t["description"]
         assert TOOL_TIMEOUTS[t["name"]] >= 30

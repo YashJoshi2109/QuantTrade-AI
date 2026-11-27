@@ -20,6 +20,7 @@ import { fetchSectorPerformance } from '@/lib/api'
 import { useExchangeHeatmap } from '@/hooks/useExchangeHeatmap'
 import { computeBreadth } from '@/lib/marketBreadth'
 import { useSectorPerformance } from '@/lib/marketQueries'
+import YieldCurveCard from '@/components/YieldCurveCard'
 
 function MarketPulse({ continent }: { continent: Continent }) {
   const { data, isLoading } = useExchangeHeatmap(continent)
@@ -152,6 +153,13 @@ export default function MobileMarkets() {
         <section>
           <MarketPulse continent={activeContinent} />
         </section>
+
+        {/* US Treasury par yield curve (same card as desktop) */}
+        {activeContinent === 'global' && (
+          <section>
+            <YieldCurveCard />
+          </section>
+        )}
 
         {/* Ranked Universe */}
         {activeContinent !== 'global' && (

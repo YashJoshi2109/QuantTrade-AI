@@ -293,3 +293,11 @@ class ToolExecutor:
                                                 section=a.get("section"), limit=4)
             return list(chunks), [compact_fact(c) for c in chunks]
         raise LookupError(f"unhandled tool {name}")
+
+
+# Free / public datasets (SEC Form 4, 13F, FSDS point-in-time, FINRA, Treasury
+# curve + FRED/BLS, Fama-French regressions, filing language metrics):
+# registered as plugins through register_tool.
+from app.services.copilot import public_data_tools as _public_data_tools  # noqa: E402
+
+_public_data_tools.register()

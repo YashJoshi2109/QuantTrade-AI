@@ -113,7 +113,7 @@ class LiveQuantData(QuantData):
         from app.config import settings
         key = getattr(settings, "FRED_API_KEY", None)
         if not key:
-            return None
+            return _stored_risk_free(start, end)
         import httpx
         try:
             resp = httpx.get("https://api.stlouisfed.org/fred/series/observations", params={
@@ -124,7 +124,7 @@ class LiveQuantData(QuantData):
             obs = resp.json().get("observations", [])
         except Exception as e:  # noqa: BLE001
             logger.info("quant FRED DTB3 fetch failed: %s", e)
-            return None
+            return _stored_risk_free(start, end)
         vals = {}
         for o in obs:
             try:
@@ -178,6 +178,21 @@ class LiveQuantData(QuantData):
         except Exception as e:  # noqa: BLE001
             logger.info("quant sector yfinance lookup failed for %s: %s", symbol, e)
         return None
+
+
+def _stored_risk_free(start: datetime, end: datetime) -> Optional[RiskFree]:
+    """Keyless fallback: DTB3 (keyless FRED CSV) or the Treasury 3-month par
+    yield stored by the public-data refresh jobs (macro_observations)."""
+    from app.services.public_data.macro import stored_rate_series
+    hit = stored_rate_series(["DTB3", "UST_3M"], (start - timedelta(days=10)).date().isoformat(),
+                             end.date().isoformat())
+    if not hit:
+        return None
+    sid, vals = hit
+    s = pd.Series({pd.Timestamp(d): v for d, v in vals.items()}).sort_index()
+    label = ("FRED DTB3 (3-month Treasury bill, secondary market, % p.a.; stored daily)" if sid == "DTB3"
+             else "US Treasury daily par yield curve, 3-month (% p.a.; stored daily)")
+    return RiskFree(s, label)
 
 
 def classify_time(ts) -> Optional[str]:

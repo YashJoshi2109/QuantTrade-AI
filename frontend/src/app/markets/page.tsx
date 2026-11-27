@@ -10,6 +10,7 @@ import MarketMoversPanel from '@/components/MarketMoversPanel'
 import MarketHeatmap from '@/components/MarketHeatmap'
 import MoversHeatmap from '@/components/MoversHeatmap'
 import EconomicCalendarStrip from '@/components/EconomicCalendarStrip'
+import YieldCurveCard from '@/components/YieldCurveCard'
 import { QuoteActivityFlash, moversActivityFingerprint } from '@/components/QuoteActivityFlash'
 import {
   SkeletonMarketIndices,
@@ -849,6 +850,13 @@ function DesktopMarketsPage() {
         <div className="mb-4">
           <EconomicCalendarStrip />
         </div>
+
+        {/* US Treasury par yield curve (free public data; same card on mobile) */}
+        {activeContinent === 'global' && (
+          <div className="mb-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <YieldCurveCard />
+          </div>
+        )}
 
         {/* Continent-specific movers (non-global) */}
         {activeContinent !== 'global' && (

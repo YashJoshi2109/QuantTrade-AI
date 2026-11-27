@@ -51,8 +51,8 @@ describe('free cash flow display', () => {
 
 describe('research tabs (desktop and mobile share one set)', () => {
   it('give every panel group a tab, in mock order', () => {
-    expect(RESEARCH_TABS).toEqual(['overview', 'fundamentals', 'financials', 'news', 'ai'])
-    expect(RESEARCH_TABS.map((t) => RESEARCH_TAB_LABELS[t])).toEqual(['Overview', 'Fundamentals', 'Financials', 'News', 'AI Insights'])
+    expect(RESEARCH_TABS).toEqual(['overview', 'fundamentals', 'financials', 'ownership', 'news', 'ai'])
+    expect(RESEARCH_TABS.map((t) => RESEARCH_TAB_LABELS[t])).toEqual(['Overview', 'Fundamentals', 'Financials', 'Ownership', 'News', 'AI Insights'])
   })
 })
 

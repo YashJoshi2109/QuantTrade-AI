@@ -51,6 +51,8 @@ data/raw/
 data/processed/
 *.csv
 *.parquet
+# small recorded test fixtures (public datasets) are tracked
+!backend/tests/public_data/fixtures/*.csv
 
 # ML runtime artifacts (generated, not tracked)
 backend/ml/data_cache/

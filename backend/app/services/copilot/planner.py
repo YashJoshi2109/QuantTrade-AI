@@ -153,7 +153,8 @@ CAPABILITIES: Tuple[Capability, ...] = (
                # "securities portfolio" (bank AFS/HTM) and "autocorrelation" are not portfolio questions
                r"(?<!securities )(?<!investment )\bportfolio\b|\bcorrelations?\b|diversif|marginal contribution|"
                r"factor concentration",
-               ("portfolio", "correlation", "covariance", "diversification", "contribution", "factor"), QUANT),
+               ("portfolio", "correlation", "covariance", "diversification", "contribution", "factor"), QUANT,
+               exclude=("factor_regression",)),                 # single-stock Fama-French, not portfolio risk
     Capability("macro_factors", "Rates / macro factor sensitivity",
                # "free cash flow yield" / "dividend yield" are valuation multiples, not rates
                r"treasury|(?<!flow )(?<!fcf )(?<!dividend )(?<!earnings )\byields?\b|interest rates?|basis[- ]points?|"

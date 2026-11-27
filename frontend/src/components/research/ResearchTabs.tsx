@@ -14,6 +14,8 @@ import type { TechnicalInputs } from '@/lib/researchTechnicals'
 import { CompanyFolioPanel } from './CompanyFolioPanel'
 import EarningsShortInterestPanel from './EarningsShortInterestPanel'
 import ForecastPanel from './ForecastPanel'
+import InsiderActivityPanel from './InsiderActivityPanel'
+import InstitutionalOwnershipPanel from './InstitutionalOwnershipPanel'
 import OptionChainPanel from './OptionChainPanel'
 import SecEdgarPanel from './SecEdgarPanel'
 import { AiInsightsPanel, AiSummaryCard } from './AiInsightsPanel'
@@ -110,6 +112,7 @@ function NotApplicable({ symbol, what }: { symbol: string; what: string }) {
  *   Overview     Key factors, Price forecast range, Option chain, AI summary
  *   Fundamentals Fundamentals + valuation, Company profile, Earnings / short interest
  *   Financials   SEC EDGAR statements and filings
+ *   Ownership    SEC Form 4 insider activity, SEC 13F institutional ownership
  *   News         Live news
  *   AI Insights  AI analysis (streamed), Technical analysis gauges, Copilot
  */
@@ -158,6 +161,16 @@ export function ResearchTabPanels(p: ResearchTabPanelsProps) {
 
         {p.tab === 'financials' &&
           (p.showCompanyPanels ? <SecEdgarPanel symbol={p.symbol} /> : <NotApplicable symbol={p.symbol} what="SEC filings and financial statements" />)}
+
+        {p.tab === 'ownership' &&
+          (p.showCompanyPanels ? (
+            <>
+              <InsiderActivityPanel symbol={p.symbol} />
+              <InstitutionalOwnershipPanel symbol={p.symbol} />
+            </>
+          ) : (
+            <NotApplicable symbol={p.symbol} what="Insider and institutional ownership filings" />
+          ))}
 
         {p.tab === 'news' && (
           <ResearchCard testId="research-news">
