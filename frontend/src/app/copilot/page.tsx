@@ -1,58 +1,38 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
-import { createPortal } from 'react-dom'
+/**
+ * AI Copilot (desktop + mobile share CopilotInner; `variant` only changes density).
+ *
+ * Design intent: a calm research desk. The answer is the hero, every answer shows
+ * where its numbers came from and how old they are, forecasts are labelled
+ * experimental, limits are stated before they bite, and nothing uses urgency
+ * or alarm styling. Tokens live in ./copilot.css (`.cp-scope`).
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import ReactMarkdown from 'react-markdown'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import AppLayout from '@/components/AppLayout'
 import BottomNav from '@/components/layout/BottomNav'
 import {
-  Sparkles,
-  Copy,
-  Check,
-  Bot,
-  User,
-  Zap,
-  TrendingUp,
-  TrendingDown,
-  BarChart3,
-  Shield,
-  RefreshCw,
-  Plus,
-  Trash2,
   Activity,
-  Target,
-  AlertTriangle,
-  Globe,
-  Newspaper,
+  BarChart3,
   Brain,
-  ChevronRight,
   Gauge,
-  PieChart,
-  LineChart,
-  X,
   History,
-  MessageSquare,
-  Clock,
-  Cpu,
-  ChevronLeft,
-  ChevronDown,
-  FileText,
-  ExternalLink,
-  ArrowUpRight,
-  Lock,
+  LineChart,
+  Newspaper,
+  PieChart,
+  Plus,
+  Shield,
+  X,
 } from 'lucide-react'
 import {
   streamCopilotAnalysis,
-  COPILOT_QUICK_PROMPTS,
+  type CitationData,
   type CopilotStructuredData,
   type StockAnalysisData,
-  type CopilotIntent,
-  type CopilotMeta,
-  type CitationData,
   type TickerContext,
   formatLargeNumber,
   formatPercent,
@@ -62,103 +42,34 @@ import {
   trendBg,
 } from '@/lib/copilot-engine'
 import {
-  fetchFinnhubQuote,
-  fetchFundamentals,
-  fetchIndicators,
   listConversations,
   getConversationMessages,
   deleteConversation,
   getCopilotUsage,
+  getMyAiUsage,
+  getWatchlist,
   fetchCopilotContext,
-  type QuoteData,
-  type FundamentalsData,
-  type Indicators,
-  type ConversationSummary,
-  type StoredMessage,
-  type CopilotUsage,
 } from '@/lib/api'
 import PolymarketStockCard from '@/components/chat/visual/PolymarketStockCard'
-import CopilotLoadingScene from '@/components/chat/CopilotLoadingScene'
-import { GlassFilter } from '@/components/ui/liquid-glass'
-import TimeWeatherMoodToggle from '@/components/ui/time-weather-mood-toggle'
-import { CopilotPromptInput } from '@/components/ui/copilot-prompt-input'
-import {
-  InlineStructuredSnapshots,
-  SnapshotCard,
-} from '@/components/copilot/copilot-snapshot-cards'
+import { SnapshotCard } from '@/components/copilot/copilot-snapshot-cards'
 import TickerContextCard from '@/components/copilot/TickerContextCard'
 import CitationSourcePanel from '@/components/copilot/CitationSourcePanel'
+import CopilotComposer from '@/components/copilot/CopilotComposer'
+import CopilotEmptyState from '@/components/copilot/CopilotEmptyState'
+import CopilotHistoryPanel from '@/components/copilot/CopilotHistoryPanel'
+import CopilotUsageMeter from '@/components/copilot/CopilotUsageMeter'
 import {
-  citationChipText,
-  citationShortLabel,
-  formatPercentPoints,
-  citationIdFromHref,
-  citationKindLabel,
-  linkifyCitations,
-  parseCopilotParams,
-  suggestedQuestions,
-} from '@/lib/copilot-handoff'
+  AssistantAnswer,
+  LimitNoticeCard,
+  UserQuestion,
+  type CopilotMessageView,
+} from '@/components/copilot/CopilotAnswer'
+import { formatPercentPoints, parseCopilotParams, suggestedQuestions } from '@/lib/copilot-handoff'
+import { computeUsageMeter, formatResetsIn, normalizeUsage } from '@/lib/copilot-usage'
+import { buildStarterPrompts, readRecentTickers, rememberRecentTicker } from '@/lib/copilot-prompts'
+import { answerTone, classifyCopilotError, type CopilotLimitNotice } from '@/lib/copilot-trust'
+import { usePortfolioDetail, usePortfolioList } from '@/lib/usePortfolios'
 import { cn } from '@/lib/utils'
-
-const CITATION_ICONS: Record<string, typeof FileText> = {
-  filing: FileText, statement: BarChart3, news: Globe, forecast: TrendingUp, quote: Activity,
-  fundamentals: PieChart, technicals: Activity, macro: Globe, movers: Zap,
-}
-
-/** Context-pack quote -> the side panel's QuoteData (single source of truth for price). */
-function packQuoteToQuoteData(ctx: TickerContext): QuoteData | null {
-  const q = ctx.quote
-  if (!q || q.price == null) return null
-  return {
-    symbol: ctx.ticker,
-    price: q.price,
-    change: q.change ?? 0,
-    change_percent: q.change_percent ?? 0,
-    volume: q.volume ?? 0,
-    high: q.day_high ?? 0,
-    low: q.day_low ?? 0,
-    open: 0,
-    previous_close: q.previous_close ?? 0,
-    timestamp: q.as_of ?? '',
-    market_status: q.market_session ?? undefined,
-    data_source: q.source,
-  }
-}
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  streaming?: boolean
-  error?: boolean
-  timestamp: Date
-  intent?: CopilotIntent
-  structuredData?: CopilotStructuredData
-  meta?: CopilotMeta
-  citations?: CitationData[]
-}
-
-// ─── Copy Button ──────────────────────────────────────────────────────────────
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-  const copy = async () => {
-    await navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-  return (
-    <button
-      onClick={copy}
-      className="p-1.5 rounded text-fg-muted hover:text-fg-primary hover:bg-surface-hover transition-colors"
-      title="Copy"
-    >
-      {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-    </button>
-  )
-}
 
 // ─── Technical Signals Card ───────────────────────────────────────────────────
 
@@ -616,17 +527,21 @@ function AnalysisDashboard({
   onClose: () => void
 }) {
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-line-subtle shrink-0">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-[#007AFF]" />
-          <span className="text-sm font-bold text-fg-primary">{data.symbol} Analysis</span>
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--cp-line)] px-4 py-3">
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-semibold text-[var(--cp-ink)]">{data.symbol} model data</h2>
+          <p className="mt-0.5 text-[12px] leading-snug text-[var(--cp-ink-3)]">
+            Raw outputs from experimental models. Signals and ranges describe history, not a prediction.
+          </p>
         </div>
         <button
+          type="button"
           onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-surface-raised/60 text-fg-muted hover:text-white transition-colors"
+          aria-label="Close model data"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--cp-ink-2)] hover:bg-[var(--cp-sunken)]"
         >
-          <X className="w-4 h-4" />
+          <X className="h-4 w-4" aria-hidden />
         </button>
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
@@ -644,1344 +559,176 @@ function AnalysisDashboard({
   )
 }
 
-// ─── Message Bubble ───────────────────────────────────────────────────────────
-
-function MessageBubble({
-  msg,
-  onCitationClick,
-}: {
-  msg: Message
-  onCitationClick?: (c: CitationData) => void
-}) {
-  const isUser = msg.role === 'user'
-  const citeById = (id: string): CitationData =>
-    msg.citations?.find((c) => c.id === id) ??
-    ({ id, n: 0, kind: id.split(':')[0], source: 'Source details arrive when the answer finishes', label: id } as CitationData)
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
-    >
-      <div
-        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-          isUser
-            ? 'bg-[#007AFF] text-white'
-            : 'bg-surface-raised border border-[rgba(0,122,255,0.2)] text-[#007AFF]'
-        }`}
-      >
-        {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-      </div>
-
-      <div className={`flex-1 max-w-[85%] ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
-        <div
-          className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-            isUser
-              ? 'bg-[#007AFF] text-white rounded-tr-sm'
-              : msg.error
-              ? 'bg-red-500/10 border border-red-500/30 text-red-300 rounded-tl-sm'
-              : 'bg-surface-raised border border-[rgba(0,122,255,0.12)] text-fg-primary rounded-tl-sm'
-          }`}
-        >
-          {isUser ? (
-            <p className="whitespace-pre-wrap">{msg.content}</p>
-          ) : (
-            <>
-              {msg.structuredData ? (
-                <InlineStructuredSnapshots data={msg.structuredData} />
-              ) : null}
-              <div className="prose prose-invert prose-sm max-w-none">
-              <ReactMarkdown
-                components={{
-                  p: ({ children }) => <p className="mb-2 last:mb-0 text-fg-primary">{children}</p>,
-                  strong: ({ children }) => (
-                    <strong className="font-bold text-fg-primary">{children}</strong>
-                  ),
-                  em: ({ children }) => <em className="text-fg-muted italic text-xs">{children}</em>,
-                  code: ({ children, className }) => {
-                    const isBlock = className?.includes('language-')
-                    return isBlock ? (
-                      <code className="block bg-[#0D1117] border border-line-subtle rounded-lg p-3 text-xs font-mono text-emerald-300 my-2 overflow-x-auto whitespace-pre">
-                        {children}
-                      </code>
-                    ) : (
-                      <code className="bg-[#0D1117] text-emerald-300 px-1.5 py-0.5 rounded text-xs font-mono">
-                        {children}
-                      </code>
-                    )
-                  },
-                  ul: ({ children }) => <ul className="list-disc pl-4 space-y-1 my-2">{children}</ul>,
-                  ol: ({ children }) => (
-                    <ol className="list-decimal pl-4 space-y-1 my-2">{children}</ol>
-                  ),
-                  li: ({ children }) => <li className="text-fg-primary">{children}</li>,
-                  h1: ({ children }) => (
-                    <h1 className="text-fg-primary font-bold text-base mt-3 mb-1">{children}</h1>
-                  ),
-                  h2: ({ children }) => (
-                    <h2 className="text-[#007AFF] font-bold text-sm mt-4 mb-1.5 flex items-center gap-1.5">
-                      <span className="w-1 h-4 bg-[#007AFF] rounded-full" />
-                      {children}
-                    </h2>
-                  ),
-                  h3: ({ children }) => (
-                    <h3 className="text-fg-primary font-semibold text-sm mt-2 mb-1">{children}</h3>
-                  ),
-                  table: ({ children }) => (
-                    <div className="overflow-x-auto my-2">
-                      <table className="w-full text-xs border-collapse border border-line-subtle rounded-lg overflow-hidden">
-                        {children}
-                      </table>
-                    </div>
-                  ),
-                  th: ({ children }) => (
-                    <th className="border border-line-subtle bg-[#0D1117] px-3 py-1.5 text-left text-fg-primary font-semibold">
-                      {children}
-                    </th>
-                  ),
-                  td: ({ children }) => (
-                    <td className="border border-line-subtle px-3 py-1.5 text-fg-muted">
-                      {children}
-                    </td>
-                  ),
-                  blockquote: ({ children }) => (
-                    <blockquote className="border-l-2 border-[#007AFF]/40 pl-3 text-fg-muted italic my-2">
-                      {children}
-                    </blockquote>
-                  ),
-                  hr: () => <hr className="border-line-subtle my-3" />,
-                  a: ({ href, children }) => {
-                    const cid = citationIdFromHref(href)
-                    if (cid) {
-                      const c = citeById(cid)
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => onCitationClick?.(c)}
-                          title={`${citationKindLabel(c.kind)} · ${c.label}`}
-                          className="mx-0.5 inline-flex !h-4 !min-h-0 min-w-4 !py-0 leading-none -translate-y-px items-center justify-center rounded bg-[#007AFF]/15 px-1 align-middle text-[9px] font-bold text-[#0060c9] dark:bg-[#007AFF]/25 dark:text-[#8fc6ff] transition-colors hover:bg-[#007AFF] hover:text-white"
-                        >
-                          {children}
-                        </button>
-                      )
-                    }
-                    return (
-                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#4da3ff] underline">
-                        {children}
-                      </a>
-                    )
-                  },
-                }}
-              >
-                {linkifyCitations(msg.content, msg.streaming ? null : msg.citations)}
-              </ReactMarkdown>
-              {msg.streaming && (
-                <span className="inline-block w-1.5 h-4 bg-[#007AFF] rounded-sm animate-pulse ml-0.5 -mb-0.5" />
-              )}
-            </div>
-            </>
-          )}
-        </div>
-
-        {!isUser && !msg.streaming && msg.citations && msg.citations.length > 0 && (
-          <div className="mt-2.5 px-1">
-            <p className="text-[10px] text-fg-muted mb-1.5 flex items-center gap-1">
-              <FileText className="w-3 h-3" />
-              {msg.citations.length} source{msg.citations.length !== 1 ? 's' : ''} cited
-            </p>
-            {/* Source pills: number + type icon + readable source label (wraps, no clipping) */}
-            <div className="flex flex-wrap gap-1.5" data-testid="citation-pills">
-              {msg.citations.slice(0, 12).map((c) => {
-                const KindIcon = CITATION_ICONS[c.kind] ?? FileText
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => onCitationClick?.(c)}
-                    title={`${citationKindLabel(c.kind)} · ${citationChipText(c)}`}
-                    className="group inline-flex !min-h-0 max-w-full items-center gap-1.5 rounded-full border border-line-subtle bg-surface-raised py-1 pl-1 pr-2.5 text-left text-[11px] text-fg-primary transition-colors hover:border-[#007AFF]/50 hover:bg-[#007AFF]/10"
-                  >
-                    <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-[#007AFF]/15 px-1 text-[9px] font-bold text-[#0060c9] dark:bg-[#007AFF]/30 dark:text-[#8fc6ff]">
-                      {c.n}
-                    </span>
-                    <KindIcon className="h-3 w-3 shrink-0 text-[#007AFF]" aria-hidden />
-                    <span className="truncate font-medium">{citationShortLabel(c)}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-        {!isUser && !msg.streaming && msg.meta?.noFilings && msg.meta.noFilings.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {msg.meta.noFilings.map((sym) => (
-              <span key={sym} className="inline-flex items-center gap-1 rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-0.5 text-[10px] text-amber-400">
-                No SEC filings indexed for {sym} — analysis uses public data only
-              </span>
-            ))}
-          </div>
-        )}
-        {!isUser && !msg.streaming && msg.content && (
-          <div className="flex items-center gap-1 mt-1 px-1">
-            <CopyButton text={msg.content} />
-            <span className="text-[10px] text-fg-muted font-mono ml-auto">
-              {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
-        )}
-      </div>
-    </motion.div>
-  )
-}
-
-// ─── Stock Quick Info Panel ───────────────────────────────────────────────────
-
-function RsiGauge({ value }: { value: number }) {
-  const pct  = Math.min(Math.max(value, 0), 100) / 100
-  const color = value >= 70 ? '#ef4444' : value <= 30 ? '#22c55e' : '#007AFF'
-  const label = value >= 70 ? 'Overbought' : value <= 30 ? 'Oversold' : 'Neutral'
-  const angle = pct * 180 - 90  // -90 (left) to +90 (right)
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="relative w-20 h-10 overflow-hidden">
-        <svg viewBox="0 0 80 40" className="w-full h-full">
-          {/* Track */}
-          <path d="M8,36 A32,32 0 0,1 72,36" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="6" strokeLinecap="round"/>
-          {/* Colored arc */}
-          <path d="M8,36 A32,32 0 0,1 72,36" fill="none" stroke={color} strokeWidth="6"
-            strokeDasharray={`${pct * 100.5} 100.5`} strokeLinecap="round" opacity="0.8"/>
-          {/* Needle */}
-          <line x1="40" y1="36" x2={40 + 28 * Math.cos((angle - 90) * Math.PI / 180)}
-            y2={36 + 28 * Math.sin((angle - 90) * Math.PI / 180)}
-            stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.9"/>
-          <circle cx="40" cy="36" r="2.5" fill="white" opacity="0.9"/>
-        </svg>
-      </div>
-      <div className="text-center">
-        <span className="text-sm font-bold tabular-nums" style={{ color }}>{value.toFixed(1)}</span>
-        <span className="text-[9px] text-fg-muted ml-1">{label}</span>
-      </div>
-    </div>
-  )
-}
-
-function MiniBar({ label, val, max, color }: { label: string; val: number; max: number; color: string }) {
-  const pct = Math.min(Math.abs(val) / max * 100, 100)
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-[10px] text-fg-muted w-16 shrink-0">{label}</span>
-      <div className="flex-1 h-1.5 rounded-full bg-[rgba(255,255,255,0.06)] overflow-hidden">
-        <motion.div className="h-full rounded-full" style={{ backgroundColor: color, width: `${pct}%` }}
-          initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, ease: 'easeOut' }} />
-      </div>
-      <span className="text-[10px] tabular-nums text-fg-secondary w-14 text-right shrink-0">{typeof val === 'number' ? val.toFixed(2) : '—'}</span>
-    </div>
-  )
-}
-
-function StockQuickPanel({
-  quote,
-  fundamentals,
-  indicators,
-  relatedCitations,
-  onClose,
-  onCitationClick,
-}: {
-  quote: QuoteData
-  fundamentals?: FundamentalsData | null
-  indicators?: Indicators | null
-  relatedCitations?: CitationData[]
-  onClose: () => void
-  onCitationClick?: (c: CitationData) => void
-}) {
-  const isUp = (quote.change_percent ?? 0) >= 0
-  const changeColor = isUp ? '#22c55e' : '#ef4444'
-  const ind = indicators?.indicators
-  const rsi = ind?.rsi ?? fundamentals?.rsi
-
-  const fmt = (n?: number | null, prefix = '$') =>
-    n != null ? `${prefix}${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : '—'
-  const fmtLg = (n?: number | null) => {
-    if (!n) return '—'
-    if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`
-    if (n >= 1e9)  return `$${(n / 1e9).toFixed(2)}B`
-    if (n >= 1e6)  return `$${(n / 1e6).toFixed(2)}M`
-    return `$${n.toLocaleString()}`
-  }
-
-  return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-line-subtle shrink-0">
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isUp ? 'bg-emerald-400' : 'bg-red-400'} animate-pulse`} />
-          <span className="text-sm font-bold text-fg-primary">{quote.symbol}</span>
-          {fundamentals?.company_name && (
-            <span className="text-[10px] text-fg-muted truncate max-w-[100px]">{fundamentals.company_name}</span>
-          )}
-        </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-raised/60 text-fg-muted hover:text-fg-primary transition-colors">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
-        {/* ── Price Hero ── */}
-        <div className="rounded-2xl border border-[rgba(0,122,255,0.2)] bg-gradient-to-br from-[rgba(0,122,255,0.06)] to-transparent p-4">
-          <p className="text-3xl font-bold text-fg-primary tabular-nums">
-            ${quote.price?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-          <div className="flex items-center justify-between mt-1.5">
-            <span className="text-sm font-semibold tabular-nums" style={{ color: changeColor }}>
-              {isUp ? '+' : ''}{quote.change?.toFixed(2)} ({isUp ? '+' : ''}{quote.change_percent?.toFixed(2)}%)
-            </span>
-            {quote.data_source && (
-              <span className="text-[9px] text-fg-muted font-mono text-right">
-                {quote.data_source}
-                {quote.timestamp ? ` · ${new Date(quote.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
-              </span>
-            )}
-          </div>
-
-          {/* OHLV row */}
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(64px,1fr))] gap-1 mt-3 pt-3 border-t border-line-subtle">
-            {[
-              { l: 'Open', v: quote.open },
-              { l: 'High', v: quote.high },
-              { l: 'Low', v: quote.low },
-              { l: 'Prev close', v: quote.previous_close },
-            ].filter(({ v }) => v != null && v > 0).map(({ l, v }) => (
-              <div key={l} className="text-center">
-                <p className="text-[9px] text-fg-muted">{l}</p>
-                <p className="text-[11px] font-semibold text-fg-secondary tabular-nums">
-                  {v ? `$${v.toFixed(2)}` : '—'}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {/* 52W range bar */}
-          {fundamentals?.week_52_high && fundamentals?.week_52_low && quote.price && (
-            <div className="mt-3 pt-3 border-t border-line-subtle">
-              <div className="flex justify-between text-[9px] text-fg-muted mb-1">
-                <span>52W Low ${fundamentals.week_52_low.toFixed(0)}</span>
-                <span>52W High ${fundamentals.week_52_high.toFixed(0)}</span>
-              </div>
-              <div className="h-1.5 rounded-full bg-line-subtle relative overflow-hidden">
-                <div className="h-full rounded-full bg-gradient-to-r from-red-500 via-[#007AFF] to-emerald-500 opacity-30" style={{ width: '100%' }} />
-                <div className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white border border-[#007AFF]"
-                  style={{ left: `${((quote.price - fundamentals.week_52_low) / (fundamentals.week_52_high - fundamentals.week_52_low) * 100).toFixed(1)}%`, transform: 'translate(-50%,-50%)' }} />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ── Technical Indicators ── */}
-        {(rsi || ind?.macd || ind?.sma_50) && (
-          <div className="rounded-xl border border-line-subtle bg-surface-base p-3 space-y-3">
-            <p className="text-[10px] font-mono text-fg-muted uppercase tracking-wider">Technical Indicators</p>
-            {rsi != null && <RsiGauge value={rsi} />}
-
-            {(ind?.sma_50 || ind?.sma_200) && (
-              <div className="space-y-2">
-                {ind.sma_50 != null && (
-                  <MiniBar label="SMA 50" val={ind.sma_50} max={(ind.sma_200 ?? ind.sma_50) * 1.2} color="#007AFF" />
-                )}
-                {ind.sma_200 != null && (
-                  <MiniBar label="SMA 200" val={ind.sma_200} max={ind.sma_200 * 1.2} color="#7C3AED" />
-                )}
-              </div>
-            )}
-
-            {ind?.macd && (
-              <div className="flex items-center gap-2 pt-1">
-                <span className="text-[10px] text-fg-muted">MACD</span>
-                <div className="flex gap-1.5 items-center">
-                  <span className="text-[10px] font-mono text-fg-secondary">{ind.macd.macd?.toFixed(3) ?? '—'}</span>
-                  <span className="text-[9px] text-fg-muted">Sig:</span>
-                  <span className="text-[10px] font-mono text-fg-secondary">{ind.macd.signal?.toFixed(3) ?? '—'}</span>
-                  {ind.macd.histogram != null && (
-                    <span className={`text-[9px] font-bold ${ind.macd.histogram > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {ind.macd.histogram > 0 ? '▲' : '▼'}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {ind?.bollinger_bands && (
-              <div className="pt-1">
-                <p className="text-[10px] text-fg-muted mb-1.5">Bollinger Bands</p>
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-red-400 font-mono">{fmt(ind.bollinger_bands.upper)}</span>
-                  <span className="text-fg-muted font-mono">{fmt(ind.bollinger_bands.middle)}</span>
-                  <span className="text-emerald-400 font-mono">{fmt(ind.bollinger_bands.lower)}</span>
-                </div>
-                <div className="flex justify-between text-[9px] text-fg-muted mt-0.5">
-                  <span>Upper</span><span>Mid</span><span>Lower</span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Fundamentals ── */}
-        {fundamentals && (
-          <div className="rounded-xl border border-line-subtle bg-surface-base p-3">
-            <p className="text-[10px] font-mono text-fg-muted uppercase tracking-wider mb-2">Fundamentals</p>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-              {[
-                { label: 'Market Cap',    val: fmtLg(fundamentals.market_cap) },
-                { label: 'P/E Ratio',     val: fundamentals.pe_ratio?.toFixed(1) ?? '—' },
-                { label: 'Forward P/E',   val: fundamentals.forward_pe?.toFixed(1) ?? '—' },
-                { label: 'P/B',           val: fundamentals.price_to_book?.toFixed(2) ?? '—' },
-                { label: 'EPS',           val: fundamentals.eps != null ? `$${fundamentals.eps.toFixed(2)}` : '—' },
-                { label: 'Beta',          val: fundamentals.beta?.toFixed(2) ?? '—' },
-                { label: 'ROE',           val: formatPercentPoints(fundamentals.roe) ?? '—' },
-                { label: 'Debt/Equity',   val: fundamentals.debt_to_equity?.toFixed(2) ?? '—' },
-                { label: 'Profit Margin', val: formatPercentPoints(fundamentals.profit_margin) ?? '—' },
-                { label: 'Target Price',  val: fmt(fundamentals.target_price) },
-              ].filter(r => r.val !== '—').map(({ label, val }) => (
-                <div key={label}>
-                  <p className="text-[9px] text-fg-muted">{label}</p>
-                  <p className="text-[11px] font-semibold text-fg-primary tabular-nums">{val}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Analyst recommendation */}
-            {fundamentals.recommendation && (
-              <div className="mt-2 pt-2 border-t border-line-subtle flex items-center justify-between">
-                <span className="text-[10px] text-fg-muted">Analyst Rating</span>
-                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                  fundamentals.recommendation?.toLowerCase().includes('buy') ? 'bg-emerald-500/20 text-emerald-400' :
-                  fundamentals.recommendation?.toLowerCase().includes('sell') ? 'bg-red-500/20 text-red-400' :
-                  'bg-line-subtle text-fg-secondary'
-                }`}>
-                  {fundamentals.recommendation}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Volume ── */}
-        {quote.volume != null && quote.volume > 0 && (
-          <div className="rounded-xl border border-line-subtle bg-surface-base p-3 flex justify-between items-center">
-            <div>
-              <p className="text-[10px] text-fg-muted">Volume</p>
-              <p className="text-sm font-semibold text-fg-primary">{quote.volume.toLocaleString('en-US')}</p>
-            </div>
-            {/* Mini volume bar visual */}
-            <div className="flex items-end gap-0.5 h-6">
-              {[40, 65, 45, 80, 55, 90, 70].map((h, i) => (
-                <motion.div key={i} className="w-1 rounded-sm bg-[#007AFF]/50"
-                  style={{ height: `${h * 0.24}px` }}
-                  initial={{ scaleY: 0 }} animate={{ scaleY: 1 }}
-                  transition={{ delay: i * 0.04, duration: 0.3 }} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Related SEC Sources ── */}
-        {relatedCitations && relatedCitations.length > 0 && (
-          <div>
-            <p className="text-[10px] font-mono text-fg-muted uppercase tracking-wider mb-2 flex items-center gap-1">
-              <FileText className="w-3 h-3" /> Recent SEC Sources
-            </p>
-            <div className="space-y-1.5">
-              {relatedCitations.slice(0, 4).map((c) => (
-                <button key={c.id} onClick={() => onCitationClick?.(c)}
-                  className="w-full flex items-center gap-2 p-2 rounded-lg border border-[rgba(0,122,255,0.15)] bg-[rgba(0,122,255,0.04)] hover:bg-[rgba(0,122,255,0.1)] hover:border-[rgba(0,122,255,0.35)] transition-all text-left group"
-                >
-                  <span className="shrink-0 w-4 h-4 rounded bg-[#007AFF]/25 text-[#007AFF] flex items-center justify-center font-bold text-[9px]">{c.n}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-semibold text-fg-secondary truncate">{c.filing_type} {c.fiscal_year} · {c.section}</p>
-                    <p className="text-[9px] text-fg-muted">Filed {c.filed_date}</p>
-                  </div>
-                  <ExternalLink className="w-2.5 h-2.5 text-fg-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <p className="text-[9px] text-fg-muted text-center pb-1">Live data · May be delayed · Not financial advice</p>
-      </div>
-    </div>
-  )
-}
-
-// ─── Welcome Screen ──────────────────────────────────────────────────────────
-
-/** Wide + short viewports (e.g. Copilot panel beside sidebar): brand left, prompts 3×2 right */
-const welcomeWideShort =
-  '[@media(min-width:720px)_and_(max-height:680px)]:grid [@media(min-width:720px)_and_(max-height:680px)]:w-full [@media(min-width:720px)_and_(max-height:680px)]:max-w-5xl [@media(min-width:720px)_and_(max-height:680px)]:grid-cols-[minmax(200px,32%)_minmax(0,1fr)] [@media(min-width:720px)_and_(max-height:680px)]:items-center [@media(min-width:720px)_and_(max-height:680px)]:gap-x-8 [@media(min-width:720px)_and_(max-height:680px)]:gap-y-4 [@media(min-width:720px)_and_(max-height:680px)]:px-4'
-
-const welcomeIntroWideShort =
-  '[@media(min-width:720px)_and_(max-height:680px)]:items-start [@media(min-width:720px)_and_(max-height:680px)]:text-left [@media(min-width:720px)_and_(max-height:680px)]:self-center'
-
-const welcomePromptsWideShort =
-  '[@media(min-width:720px)_and_(max-height:680px)]:max-w-none [@media(min-width:720px)_and_(max-height:680px)]:min-h-0'
-
-const welcomePromptGridWideShort =
-  '[@media(min-width:720px)_and_(max-height:680px)]:grid-cols-3 [@media(min-width:720px)_and_(max-height:680px)]:auto-rows-fr [@media(min-width:720px)_and_(max-height:680px)]:gap-2'
-
-function WelcomeScreen({ onPrompt }: { onPrompt: (p: string) => void }) {
-  const iconMap = {
-    chart: TrendingUp,
-    compare: BarChart3,
-    sectors: PieChart,
-    movers: Zap,
-    macro: Globe,
-    risk: Shield,
-  }
-
-  return (
-    <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-1 sm:px-2">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-        <div className="absolute -top-16 left-1/2 h-[min(48vh,12rem)] w-[min(36rem,92%)] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(0,122,255,0.22),transparent_70%)] blur-[64px] [@media(max-height:520px)]:h-32" />
-        <div className="absolute bottom-0 right-0 h-40 w-40 translate-x-1/3 translate-y-1/3 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.12),transparent_65%)] blur-[72px] [@media(max-height:520px)]:h-28 [@media(max-height:520px)]:w-28" />
-      </div>
-
-      <div
-        className={cn(
-          'relative mx-auto grid min-h-0 w-full max-w-2xl flex-1 content-center justify-items-center gap-3 py-1 [@media(max-height:520px)]:gap-2 [@media(max-height:520px)]:py-0',
-          'grid-cols-1',
-          welcomeWideShort
-        )}
-      >
-        <div
-          className={cn(
-            'flex w-full max-w-md flex-col items-center text-center [@media(max-height:520px)]:max-w-lg',
-            welcomeIntroWideShort
-          )}
-        >
-          <div
-            className={cn(
-              'mb-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-line-subtle px-3 py-1 text-[10px] font-semibold text-fg-primary sm:mb-2 sm:gap-2 sm:px-4 sm:py-1.5 sm:text-[11px] [@media(max-height:520px)]:mb-1 [@media(max-height:520px)]:py-0.5',
-              'bg-white/[0.10] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md'
-            )}
-          >
-            <Sparkles className="h-3 w-3 shrink-0 text-cyan-300 sm:h-3.5 sm:w-3.5" />
-            <span className="truncate">RAG · Quant models · Live data</span>
-          </div>
-
-          <div
-            className={cn(
-              'mb-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl sm:mb-2 sm:h-14 sm:w-14 [@media(max-height:520px)]:mb-1 [@media(max-height:520px)]:h-9 [@media(max-height:520px)]:w-9',
-              'border border-[#007AFF]/35 bg-gradient-to-br from-[#007AFF]/25 via-cyan-500/10 to-transparent',
-              'shadow-[0_0_32px_rgba(0,122,255,0.18),inset_0_1px_0_rgba(255,255,255,0.1)]'
-            )}
-          >
-            <Brain className="h-6 w-6 text-white sm:h-7 sm:w-7 [@media(max-height:520px)]:h-5 [@media(max-height:520px)]:w-5" />
-          </div>
-
-          <h2 className="mb-1 font-display text-[clamp(1.05rem,1.2vw+0.7rem,2.35rem)] font-bold leading-tight tracking-tight text-white sm:mb-1.5 [@media(max-height:520px)]:text-[clamp(1rem,1.1vw+0.55rem,1.65rem)]">
-            QuantTrade AI{' '}
-            <span className="bg-gradient-to-b from-[#6eb6ff] via-[#007AFF] to-cyan-300 bg-clip-text text-transparent">
-              Copilot
-            </span>
-          </h2>
-          <p className="mb-2 max-w-md px-1 text-[clamp(0.65rem,0.55vw+0.5rem,0.875rem)] leading-snug text-fg-muted sm:mb-3 sm:max-w-lg sm:leading-relaxed [@media(max-height:520px)]:mb-1.5 [@media(max-height:520px)]:line-clamp-2">
-            Institutional-grade analysis: quant models, RAG retrieval, and live market data.
-          </p>
-
-          <div className="mb-0 flex max-w-full flex-wrap items-center justify-center gap-1.5 sm:gap-2 [@media(max-height:520px)]:gap-1">
-            {['RAG', 'Quant', 'Confidence', 'Live'].map((tag) => (
-              <span
-                key={tag}
-                className={cn(
-                  'rounded-md border border-cyan-500/20 bg-cyan-500/[0.07] px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-cyan-200/90 sm:rounded-lg sm:px-2.5 sm:py-1 sm:text-[9px]',
-                  'backdrop-blur-sm [@media(max-height:520px)]:px-1.5 [@media(max-height:520px)]:text-[7px]'
-                )}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            'w-full max-w-xl min-h-0 [@media(max-height:520px)]:max-w-2xl',
-            welcomePromptsWideShort
-          )}
-        >
-          <div
-            className={cn(
-              'grid min-h-0 w-full grid-cols-2 gap-1.5 sm:gap-2.5 md:gap-3',
-              welcomePromptGridWideShort
-            )}
-          >
-            {COPILOT_QUICK_PROMPTS.map((qp) => {
-              const Icon = iconMap[qp.icon] || Sparkles
-              return (
-                <button
-                  key={qp.label}
-                  type="button"
-                  onClick={() => onPrompt(qp.prompt)}
-                  className={cn(
-                    'group flex min-h-0 items-start gap-1.5 rounded-xl border p-2 text-left transition-all duration-300 sm:gap-2.5 sm:rounded-2xl sm:p-3 md:p-3.5',
-                    '[@media(min-width:720px)_and_(max-height:680px)]:flex-col [@media(min-width:720px)_and_(max-height:680px)]:items-stretch [@media(min-width:720px)_and_(max-height:680px)]:gap-1.5 [@media(min-width:720px)_and_(max-height:680px)]:p-2',
-                    '[@media(max-height:520px)]:gap-1 [@media(max-height:520px)]:p-1.5 [@media(max-height:520px)]:rounded-lg',
-                    'border-line-subtle bg-surface-glass backdrop-blur-md',
-                    'hover:border-[#007AFF]/35 hover:bg-[rgba(0,122,255,0.08)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.3)]',
-                    'active:scale-[0.99]'
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line-subtle sm:h-9 sm:w-9 sm:rounded-xl',
-                      '[@media(min-width:720px)_and_(max-height:680px)]:h-8 [@media(min-width:720px)_and_(max-height:680px)]:w-8',
-                      'bg-gradient-to-br from-[#007AFF]/20 to-transparent group-hover:from-[#007AFF]/35'
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5 text-[#5eb0ff] transition-colors group-hover:text-cyan-200 sm:h-4 sm:w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1 text-left">
-                    <div
-                      className={cn(
-                        'text-[11px] font-semibold leading-tight text-white transition-colors group-hover:text-cyan-100 sm:text-sm sm:leading-snug',
-                        '[@media(min-width:720px)_and_(max-height:680px)]:text-[11px]',
-                        '[@media(max-height:520px)]:text-[10px]'
-                      )}
-                    >
-                      {qp.label}
-                    </div>
-                    <div
-                      className={cn(
-                        'mt-0.5 line-clamp-2 text-[9px] leading-tight text-fg-muted sm:mt-1 sm:text-[10px] sm:leading-snug',
-                        '[@media(min-width:720px)_and_(max-height:680px)]:line-clamp-2 [@media(min-width:720px)_and_(max-height:680px)]:text-[9px]',
-                        '[@media(max-height:520px)]:line-clamp-1 [@media(max-height:520px)]:text-[8px]'
-                      )}
-                    >
-                      {qp.prompt}
-                    </div>
-                  </div>
-                  <ChevronRight className="mt-0.5 hidden h-3.5 w-3.5 shrink-0 text-fg-muted opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100 sm:mt-0.5 sm:block sm:h-4 sm:w-4 [@media(min-width:720px)_and_(max-height:680px)]:hidden" />
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Live Quote Strip ─────────────────────────────────────────────────────────
-
-function LiveQuoteStrip() {
-  const { data } = useQuery({
-    queryKey: ['copilot-header-quote', 'SPY'],
-    queryFn: () => fetchFinnhubQuote('SPY', 'normal'),
-    staleTime: 12_000,
-    refetchInterval: 60_000,
-  })
-
-  const price = data?.price ?? 0
-  const pct = data?.change_percent ?? 0
-  const up = pct >= 0
-  const ok = price > 0
-
-  return (
-    <div className="hidden sm:flex items-center gap-2 rounded-xl border border-line-subtle bg-surface-glass px-2.5 py-1 text-[10px] font-mono text-fg-primary shadow-theme-sm backdrop-blur-md">
-      <BarChart3 className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
-      <span className="font-bold text-fg-primary tracking-tight">SPY</span>
-      {ok ? (
-        <>
-          <span className="text-fg-primary tabular-nums">${price.toFixed(2)}</span>
-          <span className={up ? 'text-emerald-400' : 'text-red-400'}>
-            {up ? '+' : ''}
-            {pct.toFixed(2)}%
-          </span>
-        </>
-      ) : (
-        <span className="text-fg-muted">--</span>
-      )}
-    </div>
-  )
-}
-
-// ─── Model Indicator Badge ───────────────────────────────────────────────────
-
-function ModelIndicator({ model, isStreaming }: { model: string; isStreaming: boolean }) {
-  // Map internal model IDs to professional tier labels (no vendor names)
-  const getModelInfo = (m: string): { name: string; color: string } => {
-    if (m.includes('sonnet') || m.includes('4o') && !m.includes('mini') || m.includes('4.1'))
-      return { name: 'Advanced AI', color: 'text-[#5eb0ff] border-[#007AFF]/30 bg-[#007AFF]/10' }
-    if (m.includes('haiku') || m.includes('mini') || m.includes('8b') || m.includes('7b'))
-      return { name: 'Fast AI', color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10' }
-    if (m.includes('groq') || m.includes('llama') || m.includes('70b'))
-      return { name: 'High-Speed AI', color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' }
-    if (m === 'rate_limited')
-      return { name: 'Rate Limited', color: 'text-red-400 border-red-500/30 bg-red-500/10' }
-    return { name: 'Advanced AI', color: 'text-[#5eb0ff] border-[#007AFF]/30 bg-[#007AFF]/10' }
-  }
-
-  const info = getModelInfo(model)
-
-  return (
-    <div
-      className={cn(
-        'hidden sm:flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px] font-mono backdrop-blur-md',
-        'shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]',
-        info.color
-      )}
-    >
-      <Cpu className={cn('h-3 w-3', isStreaming && 'animate-pulse')} />
-      <span className="font-semibold">{info.name}</span>
-      {isStreaming && (
-        <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-      )}
-    </div>
-  )
-}
-
-// ─── Usage Badge ──────────────────────────────────────────────────────────────
-
-function UsageBadge() {
-  const [open, setOpen] = useState(false)
-  const [popoverBox, setPopoverBox] = useState<{ top: number; left: number; width: number } | null>(null)
-  const wrapRef = useRef<HTMLDivElement>(null)
-  const anchorRef = useRef<HTMLButtonElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const { data } = useQuery({
-    queryKey: ['copilot-usage'],
-    queryFn: getCopilotUsage,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-  })
-
-  const hoverDesktop = useCallback(() => {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia('(hover: hover) and (pointer: fine)').matches
-  }, [])
-
-  const clearLeaveTimer = useCallback(() => {
-    if (leaveTimer.current) clearTimeout(leaveTimer.current)
-    leaveTimer.current = null
-  }, [])
-
-  const repositionPopover = useCallback(() => {
-    const el = anchorRef.current
-    if (!el || !open) return
-    const r = el.getBoundingClientRect()
-    const width = Math.min(288, window.innerWidth - 16)
-    const left = Math.max(8, r.right - width)
-    const top = r.bottom + 4
-    setPopoverBox({ top, left, width })
-  }, [open])
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setPopoverBox(null)
-      return
-    }
-    repositionPopover()
-    window.addEventListener('resize', repositionPopover)
-    window.addEventListener('scroll', repositionPopover, true)
-    return () => {
-      window.removeEventListener('resize', repositionPopover)
-      window.removeEventListener('scroll', repositionPopover, true)
-    }
-  }, [open, repositionPopover])
-
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => {
-      const t = e.target as Node
-      if (wrapRef.current?.contains(t) || panelRef.current?.contains(t)) return
-      setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
-  const onZoneEnter = useCallback(() => {
-    if (!hoverDesktop()) return
-    clearLeaveTimer()
-    setOpen(true)
-  }, [hoverDesktop, clearLeaveTimer])
-
-  const onZoneLeave = useCallback(() => {
-    if (!hoverDesktop()) return
-    clearLeaveTimer()
-    leaveTimer.current = setTimeout(() => setOpen(false), 220)
-  }, [hoverDesktop, clearLeaveTimer])
-
-  const onPanelEnter = useCallback(() => {
-    clearLeaveTimer()
-  }, [clearLeaveTimer])
-
-  const onPanelLeave = useCallback(() => {
-    if (!hoverDesktop()) return
-    clearLeaveTimer()
-    leaveTimer.current = setTimeout(() => setOpen(false), 220)
-  }, [hoverDesktop, clearLeaveTimer])
-
-  if (!data) return null
-
-  const pctUsed =
-    data.free_limit > 0 ? Math.min(100, (data.today_requests / data.free_limit) * 100) : 0
-  const pctRemaining =
-    data.free_limit > 0 ? Math.min(100, (data.free_remaining / data.free_limit) * 100) : 100
-  const barColor =
-    pctUsed >= 100 ? 'bg-red-500' : pctUsed >= 60 ? 'bg-amber-500' : 'bg-emerald-500'
-
-  const DetailPanel = ({ className }: { className?: string }) => (
-    <div
-      className={`rounded-lg border border-line-subtle/80 bg-surface-base p-3 text-left shadow-xl shadow-black/40 ${className ?? ''}`}
-    >
-      <div className="mb-2 flex items-center gap-2 border-b border-line-subtle/80 pb-2">
-        <Gauge className="h-4 w-4 shrink-0 text-cyan-400" />
-        <span className="text-xs font-bold text-fg-primary">API usage</span>
-        {data.is_pro ? (
-          <span className="ml-auto rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400">
-            PRO
-          </span>
-        ) : (
-          <span className="ml-auto rounded bg-surface-raised/50 px-1.5 py-0.5 text-[9px] font-mono text-fg-muted">
-            Free
-          </span>
-        )}
-      </div>
-      <div className="space-y-2.5 text-[11px] text-fg-primary">
-        {data.paused && (
-          <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-300">
-            {data.paused_message || 'AI features are paused for today (budget reached).'}
-          </p>
-        )}
-        <div>
-          <div className="mb-1 flex justify-between font-mono text-[10px] text-fg-muted">
-            <span>Daily requests</span>
-            <span className="text-fg-primary">
-              {data.today_requests}
-              {data.free_limit > 0 ? ` / ${data.free_limit}` : ''}
-            </span>
-          </div>
-          {data.free_limit > 0 && (
-            <div className="h-2 w-full overflow-hidden rounded-full bg-surface-raised">
-              <div
-                className={`h-full rounded-full transition-all ${barColor}`}
-                style={{ width: `${pctUsed}%` }}
-              />
-            </div>
-          )}
-          {data.free_limit > 0 && (
-            <p className="mt-1 font-mono text-[10px] text-fg-muted">
-              {data.free_remaining} remaining ({pctRemaining.toFixed(0)}% of today&apos;s quota)
-            </p>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-2 font-mono text-[10px] text-fg-muted">
-          <div>
-            <div className="text-fg-muted">Input tokens</div>
-            <div className="text-fg-primary">{formatLargeNumber(data.today_input_tokens)}</div>
-          </div>
-          <div>
-            <div className="text-fg-muted">Output tokens</div>
-            <div className="text-fg-primary">{formatLargeNumber(data.today_output_tokens)}</div>
-          </div>
-        </div>
-        <div className="border-t border-line-subtle/80 pt-2 font-mono text-[10px] text-fg-muted">
-          <div className="flex justify-between">
-            <span>Est. cost today</span>
-            <span className="text-fg-primary">${data.today_cost_usd.toFixed(4)}</span>
-          </div>
-          <div className="mt-1 flex justify-between">
-            <span>Budget left</span>
-            <span className={data.budget_ok ? 'text-emerald-400' : 'text-amber-400'}>
-              ${data.budget_remaining_usd.toFixed(2)} / ${data.daily_budget_usd.toFixed(2)}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-
-  const popover =
-    open &&
-    popoverBox &&
-    typeof document !== 'undefined' &&
-    createPortal(
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-label="Copilot API usage"
-        className="fixed z-[600] -mt-2 min-h-0 pt-2 outline-none"
-        style={{
-          top: popoverBox.top,
-          left: popoverBox.left,
-          width: popoverBox.width,
-        }}
-        onMouseEnter={onPanelEnter}
-        onMouseLeave={onPanelLeave}
-      >
-        <DetailPanel />
-      </div>,
-      document.body
-    )
-
-  return (
-    <>
-      <div
-        ref={wrapRef}
-        className="relative shrink-0"
-        onMouseEnter={onZoneEnter}
-        onMouseLeave={onZoneLeave}
-      >
-        <button
-          ref={anchorRef}
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className={
-            data.is_pro
-              ? 'flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-mono text-emerald-400 transition-colors hover:bg-emerald-500/15'
-              : 'flex items-center gap-1.5 rounded-lg border border-line-subtle/40 bg-surface-raised/30 px-2 py-1 text-[10px] font-mono text-fg-muted transition-colors hover:border-slate-600 hover:bg-surface-raised/50'
-          }
-          aria-expanded={open}
-          aria-haspopup="dialog"
-        >
-          {data.paused ? (
-            <>
-              <span className="font-bold text-amber-400">AI paused</span>
-              <ChevronDown className={`h-3 w-3 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
-            </>
-          ) : data.is_pro ? (
-            <>
-              <span className="font-bold">PRO</span>
-              <span className="text-emerald-300/80">{data.free_remaining} left</span>
-              <ChevronDown className={`h-3 w-3 opacity-70 transition-transform ${open ? 'rotate-180' : ''}`} />
-            </>
-          ) : (
-            <>
-              <div className="h-1.5 w-10 overflow-hidden rounded-full bg-surface-raised">
-                <div
-                  className={`h-full rounded-full ${barColor} transition-all`}
-                  style={{ width: `${pctUsed}%` }}
-                />
-              </div>
-              <span>
-                {data.free_remaining}/{data.free_limit}
-              </span>
-              <ChevronDown className={`h-3 w-3 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
-            </>
-          )}
-        </button>
-      </div>
-      {popover}
-    </>
-  )
-}
-
-// ─── Pipeline Status Bar ──────────────────────────────────────────────────────
-
-function PipelineStatus({
-  stage,
-  intent,
-  symbol,
-}: {
-  stage: 'idle' | 'intent' | 'data' | 'streaming' | 'done'
-  intent?: CopilotIntent
-  symbol?: string | null
-}) {
-  if (stage === 'idle' || stage === 'done') return null
-
-  const stages = [
-    { key: 'intent', label: 'Intent Detection', icon: Target },
-    { key: 'data', label: 'RAG + Quant Models', icon: Brain },
-    { key: 'streaming', label: 'AI Generation', icon: Sparkles },
-  ]
-
-  const currentIdx = stages.findIndex((s) => s.key === stage)
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: 'auto' }}
-      exit={{ opacity: 0, height: 0 }}
-      className="mx-5 mb-2"
-    >
-      <div className="flex items-center gap-2 rounded-xl border border-[#007AFF]/20 bg-[rgba(0,122,255,0.06)] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md">
-        <div className="flex items-center gap-1">
-          {stages.map((s, i) => {
-            const Icon = s.icon
-            const active = i === currentIdx
-            const done = i < currentIdx
-            return (
-              <div key={s.key} className="flex items-center gap-1">
-                <div
-                  className={`w-5 h-5 rounded-md flex items-center justify-center ${
-                    active
-                      ? 'bg-[#007AFF] text-white'
-                      : done
-                      ? 'bg-emerald-500/20 text-emerald-400'
-                      : 'bg-surface-raised text-fg-muted'
-                  }`}
-                >
-                  {done ? (
-                    <Check className="w-3 h-3" />
-                  ) : (
-                    <Icon className={`w-3 h-3 ${active ? 'animate-pulse' : ''}`} />
-                  )}
-                </div>
-                {i < stages.length - 1 && (
-                  <ChevronRight className="w-3 h-3 text-fg-muted mx-0.5" />
-                )}
-              </div>
-            )
-          })}
-        </div>
-        <div className="ml-2 flex-1 min-w-0">
-          <span className="text-[10px] text-[#007AFF] font-medium">
-            {stages[currentIdx]?.label ?? 'Processing'}
-          </span>
-          {symbol && (
-            <span className="text-[10px] text-fg-muted ml-1.5">
-              {intent === 'stock_analysis' ? `Analyzing ${symbol}` : ''}
-            </span>
-          )}
-        </div>
-        <RefreshCw className="w-3 h-3 text-[#007AFF] animate-spin shrink-0" />
-      </div>
-    </motion.div>
-  )
-}
-
-// ─── Conversation History Sidebar ────────────────────────────────────────────
-
-function ConversationSidebar({
-  conversations,
-  activeId,
-  onSelect,
-  onDelete,
-  onNewChat,
-  isLoading,
-  onClose,
-}: {
-  conversations: ConversationSummary[]
-  activeId: string | null
-  onSelect: (id: string) => void
-  onDelete: (id: string) => void
-  onNewChat: () => void
-  isLoading: boolean
-  onClose: () => void
-}) {
-  const buildConversationSummary = (conv: ConversationSummary) => {
-    const primary = (conv.title || conv.last_message || 'New conversation').trim()
-    if (primary.length <= 140) return primary
-    return `${primary.slice(0, 137)}...`
-  }
-
-  const buildConversationPreview = (conv: ConversationSummary) => {
-    const preview = (conv.last_message || '').trim()
-    if (!preview) return 'No assistant response captured yet.'
-    if (preview.length <= 96) return preview
-    return `${preview.slice(0, 93)}...`
-  }
-
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return 'just now'
-    if (mins < 60) return `${mins}m ago`
-    const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `${hrs}h ago`
-    const days = Math.floor(hrs / 24)
-    if (days < 7) return `${days}d ago`
-    return new Date(dateStr).toLocaleDateString()
-  }
-
-  const HistoryListSkeleton = () => (
-    <div className="py-2 px-2 space-y-2">
-      {Array.from({ length: 7 }).map((_, idx) => (
-        <div
-          key={idx}
-          className="rounded-xl border border-line-subtle/90 bg-gradient-to-r from-[#0a0f1d] to-[#0d1220] p-3 animate-pulse"
-        >
-          <div className="h-3 w-3/4 rounded bg-surface-raised/60" />
-          <div className="mt-2 h-2.5 w-full rounded bg-surface-raised/80" />
-          <div className="mt-1.5 h-2.5 w-2/3 rounded bg-surface-raised/70" />
-          <div className="mt-2.5 flex items-center gap-2">
-            <div className="h-2.5 w-16 rounded bg-surface-raised/70" />
-            <div className="h-2.5 w-10 rounded bg-surface-raised/70" />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-
-  return (
-    <div className="flex flex-col h-full bg-surface-base border-r border-line-subtle">
-      {/* Sidebar Header */}
-      <div className="flex items-center justify-between px-3 py-3 border-b border-line-subtle shrink-0 bg-gradient-to-r from-[#0b1220] via-[#0a101b] to-[#080c14]">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#007AFF]/35 bg-[#007AFF]/10 shadow-[0_0_16px_rgba(0,122,255,0.15)]">
-            <History className="w-4 h-4 text-[#52a8ff]" />
-          </span>
-          <div className="leading-tight">
-            <span className="text-xs font-bold text-fg-primary">History</span>
-            <p className="text-[10px] text-fg-muted">Session memory and analytics trail</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={onNewChat}
-            className="p-1.5 rounded-lg text-[#007AFF] hover:bg-[#007AFF]/10 transition-colors"
-            title="New Chat"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-fg-muted hover:bg-surface-raised/60 transition-colors lg:hidden"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Conversations List */}
-      <div className="flex-1 overflow-y-auto">
-        {isLoading ? (
-          <HistoryListSkeleton />
-        ) : conversations.length === 0 ? (
-          <div className="text-center py-8 px-4">
-            <MessageSquare className="w-8 h-8 text-fg-muted mx-auto mb-2" />
-            <p className="text-xs text-fg-muted">No conversations yet</p>
-            <p className="text-[10px] text-fg-muted mt-1">Start a new chat to begin</p>
-          </div>
-        ) : (
-          <div className="py-2 px-2">
-            {conversations.map((conv) => (
-              <div
-                key={conv.id}
-                className={`group relative px-3 py-3 rounded-xl cursor-pointer transition-all border backdrop-blur-sm ${
-                  activeId === conv.id
-                    ? 'bg-gradient-to-r from-[#007AFF]/14 to-cyan-500/8 border-[#007AFF]/45 shadow-[0_8px_24px_rgba(0,122,255,0.12)]'
-                    : 'bg-gradient-to-r from-[#0b101b] to-[#0a0e18] border-line-subtle/80 hover:border-line-subtle/70 hover:from-[#0d1422] hover:to-[#0c1220]'
-                }`}
-                onClick={() => onSelect(conv.id)}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-semibold text-white leading-snug line-clamp-2">
-                      {buildConversationSummary(conv)}
-                    </p>
-                    <p className="text-[10px] text-fg-muted line-clamp-2 mt-1">
-                      {buildConversationPreview(conv)}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[9px] text-fg-muted flex items-center gap-1">
-                        <Clock className="w-2.5 h-2.5" />
-                        {timeAgo(conv.updated_at)}
-                      </span>
-                      <span className="text-[9px] text-fg-muted">
-                        {conv.message_count} msgs
-                      </span>
-                      <span className="text-[9px] text-cyan-400/90 ml-auto rounded-md border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-0.5">
-                        Analysis
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onDelete(conv.id)
-                    }}
-                    className="p-1 rounded text-fg-muted hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all shrink-0"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // ─── Main Copilot ─────────────────────────────────────────────────────────────
+
+type Stage = 'idle' | 'intent' | 'data' | 'streaming'
+
+interface Msg extends CopilotMessageView {
+  /** For assistant messages: the question it answers (regenerate, tone). */
+  question?: string
+  noticeAt?: number
+}
+
+const HISTORY_OPEN_KEY = 'qt.copilot.history-open'
+const SESSION_KEY = 'qt_copilot_session'
+
+function statusFor(stage: Stage, symbol: string | null): string {
+  if (stage === 'data' || (stage === 'intent' && symbol)) {
+    return symbol ? `Reading ${symbol}'s quote, filings and news` : 'Gathering market data'
+  }
+  if (stage === 'streaming') return 'Writing the answer'
+  return 'Understanding your question'
+}
+
+function useNow(fast: boolean): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), fast ? 1000 : 30_000)
+    return () => clearInterval(id)
+  }, [fast])
+  return now
+}
 
 function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
   const router = useRouter()
-  // Research -> Copilot handoff: /copilot?symbol=NVDA[&q=...]. The pinned symbol
-  // is sent with every message (the backend treats it as the primary ticker).
+  const queryClient = useQueryClient()
+  const reduceMotion = useReducedMotion()
+  const isMobile = variant === 'mobile'
+
+  const rootRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const autoAskedRef = useRef(false)
+
   const [pinnedSymbol, setPinnedSymbol] = useState<string | null>(null)
   const [tickerContext, setTickerContext] = useState<TickerContext | null>(null)
   const [contextLoading, setContextLoading] = useState(false)
-  const autoAskedRef = useRef(false)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [contextExpanded, setContextExpanded] = useState(false)
+  const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
-  const [pipelineStage, setPipelineStage] = useState<'idle' | 'intent' | 'data' | 'streaming' | 'done'>('idle')
-  const [currentIntent, setCurrentIntent] = useState<CopilotIntent | undefined>()
+  const [stage, setStage] = useState<Stage>('idle')
   const [currentSymbol, setCurrentSymbol] = useState<string | null>(null)
   const [analysisData, setAnalysisData] = useState<StockAnalysisData | null>(null)
   const [showDashboard, setShowDashboard] = useState(false)
   const [activeCitation, setActiveCitation] = useState<CitationData | null>(null)
-  const [quickQuote, setQuickQuote] = useState<QuoteData | null>(null)
-  const [stockFundamentals, setStockFundamentals] = useState<FundamentalsData | null>(null)
-  const [stockIndicators, setStockIndicators] = useState<Indicators | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
-  const [activeModel, setActiveModel] = useState<string>('claude-sonnet-4-6')
-  const abortRef = useRef<AbortController | null>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const [recent, setRecent] = useState<string[]>([])
+  const [liveStatus, setLiveStatus] = useState('')
 
-  const SESSION_KEY = 'qt_copilot_session'
+  const hasPerMinuteNotice = messages.some((m) => m.notice?.kind === 'per_minute')
+  const now = useNow(hasPerMinuteNotice)
 
-  // Keep a ref to current state values for the unmount cleanup
+  /** Both layouts are mounted; only the visible one may react to global keys / auto-ask. */
+  const isVisible = useCallback(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(min-width: 768px)').matches === (variant === 'desktop')
+  }, [variant])
+
+  // ── Restore the open conversation after navigating away and back ──
   const sessionSaveRef = useRef({ messages, activeConversationId, input })
   useEffect(() => {
     sessionSaveRef.current = { messages, activeConversationId, input }
   }, [messages, activeConversationId, input])
 
-  // Restore conversation from sessionStorage on mount (after navigating back)
   useEffect(() => {
-    const raw = sessionStorage.getItem(SESSION_KEY)
-    if (!raw) return
-    sessionStorage.removeItem(SESSION_KEY) // consume so refresh starts fresh
+    setRecent(readRecentTickers())
     try {
-      const saved = JSON.parse(raw) as {
-        messages?: Message[]
-        conversationId?: string | null
-        input?: string
-      }
+      const saved = window.localStorage.getItem(HISTORY_OPEN_KEY)
+      // Desktop: history open by default on wide screens; mobile: always closed.
+      if (variant === 'desktop') setShowHistory(saved ? saved === '1' : window.innerWidth >= 1280)
+    } catch {
+      /* storage blocked */
+    }
+    let raw: string | null = null
+    try {
+      raw = sessionStorage.getItem(SESSION_KEY)
+    } catch {
+      raw = null
+    }
+    if (!raw || !isVisible()) return
+    try {
+      sessionStorage.removeItem(SESSION_KEY)
+      const saved = JSON.parse(raw) as { messages?: Msg[]; conversationId?: string | null; input?: string }
       if (saved.messages?.length) {
-        setMessages(
-          saved.messages.map((m) => ({
-            ...m,
-            timestamp: new Date(m.timestamp),
-            streaming: false, // never restore mid-stream
-          }))
-        )
+        setMessages(saved.messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp), streaming: false })))
       }
       if (saved.conversationId) setActiveConversationId(saved.conversationId)
       if (saved.input) setInput(saved.input)
     } catch {
-      // corrupted session — ignore
+      /* corrupted session */
     }
-  }, []) // empty deps: mount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  // Save conversation to sessionStorage on unmount (navigation away)
   useEffect(() => {
     return () => {
+      if (!isVisible()) return
       const { messages: m, activeConversationId: cid, input: inp } = sessionSaveRef.current
-      if (!m.length && !cid) return // nothing to save
+      if (!m.length && !cid && !inp) return
       try {
-        sessionStorage.setItem(
-          SESSION_KEY,
-          JSON.stringify({
-            messages: m.filter((msg) => !msg.streaming), // never persist mid-stream messages
-            conversationId: cid,
-            input: inp,
-          })
-        )
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify({ messages: m.filter((x) => !x.streaming), conversationId: cid, input: inp }))
       } catch {
-        // sessionStorage full or unavailable — ignore
+        /* storage full */
       }
     }
-  }, []) // empty deps: cleanup runs only on unmount
+  }, [isVisible])
 
-  const queryClient = useQueryClient()
+  const toggleHistory = (open?: boolean) => {
+    setShowHistory((prev) => {
+      const next = open ?? !prev
+      if (variant === 'desktop') {
+        try {
+          window.localStorage.setItem(HISTORY_OPEN_KEY, next ? '1' : '0')
+        } catch {
+          /* storage blocked */
+        }
+      }
+      return next
+    })
+  }
 
-  // Build analysisData from separately-fetched market data so the "AAPL Data"
-  // header button appears and the AnalysisDashboard can be opened on demand.
-  useEffect(() => {
-    if (!quickQuote || !currentSymbol) return
-    const sd: StockAnalysisData = {
-      symbol: quickQuote.symbol,
-      quote: {
-        price: quickQuote.price,
-        change: quickQuote.change,
-        change_percent: quickQuote.change_percent,
-        volume: quickQuote.volume,
-        high: quickQuote.high,
-        low: quickQuote.low,
-        open: quickQuote.open,
-        previous_close: quickQuote.previous_close,
-        data_source: quickQuote.data_source,
-      },
-      company: stockFundamentals
-        ? {
-            name: stockFundamentals.company_name,
-            sector: stockFundamentals.sector || undefined,
-            industry: stockFundamentals.industry,
-          }
-        : undefined,
-      fundamentals: stockFundamentals
-        ? {
-            pe_ratio: stockFundamentals.pe_ratio,
-            forward_pe: stockFundamentals.forward_pe,
-            peg_ratio: stockFundamentals.peg_ratio,
-            price_to_book: stockFundamentals.price_to_book,
-            eps: stockFundamentals.eps,
-            market_cap: stockFundamentals.market_cap,
-            beta: stockFundamentals.beta,
-            rsi: stockFundamentals.rsi,
-            week_52_high: stockFundamentals.week_52_high,
-            week_52_low: stockFundamentals.week_52_low,
-            profit_margin: stockFundamentals.profit_margin,
-            operating_margin: stockFundamentals.operating_margin,
-            roe: stockFundamentals.roe,
-            roa: stockFundamentals.roa,
-            debt_to_equity: stockFundamentals.debt_to_equity,
-            current_ratio: stockFundamentals.current_ratio,
-            target_price: stockFundamentals.target_price,
-            recommendation: stockFundamentals.recommendation,
-            earnings_date: stockFundamentals.earnings_date,
-          }
-        : undefined,
-      indicators: stockIndicators?.indicators
-        ? {
-            rsi: stockIndicators.indicators.rsi,
-            sma_50: stockIndicators.indicators.sma_50,
-            sma_200: stockIndicators.indicators.sma_200,
-            current_price: quickQuote.price,
-            macd: stockIndicators.indicators.macd
-              ? {
-                  macd:      stockIndicators.indicators.macd.macd      ?? undefined,
-                  signal:    stockIndicators.indicators.macd.signal    ?? undefined,
-                  histogram: stockIndicators.indicators.macd.histogram ?? undefined,
-                }
-              : undefined,
-          }
-        : undefined,
-    }
-    setAnalysisData(sd)
-    // Don't auto-show dashboard — user clicks the header "AAPL Data" button
-  }, [quickQuote, stockFundamentals, stockIndicators, currentSymbol])
+  // ── Usage: the binding limit of requests vs token budget ──
+  const meQuery = useQuery({ queryKey: ['me-ai-usage'], queryFn: getMyAiUsage, staleTime: 30_000, refetchInterval: 60_000 })
+  const legacyQuery = useQuery({ queryKey: ['copilot-usage'], queryFn: getCopilotUsage, staleTime: 30_000, refetchInterval: 60_000 })
+  const usage = useMemo(() => normalizeUsage(meQuery.data ?? null, legacyQuery.data ?? null), [meQuery.data, legacyQuery.data])
+  const meter = useMemo(() => computeUsageMeter(usage), [usage])
+  const usageFetchedAt = Math.max(meQuery.dataUpdatedAt || 0, legacyQuery.dataUpdatedAt || 0)
+  const resetsAt = usage?.resetsInSeconds != null && usageFetchedAt ? usageFetchedAt + usage.resetsInSeconds * 1000 : null
+  const resetsInSecondsNow = resetsAt != null ? Math.max(0, (resetsAt - now) / 1000) : usage?.resetsInSeconds ?? null
+  const blocked = meter.state === 'exhausted' || meter.state === 'paused'
+  const blockedReason = blocked
+    ? `${meter.state === 'paused' ? 'AI answers are paused for today' : "You've used today's AI allowance"}. It ${formatResetsIn(resetsInSecondsNow)}. You can still type and send later.`
+    : undefined
+  const refreshUsage = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['me-ai-usage'] })
+    queryClient.invalidateQueries({ queryKey: ['copilot-usage'] })
+  }, [queryClient])
 
-  const { data: copilotUsage } = useQuery({
-    queryKey: ['copilot-usage'],
-    queryFn: getCopilotUsage,
-    staleTime: 30_000,
-  })
-
-  const isAtLimit = Boolean(
-    copilotUsage &&
-      (copilotUsage.paused || (copilotUsage.free_limit > 0 && copilotUsage.free_remaining <= 0))
+  // ── Personal starter prompts ──
+  const watchlistQuery = useQuery({ queryKey: ['copilot-watchlist'], queryFn: getWatchlist, staleTime: 5 * 60_000 })
+  const portfolioList = usePortfolioList(true)
+  const firstPortfolioId = portfolioList.data?.portfolios?.find((p) => (p.holding_count ?? 0) > 0)?.id ?? null
+  const portfolioDetail = usePortfolioDetail(firstPortfolioId)
+  const holdings = useMemo(
+    () => [...(portfolioDetail.data?.holdings ?? [])].sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0)).map((h) => h.symbol),
+    [portfolioDetail.data],
   )
+  const promptGroups = useMemo(
+    () => buildStarterPrompts({
+      contextSymbol: pinnedSymbol,
+      watchlist: (watchlistQuery.data ?? []).map((w) => w.symbol),
+      holdings,
+      recent,
+      perGroup: 2,
+    }),
+    [pinnedSymbol, watchlistQuery.data, holdings, recent],
+  )
+  const personalLoading = watchlistQuery.isLoading || portfolioList.isLoading
 
-  // Fetch conversation history
+  // ── History ──
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
     queryKey: ['copilot-conversations'],
     queryFn: listConversations,
@@ -1989,40 +736,30 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
     refetchInterval: 60_000,
   })
 
-  const scrollToBottom = useCallback((force = false) => {
-    if (!force) return
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
+  const scrollToEnd = useCallback(() => {
+    requestAnimationFrame(() => {
+      const el = scrollRef.current
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior: reduceMotion ? 'auto' : 'smooth' })
+    })
+  }, [reduceMotion])
 
-  // Load conversation messages when selecting a conversation
   const loadConversation = useCallback(async (conversationId: string) => {
-    try {
-      const storedMessages = await getConversationMessages(conversationId)
-      const loadedMessages: Message[] = storedMessages.map((m) => ({
-        id: `stored-${m.id}`,
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-        timestamp: new Date(m.created_at),
-        intent: m.intent_type as CopilotIntent | undefined,
-        structuredData: m.payload_json as CopilotStructuredData | undefined,
-      }))
-      setMessages(loadedMessages)
-      setActiveConversationId(conversationId)
-      setShowHistory(false)
-
-      // If last message has structured data with a symbol, show the dashboard
-      const lastAssistant = loadedMessages.filter((m) => m.role === 'assistant').pop()
-      if (lastAssistant?.structuredData) {
-        const sd = lastAssistant.structuredData as StockAnalysisData
-        if (sd.symbol) {
-          setAnalysisData(sd)
-          setShowDashboard(true)
-        }
-      }
-    } catch {
-      // Failed to load, just continue
-    }
-  }, [])
+    const stored = await getConversationMessages(conversationId).catch(() => [])
+    const loaded: Msg[] = stored.map((m) => ({
+      id: `stored-${m.id}`,
+      role: m.role,
+      content: m.content,
+      timestamp: new Date(m.created_at),
+    }))
+    setMessages(loaded)
+    setActiveConversationId(conversationId)
+    setActiveCitation(null)
+    setShowDashboard(false)
+    if (isMobile || window.innerWidth < 1024) setShowHistory(false)
+    const lastData = [...stored].reverse().find((m) => m.payload_json && (m.payload_json as StockAnalysisData).symbol)
+    setAnalysisData(lastData ? (lastData.payload_json as StockAnalysisData) : null)
+    scrollToEnd()
+  }, [isMobile, scrollToEnd])
 
   const handleDeleteConversation = useCallback(async (id: string) => {
     await deleteConversation(id)
@@ -2035,217 +772,141 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
     }
   }, [activeConversationId, queryClient])
 
+  const patch = (id: string, fn: (m: Msg) => Msg) => setMessages((prev) => prev.map((m) => (m.id === id ? fn(m) : m)))
+
+  // ── Send ──
   const sendMessage = useCallback(
-    async (text: string, symbolOverride?: string | null) => {
-      if (!text.trim() || streaming) return
+    async (raw: string, opts?: { symbol?: string | null; replaceFrom?: string }) => {
+      const text = raw.trim()
+      if (!text || streaming) return
+      const userMsg: Msg = { id: crypto.randomUUID(), role: 'user', content: text, timestamp: new Date() }
+      const aid = crypto.randomUUID()
+      const assistant: Msg = { id: aid, role: 'assistant', content: '', streaming: true, timestamp: new Date(), question: text }
 
-      const userMsg: Message = {
-        id: crypto.randomUUID(),
-        role: 'user',
-        content: text.trim(),
-        timestamp: new Date(),
-      }
-      const assistantMsgId = crypto.randomUUID()
-      const assistantMsg: Message = {
-        id: assistantMsgId,
-        role: 'assistant',
-        content: '',
-        streaming: true,
-        timestamp: new Date(),
-      }
-
-      setMessages((prev) => [...prev, userMsg, assistantMsg])
+      setMessages((prev) => {
+        const base = opts?.replaceFrom ? prev.slice(0, Math.max(0, prev.findIndex((m) => m.id === opts.replaceFrom))) : prev
+        return [...base, userMsg, assistant]
+      })
       setInput('')
       setStreaming(true)
-      setTimeout(() => scrollToBottom(true), 80)
-      setPipelineStage('intent')
-      setAnalysisData(null)
-      setShowDashboard(false)
+      setStage('intent')
       setActiveCitation(null)
-      setQuickQuote(null)
-      setStockFundamentals(null)
-      setStockIndicators(null)
-      setCurrentIntent(undefined)
-      setCurrentSymbol(null)
-      setActiveModel('claude-sonnet-5')
+      setLiveStatus('Copilot is answering.')
+      scrollToEnd()
 
       abortRef.current = new AbortController()
-      const focus = symbolOverride ?? pinnedSymbol
+      const focus = opts?.symbol ?? pinnedSymbol
+      let failed = false
 
-      await streamCopilotAnalysis(
-        {
-          message: text.trim(),
-          symbol: focus,
-          conversation_id: activeConversationId || undefined,
-        },
-        {
-          onContext: (ctx) => {
-            const pq = packQuoteToQuoteData(ctx)
-            if (pq) setQuickQuote((prev) => (!prev || prev.symbol === pq.symbol || ctx.ticker === focus ? pq : prev))
-            // The card follows the pinned symbol; otherwise the first ticker of this answer.
-            setTickerContext((prev) => (!focus || ctx.ticker === focus || !prev ? ctx : prev))
+      try {
+        await streamCopilotAnalysis(
+          { message: text, symbol: focus, conversation_id: activeConversationId || undefined },
+          {
+            onIntent: (_intent, symbol) => {
+              setCurrentSymbol(symbol)
+              setStage('data')
+              if (symbol) {
+                rememberRecentTicker(symbol)
+              }
+            },
+            onContext: (ctx) => {
+              setTickerContext((prev) => (!focus || ctx.ticker === focus || !prev ? ctx : prev))
+            },
+            onStructuredData: (data: CopilotStructuredData) => {
+              const d = data.stocks?.[0] ?? (data as StockAnalysisData)
+              if (d.symbol) setAnalysisData(d)
+            },
+            onToolCall: () => setStage('data'),
+            onToolResult: () => setStage('streaming'),
+            onCitation: (c) => patch(aid, (m) => ({ ...m, citations: [...(m.citations ?? []).filter((x) => x.id !== c.id), c] })),
+            onNoFilings: (sym) => patch(aid, (m) => ({ ...m, noFilings: (m.noFilings ?? []).includes(sym) ? m.noFilings : [...(m.noFilings ?? []), sym] })),
+            onToken: (t) => {
+              setStage('streaming')
+              patch(aid, (m) => ({ ...m, content: m.content + t }))
+            },
+            onFinalText: (t) => patch(aid, (m) => ({ ...m, content: t })),
+            onMeta: (meta) => {
+              if (meta.conversation_id) setActiveConversationId(meta.conversation_id)
+            },
+            onHttpError: (status, detail, retryAfter) => {
+              failed = true
+              const notice = classifyCopilotError(status, detail, retryAfter)
+              patch(aid, (m) => ({ ...m, streaming: false, notice, noticeAt: Date.now() }))
+              // Keep the question so nothing is lost.
+              setInput((cur) => (cur.trim() ? cur : text))
+              setLiveStatus(`${notice.title}. ${notice.body}`)
+              refreshUsage()
+            },
+            onError: (error) => {
+              failed = true
+              const notice: CopilotLimitNotice = { kind: 'other', title: 'Copilot could not finish this answer', body: error, retryAfterS: null }
+              patch(aid, (m) => ({ ...m, streaming: false, notice: m.content ? null : notice, error: true, noticeAt: Date.now() }))
+              setLiveStatus(notice.title)
+            },
+            onDone: (done) => {
+              patch(aid, (m) => ({
+                ...m,
+                streaming: false,
+                done: done ?? null,
+                citations: done?.citations?.length ? done.citations : m.citations,
+                tone: answerTone(text, done ?? null),
+              }))
+              if (!failed) {
+                const n = done?.citations?.length ?? 0
+                setLiveStatus(`Answer ready${n ? `, ${n} ${n === 1 ? 'source' : 'sources'} cited` : ''}.`)
+              }
+              queryClient.invalidateQueries({ queryKey: ['copilot-conversations'] })
+              refreshUsage()
+              setRecent(readRecentTickers())
+            },
           },
-
-          onFinalText: (finalText) => {
-            // Post-checks changed the streamed answer (removed bad citations, flagged numbers).
-            setMessages((prev) =>
-              prev.map((m) => (m.id === assistantMsgId ? { ...m, content: finalText } : m)),
-            )
-          },
-
-          onIntent: (intent, symbol, symbols) => {
-            setCurrentIntent(intent)
-            setCurrentSymbol(symbol)
-            setPipelineStage('data')
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsgId ? { ...m, intent } : m
-              )
-            )
-            // Fetch quote + fundamentals + technicals in parallel when ticker detected
-            if (symbol) {
-              // The quote comes from the context pack (onContext) so the side panel,
-              // the ticker card and the answer show one price / as-of.
-              Promise.allSettled([
-                fetchFundamentals(symbol),
-                fetchIndicators(symbol),
-              ]).then(([fRes, iRes]) => {
-                if (fRes.status === 'fulfilled') setStockFundamentals(fRes.value)
-                if (iRes.status === 'fulfilled') setStockIndicators(iRes.value)
-              })
-            }
-          },
-
-          onStructuredData: (data) => {
-            setPipelineStage('streaming')
-            setMessages((prev) =>
-              prev.map((m) => {
-                if (m.id !== assistantMsgId) return m
-                const existing = m.structuredData
-                // Already have a 2-ticker comparison — ignore extra events
-                if (existing?.stocks && existing.stocks.length >= 2) return m
-                // Accumulate second structured_data event into stocks[] for comparison layout
-                if (
-                  existing?.symbol &&
-                  data.symbol &&
-                  existing.symbol !== data.symbol &&
-                  !existing.stocks?.length
-                ) {
-                  const merged: CopilotStructuredData = {
-                    ...existing,
-                    stocks: [existing as StockAnalysisData, data as StockAnalysisData],
-                  }
-                  return { ...m, structuredData: merged }
-                }
-                return { ...m, structuredData: data }
-              })
-            )
-            const displayData = data.stocks?.[0] ?? (data as StockAnalysisData)
-            if (displayData.symbol) {
-              const hasRichData = !!(displayData.technical_signal || displayData.confidence || displayData.monte_carlo)
-              setAnalysisData(displayData)
-              if (hasRichData) setShowDashboard(true)
-            }
-          },
-
-          onToolCall: () => {
-            setPipelineStage('data')
-          },
-
-          onToolResult: () => {
-            setPipelineStage('streaming')
-          },
-
-          onCitation: (citation) => {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsgId
-                  ? { ...m, citations: [...(m.citations || []), citation] }
-                  : m
-              )
-            )
-          },
-
-          onNoFilings: (symbol) => {
-            setMessages((prev) =>
-              prev.map((m) => {
-                if (m.id !== assistantMsgId) return m
-                const existing = m.meta?.noFilings ?? []
-                return {
-                  ...m,
-                  meta: {
-                    ...(m.meta ?? ({} as CopilotMeta)),
-                    noFilings: existing.includes(symbol) ? existing : [...existing, symbol],
-                  },
-                }
-              })
-            )
-          },
-
-          onToken: (text) => {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsgId
-                  ? { ...m, content: m.content + text }
-                  : m
-              )
-            )
-          },
-
-          onMeta: (meta) => {
-            // Update conversation ID from backend response
-            if (meta.conversation_id) {
-              setActiveConversationId(meta.conversation_id)
-            }
-            // Update model indicator from backend
-            if (meta.model) {
-              setActiveModel(meta.model)
-            }
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsgId
-                  ? { ...m, meta: { ...meta, noFilings: m.meta?.noFilings } }
-                  : m
-              )
-            )
-          },
-
-          onError: (error) => {
-            // Detect model from error or fallback behavior
-            if (error.includes('openrouter') || error.includes('gemini')) {
-              setActiveModel('openrouter')
-            }
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsgId
-                  ? { ...m, content: m.content || error, error: true, streaming: false }
-                  : m
-              )
-            )
-          },
-
-          onDone: () => {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsgId ? { ...m, streaming: false } : m
-              )
-            )
-            setStreaming(false)
-            setPipelineStage('done')
-            setTimeout(() => setPipelineStage('idle'), 2000)
-            inputRef.current?.focus()
-            // Refresh conversation list + usage counter
-            queryClient.invalidateQueries({ queryKey: ['copilot-conversations'] })
-            queryClient.invalidateQueries({ queryKey: ['copilot-usage'] })
-          },
-        },
-        abortRef.current.signal
-      )
+          abortRef.current.signal,
+        )
+      } catch (err) {
+        if ((err as Error)?.name !== 'AbortError') {
+          const notice: CopilotLimitNotice = { kind: 'other', title: 'Connection lost', body: 'The answer stopped before it finished. Check your connection and ask again.', retryAfterS: null }
+          patch(aid, (m) => ({ ...m, streaming: false, notice: m.content ? null : notice, noticeAt: Date.now() }))
+          setLiveStatus(notice.title)
+        }
+      } finally {
+        setStreaming(false)
+        setStage('idle')
+        if (isVisible() && !isMobile) inputRef.current?.focus()
+      }
     },
-    [streaming, activeConversationId, queryClient, pinnedSymbol]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [streaming, activeConversationId, pinnedSymbol, queryClient, refreshUsage, scrollToEnd, isVisible, isMobile],
   )
 
-  // Read ?symbol= / ?q= once; load the context card immediately (no LLM call).
+  const stopStreaming = useCallback(() => {
+    abortRef.current?.abort()
+    setStreaming(false)
+    setStage('idle')
+    setMessages((prev) => prev.map((m) => (m.streaming ? { ...m, streaming: false, content: m.content ? `${m.content}\n\n_Stopped._` : '_Stopped before the answer started._' } : m)))
+    setLiveStatus('Answer stopped.')
+  }, [])
+
+  // ── Global keys: "/" focuses the composer, Esc stops a running answer ──
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isVisible()) return
+      if (e.key === 'Escape' && streaming) {
+        e.preventDefault()
+        stopStreaming()
+        return
+      }
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (t && (['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) || t.isContentEditable)) return
+      e.preventDefault()
+      e.stopImmediatePropagation() // the app header also binds "/" to its search
+      inputRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [isVisible, streaming, stopStreaming])
+
+  // ── Research handoff: ?symbol= (and optional ?q=) ──
   useEffect(() => {
     const { symbol, q } = parseCopilotParams(window.location.search)
     if (!symbol) return
@@ -2256,11 +917,9 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
         if (ctx) setTickerContext(ctx)
       })
       .finally(() => setContextLoading(false))
-    // Both layouts are mounted; only the visible one may auto-send the prefilled question.
-    const visible = window.matchMedia('(min-width: 768px)').matches === (variant === 'desktop')
-    if (q && visible && !autoAskedRef.current) {
+    if (q && isVisible() && !autoAskedRef.current) {
       autoAskedRef.current = true
-      sendMessage(q, symbol)
+      sendMessage(q, { symbol })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -2268,24 +927,11 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
   const clearPinnedSymbol = () => {
     setPinnedSymbol(null)
     setTickerContext(null)
+    setContextExpanded(false)
     const url = new URL(window.location.href)
     url.searchParams.delete('symbol')
     url.searchParams.delete('q')
     window.history.replaceState(null, '', url.pathname + url.search)
-  }
-
-  const cardSymbol = pinnedSymbol ?? tickerContext?.ticker ?? null
-  const cardSuggestions = suggestedQuestions(tickerContext, cardSymbol)
-
-  const stopStreaming = () => {
-    abortRef.current?.abort()
-    setStreaming(false)
-    setPipelineStage('idle')
-    setMessages((prev) =>
-      prev.map((m, i) =>
-        i === prev.length - 1 && m.streaming ? { ...m, streaming: false } : m
-      )
-    )
   }
 
   const newChat = () => {
@@ -2293,277 +939,255 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
     setMessages([])
     setAnalysisData(null)
     setShowDashboard(false)
-    setPipelineStage('idle')
+    setActiveCitation(null)
     setActiveConversationId(null)
+    if (isMobile) setShowHistory(false)
+    requestAnimationFrame(() => inputRef.current?.focus())
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage(input)
-    }
-  }
-
+  const cardSymbol = pinnedSymbol ?? tickerContext?.ticker ?? null
   const hasMessages = messages.length > 0
+  const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id
+  const askedSet = new Set(messages.filter((m) => m.role === 'user').map((m) => m.content.toLowerCase()))
+  const followUps = suggestedQuestions(tickerContext, currentSymbol ?? cardSymbol)
+    .filter((q) => !askedSet.has(q.toLowerCase()))
+    .slice(0, 3)
+
+  const regenerate = (assistantId: string) => {
+    const idx = messages.findIndex((m) => m.id === assistantId)
+    const q = messages[idx]?.question ?? messages[idx - 1]?.content
+    const userMsg = messages[idx - 1]
+    if (!q || !userMsg) return
+    sendMessage(q, { replaceFrom: userMsg.id })
+  }
+
+  const retryNotice = (assistantId: string) => {
+    const idx = messages.findIndex((m) => m.id === assistantId)
+    const userMsg = messages[idx - 1]
+    if (!userMsg) return
+    sendMessage(userMsg.content, { replaceFrom: userMsg.id })
+  }
+
+  const ask = (q: string) => {
+    if (blocked) {
+      setInput(q)
+      inputRef.current?.focus()
+      return
+    }
+    sendMessage(q)
+  }
+
+  const sidePanel = activeCitation ? 'source' : showDashboard && analysisData ? 'data' : null
+  const panelMotion = reduceMotion
+    ? { initial: false as const, animate: { opacity: 1 }, exit: { opacity: 0 } }
+    : { initial: { opacity: 0, x: 16 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: 16 }, transition: { duration: 0.18 } }
 
   return (
-    <div className="flex flex-1 h-full w-full max-w-full md:h-[calc(100vh-6.25rem-48px)] md:max-h-[900px] overflow-hidden">
-      {/* ─── History Sidebar ─── */}
+    <div
+      ref={rootRef}
+      data-variant={variant}
+      className={cn(
+        'cp-scope relative flex h-full w-full min-w-0 overflow-hidden bg-[var(--cp-canvas)]',
+        !isMobile && 'md:h-[calc(100vh-6.25rem-48px)] md:rounded-2xl md:border md:border-[var(--cp-line)]',
+      )}
+    >
+      <div className="sr-only" role="status" aria-live="polite">{liveStatus}</div>
+
+      {/* ─── History: column on desktop, sheet on mobile ─── */}
+      {!isMobile && showHistory && (
+        <aside className="hidden w-[272px] shrink-0 border-r border-[var(--cp-line)] md:block">
+          <CopilotHistoryPanel
+            conversations={conversations}
+            activeId={activeConversationId}
+            loading={conversationsLoading}
+            now={now}
+            onSelect={loadConversation}
+            onDelete={handleDeleteConversation}
+            onNewChat={newChat}
+            onClose={() => toggleHistory(false)}
+          />
+        </aside>
+      )}
       <AnimatePresence>
-        {showHistory && (
-          <>
-            <motion.div
-              key="copilot-history-backdrop"
-              role="presentation"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-[55] bg-black/60 sm:hidden"
-              onClick={() => setShowHistory(false)}
-            />
-            <motion.div
-              key="copilot-history-panel"
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 280, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className={cn(
-                'flex min-h-0 overflow-hidden shrink-0',
-                'max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:z-[60] max-sm:h-[100dvh]',
-                'sm:relative sm:z-auto sm:h-auto'
-              )}
-            >
-              <ConversationSidebar
+        {isMobile && showHistory && (
+          <motion.div
+            key="history-sheet"
+            className="fixed inset-0 z-[90] flex"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.15 }}
+          >
+            <div className="cp-scope h-full w-[86%] max-w-[340px] border-r border-[var(--cp-line)] pt-safe shadow-[var(--cp-shadow)]" role="dialog" aria-modal="true" aria-label="Conversation history">
+              <CopilotHistoryPanel
                 conversations={conversations}
                 activeId={activeConversationId}
+                loading={conversationsLoading}
+                now={now}
                 onSelect={loadConversation}
                 onDelete={handleDeleteConversation}
                 onNewChat={newChat}
-                isLoading={conversationsLoading}
                 onClose={() => setShowHistory(false)}
               />
-            </motion.div>
-          </>
+            </div>
+            <button type="button" aria-label="Close history" className="flex-1 bg-black/50" onClick={() => setShowHistory(false)} />
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ─── Chat Panel ─── */}
-      <div
-        className={`flex flex-col flex-1 min-h-0 min-w-0 transition-all duration-300 ${
-          showDashboard ? 'lg:w-[55%]' : 'w-full'
-        }`}
-      >
-        {/* Header — liquid glass */}
-        <div className="relative shrink-0 border-b border-line-subtle bg-surface-glass px-3 py-2 backdrop-blur-xl sm:px-5 sm:py-2.5">
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent"
-            aria-hidden
-          />
-          <div className="flex min-w-0 flex-nowrap items-center justify-between gap-2 overflow-x-auto sm:gap-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-              {/* History toggle */}
+      {/* ─── Conversation column ─── */}
+      <section className="flex min-w-0 flex-1 flex-col" aria-label="Copilot conversation">
+        <header className="flex h-14 shrink-0 items-center gap-1 border-b border-[var(--cp-line)] bg-[var(--cp-panel)] px-2 sm:px-3">
+          <button
+            type="button"
+            onClick={() => toggleHistory()}
+            aria-expanded={showHistory}
+            aria-label={showHistory ? 'Hide conversation history' : 'Show conversation history'}
+            className={cn(
+              'flex h-10 w-10 items-center justify-center rounded-lg text-[var(--cp-ink-2)] hover:bg-[var(--cp-sunken)] hover:text-[var(--cp-ink)]',
+              showHistory && !isMobile && 'bg-[var(--cp-sunken)] text-[var(--cp-ink)]',
+            )}
+          >
+            <History className="h-5 w-5" aria-hidden />
+          </button>
+          <h1 className="ml-1 text-[16px] font-semibold text-[var(--cp-ink)]">Copilot</h1>
+          <div className="ml-auto flex items-center gap-1">
+            <CopilotUsageMeter
+              meter={meter}
+              resetsAt={resetsAt}
+              now={now}
+              isPro={usage?.isPro}
+              onUpgrade={() => router.push('/pricing')}
+              compact={isMobile}
+            />
+            {analysisData && !isMobile && (
               <button
                 type="button"
-                onClick={() => setShowHistory(!showHistory)}
-                className={cn(
-                  'flex shrink-0 rounded-xl border p-2 transition-all',
-                  showHistory
-                    ? 'border-[#007AFF]/40 bg-[#007AFF]/15 text-cyan-200 shadow-[0_0_20px_rgba(0,122,255,0.15)]'
-                    : 'border-transparent text-fg-muted hover:border-line-subtle hover:bg-white/[0.05] hover:text-white'
-                )}
-                title="Chat History"
+                onClick={() => { setActiveCitation(null); setShowDashboard((v) => !v) }}
+                aria-pressed={showDashboard}
+                className="hidden min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium text-[var(--cp-ink-2)] hover:bg-[var(--cp-sunken)] lg:inline-flex"
               >
-                <History className="h-4 w-4" />
+                <BarChart3 className="h-4 w-4" aria-hidden /> {analysisData.symbol} model data
               </button>
-              <div
-                className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border sm:h-9 sm:w-9',
-                  'border-[#007AFF]/30 bg-gradient-to-br from-[#007AFF]/25 to-cyan-500/5 shadow-[0_0_24px_rgba(0,122,255,0.12)]'
+            )}
+            <button
+              type="button"
+              onClick={newChat}
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-semibold text-[var(--cp-ink)] hover:bg-[var(--cp-sunken)]"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              <span className={cn(isMobile && 'sr-only')}>New chat</span>
+            </button>
+          </div>
+        </header>
+
+        <div ref={scrollRef} className="cp-scroll min-h-0 flex-1 overflow-y-auto [overflow-anchor:auto]">
+          <div className={cn('mx-auto w-full max-w-[46rem] px-4', isMobile ? 'pb-6 pt-4' : 'pb-10 pt-6 sm:px-6')}>
+            {!hasMessages ? (
+              <div className="space-y-8">
+                {cardSymbol && (
+                  <TickerContextCard
+                    symbol={cardSymbol}
+                    ctx={tickerContext}
+                    loading={contextLoading}
+                    onClear={clearPinnedSymbol}
+                    compact={isMobile}
+                  />
                 )}
-              >
-                <Brain className="h-4 w-4 text-white sm:h-[1.15rem] sm:w-[1.15rem]" />
+                <CopilotEmptyState
+                  groups={promptGroups}
+                  onAsk={ask}
+                  loadingPersonal={personalLoading && promptGroups.length < 2}
+                  compact={isMobile || !!cardSymbol}
+                />
               </div>
-              <div className="min-w-0">
-                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0">
-                  <h1 className="font-display truncate text-xs font-bold text-white sm:text-sm">
-                    AI Copilot
-                  </h1>
-                  <p className="hidden truncate font-mono text-[10px] leading-none text-fg-muted sm:block">
-                    Institutional Research · Real-Time Intelligence
-                  </p>
+            ) : (
+              <>
+                {cardSymbol && (
+                  <div className="sticky top-0 z-10 -mx-1 bg-[var(--cp-canvas)] px-1 pb-3 pt-0">
+                    <TickerContextCard
+                      symbol={cardSymbol}
+                      ctx={tickerContext}
+                      loading={contextLoading}
+                      onClear={pinnedSymbol ? clearPinnedSymbol : undefined}
+                      compact
+                      variant="bar"
+                      expanded={contextExpanded}
+                      onToggle={() => setContextExpanded((v) => !v)}
+                    />
+                  </div>
+                )}
+                <div role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation" className="space-y-7">
+                  {messages.map((m) =>
+                    m.role === 'user' ? (
+                      <UserQuestion key={m.id} text={m.content} />
+                    ) : m.notice ? (
+                      <LimitNoticeCard
+                        key={m.id}
+                        notice={m.notice}
+                        now={now}
+                        noticeAt={m.noticeAt ?? now}
+                        resetsInSeconds={resetsInSecondsNow}
+                        isPro={usage?.isPro}
+                        onUpgrade={() => router.push('/pricing')}
+                        onRetry={() => retryNotice(m.id)}
+                      />
+                    ) : (
+                      <AssistantAnswer
+                        key={m.id}
+                        msg={m}
+                        now={now}
+                        statusText={statusFor(stage, currentSymbol)}
+                        isLast={m.id === lastAssistantId}
+                        followUps={followUps}
+                        onCitationClick={(c) => { setShowDashboard(false); setActiveCitation(c) }}
+                        onRegenerate={streaming ? undefined : () => regenerate(m.id)}
+                        onAsk={ask}
+                      />
+                    ),
+                  )}
                 </div>
-              </div>
-            </div>
-            <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2">
-              {/* Model indicator + usage - always visible */}
-              <ModelIndicator model={activeModel} isStreaming={streaming} />
-              <UsageBadge />
-              <LiveQuoteStrip />
-              {analysisData && !showDashboard && (
-                <button
-                  type="button"
-                  onClick={() => setShowDashboard(true)}
-                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#007AFF]/30 bg-[#007AFF]/10 px-2.5 py-1.5 text-[10px] font-semibold text-cyan-200 transition-colors hover:bg-[#007AFF]/20"
-                >
-                  <BarChart3 className="w-3.5 h-3.5" />
-                  {analysisData.symbol} Data
-                </button>
-              )}
-              <TimeWeatherMoodToggle className="flex shrink-0" />
-              <button
-                type="button"
-                onClick={newChat}
-                className="shrink-0 rounded-xl border border-transparent p-2 text-fg-muted transition-colors hover:border-line-subtle hover:bg-white/[0.05] hover:text-white"
-                title="New conversation"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Pipeline Status */}
-        <AnimatePresence>
-          <PipelineStatus
-            stage={pipelineStage}
-            intent={currentIntent}
-            symbol={currentSymbol}
-          />
-        </AnimatePresence>
-
-        {/* Messages — scroll only when there is a thread; empty state stays one viewport, no scroll */}
-        <div
-          className={cn(
-            'relative min-h-0 flex-1 px-4 py-3 sm:px-5 sm:py-4',
-            hasMessages
-              ? 'overflow-y-auto scroll-pb-28 sm:scroll-pb-32'
-              : 'flex flex-col overflow-hidden'
-          )}
-        >
-          <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[rgba(0,122,255,0.04)]"
-            aria-hidden
-          />
-          <GlassFilter />
-          {!hasMessages && cardSymbol ? (
-            <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-1 flex-col justify-start gap-3 overflow-y-auto py-2 md:justify-center">
-              <TickerContextCard
-                symbol={cardSymbol}
-                ctx={tickerContext}
-                loading={contextLoading}
-                suggestions={cardSuggestions}
-                onAsk={(q) => sendMessage(q)}
-                onClear={clearPinnedSymbol}
-                compact={variant === 'mobile'}
-                disabled={streaming || isAtLimit}
-              />
-              <p className="text-center text-[11px] text-fg-muted">
-                Ask anything about {cardSymbol}. Every number in the answer is cited to its source.
-              </p>
-            </div>
-          ) : !hasMessages ? (
-            <WelcomeScreen onPrompt={(p) => sendMessage(p)} />
-          ) : (
-            <div className="relative z-10 space-y-4">
-              {cardSymbol && (
-                <TickerContextCard
-                  symbol={cardSymbol}
-                  ctx={tickerContext}
-                  loading={contextLoading}
-                  suggestions={streaming ? [] : cardSuggestions.slice(0, variant === 'mobile' ? 2 : 4)}
-                  onAsk={(q) => sendMessage(q)}
-                  onClear={pinnedSymbol ? clearPinnedSymbol : undefined}
-                  compact
-                  disabled={streaming || isAtLimit}
-                />
-              )}
-              {messages.map((msg) => {
-                // Show Unicorn WebGL loading scene for empty streaming messages
-                if (msg.role === 'assistant' && msg.streaming && !msg.content) {
-                  return (
-                    <motion.div
-                      key={msg.id}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex gap-2.5 items-start"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00D9FF]/20 to-[#7C3AED]/20 flex items-center justify-center flex-shrink-0 border border-line-subtle">
-                        <Zap className="w-4 h-4 text-cyan-400" />
-                      </div>
-                      <CopilotLoadingScene
-                        stage={pipelineStage === 'idle' ? 'intent' : pipelineStage === 'done' ? 'streaming' : pipelineStage}
-                        symbol={currentSymbol}
-                      />
-                    </motion.div>
-                  )
-                }
-                return <MessageBubble key={msg.id} msg={msg} onCitationClick={setActiveCitation} />
-              })}
-              <div ref={bottomRef} />
-            </div>
-          )}
+        <div className={cn('shrink-0 border-t border-[var(--cp-line)] bg-[var(--cp-canvas)] px-3 pt-3', isMobile ? 'pb-2' : 'pb-4 sm:px-6')}>
+          <div className="mx-auto w-full max-w-[46rem]">
+            <CopilotComposer
+              ref={inputRef}
+              value={input}
+              onChange={setInput}
+              onSend={() => sendMessage(input)}
+              onStop={stopStreaming}
+              streaming={streaming}
+              blocked={blocked}
+              blockedReason={blockedReason}
+              focusSymbol={pinnedSymbol}
+              compact={isMobile}
+            />
+          </div>
         </div>
+      </section>
 
-        {/* Input — glass composer */}
-        <div className="relative shrink-0 border-t border-line-subtle bg-surface-glass px-3 py-3 backdrop-blur-xl sm:px-5 sm:py-4">
-          <div
-            className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#007AFF]/35 to-transparent"
-            aria-hidden
-          />
-          {isAtLimit ? (
-            <div className="flex flex-col items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-5 text-center">
-              <Lock className="h-5 w-5 text-amber-400" />
-              <div>
-                <p className="text-sm font-medium text-fg-primary">
-                  {copilotUsage?.paused ? 'AI paused' : 'Daily limit reached'}
-                </p>
-                <p className="mt-0.5 text-xs text-fg-muted">
-                  {copilotUsage?.paused
-                    ? copilotUsage.paused_message || 'AI features are paused for today (budget reached).'
-                    : `${copilotUsage?.free_limit ?? 0}/${copilotUsage?.free_limit ?? 0} requests used today. Resets at midnight UTC.`}
-                </p>
-              </div>
-              {!copilotUsage?.paused && !copilotUsage?.is_pro && (
-                <button
-                  type="button"
-                  onClick={() => router.push('/pricing')}
-                  className="rounded-xl bg-gradient-to-br from-[#0a84ff] to-[#0060c9] px-5 py-2 text-sm font-semibold text-white shadow-[0_0_24px_rgba(0,122,255,0.25)] transition-all hover:brightness-110"
-                >
-                  Upgrade to Pro — More Daily Requests
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
-              <CopilotPromptInput
-                ref={inputRef}
-                variant="magic"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Analyze any stock, compare tickers, explore sectors, assess risk..."
-                disabled={streaming}
-                streaming={streaming}
-                onSend={() => sendMessage(input)}
-                onStop={stopStreaming}
-                usage={copilotUsage ?? null}
-                onUpgrade={() => router.push('/pricing')}
-              />
-            </div>
-          )}
+      {/* ─── Side panel (lg+): source details or the model data ─── */}
+      <AnimatePresence mode="wait" initial={false}>
+        {sidePanel && !isMobile && (
+          <motion.aside
+            key={sidePanel}
+            {...panelMotion}
+            className="hidden w-[min(400px,36%)] shrink-0 border-l border-[var(--cp-line)] bg-[var(--cp-panel)] lg:flex lg:flex-col"
+          >
+            {sidePanel === 'source' && activeCitation ? (
+              <CitationSourcePanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
+            ) : analysisData ? (
+              <AnalysisDashboard data={analysisData} onClose={() => setShowDashboard(false)} />
+            ) : null}
+          </motion.aside>
+        )}
+      </AnimatePresence>
 
-          {!isAtLimit && (
-            <p className="mt-2.5 text-center text-[10px] leading-relaxed text-fg-muted">
-              Enter to send · Shift+Enter for new line
-              {pinnedSymbol ? ` · Focused on ${pinnedSymbol}` : ''} · Answers cite their sources · Not
-              financial advice
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* ─── Source sheet below lg (the side panel is lg+ only) ─── */}
+      {/* ─── Source sheet below lg ─── */}
       <AnimatePresence>
         {activeCitation && (
           <motion.div
@@ -2571,68 +1195,21 @@ function CopilotInner({ variant }: { variant: 'desktop' | 'mobile' }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] flex items-end bg-black/60 lg:hidden"
+            transition={{ duration: reduceMotion ? 0 : 0.15 }}
+            className="fixed inset-0 z-[95] flex flex-col justify-end bg-black/50 lg:hidden"
             onClick={() => setActiveCitation(null)}
           >
-            <motion.div
-              initial={{ y: 40 }}
-              animate={{ y: 0 }}
-              exit={{ y: 40 }}
-              className="max-h-[75dvh] w-full overflow-hidden rounded-t-2xl border-t border-line-subtle bg-white pb-safe dark:bg-[#0b1020]"
+            <div
+              className="cp-scope max-h-[78dvh] w-full overflow-hidden rounded-t-2xl border-t border-[var(--cp-line)] pb-safe"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Source details"
               onClick={(e) => e.stopPropagation()}
             >
               <CitationSourcePanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
-            </motion.div>
+            </div>
           </motion.div>
         )}
-      </AnimatePresence>
-
-      {/* ─── Right Info Panel (source > Analysis dashboard > Quick quote) ─── */}
-      <AnimatePresence mode="wait">
-        {activeCitation ? (
-          <motion.div
-            key="sec-panel"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: '42%', opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.28, ease: 'easeInOut' }}
-            className="hidden lg:flex flex-col border-l border-line-subtle bg-white dark:bg-[#0b1020] overflow-hidden"
-          >
-            <CitationSourcePanel citation={activeCitation} onClose={() => setActiveCitation(null)} />
-          </motion.div>
-        ) : showDashboard && analysisData ? (
-          <motion.div
-            key="analysis-panel"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: '45%', opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="hidden lg:flex flex-col border-l border-line-subtle bg-white dark:bg-[#0A0E1A] overflow-hidden"
-          >
-            <AnalysisDashboard data={analysisData} onClose={() => setShowDashboard(false)} />
-          </motion.div>
-        ) : quickQuote ? (
-          <motion.div
-            key="quote-panel"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: '38%', opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.28, ease: 'easeInOut' }}
-            className="hidden lg:flex flex-col border-l border-line-subtle bg-white dark:bg-[#08091A] overflow-hidden"
-          >
-            <StockQuickPanel
-              quote={quickQuote}
-              fundamentals={stockFundamentals}
-              indicators={stockIndicators}
-              relatedCitations={messages
-                .flatMap((m) => m.citations ?? [])
-                .filter((c) => c.kind === 'filing' && (currentSymbol ? c.ticker === currentSymbol : true))
-                .slice(0, 4)}
-              onClose={() => setQuickQuote(null)}
-              onCitationClick={setActiveCitation}
-            />
-          </motion.div>
-        ) : null}
       </AnimatePresence>
     </div>
   )
@@ -2646,32 +1223,19 @@ export default function CopilotPage() {
   if (!isAuthenticated) {
     return (
       <AppLayout>
-        <div className="flex min-h-screen items-center justify-center px-4">
-          <div
-            className={cn(
-              'w-full max-w-md rounded-2xl border border-line-subtle bg-surface-overlay p-8 text-center shadow-theme-lg backdrop-blur-xl',
-              'relative overflow-hidden'
-            )}
-          >
-            <div
-              className="pointer-events-none absolute -top-20 left-1/2 h-40 w-64 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(0,122,255,0.25),transparent_70%)] blur-3xl"
-              aria-hidden
-            />
-            <div className="relative">
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-[#007AFF]/35 bg-gradient-to-br from-[#007AFF]/25 to-cyan-500/10 shadow-[0_0_32px_rgba(0,122,255,0.2)]">
-                <Brain className="h-8 w-8 text-white" />
-              </div>
-              <h2 className="mb-2 font-display text-xl font-bold text-white">Sign in to access AI Copilot</h2>
-              <p className="mb-6 text-sm leading-relaxed text-fg-muted">
-                Institutional-grade analysis with RAG, quant models, and real-time data.
-              </p>
-              <a
-                href="/auth"
-                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-br from-[#0a84ff] to-[#0060c9] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_0_24px_rgba(0,122,255,0.35)] transition-all hover:brightness-110"
-              >
-                Sign In
-              </a>
-            </div>
+        <div className="cp-scope flex min-h-[70vh] items-center justify-center px-4">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--cp-line)] bg-[var(--cp-panel)] p-8 shadow-[var(--cp-shadow)]">
+            <h2 className="cp-serif text-[1.75rem] font-semibold leading-tight text-[var(--cp-ink)]">Ask about any US stock.</h2>
+            <p className="mt-3 text-[15px] leading-relaxed text-[var(--cp-ink-2)]">
+              Copilot answers questions about US stocks and cites its sources: filings, financial statements, quotes and news, each with a date.
+              Forecasts are experimental, and nothing here is financial advice.
+            </p>
+            <a
+              href="/auth"
+              className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[var(--cp-accent)] px-6 text-[15px] font-semibold text-[var(--cp-on-accent)] hover:bg-[var(--cp-accent-hover)]"
+            >
+              Sign in to ask a question
+            </a>
           </div>
         </div>
       </AppLayout>
@@ -2684,11 +1248,11 @@ export default function CopilotPage() {
           <CopilotInner variant="desktop" />
         </AppLayout>
       </div>
-      <div className="md:hidden flex flex-col h-[100dvh] bg-surface-base overflow-hidden text-fg-primary dark:bg-[#0A0E1A]">
-        <div className="flex-1 overflow-hidden flex flex-col pt-safe">
+      <div className="cp-scope flex h-[100dvh] flex-col overflow-hidden bg-[var(--cp-canvas)] md:hidden">
+        <div className="flex flex-1 flex-col overflow-hidden bg-[var(--cp-canvas)] pt-safe">
           <CopilotInner variant="mobile" />
         </div>
-        <div className="shrink-0 h-[80px] pb-safe bg-surface-base dark:bg-[#0A0E1A]" />
+        <div className="h-[80px] shrink-0 bg-[var(--cp-canvas)] pb-safe" />
         <BottomNav />
       </div>
     </>

@@ -307,6 +307,9 @@ export interface CopilotStreamCallbacks {
   onToolCall?: (message: string) => void
   onToolResult?: (message: string) => void
   onNoFilings?: (symbol: string) => void
+  /** Non-2xx response (429 limits, 503 budget pause, 401/403/413). When set,
+   *  it is called instead of onError so the UI can show a calm inline notice. */
+  onHttpError?: (status: number, detail: string, retryAfter: string | null) => void
 }
 
 export interface CopilotStreamRequest {
@@ -356,7 +359,20 @@ export async function streamCopilotAnalysis(
   })
 
   if (!response.ok) {
-    callbacks.onError?.(await copilotErrorMessage(response))
+    if (callbacks.onHttpError) {
+      const retryAfter = response.headers.get('Retry-After')
+      const raw = await response.text().catch(() => '')
+      let detail = raw
+      try {
+        const parsed = JSON.parse(raw) as { detail?: unknown; error?: unknown }
+        detail = typeof parsed.detail === 'string' ? parsed.detail : typeof parsed.error === 'string' ? parsed.error : ''
+      } catch {
+        /* non-JSON body: keep the text */
+      }
+      callbacks.onHttpError(response.status, detail, retryAfter)
+    } else {
+      callbacks.onError?.(await copilotErrorMessage(response))
+    }
     callbacks.onDone?.()
     return
   }
