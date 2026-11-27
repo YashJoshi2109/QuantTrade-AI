@@ -105,3 +105,14 @@ def test_expiry_uses_the_early_close():
     # A normal day still expires at 16:00 ET.
     t = og.year_fraction(date(2026, 12, 4), now=datetime(2026, 12, 4, 20, 0, tzinfo=UTC))
     assert t == pytest.approx(1 / (365 * 24), rel=1e-6)
+
+
+def test_cached_row_from_an_older_contract_version_is_a_miss():
+    from app.services.quote_cache import _canonical_or_none
+
+    v2 = {"symbol": "NVDA", "price": 149.30, "previous_close": 155.38, "volume": 1_911_616,
+          "session": "regular", "market_time": "2026-11-25T21:00:00+00:00",
+          "regular": {"price": 149.30}, "quote_version": cq.QUOTE_VERSION - 1}
+    assert _canonical_or_none(v2) is None
+    current = {**v2, "quote_version": cq.QUOTE_VERSION}
+    assert _canonical_or_none(current) is current
