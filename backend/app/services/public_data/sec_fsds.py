@@ -167,8 +167,15 @@ def load_quarter(db: Session, key: str, ciks: Set[str], *, force: bool = False) 
         r["ticker"] = by_cik.get(r["cik"])
         rows.append(r)
     n = store.upsert(db, PitFundamentalFact, rows, ("adsh", "tag", "ddate", "qtrs", "uom"))
+    _release(path)
     store.mark_load(db, "sec_fsds", key, rows=n, note=f"ciks={len(ciks)}", source_last_modified=want)
     return {"dataset": key, "rows": n, "filings": len({r["adsh"] for r in rows})}
+
+
+def _release(path: Path) -> None:
+    rel = getattr(get_fetcher(), "release", None)
+    if rel is not None:
+        rel(path)
 
 
 # ── point-in-time reads ─────────────────────────────────────────────────────

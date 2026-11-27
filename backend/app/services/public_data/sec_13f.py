@@ -217,6 +217,9 @@ def load_dataset(db: Session, key: str, url: str, tickers: Sequence[str], *, for
         return {"dataset": key, "skipped": True}
     path = get_fetcher().download(url, ttl_h=None)
     res = parse_dataset(path, tickers, key)
+    rel = getattr(get_fetcher(), "release", None)
+    if rel is not None:
+        rel(path)
     n = store.upsert(db, InstitutionalOwnershipSummary, res["summaries"], ("ticker", "period"))
     m = store.upsert(db, InstitutionalHolding, res["holdings"], ("ticker", "period", "filer_cik"))
     unmapped = sorted(set(norm_ticker(t) for t in tickers) - set(res["cusips"]))

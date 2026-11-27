@@ -12,7 +12,9 @@ Fair access, per publisher:
 
 Caching: responses are written to ``CACHE_DIR`` (gzip) with a per-call TTL;
 immutable documents (an EDGAR accession, a closed quarter's data set) use
-``ttl_h=None`` (forever).  Large ZIPs are streamed to disk, never held in memory.
+``ttl_h=None`` (forever).  Large ZIPs are streamed to disk, never held in
+memory, and deleted once loaded (``release``); the ``public_data_loads`` log
+is what prevents a second download.
 
 Tests: ``set_fetcher(FixtureFetcher(...))`` replaces the network with recorded
 files; with APP_ENV=test the live fetcher refuses to run, so no test can touch
@@ -166,6 +168,15 @@ class LiveFetcher:
         os.replace(tmp, p)
         return p
 
+    def release(self, path: Path) -> None:
+        """Delete a downloaded bulk file once it is loaded (the load log, not the
+        file, prevents re-downloads; keeps /tmp small in the API container)."""
+        try:
+            if self.cache_dir in Path(path).parents:
+                Path(path).unlink(missing_ok=True)
+        except OSError:
+            pass
+
 
 class FixtureFetcher:
     """Recorded responses for tests: ``{url_substring: path_or_bytes_or_callable}``.
@@ -197,6 +208,9 @@ class FixtureFetcher:
         if isinstance(v, (str, Path)):
             return Path(v)
         raise FetchError("download fixtures must be file paths")
+
+    def release(self, path: Path) -> None:      # recorded fixtures are never deleted
+        self.calls.append(("RELEASE", str(path), None))
 
 
 _FETCHER: Optional[Fetcher] = None
