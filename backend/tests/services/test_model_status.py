@@ -177,3 +177,12 @@ def test_serving_reason_quotes_primary_and_weakest_rerun(tmp_path, monkeypatch):
     _write(tmp_path, monkeypatch, {"verdict": "NOT_READY", "research_candidate": rc})
     r = ms.serving_decision()["reason"]
     assert "8/10 on its primary run" in r and "6/10 on its weakest re-run" in r
+
+
+def test_serving_reason_names_failed_ic_when_reruns_skipped(tmp_path, monkeypatch):
+    rc = {**_RC, "verdict": "NOT_READY", "robust": False, "deployed": False, "gates_passed": 8,
+          "robustness": {"min_gates": 8, "skipped_reason": "primary run fails Mean WF IC > 0.03"}}
+    _write(tmp_path, monkeypatch, {"verdict": "NOT_READY", "research_candidate": rc})
+    d = ms.serving_decision()
+    assert d["signal_model"] is None
+    assert "Mean WF IC > 0.03 check fails" in d["reason"] and "weakest re-run" not in d["reason"]

@@ -101,7 +101,11 @@ def serving_decision() -> dict:
     why = "No ML model has passed its validation gate"
     if rc:
         rob = rc.get("robustness") or {}
-        if rc.get("gates_passed") is not None and rob.get("min_gates") is not None:
+        if rc.get("gates_passed") is not None and rob.get("skipped_reason"):
+            why += (f" (best research model: {rc['gates_passed']}/{rc.get('gates_total', 10)} on its "
+                    f"primary run, but its {rob['skipped_reason'].replace('primary run fails ', '')} "
+                    "check fails, so its predictions carry no measurable ranking signal)")
+        elif rc.get("gates_passed") is not None and rob.get("min_gates") is not None:
             why += (f" (best research model: {rc['gates_passed']}/{rc.get('gates_total', 10)} on its "
                     f"primary run, {rob['min_gates']}/{rc.get('gates_total', 10)} on its weakest re-run, "
                     f"{rc.get('gates_required', 8)} required on every run)")
