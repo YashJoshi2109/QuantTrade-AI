@@ -42,6 +42,7 @@ import {
   RsiCard,
   TrendSummaryCard,
 } from '@/components/research/TechnicalCards'
+import { CompanyFolioPanel } from '@/components/research/CompanyFolioPanel'
 import FullscreenChartModal from '@/components/research/FullscreenChartModal'
 import { getExchangeTimezone } from '@/lib/world-exchanges'
 import { isCompanyAsset } from '@/lib/assetType'
@@ -421,6 +422,12 @@ function ResearchContent() {
             <p className="px-1 text-[11px] leading-snug text-fg-muted">
               Indicators from daily closes (SMA, RSI 14, MACD 12/26/9, Bollinger 20/2). Hover the info icons for how each label is derived. Not investment advice.
             </p>
+            {showCompanyPanels && (
+              <section aria-label="Company folio" className="pt-2">
+                <h2 className="pb-3 text-[15px] font-semibold text-fg-primary">Company Folio</h2>
+                <CompanyFolioPanel symbol={selectedSymbol} info={tickerInfo} isLoading={tickerInfoLoading} compact />
+              </section>
+            )}
           </aside>
         </div>
       </div>

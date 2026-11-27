@@ -150,7 +150,6 @@ export function ResearchTabPanels(p: ResearchTabPanelsProps) {
                 onSync={p.onSync}
                 syncing={p.syncing}
               />
-              <CompanyFolioPanel symbol={p.symbol} info={p.tickerInfo} isLoading={p.tickerInfoLoading} />
               <EarningsShortInterestPanel symbol={p.symbol} tickerInfo={p.tickerInfo} />
             </>
           ) : (
