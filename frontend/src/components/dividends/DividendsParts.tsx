@@ -12,11 +12,15 @@ import {
   fmtMoney,
   groupByExDate,
   monthLabel,
-  sortByYield,
+  sortDividendRows,
+  SORT_OPTIONS,
+  summarize,
   useDividendCalendar,
   useDividendIncome,
   type DividendScope,
+  type DividendSortKey,
   type IncomeResponse,
+  type SortDir,
 } from '@/lib/dividends'
 
 export const PER_DAY_PREVIEW = 25
@@ -34,6 +38,13 @@ export function useDividendsController() {
   const [scope, setScope] = useState<DividendScope>('all')
   const [portfolioId, setPortfolioId] = useState<number | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [sort, setSortState] = useState<{ key: DividendSortKey; dir: SortDir }>({ key: 'yield', dir: 'desc' })
+  /** Same key again flips direction; a new key starts at its natural direction. */
+  const setSort = (key: DividendSortKey) =>
+    setSortState((cur) =>
+      cur.key === key
+        ? { key, dir: cur.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: SORT_OPTIONS.find((o) => o.key === key)?.defaultDir ?? 'desc' })
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated && scope !== 'all') setScope('all')
@@ -46,15 +57,21 @@ export function useDividendsController() {
 
   const grouped = useMemo(() => {
     const g = groupByExDate(cal.data?.rows ?? [], days)
-    for (const k of Object.keys(g)) g[k] = sortByYield(g[k])
+    for (const k of Object.keys(g)) g[k] = sortDividendRows(g[k], sort.key, sort.dir)
     return g
-  }, [cal.data, days])
+  }, [cal.data, days, sort])
+
+  const summary = useMemo(() => {
+    const inView = day ? (grouped[day] ?? []) : days.flatMap((d) => grouped[d] ?? [])
+    return summarize(inView)
+  }, [grouped, day, days])
 
   return {
     isAuthenticated, authLoading,
     cal, calLoading: cal.isLoading || authLoading, calError: cal.error as Error | null,
     income, incomeData: income.data as IncomeResponse | undefined,
     today, monday, days, day, setDay, visibleDays: day ? [day] : days, grouped,
+    sort, setSort, summary,
     scope, setScope, portfolioId, setPortfolioId, expanded, setExpanded,
     isThisWeek: monday === weekStart(today),
     shiftWeek: (n: number) => { setMonday((m) => addDays(m, 7 * n)); setDay(null); setExpanded({}) },
@@ -85,7 +102,7 @@ export function IncomeChart({ data, compact = false }: { data: IncomeResponse; c
                 {m.total > 0 ? (compact ? `$${Math.round(m.total)}` : fmtMoney(m.total, 0)) : '—'}
               </span>
               <div
-                className="w-full rounded-t-md bg-emerald-500/80 dark:bg-emerald-400/80"
+                className="w-full rounded-t-md bg-sky-500/70 dark:bg-sky-400/70"
                 style={{ height: Math.max(fr[i] * h, m.total > 0 ? 3 : 0) }}
                 data-testid="income-bar"
               />
@@ -116,9 +133,14 @@ export function IncomeNote({ lag }: { lag?: number }) {
 export function CalendarNote() {
   return (
     <p className="text-[11px] leading-relaxed text-fg-muted">
-      Buy before the ex-dividend date to receive the payment. Yield = indicated annual dividend ÷ last price
-      we have; “—” when either is unknown. Frequency is inferred from annual ÷ per-payment amount. Source:
-      Nasdaq dividend calendar. Not investment advice.
+      <strong className="font-semibold text-fg-secondary">Ex-date</strong>: you must own the shares before
+      this day (buy by the prior trading day’s close) to receive the payment.{' '}
+      <strong className="font-semibold text-fg-secondary">Record</strong>: the company’s shareholder-of-record date.{' '}
+      <strong className="font-semibold text-fg-secondary">Pay</strong>: when cash is paid.{' '}
+      <strong className="font-semibold text-fg-secondary">Fwd yield</strong> = indicated (forward) annual
+      dividend ÷ last price (our stored price, else the latest daily close); not trailing-12-month (TTM).
+      “—” when either input is unknown. Frequency is inferred from annual ÷ per-payment amount. Sources:
+      Nasdaq dividend calendar, yfinance. Not investment advice.
     </p>
   )
 }

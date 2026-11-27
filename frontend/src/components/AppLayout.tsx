@@ -512,7 +512,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                         <Icon className={`w-5 h-5 ${isAmber ? (isActive ? 'text-amber-400' : 'group-hover:text-amber-400') : isActive ? 'text-blue-400' : 'group-hover:text-blue-400'} transition-colors`} />
                         {!sidebarCollapsed && (
                           <>
-                            <span className="font-medium text-sm">{item.label}</span>
+                            <span className="min-w-0 truncate whitespace-nowrap font-medium text-sm">{item.label}</span>
                             {(item as { badge?: string }).badge && (
                               <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold">
                                 {(item as { badge?: string }).badge}

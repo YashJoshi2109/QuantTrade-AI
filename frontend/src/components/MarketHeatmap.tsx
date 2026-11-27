@@ -77,12 +77,12 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
       {/* Legend & Stats */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2 sm:gap-4">
         {/* Sector Filter */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+        <div className="-mx-1 flex w-full min-w-0 items-center gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-hide sm:mx-0 sm:w-auto sm:flex-wrap sm:gap-2 sm:overflow-visible sm:px-0 sm:pb-0">
           <button
             onClick={() => setSelectedSector(null)}
-            className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
+            className={`shrink-0 whitespace-nowrap px-3 py-1.5 text-xs rounded-lg transition-all ${
               !selectedSector 
-                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                ? 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30' 
                 : 'text-fg-secondary hover:bg-surface-hover'
             }`}
           >
@@ -92,9 +92,9 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
             <button
               key={sector.sector}
               onClick={() => setSelectedSector(selectedSector === sector.sector ? null : sector.sector)}
-              className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 text-xs rounded-lg transition-all ${
                 selectedSector === sector.sector 
-                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                  ? 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30' 
                   : 'text-fg-secondary hover:bg-surface-hover'
               }`}
             >
@@ -107,11 +107,11 @@ export default function MarketHeatmap({ sectors, className = '' }: MarketHeatmap
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 bg-green-500 rounded-sm" />
-            <span className="text-green-400">{marketStats.gainers} Up</span>
+            <span className="tabular-nums text-emerald-700 dark:text-green-400">{marketStats.gainers} Up</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 bg-red-500 rounded-sm" />
-            <span className="text-red-400">{marketStats.losers} Down</span>
+            <span className="tabular-nums text-red-600 dark:text-red-400">{marketStats.losers} Down</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 bg-surface-raised rounded-sm" />

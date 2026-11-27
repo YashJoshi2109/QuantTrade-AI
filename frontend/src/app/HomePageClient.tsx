@@ -487,7 +487,7 @@ function ExchangeSessionsPopover({ continent }: { continent: Continent }) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-cyan-500/25 bg-gradient-to-r from-slate-900/90 to-slate-900/60 text-[10px] font-mono text-cyan-100 shadow-lg shadow-cyan-500/10 hover:border-cyan-400/50 transition-all"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-line-default bg-surface-raised text-[10px] font-mono text-fg-primary hover:border-cyan-500/40 transition-colors"
       >
         <Clock className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
         <span className="hidden sm:inline font-bold tracking-wide">Sessions</span>

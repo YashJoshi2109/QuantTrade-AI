@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowDown, ArrowUp, Filter, Loader2, SlidersHorizontal, 
 import ForecastBadge from '@/components/forecast/ForecastBadge'
 import { useForecastSummaries } from '@/lib/useForecastSummaries'
 import { isBool, usePersistentState } from '@/lib/persistentState'
+import { SkeletonCardList } from '@/components/ui/data-skeletons'
 import TickerLogo from '@/components/TickerLogo'
 import {
   EMPTY_STATE, FLAG_TEXT, METRIC_COLUMNS, SORT_FIELDS, SORT_LABELS, activeFilterCount, fmtPct, fmtPrice, toneClass,
@@ -162,7 +163,7 @@ export default function ScreenerMobile() {
           <AlertTriangle className="h-4 w-4 shrink-0" /> {c.error.message}
         </div>
       ) : c.loading ? (
-        <div className="flex h-40 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-fg-muted" /></div>
+        <SkeletonCardList count={5} stats={3} />
       ) : c.rows.length === 0 ? (
         <div className="rounded-2xl border border-line-subtle bg-surface-raised"><EmptyState c={c} /></div>
       ) : (

@@ -4,7 +4,8 @@ Dividend calendar + projected dividend income.
   GET /api/v1/dividends/calendar?start=YYYY-MM-DD&end=YYYY-MM-DD&scope=all|watchlist|portfolio
       Stocks going ex-dividend in the window (<= 31 days; default this Mon-Sun, New
       York): ex-date, pay date, record date, amount, indicated annual dividend,
-      frequency, and yield (annual / last price in our DB, "—" when unknown).
+      frequency, and forward (indicated) yield = indicated annual / last price (our DB,
+      else the latest daily close from yfinance; "—" when unknown).
       scope=watchlist|portfolio needs auth.
   GET /api/v1/dividends/income[?portfolio_id=N]
       Auth. Projected dividend income for the next 12 months by pay month, from the
@@ -82,6 +83,20 @@ def _last_prices(db: Session, symbols: List[str]) -> Dict[str, dict]:
     return out
 
 
+async def _fill_prices(meta: Dict[str, dict], symbols: List[str]) -> None:
+    """Price symbols our tables do not track from the latest daily close (in place)."""
+    missing = [s for s in symbols if not (meta.get(s) or {}).get("price")]
+    if not missing:
+        return
+    closes = await dc.fetch_last_closes(missing)
+    for s in missing:
+        p = closes.get(s)
+        if p and p > 0:
+            m = meta.setdefault(s, {"name": None, "sector": None, "price": None})
+            m["price"] = round(p, 4)
+            m["price_source"] = "last_close"
+
+
 def yield_pct(annual: Optional[float], price: Optional[float]) -> Optional[float]:
     if not annual or not price or annual <= 0 or price <= 0:
         return None
@@ -89,10 +104,12 @@ def yield_pct(annual: Optional[float], price: Optional[float]) -> Optional[float
     return round(y, 2) if 0 < y <= MAX_SANE_YIELD_PCT else None
 
 
-def _enrich_calendar(db: Session, rows: List[dict], user: Optional[User], scope: str) -> dict:
+def _enrich_calendar(db: Session, rows: List[dict], user: Optional[User], scope: str,
+                     meta: Optional[Dict[str, dict]] = None) -> dict:
     from app.services.user_symbols import portfolio_symbols, watchlist_symbols
 
-    meta = _last_prices(db, sorted({r["symbol"] for r in rows}))
+    if meta is None:
+        meta = _last_prices(db, sorted({r["symbol"] for r in rows}))
     watch: Set[str] = set()
     held: Set[str] = set()
     if user is not None:
@@ -104,13 +121,21 @@ def _enrich_calendar(db: Session, rows: List[dict], user: Optional[User], scope:
         annual = r.get("annual_dividend")
         if annual is None and r.get("amount") and r.get("frequency"):
             annual = round(r["amount"] * r["frequency"], 6)
+        # The indicated annual must be consistent with the per-payment amount: either a
+        # known payment frequency, or a one-off special larger than the regular annual.
+        # Anything else (annual = 249x the payment) is bad upstream data, so no yield.
+        consistent = (
+            annual is None or not r.get("amount") or r.get("frequency") is not None
+            or r["amount"] >= annual
+        )
         row = {
             **r,
             "name": r.get("name") or m.get("name"),
             "sector": m.get("sector"),
             "price": m.get("price"),
+            "price_source": ("last_close" if m.get("price_source") else "db") if m.get("price") else None,
             "annual_dividend": annual,
-            "yield_pct": yield_pct(annual, m.get("price")),
+            "yield_pct": yield_pct(annual, m.get("price")) if consistent else None,
             "in_watchlist": r["symbol"] in watch,
             "in_portfolio": r["symbol"] in held,
         }
@@ -140,7 +165,10 @@ async def dividend_calendar(
     if (e - s).days + 1 > dc.MAX_WINDOW_DAYS:
         raise HTTPException(status_code=422, detail=f"window is limited to {dc.MAX_WINDOW_DAYS} days")
     window = await dc.fetch_window(s, e, today=today)
-    body = await asyncio.to_thread(_enrich_calendar, db, window["rows"], user, scope)
+    syms = sorted({r["symbol"] for r in window["rows"]})
+    meta = await asyncio.to_thread(_last_prices, db, syms)
+    await _fill_prices(meta, syms)
+    body = await asyncio.to_thread(_enrich_calendar, db, window["rows"], user, scope, meta)
     rows = body["rows"]
     return {
         "start": s.isoformat(),
@@ -207,6 +235,7 @@ async def projected_income(
     histories = await dc.fetch_histories(holdings.keys()) if holdings else {}
     body = dc.project_income(holdings, histories, today)
     meta = inputs["meta"]
+    await _fill_prices(meta, sorted(holdings))
     market_value = 0.0
     priced = True
     for h in body["holdings"]:

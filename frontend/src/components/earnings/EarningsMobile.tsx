@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { SkeletonCardList } from '@/components/ui/data-skeletons'
 import TickerLogo from '@/components/TickerLogo'
 import { formatMarketCap } from '@/lib/valuation'
 import {
@@ -151,7 +152,7 @@ export default function EarningsMobile() {
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" /> Could not load the earnings calendar.
         </div>
       ) : c.loading ? (
-        <div className="flex h-40 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-fg-muted" /></div>
+        <SkeletonCardList count={5} stats={3} />
       ) : c.data && !c.data.sources.finnhub && !c.data.sources.nasdaq ? (
         <div className="flex items-center gap-2 rounded-xl border border-line-subtle bg-surface-raised p-4 text-sm text-fg-secondary">
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" /> Earnings data is unavailable right now.
