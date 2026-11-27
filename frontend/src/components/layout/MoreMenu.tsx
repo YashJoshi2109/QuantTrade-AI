@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ChevronRight,
   Coins,
+  Compass,
   DollarSign,
   FileText,
   Filter,
@@ -198,6 +199,12 @@ export default function MoreMenu({ open, onClose }: MoreMenuProps) {
               title="Dividends"
               description="Ex-dividend calendar and your projected dividend income."
               href="/dividends"
+            />
+            <MenuItem
+              icon={<Compass className="w-4 h-4 text-indigo-400" />}
+              title="Outlook"
+              description="Implied moves, event calendar, hedge and scenario planners."
+              href="/outlook"
             />
             <MenuItem
               icon={<MessageCircle className="w-4 h-4 text-cyan-400" />}
