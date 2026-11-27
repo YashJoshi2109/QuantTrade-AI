@@ -158,6 +158,23 @@ async def _risk_free(sources, m: A.MarketInputs) -> Optional[MacroFact]:
     return f
 
 
+async def _valuation_engine_wacc(ticker: str, pack: PackFn, sources) -> Optional[Dict[str, Any]]:
+    try:
+        from app.services.copilot.valuation_tools import _wacc_block, build_case
+        from app.services.valuation.data import ValuationData
+
+        pk = await pack(ticker)
+        data_v = getattr(sources, "valuation_data", None) or ValuationData(sources)
+        case, _ = await build_case(data_v, ticker, pk.quote if pk is not None else None, {})
+        wb = _wacc_block(case)
+        if wb.get("wacc_used_pct") is None:
+            return None
+        return {"wacc_pct": wb["wacc_used_pct"], "source": "QuantTrade valuation engine (valuation_wacc)",
+                "detail": wb}
+    except Exception:
+        return None
+
+
 async def dispatch(name: str, a: Dict[str, Any], *, pack: PackFn, sources) -> Tuple[List[Fact], Any]:
     data = getattr(sources, "fundamentals_data", None) or live_data()
 
@@ -191,6 +208,11 @@ async def dispatch(name: str, a: Dict[str, Any], *, pack: PackFn, sources) -> Tu
                     external = await prov(st.ticker)
                 except Exception:
                     external = None
+            if external is None:
+                # One WACC per answer: default to the valuation engine's WACC
+                # (regressed 5y weekly beta vs SPY, FRED 10Y, labelled ERP) so
+                # ROIC-vs-WACC and DCF answers never show two different WACCs.
+                external = await _valuation_engine_wacc(st.ticker, pack, sources)
             if external is None:
                 rf = await _risk_free(sources, m)
                 if rf is not None:

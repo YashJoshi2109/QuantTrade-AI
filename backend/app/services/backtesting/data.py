@@ -140,7 +140,13 @@ def fetch_alpaca(ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
     try:
         from app.services.alpaca_client import alpaca_client
 
-        return alpaca_client.get_historical_bars(ticker, start, end, adjustment="all")
+        # REST SIP feed, adjusted, paginated: up to ~9 years of official
+        # consolidated dailies on the free data plan. The SDK path defaulted
+        # to the IEX feed (partial volume, non-official closes).
+        df = alpaca_client.get_daily_history_sip(ticker, start, end, adjustment="all")
+        if df.empty:
+            df = alpaca_client.get_historical_bars(ticker, start, end, adjustment="all")
+        return df
     except Exception as e:
         logger.info("backtest alpaca fetch failed for %s: %s", ticker, e)
         return pd.DataFrame()
@@ -217,8 +223,10 @@ def fetch_finnhub(ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
 
 # (name, fetcher, adjusted?) in priority order. Tests replace this list.
 PROVIDERS: List[tuple[str, Callable[[str, datetime, datetime], pd.DataFrame], bool]] = [
-    ("yfinance", fetch_yfinance, True),
+    # Alpaca SIP first (owner's choice): official consolidated, split- and
+    # dividend-adjusted, ~9 years on the free plan; yfinance is the fallback.
     ("alpaca", fetch_alpaca, True),
+    ("yfinance", fetch_yfinance, True),
     ("fmp", fetch_fmp, True),
     ("finnhub", fetch_finnhub, False),
 ]
