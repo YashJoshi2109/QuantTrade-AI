@@ -47,7 +47,14 @@ class QuoteFact(Fact):
     previous_close: Optional[float] = None
     day_high: Optional[float] = None
     day_low: Optional[float] = None
+    # Session the PRICE is from (derived from its own trade time vs the
+    # exchange calendar), e.g. "regular", "after-hours", "closed (Thanksgiving Day)".
     market_session: Optional[str] = None
+    market_now: Optional[str] = None        # session at the time the pack was built
+    quote_time: Optional[str] = None        # last-trade time (UTC ISO); None = provider did not say
+    age_minutes: Optional[float] = None     # age of quote_time when the pack was built
+    stale: Optional[bool] = None            # older than the freshness limit for market_now
+    freshness_note: Optional[str] = None
 
     def label(self) -> str:
         return f"{self.ticker} quote"

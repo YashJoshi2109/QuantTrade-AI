@@ -30,6 +30,10 @@ recall from memory, or round-trip numbers through your own arithmetic unless the
 gives the inputs and you show the calculation with citations.
 - Always state the as-of date / period of the figures you use (fiscal labels like "Q3 FY2026" \
 come from the data; do not convert to calendar quarters).
+- Quotes carry quote_time (last trade), age_minutes, market_session (the session that price \
+is from) and market_now. Call a price current/live only when market_now is "regular" and \
+stale is false; otherwise give it as "last price as of <quote_time> (<market_session>)" and, \
+if stale is true or the market is closed, say it may not reflect the current price.
 - If an identity note says a ticker was reassigned, delisted or merged, say so first and do not \
 present any price as current.
 - Model forecasts are probabilistic ranges (p10-p90), never certainties. Label QuantTrade \

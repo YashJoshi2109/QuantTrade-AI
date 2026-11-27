@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 import math
+import os
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Sequence
@@ -218,27 +219,25 @@ class LiveSources:
 
     # quote ────────────────────────────────────────────────────────────────
     async def quote(self, ticker: str) -> Optional[QuoteFact]:
+        """Cached quote; during the regular session a quote whose own trade
+        time is older than QUOTE_MAX_AGE_S is re-fetched from the providers
+        once (bypassing the cache) before it is shown."""
         from app.db.database import SessionLocal
         from app.services.quote_cache import QuoteCacheService
-        db = SessionLocal()
-        try:
-            q = await QuoteCacheService(db).get_quote(ticker)
-        finally:
-            db.close()
-        if not q or q.get("unavailable") or fnum(q.get("price")) is None:
-            return None
-        try:
-            from app.api.market_status import is_market_open
-            session = is_market_open().get("status")
-        except Exception:
-            session = None
-        return QuoteFact(
-            id=f"quote:{ticker}", source=f"quote cache ({q.get('data_source') or 'market data'})",
-            as_of=q.get("timestamp") or q.get("updated_at") or q.get("last_updated"), ticker=ticker,
-            price=fnum(q.get("price")), change=fnum(q.get("change")),
-            change_percent=fnum(q.get("change_percent")), volume=fnum(q.get("volume")),
-            previous_close=fnum(q.get("previous_close") or q.get("prev_close")),
-            day_high=fnum(q.get("high")), day_low=fnum(q.get("low")), market_session=session)
+
+        async def fetch(force: bool) -> Optional[Dict[str, Any]]:
+            db = SessionLocal()
+            try:
+                return await QuoteCacheService(db).get_quote(ticker, force_refresh=force)
+            finally:
+                db.close()
+
+        fact = quote_fact(ticker, await fetch(False))
+        if fact is not None and fact.stale and (fact.market_now or "") == "regular":
+            fresh = quote_fact(ticker, await fetch(True))
+            if fresh is not None and (fresh.quote_time or "") >= (fact.quote_time or ""):
+                fact = fresh
+        return fact
 
     # fundamentals ─────────────────────────────────────────────────────────
     async def fundamentals(self, ticker: str) -> Optional[FundamentalsFact]:
@@ -379,6 +378,86 @@ class LiveSources:
             out.append(d)
         return MoversFact(id=f"movers:{direction}", source="market snapshot (/api/v1/market)",
                           as_of=_iso(datetime.now(timezone.utc)), direction=direction, rows=out[:limit])
+
+
+# A regular-session quote older than this is re-fetched, and flagged stale if
+# no provider has anything newer.
+QUOTE_MAX_AGE_S = int(os.getenv("COPILOT_QUOTE_MAX_AGE_S", "900"))
+
+
+def _utcnow() -> datetime:          # patched in tests
+    return datetime.now(timezone.utc)
+
+
+def _parse_ts(v: Any) -> Optional[datetime]:
+    if v is None or v == "":
+        return None
+    if isinstance(v, (int, float)):
+        return datetime.fromtimestamp(float(v), tz=timezone.utc)
+    if isinstance(v, datetime):
+        dt = v
+    else:
+        try:
+            dt = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def quote_fact(ticker: str, q: Optional[Dict[str, Any]], now: Optional[datetime] = None) -> Optional[QuoteFact]:
+    """QuoteFact from a QuoteCacheService payload, labelled by the quote's OWN
+    trade time against the exchange calendar (never by the wall clock).
+
+    ``market_time`` is the provider's last-trade time; ``timestamp`` is when
+    we fetched it for most providers, so it is only a fallback for as_of and
+    never used to claim a quote is current."""
+    from app.services import market_calendar as mc
+    if not q or q.get("unavailable") or fnum(q.get("price")) is None:
+        return None
+    now = now or _utcnow()
+    state = mc.market_state(now)
+    market_now = mc.label(state.session, state.holiday)
+    traded = _parse_ts(q.get("market_time"))
+    fetched = _parse_ts(q.get("timestamp") or q.get("updated_at") or q.get("last_updated"))
+    if traded is not None and traded > now:
+        traded = now
+    session = None
+    age_min = None
+    stale = None
+    if traded is not None:
+        ts_et = traded.astimezone(mc.ET)
+        session = mc.label(mc.session_at(traded), mc.holiday_name(ts_et.date()))
+        age_s = max(0.0, (now - traded).total_seconds())
+        age_min = round(age_s / 60, 1)
+        if state.is_open:
+            stale = age_s > QUOTE_MAX_AGE_S
+        else:
+            # outside the session the last print is current unless it predates
+            # the most recent completed regular session
+            last_day = state.now_et.date()
+            if not (mc.is_trading_day(last_day) and state.now_et.time() >= mc.OPEN):
+                last_day = mc.previous_trading_day(last_day)
+            stale = traded < datetime.combine(last_day, mc.OPEN, tzinfo=mc.ET)
+        when = ts_et.strftime("%Y-%m-%d %H:%M ET")
+        age_txt = f"{age_min:.0f} min" if age_min < 120 else f"{age_min / 60:.1f} h"
+        note = f"last trade {when} ({session}), {age_txt} old; US market now: {market_now}"
+        if stale:
+            note += "; STALE - do not present as a live price"
+        elif not state.is_open:
+            note += "; latest available price, not live"
+    else:
+        note = f"provider gave no trade time; fetched {fetched.isoformat() if fetched else 'at an unknown time'}"
+        note += f"; US market now: {market_now}"
+    return QuoteFact(
+        id=f"quote:{ticker}", source=f"quote cache ({q.get('data_source') or 'market data'})",
+        as_of=(traded or fetched).replace(microsecond=0).isoformat() if (traded or fetched) else None,
+        ticker=ticker, price=fnum(q.get("price")), change=fnum(q.get("change")),
+        change_percent=fnum(q.get("change_percent")), volume=fnum(q.get("volume")),
+        previous_close=fnum(q.get("previous_close") or q.get("prev_close")),
+        day_high=fnum(q.get("high")), day_low=fnum(q.get("low")),
+        market_session=session, market_now=market_now,
+        quote_time=traded.replace(microsecond=0).isoformat() if traded else None,
+        age_minutes=age_min, stale=stale, freshness_note=note)
 
 
 def fundamentals_fact(ticker: str, r: Dict[str, Any]) -> FundamentalsFact:
