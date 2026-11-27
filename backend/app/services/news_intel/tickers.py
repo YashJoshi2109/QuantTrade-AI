@@ -47,7 +47,10 @@ _AMBIGUOUS_NAMES = {
 
 # Bump when extraction rules change: the worker re-tags recent stored items
 # once per version so the fix also applies to what is already in the table.
-TAGGER_VERSION = "2"
+TAGGER_VERSION = "3"
+# Tags earlier versions added wrongly, removed on re-tag when the current
+# rules no longer find them in the story (v3: "Taiwan" was TSM's short brand).
+TAGGER_RETRACT = frozenset({"TSM"})
 
 # Bare uppercase tokens in a headline that are real tickers but almost always
 # mean something else (words, units, agencies, time zones).
@@ -77,6 +80,15 @@ _BRAND_STOP = _AMBIGUOUS_NAMES | {
     "advanced", "analog", "applied", "align", "charter", "digital", "discover", "home", "live",
     "super", "unity", "monster", "intuitive", "texas", "international", "constellation",
     "delta", "southwest", "citizens", "fidelity", "capital", "western",
+    # Places and generic nationality words: "Taiwan Semiconductor" minus its
+    # descriptor left "Taiwan", so every story mentioning Taiwan was tagged
+    # TSM (kombucha exports, consumer-confidence surveys). A place is never a
+    # brand on its own; such companies match on their full name or alias.
+    "taiwan", "china", "chinese", "japan", "japanese", "korea", "korean", "india", "indian",
+    "hong kong", "singapore", "america", "american", "americas", "united", "national", "global",
+    "general", "first", "new york", "canada", "canadian", "british", "europe", "european",
+    "asia", "pacific", "atlantic", "brazil", "mexico", "germany", "france", "israel", "australia",
+    "north", "south", "east", "west", "northern", "southern", "eastern", "central",
 }
 # Headline shorthands that no suffix rule derives. Applied only when the
 # symbol is in the index.

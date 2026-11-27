@@ -368,7 +368,9 @@ export function impactBadge(impact: number | null | undefined): ImpactBadge {
   const v = Number.isFinite(impact) ? (impact as number) : 0
   if (v >= 70) return { level: 'high', label: 'High impact', text: 'text-rose-300', bar: 'bg-rose-400' }
   if (v >= 40) return { level: 'medium', label: 'Medium impact', text: 'text-amber-300', bar: 'bg-amber-400' }
-  return { level: 'low', label: 'Low impact', text: 'text-fg-muted', bar: 'bg-fg-muted/70' }
+  // bg-fg-muted/70 generated no class (opacity modifier on a CSS-var colour), so
+  // every low-impact bar (<40) rendered with no fill.
+  return { level: 'low', label: 'Low impact', text: 'text-fg-muted', bar: 'bg-slate-400 dark:bg-slate-500' }
 }
 
 export function horizonLabel(h: NewsHorizon | string | null | undefined): string {
