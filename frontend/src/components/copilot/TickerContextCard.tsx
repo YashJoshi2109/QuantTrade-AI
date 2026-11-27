@@ -5,6 +5,7 @@ import type { TickerContext } from '@/lib/copilot-engine'
 import { formatCompactNumber } from '@/lib/copilot-handoff'
 import { formatAge } from '@/lib/copilot-trust'
 import { cn } from '@/lib/utils'
+import { hitRateText, positionInRange } from '@/lib/forecastSummary'
 
 function fmtAsOf(iso?: string | null): string {
   if (!iso) return ''
@@ -67,8 +68,11 @@ export default function TickerContextCard({
   const num = (k: string) => (typeof ks[k] === 'number' ? (ks[k] as number) : null)
   const w52l = num('week_52_low')
   const w52h = num('week_52_high')
-  const pos = fc && fc.p10 != null && fc.p90 != null && fc.p50 != null && fc.p90 > fc.p10
-    ? Math.min(100, Math.max(0, ((fc.p50 - fc.p10) / (fc.p90 - fc.p10)) * 100)) : 50
+  // Marker = last price (neutral). The midpoint is drawn only when the model beat ARIMA(0,1,0).
+  const fcRange: [number, number] | null = fc && fc.p10 != null && fc.p90 != null ? [fc.p10, fc.p90] : null
+  const pricePos = positionInRange(q?.price ?? null, fcRange)
+  const fcHit = fc ? hitRateText({ hit_rate_80: fc.hit_rate_80 ?? null, hit_rate_tests: fc.hit_rate_tests ?? null }) : null
+  const fcEdge = fc?.reliability === 'edge_in_backtest'
 
   const clearBtn = onClear && (
     <button
@@ -178,18 +182,22 @@ export default function TickerContextCard({
           {fc && fc.p10 != null && fc.p90 != null && (
             <div className="rounded-xl border border-[var(--cp-line)] bg-[var(--cp-canvas)] px-3.5 py-3">
               <p className="text-[13px] text-[var(--cp-ink-2)]">
-                <span className="font-semibold text-[var(--cp-ink)]">{fc.horizon_days}-day range</span>, experimental model
+                <span className="font-semibold text-[var(--cp-ink)]">{fc.horizon_days}-day 80% range</span>, experimental model
               </p>
               <div className="relative mt-3 h-1.5 rounded-full bg-[var(--cp-line)]" aria-hidden>
-                <span className="absolute top-1/2 h-3.5 w-1 -translate-y-1/2 rounded bg-[var(--cp-ink-2)]" style={{ left: `calc(${pos}% - 2px)` }} />
+                {pricePos != null && (
+                  <span className="absolute top-1/2 h-3.5 w-1 -translate-y-1/2 rounded bg-[var(--cp-ink-2)]" style={{ left: `calc(${pricePos}% - 2px)` }} />
+                )}
               </div>
               <div className="mt-1.5 flex justify-between text-[13px] font-semibold tabular-nums text-[var(--cp-ink)]">
                 <span>${fc.p10.toFixed(2)}</span>
-                {fc.p50 != null && <span className="text-[var(--cp-ink-2)]">${fc.p50.toFixed(2)}</span>}
+                {fcEdge && fc.p50 != null && <span className="text-[var(--cp-ink-2)]">mid ${fc.p50.toFixed(2)}</span>}
                 <span>${fc.p90.toFixed(2)}</span>
               </div>
-              <p className="mt-1 text-[12px] leading-snug text-[var(--cp-ink-3)]">
-                80% of model outcomes fall in this range. It is not a price target.
+              <p className="mt-1 text-[12px] leading-snug text-[var(--cp-ink-3)]" data-testid="copilot-forecast-honesty">
+                {fcHit ? `${fcHit} in past walk-forward tests. ` : ''}
+                {fc.edge_vs_benchmark ?? (fcEdge ? 'Beat ARIMA(0,1,0) in tests' : 'No edge vs ARIMA(0,1,0)')}
+                {fcEdge ? '.' : ', so it shows how far, not which way.'} Not a price target or signal.
               </p>
             </div>
           )}

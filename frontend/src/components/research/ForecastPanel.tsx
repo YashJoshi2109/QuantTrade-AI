@@ -10,7 +10,10 @@
  */
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, FlaskConical, Info, LineChart, Loader2 } from 'lucide-react'
+import { AlertTriangle, FlaskConical, Info, LineChart } from 'lucide-react'
+import { Skeleton } from '@/components/Skeleton'
+import { ForecastRangeBar } from '@/components/forecast/ForecastBadge'
+import { hitRateText, summarizeFullForecast, type ForecastHorizonSummary } from '@/lib/forecastSummary'
 import {
   bandCalibration, BENCHMARK_NAME, CALIBRATION_TEXT, EDGE_TEXT, EXPERIMENTAL_LABEL, fmtP, horizonLabel,
   horizonReliability, mlStatusSentence, noEdgeReason,
@@ -137,7 +140,31 @@ function FanChart({ data }: { data: ForecastResponse }) {
 
 /* ── Panel ────────────────────────────────────────────────────────────── */
 
-function HorizonCard({ data, row }: { data: ForecastResponse; row: ForecastPoint }) {
+/** Same footprint as the loaded panel: chart on the left, four horizon cards on the right. */
+export function ForecastPanelSkeleton() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-5" data-testid="forecast-panel-skeleton" aria-busy="true" aria-label="Loading forecast">
+      <div className="lg:col-span-3 rounded-xl border border-line-subtle bg-surface-raised/30 p-3">
+        <Skeleton className="h-[180px] w-full sm:h-[200px]" />
+        <div className="mt-2 flex gap-3">
+          {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-2.5 w-16" />)}
+        </div>
+      </div>
+      <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="rounded-xl border border-line-subtle bg-surface-raised/40 p-3 space-y-2">
+            <div className="flex justify-between"><Skeleton className="h-3 w-24" /><Skeleton className="h-3 w-28" /></div>
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-1.5 w-full" />
+            <Skeleton className="h-2.5 w-32" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function HorizonCard({ data, row, summary }: { data: ForecastResponse; row: ForecastPoint; summary?: ForecastHorizonSummary | null }) {
   // Without a tested edge the midpoint is noise: range only, no colour, no P(up).
   const rel = horizonReliability(data, row.h)
   const beats = rel === 'edge_in_backtest'
@@ -155,6 +182,7 @@ function HorizonCard({ data, row }: { data: ForecastResponse; row: ForecastPoint
       <div className="text-[10px] text-fg-muted font-mono">
         95% range {money(row.bands['95'][0])} – {money(row.bands['95'][1])}
       </div>
+      {summary && <ForecastRangeBar row={summary} price={data.last_close} className="mt-2" />}
       {beats && (
         <div className="mt-1 text-[10px] text-fg-muted">
           Midpoint {money(row.point)} <span className={`font-mono ${dirTone}`}>({row.exp_return_pct >= 0 ? '+' : ''}{row.exp_return_pct.toFixed(2)}%)</span> · P(up) {pct(row.prob_up)}
@@ -162,6 +190,11 @@ function HorizonCard({ data, row }: { data: ForecastResponse; row: ForecastPoint
       )}
       <div className={`mt-1 text-[10px] ${cal.tone === 'warn' ? 'text-amber-400' : cal.tone === 'ok' ? 'text-fg-secondary' : 'text-fg-muted'}`}>
         {cal.label}
+        {summary && hitRateText(summary) && (
+          <span className="text-fg-muted" title="Share of held-out walk-forward tests whose outcome landed inside the 80% range">
+            {' '}· {hitRateText(summary)}
+          </span>
+        )}
       </div>
     </div>
   )
@@ -176,6 +209,7 @@ export default function ForecastPanel({ symbol }: { symbol: string }) {
     retry: 1,
   })
   const bench = data?.benchmark?.name ?? BENCHMARK_NAME
+  const summary = useMemo(() => summarizeFullForecast(data), [data])
 
   return (
     <div className="col-span-12 hud-panel p-4 sm:p-5" data-testid="forecast-panel">
@@ -196,9 +230,10 @@ export default function ForecastPanel({ symbol }: { symbol: string }) {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center gap-2 h-40 text-sm text-fg-muted">
-          <Loader2 className="w-4 h-4 animate-spin" /> Testing models on 2 years of prices…
-        </div>
+        <>
+          <p className="mb-2 text-[11px] text-fg-muted">Testing models on 2 years of prices…</p>
+          <ForecastPanelSkeleton />
+        </>
       ) : error || !data ? (
         <div className="flex items-start gap-2 rounded-xl border border-line-subtle bg-surface-raised/40 p-4 text-xs text-fg-muted">
           <Info className="w-4 h-4 shrink-0 mt-0.5" />
@@ -217,7 +252,9 @@ export default function ForecastPanel({ symbol }: { symbol: string }) {
               </div>
             </div>
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
-              {data.horizons.map((row) => <HorizonCard key={row.h} data={data} row={row} />)}
+              {data.horizons.map((row) => (
+                <HorizonCard key={row.h} data={data} row={row} summary={summary?.horizons.find((x) => x.h === row.h)} />
+              ))}
             </div>
           </div>
 

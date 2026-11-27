@@ -261,7 +261,15 @@ export interface TickerContext {
   quote: TickerContextQuote | null
   key_stats: Record<string, number | string | null>
   key_stats_id?: string | null
-  forecast: { id: string; as_of?: string | null; horizon_days: number; p10: number | null; p50: number | null; p90: number | null; prob_up_pct?: number | null } | null
+  /** 20-day statistical forecast (backend app/services/forecasting/summary.py). p50 / prob_up_pct
+   *  are null unless the horizon beat ARIMA(0,1,0) in walk-forward tests. */
+  forecast: {
+    id: string; as_of?: string | null; horizon_days: number; p10: number | null; p50: number | null; p90: number | null
+    p025?: number | null; p975?: number | null; prob_up_pct?: number | null
+    reliability?: 'edge_in_backtest' | 'no_edge'; edge_vs_benchmark?: string
+    hit_rate_80?: number | null; hit_rate_tests?: number | null; calibration?: string | null
+    label?: string; ml_gate?: string | null
+  } | null
   latest_statement: { id: string; period_label: string; form?: string | null; revenue?: number | null; net_income?: number | null; gross_margin_pct?: number | null; revenue_yoy_pct?: number | null; filed?: string | null } | null
   news: TickerContextNews[]
   filings: CitationData[]

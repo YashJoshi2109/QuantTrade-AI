@@ -18,6 +18,7 @@ import { dirClass, fmtLtp, priceDomain, fmtSigned, pctFrom, rangePosition, type 
 import { fmtMoney, fmtPct, fmtQty } from '@/lib/portfolio'
 import { Skeleton } from '@/components/Skeleton'
 import TickerLogo from '@/components/TickerLogo'
+import InstrumentForecast from '@/components/forecast/InstrumentForecast'
 import { researchHref } from './MarketwatchParts'
 
 const W = 320
@@ -140,6 +141,8 @@ export default function InstrumentPanel({
       <section aria-label="Price history" className="rounded-lg border border-line-subtle p-3">
         <MiniChart symbol={symbol} />
       </section>
+
+      <InstrumentForecast symbol={symbol} price={quote?.unavailable ? null : quote?.price} />
 
       <section aria-label="Your position">
         <div className="mb-1.5 flex items-center justify-between">

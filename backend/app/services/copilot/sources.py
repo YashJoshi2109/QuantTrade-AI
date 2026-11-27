@@ -161,23 +161,35 @@ def statement_periods(ticker: str, rows: Sequence[Dict[str, Any]], n_quarters: i
 
 
 def forecast_fact(ticker: str, raw: Dict[str, Any]) -> Optional[ForecastFact]:
-    if not raw or not raw.get("horizons"):
+    """Copilot view of a /api/v1/forecast payload.
+
+    Built from app.services.forecasting.summary.summarize_forecast, the same
+    function behind the watchlist / portfolio / screener badges, so the copilot
+    quotes the same ranges, hit rates and "no edge" labels as the UI.
+    """
+    from app.services.forecasting.summary import summarize_forecast
+
+    sm = summarize_forecast(raw, ticker)
+    if not sm:
         return None
     hs = []
-    for h in raw["horizons"]:
-        band = (h.get("bands") or {}).get("80") or [None, None]
-        hs.append(ForecastHorizon(h=int(h["h"]), date=h.get("date"), p10=fnum(band[0]),
-                                  p50=fnum(h.get("point")), p90=fnum(band[1]),
-                                  exp_return_pct=fnum(h.get("exp_return_pct")),
-                                  prob_up_pct=round(fnum(h.get("prob_up")) * 100, 1) if fnum(h.get("prob_up")) is not None else None))
+    for h in sm["horizons"]:
+        r80, r95 = h.get("range_80") or [None, None], h.get("range_95") or [None, None]
+        hs.append(ForecastHorizon(
+            h=h["h"], date=h.get("date"), p10=r80[0], p90=r80[1], p025=r95[0], p975=r95[1],
+            p50=h.get("midpoint"), exp_return_pct=h.get("exp_return_pct"), prob_up_pct=h.get("prob_up_pct"),
+            reliability=h["reliability"], edge_vs_benchmark=h["edge_text"],
+            hit_rate_80=h.get("hit_rate_80"), hit_rate_95=h.get("hit_rate_95"),
+            hit_rate_tests=h.get("hit_rate_tests"), calibration=h.get("calibration")))
     bt = raw.get("backtest") or {}
     return ForecastFact(
         id=f"fc:{ticker}", source="QuantTrade forecast engine (/api/v1/forecast)",
-        as_of=raw.get("as_of"), ticker=ticker, generated_at=raw.get("generated_at"),
-        last_close=fnum(raw.get("last_close")), horizons=hs,
-        vol_annualized_pct=fnum(raw.get("vol_annualized_pct")),
+        as_of=sm.get("as_of"), ticker=ticker, generated_at=sm.get("generated_at"),
+        last_close=sm.get("last_close"), horizons=hs, benchmark=sm["benchmark"],
+        vol_annualized_pct=sm.get("vol_annualized_pct"),
         backtest_mase_vs_naive=bt.get("mase_vs_naive") or {},
         backtest_directional_accuracy=bt.get("directional_accuracy") or {},
+        ml_gate=sm["ml_gate"]["note"], signal=False,
     )
 
 

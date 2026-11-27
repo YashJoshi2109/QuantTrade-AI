@@ -17,6 +17,7 @@ import { fmtMoney, fmtPct, fmtQty } from '@/lib/portfolio'
 import { extendedBadge } from '@/lib/canonicalQuote'
 import { usePersistentState, oneOf } from '@/lib/persistentState'
 import { Skeleton } from '@/components/Skeleton'
+import InstrumentForecast from '@/components/forecast/InstrumentForecast'
 import { useBars } from './useBars'
 import { researchHref } from './MarketwatchParts'
 
@@ -207,6 +208,8 @@ export default function MobileStockSheet({
             <Cell k="Prev" v={fmtLtp(quote?.previous_close)} />
           </div>
         </div>
+
+        <InstrumentForecast symbol={symbol} price={quote?.unavailable ? null : quote?.price} className="mt-4 border-t border-line-subtle pt-3" />
 
         {positions.length > 0 && (
           <div className="mt-4 border-t border-line-subtle pt-3">

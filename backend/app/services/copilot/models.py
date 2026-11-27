@@ -167,33 +167,63 @@ class StatementPeriod(Fact):
 
 
 class ForecastHorizon(BaseModel):
+    """One horizon of the statistical forecast, as the copilot sees it.
+
+    p10/p90 are the 80% range; p025/p975 the 95% range. p50, exp_return_pct and
+    prob_up_pct are filled ONLY when the horizon beat ARIMA(0,1,0) in
+    walk-forward tests (reliability == edge_in_backtest); otherwise they are
+    None because the midpoint of a model with no edge is noise.
+    hit_rate_80/95 = measured share of held-out test outcomes inside the range.
+    """
     h: int
     date: Optional[str] = None
     p10: Optional[float] = None
     p50: Optional[float] = None
     p90: Optional[float] = None
+    p025: Optional[float] = None
+    p975: Optional[float] = None
     exp_return_pct: Optional[float] = None
     prob_up_pct: Optional[float] = None
+    reliability: str = "no_edge"
+    edge_vs_benchmark: str = "No edge vs ARIMA(0,1,0)"
+    hit_rate_80: Optional[float] = None
+    hit_rate_95: Optional[float] = None
+    hit_rate_tests: Optional[int] = None
+    calibration: Optional[str] = None
 
 
 class ForecastFact(Fact):
     kind: Literal["forecast"] = "forecast"
-    model: str = "ARIMA/ETS/Theta ensemble + GJR-GARCH bands"
+    model: str = "SARIMAX + ARIMA/ETS/ensemble baselines, GJR-GARCH bands, judged vs ARIMA(0,1,0)"
+    benchmark: str = "ARIMA(0,1,0)"
+    status_label: str = "Experimental · Not investment advice"
     generated_at: Optional[str] = None
     last_close: Optional[float] = None
     horizons: List[ForecastHorizon] = Field(default_factory=list)
     vol_annualized_pct: Optional[float] = None
     backtest_mase_vs_naive: Dict[str, Optional[float]] = Field(default_factory=dict)
     backtest_directional_accuracy: Dict[str, Optional[float]] = Field(default_factory=dict)
-    note: str = "Probabilistic model output (p10-p90 = 80% band), not a prediction of certainty."
+    ml_gate: Optional[str] = None
+    signal: bool = False
+    note: str = ("Statistical range, not a prediction, price target or trade signal. p10-p90 is the 80% "
+                 "range. A midpoint (p50) is given only for horizons that beat ARIMA(0,1,0) in tests; "
+                 "where reliability is no_edge, describe only the range.")
 
     def label(self) -> str:
         return f"{self.ticker} QuantTrade forecast"
 
     def ui(self) -> Dict[str, Any]:
         d = super().ui()
-        d["snippet"] = "; ".join(
-            f"{h.h}d: ${h.p10}–${h.p90} (median ${h.p50})" for h in self.horizons) + f". {self.model}. {self.note}"
+        parts = []
+        for h in self.horizons:
+            s = f"{h.h}d 80% range ${h.p10}–${h.p90}"
+            if h.p50 is not None:
+                s += f" (midpoint ${h.p50})"
+            if h.hit_rate_80 is not None and h.hit_rate_tests:
+                s += f", {round(h.hit_rate_80 * 100)}% hit rate in {h.hit_rate_tests} tests"
+            s += f", {h.edge_vs_benchmark.lower()}"
+            parts.append(s)
+        d["snippet"] = "; ".join(parts) + f". {self.status_label}."
         return d
 
 
@@ -341,9 +371,15 @@ class TickerContextPack(BaseModel):
                 "week_52_high", "week_52_low", "beta", "target_price", "recommendation",
                 "sector", "industry") if f is not None and getattr(f, k) is not None} if f else {},
             "key_stats_id": f.id if f else None,
+            # p50 / prob_up_pct are None unless the horizon beat ARIMA(0,1,0) in tests
             "forecast": ({"id": fc.id, "as_of": fc.as_of, "horizon_days": 20,
                           "p10": h20.p10, "p50": h20.p50, "p90": h20.p90,
-                          "prob_up_pct": h20.prob_up_pct} if fc and h20 else None),
+                          "p025": h20.p025, "p975": h20.p975,
+                          "prob_up_pct": h20.prob_up_pct, "reliability": h20.reliability,
+                          "edge_vs_benchmark": h20.edge_vs_benchmark,
+                          "hit_rate_80": h20.hit_rate_80, "hit_rate_tests": h20.hit_rate_tests,
+                          "calibration": h20.calibration, "label": fc.status_label,
+                          "ml_gate": fc.ml_gate} if fc and h20 else None),
             "latest_statement": (self.statements[0].model_dump(include={
                 "id", "period_label", "form", "revenue", "net_income", "gross_margin_pct",
                 "revenue_yoy_pct", "filed"}) if self.statements else None),

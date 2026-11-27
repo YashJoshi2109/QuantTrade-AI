@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, ArrowDown, ArrowUp, Filter, Loader2, SlidersHorizontal, X } from 'lucide-react'
+import ForecastBadge from '@/components/forecast/ForecastBadge'
+import { useForecastSummaries } from '@/lib/useForecastSummaries'
+import { isBool, usePersistentState } from '@/lib/persistentState'
 import { SkeletonCardList } from '@/components/ui/data-skeletons'
 import TickerLogo from '@/components/TickerLogo'
 import {
@@ -92,6 +95,8 @@ export default function ScreenerMobile() {
   const [open, setOpen] = useState(false)
   const closeDrawer = useCallback(() => setOpen(false), [])
   const nFilters = activeFilterCount(c.state)
+  const [showForecast, setShowForecast] = usePersistentState('screener.forecastColumn', false, { validate: isBool })
+  const forecasts = useForecastSummaries(c.rows.map((r) => r.symbol), { enabled: showForecast, warm: false })
 
   const sortCol = METRIC_COLUMNS.find((m) => m.sort === c.activeSort)
   const cardCols = CARD_KEYS.map((k) => METRIC_COLUMNS.find((m) => m.key === k)!).filter(Boolean)
@@ -146,6 +151,10 @@ export default function ScreenerMobile() {
           {c.fetching && <Loader2 className="h-3 w-3 animate-spin" />}
           {c.data && `${c.total.toLocaleString()} match${c.total === 1 ? '' : 'es'}`}
         </span>
+        <label className="flex cursor-pointer items-center gap-1.5 text-fg-secondary">
+          <input type="checkbox" checked={showForecast} onChange={(e) => setShowForecast(e.target.checked)} className="h-3.5 w-3.5 accent-indigo-600" />
+          1M forecast
+        </label>
         {c.data?.as_of && <span>As of {asOfText(c.data.as_of)}</span>}
       </div>
 
@@ -189,6 +198,11 @@ export default function ScreenerMobile() {
                   </div>
                 ))}
               </dl>
+              {showForecast && (
+                <div className="px-3 pb-2">
+                  <ForecastBadge symbol={r.symbol} item={forecasts.byTicker[r.symbol.toUpperCase()]} loading={forecasts.isLoading} h={20} variant="inline" />
+                </div>
+              )}
               <div className="flex items-center justify-between border-t border-line-subtle px-3 py-1">
                 <Link href={`/research?symbol=${encodeURIComponent(r.symbol)}`} className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
                   Research →
