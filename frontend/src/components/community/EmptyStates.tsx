@@ -120,7 +120,8 @@ export default function EmptyState({
         transition={{ delay: 0.15 }}
       >
         <h3 className="text-lg font-semibold text-fg-primary mb-1.5">
-          {state.emoji} {state.title}
+          {/* The icon above already carries the meaning; no emoji in titles. */}
+          {state.title}
         </h3>
         <p className="text-sm text-fg-muted mb-5 max-w-sm mx-auto leading-relaxed">
           {state.description}

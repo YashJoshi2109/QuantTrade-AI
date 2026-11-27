@@ -213,7 +213,7 @@ function SettingsPageContent() {
           {/* Header */}
           <motion.div className="flex items-center gap-4 mb-10" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="w-10 h-10 rounded-xl bg-surface-raised border border-cyan-500/20 overflow-hidden">
-              <Image src="/logo.png" alt="QuantTrade AI" width={40} height={40} className="object-contain" />
+              <Image src="/logo.png" alt="QuantTrade AI" width={40} height={40} className="brand-logo object-contain scale-150" />
             </div>
             <div>
               <div className="flex items-center gap-2">

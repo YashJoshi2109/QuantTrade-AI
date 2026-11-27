@@ -77,10 +77,10 @@ const TRADING_PRO_FEATURES = [
 ]
 
 const TRUST = [
-  { icon: Shield, label: 'Bank-grade encryption' },
-  { icon: Lock, label: 'Stripe-secured' },
+  { icon: Shield, label: 'Encrypted in transit (TLS)' },
+  { icon: Lock, label: 'Payments by Stripe' },
   { icon: Clock, label: 'Cancel anytime' },
-  { icon: Users, label: '10,000+ traders' },
+  { icon: Users, label: 'Research only, no trading' },
 ]
 
 function usePricingLogic() {
@@ -555,7 +555,7 @@ function DesktopPricingPage({ state }: { state: ReturnType<typeof usePricingLogi
           <motion.div className="text-center mb-10" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-center justify-center gap-3 mb-8">
               <div className="w-9 h-9 rounded-xl bg-surface-raised border border-cyan-500/20 overflow-hidden">
-                <Image src="/logo.png" alt="QuantTrade" width={36} height={36} className="object-contain" />
+                <Image src="/logo.png" alt="QuantTrade" width={36} height={36} className="brand-logo object-contain scale-150" />
               </div>
               <span className="text-xl font-black bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
                 QuantTrade AI

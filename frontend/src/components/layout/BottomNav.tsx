@@ -97,7 +97,7 @@ export default function BottomNav() {
               'relative grid grid-cols-5 items-center rounded-[2rem] py-2 overflow-visible',
               'border border-line-subtle',
               'bg-surface-glass',
-              'shadow-[0_8px_32px_rgba(0,217,255,0.05),0_10px_40px_rgba(0,0,0,0.5)]'
+              'shadow-[0_6px_24px_rgba(0,0,0,0.18)]'
             )}
             style={{
               backdropFilter: 'blur(32px) saturate(2)',
@@ -146,7 +146,7 @@ export default function BottomNav() {
                           'w-14 h-14 rounded-full flex items-center justify-center border-2 transition-all duration-300',
                           isActive
                             ? 'bg-gradient-to-br from-[#007AFF] to-[#00D9FF] border-transparent shadow-[0_0_24px_rgba(0,217,255,0.5),0_4px_16px_rgba(0,122,255,0.4)]'
-                            : 'bg-surface-raised border-line-subtle shadow-[0_4px_20px_rgba(0,0,0,0.6)]'
+                            : 'bg-surface-raised border-line-subtle shadow-[0_4px_14px_rgba(0,0,0,0.22)]'
                         )}
                         style={{
                           backdropFilter: 'blur(20px)',
@@ -157,7 +157,7 @@ export default function BottomNav() {
                           alt="Copilot" 
                           className={cn(
                             'w-12 h-12 object-contain scale-[1.2] transition-all duration-300',
-                            isActive ? 'brightness-[0] invert drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]' : 'opacity-100 drop-shadow-md'
+                            isActive ? 'brightness-[0] invert drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]' : 'brand-logo opacity-100'
                           )}
                         />
                       </motion.div>
@@ -188,7 +188,7 @@ export default function BottomNav() {
                     {isActive && (
                       <motion.div
                         layoutId="active-nav-indicator"
-                        className="absolute inset-0 bg-[#00D9FF]/15 rounded-2xl shadow-[0_0_18px_rgba(0,217,255,0.35)]"
+                        className="absolute inset-0 bg-[#00D9FF]/15 rounded-2xl"
                         transition={{ type: 'spring', bounce: 0.25, duration: 0.5 }}
                       />
                     )}

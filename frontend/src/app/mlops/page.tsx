@@ -24,6 +24,7 @@ import AppLayout from '@/components/AppLayout'
 import MobileMLOps from '@/components/layout/MobileMLOps'
 import MLStatusPanels from '@/components/mlops/MLStatusPanels'
 import { useAuth } from '@/contexts/AuthContext'
+import SignInPrompt from '@/components/ui/SignInPrompt'
 
 const API = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -2449,19 +2450,18 @@ function DesktopMLOps() {
 
 export default function MLOpsDashboard() {
   const { isAuthenticated, isLoading } = useAuth()
-  const router = useRouter()
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/auth?redirect=/mlops')
-    }
-  }, [isAuthenticated, isLoading, router])
-
+  // Signed out, show the shared sign-in card instead of bouncing straight to
+  // /auth: the visitor can still read what the page is before signing in.
   if (isLoading) {
     return (
       <AppLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-fg-muted" />
+        <div className="mx-auto max-w-5xl space-y-4 p-6" aria-busy="true" aria-label="Loading MLOps">
+          <Skeleton className="h-8 w-56" />
+          <div className="grid grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+          </div>
+          <Skeleton className="h-64 rounded-xl" />
         </div>
       </AppLayout>
     )
@@ -2470,26 +2470,13 @@ export default function MLOpsDashboard() {
   if (!isAuthenticated) {
     return (
       <AppLayout>
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-surface-raised border border-line-subtle rounded-2xl p-8 max-w-sm w-full text-center"
-          >
-            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600/30 to-cyan-600/30 border border-purple-500/20 flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-7 h-7 text-purple-400" />
-            </div>
-            <h2 className="text-lg font-bold text-fg-primary mb-2">Sign In Required</h2>
-            <p className="text-sm text-fg-muted mb-6">
-              MLOps Command Center is restricted to authenticated users.
-            </p>
-            <button
-              onClick={() => router.push('/auth?redirect=/mlops')}
-              className="w-full py-2.5 px-4 bg-gradient-to-r from-purple-600/80 to-cyan-600/80 hover:from-purple-600 hover:to-cyan-600 text-white text-sm font-semibold rounded-xl transition-all"
-            >
-              Sign In
-            </button>
-          </motion.div>
+        <div className="mx-auto max-w-md px-4 py-16">
+          <SignInPrompt
+            icon={Lock}
+            title="Sign in to open MLOps"
+            description="Training runs, the model registry and drift monitoring are available to signed-in accounts."
+            returnTo="/mlops"
+          />
         </div>
       </AppLayout>
     )

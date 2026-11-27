@@ -33,6 +33,7 @@ import {
 
 import { useAuth } from '@/contexts/AuthContext'
 import { sendOtp } from '@/lib/auth'
+import { redirectFromLocation } from '@/lib/authRedirect'
 import { registerPasskey, isPasskeySupported } from '@/lib/passkey'
 import { AuthBrandPanel } from './components/AuthBrandPanel'
 import { OtpInput } from './components/OtpInput'
@@ -90,7 +91,7 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace('/')
+      router.replace(redirectFromLocation())
     }
   }, [isLoading, isAuthenticated, router])
 
@@ -211,7 +212,7 @@ export default function AuthPage() {
       if (mode === 'signin') {
         await login(email, password, turnstileToken || undefined)
         setStep('SUCCESS')
-        setTimeout(() => router.push('/'), 1200)
+        setTimeout(() => router.push(redirectFromLocation()), 1200)
       } else {
         await register(email, sanitize(username), password, sanitize(fullName), {
           otp: capturedOtp || undefined,
@@ -245,7 +246,7 @@ export default function AuthPage() {
     setPasskeyLoading(false)
     if (result.success) {
       setStep('SUCCESS')
-      setTimeout(() => router.push('/'), 1200)
+      setTimeout(() => router.push(redirectFromLocation()), 1200)
     } else {
       setError(result.error || 'Passkey setup failed')
     }
@@ -253,7 +254,7 @@ export default function AuthPage() {
 
   const handleSkipPasskey = () => {
     setStep('SUCCESS')
-    setTimeout(() => router.push('/'), 1200)
+    setTimeout(() => router.push(redirectFromLocation()), 1200)
   }
 
   const handleGoogleCredential = useCallback(async (response: any) => {
@@ -263,7 +264,7 @@ export default function AuthPage() {
     try {
       await googleVerify(response.credential)
       setStep('SUCCESS')
-      setTimeout(() => router.push('/'), 1200)
+      setTimeout(() => router.push(redirectFromLocation()), 1200)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Google login failed'
       setError(msg)
@@ -350,7 +351,7 @@ export default function AuthPage() {
     try {
       await loginWithToken(token)
       setStep('SUCCESS')
-      setTimeout(() => router.push('/'), 1200)
+      setTimeout(() => router.push(redirectFromLocation()), 1200)
     } catch {
       setError('Passkey verified but session setup failed. Please try again.')
     }
@@ -362,14 +363,14 @@ export default function AuthPage() {
   // Block auth page for already-authenticated users
   if (isLoading || isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0A0E1A] flex items-center justify-center">
+      <div className="force-dark min-h-screen bg-[#0A0E1A] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-[#007AFF] animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#060B12] flex flex-col lg:flex-row lg:items-stretch" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div className="force-dark min-h-[100dvh] bg-[#060B12] flex flex-col lg:flex-row lg:items-stretch" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       {/* Google font imports */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -516,10 +517,10 @@ export default function AuthPage() {
                   <h2 className="text-2xl font-bold text-[#F0F6FF]" style={{ fontFamily: 'Syne, sans-serif' }}>
                     {mode === 'signin' ? 'Welcome back' : 'Create account'}
                   </h2>
-                  <p className="text-[#475569] text-sm mt-1">
+                  <p className="text-[#94A3B8] text-sm mt-1">
                     {mode === 'signin'
-                      ? 'Sign in to your trading dashboard'
-                      : 'Join 50,000+ traders using AI-powered insights'}
+                      ? 'Sign in to your research workspace'
+                      : 'Free account: AI research, backtests and alerts'}
                   </p>
                 </motion.div>
 
