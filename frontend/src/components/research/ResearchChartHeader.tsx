@@ -26,6 +26,8 @@ import { GitCompareArrows } from 'lucide-react'
 import { compareHref } from '@/lib/compare'
 import type { ExtendedBadge } from '@/lib/canonicalQuote'
 import { ExtendedHoursBadge } from '@/components/quote/ExtendedHoursBadge'
+import { KeyStatsGrid } from '@/components/research/KeyStatsGrid'
+import type { KeyStatsSource } from '@/lib/researchKeyStats'
 
 export type ResearchChartPeriod = '1D' | '5D' | '1M' | '3M' | '6M' | '1Y' | '2Y' | '5Y'
 
@@ -36,6 +38,8 @@ export interface ResearchChartHeaderProps {
   companyNameFallback?: string | null
   /** True while `/api/quotes/ticker` is still resolving */
   profileLoading?: boolean
+  /** Merged quote + fundamentals for the shared key-stats grid (lib/researchKeyStats). */
+  keyStats?: KeyStatsSource
   chartPeriod: ResearchChartPeriod
   chartSeriesType: ChartSeriesType
   chartShowMa: boolean
@@ -142,6 +146,7 @@ export function ResearchChartHeader({
   tickerInfo,
   companyNameFallback,
   profileLoading = false,
+  keyStats,
   chartPeriod,
   chartSeriesType,
   chartShowMa,
@@ -336,10 +341,12 @@ export function ResearchChartHeader({
                   <TrendingDown className="h-3.5 w-3.5" />
                 )}
                 {isPositive ? '+' : ''}
+                {isNumber(priceInfo.change) && priceInfo.change !== 0 ? `${formatNumber(priceInfo.change, 2)} (` : ''}
                 {formatPercent(priceInfo.percent, 2)}
+                {isNumber(priceInfo.change) && priceInfo.change !== 0 ? ')' : ''}
               </span>
               <ExtendedHoursBadge badge={priceInfo.extended} className="self-center" />
-              {isNumber(priceInfo.volume) && priceInfo.volume > 0 && (
+              {!keyStats && isNumber(priceInfo.volume) && priceInfo.volume > 0 && (
                 <span className="font-mono text-[11px] text-fg-muted">
                   Vol {formatNumber(priceInfo.volume / 1_000_000, 2)}M
                 </span>
@@ -350,6 +357,14 @@ export function ResearchChartHeader({
                 </span>
               )}
             </div>
+          )}
+          {keyStats && (
+            <KeyStatsGrid
+              source={keyStats}
+              loading={profileLoading && !tickerInfo}
+              className="max-w-2xl border-t border-line-subtle"
+              testId="research-key-stats"
+            />
           )}
         </motion.div>
 

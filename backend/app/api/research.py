@@ -22,6 +22,8 @@ from app.models.edgar import CompanyEDGAR, FinancialStatement
 from app.models.symbol import Symbol
 from app.models.user import User
 from app.api.auth import get_current_user
+from app.services import sec_edgar_service as _sec_mod
+from app.services.sec_filer import filer_type_for_cik
 from app.services.sec_edgar_service import (
     sync_edgar_data, get_cik, parse_filings_list, get_submissions,
     generate_filing_insights, stored_parser_version, PARSER_VERSION,
@@ -141,6 +143,87 @@ def ticker_identity_endpoint(ticker: str, db: Session = Depends(get_db)):
     return out
 
 
+def _sec_error(status: int, code: str, message: str, retry_after: Optional[int] = None) -> HTTPException:
+    """Typed error so the UI can tell "no SEC filer" from "EDGAR is down".
+
+    The panel used to treat every 404 as "not applicable (ETF / foreign)",
+    which mislabelled US operating companies whenever the first sync failed
+    or the ticker had no Symbol row yet (AEIS, INSM, TENB).
+    """
+    headers = {"Retry-After": str(retry_after)} if retry_after else None
+    return HTTPException(status_code=status, detail={"code": code, "message": message}, headers=headers)
+
+
+def _no_company_payload(upper: str, asset_type: str, name: Optional[str],
+                        filer_type: Optional[str], cik: Optional[str] = None) -> dict:
+    return {
+        "ticker": upper,
+        "asset_type": asset_type,
+        "filer_type": filer_type,
+        "edgar_status": "not_applicable",
+        "company_name": name or upper,
+        "cik": cik,
+        "sic": None,
+        "sic_description": None,
+        "state_of_incorporation": None,
+        "fiscal_year_end": None,
+        "category": None,
+        "identity_status": "ok",
+        "updated_at": None,
+    }
+
+
+def _resolve_cik(upper: str) -> str:
+    cik = get_cik(upper)
+    if cik:
+        return cik
+    if not _sec_mod._CIK_CACHE:  # SEC ticker map never loaded: SEC unreachable, not "no filer"
+        raise _sec_error(503, "sec_unavailable", "SEC EDGAR is temporarily unavailable", retry_after=30)
+    raise _sec_error(404, "no_sec_filer", f"{upper} is not in SEC EDGAR's ticker registry")
+
+
+def _filer_type(db: Session, symbol_id: Optional[int], cik: Optional[str]) -> str:
+    """domestic | foreign | fund | unknown. Parsed 10-K/10-Q rows answer it with no SEC call."""
+    if symbol_id is not None:
+        try:
+            has_us_gaap = db.query(FinancialStatement.id).filter(
+                FinancialStatement.symbol_id == symbol_id,
+                FinancialStatement.form.in_(("10-K", "10-Q", "10-K/A", "10-Q/A")),
+            ).first() is not None
+        except Exception:
+            db.rollback()
+            has_us_gaap = False
+        if has_us_gaap:
+            return "domestic"
+    return filer_type_for_cik(cik, get_submissions)
+
+
+def _register_sec_filer(upper: str, cik: str, db: Session) -> Optional[Symbol]:
+    """Create the Symbol row for a ticker SEC's own registry vouches for.
+
+    US small/mid caps outside the seeded universe (INSM, TENB) had no Symbol
+    row, so the overview 404'd and the UI called them "ETFs / foreign issuers".
+    Only tickers present in SEC's company_tickers map reach here, so user input
+    can never create junk rows. Funds are not registered (returns None).
+    """
+    subs = get_submissions(cik)
+    kind = filer_type_for_cik(cik, lambda _c: subs)
+    if kind == "fund":
+        return None
+    name = (subs or {}).get("name") or None
+    sym = Symbol(symbol=upper, name=name, asset_type="Equity",
+                 country="US" if kind == "domestic" else None)
+    db.add(sym)
+    try:
+        db.commit()
+    except Exception:  # a concurrent first view inserted it (unique symbol)
+        db.rollback()
+        sym = db.query(Symbol).filter(Symbol.symbol == upper).first()
+        if sym is None:
+            raise
+    return sym
+
+
 # ── Company overview ──────────────────────────────────────────────────
 
 @router.get("/{ticker}/company-overview")
@@ -152,49 +235,56 @@ def company_overview(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpoo
     """Company facts from SEC EDGAR — CIK, SIC, incorporation state, fiscal year.
 
     Always carries ``asset_type`` so the UI can hide company-only panels for
-    indices / ETFs (which have no SEC company facts) instead of erroring.
+    indices / ETFs (which have no SEC company facts) instead of erroring, and
+    ``filer_type`` (domestic | foreign | fund | unknown) so foreign private
+    issuers get a 20-F / 6-K view instead of an empty 10-K / 10-Q one.
+
+    Errors carry ``detail.code``: ``no_sec_filer`` (404, nothing in EDGAR),
+    ``sync_pending`` / ``sec_unavailable`` (503, retry). Only ``no_sec_filer``
+    is a final verdict; a failed SEC download is never reported as one.
     """
-    upper = ticker.upper()
+    upper = ticker.upper().strip()
     sym = db.query(Symbol).filter(Symbol.symbol == upper).first()
-    if sym is not None:
-        # Research views drive which tickers the copilot SEC index refreshes.
-        from app.services.copilot.viewed import record_view
-        record_view(upper)
     asset_type = classify_asset_type(upper, sym.asset_type if sym else None)
     if asset_type != "equity":
-        return {
-            "ticker": upper,
-            "asset_type": asset_type,
-            "company_name": (sym.name if sym and sym.name else upper),
-            "cik": None,
-            "sic": None,
-            "sic_description": None,
-            "state_of_incorporation": None,
-            "fiscal_year_end": None,
-            "category": None,
-            "identity_status": "ok",
-            "updated_at": None,
-        }
-    if not sym:
-        raise HTTPException(status_code=404, detail=f"Symbol {ticker} not found")
+        return _no_company_payload(
+            upper, asset_type, sym.name if sym else None,
+            "fund" if asset_type in ("etf", "fund") else None,
+        )
+
+    cik: Optional[str] = None
+    if sym is None:
+        cik = _resolve_cik(upper)
+        sym = _register_sec_filer(upper, cik, db)
+        if sym is None:
+            return _no_company_payload(upper, "fund", None, "fund", cik)
+
+    # Research views drive which tickers the copilot SEC index refreshes.
+    from app.services.copilot.viewed import record_view
+    record_view(upper)
+
     edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym.id).first()
 
     if not edgar:
-        sym_id = sym.id
+        sym_id, sym_name = sym.id, sym.name
+        cik = cik or _resolve_cik(upper)
+        if filer_type_for_cik(cik, get_submissions) == "fund":
+            return _no_company_payload(upper, "fund", sym_name, "fund", cik)
         _end_read_txn(db)
-        result = _sync_once(ticker)
-        if result["status"] == "error":
-            raise HTTPException(status_code=404, detail=result["message"])
+        result = _sync_once(upper)
         if result["status"] == "pending":
-            raise HTTPException(status_code=503, detail=result["message"], headers={"Retry-After": "10"})
+            raise _sec_error(503, "sync_pending", result["message"], retry_after=10)
+        if result["status"] == "error":
+            raise _sec_error(503, "sec_unavailable", result.get("message") or "EDGAR sync failed", retry_after=30)
         edgar = db.query(CompanyEDGAR).filter(CompanyEDGAR.symbol_id == sym_id).first()
-
-    if not edgar:
-        raise HTTPException(status_code=404, detail="EDGAR data not available")
+        if not edgar:
+            raise _sec_error(503, "sec_unavailable", "EDGAR data not available yet", retry_after=30)
 
     return {
         "ticker": upper,
         "asset_type": asset_type,
+        "filer_type": _filer_type(db, sym.id, edgar.cik),
+        "edgar_status": "ok",
         "cik": edgar.cik,
         "company_name": edgar.company_name,
         "sic": edgar.sic,
@@ -314,13 +404,11 @@ def get_filings(  # sync: blocking SEC HTTP + DB run in FastAPI's threadpool
     db: Session = Depends(get_db),
 ):
     """Recent SEC filings for a ticker."""
-    cik = get_cik(ticker)
-    if not cik:
-        raise HTTPException(status_code=404, detail=f"CIK not found for {ticker}")
+    cik = _resolve_cik(ticker.upper().strip())
 
     submissions = get_submissions(cik)
     if not submissions:
-        raise HTTPException(status_code=503, detail="SEC EDGAR temporarily unavailable")
+        raise _sec_error(503, "sec_unavailable", "SEC EDGAR temporarily unavailable", retry_after=30)
 
     forms = [f.strip() for f in form_types.split(",")]
     filings = parse_filings_list(submissions, form_types=forms, limit=limit)

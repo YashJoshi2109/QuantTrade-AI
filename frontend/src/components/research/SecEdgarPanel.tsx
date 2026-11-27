@@ -1,13 +1,18 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  FileText, RefreshCw, ExternalLink, ChevronDown, ChevronUp,
+  FileText, RefreshCw, ExternalLink, ChevronDown,
   Building2, Sparkles, Loader2, AlertTriangle, BarChart2, TrendingUp,
-  DollarSign, Landmark, Activity,
+  DollarSign, Landmark, Activity, Globe2,
 } from 'lucide-react'
+import { Skeleton } from '@/components/Skeleton'
+import {
+  EdgarFetchError, edgarErrorFrom, filingFormsFor, secPanelView,
+  FOREIGN_FILER_NOTE, FUND_NOT_APPLICABLE, NO_SEC_FILER,
+} from '@/lib/secEdgarState'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -15,6 +20,10 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
 interface CompanyOverview {
   ticker: string
+  asset_type?: string
+  /** domestic | foreign | fund | unknown (backend sec_filer) */
+  filer_type?: string | null
+  edgar_status?: 'ok' | 'not_applicable'
   cik: string
   company_name: string
   sic: string
@@ -92,9 +101,10 @@ function fmtUSD(val: number | null | undefined): string {
   return `${sign}$${abs.toLocaleString()}`
 }
 
-function fmtEPS(val: number | null | undefined): string {
-  if (val == null) return '—'
-  return `$${val.toFixed(2)}`
+/** Per-share figure: sign before the currency symbol (-$0.40, never $-0.40). */
+export function fmtEPS(val: number | null | undefined): string {
+  if (val == null || !Number.isFinite(val)) return '—'
+  return `${val < 0 ? '-' : ''}$${Math.abs(val).toFixed(2)}`
 }
 
 const MONTHS: Record<string, string> = {
@@ -142,18 +152,96 @@ export function fcfDisplay(
   return '—'
 }
 
-export const NO_COMPANY_FINANCIALS = (symbol: string) =>
-  `${symbol} has no SEC company financial statements. ETFs, index funds and indices do not file 10-K/10-Q ` +
-  `income statements or balance sheets (funds file N-CSR/N-PORT reports instead), and foreign issuers file 20-F/40-F.`
-
 function formBadge(form: string) {
-  if (form === '10-K' || form === '10-K/A')
+  if (form === '10-K' || form === '10-K/A' || form === '20-F' || form === '40-F')
     return 'bg-violet-500/20 text-violet-300 border-violet-500/30 shadow-[0_0_8px_rgba(139,92,246,0.25)]'
-  if (form === '10-Q' || form === '10-Q/A')
+  if (form === '10-Q' || form === '10-Q/A' || form === '6-K')
     return 'bg-blue-500/20 text-blue-300 border-blue-500/30 shadow-[0_0_8px_rgba(59,130,246,0.2)]'
   if (form === '8-K')
     return 'bg-amber-500/20 text-amber-300 border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.2)]'
   return 'bg-white/5 text-fg-muted border-white/10'
+}
+
+/* ── Skeletons (match the final layout: chips row + period cards) ─── */
+
+function PeriodListSkeleton() {
+  return (
+    <div className="space-y-2" data-testid="edgar-periods-skeleton" aria-busy="true" aria-label="Loading financial statements">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-2xl border border-line-subtle bg-white/[0.03]">
+          <Skeleton className="h-4 w-10" />
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-3 w-24" />
+          <div className="ml-auto flex items-center gap-4">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="hidden sm:block h-3 w-16" />
+            <Skeleton className="hidden sm:block h-3 w-12" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SummaryChipsSkeleton() {
+  return (
+    <div className="space-y-2" aria-hidden>
+      <Skeleton className="h-3 w-56" />
+      <div className="flex flex-wrap gap-2">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/[0.05] border border-line-subtle min-w-[90px]">
+            <Skeleton className="h-4 w-14" />
+            <Skeleton className="h-2.5 w-12" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function FilingsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2" aria-busy="true" aria-label="Loading filings">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex items-start gap-3 p-3.5 rounded-2xl border border-line-subtle bg-white/[0.03]">
+          <Skeleton className="h-5 w-10" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-2.5 w-20" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Small header-only card for verdict states (fund / no filer / unavailable). */
+function SecNotice({
+  tone, title, body, action, testId,
+}: {
+  tone: 'neutral' | 'warn'
+  title: string
+  body: string
+  action?: React.ReactNode
+  testId: string
+}) {
+  return (
+    <div className="col-span-12" data-testid={testId}>
+      <div className="hud-panel p-5 flex items-start sm:items-center gap-3">
+        <div className={`p-2 rounded-xl border ${tone === 'warn' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/[0.05] border-line-subtle'}`}>
+          {tone === 'warn'
+            ? <AlertTriangle className="w-5 h-5 text-amber-400" />
+            : <Building2 className="w-5 h-5 text-fg-muted" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-fg-primary">{title}</p>
+          <p className="text-xs text-fg-muted mt-0.5">{body}</p>
+        </div>
+        {action}
+      </div>
+    </div>
+  )
 }
 
 function valColor(val: number | null | undefined, field?: string) {
@@ -179,7 +267,7 @@ function FinRow({
       flex items-center justify-between px-3 py-1.5 text-xs rounded-md mx-1 my-0.5
       transition-colors duration-150
       ${highlight
-        ? 'bg-white/[0.06] border border-white/[0.08] backdrop-blur-sm'
+        ? 'bg-white/[0.06] border border-line-subtle backdrop-blur-sm'
         : 'hover:bg-white/[0.03]'}
     `}>
       <span className="text-fg-muted">{label}</span>
@@ -198,7 +286,7 @@ function FinRow({
 function SummaryChip({ label, value, positive }: { label: string; value: string; positive?: boolean | null }) {
   const color = positive == null ? 'text-fg-secondary' : positive ? 'text-emerald-400' : 'text-red-400'
   return (
-    <div className="flex flex-col items-center px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.08] backdrop-blur-sm min-w-[90px]">
+    <div className="flex flex-col items-center px-4 py-2.5 rounded-xl bg-white/[0.05] border border-line-subtle backdrop-blur-sm min-w-[90px]">
       <span className={`text-sm font-bold font-mono tabular-nums ${color}`}>{value}</span>
       <span className="text-[10px] text-fg-muted mt-0.5 whitespace-nowrap">{label}</span>
     </div>
@@ -224,7 +312,7 @@ function PeriodCard({
       rounded-2xl border transition-all duration-200 overflow-hidden
       ${expanded
         ? 'border-violet-500/30 bg-white/[0.06] shadow-[0_0_24px_rgba(139,92,246,0.12)]'
-        : 'border-white/[0.08] bg-white/[0.03] hover:border-white/[0.14] hover:bg-white/[0.05]'}
+        : 'border-line-subtle bg-white/[0.03] hover:border-white/[0.14] hover:bg-white/[0.05]'}
     `}>
       {/* Collapsed header */}
       <button
@@ -265,7 +353,7 @@ function PeriodCard({
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="border-t border-white/[0.08]">
+        <div className="border-t border-line-subtle">
           <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/[0.06]">
             {/* Income Statement */}
             <div className="py-3">
@@ -331,7 +419,7 @@ function PeriodCard({
 
 function FilingCard({ f }: { f: FilingItem }) {
   return (
-    <div className="group flex items-start gap-3 p-3.5 rounded-2xl border border-white/[0.08] bg-white/[0.03] hover:border-white/[0.15] hover:bg-white/[0.06] transition-all duration-200 backdrop-blur-sm">
+    <div className="group flex items-start gap-3 p-3.5 rounded-2xl border border-line-subtle bg-white/[0.03] hover:border-white/[0.15] hover:bg-white/[0.06] transition-all duration-200 backdrop-blur-sm">
       <span className={`shrink-0 text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg border mt-0.5 ${formBadge(f.form_type)}`}>
         {f.form_type}
       </span>
@@ -346,7 +434,7 @@ function FilingCard({ f }: { f: FilingItem }) {
           href={f.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="shrink-0 p-2 rounded-lg border border-white/[0.08] text-fg-muted hover:text-white hover:border-violet-500/40 hover:bg-violet-500/10 hover:shadow-[0_0_12px_rgba(139,92,246,0.2)] transition-all duration-200"
+          className="shrink-0 p-2 rounded-lg border border-line-subtle text-fg-muted hover:text-white hover:border-violet-500/40 hover:bg-violet-500/10 hover:shadow-[0_0_12px_rgba(139,92,246,0.2)] transition-all duration-200"
           title="View on SEC EDGAR"
         >
           <ExternalLink className="w-3.5 h-3.5" />
@@ -366,43 +454,90 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
   const [aiLoading, setAiLoading] = useState(false)
   const [filingFilter, setFilingFilter] = useState<string>('all')
 
-  const { data: overview, isLoading: overviewLoading, error: overviewError } = useQuery<CompanyOverview>({
+  const queryClient = useQueryClient()
+  const [syncNote, setSyncNote] = useState<string | null>(null)
+
+  // Per-ticker UI state must not leak into the next symbol.
+  useEffect(() => {
+    setFilingFilter('all')
+    setExpandedPeriods(new Set())
+    setAiInsights(null)
+    setSyncNote(null)
+  }, [symbol])
+
+  const {
+    data: overview, error: overviewError, isFetching: overviewFetching, refetch: refetchOverview,
+  } = useQuery<CompanyOverview, EdgarFetchError>({
     queryKey: ['edgar-overview', symbol],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/v1/research/${symbol}/company-overview`)
-      if (!res.ok) {
-        if (res.status === 404) throw new Error('no-edgar')
-        throw new Error('fetch-failed')
+      let res: Response
+      try {
+        res = await fetch(`${API_BASE}/api/v1/research/${encodeURIComponent(symbol)}/company-overview`)
+      } catch {
+        throw new EdgarFetchError('network', 0)
       }
+      if (!res.ok) throw edgarErrorFrom(res.status, await res.json().catch(() => null))
       return res.json()
     },
     staleTime: 3_600_000,
-    retry: false,
+    // First view of a ticker syncs EDGAR (up to ~90s for big filers): keep the
+    // skeleton up and retry 503s instead of flashing an error. "No filer" is final.
+    retry: (count, err) => err instanceof EdgarFetchError && err.retryable && count < 4,
+    retryDelay: (attempt) => Math.min(4_000 * 2 ** attempt, 15_000),
   })
+
+  const view = secPanelView(overview, overviewError, !overview && !overviewError)
+  const hasCompanyData = view === 'ok' || view === 'foreign'
+  const filingForms = filingFormsFor(view)
 
   const { data: financialsData, isLoading: finLoading } = useQuery({
     queryKey: ['edgar-financials', symbol, periodType],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/v1/research/${symbol}/financials?period_type=${periodType}&limit=16`)
+      const res = await fetch(`${API_BASE}/api/v1/research/${encodeURIComponent(symbol)}/financials?period_type=${periodType}&limit=16`)
       if (!res.ok) throw new Error('fetch-failed')
       return res.json()
     },
     staleTime: 3_600_000,
-    enabled: !!overview && !overviewError,
-    retry: false,
+    enabled: hasCompanyData,
+    retry: 1,
+    // A first sync still running on the server: poll until the rows land.
+    refetchInterval: (q) => ((q.state.data as { syncing?: boolean } | undefined)?.syncing ? 10_000 : false),
   })
 
-  const { data: filingsData, isLoading: filingsLoading } = useQuery({
-    queryKey: ['edgar-filings', symbol],
+  const filingsOpen = showFilings || view === 'foreign'
+  const { data: filingsData, isLoading: filingsLoading, isError: filingsError } = useQuery({
+    queryKey: ['edgar-filings', symbol, filingForms.join(',')],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/v1/research/${symbol}/filings?form_types=10-K,10-Q,8-K&limit=30`)
+      const res = await fetch(`${API_BASE}/api/v1/research/${encodeURIComponent(symbol)}/filings?form_types=${filingForms.join(',')}&limit=30`)
       if (!res.ok) throw new Error('fetch-failed')
       return res.json()
     },
     staleTime: 3_600_000,
-    enabled: showFilings && !!overview && !overviewError,
-    retry: false,
+    enabled: filingsOpen && hasCompanyData,
+    retry: 1,
   })
+
+  const forceSync = useCallback(async () => {
+    setSyncNote('Sync requested…')
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/research/${encodeURIComponent(symbol)}/sync`, { method: 'POST' })
+      if (res.status === 429) {
+        setSyncNote('Sync limit reached, try again later.')
+        return
+      }
+      if (!res.ok) {
+        setSyncNote('Sync could not start.')
+        return
+      }
+      setSyncNote('Sync started. Statements refresh in about a minute.')
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['edgar-financials', symbol] })
+        queryClient.invalidateQueries({ queryKey: ['edgar-overview', symbol] })
+      }, 45_000)
+    } catch {
+      setSyncNote('Sync could not start.')
+    }
+  }, [symbol, queryClient])
 
   const togglePeriod = useCallback((period: string) => {
     setExpandedPeriods(prev => {
@@ -441,8 +576,9 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
   const filings: FilingItem[] = filingsData?.filings ?? []
   const filteredFilings = filingFilter === 'all' ? filings : filings.filter(f => f.form_type === filingFilter)
 
-  const noEdgar = overviewError && (overviewError as Error)?.message === 'no-edgar'
   const financial = isFinancialSic(overview?.sic)
+  const foreign = view === 'foreign'
+  const finSyncing = Boolean(financialsData?.syncing)
 
   // Most recent period for summary chips
   const latest = periods[0]
@@ -450,19 +586,40 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
   const latestCF = latest?.cash_flow
   const latestBS = latest?.balance_sheet
 
-  if (noEdgar) {
+  if (view === 'fund') {
     return (
-      <div className="col-span-12">
-        <div className="hud-panel p-5 flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-            <Building2 className="w-5 h-5 text-amber-400" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-fg-primary">SEC EDGAR Fundamentals: not applicable</p>
-            <p className="text-xs text-fg-muted mt-0.5">{NO_COMPANY_FINANCIALS(symbol)}</p>
-          </div>
-        </div>
-      </div>
+      <SecNotice
+        testId="edgar-not-applicable"
+        tone="neutral"
+        title="SEC EDGAR Fundamentals: not applicable"
+        body={FUND_NOT_APPLICABLE(symbol)}
+      />
+    )
+  }
+  if (view === 'no_filer') {
+    return (
+      <SecNotice testId="edgar-no-filer" tone="neutral" title="No SEC filer for this ticker" body={NO_SEC_FILER(symbol)} />
+    )
+  }
+  if (view === 'unavailable') {
+    return (
+      <SecNotice
+        testId="edgar-unavailable"
+        tone="warn"
+        title="SEC EDGAR data unavailable right now"
+        body={`Could not load ${symbol}'s SEC company facts. EDGAR may be slow or the first sync is still running.`}
+        action={
+          <button
+            type="button"
+            onClick={() => refetchOverview()}
+            disabled={overviewFetching}
+            className="shrink-0 inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-white/[0.12] text-fg-secondary hover:bg-white/[0.06] disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${overviewFetching ? 'animate-spin' : ''}`} />
+            Retry
+          </button>
+        }
+      />
     )
   }
 
@@ -474,7 +631,7 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/60 to-transparent" />
 
         {/* ── Header ─────────────────────────────────────────────────── */}
-        <div className="relative flex flex-wrap items-center gap-4 p-5 border-b border-white/[0.08]">
+        <div className="relative flex flex-wrap items-center gap-4 p-5 border-b border-line-subtle">
           {/* Icon + Title */}
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500/20 to-purple-600/10 border border-violet-500/25 shadow-[0_0_16px_rgba(139,92,246,0.2)]">
@@ -483,55 +640,74 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-sm text-fg-primary tracking-tight">SEC EDGAR Fundamentals</h3>
-                <span className="text-[9px] font-mono font-bold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-md">
-                  LIVE
-                </span>
+                {foreign ? (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold text-sky-300 bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 rounded-md">
+                    <Globe2 className="w-2.5 h-2.5" /> FOREIGN FILER
+                  </span>
+                ) : (
+                  <span className="text-[9px] font-mono font-bold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-md">
+                    EDGAR
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-fg-muted mt-0.5">
-                Income · Balance Sheet · Cash Flow · Filings
+                {foreign ? 'Company facts · 20-F · 40-F · 6-K filings' : 'Income · Balance Sheet · Cash Flow · Filings'}
               </p>
             </div>
           </div>
 
           {/* Company meta */}
-          {overviewLoading ? (
-            <div className="ml-auto flex items-center gap-2 text-xs text-fg-muted">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>Loading EDGAR data…</span>
+          {view === 'loading' ? (
+            <div className="ml-auto flex flex-wrap items-center gap-2" aria-busy="true" aria-label="Loading EDGAR company facts">
+              <Skeleton className="h-6 w-40 rounded-lg" />
+              <Skeleton className="h-6 w-24 rounded-lg" />
+              <Skeleton className="h-6 w-32 rounded-lg" />
+              <Skeleton className="hidden sm:block h-6 w-20 rounded-lg" />
             </div>
           ) : overview ? (
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {[
                 { label: overview.company_name, primary: true },
-                { label: `CIK ${overview.cik}` },
-                { label: overview.sic_description || `SIC ${overview.sic}` },
-                { label: `Inc. ${overview.state_of_incorporation}` },
-                { label: fyEndLabel(overview.fiscal_year_end) },
+                { label: overview.cik ? `CIK ${overview.cik}` : '' },
+                { label: overview.sic_description || (overview.sic ? `SIC ${overview.sic}` : '') },
+                { label: overview.state_of_incorporation ? `Inc. ${overview.state_of_incorporation}` : '' },
+                { label: overview.fiscal_year_end ? fyEndLabel(overview.fiscal_year_end) : '' },
               ].filter(m => m.label).map((m, i) => (
                 <span
                   key={i}
                   className={`text-[11px] px-2.5 py-1 rounded-lg border ${
                     m.primary
                       ? 'font-semibold text-fg-primary bg-white/[0.06] border-white/[0.12]'
-                      : 'text-fg-muted bg-white/[0.03] border-white/[0.07]'
+                      : 'text-fg-muted bg-white/[0.03] border-line-subtle'
                   }`}
                 >
                   {m.label}
                 </span>
               ))}
             </div>
-          ) : overviewError && !noEdgar ? (
-            <div className="ml-auto flex items-center gap-1.5 text-xs text-amber-400">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              EDGAR data unavailable
-            </div>
           ) : null}
         </div>
 
-        {!overviewError && (
+        {view === 'loading' ? (
+          <div className="p-5 space-y-5" data-testid="edgar-loading">
+            <SummaryChipsSkeleton />
+            <PeriodListSkeleton />
+          </div>
+        ) : (
           <div className="p-5 space-y-5">
 
+            {foreign && (
+              <div
+                data-testid="edgar-foreign-note"
+                className="flex items-start gap-2.5 rounded-xl border border-sky-500/20 bg-sky-500/[0.06] px-3.5 py-2.5 text-xs text-fg-secondary"
+              >
+                <Globe2 className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                <p>{FOREIGN_FILER_NOTE(symbol)}</p>
+              </div>
+            )}
+
             {/* ── Summary chips (most recent period) ─────────────────── */}
+            {(finLoading || (finSyncing && !latest)) && <SummaryChipsSkeleton />}
             {latest && (
               <div className="space-y-2">
               <p className="text-[11px] text-fg-muted" data-testid="edgar-latest-period">
@@ -567,7 +743,7 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
                 <span className="text-sm font-bold text-fg-primary">Financial Statements</span>
 
                 {/* Q/A toggle */}
-                <div className="flex rounded-xl overflow-hidden border border-white/[0.10] text-xs">
+                <div className="flex rounded-xl overflow-hidden border border-line-subtle text-xs">
                   {(['quarterly', 'annual'] as const).map(t => (
                     <button
                       key={t}
@@ -585,8 +761,8 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
                 </div>
               </div>
 
-              {/* AI Insights button */}
-              <button
+              {/* AI Insights button (needs parsed statements to analyse) */}
+              {!(foreign && periods.length === 0) && <button
                 type="button"
                 onClick={fetchAiInsights}
                 disabled={aiLoading}
@@ -594,7 +770,7 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
               >
                 {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                 {aiLoading ? 'Analyzing…' : 'AI Insights'}
-              </button>
+              </button>}
             </div>
 
             {/* ── AI Insights output ──────────────────────────────────── */}
@@ -632,25 +808,35 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
             )}
 
             {/* ── Period cards ────────────────────────────────────────── */}
-            {finLoading ? (
-              <div className="flex items-center justify-center h-24 rounded-2xl border border-white/[0.06] bg-white/[0.02]">
-                <div className="flex items-center gap-2.5 text-fg-muted text-sm">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Loading financial statements…
-                </div>
+            {finLoading || (finSyncing && periods.length === 0) ? (
+              <div className="space-y-2">
+                {finSyncing && (
+                  <p className="text-[11px] text-fg-muted" data-testid="edgar-syncing">
+                    Syncing {symbol} from SEC EDGAR. First load of a ticker can take up to a minute.
+                  </p>
+                )}
+                <PeriodListSkeleton />
               </div>
             ) : periods.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center rounded-2xl border border-white/[0.06] bg-white/[0.02] gap-2 px-4 py-5">
+              <div
+                data-testid="edgar-no-periods"
+                className="flex flex-col items-center justify-center text-center rounded-2xl border border-line-subtle bg-white/[0.02] gap-2 px-4 py-5"
+              >
                 <DollarSign className="w-6 h-6 text-fg-muted" />
-                <p className="text-sm text-fg-secondary">No {periodType} SEC financial statements for {symbol}</p>
-                <p className="text-xs text-fg-muted max-w-xl">{NO_COMPANY_FINANCIALS(symbol)}</p>
+                <p className="text-sm text-fg-secondary">No {periodType} XBRL statements parsed for {symbol}</p>
+                <p className="text-xs text-fg-muted max-w-xl">
+                  {foreign
+                    ? 'Foreign filers report on 20-F/6-K, usually under IFRS. Open the filings below for the original statements.'
+                    : `EDGAR has no ${periodType} 10-${periodType === 'annual' ? 'K' : 'Q'} line items for ${symbol} yet. ` +
+                      'Newly listed companies or late filers can lag a quarter; try the other period view or the filings below.'}
+                </p>
               </div>
             ) : (
               <div
                 data-testid="edgar-periods-scroll"
                 className="max-h-[26rem] md:max-h-[32rem] overflow-y-auto overscroll-contain rounded-2xl"
               >
-                <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 py-1.5 mb-1 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-overlay backdrop-blur-md border-b border-white/[0.06]">
+                <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 py-1.5 mb-1 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-overlay backdrop-blur-md border-b border-line-subtle">
                   <span>{periods.length} {periodType === 'annual' ? 'fiscal years' : 'quarters'} · newest first</span>
                   <span className="hidden sm:inline">Click a period for full statements</span>
                 </div>
@@ -669,7 +855,7 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
             )}
 
             {/* ── Filings section ─────────────────────────────────────── */}
-            <div className="rounded-2xl border border-white/[0.08] overflow-hidden">
+            <div className="rounded-2xl border border-line-subtle overflow-hidden">
               <button
                 type="button"
                 onClick={() => setShowFilings(v => !v)}
@@ -679,15 +865,15 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
                   <FileText className="w-3.5 h-3.5 text-amber-400" />
                 </div>
                 <span className="text-sm font-bold text-fg-primary">SEC Filings</span>
-                <span className="text-xs text-fg-muted font-normal">10-K · 10-Q · 8-K</span>
-                <ChevronDown className={`w-4 h-4 text-fg-muted ml-auto transition-transform duration-200 ${showFilings ? 'rotate-180' : ''}`} />
+                <span className="text-xs text-fg-muted font-normal">{filingForms.join(' · ')}</span>
+                <ChevronDown className={`w-4 h-4 text-fg-muted ml-auto transition-transform duration-200 ${filingsOpen ? 'rotate-180' : ''}`} />
               </button>
 
-              {showFilings && (
-                <div className="p-4 border-t border-white/[0.08] space-y-3">
+              {filingsOpen && (
+                <div className="p-4 border-t border-line-subtle space-y-3">
                   {/* Filter chips */}
                   <div className="flex gap-1.5 flex-wrap">
-                    {(['all', '10-K', '10-Q', '8-K'] as const).map(f => (
+                    {['all', ...filingForms].map(f => (
                       <button
                         key={f}
                         type="button"
@@ -695,7 +881,7 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
                         className={`text-[11px] font-medium px-3 py-1 rounded-lg border transition-all duration-150 ${
                           filingFilter === f
                             ? 'bg-white/[0.10] border-white/[0.20] text-fg-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
-                            : 'border-white/[0.06] text-fg-muted hover:bg-white/[0.05] hover:text-fg-secondary'
+                            : 'border-line-subtle text-fg-muted hover:bg-white/[0.05] hover:text-fg-secondary'
                         }`}
                       >
                         {f === 'all' ? 'All Types' : f}
@@ -709,11 +895,13 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
                   </div>
 
                   {filingsLoading ? (
-                    <div className="flex items-center justify-center h-16">
-                      <Loader2 className="w-5 h-5 animate-spin text-fg-muted" />
-                    </div>
+                    <FilingsSkeleton />
+                  ) : filingsError ? (
+                    <p className="text-sm text-amber-400 py-4 text-center">Could not load filings from SEC EDGAR. Try again shortly.</p>
                   ) : filteredFilings.length === 0 ? (
-                    <p className="text-sm text-fg-muted py-4 text-center">No filings found.</p>
+                    <p className="text-sm text-fg-muted py-4 text-center">
+                      No {filingFilter === 'all' ? filingForms.join(' / ') : filingFilter} filings in EDGAR&apos;s recent history.
+                    </p>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 max-h-96 overflow-y-auto">
                       {filteredFilings.map(f => (
@@ -726,19 +914,18 @@ export default function SecEdgarPanel({ symbol }: { symbol: string }) {
             </div>
 
             {/* ── Footer ─────────────────────────────────────────────── */}
-            <div className="flex items-center gap-1.5 text-[11px] text-fg-muted pt-1">
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-fg-muted pt-1">
               <RefreshCw className="w-3 h-3 shrink-0" />
               <span>Data sourced from SEC EDGAR free API · refreshed every 24h</span>
               <span className="mx-1 text-white/20">·</span>
               <button
                 type="button"
-                onClick={async () => {
-                  await fetch(`${API_BASE}/api/v1/research/${symbol}/sync`, { method: 'POST' })
-                }}
+                onClick={forceSync}
                 className="text-violet-400 hover:text-violet-300 transition-colors underline underline-offset-2"
               >
                 force sync
               </button>
+              {syncNote && <span className="text-fg-muted" role="status">{syncNote}</span>}
             </div>
           </div>
         )}

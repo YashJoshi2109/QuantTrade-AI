@@ -168,7 +168,8 @@ def test_company_overview_reports_identity_mismatch(client, db):
     db.commit()
     db.add(CompanyEDGAR(symbol_id=sym.id, cik="0001826011", company_name="Parabolic Technologies, Inc."))
     db.commit()
-    body = client.get("/api/v1/research/PARA/company-overview").json()
+    with patch("app.api.research.get_submissions", return_value=None):  # no SEC network in tests
+        body = client.get("/api/v1/research/PARA/company-overview").json()
     assert body["asset_type"] == "equity"
     assert body["identity_status"] == "mismatch"
     assert body["listed_name"] == "Paramount Global"
