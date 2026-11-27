@@ -28,7 +28,7 @@ numpy>=1.26.2
 requests>=2.33.0  # <2.33.0 had CVE-2024-35195 (proxy credential leak) + SSRF fixes
 beautifulsoup4==4.12.2
 httpx==0.25.2
-lxml>=5.3.1  # >=5.3.1 fixes CVE-2024-55549/CVE-2025-24928; For Finviz HTML parsing
+lxml>=5.3.1,<6.2  # <6.2: 6.2.0 shipped sdist-only (no cp311 wheel), breaking the image build. >=5.3.1 fixes CVE-2024-55549/CVE-2025-24928; For Finviz HTML parsing
 
 # Finviz stock data
 finviz
