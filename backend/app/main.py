@@ -586,6 +586,8 @@ app.include_router(chat_history.router, prefix="/api/v1", tags=["chat-history"])
 app.include_router(enhanced_endpoints.router, prefix="/api/v1/enhanced", tags=["enhanced"])
 app.include_router(quotes.router, prefix="/api/v1", tags=["quotes"])
 app.include_router(options.router, prefix="/api/v1", tags=["options"])
+from app.api import outlook as outlook_api  # noqa: E402
+app.include_router(outlook_api.router, prefix="/api/v1", tags=["outlook"])
 app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
 app.include_router(account.router, prefix="/api/v1/account", tags=["account"])
 app.include_router(

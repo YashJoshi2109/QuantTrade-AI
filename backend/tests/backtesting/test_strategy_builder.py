@@ -21,7 +21,7 @@ from app.services.backtesting.rules import PRESETS, StrategySpec, build_signals,
 from app.services.backtesting.runner import Robustness, RunRequest, run_strategy
 
 UNIVERSE = {s: random_walk(1500, seed=k + 1, start="2016-01-01", drift=0.0002 * (k + 1))
-            for k, s in enumerate(["SPY", "QQQ", "IWM", "EFA", "EEM", "TLT", "GLD", "AAA", "BBB", "TQQQ"])}
+            for k, s in enumerate(["SPY", "QQQ", "IWM", "EFA", "EEM", "TLT", "GLD", "AAA", "BBB"])}
 
 
 def fake_loader(sym, start, end):
@@ -341,48 +341,3 @@ def test_validate_and_meta(client):
     assert client.post("/api/v1/backtest/v2/validate", json=bad).status_code == 422
     ok = client.post("/api/v1/backtest/v2/validate", json=_body()).json()
     assert ok["rules_text"]["entry"] == "SMA(10) crosses above SMA(30)"
-
-
-# ── "within N bars" conditions + the RSI/MACD preset ─────────────────────────
-
-def _independent_rsi(close, n=14):
-    d = close.diff()
-    up = d.clip(lower=0).ewm(alpha=1 / n, adjust=False).mean()
-    dn = (-d.clip(upper=0)).ewm(alpha=1 / n, adjust=False).mean()
-    return 100 - 100 / (1 + up / dn)
-
-
-def test_within_extends_a_cross_over_the_next_n_bars_only():
-    df = UNIVERSE["SPY"]
-    cache = IndicatorCache({"SPY": df}, df.index)
-    rule = {"left": {"indicator": "sma", "params": {"period": 10}}, "op": "crosses_above",
-            "right": {"indicator": "sma", "params": {"period": 30}}}
-    base = _spec(entry={"logic": "all", "rules": [rule]}, exit=None)
-    wide = _spec(entry={"logic": "all", "rules": [{**rule, "within": 3}]}, exit=None)
-    e0 = build_signals(base, {}, cache)[0]["SPY"]
-    e3 = build_signals(wide, {}, cache)[0]["SPY"]
-    expected = pd.Series(e0.astype(float)).rolling(4, min_periods=1).max().to_numpy() > 0
-    assert e0.sum() > 0 and (e3 == expected).all()
-    # past bars only: a cross never shows up before it happens
-    first = int(np.argmax(e0))
-    assert not e3[:first].any()
-
-
-def test_rsi_macd_preset_matches_an_independent_calculation():
-    preset = [p for p in PRESETS if p["id"] == "rsi_macd_trend"][0]["spec"]
-    df = UNIVERSE["TQQQ"]
-    spec = StrategySpec(**{**copy.deepcopy(preset), "start_date": "2016-01-01", "end_date": "2021-12-31"})
-    cache = IndicatorCache({"TQQQ": df}, df.index)
-    entries = build_signals(spec, spec.parameters, cache)[0]["TQQQ"]
-
-    c = df["close"]
-    rsi = _independent_rsi(c)
-    macd = c.ewm(span=12, adjust=False).mean() - c.ewm(span=26, adjust=False).mean()
-    sig = macd.ewm(span=9, adjust=False).mean()
-    bounce = (rsi > 30) & (rsi.shift(1) <= 30)
-    golden = (macd > sig) & (macd.shift(1) <= sig.shift(1))
-    trend = (c.rolling(50).mean() > c.rolling(100).mean()) & (c.rolling(100).mean() > c.rolling(200).mean())
-    win = lambda s: s.astype(float).rolling(6, min_periods=1).max() > 0
-    expected = (win(bounce) & win(golden) & trend).to_numpy()
-    # allow for indicator warm-up differences on the first 250 bars
-    assert (entries[250:] == expected[250:]).mean() > 0.995

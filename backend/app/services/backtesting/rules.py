@@ -55,11 +55,6 @@ class Condition(BaseModel):
     left: Operand
     op: Literal[">", "<", ">=", "<=", "crosses_above", "crosses_below"]
     right: Operand
-    # True if the comparison held on any of the last `within` bars (this bar
-    # included), e.g. "RSI crossed above 30 within 5 bars". Lets two events
-    # that rarely fire on the same bar (an RSI bounce and a MACD cross) be
-    # combined. 0/None = this bar only. Uses past bars only: no look-ahead.
-    within: Optional[int] = Field(default=None, ge=0, le=50)
 
 
 class Group(BaseModel):
@@ -277,13 +272,7 @@ def _eval_condition(c: Condition, combo, cache, sym, n) -> np.ndarray:
                 out = (a > b) & (prev_a <= prev_b)
             else:
                 out = (a < b) & (prev_a >= prev_b)
-    out = out & np.isfinite(a) & np.isfinite(b)
-    if c.within:
-        import pandas as pd
-
-        out = (pd.Series(out.astype(float)).rolling(int(c.within) + 1, min_periods=1)
-               .max().to_numpy() > 0)
-    return out
+    return out & np.isfinite(a) & np.isfinite(b)
 
 
 def _prev_valid(x: np.ndarray) -> np.ndarray:
@@ -327,8 +316,7 @@ def describe_group(g: Optional[Group], combo: Dict[str, float]) -> str:
         if isinstance(r, Group):
             parts.append(f"({describe_group(r, combo)})")
         else:
-            w = f" within {r.within} bars" if r.within else ""
-            parts.append(f"{op_txt(r.left)} {r.op.replace('_', ' ')} {op_txt(r.right)}{w}")
+            parts.append(f"{op_txt(r.left)} {r.op.replace('_', ' ')} {op_txt(r.right)}")
     return (" AND " if g.logic == "all" else " OR ").join(parts)
 
 
@@ -389,38 +377,6 @@ PRESETS: List[Dict[str, Any]] = [
                 _cond(_ind("macd", fast="$fast", slow="$slow", signal="$signal"), "crosses_below",
                       _ind("macd_signal", fast="$fast", slow="$slow", signal="$signal")),
             ]},
-        },
-    },
-    {
-        "id": "rsi_macd_trend", "name": "RSI + MACD with MA trend filter", "category": "Momentum",
-        "description": (
-            "Alpaca's RSI/MACD example bot as a daily backtest: buy when an RSI(14) bounce back "
-            "above 30 and a MACD bullish cross happen within 5 bars of each other while "
-            "SMA50 > SMA100 > SMA200; sell when RSI falls back from above 70 and MACD crosses "
-            "down (or drops below zero) within 5 bars."
-        ),
-        "spec": {
-            "symbols": ["TQQQ"],
-            "parameters": {"rsi_len": 14, "oversold": 30, "overbought": 70,
-                           "fast": 12, "slow": 26, "signal": 9},
-            "param_grid": {"oversold": [25, 30, 35], "overbought": [65, 70, 75]},
-            "entry": {"logic": "all", "rules": [
-                {**_cond(_ind("rsi", period="$rsi_len"), "crosses_above", _val("$oversold")), "within": 5},
-                {**_cond(_ind("macd", fast="$fast", slow="$slow", signal="$signal"), "crosses_above",
-                         _ind("macd_signal", fast="$fast", slow="$slow", signal="$signal")), "within": 5},
-                _cond(_ind("sma", period=50), ">", _ind("sma", period=100)),
-                _cond(_ind("sma", period=100), ">", _ind("sma", period=200)),
-            ]},
-            "exit": {"logic": "all", "rules": [
-                {**_cond(_ind("rsi", period="$rsi_len"), "crosses_below", _val("$overbought")), "within": 5},
-                {"logic": "any", "rules": [
-                    {**_cond(_ind("macd", fast="$fast", slow="$slow", signal="$signal"), "crosses_below",
-                             _ind("macd_signal", fast="$fast", slow="$slow", signal="$signal")), "within": 5},
-                    {**_cond(_ind("macd", fast="$fast", slow="$slow", signal="$signal"), "crosses_below",
-                             _val(0)), "within": 5},
-                ]},
-            ]},
-            "stop_loss_pct": 10,
         },
     },
     {

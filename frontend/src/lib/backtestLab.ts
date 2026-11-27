@@ -29,8 +29,6 @@ export interface Condition {
   left: Operand
   op: Op
   right: Operand
-  /** true if the comparison held on any of the last N bars (0/undefined = this bar) */
-  within?: number | null
 }
 
 export interface Group {
@@ -397,7 +395,7 @@ export function operandText(o: Operand, params: Record<string, number> = {}): st
 export function groupText(g: Group | null, params: Record<string, number> = {}): string {
   if (!g || g.rules.length === 0) return 'none'
   return g.rules
-    .map((r) => (isGroup(r) ? `(${groupText(r, params)})` : `${operandText(r.left, params)} ${r.op.replace('_', ' ')} ${operandText(r.right, params)}${r.within ? ` within ${r.within} bars` : ''}`))
+    .map((r) => (isGroup(r) ? `(${groupText(r, params)})` : `${operandText(r.left, params)} ${r.op.replace('_', ' ')} ${operandText(r.right, params)}`))
     .join(g.logic === 'all' ? ' AND ' : ' OR ')
 }
 
