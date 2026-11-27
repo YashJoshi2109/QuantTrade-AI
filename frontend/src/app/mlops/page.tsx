@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '@/components/AppLayout'
 import MobileMLOps from '@/components/layout/MobileMLOps'
+import MLStatusPanels from '@/components/mlops/MLStatusPanels'
 import { useAuth } from '@/contexts/AuthContext'
 
 const API = process.env.NEXT_PUBLIC_API_URL || ''
@@ -749,6 +750,9 @@ function OverviewTab() {
 
   return (
     <div className="space-y-6">
+      {/* What prod has: ML gate, benchmarks vs ARIMA(0,1,0), registry, data freshness */}
+      <MLStatusPanels />
+
       {/* Health Banner */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}

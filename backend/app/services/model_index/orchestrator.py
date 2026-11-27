@@ -15,7 +15,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.services.model_index.config import get_full_universe, BASKET_CONSTRAINTS
-from app.services.model_index.data_collector import DataCollector
+from app.services.model_index.data_collector import DataCollector, summarize_collection
 from app.services.model_index.regime_engine import RegimeEngine
 from app.services.model_index.factor_engine import FactorEngine
 from app.services.model_index.risk_engine import RiskEngine
@@ -25,6 +25,30 @@ from app.services.model_index.explainability import Explainability
 from app.services.model_index.model_index import ModelIndex, INDEX_DEFINITIONS
 
 logger = logging.getLogger(__name__)
+
+
+def _public_coverage(coverage: Dict[str, Any], scored: int) -> Dict[str, Any]:
+    """Coverage block shipped with every snapshot (no per-ticker failure list)."""
+    universe = coverage.get("universe_size", 0)
+    return {
+        "universe_size": universe,
+        "scoreable": coverage.get("scoreable", 0),
+        "scored": scored,
+        "partial": bool(universe) and scored < universe,
+        "top_reasons": coverage.get("top_reasons", []),
+        "db_fundamentals": coverage.get("db_fundamentals"),
+        "fallback_fundamentals": coverage.get("fallback_fundamentals"),
+        "with_price_bars": coverage.get("with_price_bars"),
+    }
+
+
+def _no_scores_message(coverage: Dict[str, Any]) -> str:
+    """Actionable error when not a single stock could be scored."""
+    reasons = coverage.get("top_reasons") or []
+    detail = "; ".join(f"{r['count']}x {r['reason']}" for r in reasons[:3])
+    base = (f"No stocks scored: 0 of {coverage.get('universe_size', 0)} had enough data "
+            "(quotes, fundamentals or price history)")
+    return f"{base}. Top reasons: {detail}" if detail else base
 
 
 class Orchestrator:
@@ -78,7 +102,9 @@ class Orchestrator:
         if not universe_data:
             return {"error": "No universe data collected"}
 
-        logger.info(f"Collected data for {len(universe_data)} stocks")
+        coverage = self.collector.last_diagnostics or summarize_collection(universe_data)
+        logger.info(f"Collected data for {len(universe_data)} stocks "
+                    f"({coverage.get('scoreable', 0)} scoreable)")
 
         # ── Step 2: Market Breadth ───────────────────────────────────────
         logger.info("Step 2: Computing market breadth...")
@@ -94,7 +120,10 @@ class Orchestrator:
         scored_universe = FactorEngine.score_universe(universe_data, regime, strategy_type)
 
         if not scored_universe:
-            return {"error": "No stocks scored successfully"}
+            return {
+                "error": _no_scores_message(coverage),
+                "data_coverage": _public_coverage(coverage, 0),
+            }
 
         logger.info(f"Scored {len(scored_universe)} stocks")
 
@@ -142,6 +171,8 @@ class Orchestrator:
 
         # Add stock-level explanations
         snapshot["stock_explanations"] = stock_explanations
+        # Partial baskets are valid: say how much of the universe was scoreable.
+        snapshot["data_coverage"] = _public_coverage(coverage, len(scored_universe))
 
         # Add timing
         elapsed = (datetime.utcnow() - start_time).total_seconds()
@@ -168,6 +199,7 @@ class Orchestrator:
 
         # Collect data once
         universe_data = await self.collector.collect_universe()
+        coverage = self.collector.last_diagnostics or summarize_collection(universe_data)
         macro = await self.collector.collect_macro()
         breadth = self.collector.compute_breadth(universe_data)
         regime = RegimeEngine.detect_regime(macro, breadth)
@@ -180,7 +212,8 @@ class Orchestrator:
                 # Score for this strategy type
                 scored = FactorEngine.score_universe(universe_data, regime, strategy_type)
                 if not scored:
-                    results[index_id] = {"error": "No stocks scored"}
+                    results[index_id] = {"error": _no_scores_message(coverage),
+                                         "data_coverage": _public_coverage(coverage, 0)}
                     continue
 
                 # Build basket
@@ -204,6 +237,7 @@ class Orchestrator:
                 snapshot = ModelIndex.build_index_snapshot(
                     index_id, basket, explanation, regime, mc, scenarios,
                 )
+                snapshot["data_coverage"] = _public_coverage(coverage, len(scored))
                 results[index_id] = snapshot
 
             except Exception as e:
