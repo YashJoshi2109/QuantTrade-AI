@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 PACK_TTL_S = int(os.getenv("COPILOT_PACK_TTL_S", "60"))
 SOURCE_TIMEOUT_S = float(os.getenv("COPILOT_SOURCE_TIMEOUT_S", "2.5"))
 FILING_TIMEOUT_S = float(os.getenv("COPILOT_FILING_TIMEOUT_S", "3.5"))
+SYNC_BUDGET_S = float(os.getenv("COPILOT_SYNC_BUDGET_S", "8"))
 _CACHE_VERSION = "v2"
 
 _mem_cache: dict[str, tuple[float, dict]] = {}
@@ -99,6 +100,28 @@ async def build_pack(rt: ResolvedTicker, sources, *, filings_query: Optional[str
             jobs["statements"] = lambda: sources.statements(ticker)
         results = await asyncio.gather(*[_timed(n, f(), SOURCE_TIMEOUT_S, pack) for n, f in jobs.items()])
         r = dict(zip(jobs, results))
+        sync_pending = False
+        if is_company:
+            # Nobody opened this ticker's research page yet: run the same
+            # bounded fundamentals / SEC sync it would, then re-read once.
+            missing = [k for k in ("fundamentals", "statements") if not r.get(k)]
+            sync = getattr(sources, "sync", None)
+            if missing and sync is not None:
+                budget = SYNC_BUDGET_S
+                statuses = await asyncio.gather(*[
+                    _timed(f"sync_{k}", sync(k, ticker, budget), budget + 1.0, pack) for k in missing])
+                retried = await asyncio.gather(*[_timed(k, jobs[k](), SOURCE_TIMEOUT_S, pack) for k in missing])
+                for k, st, val in zip(missing, statuses, retried):
+                    r[k] = val
+                    if not val:
+                        running = st in (None, "pending")
+                        sync_pending = sync_pending or running
+                        pack.errors[k] = ("not in data yet (data sync still running; ask again shortly)"
+                                          if running else "not in data")
+                    else:
+                        pack.errors.pop(k, None)
+                        pack.errors.pop(f"sync_{k}", None)
+                    logger.info("copilot sync %s %s -> %s (%s)", k, ticker, st, "found" if val else "still missing")
         pack.quote = r.get("quote")
         pack.fundamentals = r.get("fundamentals")
         pack.forecast = r.get("forecast")
@@ -113,7 +136,9 @@ async def build_pack(rt: ResolvedTicker, sources, *, filings_query: Optional[str
         if pack.fundamentals and not pack.name:
             pack.name = pack.fundamentals.company_name
         if use_cache:
-            await _cache_set(_cache_key(ticker), pack.model_dump(exclude={"filings", "cached"}), PACK_TTL_S)
+            # a pack missing data whose sync is still running is cached briefly
+            await _cache_set(_cache_key(ticker), pack.model_dump(exclude={"filings", "cached"}),
+                             min(PACK_TTL_S, 10) if sync_pending else PACK_TTL_S)
     else:
         pack.identity = rt.identity or pack.identity
 
