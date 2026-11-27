@@ -11,8 +11,8 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { BellRing, Briefcase, Share2, X } from 'lucide-react'
 import { fetchFundamentals } from '@/lib/api'
-import { niceTicks, linePath, scaleLinear, valueDomain } from '@/lib/lineChart'
-import { RANGES, dirClass, fmtLtp, fmtSigned, pctFrom, type HoldingRow, type RangeKey, type WatchQuote } from '@/lib/marketwatch'
+import { niceTicks, linePath, scaleLinear } from '@/lib/lineChart'
+import { RANGES, dirClass, priceDomain, fmtLtp, fmtSigned, pctFrom, type HoldingRow, type RangeKey, type WatchQuote } from '@/lib/marketwatch'
 import { fmtMoney, fmtPct, fmtQty } from '@/lib/portfolio'
 import { extendedBadge } from '@/lib/canonicalQuote'
 import { usePersistentState, oneOf } from '@/lib/persistentState'
@@ -32,7 +32,7 @@ function SheetChart({ symbol, range }: { symbol: string; range: RangeKey }) {
   const closes = useMemo(() => (q.data ?? []).map((b) => b.close), [q.data])
   if (q.isLoading) return <Skeleton className="h-[180px] w-full" />
   if (closes.length < 2) return <div className="flex h-[180px] items-center justify-center text-xs text-fg-muted">No price history for this range</div>
-  const [lo, hi] = valueDomain([{ values: closes }])
+  const [lo, hi] = priceDomain(closes)
   const x = scaleLinear(0, closes.length - 1, 0, W - AXIS)
   const y = scaleLinear(lo, hi, H - 6, 6)
   const up = closes[closes.length - 1] >= closes[0]
@@ -129,8 +129,8 @@ export default function MobileStockSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-[55] flex items-end bg-black/50" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label={`${symbol} details`} className="max-h-[92vh] w-full overflow-y-auto rounded-t-[28px] bg-surface-base px-4 pb-8 pt-2">
+    <div className="fixed inset-0 z-[70] flex items-end bg-black/60 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div role="dialog" aria-modal="true" aria-label={`${symbol} details`} className="max-h-[92vh] w-full overflow-y-auto rounded-t-[28px] border-t border-line-subtle bg-white px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-2 shadow-2xl dark:bg-slate-900">
         <div className="mx-auto mb-2 h-1 w-9 rounded-full bg-surface-active" aria-hidden />
         <div className="flex items-start justify-between">
           <div className="min-w-0">
@@ -180,7 +180,7 @@ export default function MobileStockSheet({
               role="tab"
               aria-selected={range === r}
               onClick={() => setRange(r)}
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${range === r ? 'bg-fg-primary text-surface-base' : 'text-fg-muted'}`}
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${range === r ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'text-fg-muted'}`}
             >
               {r}
             </button>
@@ -190,7 +190,7 @@ export default function MobileStockSheet({
           <SheetChart symbol={symbol} range={range} />
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-x-4 border-t border-line-subtle pt-3">
+        <div className="mt-4 grid grid-cols-[repeat(3,minmax(0,1fr))] gap-x-4 border-t border-line-subtle pt-3">
           <div>
             <Cell k="Open" v={fmtLtp(quote?.open)} />
             <Cell k="High" v={fmtLtp(quote?.high)} />
@@ -224,7 +224,7 @@ export default function MobileStockSheet({
           </div>
         )}
 
-        <div className="mt-5 grid grid-cols-3 gap-2">
+        <div className="mt-5 grid grid-cols-[repeat(3,minmax(0,1fr))] gap-2">
           <Link href={researchHref(symbol)} className="flex h-11 items-center justify-center rounded-xl bg-surface-raised text-sm font-semibold text-fg-primary">Research</Link>
           <button type="button" onClick={() => onAlert(symbol)} className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-surface-raised text-sm font-semibold text-fg-primary">
             <BellRing className="h-4 w-4" /> Alert

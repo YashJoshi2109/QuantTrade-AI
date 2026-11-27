@@ -393,6 +393,27 @@ export function avgVolume(volumes: readonly (number | null | undefined)[]): numb
 }
 
 /**
+ * Min–max y domain for a PRICE chart, padded 6%. lib/lineChart's valueDomain pins 0
+ * into the domain (right for returns), which flattens a price line into a strip.
+ */
+export function priceDomain(values: readonly (number | null | undefined)[]): [number, number] {
+  let lo = Infinity
+  let hi = -Infinity
+  for (const v of values) {
+    if (v == null || !Number.isFinite(v)) continue
+    if (v < lo) lo = v
+    if (v > hi) hi = v
+  }
+  if (!Number.isFinite(lo)) return [0, 1]
+  if (hi - lo < 1e-9) {
+    const d = Math.abs(lo) * 0.01 || 1
+    return [lo - d, hi + d]
+  }
+  const pad = (hi - lo) * 0.06
+  return [lo - pad, hi + pad]
+}
+
+/**
  * SVG polyline points for a sparkline in a w x h box (oldest first).
  * Returns '' with fewer than two finite values so the row draws nothing rather than a fake line.
  */

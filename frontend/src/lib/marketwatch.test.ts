@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   avgVolume, clampIndex, gttCondition, holdingsBySymbol, holdingsTotals, moveItem, nextListName, pctFrom,
-  quoteFromHolding, rangePosition, sortItems, sparkPoints, toWatchQuote, fmtLtp, fmtSigned,
+  priceDomain, quoteFromHolding, rangePosition, sortItems, sparkPoints, toWatchQuote, fmtLtp, fmtSigned,
   type HoldingRow, type WatchQuote,
 } from './marketwatch'
 
@@ -147,6 +147,14 @@ describe('format + charts', () => {
     expect(pts).toHaveLength(3)
     expect(pts[0]).toBe('1.0,21.0') // lowest value at the bottom-left
     expect(pts[2]).toBe('51.0,1.0') // highest at the top-right
+  })
+
+  it('priceDomain is min-max (does not pin 0) and handles flat or empty series', () => {
+    const [lo, hi] = priceDomain([400, 410, null, 420])
+    expect(lo).toBeCloseTo(398.8)
+    expect(hi).toBeCloseTo(421.2)
+    expect(priceDomain([100, 100])).toEqual([99, 101])
+    expect(priceDomain([])).toEqual([0, 1])
   })
 
   it('avgVolume ignores missing and zero volumes', () => {

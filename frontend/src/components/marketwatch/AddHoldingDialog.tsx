@@ -92,7 +92,7 @@ export default function AddHoldingDialog({
         <p className="text-xs text-fg-muted">
           Record shares you already own to track cost basis and P&amp;L. This only updates your QuantTrade ledger. No order is placed.
         </p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
           <div>
             <label htmlFor="mw-h-qty" className="mb-1 block text-xs font-medium text-fg-secondary">Quantity</label>
             <input id="mw-h-qty" inputMode="decimal" autoComplete="off" value={qty} onChange={(e) => setQty(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0" className={input} />
@@ -102,7 +102,7 @@ export default function AddHoldingDialog({
             <input id="mw-h-price" inputMode="decimal" autoComplete="off" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0.00" className={input} />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
           <div>
             <label htmlFor="mw-h-date" className="mb-1 block text-xs font-medium text-fg-secondary">Bought on</label>
             <input id="mw-h-date" type="date" max={todayIso()} value={date} onChange={(e) => setDate(e.target.value)} className={input} />

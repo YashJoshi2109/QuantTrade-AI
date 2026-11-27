@@ -530,7 +530,7 @@ export function HoldingsSummary({ rows }: { rows: HoldingRow[] }) {
   const t = holdingsTotals(real.length ? real : rows)
   const simulatedOnly = real.length === 0 && rows.length > 0
   return (
-    <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-line-subtle bg-line-subtle text-xs">
+    <div className="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-px overflow-hidden rounded-lg border border-line-subtle bg-line-subtle text-xs">
       <Stat label="Current value" value={fmtMoney(t.marketValue, { compact: true })} />
       <Stat label="Unrealized P&L" value={fmtMoney(t.unrealizedPnl, { signed: true, compact: true })} sub={fmtPct(t.unrealizedPct)} cls={dirClass(t.unrealizedPnl)} />
       <Stat label="Day's P&L" value={fmtMoney(t.dayChange, { signed: true, compact: true })} cls={dirClass(t.dayChange)} />

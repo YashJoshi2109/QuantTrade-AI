@@ -13,8 +13,8 @@ import { useBars } from './useBars'
 import { describeAlert, useAlerts } from '@/lib/alerts'
 import { extendedBadge } from '@/lib/canonicalQuote'
 import { compareHref } from '@/lib/compare'
-import { linePath, scaleLinear, valueDomain } from '@/lib/lineChart'
-import { dirClass, fmtLtp, fmtSigned, pctFrom, rangePosition, type HoldingRow, type WatchQuote } from '@/lib/marketwatch'
+import { linePath, scaleLinear } from '@/lib/lineChart'
+import { dirClass, fmtLtp, priceDomain, fmtSigned, pctFrom, rangePosition, type HoldingRow, type WatchQuote } from '@/lib/marketwatch'
 import { fmtMoney, fmtPct, fmtQty } from '@/lib/portfolio'
 import { Skeleton } from '@/components/Skeleton'
 import TickerLogo from '@/components/TickerLogo'
@@ -29,7 +29,7 @@ function MiniChart({ symbol }: { symbol: string }) {
   if (q.isLoading) return <Skeleton className="h-24 w-full" />
   const valid = closes.filter((v): v is number => v != null)
   if (valid.length < 2) return <div className="flex h-24 items-center justify-center text-xs text-fg-muted">No price history stored yet</div>
-  const [lo, hi] = valueDomain([{ values: closes }])
+  const [lo, hi] = priceDomain(closes)
   const x = scaleLinear(0, closes.length - 1, 2, W - 2)
   const y = scaleLinear(lo, hi, H - 4, 4)
   const first = valid[0]
@@ -120,7 +120,7 @@ export default function InstrumentPanel({
         )}
       </section>
 
-      <section aria-label="Day range" className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+      <section aria-label="Day range" className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-x-4 gap-y-2 text-xs">
         <div className="col-span-2">
           <div className="mb-1 flex justify-between tabular-nums text-fg-muted">
             <span>L {fmtLtp(quote?.low)}</span>
