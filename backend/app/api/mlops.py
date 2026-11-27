@@ -2,7 +2,7 @@
 MLOps API endpoints — model management, monitoring, and pipeline control.
 """
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from pydantic import BaseModel
@@ -12,7 +12,20 @@ from app.api.auth import require_admin, require_auth
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
-router = APIRouter(dependencies=[Depends(require_auth)])
+
+
+def no_store(response: Response) -> None:
+    """Per-user, auth-gated data: never let nginx/CDN microcaches keep it.
+
+    nginx's /api/v1/ microcache only bypassed requests with an Authorization
+    header, but the browser authenticates with the httpOnly cookie, so a
+    logged-in user's 200 was cached by URL and replayed to anonymous callers
+    (prod: unauthenticated GET /mlops/monitoring/alerts -> 200, X-Cache-Status: STALE).
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+
+
+router = APIRouter(dependencies=[Depends(require_auth), Depends(no_store)])
 
 
 # ── Model Registry ──────────────────────────────────────────────────────
@@ -216,13 +229,49 @@ def get_performance(
 
 @router.get("/mlops/monitoring/alerts")
 def get_alerts(level: Optional[str] = Query(None), db: Session = Depends(get_db)):
-    """Get alerts from live run status in PostgreSQL."""
+    """Get alerts from live run status in PostgreSQL, the ML gate and data freshness."""
     from datetime import datetime, timezone
     import uuid as _uuid
     from app.services import ml_metadata_service as mds
+    from app.services import mlops_status
 
     alerts = []
     now = datetime.now(timezone.utc)
+
+    # ML promotion gate: the served model is experimental until it passes.
+    try:
+        gate = mlops_status.gate_status()
+        if not gate.get("promoted"):
+            alerts.append({
+                "id": "ml-gate-not-ready",
+                "type": "gate_not_ready",
+                "severity": "info",
+                "message": f"ML gate {gate.get('verdict', 'NOT_READY')}: {gate.get('note', '')}".strip(),
+                "model_name": gate.get("served_model"),
+                "timestamp": now.isoformat(),
+                "resolved": False,
+            })
+    except Exception as e:
+        logger.warning("gate status unavailable for alerts: %s", e)
+
+    # Stale or empty training data.
+    try:
+        fresh = mlops_status.data_freshness(db, now)
+        for key, label in (("price_bars", "price_bars"), ("fundamentals", "fundamentals")):
+            sec = fresh.get(key) or {}
+            if sec.get("status") in ("stale", "empty"):
+                alerts.append({
+                    "id": f"data-{key}-{sec['status']}",
+                    "type": f"data_{sec['status']}",
+                    "severity": "warning",
+                    "message": f"{label}: {sec.get('empty_reason')}",
+                    "model_name": None,
+                    "timestamp": now.isoformat(),
+                    "resolved": False,
+                })
+    except Exception as e:
+        logger.warning("data freshness unavailable for alerts: %s", e)
+        db.rollback()
 
     # Stale running runs (>5 hours with no completion)
     running_runs = mds.list_runs(db, status="running", limit=10)
@@ -315,8 +364,18 @@ def run_pipeline(
         return {"message": "Pipeline completed (sync)", "result": asdict(result)}
 
 
+@router.get("/mlops/status")
+async def mlops_status_endpoint(db: Session = Depends(get_db)):
+    """What prod actually has: ML gate verdict, forecast benchmarks vs ARIMA(0,1,0),
+    Postgres model registry, and price_bars / fundamentals freshness. Every
+    section carries an ``empty_reason`` when it has nothing to show."""
+    from app.services import mlops_status
+
+    return await mlops_status.build_status(db)
+
+
 @router.get("/mlops/overview")
-def mlops_overview():
+def mlops_overview(db: Session = Depends(get_db)):
     """Get a high-level MLOps dashboard summary. Each service is fault-isolated."""
     result = {
         "models": {"registered": 0, "production": {}},
@@ -373,5 +432,29 @@ def mlops_overview():
     except Exception as e:
         logger.warning("performance_monitor unavailable: %s", e)
         result["service_errors"].append("performance_monitor")
+
+    # The file-backed registry/tracker are wiped on every deploy; fall back to
+    # the durable Postgres records so the overview is not all zeros.
+    try:
+        from app.services import mlops_status
+        reg = mlops_status.model_registry(db)
+        result["registry_source"] = "file"
+        if not result["models"]["registered"] and reg.get("versions"):
+            prod = reg.get("production")
+            result["models"] = {
+                "registered": len(reg["versions"]),
+                "production": ({prod["model_version"]: {
+                    "version": prod["model_version"], "stage": "production",
+                    "metrics": {"avg_da": prod.get("avg_da"), "avg_ic": prod.get("avg_ic"),
+                                "symbols": prod.get("symbol_count")},
+                }} if prod else {}),
+            }
+            result["registry_source"] = "postgres"
+        if not result["experiments"]["total_runs"] and reg.get("runs_total"):
+            result["experiments"] = {"total_runs": reg["runs_total"], "source": "postgres"}
+    except Exception as e:
+        logger.warning("postgres model registry unavailable: %s", e)
+        result["service_errors"].append("postgres_registry")
+        db.rollback()
 
     return result

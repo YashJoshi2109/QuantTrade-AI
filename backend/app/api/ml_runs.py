@@ -17,11 +17,13 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.api.auth import require_admin, require_auth
+from app.api.mlops import no_store
 from app.models.user import User
 from app.services import ml_metadata_service as mds
 
 logger = logging.getLogger(__name__)
-router = APIRouter(dependencies=[Depends(require_auth)])
+# no_store: per-user, auth-gated responses stay out of the nginx microcache.
+router = APIRouter(dependencies=[Depends(require_auth), Depends(no_store)])
 # Separate router for internal machine-to-machine endpoints (no user JWT required)
 internal_router = APIRouter()
 

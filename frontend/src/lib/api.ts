@@ -11,6 +11,7 @@ import {
 } from '@/lib/world-exchanges'
 import type { TickerContext } from '@/lib/copilot-engine'
 import type { CanonicalExtended, CanonicalRegular } from '@/lib/canonicalQuote'
+import type { BasketDataCoverage } from '@/lib/basketCoverage'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -1838,6 +1839,8 @@ export interface IndexSnapshot {
   }
   model_version: string
   generated_at: string
+  /** How much of the universe had enough data to score (partial baskets are valid). */
+  data_coverage?: BasketDataCoverage
 }
 
 export interface IndexDefinition {

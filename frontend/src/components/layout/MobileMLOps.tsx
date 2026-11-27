@@ -11,6 +11,7 @@ import {
   Loader2, Lock,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import MLStatusPanels, { EmptyReason } from '@/components/mlops/MLStatusPanels'
 
 const API = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -258,6 +259,7 @@ export default function MobileMLOps() {
               {/* OVERVIEW TAB */}
               {activeTab === 'overview' && (
                 <>
+                  <MLStatusPanels compact />
                   <div className="grid grid-cols-2 gap-3">
                     <StatCard icon={Layers} label="Models" value={overview?.models?.registered || 0} sub={`${prodCount} in production`} color="text-purple-400" />
                     <StatCard icon={Database} label="Symbols" value={overview?.feature_store?.symbols || 0} sub={`Schema v${overview?.feature_store?.schema_version || '?'}`} />
@@ -361,6 +363,13 @@ export default function MobileMLOps() {
               {/* MODELS TAB */}
               {activeTab === 'models' && (
                 <div className="space-y-3">
+                  {Object.keys(overview?.models?.production || {}).length === 0 && (
+                    <div className="p-3 bg-surface-raised border border-line-subtle rounded-xl">
+                      <EmptyReason text={overview
+                        ? 'No production model is registered yet. A training run must complete and be promoted (Runs tab) before it appears here.'
+                        : 'Model data could not be loaded. Your session may have expired; sign in again and retry.'} />
+                    </div>
+                  )}
                   {Object.entries(overview?.models?.production || {}).map(([name, info]: [string, any]) => (
                     <div key={name} className="p-3 bg-surface-raised border border-line-subtle rounded-xl">
                       <div className="flex items-center justify-between mb-3">
