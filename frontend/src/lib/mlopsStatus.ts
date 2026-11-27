@@ -20,6 +20,60 @@ export interface GateHorizon {
   edge: boolean
 }
 
+/** One of the 10 walk-forward gate conditions, with the measured value. */
+export interface GateCheck {
+  key: string
+  label: string
+  value: number | null
+  threshold: string
+  unit: 'ic' | 'pct' | 'num'
+  passed: boolean
+}
+
+export interface ResearchCandidate {
+  phase?: string
+  evaluated_at?: string
+  model_family?: string
+  variant?: string
+  description?: string
+  gates_passed?: number
+  gates_total?: number
+  gates_required?: number
+  robust?: boolean
+  verdict?: 'READY' | 'NOT_READY'
+  deployed?: boolean
+  mean_ic?: number
+  ic_tstat_nonoverlap?: number
+  robustness?: { n_runs: number; min_gates: number; max_gates: number; median_gates: number; runs_passing: number; all_pass: boolean } | null
+  scorecard?: GateCheck[]
+  before?: { variant: string; gates_passed: number; mean_ic: number; scorecard?: GateCheck[] } | null
+  oos_period?: [string, string] | null
+  data?: { source?: string; n_symbols?: number; date_min?: string; date_max?: string } | null
+}
+
+export interface ServingDecision {
+  signal_model: string | null
+  baseline: string | null
+  reason: string
+}
+
+/** Format a gate value in its own unit: IC to 4 dp, percentages to 1 dp. */
+export function formatGateValue(c: Pick<GateCheck, 'value' | 'unit'>): string {
+  if (c.value === null || c.value === undefined || !Number.isFinite(c.value)) return '--'
+  if (c.unit === 'ic') return (c.value >= 0 ? '+' : '') + c.value.toFixed(4)
+  if (c.unit === 'pct') return `${(c.value * 100).toFixed(1)}%`
+  return c.value.toFixed(2)
+}
+
+/** "9/10 primary · 6–9/10 across 9 re-runs (8 required on every run)" */
+export function robustnessLine(rc?: ResearchCandidate | null): string | null {
+  if (!rc || rc.gates_passed === undefined) return null
+  const total = rc.gates_total ?? 10
+  const r = rc.robustness
+  if (!r) return `${rc.gates_passed}/${total} on one run; not robustness-tested`
+  return `${rc.gates_passed}/${total} primary · ${r.min_gates}–${r.max_gates}/${total} across ${r.n_runs} re-runs (${rc.gates_required ?? 8} required on every run)`
+}
+
 export interface GateStatus {
   status: string
   verdict?: 'READY' | 'NOT_READY'
@@ -31,7 +85,8 @@ export interface GateStatus {
   note?: string
   served_model?: string
   reason?: string
-  research_candidate?: { model_family?: string; variant?: string; gates_passed?: number; gates_total?: number; deployed?: boolean } | null
+  research_candidate?: ResearchCandidate | null
+  serving?: ServingDecision | null
   benchmark_test?: {
     benchmark: string
     test?: string | null

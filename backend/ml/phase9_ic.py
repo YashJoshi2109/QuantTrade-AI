@@ -428,13 +428,55 @@ def select_top_k(ranked: list[str], sector_map: dict[str, str], top_k: int,
     return chosen
 
 
+def portfolio_weights(g: pd.DataFrame, chosen: list[str], weighting: str = "equal",
+                      vol_col: str = "vol", max_weight: float = 0.10) -> np.ndarray:
+    """Weights for *chosen* (index of *g* = symbol). Inverse-vol weights are
+    capped at *max_weight* with the excess redistributed; names with no usable
+    volatility get the median volatility of the others."""
+    n = len(chosen)
+    if n == 0:
+        return np.zeros(0)
+    if weighting == "equal" or vol_col not in g.columns:
+        return np.full(n, 1.0 / n)
+    if weighting != "inverse_vol":
+        raise ValueError(f"unknown weighting {weighting!r}")
+    v = pd.to_numeric(g[vol_col].reindex(chosen), errors="coerce").to_numpy(dtype=float, copy=True)
+    ok = np.isfinite(v) & (v > 0)
+    if not ok.any():
+        return np.full(n, 1.0 / n)
+    v[~ok] = np.median(v[ok])
+    w = 1.0 / v
+    w /= w.sum()
+    cap = max(max_weight, 1.0 / n)
+    for _ in range(50):      # water-filling cap
+        over = w > cap + 1e-12
+        if not over.any():
+            break
+        excess = float((w[over] - cap).sum())
+        w[over] = cap
+        free = ~over & (w < cap - 1e-12)
+        if not free.any():
+            break
+        w[free] += excess * w[free] / w[free].sum()
+    return w / w.sum()
+
+
 def backtest(preds: pd.DataFrame, spy_close: pd.Series, sector_map: dict[str, str],
              top_k: int = TOP_K, horizon: int = HORIZON, max_sector_weight: float = 0.25,
              max_consecutive: int = 3, cost_bps: float = 15.0,
              max_rolling_slots: Optional[int] = None, rolling_periods: int = 6,
-             max_frequency: Optional[float] = None) -> dict:
-    """Long-only equal-weight top-K, rebalanced every *horizon* days on
-    non-overlapping windows; returns compounded; costs on turnover."""
+             max_frequency: Optional[float] = None,
+             weighting: str = "equal", vol_col: str = "vol",
+             max_weight: Optional[float] = None) -> dict:
+    """Long-only top-K, rebalanced every *horizon* days on non-overlapping
+    windows; returns compounded; costs on turnover.
+
+    ``weighting="equal"`` is the Phase 4-9 rule. ``"inverse_vol"`` weights the
+    chosen names by 1 / ``preds[vol_col]`` (a trailing volatility known at the
+    rebalance date), capped at ``max_weight`` (default 2 / top_k). Costs are
+    charged on sum |w_t - w_{t-1}| x ``cost_bps``, which equals the Phase 9
+    charge (new names / K x 2 sides) when weights are equal.
+    """
     if preds.empty:
         return {"error": "no predictions"}
     dates = sorted(preds["date"].unique())[::horizon]
@@ -442,7 +484,7 @@ def backtest(preds: pd.DataFrame, spy_close: pd.Series, sector_map: dict[str, st
     spy_fwd = np.log(spy_close.shift(-horizon) / spy_close)
 
     streak: dict[str, int] = {}
-    prev: set[str] = set()
+    prev_w: dict[str, float] = {}
     history: list[set[str]] = []
     rets, gross, spy_rets, used = [], [], [], []
     freq: dict[str, int] = defaultdict(int)
@@ -459,22 +501,27 @@ def backtest(preds: pd.DataFrame, spy_close: pd.Series, sector_map: dict[str, st
         chosen = select_top_k(ranked, sector_map, top_k, max_sector_weight, streak,
                               max_consecutive, history, rolling_periods,
                               max_rolling_slots, max_frequency)
-        act = g.set_index("symbol")["actual"]
-        simple = np.expm1(act.reindex(chosen).to_numpy())
-        r_gross = float(np.mean(simple))
-        turnover = len(set(chosen) - prev) / max(len(chosen), 1)
-        r_net = r_gross - turnover * 2 * cost_bps / 1e4
+        gi = g.set_index("symbol")
+        simple = np.expm1(gi["actual"].reindex(chosen).to_numpy())
+        w = portfolio_weights(gi, chosen, weighting, vol_col,
+                              max_weight if max_weight is not None else 2.0 / top_k)
+        r_gross = float(np.dot(w, simple))
+        w_new = dict(zip(chosen, w))
+        traded = sum(abs(w_new.get(s, 0.0) - prev_w.get(s, 0.0)) for s in set(w_new) | set(prev_w))
+        if not prev_w:   # first rebalance: Phase 9 charged both sides on the initial buy
+            traded = 2.0
+        r_net = r_gross - traded * cost_bps / 1e4
         rets.append(r_net)
         gross.append(r_gross)
         spy_rets.append(float(np.expm1(s_ret)))
         used.append(str(pd.Timestamp(d).date()))
-        for sym, r in zip(chosen, simple):
+        for sym, r, wi in zip(chosen, simple, w):
             freq[sym] += 1
-            sym_c[sym] += r / len(chosen)
-            sec_c[sector_map.get(sym, "Unknown")] += r / len(chosen)
+            sym_c[sym] += wi * r
+            sec_c[sector_map.get(sym, "Unknown")] += wi * r
         streak = {s: (streak.get(s, 0) + 1 if s in chosen else 0) for s in set(streak) | set(chosen)}
-        prev = set(chosen)
-        history.append(prev)
+        prev_w = w_new
+        history.append(set(chosen))
 
     if not rets:
         return {"error": "no rebalances"}
