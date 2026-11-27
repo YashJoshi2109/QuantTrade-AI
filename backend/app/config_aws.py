@@ -64,7 +64,10 @@ def inject_aws_secrets():
     total = len(loaded)
     differs: set = set()
     for key, value in loaded.items():
-        if key not in os.environ:
+        # An empty env value is unset: compose writes `KEY=${KEY:-}`, so a key
+        # with no GitHub secret arrived as "" and shadowed Secrets Manager
+        # (ALPACA_API_KEY, 2026-11-27).
+        if not os.environ.get(key):
             os.environ[key] = str(value)
             injected += 1
         elif os.environ[key] != str(value):
