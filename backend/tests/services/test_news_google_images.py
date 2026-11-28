@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 import pytest
@@ -22,6 +23,11 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db.database import Base
+
+
+def _is_google_news(u: str) -> bool:
+    host = (urlsplit(u).hostname or "").lower()
+    return host == "news.google.com" or host.endswith(".news.google.com")
 from app.models.news_item import NewsItem
 from app.services.news_intel import enrich, images, publishers, store
 from app.services.news_intel.publishers import (
@@ -144,7 +150,7 @@ def test_index_matches_google_items_to_publisher_feed():
     assert wsj2 is not None and wsj2.image.startswith("https://images.wsj.net/")  # 39h later on Google: in window
     assert yahoo is None                                   # no public Yahoo Finance feed: nothing fetched
     assert bbg.url.startswith("https://www.bloomberg.com/news/articles/") and bbg.image is None
-    assert not any("yahoo" in c for c in calls) and not any("news.google.com" in c for c in calls)
+    assert not any("yahoo" in c for c in calls) and not any(_is_google_news(c) for c in calls)
     # each registered feed read once per TTL, however many stories ask
     n = len(calls)
     asyncio.run(idx.lookup(title=g[0].title, domain="https://www.wsj.com"))
@@ -369,7 +375,7 @@ def test_path_a_sibling_og_image_attributed_to_sibling(sf):
     svc = _svc(sf, sent, fake, feeds={})
     assert asyncio.run(svc.run_image_pass()) == 1
     assert sent[-1]["image_url"] == "https://image.cnbcfm.com/oil.jpg" and sent[-1]["image_source"] == "CNBC"
-    assert not any("news.google.com" in u for u in fake.asked if enrich.should_enrich(u))
+    assert not any(_is_google_news(u) for u in fake.asked if enrich.should_enrich(u))
 
 
 def test_path_b_publisher_feed_image_for_legacy_and_new_rows(sf):
@@ -385,7 +391,7 @@ def test_path_b_publisher_feed_image_for_legacy_and_new_rows(sf):
     assert p2["image_url"].startswith("https://images.wsj.net/")
     assert p1["sources"][0]["direct_url"].startswith("https://www.wsj.com/")
     assert p1["url"].startswith("https://news.google.com/")      # card link unchanged
-    assert not any("news.google.com" in u for u in fetched)
+    assert not any(_is_google_news(u) for u in fetched)
 
 
 def test_path_b_direct_url_og_image_within_budget(sf):
