@@ -19,6 +19,7 @@ import Image from 'next/image'
 import TickerLogo from '@/components/TickerLogo'
 import { useClientNow } from '@/lib/use-client-now'
 import { useAuth } from '@/contexts/AuthContext'
+import { HOME_HEADING } from '@/lib/seo'
 import {
   fetchMarketStatus,
   fetchMarketMovers,
@@ -253,6 +254,11 @@ export default function MobileDashboard() {
         <div className="rounded-2xl bg-gradient-to-br from-surface-overlay via-surface-base to-surface-overlay border border-line-subtle p-4 relative overflow-hidden">
           <div className="absolute -top-8 -right-10 w-28 h-28 bg-[#00D9FF]/15 blur-3xl" />
           <div className="relative space-y-1">
+            {/* Page-level heading for the mobile tree. Not an <h1>: the desktop
+                tree (also in the server HTML) owns the page's single <h1>. */}
+            <p role="heading" aria-level={1} className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#00D9FF]">
+              {HOME_HEADING}
+            </p>
             <p className="text-[11px] text-fg-secondary">{dateString}</p>
             <h2 className="text-lg font-semibold text-fg-primary">{greeting}</h2>
             <p className="text-[11px] text-fg-secondary flex items-center gap-1">

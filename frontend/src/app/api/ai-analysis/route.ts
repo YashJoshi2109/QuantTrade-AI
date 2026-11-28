@@ -96,7 +96,7 @@ ${lines.join('\n')}`
     headers: {
       'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://quanttrade.us',
+      'HTTP-Referer': 'https://www.quanttrade.us',
       'X-Title': 'QuantTrade AI',
     },
     body: JSON.stringify({

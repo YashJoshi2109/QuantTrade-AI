@@ -1,13 +1,16 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { routeMetadata } from '@/lib/routeSeo'
+import { breadcrumbSchema } from '@/lib/schema'
 
-export const metadata: Metadata = {
-  title: 'Dividend Calendar & Income Projection',
-  description:
-    'Upcoming ex-dividend and pay dates with dividend amount, yield and frequency, plus a projection of your next 12 months of dividend income by month.',
-  alternates: { canonical: 'https://quanttrade.us/dividends' },
-}
+export const metadata: Metadata = routeMetadata('/dividends')
 
 export default function DividendsLayout({ children }: { children: ReactNode }) {
-  return <>{children}</>
+  return (
+    <>
+      <JsonLd data={breadcrumbSchema([{ name: 'Dividends', path: '/dividends' }])} />
+      {children}
+    </>
+  )
 }

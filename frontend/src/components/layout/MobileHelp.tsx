@@ -12,6 +12,7 @@ import {
   MessageCircle,
   Search,
 } from 'lucide-react'
+import PageHeading from '@/components/seo/PageHeading'
 
 function Category({
   title,
@@ -61,7 +62,7 @@ export default function MobileHelp() {
   return (
     <div className="space-y-4 pb-4">
       <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe pb-2 px-1">
-        <h1 className="text-xl font-semibold text-fg-primary">Help Center</h1>
+        <PageHeading mobile className="text-xl font-semibold text-fg-primary">Help Center</PageHeading>
         <p className="text-[11px] text-fg-secondary">Find answers fast.</p>
       </header>
 

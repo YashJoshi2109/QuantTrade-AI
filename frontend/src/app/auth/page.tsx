@@ -587,7 +587,7 @@ export default function AuthPage() {
                     <Link href="/terms" target="_blank" rel="noopener noreferrer"
                       className="text-[#00D4FF] hover:underline">Terms of Service</Link>
                     {' '}and{' '}
-                    <Link href="/terms#privacy" target="_blank" rel="noopener noreferrer"
+                    <Link href="/privacy" target="_blank" rel="noopener noreferrer"
                       className="text-[#00D4FF] hover:underline">Privacy Policy</Link>
                   </motion.p>
                 )}
@@ -869,7 +869,7 @@ export default function AuthPage() {
                             Terms of Service
                           </Link>
                           {' '}and{' '}
-                          <Link href="/terms#privacy" target="_blank" rel="noopener noreferrer"
+                          <Link href="/privacy" target="_blank" rel="noopener noreferrer"
                             className="text-[#00D4FF] hover:underline" onClick={(e) => e.stopPropagation()}>
                             Privacy Policy
                           </Link>
@@ -1059,7 +1059,7 @@ export default function AuthPage() {
               <span>·</span>
               <Link href="/terms" className="hover:text-[#64748B] transition-colors">Terms</Link>
               <span>·</span>
-              <Link href="/terms#privacy" className="hover:text-[#64748B] transition-colors">Privacy</Link>
+              <Link href="/privacy" className="hover:text-[#64748B] transition-colors">Privacy</Link>
             </div>
           )}
 
