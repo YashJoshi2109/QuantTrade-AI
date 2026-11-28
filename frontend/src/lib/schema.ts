@@ -13,6 +13,14 @@ export const APP_ID = `${SITE_URL}/#app`
 
 const CONTACT_EMAIL = 'quanttrade.us@icloud.com'
 
+/**
+ * Official brand profiles for Organization.sameAs. List only profiles the
+ * owner controls and that are live.
+ * TODO(owner): add the LinkedIn company page, X/Twitter and YouTube channel
+ * URLs here once they are confirmed. Do not add placeholder or guessed URLs.
+ */
+export const SAME_AS: readonly string[] = ['https://github.com/YashJoshi2109']
+
 export const organizationSchema = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
@@ -31,7 +39,7 @@ export const organizationSchema = {
     name: 'Yash Joshi',
     url: 'https://github.com/YashJoshi2109',
   },
-  sameAs: ['https://github.com/YashJoshi2109'],
+  sameAs: [...SAME_AS],
 }
 
 export const websiteSchema = {
@@ -134,5 +142,83 @@ export function breadcrumbSchema(trail: Crumb[]) {
       name: it.name,
       item: absoluteUrl(it.path),
     })),
+  }
+}
+
+/** WebPage / Article node for an editorial page, with a real dateModified. */
+export function articleSchema(opts: {
+  path: string
+  headline: string
+  description: string
+  dateModified: string
+  datePublished?: string
+  type?: 'Article' | 'WebPage' | 'TechArticle'
+}) {
+  const url = absoluteUrl(opts.path)
+  return {
+    '@context': 'https://schema.org',
+    '@type': opts.type ?? 'Article',
+    '@id': `${url}#article`,
+    url,
+    mainEntityOfPage: url,
+    headline: opts.headline,
+    description: opts.description,
+    inLanguage: 'en-US',
+    datePublished: opts.datePublished ?? opts.dateModified,
+    dateModified: opts.dateModified,
+    author: { '@id': ORG_ID },
+    publisher: { '@id': ORG_ID },
+    isPartOf: { '@id': WEBSITE_ID },
+  }
+}
+
+export const GLOSSARY_SET_ID = `${SITE_URL}/glossary#termset`
+
+interface TermLike {
+  slug: string
+  term: string
+  short: string
+  summary: string
+}
+
+/** DefinedTermSet for /glossary, listing every term by @id and URL. */
+export function definedTermSetSchema(terms: TermLike[], dateModified: string) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'DefinedTermSet',
+    '@id': GLOSSARY_SET_ID,
+    name: `${SITE_NAME} glossary`,
+    url: absoluteUrl('/glossary'),
+    inLanguage: 'en-US',
+    dateModified,
+    publisher: { '@id': ORG_ID },
+    hasDefinedTerm: terms.map((t) => ({
+      '@type': 'DefinedTerm',
+      '@id': `${absoluteUrl(`/glossary/${t.slug}`)}#term`,
+      name: t.term,
+      url: absoluteUrl(`/glossary/${t.slug}`),
+    })),
+  }
+}
+
+/** DefinedTerm for one /glossary/[term] page. */
+export function definedTermSchema(t: TermLike, dateModified: string) {
+  const url = absoluteUrl(`/glossary/${t.slug}`)
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'DefinedTerm',
+    '@id': `${url}#term`,
+    name: t.term,
+    ...(t.short !== t.term ? { alternateName: t.short } : {}),
+    termCode: t.slug,
+    description: t.summary,
+    url,
+    inDefinedTermSet: {
+      '@type': 'DefinedTermSet',
+      '@id': GLOSSARY_SET_ID,
+      name: `${SITE_NAME} glossary`,
+      url: absoluteUrl('/glossary'),
+    },
+    subjectOf: { '@type': 'WebPage', url, dateModified },
   }
 }

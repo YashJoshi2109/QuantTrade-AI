@@ -1,5 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { SITE_URL, absoluteUrl } from '@/lib/seo'
+import { GLOSSARY_REVIEWED, GLOSSARY_TERMS, glossaryPath } from '@/lib/glossary'
+import { METHODOLOGY_REVIEWED } from '@/lib/methodology'
 
 /**
  * Public, indexable routes with the date their visible content last changed
@@ -14,7 +16,7 @@ const ROUTE_LASTMOD: Record<string, string> = {
   '/stocks': '2026-11-28', // hub; per-ticker pages live in /stocks/sitemap.xml
   '/': '2026-11-28',
   '/pricing': '2026-11-27',
-  '/about': '2026-11-25',
+  '/about': '2026-11-28',
   '/markets': '2026-11-27',
   '/markets/movers': '2026-11-27',
   '/earnings': '2026-11-26',
@@ -31,11 +33,13 @@ const ROUTE_LASTMOD: Record<string, string> = {
   '/community': '2026-11-27',
   '/community/discover': '2026-11-27',
   '/community/bots': '2026-11-27',
-  '/help': '2026-04-27',
+  '/help': '2026-11-28',
   '/legal': '2026-11-28',
   '/terms': '2026-05-17',
   '/privacy': '2026-11-28',
   '/status': '2026-11-27',
+  '/methodology': METHODOLOGY_REVIEWED,
+  '/glossary': GLOSSARY_REVIEWED,
 }
 
 const BOT_SLUGS = [
@@ -53,6 +57,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...BOT_SLUGS.map((slug) => ({
       url: absoluteUrl(`/community/bots/${slug}`),
       lastModified: BOTS_LASTMOD,
+    })),
+    ...GLOSSARY_TERMS.map((t) => ({
+      url: absoluteUrl(glossaryPath(t.slug)),
+      lastModified: GLOSSARY_REVIEWED,
     })),
   ]
 }

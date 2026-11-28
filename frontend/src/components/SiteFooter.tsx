@@ -153,6 +153,8 @@ export default function SiteFooter() {
                 <ul className="space-y-1.5 text-fg-muted">
                   <li><IntentLink href="/help" className="hover:text-fg-secondary transition-colors">Help Center</IntentLink></li>
                   <li><IntentLink href="/about" className="hover:text-fg-secondary transition-colors">About &amp; Data Sources</IntentLink></li>
+                  <li><IntentLink href="/methodology" className="hover:text-fg-secondary transition-colors">Methodology</IntentLink></li>
+                  <li><IntentLink href="/glossary" className="hover:text-fg-secondary transition-colors">Glossary</IntentLink></li>
                   <li><IntentLink href="/legal" className="hover:text-fg-secondary transition-colors">Legal</IntentLink></li>
                 </ul>
               </div>
@@ -197,6 +199,8 @@ export default function SiteFooter() {
               .
             </p>
             <div className="flex flex-wrap gap-3 text-[11px] text-fg-muted">
+              <IntentLink href="/methodology" className="md:hidden hover:text-fg-secondary transition-colors">Methodology</IntentLink>
+              <IntentLink href="/glossary" className="md:hidden hover:text-fg-secondary transition-colors">Glossary</IntentLink>
               <IntentLink href="/privacy" className="hover:text-fg-secondary transition-colors">Privacy Policy</IntentLink>
               <IntentLink href="/terms" className="hover:text-fg-secondary transition-colors">Terms of Service</IntentLink>
               <IntentLink href="/terms#risk" className="hover:text-fg-secondary transition-colors">Risk Disclosure</IntentLink>

@@ -98,11 +98,21 @@ export default function MobileHelp() {
         </a>
         <Link
           className="rounded-2xl bg-surface-raised border border-line-subtle p-3 text-center active:scale-[0.98] transition-transform"
-          href="/"
+          href="/methodology"
         >
           <ExternalLink className="w-5 h-5 text-emerald-400 mx-auto mb-1" />
-          <p className="text-[11px] text-fg-primary font-semibold">Docs</p>
-          <p className="text-[10px] text-fg-muted">Guides</p>
+          <p className="text-[11px] text-fg-primary font-semibold">Methodology</p>
+          <p className="text-[10px] text-fg-muted">How data works</p>
+        </Link>
+      </section>
+
+      <section className="px-1">
+        <Link
+          href="/glossary"
+          className="block rounded-2xl bg-surface-raised border border-line-subtle p-3 text-[12px] text-fg-secondary active:scale-[0.98] transition-transform"
+        >
+          <span className="font-semibold text-fg-primary">Glossary</span>: definitions of P/E, RSI, Sharpe, WACC and
+          the other metrics used in the app.
         </Link>
       </section>
 

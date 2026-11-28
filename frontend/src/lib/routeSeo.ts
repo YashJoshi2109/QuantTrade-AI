@@ -134,6 +134,16 @@ export const ROUTE_SEO = {
     description:
       'Compare 2 to 4 US stocks side by side: price performance, valuation, margins, growth, ROE, debt, dividend yield, RSI and analyst targets.',
   },
+  '/methodology': {
+    title: 'Methodology: How Our Numbers Are Made',
+    description:
+      'How QuantTrade AI produces quotes, fundamentals, DCF valuations, backtests, forecast ranges and news scores: sources, delays, assumptions and limits.',
+  },
+  '/glossary': {
+    title: 'Stock Market & Investing Glossary',
+    description:
+      'Plain-English definitions of the metrics used on QuantTrade AI: P/E, EPS, RSI, MACD, Sharpe, WACC, DCF, 13F, Form 4 and more, with formulas and examples.',
+  },
 } as const satisfies Record<string, Omit<PageSeo, 'path'>>
 
 export type SeoRoute = keyof typeof ROUTE_SEO
