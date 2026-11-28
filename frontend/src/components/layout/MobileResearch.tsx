@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useRef, useEffect } from 'react'
-import Link from 'next/link'
+import IntentLink from '@/components/nav/IntentLink'
 import { useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -318,12 +318,12 @@ export default function MobileResearch() {
                 >
                   <RefreshCw className="h-4 w-4 text-fg-muted" /> Sync data
                 </button>
-                <Link role="menuitem" href={compareHref([symbolFromUrl])} className="flex items-center gap-2 px-3 py-2.5 text-[13px] text-fg-primary">
+                <IntentLink role="menuitem" href={compareHref([symbolFromUrl])} className="flex items-center gap-2 px-3 py-2.5 text-[13px] text-fg-primary">
                   <GitCompareArrows className="h-4 w-4 text-fg-muted" /> Compare
-                </Link>
-                <Link role="menuitem" href="/" className="flex items-center gap-2 px-3 py-2.5 text-[13px] text-fg-primary">
+                </IntentLink>
+                <IntentLink role="menuitem" href="/" className="flex items-center gap-2 px-3 py-2.5 text-[13px] text-fg-primary">
                   <Home className="h-4 w-4 text-fg-muted" /> Home
-                </Link>
+                </IntentLink>
               </div>
             )}
           </div>
@@ -488,7 +488,7 @@ export default function MobileResearch() {
         data-testid="mobile-action-bar"
       >
         <div className="rs-card mx-auto flex max-w-md items-center gap-2 p-2 shadow-theme-lg">
-          <Link
+          <IntentLink
             href={buildCopilotHref(symbolFromUrl.toUpperCase())}
             data-testid="ask-copilot"
             aria-label={`Ask AI Copilot about ${symbolFromUrl.toUpperCase()}`}
@@ -496,10 +496,10 @@ export default function MobileResearch() {
           >
             <Sparkles className="h-4 w-4 shrink-0" aria-hidden />
             <span className="truncate">Ask AI Copilot</span>
-          </Link>
-          <Link href={compareHref([symbolFromUrl])} aria-label={`Compare ${symbolFromUrl}`} className={cn(roundBtn, 'h-11 w-11 rounded-xl')}>
+          </IntentLink>
+          <IntentLink href={compareHref([symbolFromUrl])} aria-label={`Compare ${symbolFromUrl}`} className={cn(roundBtn, 'h-11 w-11 rounded-xl')}>
             <GitCompareArrows className="h-4 w-4" />
-          </Link>
+          </IntentLink>
           <button type="button" onClick={() => setSettingsOpen(true)} aria-label="Chart settings" className={cn(roundBtn, 'h-11 w-11 rounded-xl')}>
             <Settings2 className="h-4 w-4" />
           </button>

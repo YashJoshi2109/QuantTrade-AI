@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import MoreMenu from './MoreMenu'
+import { prefetchOnce } from '@/lib/intentPrefetch'
 import ThemeToggle from '@/components/ui/theme-toggle'
 
 interface NavItem {
@@ -132,6 +133,14 @@ export default function BottomNav() {
                 router.push(item.href)
               }
 
+              // Prefetch on intent only (once per session) so a tap feels instant
+              // without prefetching every tab on page load.
+              const prefetchIntent = item.isMore
+                ? undefined
+                : () => {
+                    prefetchOnce(router, item.href)
+                  }
+
               // Copilot center button — elevated design
               if (item.isCopilot) {
                 return (
@@ -139,6 +148,9 @@ export default function BottomNav() {
                     <button
                       type="button"
                       onClick={handleClick}
+                      onMouseEnter={prefetchIntent}
+                      onFocus={prefetchIntent}
+                      onTouchStart={prefetchIntent}
                       className="absolute -top-7 flex flex-col items-center justify-center outline-none"
                     >
                       <motion.div
@@ -180,6 +192,9 @@ export default function BottomNav() {
                   key={item.label}
                   type="button"
                   onClick={handleClick}
+                  onMouseEnter={prefetchIntent}
+                  onFocus={prefetchIntent}
+                  onTouchStart={prefetchIntent}
                   className="relative flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium transition-all z-10 w-full outline-none"
                 >
                   <motion.div

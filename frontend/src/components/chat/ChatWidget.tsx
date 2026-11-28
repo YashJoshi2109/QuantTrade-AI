@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import IntentLink from '@/components/nav/IntentLink'
 import { usePathname } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
 
@@ -16,7 +16,7 @@ export default function ChatWidget() {
   if (HIDDEN_ALL.some((p) => pathname.startsWith(p))) return null
 
   return (
-    <Link
+    <IntentLink
       href="/copilot"
       className="hidden md:block fixed bottom-8 right-8 z-[60] group"
       aria-label="Open AI Copilot"
@@ -34,6 +34,6 @@ export default function ChatWidget() {
         AI Copilot
         <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#0D1117]" />
       </div>
-    </Link>
+    </IntentLink>
   )
 }

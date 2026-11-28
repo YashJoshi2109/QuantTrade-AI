@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import IntentLink from '@/components/nav/IntentLink'
 
 export default function SiteFooter() {
   const [email, setEmail] = useState('')
@@ -140,10 +140,10 @@ export default function SiteFooter() {
                   Product
                 </p>
                 <ul className="space-y-1.5 text-fg-muted">
-                  <li><Link href="/" className="hover:text-fg-secondary transition-colors">Dashboard</Link></li>
-                  <li><Link href="/monitor" className="hover:text-fg-secondary transition-colors">Markets Monitor</Link></li>
-                  <li><Link href="/ideas-lab" className="hover:text-fg-secondary transition-colors">Ideas Lab</Link></li>
-                  <li><Link href="/backtest" className="hover:text-fg-secondary transition-colors">Backtest Engine</Link></li>
+                  <li><IntentLink href="/" className="hover:text-fg-secondary transition-colors">Dashboard</IntentLink></li>
+                  <li><IntentLink href="/monitor" className="hover:text-fg-secondary transition-colors">Markets Monitor</IntentLink></li>
+                  <li><IntentLink href="/ideas-lab" className="hover:text-fg-secondary transition-colors">Ideas Lab</IntentLink></li>
+                  <li><IntentLink href="/backtest" className="hover:text-fg-secondary transition-colors">Backtest Engine</IntentLink></li>
                 </ul>
               </div>
               <div className="space-y-1.5">
@@ -151,9 +151,9 @@ export default function SiteFooter() {
                   Resources
                 </p>
                 <ul className="space-y-1.5 text-fg-muted">
-                  <li><Link href="/help" className="hover:text-fg-secondary transition-colors">Help Center</Link></li>
-                  <li><Link href="/about" className="hover:text-fg-secondary transition-colors">About &amp; Data Sources</Link></li>
-                  <li><Link href="/legal" className="hover:text-fg-secondary transition-colors">Legal</Link></li>
+                  <li><IntentLink href="/help" className="hover:text-fg-secondary transition-colors">Help Center</IntentLink></li>
+                  <li><IntentLink href="/about" className="hover:text-fg-secondary transition-colors">About &amp; Data Sources</IntentLink></li>
+                  <li><IntentLink href="/legal" className="hover:text-fg-secondary transition-colors">Legal</IntentLink></li>
                 </ul>
               </div>
               <div className="space-y-1.5">
@@ -185,20 +185,20 @@ export default function SiteFooter() {
               © {new Date().getFullYear()}{' '}
               <span className="text-fg-secondary">QuantTrade AI</span>. All rights reserved.
               {' '}Crafted by{' '}
-              <Link
+              <IntentLink
                 href="https://www.github.com/YashJoshi2109"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sky-400 hover:text-sky-300 underline decoration-sky-500/60 decoration-dotted"
               >
                 Yash Joshi
-              </Link>
+              </IntentLink>
               .
             </p>
             <div className="flex flex-wrap gap-3 text-[11px] text-fg-muted">
-              <Link href="/terms#privacy" className="hover:text-fg-secondary transition-colors">Privacy Policy</Link>
-              <Link href="/terms" className="hover:text-fg-secondary transition-colors">Terms of Service</Link>
-              <Link href="/terms#risk" className="hover:text-fg-secondary transition-colors">Risk Disclosure</Link>
+              <IntentLink href="/terms#privacy" className="hover:text-fg-secondary transition-colors">Privacy Policy</IntentLink>
+              <IntentLink href="/terms" className="hover:text-fg-secondary transition-colors">Terms of Service</IntentLink>
+              <IntentLink href="/terms#risk" className="hover:text-fg-secondary transition-colors">Risk Disclosure</IntentLink>
             </div>
           </div>
         </div>

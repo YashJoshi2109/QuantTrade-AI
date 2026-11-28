@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, ReactNode, useMemo } from 'react'
-import Link from 'next/link'
+import IntentLink from '@/components/nav/IntentLink'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
@@ -219,14 +219,14 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
           </button>
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
+          <IntentLink href="/" className="flex items-center gap-2 group">
             <div className="w-8 h-8 rounded-xl bg-surface-base/60 border border-cyan-500/20 flex items-center justify-center overflow-hidden">
               <img src="/logo.png" alt="QuantTrade AI" className="brand-logo w-7 h-7 object-contain scale-150" />
             </div>
             <span className="hidden sm:block text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
               QuantTrade AI
             </span>
-          </Link>
+          </IntentLink>
 
           {/* Desktop Sidebar Toggle */}
           {!hideSidebar && (
@@ -253,14 +253,14 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
               label="About QuantTrade"
               detail="Product scope, data sources, and operator details."
             >
-              <Link
+              <IntentLink
                 href="/about"
                 className="hud-button p-2 flex items-center justify-center text-fg-muted hover:text-cyan-300 transition-colors rounded-lg hover:bg-surface-raised/60 border border-transparent hover:border-line-subtle shrink-0"
                 aria-label="About this product"
                 title="About"
               >
                 <Info className="w-5 h-5" aria-hidden />
-              </Link>
+              </IntentLink>
             </HeaderTooltip>
             <div className="shrink-0">
               <BB8ThemeToggle />
@@ -316,7 +316,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                   const isAmber = (item as { amber?: boolean }).amber
                   return (
                     <li key={item.id}>
-                      <Link
+                      <IntentLink
                         href={item.href}
                         className={`relative w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-xl transition-all group ${
                           isAmber
@@ -346,7 +346,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                             )}
                           </>
                         )}
-                      </Link>
+                      </IntentLink>
                       {item.id === 'community' && pathname?.startsWith('/community') && !sidebarCollapsed && (
                         <div className="ml-8 mt-1 space-y-0.5">
                           {[
@@ -358,7 +358,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                           ].map(sub => {
                             const SubIcon = sub.icon
                             return (
-                              <Link
+                              <IntentLink
                                 key={sub.href}
                                 href={sub.href}
                                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
@@ -369,7 +369,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                               >
                                 <SubIcon className="w-3.5 h-3.5" />
                                 {sub.label}
-                              </Link>
+                              </IntentLink>
                             )
                           })}
                         </div>
@@ -410,7 +410,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                   )}
                 </div>
               ) : (
-                <Link href="/auth" className={`hud-card p-3 flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} hover:border-blue-500/30 transition-all`} title={sidebarCollapsed ? 'Sign In' : undefined}>
+                <IntentLink href="/auth" className={`hud-card p-3 flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} hover:border-blue-500/30 transition-all`} title={sidebarCollapsed ? 'Sign In' : undefined}>
                   <div className="w-10 h-10 rounded-xl bg-surface-raised flex items-center justify-center">
                     <LogIn className="w-5 h-5 text-blue-400" />
                   </div>
@@ -420,7 +420,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
                       <div className="text-xs text-fg-muted">Access all features</div>
                     </div>
                   )}
-                </Link>
+                </IntentLink>
               )}
             </div>
           </div>
