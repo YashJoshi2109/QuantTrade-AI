@@ -16,7 +16,6 @@ Scheduled jobs (APScheduler):
   - weekly_cleanup: remove delisted / stale symbols (Sunday 03:00 UTC)
 """
 
-import httpx
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -87,27 +86,33 @@ def compute_priority_score(
 
 # ── FMP screener ───────────────────────────────────────────────────────────────
 def fetch_fmp_screener(exchanges: list[str], limit: int) -> list[dict]:
+    """Largest actively traded names on ``exchanges`` from FMP's company screener.
+
+    One cached call per exchange code (20 h TTL, so the nightly sync is fresh
+    and every /market/universe seed in between is free). Codes the plan does
+    not cover are negative-cached for 7 days by app.services.fmp_guard, and
+    nothing is called while the FMP quota breaker is open."""
     if not settings.FMP_API_KEY:
         logger.warning("FMP_API_KEY not set — skipping screener fetch")
         return []
-    exchange_param = ",".join(exchanges)
-    url = (
-        f"https://financialmodelingprep.com/api/v3/stock-screener"
-        f"?exchange={exchange_param}&marketCapMoreThan=100000000"
-        f"&isActivelyTrading=true&limit={min(limit * 2, 500)}"
-        f"&sortBy=marketCap&sortOrder=desc&apikey={settings.FMP_API_KEY}"
-    )
-    try:
-        with httpx.Client(timeout=30) as client:
-            r = client.get(url)
-            r.raise_for_status()
-            data = r.json()
-            if not isinstance(data, list):
-                return []
-            return data[:limit]
-    except Exception as e:
-        logger.error(f"FMP screener error: {e}")
-        return []
+    from app.services import fmp_guard
+
+    rows: dict[str, dict] = {}
+    for code in exchanges:
+        data = fmp_guard.get_json(
+            "company-screener",
+            {"exchange": code, "marketCapMoreThan": 100000000, "isActivelyTrading": "true",
+             "limit": min(limit * 2, 500)},
+            ttl=fmp_guard.TTL_SCREENER, timeout=30,
+        )
+        if not isinstance(data, list):
+            continue
+        for r in data:
+            sym = str((r or {}).get("symbol") or "").strip()
+            if sym and sym not in rows:
+                rows[sym] = r
+    ranked = sorted(rows.values(), key=lambda r: float(r.get("marketCap") or 0), reverse=True)
+    return ranked[:limit]
 
 
 # ── Nightly sync ───────────────────────────────────────────────────────────────

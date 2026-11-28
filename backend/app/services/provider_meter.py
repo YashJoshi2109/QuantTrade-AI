@@ -283,7 +283,14 @@ async def read_shared(redis, exclude_key: Optional[str] = None) -> Tuple[List[Di
 _SOFT_LIMIT_MARKERS = {
     "alpha_vantage": (b'"Note"', b'"Information"', b"API call frequency", b"rate limit"),
     "twelve_data": (b'"code":429', b'"code": 429', b"API credits"),
-    "fmp": (b"Limit Reach", b'"Error Message"'),
+    "fmp": (b"Limit Reach",),
+}
+
+# FMP answers "not on your plan" (legacy /api/v3 endpoints for new keys,
+# premium endpoints) with HTTP 403 and an "Error Message" body: that is a
+# configuration problem, not a rejected key and not an outage.
+_PLAN_MARKERS = {
+    "fmp": (b"Legacy Endpoint", b"Exclusive Endpoint", b"Premium", b"subscription", b"upgrade your plan"),
 }
 
 
@@ -306,7 +313,14 @@ def classify(provider: str, status: Optional[int], body: Optional[bytes] = None)
         return False, "no response", False
     if status == 429:
         return False, "rate limited (HTTP 429)", True
+    if status >= 400:
+        soft = _soft_error(provider, body)   # FMP sends "Limit Reach" with 4xx too
+        if soft:
+            return False, f"{soft} (HTTP {status})", True
     if status in (401, 403):
+        plan = _PLAN_MARKERS.get(provider)
+        if plan and body and len(body) <= 4096 and any(m in body for m in plan):
+            return False, f"endpoint not on plan (HTTP {status})", False
         return False, f"key rejected (HTTP {status})", False
     if status >= 500:
         return False, f"server error (HTTP {status})", False

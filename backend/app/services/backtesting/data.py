@@ -176,21 +176,42 @@ def adjust_fmp_rows(rows: List[dict]) -> pd.DataFrame:
     return df[OHLCV]
 
 
+def fmp_rows_from_payload(data) -> List[dict]:
+    """Rows in the ``adjust_fmp_rows`` shape from either FMP answer:
+    the stable ``historical-price-eod/dividend-adjusted`` list (adjOpen ..
+    adjClose) or the legacy ``{"historical": [...]}`` object."""
+    if isinstance(data, dict):
+        return list(data.get("historical") or [])
+    if not isinstance(data, list):
+        return []
+    rows = []
+    for r in data:
+        if not isinstance(r, dict) or "date" not in r:
+            continue
+        if "adjClose" in r and "close" not in r:
+            rows.append({"date": r["date"], "open": r.get("adjOpen"), "high": r.get("adjHigh"),
+                         "low": r.get("adjLow"), "close": r.get("adjClose"), "volume": r.get("volume")})
+        else:
+            rows.append(r)
+    return rows
+
+
 def fetch_fmp(ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
+    """Dividend- and split-adjusted dailies from FMP (cached 6 h, quota-guarded)."""
     try:
         from app.config import settings
 
         if not settings.FMP_API_KEY:
             return pd.DataFrame()
-        import requests
+        from app.services import fmp_guard
 
-        resp = requests.get(
-            f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}",
-            params={"apikey": settings.FMP_API_KEY, "from": start.strftime("%Y-%m-%d"), "to": end.strftime("%Y-%m-%d")},
-            timeout=15,
+        data = fmp_guard.get_json(
+            "historical-price-eod/dividend-adjusted",
+            {"symbol": ticker, "from": start.strftime("%Y-%m-%d"), "to": end.strftime("%Y-%m-%d")},
+            ttl=fmp_guard.TTL_PRICES, timeout=15,
         )
-        data = resp.json()
-        return adjust_fmp_rows(data.get("historical") or []) if isinstance(data, dict) else pd.DataFrame()
+        rows = fmp_rows_from_payload(data)
+        return adjust_fmp_rows(rows) if rows else pd.DataFrame()
     except Exception as e:
         logger.info("backtest FMP fetch failed for %s: %s", ticker, e)
         return pd.DataFrame()

@@ -372,15 +372,15 @@ class QuoteCacheService:
         return None
     
     async def _fetch_from_fmp(self, symbol: str) -> Optional[Dict[str, Any]]:
-        """Fetch quote from Financial Modeling Prep API (250 calls/day free)"""
-        fmp_key = settings.FMP_API_KEY
-        if not fmp_key:
+        """Fetch quote from Financial Modeling Prep (250 calls/day free).
+
+        Last resort: goes through app.services.fmp_guard (cache, daily budget,
+        quota breaker), so a quota-exhausted FMP costs nothing."""
+        if not settings.FMP_API_KEY:
             return None
         try:
-            url = f"https://financialmodelingprep.com/api/v3/quote/{symbol.upper()}?apikey={fmp_key}"
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(url)
-                data = response.json()
+            from app.services import fmp_guard
+            data = await fmp_guard.get_json_async("quote", {"symbol": symbol.upper()}, ttl=fmp_guard.TTL_QUOTE)
             if not isinstance(data, list) or not data:
                 return None
             q = data[0]
@@ -391,7 +391,7 @@ class QuoteCacheService:
                 "symbol": symbol.upper(),
                 "price": round(price, 2),
                 "change": round(float(q.get('change') or 0), 2),
-                "change_percent": round(float(q.get('changesPercentage') or 0), 4),
+                "change_percent": round(float(q.get('changePercentage', q.get('changesPercentage')) or 0), 4),
                 "volume": int(q.get('volume') or 0),
                 "high": round(float(q.get('dayHigh') or 0), 2),
                 "low": round(float(q.get('dayLow') or 0), 2),
@@ -495,12 +495,12 @@ class QuoteCacheService:
         1. Public.com (primary - real-time, 10 req/s, US stocks/ETFs/crypto)
         2. Yahoo Finance direct API (free, unlimited)
         3. yfinance library (fallback)
-        4. Financial Modeling Prep (250 calls/day)
-        5. Twelve Data (800 credits/day)
-        6. Finnhub API (if configured)
-        7. Alpaca Markets (free, US stocks)
-        8. Robinhood (US stocks, requires credentials)
-        9. TradingView API (final fallback)
+        4. Twelve Data (800 credits/day)
+        5. Finnhub API (if configured)
+        6. Alpaca Markets (free, US stocks)
+        7. Robinhood (US stocks, requires credentials)
+        8. TradingView API
+        9. Financial Modeling Prep (250 calls/day; last, guarded by fmp_guard)
         """
         # Every provider payload leaves here in the canonical contract
         # (app.services.canonical_quote): headline = regular session, any
@@ -547,11 +547,6 @@ class QuoteCacheService:
         if quote and quote.get('price') and quote.get('price') > 0:
             return quote
 
-        # 3. Financial Modeling Prep
-        quote = await self._fetch_from_fmp(symbol)
-        if quote and quote.get('price') and quote.get('price') > 0:
-            return quote
-
         # 4. Twelve Data
         quote = await self._fetch_from_twelve_data(symbol)
         if quote and quote.get('price') and quote.get('price') > 0:
@@ -580,6 +575,12 @@ class QuoteCacheService:
                 return quote
         except Exception as e:
             print(f"TradingView fallback failed for {symbol}: {e}")
+
+        # 9. Financial Modeling Prep, last: 250 calls/day on the free key and
+        # every source above is free. Guarded by app.services.fmp_guard.
+        quote = await self._fetch_from_fmp(symbol)
+        if quote and quote.get('price') and quote.get('price') > 0:
+            return quote
 
         return None
     

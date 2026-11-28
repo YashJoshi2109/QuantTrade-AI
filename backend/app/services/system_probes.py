@@ -350,11 +350,53 @@ async def probe_finnhub(ctx: ProbeContext) -> ProbeResult:
     return res
 
 
+def fmp_status(res: ProbeResult, breaker: Dict[str, Any], meter: Dict[str, Any], now: float) -> ProbeResult:
+    """Map the FMP meter result + quota breaker to a status.
+
+    An exhausted daily quota is "degraded" (every caller has a free fallback
+    and FMP comes back at the reset), never "down". "Down" is kept for real
+    outages: network errors / 5xx, or a rejected key."""
+    from app.services.fmp_guard import KEY, OUTAGE, QUOTA, fmt_utc_hm, next_utc_midnight
+    if res.status == NOT_CONFIGURED:
+        return res
+    reason = breaker.get("reason") if breaker.get("open") else None
+    q = res.quota or {}
+    last_err = str(meter.get("last_error") or "")
+    quota_hit = reason == QUOTA or (reason is None and (
+        q.get("remaining") == 0                                   # our own daily count says so
+        or (res.status in (DOWN, DEGRADED) and "rate limit" in last_err)))  # FMP said so
+    if quota_hit:
+        resets = breaker.get("until") if reason == QUOTA and breaker.get("until") else next_utc_midnight(now)
+        res.status = DEGRADED
+        res.detail = f"Daily quota exhausted — fallbacks active, resets {fmt_utc_hm(resets)} UTC · " + res.detail
+    elif reason == KEY:
+        res.status = DOWN
+        res.detail = "API key rejected — FMP paused for 1 h, fallbacks active · " + res.detail
+    elif reason == OUTAGE:
+        res.status = DOWN
+        res.detail = (f"Unreachable ({breaker.get('detail') or 'errors'}) — paused until "
+                      f"{fmt_utc_hm(breaker['until'])} UTC, fallbacks active · ") + res.detail
+    elif res.status == DOWN and "not on plan" in last_err:
+        res.status = DEGRADED
+        res.detail = "Endpoint not on the free plan — fallbacks active · " + res.detail
+    res.meta = {**(res.meta or {}), "breaker": {k: breaker.get(k) for k in
+                                                 ("open", "reason", "until", "calls_today", "budget",
+                                                  "cache_hits", "skipped")}}
+    return res
+
+
 async def probe_fmp(ctx: ProbeContext) -> ProbeResult:
     from app.config import settings
+    from app.services import fmp_guard
     res = meter_result(ctx, "fmp", configured=bool(settings.FMP_API_KEY), label="FMP", day_limit=250)
-    if res.status != NOT_CONFIGURED:
-        res.detail = "Free plan, 250 calls/day (counted by QuantTrade) · " + res.detail
+    if res.status == NOT_CONFIGURED:
+        return res
+    try:
+        breaker = await asyncio.to_thread(fmp_guard.breaker_state)
+    except Exception:  # noqa: BLE001
+        breaker = {}
+    res = fmp_status(res, breaker, ctx.meter.get("fmp") or {}, ctx.now())
+    res.detail = "Free plan, 250 calls/day (counted by QuantTrade) · " + res.detail
     return res
 
 

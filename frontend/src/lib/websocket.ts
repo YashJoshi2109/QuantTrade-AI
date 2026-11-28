@@ -5,6 +5,7 @@
  * Auto-reconnect with exponential backoff.
  */
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { isAccountControlClose } from '@/lib/wsClose'
 
 const WS_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/^http/, 'ws') || 'ws://localhost:8000'
 const CONNECT_TIMEOUT_MS = 10_000
@@ -91,14 +92,15 @@ export function useMarketWebSocket({
         }
       }
 
-      ws.onclose = () => {
+      ws.onclose = (ev) => {
         clearTimeout(openTimeout)
         setIsConnected(false)
         setConnectionStatus('disconnected')
         if (pingTimerRef.current) clearInterval(pingTimerRef.current)
 
-        // Exponential backoff reconnect
-        if (enabledRef.current) {
+        // Exponential backoff reconnect, except when the account was
+        // suspended / the session revoked: the same token is refused again.
+        if (enabledRef.current && !isAccountControlClose(ev?.code)) {
           const delay = Math.min(1000 * Math.pow(2, retryRef.current), 30000)
           retryRef.current++
           retryTimerRef.current = setTimeout(connect, delay)
