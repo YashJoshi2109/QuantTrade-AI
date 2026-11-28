@@ -63,6 +63,7 @@ dump.rdb
 scripts/*
 !scripts/add_*.py
 !scripts/create_*.py
+!scripts/seed_community_bots.py
 
 # Git
 .git/
