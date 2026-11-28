@@ -11,6 +11,7 @@ import { SITE_URL, absoluteUrl } from '@/lib/seo'
  * /research?symbol=... (canonicalises to /research).
  */
 const ROUTE_LASTMOD: Record<string, string> = {
+  '/stocks': '2026-11-28', // hub; per-ticker pages live in /stocks/sitemap.xml
   '/': '2026-11-28',
   '/pricing': '2026-11-27',
   '/about': '2026-11-25',

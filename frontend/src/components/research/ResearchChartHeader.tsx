@@ -1,6 +1,6 @@
 'use client'
 
-import { GitCompareArrows, Loader2, RefreshCw, Sparkles, Star, X } from 'lucide-react'
+import { GitCompareArrows, Link2, Loader2, RefreshCw, Sparkles, Star, X } from 'lucide-react'
 import IntentLink from '@/components/nav/IntentLink'
 import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -13,6 +13,7 @@ import EarningsBadge from '@/components/earnings/EarningsBadge'
 import { CardSkeleton as Skeleton } from './ResearchCard'
 import { buildCopilotHref } from '@/lib/copilot-handoff'
 import { compareHref } from '@/lib/compare'
+import { stockPath } from '@/lib/stockPage/symbol'
 import type { ExtendedBadge } from '@/lib/canonicalQuote'
 import { DESKTOP_PERIODS } from '@/lib/researchPrefs'
 import { exchangeLabel, fmtChange, fmtNum, fmtSigned, toneText } from '@/lib/researchTechnicals'
@@ -294,6 +295,17 @@ export function ResearchPriceHeader(p: ResearchPriceHeaderProps) {
           <IntentLink href={compareHref([p.symbol])} className={iconBtn} aria-label={`Compare ${p.symbol}`} title="Compare">
             <GitCompareArrows className="h-4 w-4" />
           </IntentLink>
+          {stockPath(p.symbol) && (
+            <IntentLink
+              href={stockPath(p.symbol) as string}
+              className={iconBtn}
+              aria-label={`Shareable ${p.symbol.toUpperCase()} stock page`}
+              title="Shareable page"
+              data-testid="shareable-stock-page"
+            >
+              <Link2 className="h-4 w-4" />
+            </IntentLink>
+          )}
           <button type="button" onClick={p.onSyncData} disabled={p.syncing} className={iconBtn} aria-label="Sync data" title="Sync data">
             {p.syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </button>

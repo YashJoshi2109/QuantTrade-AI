@@ -29,6 +29,11 @@ export const ROUTE_SEO = {
     description:
       'US market overview: major indices, sector heatmap, top gainers and losers, and global exchanges. Quotes may be delayed. Not financial advice.',
   },
+  '/stocks': {
+    title: 'Stock Prices & AI Analysis by Ticker',
+    description:
+      'Browse stock and ETF pages by sector: prices, valuation, earnings dates, dividends, SEC insider trades, 13F owners and analyst targets.',
+  },
   '/markets/movers': {
     title: 'Top Stock Gainers, Losers & Most Active',
     description:
