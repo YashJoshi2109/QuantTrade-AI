@@ -1,5 +1,5 @@
 """
-Thin client for Financial Modeling Prep (FMP) APIs with simple rate limiting.
+Thin client for Financial Modeling Prep (FMP) APIs (quota-guarded by fmp_guard).
 
 Used primarily by the chatbot to enrich answers with up-to-date
 fundamental / valuation snapshots without exceeding free-tier limits.
@@ -7,79 +7,25 @@ fundamental / valuation snapshots without exceeding free-tier limits.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta
 from typing import Dict, Optional
-
-import requests
-
-from app.config import settings
 
 
 FMP_BASE_URL = "https://financialmodelingprep.com/stable"
 
 
-@dataclass
-class _FMPRateLimiter:
-    max_calls: int
-    window_seconds: int
-    window_start: datetime
-    count: int = 0
+def _get(path: str, params: Optional[Dict] = None) -> Optional[Dict]:
+    """One FMP call through app.services.fmp_guard (24 h cache, daily budget,
+    quota breaker). The old 20-per-hour in-process limiter allowed 480 calls a
+    day per process, twice the free quota."""
+    from app.services import fmp_guard
 
-    def allow(self) -> bool:
-        now = datetime.utcnow()
-        if now - self.window_start > timedelta(seconds=self.window_seconds):
-            # Reset window
-            self.window_start = now
-            self.count = 0
-        if self.count >= self.max_calls:
-            return False
-        self.count += 1
-        return True
-
-
-# Global in-process limiter: 20 requests per hour
-_rate_limiter = _FMPRateLimiter(
-    max_calls=20,
-    window_seconds=3600,
-    window_start=datetime.utcnow(),
-)
-
-
-def _get_api_key() -> Optional[str]:
-    # Reuse ALPHA_VANTAGE_API_KEY slot if FMP_API_KEY is not separately configured.
-    key = getattr(settings, "FMP_API_KEY", None)
-    if not key:
-        key = settings.ALPHA_VANTAGE_API_KEY
-    return key
-
-
-def _get(url: str, params: Optional[Dict] = None) -> Optional[Dict]:
-    api_key = _get_api_key()
-    if not api_key:
-        return None
-
-    if not _rate_limiter.allow():
-        # Respect 20 req/hour budget; just skip instead of throwing.
-        print("⚠️ FMP rate limit (20/hour) reached; skipping request.")
-        return None
-
-    params = dict(params or {})
-    params.setdefault("apikey", api_key)
-
-    try:
-        resp = requests.get(url, params=params, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
-        # Most FMP endpoints return a list; normalize into a dict when possible
-        if isinstance(data, list) and data:
-            return data[0]
-        if isinstance(data, dict):
-            return data
-        return None
-    except Exception as exc:
-        print(f"⚠️ FMP request error for {url}: {exc}")
-        return None
+    data = fmp_guard.get_json(path, params, ttl=fmp_guard.TTL_FUNDAMENTALS)
+    # Most FMP endpoints return a list; normalize into a dict when possible
+    if isinstance(data, list) and data and isinstance(data[0], dict):
+        return data[0]
+    if isinstance(data, dict):
+        return data
+    return None
 
 
 def get_fundamentals_snapshot(symbol: str) -> Optional[str]:
@@ -92,8 +38,7 @@ def get_fundamentals_snapshot(symbol: str) -> Optional[str]:
     if not sym:
         return None
 
-    url = f"{FMP_BASE_URL}/key-metrics-ttm"
-    metrics = _get(url, {"symbol": sym})
+    metrics = _get("key-metrics-ttm", {"symbol": sym})
     if not metrics:
         return None
 

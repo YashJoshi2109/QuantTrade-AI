@@ -3,6 +3,7 @@
  * `useNewsFeed` instance. Reconnects with capped exponential backoff + jitter.
  */
 import { newsSocketUrl, normalizeFeedResponse, type NewsFeedItem } from '@/lib/newsFeed'
+import { isAccountControlClose } from '@/lib/wsClose'
 
 export type NewsSocketStatus = 'idle' | 'connecting' | 'open' | 'closed'
 
@@ -80,9 +81,11 @@ function connect() {
   sock.onerror = () => {
     // onclose follows; reconnect handled there
   }
-  sock.onclose = () => {
+  sock.onclose = (ev?: CloseEvent) => {
     if (ws === sock) ws = null
     setStatus('closed')
+    // Suspended / revoked session: the same cookie will be refused again.
+    if (isAccountControlClose(ev?.code)) return
     scheduleReconnect()
   }
 }

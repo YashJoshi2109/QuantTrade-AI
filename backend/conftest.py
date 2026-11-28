@@ -29,3 +29,19 @@ def _isolate_ai_guard():
     ai_guard.set_store(None)
     ai_guard.set_persist_sink(None)
     ai_guard._mem_cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_fmp_guard():
+    """Fresh in-memory FMP guard (cache, breaker, daily budget) per test: no
+    Redis and no state leaking between tests."""
+    try:
+        from app.services import fmp_guard
+    except Exception:  # pragma: no cover
+        yield
+        return
+    fmp_guard.guard.set_store(fmp_guard.MemoryStore())
+    fmp_guard.guard.reset()
+    yield
+    fmp_guard.guard.reset()
+    fmp_guard.guard.set_store(None)

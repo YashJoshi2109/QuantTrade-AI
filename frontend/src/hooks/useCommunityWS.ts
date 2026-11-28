@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
+import { isAccountControlClose } from '@/lib/wsClose'
 
 type WSMessage = {
   type: string
@@ -45,8 +46,10 @@ export function useCommunityWS(
         }
       }, 30000)
 
-      ws.onclose = () => {
+      ws.onclose = (ev) => {
         clearInterval(pingInterval)
+        // Suspended / revoked session: reconnecting would be refused again.
+        if (isAccountControlClose(ev?.code)) return
         // Reconnect after 5 seconds
         reconnectTimer.current = setTimeout(connect, 5000)
       }

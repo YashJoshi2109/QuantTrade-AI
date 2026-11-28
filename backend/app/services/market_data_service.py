@@ -1,7 +1,7 @@
 """
 Unified Real-Time Market Data Service
 
-Multi-source fallback chain: Public.com -> yfinance -> FMP -> Finnhub -> Alpaca -> Robinhood
+Multi-source fallback chain: Finnhub -> Public.com -> yfinance -> Alpaca -> Robinhood -> FMP (last)
 All methods return standardized data, no synthetic/random data ever.
 
 Usage:
@@ -202,40 +202,37 @@ class MarketDataService:
             logger.debug(f"yfinance history failed for {symbol}: {e}")
             return None
 
-    # ── FMP (secondary — 250 calls/day free tier) ────────────────────────────
+    # ── FMP (last resort — 250 calls/day free tier, see app.services.fmp_guard) ──
 
     async def _fmp_quote(self, symbol: str) -> Optional[MarketQuote]:
         if not settings.FMP_API_KEY:
             return None
         try:
-            import httpx
-            url = f"https://financialmodelingprep.com/api/v3/quote/{symbol}"
-            async with httpx.AsyncClient(timeout=8) as client:
-                resp = await client.get(url, params={"apikey": settings.FMP_API_KEY})
-                if resp.status_code != 200:
-                    return None
-                data = resp.json()
-                if not data:
-                    return None
-                q = data[0]
-                price = q.get("price", 0)
-                prev = q.get("previousClose", price)
-                change = q.get("changesPercentage", 0)
-                return MarketQuote(
-                    symbol=symbol,
-                    price=round(float(price), 2),
-                    open=round(float(q.get("open", 0)), 2) if q.get("open") else None,
-                    high=round(float(q.get("dayHigh", 0)), 2) if q.get("dayHigh") else None,
-                    low=round(float(q.get("dayLow", 0)), 2) if q.get("dayLow") else None,
-                    prev_close=round(float(prev), 2) if prev else None,
-                    change_pct=round(float(change), 2),
-                    volume=int(q.get("volume", 0)),
-                    avg_volume=int(q.get("avgVolume", 0)),
-                    market_cap=q.get("marketCap"),
-                    name=q.get("name"),
-                    timestamp=datetime.now(timezone.utc).isoformat(),
-                    source="fmp",
-                )
+            from app.services import fmp_guard
+            data = await fmp_guard.get_json_async("quote", {"symbol": symbol}, ttl=fmp_guard.TTL_QUOTE)
+            if not isinstance(data, list) or not data:
+                return None
+            q = data[0]
+            price = q.get("price") or 0
+            if not price:
+                return None
+            prev = q.get("previousClose") or price
+            change = q.get("changePercentage", q.get("changesPercentage")) or 0
+            return MarketQuote(
+                symbol=symbol,
+                price=round(float(price), 2),
+                open=round(float(q["open"]), 2) if q.get("open") else None,
+                high=round(float(q["dayHigh"]), 2) if q.get("dayHigh") else None,
+                low=round(float(q["dayLow"]), 2) if q.get("dayLow") else None,
+                prev_close=round(float(prev), 2) if prev else None,
+                change_pct=round(float(change), 2),
+                volume=int(q.get("volume") or 0),
+                avg_volume=int(q.get("avgVolume") or 0),
+                market_cap=q.get("marketCap"),
+                name=q.get("name"),
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                source="fmp",
+            )
         except Exception as e:
             logger.debug(f"FMP quote failed for {symbol}: {e}")
             return None
@@ -351,26 +348,14 @@ class MarketDataService:
         cache_key = f"qt:quote:{symbol}"
 
         async def _fetch():
-            # Waterfall: Finnhub -> Public.com -> yfinance -> FMP -> Alpaca -> Robinhood
-            # Finnhub is primary for research/markets: real-time US data, 60 req/min free tier
-            quote = await self._finnhub_quote(symbol)
-            if quote and quote.price > 0:
-                return quote.to_dict()
-            quote = await self._public_quote(symbol)
-            if quote and quote.price > 0:
-                return quote.to_dict()
-            quote = await self._yf_quote(symbol)
-            if quote and quote.price > 0:
-                return quote.to_dict()
-            quote = await self._fmp_quote(symbol)
-            if quote and quote.price > 0:
-                return quote.to_dict()
-            quote = await self._alpaca_quote(symbol)
-            if quote and quote.price > 0:
-                return quote.to_dict()
-            quote = await self._robinhood_quote(symbol)
-            if quote and quote.price > 0:
-                return quote.to_dict()
+            # Waterfall: Finnhub -> Public.com -> yfinance -> Alpaca -> Robinhood -> FMP
+            # Finnhub is primary for research/markets: real-time US data, 60 req/min free tier.
+            # FMP is last: 250 calls/day, and the free sources above cover US quotes.
+            for source in (self._finnhub_quote, self._public_quote, self._yf_quote,
+                           self._alpaca_quote, self._robinhood_quote, self._fmp_quote):
+                quote = await source(symbol)
+                if quote and quote.price > 0:
+                    return quote.to_dict()
             return None
 
         data = await cache_service.get_or_fetch(cache_key, self.QUOTE_TTL, _fetch)
@@ -392,17 +377,17 @@ class MarketDataService:
                 yf_results = await self._yf_batch(missing)
                 results.update(yf_results)
 
-            # Fill remaining gaps with Finnhub/FMP/Alpaca/Robinhood
+            # Fill remaining gaps with Finnhub/Alpaca/Robinhood, FMP last
             missing = [s for s in symbols if s not in results]
             if missing:
                 for sym in missing[:10]:  # Cap individual fallbacks
                     q = await self._finnhub_quote(sym)
                     if not q:
-                        q = await self._fmp_quote(sym)
-                    if not q:
                         q = await self._alpaca_quote(sym)
                     if not q:
                         q = await self._robinhood_quote(sym)
+                    if not q:
+                        q = await self._fmp_quote(sym)
                     if q and q.price > 0:
                         results[sym] = q
 

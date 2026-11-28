@@ -199,6 +199,12 @@ def reveal_emails(body: RevealBody, request: Request, admin: User = Depends(requ
     return {"emails": {str(i): e for i, e in rows}}
 
 
+def _close_live_sockets(user_id: int) -> None:
+    """Close the user's open WebSockets now (this process + others via Redis)."""
+    from app.services.ws_sessions import notify_account_change
+    notify_account_change(user_id)
+
+
 @router.post("/users/{user_id}/revoke-sessions")
 def revoke_sessions(user_id: int, body: ReasonBody, request: Request, admin: User = Depends(require_admin_console),
                     db: Session = Depends(get_db)):
@@ -209,6 +215,7 @@ def revoke_sessions(user_id: int, body: ReasonBody, request: Request, admin: Use
     c.sessions_revoked_at = datetime.now(timezone.utc)
     db.commit()
     invalidate_fast_cache(user_id)
+    _close_live_sockets(user_id)
     audit(db, admin, request, "user.revoke_sessions", "user", user_id, body.reason,
           {"session_version": c.session_version})
     return {"ok": True, "session_version": c.session_version}
@@ -231,6 +238,7 @@ def suspend(user_id: int, body: ReasonBody, request: Request, admin: User = Depe
     c.sessions_revoked_at = c.suspended_at
     db.commit()
     invalidate_fast_cache(user_id)
+    _close_live_sockets(user_id)
     audit(db, admin, request, "user.suspend", "user", user_id, body.reason)
     return {"ok": True, "suspended_at": c.suspended_at.isoformat()}
 

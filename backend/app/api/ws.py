@@ -11,6 +11,11 @@ Channels:
     - post:{post_id}        — new comments, votes on a post
     - user:{user_id}        — personal notifications
     - trending              — trending ticker updates
+
+Account controls (app.services.ws_sessions): a token for a suspended account
+is closed with 4403, a token from before "revoke sessions" with 4401, at
+connect, every 30 s, and immediately when an admin acts. Anonymous visitors
+keep the public channels.
 """
 import asyncio
 import json
@@ -18,24 +23,13 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+from app.services import ws_sessions
 from app.services.ws_manager import ws_manager
 from app.services.redis_cache_service import cache_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-async def _verify_token(token: Optional[str]) -> bool:
-    """Verify JWT token for authenticated WebSocket channels."""
-    if not token:
-        return False
-    try:
-        from app.api.auth import decode_token
-        payload = decode_token(token)
-        return payload is not None
-    except Exception:
-        return False
 
 
 async def _redis_listener(channel: str, ws_channel: str):
@@ -90,111 +84,73 @@ def listener_count(redis_channel: str) -> int:
     return int(t is not None and not t.done())
 
 
+async def _heartbeat_loop(websocket: WebSocket) -> None:
+    """Answer "ping" with "pong"; send a heartbeat after 30 s of silence."""
+    while True:
+        try:
+            data = await asyncio.wait_for(websocket.receive_text(), timeout=30)
+            if data == "ping":
+                await websocket.send_text("pong")
+        except asyncio.TimeoutError:
+            try:
+                await websocket.send_text(json.dumps({"type": "heartbeat"}))
+            except Exception:
+                break
+
+
+async def _serve_public_channel(websocket: WebSocket, token: Optional[str], channel: str,
+                                redis_channel: str, initial=None) -> None:
+    """Public market/news stream. Anonymous visitors are allowed; a signed-in
+    visitor's token is held to the account controls (ws_sessions): suspended
+    -> 4403, revoked -> 4401, at connect and every 30 s while connected."""
+    allowed, ident = await ws_sessions.admit(websocket, token)
+    if not allowed:
+        return
+    await ws_manager.connect(websocket, channel)
+    _listener_acquire(redis_channel, channel)
+    try:
+        async with ws_sessions.guarded(websocket, ident):
+            if initial is not None:
+                await initial()
+            await _heartbeat_loop(websocket)
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.debug(f"WS {channel} error: {e}")
+    finally:
+        _listener_release(redis_channel)
+        await ws_manager.disconnect(websocket, channel)
+
+
 @router.websocket("/ws/ideas")
 async def ideas_websocket(
     websocket: WebSocket,
     token: Optional[str] = Query(None),
 ):
     """WebSocket for live trade ideas updates."""
-    channel = "ideas"
-    await ws_manager.connect(websocket, channel)
-
-    # Shared Redis listener (one per process for this channel)
-    _listener_acquire("qt:ws:ideas", channel)
-
-    try:
-        # Send initial data from cache
+    async def initial():
         cached_ideas = await cache_service.get("qt:ideas:trending")
         if cached_ideas:
-            await ws_manager.send_personal(websocket, {
-                "type": "initial",
-                "data": cached_ideas,
-            })
+            await ws_manager.send_personal(websocket, {"type": "initial", "data": cached_ideas})
 
-        # Keep connection alive with heartbeat
-        while True:
-            try:
-                # Wait for client messages (ping/pong or commands)
-                data = await asyncio.wait_for(websocket.receive_text(), timeout=30)
-                if data == "ping":
-                    await websocket.send_text("pong")
-            except asyncio.TimeoutError:
-                # Send heartbeat
-                try:
-                    await websocket.send_text(json.dumps({"type": "heartbeat"}))
-                except Exception:
-                    break
-    except WebSocketDisconnect:
-        pass
-    except Exception as e:
-        logger.debug(f"WS ideas error: {e}")
-    finally:
-        _listener_release("qt:ws:ideas")
-        await ws_manager.disconnect(websocket, channel)
+    await _serve_public_channel(websocket, token, "ideas", "qt:ws:ideas", initial)
 
 
 @router.websocket("/ws/pulse")
-async def pulse_websocket(websocket: WebSocket):
+async def pulse_websocket(websocket: WebSocket, token: Optional[str] = Query(None)):
     """WebSocket for market pulse sidebar updates."""
-    channel = "pulse"
-    await ws_manager.connect(websocket, channel)
-
-    _listener_acquire("qt:ws:pulse", channel)
-
-    try:
-        # Send current pulse from cache
+    async def initial():
         cached_pulse = await cache_service.get("qt:pulse:market")
         if cached_pulse:
-            await ws_manager.send_personal(websocket, {
-                "type": "pulse_update",
-                "data": cached_pulse,
-            })
+            await ws_manager.send_personal(websocket, {"type": "pulse_update", "data": cached_pulse})
 
-        while True:
-            try:
-                data = await asyncio.wait_for(websocket.receive_text(), timeout=30)
-                if data == "ping":
-                    await websocket.send_text("pong")
-            except asyncio.TimeoutError:
-                try:
-                    await websocket.send_text(json.dumps({"type": "heartbeat"}))
-                except Exception:
-                    break
-    except WebSocketDisconnect:
-        pass
-    except Exception as e:
-        logger.debug(f"WS pulse error: {e}")
-    finally:
-        _listener_release("qt:ws:pulse")
-        await ws_manager.disconnect(websocket, channel)
+    await _serve_public_channel(websocket, token, "pulse", "qt:ws:pulse", initial)
 
 
 @router.websocket("/ws/scanner")
-async def scanner_websocket(websocket: WebSocket):
+async def scanner_websocket(websocket: WebSocket, token: Optional[str] = Query(None)):
     """WebSocket for market scanner real-time results."""
-    channel = "scanner"
-    await ws_manager.connect(websocket, channel)
-
-    _listener_acquire("qt:ws:scanner", channel)
-
-    try:
-        while True:
-            try:
-                data = await asyncio.wait_for(websocket.receive_text(), timeout=30)
-                if data == "ping":
-                    await websocket.send_text("pong")
-            except asyncio.TimeoutError:
-                try:
-                    await websocket.send_text(json.dumps({"type": "heartbeat"}))
-                except Exception:
-                    break
-    except WebSocketDisconnect:
-        pass
-    except Exception as e:
-        logger.debug(f"WS scanner error: {e}")
-    finally:
-        _listener_release("qt:ws:scanner")
-        await ws_manager.disconnect(websocket, channel)
+    await _serve_public_channel(websocket, token, "scanner", "qt:ws:scanner")
 
 
 # ── News intelligence WebSocket ─────────────────────────────────────────────
@@ -203,33 +159,13 @@ NEWS_REDIS_CHANNEL = "qt:ws:news"
 
 
 @router.websocket("/ws/news")
-async def news_websocket(websocket: WebSocket):
+async def news_websocket(websocket: WebSocket, token: Optional[str] = Query(None)):
     """Live news clusters: {"type":"news","item":{...same shape as /news/feed items...}}.
 
     Sent for every new cluster and whenever a cluster gains a source or an AI
     note. Clients reply "ping" -> "pong"; server sends {"type":"heartbeat"}
     after 30s of silence."""
-    channel = "news"
-    await ws_manager.connect(websocket, channel)
-    _listener_acquire(NEWS_REDIS_CHANNEL, channel)
-    try:
-        while True:
-            try:
-                data = await asyncio.wait_for(websocket.receive_text(), timeout=30)
-                if data == "ping":
-                    await websocket.send_text("pong")
-            except asyncio.TimeoutError:
-                try:
-                    await websocket.send_text(json.dumps({"type": "heartbeat"}))
-                except Exception:
-                    break
-    except WebSocketDisconnect:
-        pass
-    except Exception as e:
-        logger.debug(f"WS news error: {e}")
-    finally:
-        _listener_release(NEWS_REDIS_CHANNEL)
-        await ws_manager.disconnect(websocket, channel)
+    await _serve_public_channel(websocket, token, "news", NEWS_REDIS_CHANNEL)
 
 
 # ── Community WebSocket ─────────────────────────────────────────────────────
@@ -237,16 +173,6 @@ async def news_websocket(websocket: WebSocket):
 
 _PUBLIC_COMMUNITY_PREFIXES = {"feed", "post", "trending"}
 _PRIVATE_COMMUNITY_PREFIXES = {"user", "dm"}
-
-
-def _ws_user_id(websocket: WebSocket, token: Optional[str]) -> Optional[int]:
-    """Resolve the authenticated user from the session cookie (sent on same-origin
-    WebSocket upgrades) or an explicit ?token= query param."""
-    from app.api.auth import decode_token
-    from app.auth.jwt import COOKIE_NAME
-
-    raw = token or websocket.cookies.get(COOKIE_NAME)
-    return decode_token(raw) if raw else None
 
 
 def _is_dm_participant(conversation_id: int, user_id: int) -> bool:
@@ -270,14 +196,14 @@ def _is_dm_participant(conversation_id: int, user_id: int) -> bool:
         db.close()
 
 
-async def _authorize_community_channel(websocket: WebSocket, channel: str, token: Optional[str]) -> bool:
-    """Public channels are open; user:{id} and dm:{id} require the owner / a participant."""
+async def _authorize_community_channel(channel: str, user_id: Optional[int]) -> bool:
+    """Public channels are open; user:{id} and dm:{id} require the owner / a participant.
+    ``user_id`` comes from ws_sessions.admit (token already held to the account controls)."""
     prefix, _, ident = channel.partition(":")
     if prefix in _PUBLIC_COMMUNITY_PREFIXES:
         return True
     if prefix not in _PRIVATE_COMMUNITY_PREFIXES or not ident.isdigit():
         return False
-    user_id = _ws_user_id(websocket, token)
     if not user_id:
         return False
     if prefix == "user":
@@ -301,7 +227,11 @@ async def community_websocket(
       - user:{user_id}        — personal notifications       (owner only)
       - dm:{conversation_id}  — direct messages              (participants only)
     """
-    if not await _authorize_community_channel(websocket, channel, token):
+    # Suspended -> 4403, revoked session -> 4401 (socket accepted, then closed).
+    allowed, ident = await ws_sessions.admit(websocket, token)
+    if not allowed:
+        return
+    if not await _authorize_community_channel(channel, ident.user_id if ident else None):
         # 1008 = policy violation; close before accept so nothing is streamed.
         await websocket.close(code=1008)
         return
@@ -309,10 +239,11 @@ async def community_websocket(
     ws_channel = f"community:{channel}"
     await ws_manager.connect(websocket, ws_channel)
     try:
-        while True:
-            data = await websocket.receive_text()
-            if data == "ping":
-                await websocket.send_text(json.dumps({"type": "pong"}))
+        async with ws_sessions.guarded(websocket, ident):
+            while True:
+                data = await websocket.receive_text()
+                if data == "ping":
+                    await websocket.send_text(json.dumps({"type": "pong"}))
     except WebSocketDisconnect:
         pass
     except Exception:
