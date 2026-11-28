@@ -383,7 +383,7 @@ def test_process_batch_publishes_new_and_updated_clusters(session_factory):
     assert first["primary_category"] == "earnings" and "capital_return" in first["categories"]
     assert set(first) == {"id", "cluster_id", "title", "summary", "url", "source", "sources_count", "sources",
                           "published_at", "ingested_at", "tickers", "categories", "primary_category",
-                          "sentiment", "impact", "ai", "image_url"}
+                          "sentiment", "impact", "ai", "image_url", "image_source", "source_logo"}
     assert set(first["sentiment"]) == {"label", "score", "confidence"}
     assert published[0]["id"] == first["id"]
     with session_factory() as db:

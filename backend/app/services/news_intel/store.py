@@ -61,7 +61,27 @@ def serialize(row: NewsItem) -> Dict[str, Any]:
         "impact": int(row.impact or 0),
         "ai": row.ai or None,
         "image_url": row.image_url or None,
+        # Additive fields (older clients ignore them):
+        "image_source": _image_source(row, sources),
+        "source_logo": (sources[0].get("logo") if sources and isinstance(sources[0], dict) else None) or None,
     }
+
+
+def _image_source(row: NewsItem, sources: List[Dict[str, Any]]) -> Optional[str]:
+    """Which cluster source the shown image came from (attribution), when known."""
+    if not row.image_url:
+        return None
+    for s in sources:
+        if isinstance(s, dict) and s.get("image_url") == row.image_url:
+            # A sibling link that points at the story's own publisher (Yahoo's
+            # symbol feed often carries fool.com articles) is that publisher's image.
+            from app.services.news_intel.publishers import publisher_for
+
+            own = publisher_for(name=row.source)
+            if own is not None and publisher_for(s.get("url")) is own:
+                return row.source
+            return s.get("source") or None
+    return None
 
 
 def _is_pg(db: Session) -> bool:
@@ -135,12 +155,43 @@ def missing_images(db: Session, *, since: datetime, limit: int, by_id: bool = Fa
     return q.limit(limit).all()
 
 
-def set_image(db: Session, item_id: int, image_url: str) -> Optional[NewsItem]:
-    """Fill a missing image; never overwrites one the feed supplied."""
+def set_image(db: Session, item_id: int, image_url: str, *, source_url: Optional[str] = None,
+              direct_url: Optional[str] = None) -> Optional[NewsItem]:
+    """Fill a missing image; never overwrites one the feed supplied.
+    `source_url` names the cluster source the image belongs to (attribution);
+    `direct_url` records the publisher's own article URL found for an
+    aggregator (Google News) source."""
     row = db.get(NewsItem, item_id)
     if row is None or row.image_url:
         return None
     row.image_url = image_url
+    if source_url:
+        sources = [dict(s) for s in (row.sources or [])]
+        for s in sources:
+            if s.get("url") == source_url:
+                s["image_url"] = image_url
+                if direct_url:
+                    s["direct_url"] = direct_url
+                break
+        row.sources = sources  # new list: JSON columns do not track in-place edits
+    row.updated_at = utcnow()
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def set_logo(db: Session, item_id: int, logo_url: str) -> Optional[NewsItem]:
+    """Publisher logo for the representative source of a story without an
+    image (the card shows it on the designed tile). No-op once an image or
+    the same logo is present."""
+    row = db.get(NewsItem, item_id)
+    if row is None or row.image_url or not row.sources:
+        return None
+    sources = [dict(s) for s in row.sources]
+    if sources[0].get("logo") == logo_url:
+        return None
+    sources[0]["logo"] = logo_url
+    row.sources = sources
     row.updated_at = utcnow()
     db.commit()
     db.refresh(row)
@@ -153,6 +204,22 @@ def clear_image(db: Session, image_url: str) -> int:
          .update({NewsItem.image_url: None}, synchronize_session=False))
     db.commit()
     return int(n or 0)
+
+
+def clear_generic_images(db: Session, since: datetime) -> int:
+    """Drop stored images that match the current placeholder patterns
+    (images.is_generic_image), e.g. a wire's logo saved as a story image."""
+    from app.services.news_intel.images import is_generic_image
+
+    n = 0
+    rows = (db.query(NewsItem).filter(NewsItem.image_url.isnot(None), NewsItem.published_at >= since)
+            .with_entities(NewsItem.id, NewsItem.image_url).all())
+    bad = [i for i, u in rows if is_generic_image(u)]
+    for start in range(0, len(bad), 500):
+        n += (db.query(NewsItem).filter(NewsItem.id.in_(bad[start:start + 500]))
+              .update({NewsItem.image_url: None}, synchronize_session=False)) or 0
+    db.commit()
+    return int(n)
 
 
 def set_impact(db: Session, row: NewsItem, impact: int) -> None:

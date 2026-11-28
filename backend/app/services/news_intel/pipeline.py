@@ -6,8 +6,13 @@ NewsIntelService — the asyncio ingestion service started from main.py lifespan
   consumer: batch -> dedupe/cluster -> classify (thread) -> persist (thread)
             -> publish {"type":"news","item":...} on Redis qt:ws:news
   ai loop:   top-impact clusters without a note -> Claude Haiku (daily cap)
-  images:    newest stories without a feed image -> article og:image (cached,
-             robots-aware, SSRF-safe; see enrich.py) + one-time 14-day backfill
+  images:    newest stories without a feed image -> (a) a cluster sibling's
+             image / article og:image, (b) for Google News items the
+             publisher's own public feed (publishers.py) -> feed image or the
+             direct article's og:image, (d) else the publisher's logo for the
+             designed tile. ((c), an image inside the Google entry itself, is
+             taken at ingest in sources.py.) Cached, robots-aware, SSRF-safe
+             (enrich.py); plus a one-time 14-day backfill
   upkeep:    leader-lock renewal, 14-day retention, clusterer prune
 
 Only the process holding the Redis leader lock ingests. Without Redis the
@@ -42,7 +47,7 @@ LEADER_KEY = "qt:news:leader"
 SOURCES_KEY = "qt:news:sources"
 ALPACA_KEY = "qt:news:alpaca_connected"
 IMAGE_BACKFILL_KEY = "qt:news:image_backfill"
-IMAGE_BACKFILL_VERSION = "v1"
+IMAGE_BACKFILL_VERSION = "v2"   # v2: publisher feeds + logos for Google News items; generic-image cleanup
 STATUS_KEY = "qt:news:worker:status"   # JSON snapshot written by the news-worker every 15s
 HEARTBEAT_FILE = os.environ.get("NEWS_WORKER_HEARTBEAT_FILE", "/tmp/news-worker.heartbeat")
 MAX_AGE_HOURS = 48          # ignore feed items older than this (RSS backlogs)
@@ -111,13 +116,18 @@ def classify_items(items: List[RawItem], *, now: Optional[datetime] = None) -> L
 
 
 def _source_entry(it: RawItem) -> Dict[str, Any]:
-    return {
+    entry = {
         "source": it.source,
         "feed": it.feed,
         "url": it.url,
         "title": it.title,
         "published_at": (it.published_at or it.received_at).isoformat().replace("+00:00", "Z"),
     }
+    if it.source_url:      # aggregator items: the publisher's site (Google <source url>)
+        entry["site"] = it.source_url
+    if it.image_url:       # per-source image, so a reused sibling image keeps its attribution
+        entry["image_url"] = it.image_url
+    return entry
 
 
 class NewsIntelService:
@@ -136,6 +146,7 @@ class NewsIntelService:
         self.ai_cap = ai_notes.DailyCap(redis=redis)
         self._ai_attempted: set = set()
         self.images = None  # ImageEnricher, created on demand
+        self.publisher_index = None  # PublisherFeedIndex (Google News -> publisher feeds), on demand
         self._task: Optional[asyncio.Task] = None
         self._children: List[asyncio.Task] = []
         self.stats = {"processed": 0, "new": 0, "joined": 0, "duplicates": 0, "stale": 0, "dropped": 0}
@@ -366,21 +377,74 @@ class NewsIntelService:
             self.images = ImageEnricher(redis=self.redis)
         return self.images
 
-    async def _enrich_rows(self, rows: List[Dict[str, Any]], *, publish: bool) -> int:
-        """rows: [{id, urls}] -> look up og:image for each, persist, publish."""
+    def _publisher_index(self, enricher):
+        if self.publisher_index is None:
+            fetch_feed = getattr(enricher, "fetch_feed", None)
+            if fetch_feed is None:
+                return None
+            from app.services.news_intel.publishers import PublisherFeedIndex
+
+            self.publisher_index = PublisherFeedIndex(fetch_feed)
+        return self.publisher_index
+
+    async def _image_for_row(self, r: Dict[str, Any], enricher, index, budget: Dict[str, Optional[int]]):
+        """(image, source_url, direct_url) for one story, or (None, None, None)."""
+        # (a) cluster siblings and the story's own URL: article og:image.
+        #     Aggregator wrapper URLs are never fetched (should_enrich skips them).
+        for url in r["urls"]:
+            img = await enricher.find(url)
+            if img:
+                return img, url, None
+        # (b) aggregator sources: match the headline in the publisher's own feed.
+        if index is not None:
+            for ent in r["aggregated"]:
+                m = await index.lookup(title=ent.get("title") or r["title"], domain=ent.get("site"),
+                                       name=ent.get("source"), published=_parse_ts(ent.get("published_at")))
+                if m is None:
+                    continue
+                if m.image:
+                    return m.image, ent.get("url"), m.url
+                if budget.get("og") is not None and not await enricher.is_cached(m.url):
+                    if budget["og"] <= 0:
+                        continue
+                    budget["og"] -= 1
+                img = await enricher.find(m.url)
+                if img:
+                    return img, ent.get("url"), m.url
+        return None, None, None
+
+    async def _enrich_rows(self, rows: List[Dict[str, Any]], *, publish: bool,
+                           budget: Optional[Dict[str, Optional[int]]] = None) -> int:
+        """rows: [{id, urls, aggregated, site, ...}] -> an image for each (sibling
+        / og:image / publisher feed), else a publisher logo; persist, publish."""
         enricher = self._enricher()
+        index = self._publisher_index(enricher)
+        find_logo = getattr(enricher, "find_logo", None)
+        budget = budget if budget is not None else {"og": None, "logo": None}
+
+        async def push(payload):
+            if payload and publish:
+                try:
+                    await self.publish(payload)
+                except Exception as e:
+                    logger.debug("news image publish failed: %s", e)
 
         async def one(r) -> int:
-            for url in r["urls"]:
-                img = await enricher.find(url)
-                if img:
-                    payload = await asyncio.to_thread(self._db_call, _set_image_payload, r["id"], img)
-                    if payload and publish:
-                        try:
-                            await self.publish(payload)
-                        except Exception as e:
-                            logger.debug("news image publish failed: %s", e)
-                    return 1 if payload else 0
+            img, source_url, direct_url = await self._image_for_row(r, enricher, index, budget)
+            if img:
+                payload = await asyncio.to_thread(self._db_call, _set_image_payload, r["id"], img,
+                                                  source_url, direct_url)
+                await push(payload)
+                return 1 if payload else 0
+            # (d) no image anywhere: the publisher's logo for the designed tile.
+            if find_logo is not None and r.get("site") and not r.get("logo"):
+                if budget.get("logo") is not None and not await enricher.is_logo_cached(r["site"]):
+                    if budget["logo"] <= 0:
+                        return 0
+                    budget["logo"] -= 1
+                logo = await find_logo(r["site"])
+                if logo:
+                    await push(await asyncio.to_thread(self._db_call, _set_logo_payload, r["id"], logo))
             return 0
 
         found = sum(await asyncio.gather(*(one(r) for r in rows)))
@@ -392,9 +456,11 @@ class NewsIntelService:
                 logger.debug("clear generic image failed: %s", e)
         return found
 
-    async def run_image_pass(self, *, window: int = 40, max_lookups: int = 12) -> int:
+    async def run_image_pass(self, *, window: int = 40, max_lookups: int = 12, max_logo_lookups: int = 4) -> int:
         """Newest `window` stories without an image (48h); at most `max_lookups`
-        uncached page fetches per pass. Returns images found."""
+        uncached page fetches per pass (sibling/own URLs first, then direct
+        publisher URLs found for Google News items) and `max_logo_lookups`
+        uncached publisher-logo lookups. Returns images found."""
         enricher = self._enricher()
         since = _now() - timedelta(hours=MAX_AGE_HOURS)
         rows = await asyncio.to_thread(self._db_call, _missing_image_rows, since, window, False, None)
@@ -410,18 +476,27 @@ class NewsIntelService:
                     continue
                 lookups += 1
             todo.append(r)
-        return await self._enrich_rows(todo, publish=True)
+        budget = {"og": max(0, max_lookups - lookups), "logo": max_logo_lookups}
+        return await self._enrich_rows(todo, publish=True, budget=budget)
 
     async def run_image_backfill(self, *, days: int = 14, cap: int = 1000, batch: int = 20) -> int:
-        """Once per IMAGE_BACKFILL_VERSION: og:image for stored stories of the
-        last `days` days, newest first, at most `cap` stories. Idempotent:
-        rows that got an image are skipped and lookups are cached."""
+        """Once per IMAGE_BACKFILL_VERSION: image (og:image, publisher feed) or
+        publisher logo for stored stories of the last `days` days, newest
+        first, at most `cap` stories. Site-wide placeholders stored earlier
+        (patterns added since) are cleared first. Idempotent: rows that got an
+        image are skipped and lookups are cached."""
         try:
             if self.redis is not None and (await self.redis.get(IMAGE_BACKFILL_KEY)) == IMAGE_BACKFILL_VERSION:
                 return 0
         except Exception:
             pass
         since = _now() - timedelta(days=days)
+        try:
+            cleared = await asyncio.to_thread(self._db_call, store.clear_generic_images, since)
+            if cleared:
+                logger.info("news-intel image backfill: cleared %d placeholder images", cleared)
+        except Exception as e:
+            logger.debug("clear placeholder images failed: %s", e)
         before_id = None
         seen = found = 0
         while seen < cap:
@@ -618,6 +693,7 @@ class NewsIntelService:
                 if self.images is not None:
                     await self.images.aclose()
                     self.images = None
+                self.publisher_index = None
 
     async def run(self) -> None:
         while True:
@@ -735,16 +811,47 @@ def _set_ai_payload(db, cluster_id, note):
 
 
 def _missing_image_rows(db, since, limit, by_id, before_id):
+    from app.services.news_intel.publishers import is_aggregator_url, publisher_home
+
     out = []
     for r in store.missing_images(db, since=since, limit=limit, by_id=by_id, before_id=before_id):
-        urls = [r.url] + [s.get("url") for s in (r.sources or []) if s.get("url")]
-        out.append({"id": r.id, "urls": list(dict.fromkeys(u for u in urls if u))[:4]})
+        entries = [s for s in (r.sources or []) if isinstance(s, dict)]
+        urls = [r.url] + [s.get("url") for s in entries if s.get("url")]
+        aggregated = [s for s in entries if is_aggregator_url(s.get("url"))]
+        if not aggregated and is_aggregator_url(r.url):
+            aggregated = [{"url": r.url, "source": r.source, "title": r.title}]
+        rep = entries[0] if entries else {}
+        site = (publisher_home(rep.get("site"), rep.get("source") or r.source)
+                if is_aggregator_url(r.url) else publisher_home(r.url))
+        out.append({
+            "id": r.id,
+            "title": r.title,
+            "urls": list(dict.fromkeys(u for u in urls if u))[:4],
+            "aggregated": aggregated[:3],
+            "site": site,
+            "logo": rep.get("logo"),
+        })
     return out
 
 
-def _set_image_payload(db, item_id, image_url):
-    row = store.set_image(db, item_id, image_url)
+def _set_image_payload(db, item_id, image_url, source_url=None, direct_url=None):
+    row = store.set_image(db, item_id, image_url, source_url=source_url, direct_url=direct_url)
     return store.serialize(row) if row else None
+
+
+def _set_logo_payload(db, item_id, logo_url):
+    row = store.set_logo(db, item_id, logo_url)
+    return store.serialize(row) if row else None
+
+
+def _parse_ts(s: Optional[str]) -> Optional[datetime]:
+    if not s:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 def _seed_rows(db):
