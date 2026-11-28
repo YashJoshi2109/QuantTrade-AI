@@ -6,6 +6,7 @@ import { HedgePanel } from './HedgePanel'
 import { EarningsPanel, ImpliedPanel, PerceptionPanel, ProbabilityPanel } from './ImpliedPanels'
 import { Disclaimer, SymbolBar, TABS, useOutlookController } from './OutlookParts'
 import { ScenarioPanel } from './ScenarioPanel'
+import PageHeading from '@/components/seo/PageHeading'
 
 export default function OutlookMobile() {
   const c = useOutlookController()
@@ -14,9 +15,9 @@ export default function OutlookMobile() {
   return (
     <div className="space-y-4 pt-4">
       <header>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight text-fg-primary">
+        <PageHeading mobile className="flex items-center gap-2 text-xl font-bold tracking-tight text-fg-primary">
           <Compass className="h-5 w-5 text-indigo-500" /> Outlook
-        </h1>
+        </PageHeading>
         <p className="mt-1 text-xs text-fg-muted">What option markets price in, beside our model. Educational only: no orders are placed.</p>
       </header>
 

@@ -27,6 +27,7 @@ import {
 import { fetchACLEDConflicts, type ACLEDEvent } from '@/lib/monitor-extended-api'
 import { eventFeedState, EVENT_FEED_MESSAGE } from '@/lib/monitorStatus'
 import SourceUnavailableNotice from '@/components/monitor/SourceUnavailableNotice'
+import PageHeading from '@/components/seo/PageHeading'
 
 // ── Country code lookup ──────────────────────────────────────────────
 const COUNTRY_CODE_MAP: Record<string, string> = {
@@ -303,7 +304,7 @@ function MonitorDesktop() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-sky-400" />
+                      <Globe className="w-4 h-4 text-sky-400" aria-hidden />
                       <h1 className="text-sm font-black text-fg-primary tracking-tight">GLOBAL MONITOR</h1>
                       {isLoading ? (
                         <RefreshCw className="w-3 h-3 text-sky-400 animate-spin" />
@@ -747,7 +748,7 @@ function MonitorMobile() {
                   <Image src="/logo.png" alt="QuantTrade AI" width={32} height={32} className="object-contain" />
                 </div>
                 <div>
-                  <h1 className="text-base font-black bg-gradient-to-r from-slate-900 to-sky-600 dark:from-white dark:to-sky-400 bg-clip-text text-transparent">Global Monitor</h1>
+                  <PageHeading mobile className="text-base font-black bg-gradient-to-r from-slate-900 to-sky-600 dark:from-white dark:to-sky-400 bg-clip-text text-transparent">Global Monitor</PageHeading>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="relative flex h-1.5 w-1.5">
                       {!feedDown && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />}

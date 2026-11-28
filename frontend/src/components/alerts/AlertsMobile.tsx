@@ -6,6 +6,7 @@ import TickerLogo from '@/components/TickerLogo'
 import { STATUS_STYLE, describeAlert, distanceToLevel, earningsCountdown } from '@/lib/alerts'
 import { AlertForm, AlertsListSkeleton, FILTERS, Overlay, SuggestedAlerts, relTime, useAlertsController } from './AlertsParts'
 import SignInPrompt from '@/components/ui/SignInPrompt'
+import PageHeading from '@/components/seo/PageHeading'
 
 export default function AlertsMobile() {
   const c = useAlertsController()
@@ -14,7 +15,7 @@ export default function AlertsMobile() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BellRing className="h-5 w-5 text-amber-500" />
-          <h1 className="text-lg font-bold text-fg-primary">Price alerts</h1>
+          <PageHeading mobile className="text-lg font-bold text-fg-primary">Price alerts</PageHeading>
         </div>
         {c.isAuthenticated && c.alerts.length > 0 && (
           <button

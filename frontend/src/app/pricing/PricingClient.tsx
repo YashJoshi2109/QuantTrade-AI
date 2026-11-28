@@ -41,22 +41,15 @@ import {
   buildStripePaymentLinkUrl,
 } from '@/lib/stripe-payment'
 import { getSubscriptionStatus, type SubscriptionStatus } from '@/lib/api'
+import { FREE_INCLUDED, PRO_MONTHLY, PRO_YEARLY_TOTAL } from '@/lib/pricing'
+import PageHeading from '@/components/seo/PageHeading'
 
 const WELCOME_PROMO_AMOUNT_LABEL = '$15'
 
-const PRO_MONTHLY = 29.99
-const PRO_YEARLY_TOTAL = 299
 const YEARLY_PER_MONTH_LABEL = (Math.round((PRO_YEARLY_TOTAL / 12) * 100) / 100).toFixed(2)
 const ANNUAL_SAVINGS = Math.round(PRO_MONTHLY * 12 - PRO_YEARLY_TOTAL)
 const SAVE_PERCENT_LABEL = Math.round((1 - PRO_YEARLY_TOTAL / (PRO_MONTHLY * 12)) * 100)
 
-const FREE_INCLUDED = [
-  'Markets dashboard & major indices',
-  'Basic symbol research',
-  '3 Copilot messages per day',
-  'Watchlist (5 symbols)',
-  'CoinRealm starter — first 10 chapters',
-]
 
 const FREE_LOCKED = [
   'Unlimited Copilot & full backtests',
@@ -330,7 +323,7 @@ function MobilePricingView({ state }: { state: ReturnType<typeof usePricingLogic
   return (
     <div className="space-y-4 pb-4">
       <header className="sticky top-0 z-30 bg-surface-base border-b border-line-subtle pt-safe pb-3 px-2">
-        <h1 className="text-[20px] font-bold text-fg-primary text-center">Choose Your Plan</h1>
+        <PageHeading mobile className="text-[20px] font-bold text-fg-primary text-center">Choose Your Plan</PageHeading>
         <p className="text-[12px] text-fg-muted text-center mb-4 px-1 leading-relaxed">
           Pro is one bill for research tools and the full CoinRealm game—nothing extra for the game.
         </p>

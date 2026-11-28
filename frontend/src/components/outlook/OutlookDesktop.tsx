@@ -17,9 +17,9 @@ export default function OutlookDesktop() {
       <div className="mx-auto w-full max-w-[1400px] px-6 py-6">
         <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-fg-primary">
-              <Compass className="h-6 w-6 text-indigo-500" /> Outlook
-            </h1>
+            <div className="flex items-center gap-2 text-2xl font-bold tracking-tight text-fg-primary">
+              <Compass className="h-6 w-6 text-indigo-500" aria-hidden /> <h1>Outlook</h1>
+            </div>
             <p className="mt-1 max-w-2xl text-sm text-fg-muted">
               Forecast, plan for and hedge future events using what option markets already price in, side by side with our
               statistical model. Educational tools only: no orders are placed.

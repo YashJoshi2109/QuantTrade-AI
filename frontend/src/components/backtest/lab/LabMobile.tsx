@@ -8,6 +8,7 @@ import {
   TradeCards, TradeExport, WarningsList,
 } from './LabParts'
 import { useBacktestLab, type LabTab } from './useBacktestLab'
+import PageHeading from '@/components/seo/PageHeading'
 
 const TABS: { id: LabTab; label: string }[] = [
   { id: 'builder', label: 'Build' },
@@ -26,7 +27,7 @@ export default function LabMobile() {
           <FlaskConical className="h-4 w-4 text-indigo-500" />
         </div>
         <div className="min-w-0">
-          <h1 className="text-lg font-bold text-fg-primary">Strategy Lab</h1>
+          <PageHeading mobile className="text-lg font-bold text-fg-primary">Strategy Lab</PageHeading>
           <p className="truncate text-[11px] text-fg-muted">Rule-based backtests with out-of-sample checks</p>
         </div>
       </div>

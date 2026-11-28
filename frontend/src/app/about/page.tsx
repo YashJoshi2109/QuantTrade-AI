@@ -16,6 +16,7 @@ import {
   Globe, BarChart3, Brain, Zap, TrendingUp, Layers, Database,
   Github, Mail, ChevronRight, AlertTriangle, Shield, Target, Clock,
 } from 'lucide-react'
+import PageHeading from '@/components/seo/PageHeading'
 
 const DATA_SOURCES = [
   { name: 'Finnhub', desc: 'Real-time quotes, company fundamentals, SEC filings, insider transactions', category: 'Market Data' },
@@ -36,7 +37,7 @@ const DATA_SOURCES = [
 
 const CAPABILITIES = [
   { icon: BarChart3, title: 'Research Workspace', body: 'Symbol pages with real-time prices, technical charts with 20+ indicators, and SEC filing-linked deep-dives powered by a RAG pipeline. The AI copilot generates dated investment theses with cited sources drawn from actual filings and earnings transcripts.', accent: 'cyan' },
-  { icon: Globe, title: 'Global Monitor', body: 'Bloomberg-grade geopolitical intelligence with 3D globe and flat-map views. Toggle 12 intelligence layers — conflicts, sanctions, cyber threats, natural disasters, trade routes, pipelines, waterways, outages, and more. Powered by ACLED, GDELT, USGS, OpenSky, and AIS Stream.', accent: 'blue' },
+  { icon: Globe, title: 'Global Monitor', body: 'Geopolitical intelligence with 3D globe and flat-map views. Toggle 12 intelligence layers — conflicts, sanctions, cyber threats, natural disasters, trade routes, pipelines, waterways, outages, and more. Powered by ACLED, GDELT, USGS, OpenSky, and AIS Stream.', accent: 'blue' },
   { icon: TrendingUp, title: 'Strategy Backtester', body: 'Rule-based strategy evaluation against historical OHLCV data. Outputs Sharpe ratio, max drawdown, win rate, Monte Carlo simulations, and annotated trade logs. Supports custom entry/exit signals and position sizing.', accent: 'emerald' },
   { icon: Brain, title: 'AI Copilot', body: 'Context-aware research assistant trained on filings, earnings, and geopolitical events. Generates structured investment memos with source citations. Queries are grounded in real data — not hallucinated generalities. Unlimited queries on Pro.', accent: 'violet' },
   { icon: Zap, title: 'Ideas Lab', body: 'AI-generated trading setups scored by confidence (0–100%). Filter by sentiment (bullish/bearish/neutral), timeframe, and sector. Each idea lists primary catalysts and links directly to the research workspace for deeper analysis.', accent: 'yellow' },
@@ -151,7 +152,7 @@ export default function AboutPage() {
                   <Shield className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="text-fg-muted text-sm leading-relaxed">
-                      QuantTrade AI is the answer to that gap. By aggregating 14 live data sources, building an AI research pipeline on top of them, and wrapping everything in a Bloomberg-inspired interface, we make institutional-grade decision support accessible to discretionary traders, systematic researchers, and independent analysts at a price point that doesn't require a fund budget.
+                      QuantTrade AI is the answer to that gap. By aggregating 14 live data sources, building an AI research pipeline on top of them, and wrapping everything in a Bloomberg-inspired interface, we make in-depth decision support accessible to discretionary traders, systematic researchers, and independent analysts at a price point that doesn't require a fund budget.
                     </p>
                   </div>
                 </div>
@@ -348,7 +349,7 @@ function MobileAbout() {
             </div>
             <div>
               <p className="text-[9px] font-bold uppercase tracking-widest text-fg-muted">QuantTrade Technologies</p>
-              <h1 className="text-xl font-black text-fg-primary">QuantTrade AI</h1>
+              <PageHeading mobile className="text-xl font-black text-fg-primary">QuantTrade AI</PageHeading>
             </div>
           </div>
           <p className="text-lg font-light text-fg-primary leading-relaxed mb-3">
