@@ -81,6 +81,13 @@
     "jsdom": "^25.0.1",
     "vitest": "^3.0.5"
   },
+  "browserslist": [
+    "chrome >= 111",
+    "edge >= 111",
+    "firefox >= 111",
+    "safari >= 16.4",
+    "ios_saf >= 16.4"
+  ],
   "overrides": {
     "postcss": "8.5.14"
   }

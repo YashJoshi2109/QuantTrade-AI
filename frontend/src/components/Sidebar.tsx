@@ -45,7 +45,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       <div className="p-6 border-b border-line-default space-y-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-surface-overlay border border-cyan-500/20 flex items-center justify-center overflow-hidden">
-            <img src="/logo.png" alt="QuantTrade AI" className="w-8 h-8 object-contain" />
+            <img src="/logo-sm.webp" width={32} height={32} decoding="async" alt="QuantTrade AI" className="w-8 h-8 object-contain" />
           </div>
           <h1 className="text-xl font-bold text-blue-400">QuantTrade AI</h1>
         </div>

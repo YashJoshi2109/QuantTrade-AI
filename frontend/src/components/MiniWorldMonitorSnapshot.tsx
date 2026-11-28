@@ -4,10 +4,40 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Globe2, Activity, Zap, ShieldAlert, BarChart3, Wind } from 'lucide-react'
 import { CONTINENTS, filterGlobePointsForContinent, type Continent } from '@/lib/world-exchanges'
+import { GLOBE_BUMP_URL, GLOBE_TEXTURE_URL } from '@/lib/globeTextures'
+import { onIdle } from '@/lib/idle'
 
 export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { continent?: Continent }) {
   const globeRef = useRef<HTMLDivElement | null>(null)
   const [isMobile, setIsMobile] = useState(false)
+  // globe.gl (three.js, ~600KB) + its textures load only once the card is near
+  // the viewport and the main thread is idle; a static sphere poster shows until then.
+  const [inView, setInView] = useState(false)
+  const [globeReady, setGlobeReady] = useState(false)
+
+  useEffect(() => {
+    const el = globeRef.current
+    if (!el || inView) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setInView(true)
+      return
+    }
+    let cancelIdle: (() => void) | undefined
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          io.disconnect()
+          cancelIdle = onIdle(() => setInView(true))
+        }
+      },
+      { rootMargin: '200px' }
+    )
+    io.observe(el)
+    return () => {
+      io.disconnect()
+      cancelIdle?.()
+    }
+  }, [inView])
 
   // Use simple mobile detection matching the globe init
   useEffect(() => {
@@ -23,6 +53,8 @@ export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { con
     let cleanup: (() => void) | undefined
     let cancelled = false
 
+    if (!inView) return
+
     const setup = async () => {
       if (typeof window === 'undefined') return
       if (!globeRef.current) return
@@ -37,6 +69,7 @@ export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { con
           Globe,
           filterGlobePointsForContinent(continent).map(({ continents: _c, ...p }) => p)
         )
+        setGlobeReady(true)
       } catch (err) {
         console.error('Failed to load globe', err)
       }
@@ -50,7 +83,7 @@ export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { con
         cleanup()
       }
     }
-  }, [continent])
+  }, [continent, inView])
 
   return (
     <div className="group relative flex h-full min-h-0 flex-col overflow-hidden hud-panel">
@@ -91,7 +124,17 @@ export default function MiniWorldMonitorSnapshot({ continent = 'global' }: { con
           {/* Globe Glow Background */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] h-[90%] bg-blue-500/10 rounded-full blur-3xl -z-10"></div>
           
-          <div className="w-full h-full overflow-hidden rounded-full border border-line-subtle shadow-[0_0_50px_rgba(14,165,233,0.15)] bg-surface-base/50 backdrop-blur-sm">
+          <div className="relative w-full h-full overflow-hidden rounded-full border border-line-subtle shadow-[0_0_50px_rgba(14,165,233,0.15)] bg-surface-base/50 backdrop-blur-sm">
+            {/* Static poster until the WebGL globe is ready (same footprint, no layout shift) */}
+            <div
+              aria-hidden
+              className={`pointer-events-none absolute inset-[9%] rounded-full transition-opacity duration-700 ${globeReady ? 'opacity-0' : 'opacity-100'}`}
+              style={{
+                background:
+                  'radial-gradient(circle at 34% 30%, rgba(125,211,252,0.45) 0%, rgba(14,116,144,0.55) 28%, rgba(12,74,110,0.75) 58%, rgba(2,6,23,0.9) 100%)',
+                boxShadow: '0 0 40px rgba(14,165,233,0.25)',
+              }}
+            />
             <div
               ref={globeRef}
               className="w-full h-full" 
@@ -182,8 +225,8 @@ function initGlobe(
     .height(container.clientHeight || 320)
     .backgroundColor('rgba(0,0,0,0)')
     // Use the colorful "Earth Blue Marble" texture
-    .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
-    .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
+    .globeImageUrl(GLOBE_TEXTURE_URL)
+    .bumpImageUrl(GLOBE_BUMP_URL)
     .showAtmosphere(true)
     .atmosphereColor('#0ea5e9')
     .atmosphereAltitude(0.15)

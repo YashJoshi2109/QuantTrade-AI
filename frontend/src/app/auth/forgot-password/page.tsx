@@ -144,7 +144,7 @@ function ForgotPasswordContent() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-2xl bg-surface-raised border border-cyan-500/20 flex items-center justify-center mx-auto mb-4 overflow-hidden">
-            <img src="/logo.png" alt="QuantTrade AI" className="w-10 h-10 object-contain" />
+            <img src="/logo-sm.webp" width={40} height={40} decoding="async" alt="QuantTrade AI" className="w-10 h-10 object-contain" />
           </div>
           <h1 className="text-2xl font-black text-fg-primary">QuantTrade AI</h1>
         </div>

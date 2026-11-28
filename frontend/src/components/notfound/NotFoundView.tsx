@@ -61,7 +61,7 @@ export default function NotFoundView() {
       <header className="mx-auto flex w-full max-w-5xl items-center px-4 pt-5 sm:px-6">
         <Link href="/" className="flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
           <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl border border-sky-500/20 bg-white dark:bg-white/5">
-            <img src="/logo.png" alt="" className="brand-logo h-7 w-7 scale-150 object-contain" />
+            <img src="/logo-sm.webp" width={28} height={28} decoding="async" alt="" className="brand-logo h-7 w-7 scale-150 object-contain" />
           </span>
           <span className="bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-base font-bold text-transparent">QuantTrade AI</span>
         </Link>

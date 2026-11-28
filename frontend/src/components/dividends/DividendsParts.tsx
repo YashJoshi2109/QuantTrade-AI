@@ -324,7 +324,25 @@ export function IncomeCard({ c, compact = false }: { c: DividendsController; com
       <h2 className={`font-semibold text-fg-primary ${compact ? 'text-sm' : 'text-base'}`}>Projected dividend income</h2>
     </div>
   )
-  if (c.authLoading || (c.isAuthenticated && c.income.isLoading)) {
+  const signInPitch = (
+    <p className="mt-1 max-w-xl text-sm text-fg-muted">Sign in and track a portfolio to see your next 12 months of dividend cash flow, month by month, from your real holdings.</p>
+  )
+  if (c.authLoading) {
+    // Session not known yet (SSR + first client render). Most visitors are
+    // anonymous, so render the signed-out card's exact footprint (the pitch is
+    // generic; only the Sign in button waits for auth) instead of the 170px
+    // chart skeleton, which collapsed into this card and shifted the page up.
+    return (
+      <GlassCard as="section" tone="sky" accent glow className={`${pad} flex flex-wrap items-center justify-between gap-4`} aria-busy="true">
+        <div>
+          {head}
+          {signInPitch}
+        </div>
+        <span className={`${primaryBtn} invisible`} aria-hidden="true"><LogIn className="h-4 w-4" /> Sign in</span>
+      </GlassCard>
+    )
+  }
+  if (c.isAuthenticated && c.income.isLoading) {
     return (
       <GlassCard as="section" tone="sky" accent glow className={pad} aria-label="Loading projected income">
         {head}
@@ -339,7 +357,7 @@ export function IncomeCard({ c, compact = false }: { c: DividendsController; com
       <GlassCard as="section" tone="sky" accent glow className={`${pad} flex flex-wrap items-center justify-between gap-4`}>
         <div>
           {head}
-          <p className="mt-1 max-w-xl text-sm text-fg-muted">Sign in and track a portfolio to see your next 12 months of dividend cash flow, month by month, from your real holdings.</p>
+          {signInPitch}
         </div>
         <Link href="/auth" className={primaryBtn}><LogIn className="h-4 w-4" /> Sign in</Link>
       </GlassCard>

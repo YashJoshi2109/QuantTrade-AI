@@ -94,7 +94,8 @@ export default function DividendsDesktop() {
               {FREQ_OPTIONS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
             </select>
             <SearchBox value={c.q} onChange={c.setQ} placeholder="Search company or ticker" className="w-52" />
-            <span className="ml-auto text-xs tabular-nums text-fg-muted" aria-live="polite">
+            {/* Fixed flex-basis: the count text arriving used to push Export onto a second row (CLS). */}
+            <span className="ml-auto min-w-0 grow basis-44 truncate text-right text-xs tabular-nums text-fg-muted" aria-live="polite">
               {c.calLoading ? '' : `${c.visible.length.toLocaleString('en-US')} shown / ${c.weekRows.length.toLocaleString('en-US')} this week`}
             </span>
             <ExportButton onClick={c.exportCsv} disabled={!c.visible.length} />

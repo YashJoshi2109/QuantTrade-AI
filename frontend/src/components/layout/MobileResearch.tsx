@@ -64,6 +64,7 @@ import { buildCopilotHref } from '@/lib/copilot-handoff'
 import { compareHref } from '@/lib/compare'
 import { stockPath } from '@/lib/stockPage/symbol'
 import { cn } from '@/lib/utils'
+import { clockMarketPhase } from '@/lib/marketPhase'
 import { isBool, objectOf, oneOf, usePersistentState } from '@/lib/persistentState'
 import {
   MOBILE_CHART_TYPES,
@@ -363,7 +364,9 @@ export default function MobileResearch() {
             <Skeleton className="h-4 w-24" />
           </div>
         )}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Outside regular hours the extended-hours pill (28px) usually lands with the
+            quote; reserve its row height while loading so the cards below don't shift. */}
+        <div className={cn('flex flex-wrap items-center gap-2', !priceInfo.hasPrice && clockMarketPhase() !== 'open' && 'min-h-7')}>
           {priceInfo.hasPrice && <ExtendedPill badge={priceInfo.extended} />}
           <span className="inline-flex items-center gap-1.5 text-[12px] text-fg-muted" title={priceInfo.dataSource ? `Source: ${priceInfo.dataSource}` : undefined}>
             <span className={cn('h-1.5 w-1.5 rounded-full', live ? 'bg-emerald-500' : 'bg-slate-400')} aria-hidden />

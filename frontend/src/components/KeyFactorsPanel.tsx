@@ -121,7 +121,7 @@ export default function KeyFactorsPanel({ indicators, fundamentals, price, loadi
 
   if (loading) {
     return (
-      <div className="hud-panel p-5 h-full animate-pulse">
+      <div key="loading" className="hud-panel p-5 h-full animate-pulse">
         <div className="h-4 w-32 bg-[#1F2630] rounded mb-4" />
         <div className="h-16 bg-[#1F2630] rounded-xl mb-3" />
         <div className="grid gap-3 sm:grid-cols-2">
@@ -132,7 +132,9 @@ export default function KeyFactorsPanel({ indicators, fundamentals, price, loadi
   }
 
   return (
-    <div className="hud-panel p-4 sm:p-5 h-full flex flex-col">
+    // Distinct key from the loading shell: React mounts a fresh node instead of
+    // restyling the pulsing skeleton in place, which Chrome scored as a ~1.0 layout shift.
+    <div key="loaded" className="hud-panel p-4 sm:p-5 h-full flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Target className="w-4 h-4 text-orange-400" />

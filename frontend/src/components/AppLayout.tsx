@@ -221,7 +221,7 @@ export default function AppLayout({ children, symbol, hideFooter, hideSidebar = 
           {/* Logo */}
           <IntentLink href="/" className="flex items-center gap-2 group">
             <div className="w-8 h-8 rounded-xl bg-surface-base/60 border border-cyan-500/20 flex items-center justify-center overflow-hidden">
-              <img src="/logo.png" alt="QuantTrade AI" className="brand-logo w-7 h-7 object-contain scale-150" />
+              <img src="/logo-sm.webp" width={28} height={28} decoding="async" alt="QuantTrade AI" className="brand-logo w-7 h-7 object-contain scale-150" />
             </div>
             <span className="hidden sm:block text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
               QuantTrade AI

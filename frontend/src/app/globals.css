@@ -2711,3 +2711,58 @@ html.light .brand-logo {
   .cal-lift, .cal-bar-anim { transition: none !important; }
   .cal-lift:hover { transform: none; }
 }
+
+/* ── Brand intro poster (components/BrandIntroPoster.tsx) ──────────────────
+   Static first frame of the Remotion intro, painted with the HTML on a first
+   visit to "/". Sizes mirror the 1920x1080 composition cover-scaled to the
+   viewport (QuantTradeIntro title: clamp(38px, 5.5vw, 72px), centred block with
+   the tagline rows below it). Hidden by default; shown only while <html> has
+   data-brand-intro. Fades itself out after 7s as a no-JS / failed-chunk guard. */
+.brand-intro-poster {
+  display: none;
+}
+html[data-brand-intro] .brand-intro-poster {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #020617;
+  animation: brand-intro-poster-out 0.4s ease 7s forwards;
+}
+.brand-intro-poster__title {
+  /* phones (portrait): composition scale = 100vh / 1080, title = 38px */
+  font-size: 3.52vh;
+  transform: translateY(-3.35vh);
+  /* @remotion/player's own font stack (the intro does not use the site font) */
+  font-family: ui-sans-serif, system-ui, -apple-system, 'system-ui', 'Segoe UI', Roboto, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  white-space: nowrap;
+  background: linear-gradient(100deg, #22d3ee 0%, #4ade80 42%, #818cf8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 28px rgba(52, 211, 153, 0.35));
+}
+@media (min-width: 691px) {
+  .brand-intro-poster__title {
+    font-size: max(2.9vw, 5.15vh);
+    transform: translateY(calc(-1 * max(2.6vw, 4.6vh)));
+  }
+}
+@media (min-width: 1309px) {
+  .brand-intro-poster__title {
+    /* title = 72px, scale = max(100vw / 1920, 100vh / 1080) */
+    font-size: max(3.75vw, 6.67vh);
+    transform: translateY(calc(-1 * max(3.06vw, 5.44vh)));
+  }
+}
+@keyframes brand-intro-poster-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}

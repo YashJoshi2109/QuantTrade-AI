@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { GlobalEvent, GeographicCluster, CountryInstability } from '@/lib/global-monitor-api'
+import { GLOBE_BUMP_URL, GLOBE_TEXTURE_URL } from '@/lib/globeTextures'
 
 function getThreatSize(level: string): number {
   return ({ critical: 1.6, high: 1.3, medium: 1.0, low: 0.7, unknown: 0.5 } as Record<string, number>)[level] ?? 0.5
@@ -51,8 +52,8 @@ export default function GlobalMonitorGlobe({
     if (!Globe || !globeEl.current || globeInstance.current) return
 
     const globe = Globe()(globeEl.current)
-      .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
-      .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
+      .globeImageUrl(GLOBE_TEXTURE_URL)
+      .bumpImageUrl(GLOBE_BUMP_URL)
       .backgroundColor('rgba(0,0,0,0)')
       .showAtmosphere(true)
       .atmosphereColor('#0ea5e9')
