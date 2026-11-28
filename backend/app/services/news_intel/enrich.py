@@ -14,6 +14,13 @@ the feed will show, plus a one-time capped backfill. Politeness and safety:
     so each article page is fetched at most once.
   * Site-wide placeholders (the same image on 3+ articles of one host, or a
     known placeholder pattern) are rejected and remembered.
+
+The same fetch discipline serves two helpers for aggregator (Google News)
+stories, whose wrapper links are never fetched:
+  * fetch_feed(url): a publisher's own public RSS feed (robots-aware,
+    throttled, 2 MB cap); see publishers.py for matching.
+  * find_logo(origin): the publisher's apple-touch-icon / large icon from its
+    home page <head>, else /apple-touch-icon.png; cached per origin.
 """
 from __future__ import annotations
 
@@ -30,13 +37,16 @@ from urllib.robotparser import RobotFileParser
 import httpx
 
 from app.services.net_safety import Resolver, UnsafeURLError, safe_request
-from app.services.news_intel.images import is_generic_image, normalize_image_url, page_image
+from app.services.news_intel.images import (
+    is_generic_image, normalize_image_url, normalize_logo_url, page_image, page_logo,
+)
 
 logger = logging.getLogger(__name__)
 
 USER_AGENT = "QuantTradeNewsBot/1.0 (+https://quanttrade.us; news thumbnails)"
 ROBOTS_TOKEN = "QuantTradeNewsBot"
 CACHE_PREFIX = "qt:news:img:"
+LOGO_PREFIX = "qt:news:logo:"
 GENERIC_KEY = "qt:news:img:generic"
 NEGATIVE = "-"
 POSITIVE_TTL = 14 * 86400
@@ -44,6 +54,7 @@ NEGATIVE_TTL = 3 * 86400
 ERROR_TTL = 6 * 3600
 ROBOTS_TTL = 6 * 3600
 PAGE_MAX_BYTES = 512 * 1024
+FEED_MAX_BYTES = 2 * 1024 * 1024
 GENERIC_REPEAT = 3
 
 # Hosts whose article pages never have a story image worth fetching:
@@ -98,13 +109,15 @@ class ImageEnricher:
         self._host_last: Dict[str, float] = {}
         self._robots: Dict[str, Tuple[float, Optional[RobotFileParser], bool]] = {}
         self._robots_locks: Dict[str, asyncio.Lock] = {}
+        self._logo_locks: Dict[str, asyncio.Lock] = {}
         self._mem: "OrderedDict[str, str]" = OrderedDict()
         self._seen: Dict[Tuple[str, str], Set[str]] = {}
         self.generic: Set[str] = set()
         self.new_generic: List[str] = []   # drained by the service to clear DB rows
         self._generic_loaded = False
         self.stats = {"lookups": 0, "found": 0, "none": 0, "errors": 0, "robots_blocked": 0,
-                      "cache_hits": 0, "generic": 0}
+                      "cache_hits": 0, "generic": 0, "feeds": 0, "feed_errors": 0,
+                      "logos_found": 0, "logos_none": 0}
 
     # ── plumbing ──────────────────────────────────────────────────────
     @property
@@ -210,8 +223,9 @@ class ImageEnricher:
         return parser.can_fetch(ROBOTS_TOKEN, url)
 
     # ── image validation ──────────────────────────────────────────────
-    async def valid_image(self, img: str) -> bool:
-        """https URL that answers with a raster image/* content type."""
+    async def valid_image(self, img: str, *, allow_svg: bool = False) -> bool:
+        """https URL that answers with a raster image/* content type (SVG only
+        when allow_svg, for logos)."""
         if not img.startswith("https://"):
             return False
         headers = {"User-Agent": USER_AGENT, "Accept": "image/avif,image/webp,image/*;q=0.9"}
@@ -223,7 +237,8 @@ class ImageEnricher:
         except (UnsafeURLError, httpx.HTTPError, asyncio.TimeoutError, OSError):
             return False
         ctype = r.content_type
-        return r.status in (200, 206) and ctype.startswith("image/") and ctype != "image/svg+xml"
+        return (r.status in (200, 206) and ctype.startswith("image/")
+                and (allow_svg or ctype != "image/svg+xml"))
 
     # ── lookup ────────────────────────────────────────────────────────
     async def _lookup(self, url: str) -> Tuple[Optional[str], int]:
@@ -285,3 +300,88 @@ class ImageEnricher:
         if not should_enrich(article_url):
             return True
         return (await self._cache_get(cache_key(article_url))) is not None
+
+    # ── publisher feeds (aggregator stories) ─────────────────────────────
+    async def fetch_feed(self, feed_url: str) -> Optional[bytes]:
+        """A publisher's public RSS/Atom feed body, or None when robots.txt
+        disallows it, it is not https, or the fetch fails. Never raises."""
+        if not feed_url.startswith("https://"):
+            return None
+        try:
+            if not await self.allowed(feed_url):
+                self.stats["robots_blocked"] += 1
+                return None
+            await self._throttle((urlsplit(feed_url).hostname or "").lower())
+            r = await self._fetch(feed_url, max_bytes=FEED_MAX_BYTES, schemes=("https",),
+                                  headers={"User-Agent": USER_AGENT,
+                                           "Accept": "application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.5"})
+        except (UnsafeURLError, httpx.HTTPError, asyncio.TimeoutError, OSError):
+            self.stats["feed_errors"] += 1
+            return None
+        except Exception as e:
+            self.stats["feed_errors"] += 1
+            logger.debug("publisher feed fetch failed: %s", type(e).__name__)
+            return None
+        if r.status != 200 or r.truncated:
+            self.stats["feed_errors"] += 1
+            return None
+        self.stats["feeds"] += 1
+        return r.body
+
+    # ── publisher logos ──────────────────────────────────────────────────
+    async def _logo_lookup(self, origin: str) -> Optional[str]:
+        home = origin + "/"
+        cands = []
+        if await self.allowed(home):
+            await self._throttle((urlsplit(home).hostname or "").lower())
+            try:
+                r = await self._fetch(home, max_bytes=PAGE_MAX_BYTES, stop=_head_done,
+                                      headers={"User-Agent": USER_AGENT,
+                                               "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5"})
+                if r.status == 200 and "html" in r.content_type:
+                    u = page_logo(r.body.decode("utf-8", "replace"), r.url)
+                    if u:
+                        cands.append(u)
+            except (UnsafeURLError, httpx.HTTPError, asyncio.TimeoutError, OSError):
+                pass
+        touch = origin + "/apple-touch-icon.png"
+        if touch not in cands and await self.allowed(touch):
+            cands.append(touch)
+        for u in cands:
+            if await self.valid_image(u, allow_svg=True):
+                return u
+        return None
+
+    @staticmethod
+    def _logo_origin(site_url: Optional[str]) -> Optional[str]:
+        u = normalize_logo_url(site_url)
+        if not u:
+            return None
+        origin = f"https://{(urlsplit(u).hostname or '').lower()}"
+        return origin if should_enrich(origin + "/") else None
+
+    async def is_logo_cached(self, site_url: Optional[str]) -> bool:
+        origin = self._logo_origin(site_url)
+        return origin is None or (await self._cache_get(LOGO_PREFIX + origin)) is not None
+
+    async def find_logo(self, site_url: Optional[str]) -> Optional[str]:
+        """Publisher brand mark for a site (any URL on it; only the https
+        origin is used). Cached per origin, negatives included. Never raises."""
+        origin = self._logo_origin(site_url)
+        if origin is None:
+            return None
+        key = LOGO_PREFIX + origin
+        async with self._logo_locks.setdefault(origin, asyncio.Lock()):  # one lookup per origin
+            cached = await self._cache_get(key)
+            if cached is not None:
+                self.stats["cache_hits"] += 1
+                return None if cached == NEGATIVE else cached
+            try:
+                logo = await self._logo_lookup(origin)
+            except Exception as e:
+                logger.debug("logo lookup failed: %s", type(e).__name__)
+                await self._cache_set(key, NEGATIVE, ERROR_TTL)
+                return None
+            self.stats["logos_found" if logo else "logos_none"] += 1
+            await self._cache_set(key, logo or NEGATIVE, POSITIVE_TTL if logo else NEGATIVE_TTL)
+            return logo

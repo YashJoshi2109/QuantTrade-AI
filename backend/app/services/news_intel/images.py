@@ -4,6 +4,9 @@ Story image extraction: pure functions, no network.
   entry_image(entry)        feedparser entry -> best image URL in the feed item
   alpaca_image(msg)         Alpaca/Benzinga stream message -> image URL
   page_image(html, base)    article HTML <head> -> og:image / twitter:image
+  page_logo(html, base)     site home page <head> -> apple-touch-icon / large icon
+  aggregator_image(e, pub)  Google News entry -> image only if hosted by the
+                            publisher or a feed-supplied lh*.googleusercontent thumb
   normalize_image_url(u)    absolute https URL, or None for junk/trackers
 
 Feed locations checked, best first: media:content (largest width, image
@@ -36,7 +39,7 @@ _TRACKER = re.compile(
 _GENERIC = re.compile(
     r"(?:yahoo_default_logo|default[-_]?(?:image|logo|share|og|thumb)|placeholder|"
     r"no[-_]?image|og[-_]default|social[-_]default|site[-_]logo|logo[-_]default|"
-    r"/brand/|share[-_]?image[-_]?default|meta[-_]image\.)",
+    r"/brand/|share[-_]?image[-_]?default|meta[-_]image\.|/logos?/)",
     re.I,
 )
 
@@ -277,3 +280,145 @@ def page_image(html_text: str, base_url: Optional[str] = None) -> Optional[str]:
             return u
     u = normalize_image_url(p.link_image, base_url)
     return u if u and not is_generic_image(u) else None
+
+
+# ── aggregator (Google News) entries ────────────────────────────────────
+
+_GOOGLE_THUMB_HOST = re.compile(r"^lh\d*\.googleusercontent\.com$", re.I)
+
+
+def site_domain(url_or_host: Optional[str]) -> str:
+    """'https://www.wsj.com/x' -> 'wsj.com' (lower case, leading www. dropped)."""
+    if not url_or_host:
+        return ""
+    host = url_or_host
+    if "/" in url_or_host or ":" in url_or_host:
+        try:
+            host = urlsplit(url_or_host).hostname or ""
+        except ValueError:
+            return ""
+    host = host.strip().rstrip(".").lower()
+    return host[4:] if host.startswith("www.") else host
+
+
+def host_in_domain(host: Optional[str], domain: str) -> bool:
+    host = site_domain(host)
+    return bool(host and domain) and (host == domain or host.endswith("." + domain))
+
+
+def aggregator_image(entry: Any, publisher_url: Optional[str],
+                     publisher_cdns: Iterable[str] = ()) -> Optional[str]:
+    """Image carried by an aggregator (Google News) entry itself. Accepted only
+    when hosted by the entry's own publisher (<source url> domain, or one of
+    that publisher's declared image CDNs) or a Google thumbnail
+    (lh*.googleusercontent.com) the feed put in the entry. Anything else
+    (Google's logo, a third party's image) is ignored. Nothing is fetched."""
+    u = entry_image(entry)
+    if not u:
+        return None
+    host = urlsplit(u).hostname or ""
+    if _GOOGLE_THUMB_HOST.match(host):
+        return u
+    pub = site_domain(publisher_url)
+    if pub and pub != "news.google.com" and any(host_in_domain(host, d) for d in (pub, *publisher_cdns)):
+        return u
+    return None
+
+
+# ── publisher logos (home page <head>) ──────────────────────────────────
+
+LOGO_MIN = 96  # px; smaller declared icons are favicons that blur on a tile
+
+
+def normalize_logo_url(url: Optional[str], base: Optional[str] = None) -> Optional[str]:
+    """Absolute https URL for a logo/icon. Unlike story images, icon paths and
+    SVG are fine here (an <img> never runs SVG scripts)."""
+    if not url or not isinstance(url, str):
+        return None
+    u = url.strip().replace("&amp;", "&")
+    if not u or u.startswith("data:") or len(u) > 2048:
+        return None
+    if u.startswith("//"):
+        u = "https:" + u
+    elif base and not re.match(r"^[a-z][a-z0-9+.-]*:", u, re.I):
+        u = urljoin(base, u)
+    parts = urlsplit(u)
+    if parts.scheme not in ("http", "https") or not parts.hostname or parts.username or parts.password:
+        return None
+    if parts.scheme == "http":
+        u = "https" + u[4:]
+    return u
+
+
+def _icon_size(sizes: str) -> int:
+    best = 0
+    for tok in (sizes or "").lower().split():
+        if tok == "any":
+            return 512
+        m = re.match(r"^(\d+)x(\d+)$", tok)
+        if m:
+            best = max(best, min(int(m.group(1)), int(m.group(2))))
+    return best
+
+
+class _HeadIcons(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.links: List[Dict[str, str]] = []
+        self.meta: Dict[str, str] = {}
+        self.done = False
+
+    def handle_starttag(self, tag, attrs):
+        if self.done:
+            return
+        t = tag.lower()
+        a = {k.lower(): (v or "") for k, v in attrs}
+        if t == "link" and a.get("href"):
+            self.links.append(a)
+        elif t == "meta":
+            key = (a.get("property") or a.get("name") or a.get("itemprop") or "").strip().lower()
+            if key and a.get("content") and key not in self.meta:
+                self.meta[key] = a["content"].strip()
+        elif t == "body":
+            self.done = True
+
+    handle_startendtag = handle_starttag
+
+    def handle_endtag(self, tag):
+        if tag.lower() == "head":
+            self.done = True
+
+
+def page_logo(html_text: str, base_url: Optional[str] = None) -> Optional[str]:
+    """Best square brand mark from a home page head: apple-touch-icon (largest),
+    then an SVG or large (>= LOGO_MIN px) rel=icon, then og:logo /
+    msapplication-TileImage. Small favicons are not used (they blur)."""
+    if not html_text:
+        return None
+    p = _HeadIcons()
+    try:
+        p.feed(html_text)
+    except Exception:
+        pass
+    cands: List[Tuple[int, str]] = []
+    for a in p.links:
+        rel = (a.get("rel") or "").lower().split()
+        href = a.get("href", "")
+        size = _icon_size(a.get("sizes", ""))
+        is_svg = (a.get("type") or "").lower() == "image/svg+xml" or urlsplit(href).path.lower().endswith(".svg")
+        if "apple-touch-icon" in rel or "apple-touch-icon-precomposed" in rel:
+            cands.append((3000 + (size or 180), href))
+        elif "icon" in rel:
+            if is_svg:
+                cands.append((2000, href))
+            elif size >= LOGO_MIN:
+                cands.append((1000 + size, href))
+    for key in ("og:logo", "msapplication-tileimage"):
+        if p.meta.get(key):
+            cands.append((500, p.meta[key]))
+    cands.sort(key=lambda t: t[0], reverse=True)
+    for _, href in cands:
+        u = normalize_logo_url(href, base_url)
+        if u:
+            return u
+    return None

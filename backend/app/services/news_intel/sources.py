@@ -22,7 +22,11 @@ from typing import Awaitable, Callable, Dict, List, Optional
 
 import httpx
 
-from app.services.news_intel.images import alpaca_image, entry_image, is_generic_image, normalize_image_url
+from app.services.news_intel.images import (
+    aggregator_image, alpaca_image, entry_image, is_generic_image, normalize_image_url,
+)
+
+from app.services.news_intel.publishers import publisher_for
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +45,7 @@ class RawItem:
     symbols: List[str] = field(default_factory=list)
     image_url: Optional[str] = None
     category_hints: List[str] = field(default_factory=list)
+    source_url: str = ""         # publisher home page (Google News <source url>), when known
     received_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -92,14 +97,22 @@ def parse_feed(content: bytes, feed_key: str, default_source: str, *, use_entry_
         if not title:
             continue
         source = default_source
+        source_url = ""
         if use_entry_source:
             src = e.get("source") or {}
             source = (src.get("title") if isinstance(src, dict) else None) or default_source
+            source_url = ((src.get("href") or src.get("url") or "") if isinstance(src, dict) else "").strip()
             # Google News appends " - Publisher" (publishers may contain dashes)
             suffix = f" - {source}"
             if source != default_source and title.endswith(suffix):
                 title = title[: -len(suffix)].strip() or title
-        image = entry_image(e)
+        # Aggregator entries: only an image hosted by the entry's own publisher
+        # (or a Google thumbnail the feed itself includes) is attributable.
+        if use_entry_source:
+            pub = publisher_for(source_url, source)
+            image = aggregator_image(e, source_url, pub.cdns if pub else ())
+        else:
+            image = entry_image(e)
         out.append(RawItem(
             feed=feed_key,
             source=source,
@@ -108,6 +121,7 @@ def parse_feed(content: bytes, feed_key: str, default_source: str, *, use_entry_
             summary=clean_text(e.get("summary"), 600) if keep_summary else "",
             published_at=_ts(e.get("published_parsed") or e.get("updated_parsed")),
             image_url=image,
+            source_url=source_url,
         ))
     return out
 

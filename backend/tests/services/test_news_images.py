@@ -499,7 +499,9 @@ def test_backfill_once_idempotent_and_capped(session_factory):
     n = asyncio.run(svc.run_image_backfill(days=14, cap=4, batch=2))
     assert n == 4 and sent == []  # backfill does not spam the live socket
     assert "https://news.x.com/ancient" not in svc.images.asked
-    assert redis.kv["qt:news:image_backfill"] == "v1"
+    from app.services.news_intel.pipeline import IMAGE_BACKFILL_VERSION
+
+    assert redis.kv["qt:news:image_backfill"] == IMAGE_BACKFILL_VERSION
     assert asyncio.run(svc.run_image_backfill(days=14, cap=4)) == 0  # already done
 
 

@@ -8,6 +8,7 @@ import {
   formatRelativeTime,
   formatSentimentScore,
   horizonLabel,
+  imageAttribution,
   impactBadge,
   publisherInitials,
   sentimentTone,
@@ -194,16 +195,56 @@ function tileTheme(category: string | null | undefined) {
   return (category && TILE_THEME[category as NewsCategoryKey]) || TILE_THEME.other
 }
 
-type ThumbItem = Pick<NewsFeedItem, 'image_url' | 'url' | 'source' | 'primary_category'>
+type ThumbItem = Pick<NewsFeedItem, 'image_url' | 'url' | 'source' | 'primary_category'> &
+  Partial<Pick<NewsFeedItem, 'image_source' | 'source_logo'>>
+
+/**
+ * Publisher mark inside the tile: the publisher's logo (resolved server-side,
+ * https only) when there is one and it loads, otherwise the monogram.
+ */
+function PublisherMark({
+  logo,
+  initials,
+  className,
+  textClass,
+}: {
+  logo: string | null
+  initials: string
+  className: string
+  textClass: string
+}) {
+  const [failed, setFailed] = useState<string | null>(null)
+  const showLogo = Boolean(logo) && failed !== logo
+  return (
+    <span className={`grid shrink-0 place-items-center overflow-hidden ${className} ${showLogo ? '' : textClass}`}>
+      {showLogo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- publisher-hosted icon
+        <img
+          src={logo as string}
+          alt=""
+          className="h-full w-full object-contain p-[12%]"
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          data-testid="news-publisher-logo"
+          onError={() => setFailed(logo)}
+        />
+      ) : (
+        initials
+      )}
+    </span>
+  )
+}
 
 /**
  * Designed stand-in when a story has no usable image: category-tinted wash,
- * a faint dot grid, the category label and a publisher monogram + name.
+ * a faint dot grid, the category label and the publisher's logo (or monogram) + name.
  */
 export function NewsFallbackTile({ item, size = 'md' }: { item: ThumbItem; size?: 'sm' | 'md' | 'lg' }) {
   const theme = tileTheme(item.primary_category)
   const publisher = (item.source || '').trim() || 'News'
   const initials = publisherInitials(publisher)
+  const logo = storyImageUrl(item.source_logo)
   return (
     <div
       className={`absolute inset-0 bg-gradient-to-br ${theme.wash} to-transparent`}
@@ -219,13 +260,24 @@ export function NewsFallbackTile({ item, size = 'md' }: { item: ThumbItem; size?
         }}
       />
       {size === 'sm' ? (
-        <span
-          className={`absolute inset-0 grid place-items-center font-bold tracking-tight ${theme.accent} ${
-            initials.length > 2 ? 'text-[11px]' : 'text-sm'
-          }`}
-        >
-          {initials}
-        </span>
+        logo ? (
+          <span className="absolute inset-0 grid place-items-center">
+            <PublisherMark
+              logo={logo}
+              initials={initials}
+              className="h-9 w-9 rounded-md bg-surface-base/80 ring-1 ring-line-subtle"
+              textClass={`font-bold tracking-tight ${theme.accent} ${initials.length > 2 ? 'text-[11px]' : 'text-sm'}`}
+            />
+          </span>
+        ) : (
+          <span
+            className={`absolute inset-0 grid place-items-center font-bold tracking-tight ${theme.accent} ${
+              initials.length > 2 ? 'text-[11px]' : 'text-sm'
+            }`}
+          >
+            {initials}
+          </span>
+        )
       ) : (
         <div className={`absolute inset-0 flex flex-col justify-between ${size === 'lg' ? 'p-4' : 'p-2'}`}>
           <span
@@ -234,13 +286,14 @@ export function NewsFallbackTile({ item, size = 'md' }: { item: ThumbItem; size?
             {categoryMeta(item.primary_category).short}
           </span>
           <span className="flex min-w-0 items-center gap-2">
-            <span
-              className={`grid shrink-0 place-items-center rounded-md bg-surface-base/75 font-bold ring-1 ring-line-subtle ${theme.accent} ${
-                size === 'lg' ? 'h-10 w-10 text-sm' : 'h-6 w-6 text-[9px] sm:h-7 sm:w-7 sm:text-[10px]'
+            <PublisherMark
+              logo={logo}
+              initials={initials}
+              className={`rounded-md bg-surface-base/75 ring-1 ring-line-subtle ${
+                size === 'lg' ? 'h-10 w-10' : 'h-6 w-6 sm:h-7 sm:w-7'
               }`}
-            >
-              {initials}
-            </span>
+              textClass={`font-bold ${theme.accent} ${size === 'lg' ? 'text-sm' : 'text-[9px] sm:text-[10px]'}`}
+            />
             <span
               className={`min-w-0 truncate font-semibold text-fg-secondary ${
                 size === 'lg' ? 'text-base' : 'hidden text-[11px] sm:inline'
@@ -270,6 +323,7 @@ export function NewsThumb({
   iconSize?: 'sm' | 'md' | 'lg'
 }) {
   const src = storyImageUrl(item.image_url)
+  const credit = imageAttribution(item)
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
@@ -287,6 +341,7 @@ export function NewsThumb({
     <div
       className={`relative shrink-0 overflow-hidden border border-line-subtle bg-surface-raised ${className}`}
       aria-hidden
+      title={loaded && credit ? `Image: ${credit}` : undefined}
     >
       {!loaded && <NewsFallbackTile item={item} size={iconSize} />}
       {showImage && (
@@ -304,6 +359,14 @@ export function NewsThumb({
           onLoad={() => setLoadedSrc(src)}
           onError={() => setFailedSrc(src)}
         />
+      )}
+      {loaded && credit && iconSize !== 'sm' && (
+        <span
+          className="absolute bottom-1 right-1 max-w-[85%] truncate rounded bg-black/55 px-1 py-px text-[8px] font-medium leading-tight text-white/90"
+          data-testid="news-image-credit"
+        >
+          Image: {credit}
+        </span>
       )}
     </div>
   )
@@ -368,7 +431,7 @@ export default function NewsFeedCard({
     >
       {isHero ? (
         <NewsThumb item={item} className="mb-3 aspect-[2/1] max-h-[240px] w-full rounded-lg" iconSize="lg" />
-      ) : variant === 'default' && storyImageUrl(item.image_url) ? (
+      ) : variant === 'default' && (storyImageUrl(item.image_url) || storyImageUrl(item.source_logo)) ? (
         <NewsThumb item={item} className="mb-2.5 h-28 w-full rounded-lg" />
       ) : isCompact ? (
         <NewsThumb item={item} className="h-14 w-14 rounded-lg" iconSize="sm" />

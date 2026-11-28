@@ -11,7 +11,7 @@ vi.mock('next/link', () => ({
 }))
 
 import NewsFeedCard, { NewsThumb } from './NewsFeedCard'
-import { publisherInitials, storyImageUrl, type NewsFeedItem } from '@/lib/newsFeed'
+import { imageAttribution, normalizeFeedResponse, publisherInitials, storyImageUrl, type NewsFeedItem } from '@/lib/newsFeed'
 
 const base: NewsFeedItem = {
   id: '1',
@@ -82,6 +82,76 @@ describe('NewsThumb', () => {
     thumb({ source: 'SEC EDGAR', primary_category: 'regulatory_legal' }, 'sm')
     expect(screen.getByText('SEC')).toBeTruthy()
     expect(screen.queryByText('SEC EDGAR')).toBeNull()
+  })
+})
+
+describe('publisher logo tile (Google News stories without an image)', () => {
+  const logo = 'https://s.yimg.com/cv/apiv2/default/finance/favicon-180x180.png'
+
+  it('shows the publisher logo in the tile instead of the monogram', () => {
+    thumb({ source_logo: logo }, 'lg')
+    const img = screen.getByTestId('news-publisher-logo') as HTMLImageElement
+    expect(img.getAttribute('src')).toBe(logo)
+    expect(img.getAttribute('referrerpolicy')).toBe('no-referrer')
+    expect(screen.queryByText('YF')).toBeNull()
+    expect(screen.getByText('Yahoo Finance')).toBeTruthy()
+    expect(screen.getByText('Moves')).toBeTruthy()
+  })
+
+  it('small tiles show the logo too, and fall back to the monogram if it fails', () => {
+    thumb({ source_logo: logo }, 'sm')
+    fireEvent.error(screen.getByTestId('news-publisher-logo'))
+    expect(screen.queryByTestId('news-publisher-logo')).toBeNull()
+    expect(screen.getByText('YF')).toBeTruthy()
+  })
+
+  it('ignores non-https logos', () => {
+    thumb({ source_logo: 'http://x.com/logo.png' })
+    expect(screen.queryByTestId('news-publisher-logo')).toBeNull()
+    expect(screen.getByText('YF')).toBeTruthy()
+  })
+
+  it('a story image still wins over the logo once loaded', () => {
+    const { container } = thumb({ source_logo: logo, image_url: 'https://s.yimg.com/story.jpg' })
+    const story = container.querySelector('img:not([data-testid])') as HTMLImageElement
+    fireEvent.load(story)
+    expect(screen.queryByTestId('news-publisher-logo')).toBeNull()
+  })
+
+  it('default cards reserve the thumbnail when a logo is available (desktop grid and mobile list)', () => {
+    render(<NewsFeedCard item={{ ...base, source_logo: logo }} variant="default" />)
+    expect(screen.getByTestId('news-fallback-tile')).toBeTruthy()
+    expect(screen.getByTestId('news-publisher-logo')).toBeTruthy()
+  })
+})
+
+describe('borrowed image credit', () => {
+  it('credits a cluster sibling image once it loads', () => {
+    const { container } = thumb({ source: 'WSJ', image_source: 'CNBC', image_url: 'https://image.cnbcfm.com/a.jpg' }, 'md')
+    expect(screen.queryByTestId('news-image-credit')).toBeNull()
+    fireEvent.load(container.querySelector('img') as HTMLImageElement)
+    expect(screen.getByTestId('news-image-credit').textContent).toBe('Image: CNBC')
+    expect((container.firstChild as HTMLElement).getAttribute('title')).toBe('Image: CNBC')
+  })
+
+  it("no credit for the publisher's own image or on small thumbs", () => {
+    const own = thumb({ source: 'WSJ', image_source: 'WSJ', image_url: 'https://images.wsj.net/a' }, 'md')
+    fireEvent.load(own.container.querySelector('img') as HTMLImageElement)
+    expect(screen.queryByTestId('news-image-credit')).toBeNull()
+    own.unmount()
+    const sm = thumb({ source: 'WSJ', image_source: 'CNBC', image_url: 'https://image.cnbcfm.com/a.jpg' }, 'sm')
+    fireEvent.load(sm.container.querySelector('img') as HTMLImageElement)
+    expect(screen.queryByTestId('news-image-credit')).toBeNull()
+  })
+
+  it('imageAttribution / normalize pass-through', () => {
+    expect(imageAttribution({ source: 'WSJ', image_source: 'cnbc' })).toBe('cnbc')
+    expect(imageAttribution({ source: 'WSJ', image_source: 'wsj' })).toBeNull()
+    expect(imageAttribution({ source: 'WSJ', image_source: null })).toBeNull()
+    const r = normalizeFeedResponse({ items: [{ ...base, image_source: 'CNBC', source_logo: 'https://a.b/l.png' }] })
+    expect(r.items[0].image_source).toBe('CNBC')
+    expect(r.items[0].source_logo).toBe('https://a.b/l.png')
+    expect(normalizeFeedResponse({ items: [{ id: '1' }] }).items[0].source_logo).toBeNull()
   })
 })
 

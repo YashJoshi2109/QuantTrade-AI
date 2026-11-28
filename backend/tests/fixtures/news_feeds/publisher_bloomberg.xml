@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?><rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+    <channel>
+        <title><![CDATA[Bloomberg Economics]]></title>
+        <description><![CDATA[Bloomberg Economics]]></description>
+        <link>https://bloomberg.com/economicsRouter/</link>
+        <image>
+            <url>http://www.bloomberg.com/feeds/static/images/bloomberg_logo_blue.png</url>
+            <title>Bloomberg Economics</title>
+            <link>https://bloomberg.com/economicsRouter/</link>
+        </image>
+        <generator>RSS for Node</generator>
+        <lastBuildDate>Sat, 28 Nov 2026 10:58:20 GMT</lastBuildDate>
+        <atom:link href="https://www.bloomberg.com/feeds/economics/news.rss" rel="self" type="application/rss+xml"/>
+        <copyright><![CDATA[Copyright 2026 BLOOMBERG L.P. ALL RIGHTS RESERVED]]></copyright>
+        <language><![CDATA[en]]></language>
+        <item>
+            <title><![CDATA[Trump’s AI Gambit Fuels Wild Thanksgiving Week on Wall Street]]></title>
+            <description><![CDATA[The message from Washington this week was unmistakable: America must do whatever it takes to win the artificial-intelligence race with China, and the government is prepared to intervene to make it happen.]]></description>
+            <link>https://www.bloomberg.com/news/articles/2026-11-27/trump-s-ai-gambit-fuels-wild-thanksgiving-week-on-wall-street</link>
+            <guid isPermaLink="false">TP6664T9NJLS00</guid>
+            <dc:creator><![CDATA[Emma Haidar]]></dc:creator>
+            <pubDate>Fri, 27 Nov 2026 18:43:36 GMT</pubDate>
+        </item></channel></rss>

@@ -79,6 +79,10 @@ export interface NewsFeedItem {
   impact: number
   ai: NewsAiInsight | null
   image_url: string | null
+  /** Outlet the image came from when it is not the story's own publisher (a cluster sibling). */
+  image_source?: string | null
+  /** Publisher logo (https) for the no-image tile, resolved server-side. */
+  source_logo?: string | null
   /** Client-only: item was mapped from a legacy endpoint (no model impact / categories). */
   legacy?: boolean
 }
@@ -297,6 +301,16 @@ export function storyImageUrl(url: string | null | undefined): string | null {
   } catch {
     return null
   }
+}
+
+/**
+ * Credit line for a story image borrowed from another outlet in the same
+ * cluster ("CNBC" on a WSJ story), or null when the image is the publisher's own.
+ */
+export function imageAttribution(item: { image_source?: string | null; source?: string | null }): string | null {
+  const from = (item.image_source || '').trim()
+  if (!from) return null
+  return from.toLowerCase() === (item.source || '').trim().toLowerCase() ? null : from
 }
 
 /**
@@ -672,6 +686,8 @@ function normalizeItem(raw: Partial<NewsFeedItem>): NewsFeedItem {
     impact: Number.isFinite(raw.impact) ? (raw.impact as number) : 0,
     ai: raw.ai ?? null,
     image_url: raw.image_url ?? null,
+    image_source: raw.image_source ?? null,
+    source_logo: raw.source_logo ?? null,
   }
 }
 
