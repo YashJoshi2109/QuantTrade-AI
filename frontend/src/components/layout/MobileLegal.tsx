@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { FileText, ChevronRight, ShieldAlert, Shield } from 'lucide-react'
+import PageHeading from '@/components/seo/PageHeading'
 
 const docs = [
   {
@@ -14,7 +15,7 @@ const docs = [
     title: 'Privacy Policy',
     desc: 'How we handle your data and account information.',
     updated: 'Updated Feb 2026',
-    href: '/terms#privacy',
+    href: '/privacy',
   },
   {
     title: 'Cookie Policy',
@@ -34,7 +35,7 @@ export default function MobileLegal() {
   return (
     <div className="space-y-4 pb-4">
       <header className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-xl border-b border-line-subtle pt-safe pb-2 px-1">
-        <h1 className="text-xl font-semibold text-fg-primary">Legal &amp; Privacy</h1>
+        <PageHeading mobile className="text-xl font-semibold text-fg-primary">Legal &amp; Privacy</PageHeading>
         <p className="text-[11px] text-fg-secondary">Important disclosures and policies.</p>
       </header>
 

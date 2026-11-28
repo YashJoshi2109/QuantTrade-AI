@@ -1,22 +1,16 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { routeMetadata } from '@/lib/routeSeo'
+import { breadcrumbSchema } from '@/lib/schema'
 
-export const metadata: Metadata = {
-  title: 'Ideas Lab — AI Trading Ideas',
-  description:
-    'AI-generated trading ideas scored by confidence. Bullish, bearish, and neutral setups across sectors — semiconductors, cloud, biotech, fixed income, consumer. Filter by sentiment, timeframe, and sector.',
-  keywords: [
-    'AI trading ideas', 'trading setups', 'stock trading signals',
-    'AI trade recommendations', 'investment ideas', 'trading thesis',
-  ],
-  openGraph: {
-    title: 'Ideas Lab — AI Trading Ideas | QuantTrade AI',
-    description: 'AI-generated trading ideas scored by confidence. Filter by sentiment, timeframe, and sector.',
-    url: 'https://quanttrade.us/ideas-lab',
-  },
-  alternates: { canonical: 'https://quanttrade.us/ideas-lab' },
-}
+export const metadata: Metadata = routeMetadata('/ideas-lab')
 
 export default function IdeasLabLayout({ children }: { children: ReactNode }) {
-  return <>{children}</>
+  return (
+    <>
+      <JsonLd data={breadcrumbSchema([{ name: 'Ideas Lab', path: '/ideas-lab' }])} />
+      {children}
+    </>
+  )
 }

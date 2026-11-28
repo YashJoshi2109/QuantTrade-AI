@@ -1,18 +1,21 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import localFont from 'next/font/local'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { routeMetadata } from '@/lib/routeSeo'
+import { SITE_NAME, absoluteUrl } from '@/lib/seo'
+import { ORG_ID, WEBSITE_ID, breadcrumbSchema } from '@/lib/schema'
 
-export const metadata: Metadata = {
-  title: 'About',
-  description:
-    'QuantTrade AI is built by Yash Joshi — a single engineer delivering institutional-grade stock research, geopolitical intelligence, and AI backtesting at retail price. 14+ live data integrations, 12,000+ US stocks.',
-  openGraph: {
-    title: 'About QuantTrade AI — Institutional Intelligence at Retail Price',
-    description: 'Built by Yash Joshi. 14+ live data integrations, AI research, geopolitical monitoring, and strategy backtesting.',
-    url: 'https://quanttrade.us/about',
-  },
-  alternates: { canonical: 'https://quanttrade.us/about' },
+const aboutPageSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'AboutPage',
+  url: absoluteUrl('/about'),
+  name: `About ${SITE_NAME}`,
+  isPartOf: { '@id': WEBSITE_ID },
+  about: { '@id': ORG_ID },
 }
+
+export const metadata: Metadata = routeMetadata('/about')
 
 const aboutDisplay = localFont({
   src: '../../fonts/fraunces-latin-var.woff2',
@@ -37,6 +40,8 @@ export default function AboutLayout({ children }: { children: ReactNode }) {
     <div
       className={`${aboutDisplay.variable} ${aboutBody.variable} min-h-0 antialiased [font-family:var(--font-about-body),ui-sans-serif,system-ui,sans-serif]`}
     >
+      <JsonLd data={aboutPageSchema} />
+      <JsonLd data={breadcrumbSchema([{ name: 'About', path: '/about' }])} />
       {children}
     </div>
   )

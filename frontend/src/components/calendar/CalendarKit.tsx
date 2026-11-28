@@ -12,6 +12,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ArrowUpRight, ChevronLeft, ChevronRight, Download, Loader2, Search, X } from 'lucide-react'
 import { Skeleton } from '@/components/Skeleton'
 import { useCountUp } from '@/lib/useCountUp'
+import PageHeading from '@/components/seo/PageHeading'
 
 // The app's mobile CSS forces .grid-cols-* to one column; arbitrary templates are exempt.
 export const GRID2 = 'grid-cols-[repeat(2,minmax(0,1fr))]'
@@ -79,7 +80,7 @@ export function PageHeader({ icon, title, subtitle, link, tone, compact = false,
           {icon}
         </div>
         <div className="min-w-0">
-          <h1 className={`font-bold tracking-tight text-fg-primary ${compact ? 'text-lg' : 'text-2xl'}`}>{title}</h1>
+          <PageHeading mobile={compact} className={`font-bold tracking-tight text-fg-primary ${compact ? 'text-lg' : 'text-2xl'}`}>{title}</PageHeading>
           <p className={`text-fg-muted ${compact ? 'text-[11px] leading-snug' : 'mt-0.5 text-sm'}`}>{subtitle}</p>
         </div>
       </div>

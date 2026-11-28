@@ -29,6 +29,7 @@ import {
 } from '@/lib/api'
 import { useMarketWebSocket } from '@/lib/websocket'
 import { basketCoverageNote } from '@/lib/basketCoverage'
+import PageHeading from '@/components/seo/PageHeading'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -1380,7 +1381,7 @@ function MobileIdeasLab() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Brain className="w-5 h-5 text-violet-400" />
-            <h1 className="text-lg font-black text-fg-primary">AI Ideas Lab</h1>
+            <PageHeading mobile className="text-lg font-black text-fg-primary">AI Ideas Lab</PageHeading>
             <LiveIndicator status={mobileWsStatus} />
           </div>
         </div>

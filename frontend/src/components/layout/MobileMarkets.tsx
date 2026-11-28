@@ -13,7 +13,7 @@ import {
   ExchangeUniverseSection,
   ExchangeSectorHeatmap,
   useCurrencyRates,
-} from '@/app/markets/page'
+} from '@/app/markets/MarketsClient'
 import MarketHeatmap from '@/components/MarketHeatmap'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSectorPerformance } from '@/lib/api'
@@ -21,6 +21,7 @@ import { useExchangeHeatmap } from '@/hooks/useExchangeHeatmap'
 import { computeBreadth } from '@/lib/marketBreadth'
 import { useSectorPerformance } from '@/lib/marketQueries'
 import YieldCurveCard from '@/components/YieldCurveCard'
+import PageHeading from '@/components/seo/PageHeading'
 
 function MarketPulse({ continent }: { continent: Continent }) {
   const { data, isLoading } = useExchangeHeatmap(continent)
@@ -95,7 +96,7 @@ export default function MobileMarkets() {
               <Globe className="w-4 h-4 text-emerald-400" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-fg-primary leading-tight">Global Markets</h1>
+              <PageHeading mobile className="text-base font-bold text-fg-primary leading-tight">Global Markets</PageHeading>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />

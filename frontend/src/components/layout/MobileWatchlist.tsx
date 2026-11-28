@@ -24,6 +24,7 @@ import {
 import { fmtMoney, fmtPct, fmtQty } from '@/lib/portfolio'
 import { useMarketRefreshInterval } from '@/hooks/useMarketRefresh'
 import { Skeleton } from '@/components/Skeleton'
+import PageHeading from '@/components/seo/PageHeading'
 
 const SPARK_W = 56
 const SPARK_H = 22
@@ -64,7 +65,7 @@ export default function MobileWatchlist() {
     return (
       <div className="space-y-4">
         <header className="sticky top-0 z-30 border-b border-line-subtle bg-surface-base/95 px-1 pb-2 pt-safe backdrop-blur-xl">
-          <h1 className="text-xl font-semibold text-fg-primary">Marketwatch</h1>
+          <PageHeading mobile className="text-xl font-semibold text-fg-primary">Marketwatch</PageHeading>
           <p className="text-[11px] text-fg-secondary">Multiple watchlists, live prices, alerts and holdings.</p>
         </header>
         <div className="rounded-2xl border border-line-subtle bg-surface-raised p-5 text-center">
@@ -86,7 +87,7 @@ export default function MobileWatchlist() {
       <header className="sticky top-0 z-30 space-y-2 border-b border-line-subtle bg-surface-base/95 px-1 pb-2 pt-safe backdrop-blur-xl">
         <div className="flex items-center justify-between">
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-fg-primary">Marketwatch</h1>
+            <PageHeading mobile className="text-xl font-semibold text-fg-primary">Marketwatch</PageHeading>
             <p className="truncate text-[11px] text-fg-muted">
               {c.isHoldings
                 ? 'Holdings across your portfolios'

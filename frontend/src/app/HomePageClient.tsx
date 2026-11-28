@@ -10,6 +10,7 @@ import { useNewsFeed } from '@/hooks/useNewsFeed'
 import { feedItemToNewsArticle } from '@/lib/newsFeed'
 import { useClientNow } from '@/lib/use-client-now'
 import { useAuth } from '@/contexts/AuthContext'
+import { HOME_HEADING } from '@/lib/seo'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   TrendingUp,
@@ -1412,8 +1413,9 @@ function DesktopHome() {
         {/* Dashboard header */}
         <div className="px-4 pt-4 pb-2 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-fg-primary flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#007AFF]" />
+            <h1 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#007AFF] mb-0.5">{HOME_HEADING}</h1>
+            <div className="text-lg font-bold text-fg-primary flex items-center gap-2">
+              <Layers className="w-4 h-4 text-[#007AFF]" aria-hidden />
               {isAuthenticated && user ? (
                 <>
                   {clientNow ? getTimeBasedGreeting(clientNow) : 'Welcome back'},{' '}
@@ -1433,7 +1435,7 @@ function DesktopHome() {
                   {continentInfo?.label}
                 </span>
               )}
-            </h1>
+            </div>
             <p className="text-[11px] text-fg-muted mt-0.5 font-mono">
               {clientNow
                 ? clientNow.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })

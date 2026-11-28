@@ -172,8 +172,9 @@ export default function SiteFooter() {
           {/* Financial disclaimer */}
           <div className="mt-3 md:mt-4 mb-2 md:mb-3 p-2.5 md:p-3 rounded-xl border border-amber-500/15 bg-amber-500/[0.03]">
             <p className="text-[10px] text-fg-muted leading-relaxed">
-              <span className="text-amber-400/80 font-semibold">Risk Disclosure:</span>{' '}
-              QuantTrade AI provides market data, research tools, and AI-generated analysis for informational purposes only.
+              <span className="text-amber-400/80 font-semibold">Not financial advice.</span>{' '}
+              QuantTrade AI provides market data, research tools, and AI-generated analysis for informational and educational purposes only.
+              Quotes may be delayed.
               Nothing on this platform constitutes personalized investment, tax, or legal advice.
               AI outputs may be inaccurate, delayed, or biased. Past backtest performance does not guarantee future results.
               Securities trading involves substantial risk of loss. You are solely responsible for all trading decisions.
@@ -196,7 +197,7 @@ export default function SiteFooter() {
               .
             </p>
             <div className="flex flex-wrap gap-3 text-[11px] text-fg-muted">
-              <IntentLink href="/terms#privacy" className="hover:text-fg-secondary transition-colors">Privacy Policy</IntentLink>
+              <IntentLink href="/privacy" className="hover:text-fg-secondary transition-colors">Privacy Policy</IntentLink>
               <IntentLink href="/terms" className="hover:text-fg-secondary transition-colors">Terms of Service</IntentLink>
               <IntentLink href="/terms#risk" className="hover:text-fg-secondary transition-colors">Risk Disclosure</IntentLink>
             </div>

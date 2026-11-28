@@ -4,20 +4,12 @@
  */
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { routeMetadata } from '@/lib/routeSeo'
 import AppLayout from '@/components/AppLayout'
 import { universeBySector } from '@/lib/stockPage/related'
 import { SITE_URL, stockPath } from '@/lib/stockPage/symbol'
 
-const TITLE = 'Stock Prices, Forecasts & AI Analysis by Ticker | QuantTrade AI'
-const DESCRIPTION =
-  'Browse stock and ETF pages by sector: live-ish prices, valuation, earnings dates, dividends, SEC insider trades, 13F institutional owners and analyst targets.'
-
-export const metadata: Metadata = {
-  title: { absolute: TITLE },
-  description: DESCRIPTION,
-  alternates: { canonical: `${SITE_URL}/stocks` },
-  openGraph: { type: 'website', url: `${SITE_URL}/stocks`, title: TITLE, description: DESCRIPTION, siteName: 'QuantTrade AI' },
-}
+export const metadata: Metadata = routeMetadata('/stocks')
 
 export default function StocksIndexPage() {
   const groups = universeBySector()

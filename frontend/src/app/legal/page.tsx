@@ -12,7 +12,7 @@ function DesktopLegal() {
           <h1 className="text-2xl font-bold text-fg-primary">Legal &amp; Privacy</h1>
           <div className="bg-surface-hover border border-line-subtle rounded-xl p-6 space-y-4">
             <Section title="Terms of Service" href="/terms" />
-            <Section title="Privacy Policy" desc="How we collect, use, and protect your data." />
+            <Section title="Privacy Policy" desc="How we collect, use, and protect your data." href="/privacy" />
             <Section title="Financial Disclaimer" desc="QuantTrade AI provides information for educational purposes only. Not financial advice. Past performance does not guarantee future results." />
             <Section title="Data Sources" desc="Market data from Yahoo Finance, Finnhub, FMP, Twelve Data, and SEC EDGAR. Data may be delayed." />
             <Section title="Cookie Policy" desc="We use essential cookies for authentication and analytics cookies (opt-in) for improving the platform." />

@@ -13,6 +13,7 @@ import {
   AllocationDonut, CreatePortfolioForm, KpiGrid, Overlay, SimulatedBadge, SimulatedBanner, TradeForm,
 } from './PortfolioParts'
 import { usePortfolioController } from './usePortfolioController'
+import PageHeading from '@/components/seo/PageHeading'
 
 type Section = 'holdings' | 'activity'
 
@@ -32,7 +33,7 @@ export default function PortfolioMobile() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Briefcase className="h-5 w-5 text-indigo-500" />
-          <h1 className="text-lg font-bold text-fg-primary">Portfolio</h1>
+          <PageHeading mobile className="text-lg font-bold text-fg-primary">Portfolio</PageHeading>
         </div>
         {c.isAuthenticated && c.portfolios.length > 0 && (
           <button

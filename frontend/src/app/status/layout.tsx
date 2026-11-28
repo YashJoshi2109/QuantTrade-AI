@@ -1,13 +1,16 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { routeMetadata } from '@/lib/routeSeo'
+import { breadcrumbSchema } from '@/lib/schema'
 
-export const metadata: Metadata = {
-  title: 'System status',
-  description:
-    'Live status of every QuantTrade AI service: API, database, market data providers, AI Copilot, news and forecasts.',
-  alternates: { canonical: 'https://quanttrade.us/status' },
-}
+export const metadata: Metadata = routeMetadata('/status')
 
 export default function StatusLayout({ children }: { children: ReactNode }) {
-  return children
+  return (
+    <>
+      <JsonLd data={breadcrumbSchema([{ name: 'Status', path: '/status' }])} />
+      {children}
+    </>
+  )
 }
