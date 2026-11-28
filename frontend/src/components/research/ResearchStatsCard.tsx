@@ -69,8 +69,9 @@ export function ResearchStatsCard({
       <div className={cn('mt-3 grid gap-x-8 gap-y-3 border-t border-line-subtle pt-3', mobile ? 'grid-cols-[repeat(2,minmax(0,1fr))] gap-x-4' : 'grid-cols-[repeat(2,minmax(0,1fr))]')}>
         {loading ? (
           <>
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
+            {/* Same height as a rendered RangeBar (label + track + low/high row) */}
+            <Skeleton className="h-[51px] w-full" />
+            <Skeleton className="h-[51px] w-full" />
           </>
         ) : (
           <>

@@ -52,7 +52,7 @@ function Sidebar({ onNavigate, issues }: { onNavigate?: () => void; issues: numb
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2.5 px-5 py-5">
         <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-cyan-500/30 bg-slate-900">
-          <img src="/logo.png" alt="" className="h-7 w-7 object-contain" />
+          <img src="/logo-sm.webp" width={28} height={28} decoding="async" alt="" className="h-7 w-7 object-contain" />
         </div>
         <div className="min-w-0">
           <div className="text-sm font-bold text-slate-900 dark:text-white">QuantTrade AI</div>

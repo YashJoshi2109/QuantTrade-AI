@@ -18,16 +18,24 @@ export function useStockSnapshot() {
 
 export function StockSnapshotProvider({ children }: { children: ReactNode }) {
   const [stock, setStock] = useState<SnapshotStock | null>(null)
+  // The modal chunk pulls in recharts (~110KB gz). Mount it on the first open
+  // only, then keep it mounted so its close animation still runs.
+  const [used, setUsed] = useState(false)
 
-  const openSnapshot = useCallback((s: SnapshotStock) => setStock(s), [])
+  const openSnapshot = useCallback((s: SnapshotStock) => {
+    setUsed(true)
+    setStock(s)
+  }, [])
   const closeSnapshot = useCallback(() => setStock(null), [])
 
   return (
     <Ctx.Provider value={{ openSnapshot, closeSnapshot }}>
       {children}
-      <Suspense fallback={null}>
-        <StockSnapshotModal stock={stock} onClose={closeSnapshot} />
-      </Suspense>
+      {used && (
+        <Suspense fallback={null}>
+          <StockSnapshotModal stock={stock} onClose={closeSnapshot} />
+        </Suspense>
+      )}
     </Ctx.Provider>
   )
 }

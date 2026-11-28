@@ -219,6 +219,20 @@ export function WorldIndicesGrid({ continent, currency, rates }: { continent: Co
   }
 
   if (isLoading) {
+    // Global renders a one-row ticker tape: reserve exactly that row (same
+    // wrapper padding + card height) so the sections below don't jump up when
+    // the quotes arrive.
+    if (continent === 'global') {
+      return (
+        <div className="mb-6" aria-busy="true" aria-label="Loading world indices">
+          <div className="flex gap-2 overflow-hidden pb-2 pt-1 px-1">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-[87px] w-[180px] sm:w-[200px] shrink-0 rounded-[14px] bg-surface-raised animate-pulse" />
+            ))}
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6">
         {Array.from({ length: 10 }).map((_, i) => (

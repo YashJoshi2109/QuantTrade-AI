@@ -22,6 +22,7 @@ import { computeBreadth } from '@/lib/marketBreadth'
 import { useSectorPerformance } from '@/lib/marketQueries'
 import YieldCurveCard from '@/components/YieldCurveCard'
 import PageHeading from '@/components/seo/PageHeading'
+import { SkeletonHeatmap } from '@/components/Skeleton'
 
 function MarketPulse({ continent }: { continent: Continent }) {
   const { data, isLoading } = useExchangeHeatmap(continent)
@@ -84,7 +85,7 @@ export default function MobileMarkets() {
   const [displayCurrency, setDisplayCurrency] = useMarketsCurrency()
   const { data: currencyRates = {} } = useCurrencyRates()
 
-  const { data: usSectors } = useSectorPerformance()
+  const { data: usSectors, isLoading: usSectorsLoading } = useSectorPerformance()
 
   return (
     <div className="flex flex-col min-h-screen bg-surface-base pb-24">
@@ -143,7 +144,9 @@ export default function MobileMarkets() {
                 <BarChart3 className="w-5 h-5 text-blue-400" />
                 <h2 className="text-base font-bold text-fg-primary">1-Day Performance Map</h2>
               </div>
-              <MarketHeatmap sectors={usSectors} />
+              {/* Same skeleton as desktop: MarketHeatmap's "No market data" block
+                  collapsed when data landed and pulled the whole card up (CLS). */}
+              {usSectorsLoading ? <SkeletonHeatmap /> : <MarketHeatmap sectors={usSectors} />}
             </div>
           ) : (
             <ExchangeSectorHeatmap continent={activeContinent} />

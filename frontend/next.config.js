@@ -10,6 +10,11 @@ const nextConfig = {
   },
   images: {
     unoptimized: false,
+    // AVIF first, WebP fallback: /_next/image picks the best format the browser accepts.
+    formats: ['image/avif', 'image/webp'],
+    // Optimized variants are content-addressed by URL+width; keep them 30 days
+    // instead of the 4h default so the edge and browsers can reuse them.
+    minimumCacheTTL: 2592000,
     remotePatterns: [
       {
         protocol: 'https',

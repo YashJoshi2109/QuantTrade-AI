@@ -166,7 +166,10 @@ export default function BottomNav() {
                         }}
                       >
                         <img 
-                          src="/logo.png" 
+                          src="/logo-sm.webp"
+                          width={48}
+                          height={48}
+                          decoding="async"
                           alt="Copilot" 
                           className={cn(
                             'w-12 h-12 object-contain scale-[1.2] transition-all duration-300',

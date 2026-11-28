@@ -3,8 +3,15 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Player, type PlayerRef } from '@remotion/player'
 import { QuantTradeIntro, INTRO_DURATION_FRAMES, INTRO_FPS } from '@/remotion/QuantTradeIntro'
+import { BRAND_INTRO_STORAGE_KEY as STORAGE_KEY, hideBrandIntroPoster } from '@/lib/brandIntro'
 
-const STORAGE_KEY = 'quanttrade_brand_intro_v1'
+// The server-rendered poster (BrandIntroPoster) shows the title as it looks once
+// faded in, so the player picks up from that frame instead of fading in again.
+const START_FRAME = 14
+
+// Loaded on demand by DeferredGlobalWidgets (next/dynamic, ssr:false) only when
+// shouldShowBrandIntro() says this visit gets the intro, so @remotion/player
+// stays out of the shared bundle.
 
 /** Centers a 16:9 composition and scales it to cover the viewport (landscape + portrait). */
 function IntroCoverFrame({ children }: { children: ReactNode }) {
@@ -38,8 +45,14 @@ export default function BrandIntroGate() {
   useEffect(() => {
     if (!mounted || typeof window === 'undefined') return
     try {
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-      if (localStorage.getItem(STORAGE_KEY) === '1') return
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        hideBrandIntroPoster()
+        return
+      }
+      if (localStorage.getItem(STORAGE_KEY) === '1') {
+        hideBrandIntroPoster()
+        return
+      }
     } catch {
       /* private mode */
     }
@@ -52,6 +65,7 @@ export default function BrandIntroGate() {
     } catch {
       /* ignore */
     }
+    hideBrandIntroPoster()
     setShow(false)
   }, [])
 
@@ -63,8 +77,10 @@ export default function BrandIntroGate() {
     }
     const raf = window.requestAnimationFrame(() => {
       playerRef.current?.addEventListener('ended', onEnded)
+      // Player has painted its first frame on top: the static poster can go.
+      hideBrandIntroPoster()
     })
-    const ms = (INTRO_DURATION_FRAMES / INTRO_FPS) * 1000 + 500
+    const ms = ((INTRO_DURATION_FRAMES - START_FRAME) / INTRO_FPS) * 1000 + 500
     const fallback = window.setTimeout(() => {
       if (!cancelled) dismiss()
     }, ms)
@@ -93,6 +109,7 @@ export default function BrandIntroGate() {
           compositionWidth={1920}
           compositionHeight={1080}
           fps={INTRO_FPS}
+          initialFrame={START_FRAME}
           controls={false}
           autoPlay
           loop={false}
