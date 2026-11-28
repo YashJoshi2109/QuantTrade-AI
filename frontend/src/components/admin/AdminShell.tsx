@@ -6,7 +6,7 @@
  * and live status pill. Collapses to a drawer on mobile.
  */
 import { ReactNode, useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
+import IntentLink from '@/components/nav/IntentLink'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Activity, ArrowLeft, Bell, BrainCircuit, CreditCard, Database, Gauge, Globe2, LayoutDashboard, Menu, Search,
@@ -69,7 +69,7 @@ function Sidebar({ onNavigate, issues }: { onNavigate?: () => void; issues: numb
                 const active = p.href === '/admin' ? pathname === '/admin' : pathname.startsWith(p.href)
                 return (
                   <li key={p.href}>
-                    <Link href={p.href} onClick={onNavigate}
+                    <IntentLink href={p.href} onClick={onNavigate}
                       className={cn('flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors',
                         active ? 'bg-blue-600/10 font-semibold text-blue-700 dark:bg-blue-500/15 dark:text-white'
                           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-white')}>
@@ -78,16 +78,16 @@ function Sidebar({ onNavigate, issues }: { onNavigate?: () => void; issues: numb
                       {p.href === '/admin/health' && issues > 0 && (
                         <span className="rounded-full bg-amber-500/15 px-1.5 text-[10px] font-bold tabular-nums text-amber-600 dark:text-amber-300">{issues}</span>
                       )}
-                    </Link>
+                    </IntentLink>
                   </li>
                 )
               })}
             </ul>
           </div>
         ))}
-        <Link href="/" className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-slate-500 hover:text-slate-900 dark:text-slate-500 dark:hover:text-white">
+        <IntentLink href="/" className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-slate-500 hover:text-slate-900 dark:text-slate-500 dark:hover:text-white">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to app
-        </Link>
+        </IntentLink>
       </nav>
       <div className="space-y-2 border-t border-slate-200 p-3 dark:border-slate-800">
         {me?.env && (
@@ -232,18 +232,18 @@ export default function AdminShell({ children }: { children: ReactNode }) {
             <div className="flex h-14 items-center gap-3 px-4 md:px-6">
               <button onClick={() => setDrawer(true)} aria-label="Open menu" className="rounded-lg p-1.5 text-slate-500 lg:hidden"><Menu className="h-5 w-5" /></button>
               <nav aria-label="Breadcrumb" className="hidden min-w-0 shrink-0 items-center gap-1.5 text-xs md:flex">
-                <Link href="/admin" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">Admin console</Link>
+                <IntentLink href="/admin" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">Admin console</IntentLink>
                 <span className="text-slate-400">›</span>
                 <span className="truncate font-semibold text-slate-900 dark:text-white">{page?.label || 'Admin'}</span>
               </nav>
               <div className="flex min-w-0 flex-1 justify-center"><ConsoleSearch /></div>
               <div className="flex shrink-0 items-center gap-2">
-                <Link href="/admin/health" className="hidden sm:block">
+                <IntentLink href="/admin/health" className="hidden sm:block">
                   {status ? (
                     <StatusPill tone={issues ? (status.overall === 'down' ? 'down' : 'degraded') : 'ok'}
                       label={issues ? `${issues} degraded service${issues === 1 ? '' : 's'}` : 'All systems operational'} />
                   ) : <StatusPill tone="pending" label="Checking status" />}
-                </Link>
+                </IntentLink>
                 <NotificationsBell />
                 <div className="hidden md:block"><BB8ThemeToggle /></div>
               </div>

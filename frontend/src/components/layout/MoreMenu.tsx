@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { useEffect, useState } from 'react'
 import { getSubscriptionStatus, SubscriptionStatus } from '@/lib/api'
+import { useIntentPrefetch } from '@/lib/intentPrefetch'
 
 interface MoreMenuProps {
   open: boolean
@@ -59,6 +60,8 @@ function MenuItem({
   onClick,
 }: MenuItemProps) {
   const router = useRouter()
+  // Danger items (sign out) are actions, not routes: never prefetch them.
+  const intent = useIntentPrefetch(danger ? null : href)
 
   const handleClick = () => {
     if (danger && onClick) {
@@ -77,6 +80,7 @@ function MenuItem({
     <button
       type="button"
       onClick={handleClick}
+      {...intent}
       className={cn(
         'w-full flex items-center justify-between rounded-2xl px-3 py-3 mb-2',
         'bg-surface-raised border border-line-subtle backdrop-blur-xl',

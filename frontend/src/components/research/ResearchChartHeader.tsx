@@ -1,7 +1,7 @@
 'use client'
 
 import { GitCompareArrows, Loader2, RefreshCw, Sparkles, Star, X } from 'lucide-react'
-import Link from 'next/link'
+import IntentLink from '@/components/nav/IntentLink'
 import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
@@ -291,13 +291,13 @@ export function ResearchPriceHeader(p: ResearchPriceHeaderProps) {
               <Star className={cn('h-4 w-4', p.inWatchlist && 'fill-amber-400 text-amber-500')} />
             )}
           </button>
-          <Link href={compareHref([p.symbol])} className={iconBtn} aria-label={`Compare ${p.symbol}`} title="Compare">
+          <IntentLink href={compareHref([p.symbol])} className={iconBtn} aria-label={`Compare ${p.symbol}`} title="Compare">
             <GitCompareArrows className="h-4 w-4" />
-          </Link>
+          </IntentLink>
           <button type="button" onClick={p.onSyncData} disabled={p.syncing} className={iconBtn} aria-label="Sync data" title="Sync data">
             {p.syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </button>
-          <Link
+          <IntentLink
             href={buildCopilotHref(p.symbol.toUpperCase())}
             data-testid="ask-copilot"
             aria-label={`Chat with Copilot about ${p.symbol.toUpperCase()}`}
@@ -305,7 +305,7 @@ export function ResearchPriceHeader(p: ResearchPriceHeaderProps) {
           >
             <Sparkles className="h-4 w-4" aria-hidden />
             Copilot
-          </Link>
+          </IntentLink>
         </div>
       </div>
 
