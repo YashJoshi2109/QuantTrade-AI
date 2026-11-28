@@ -3,6 +3,19 @@ import type { MetadataRoute } from 'next'
 const BASE = 'https://www.quanttrade.us'
 const now = new Date()
 
+// Research pages for the most-searched US tickers and ETFs (query URL is the canonical Research URL).
+const TOP_TICKERS = [
+  'AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA', 'AVGO', 'BRK.B', 'JPM',
+  'V', 'MA', 'LLY', 'UNH', 'XOM', 'COST', 'WMT', 'NFLX', 'AMD', 'ORCL',
+  'CRM', 'ADBE', 'INTC', 'QCOM', 'TSM', 'PLTR', 'COIN', 'BAC', 'DIS', 'KO',
+  'PEP', 'MCD', 'NKE', 'BA', 'UBER', 'SHOP', 'PYPL', 'SPY', 'QQQ', 'IWM',
+]
+
+const BOT_SLUGS = [
+  'market_weather', 'sentiment_pulse', 'movers_breakouts',
+  'earnings_watch', 'real_estate_rates', 'sector_rotation',
+]
+
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
@@ -101,5 +114,23 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'yearly',
       priority: 0.4,
     },
+    { url: `${BASE}/markets/movers`, lastModified: now, changeFrequency: 'daily', priority: 0.75 },
+    { url: `${BASE}/compare`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
+    { url: `${BASE}/community`, lastModified: now, changeFrequency: 'hourly', priority: 0.7 },
+    { url: `${BASE}/community/discover`, lastModified: now, changeFrequency: 'daily', priority: 0.55 },
+    ...BOT_SLUGS.map((slug) => ({
+      url: `${BASE}/community/bots/${slug}`,
+      lastModified: now,
+      changeFrequency: 'weekly' as const,
+      priority: 0.45,
+    })),
+    { url: `${BASE}/status`, lastModified: now, changeFrequency: 'always', priority: 0.4 },
+    { url: `${BASE}/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
+    ...TOP_TICKERS.map((sym) => ({
+      url: `${BASE}/research?symbol=${encodeURIComponent(sym)}`,
+      lastModified: now,
+      changeFrequency: 'daily' as const,
+      priority: 0.7,
+    })),
   ]
 }
