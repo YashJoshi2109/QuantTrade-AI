@@ -11,6 +11,7 @@ import {
   CandlestickChart,
   GitCompareArrows,
   Home,
+  Link2,
   Loader2,
   Maximize2,
   MoreHorizontal,
@@ -61,6 +62,7 @@ import { BollingerCard, MacdCard, MovingAveragesCard, RsiCard, TrendSummaryCard 
 import { CompanyFolioPanel } from '@/components/research/CompanyFolioPanel'
 import { buildCopilotHref } from '@/lib/copilot-handoff'
 import { compareHref } from '@/lib/compare'
+import { stockPath } from '@/lib/stockPage/symbol'
 import { cn } from '@/lib/utils'
 import { isBool, objectOf, oneOf, usePersistentState } from '@/lib/persistentState'
 import {
@@ -321,6 +323,11 @@ export default function MobileResearch() {
                 <IntentLink role="menuitem" href={compareHref([symbolFromUrl])} className="flex items-center gap-2 px-3 py-2.5 text-[13px] text-fg-primary">
                   <GitCompareArrows className="h-4 w-4 text-fg-muted" /> Compare
                 </IntentLink>
+                {stockPath(symbolFromUrl) && (
+                  <IntentLink role="menuitem" href={stockPath(symbolFromUrl) as string} className="flex items-center gap-2 px-3 py-2.5 text-[13px] text-fg-primary">
+                    <Link2 className="h-4 w-4 text-fg-muted" /> Shareable page
+                  </IntentLink>
+                )}
                 <IntentLink role="menuitem" href="/" className="flex items-center gap-2 px-3 py-2.5 text-[13px] text-fg-primary">
                   <Home className="h-4 w-4 text-fg-muted" /> Home
                 </IntentLink>
