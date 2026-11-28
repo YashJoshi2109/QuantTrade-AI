@@ -33,9 +33,12 @@ describe('robots policy', () => {
     const urls = sitemap().map((e) => e.url)
     expect(new Set(urls).size).toBe(urls.length)
     for (const u of urls) {
-      expect(u.startsWith('https://www.quanttrade.us')).toBe(true)
+      const parsed = new URL(u)
+      expect(parsed.protocol).toBe('https:')
+      expect(parsed.host).toBe('www.quanttrade.us')
       expect(u).not.toMatch(/\/(auth|settings|portfolio|admin|watchlist|alerts)(\/|$|\?)/)
     }
-    expect(urls).toContain('https://www.quanttrade.us/research?symbol=AAPL')
+    // Query-string research URLs canonicalise to /research; never list them.
+    expect(urls.some((u) => u.includes('?'))).toBe(false)
   })
 })
