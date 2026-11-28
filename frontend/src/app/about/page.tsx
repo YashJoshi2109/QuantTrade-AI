@@ -238,6 +238,11 @@ export default function AboutPage() {
               <p className="text-sm text-fg-muted leading-relaxed mb-5">
                 QuantTrade aggregates data from {DATA_SOURCES.length} independent sources across market data, geopolitical intelligence, macro economics, and transport tracking. All data is attributed to its source and displayed with appropriate caveats on the relevant platform page.
               </p>
+              <p className="text-sm text-fg-muted leading-relaxed mb-5">
+                How each number is produced (quotes, fundamentals, valuation, backtests, forecasts) is documented in our{' '}
+                <Link href="/methodology" className="text-cyan-500 hover:underline">methodology</Link>. Terms used across the app are defined in the{' '}
+                <Link href="/glossary" className="text-cyan-500 hover:underline">glossary</Link>.
+              </p>
               <div className="grid sm:grid-cols-2 gap-2">
                 {DATA_SOURCES.map((s, i) => (
                   <motion.div key={s.name} initial={{ opacity: 0, x: -8 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.04 }}
@@ -435,6 +440,10 @@ function MobileAbout() {
           </div>
           <p className="text-[11px] text-fg-muted leading-relaxed">
             All data is sourced from third parties and provided "as is". Market data may be delayed. QuantTrade AI is not a registered investment adviser or broker-dealer.
+          </p>
+          <p className="text-[11px] text-fg-muted leading-relaxed mt-2">
+            See the <Link href="/methodology" className="text-cyan-500 underline">methodology</Link> and the{' '}
+            <Link href="/glossary" className="text-cyan-500 underline">glossary</Link>.
           </p>
         </div>
       </div>

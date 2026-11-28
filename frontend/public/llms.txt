@@ -1,60 +1,63 @@
 # QuantTrade AI
 
-> AI-powered stock trading research, backtesting, and geopolitical market intelligence platform.
-> Last updated: 2026-04-10
+> QuantTrade AI (https://www.quanttrade.us) is a web app for researching US-listed stocks and ETFs: per-ticker stock pages, a stock screener, earnings and dividend calendars, options-implied moves, strategy backtesting, and an AI research copilot that cites SEC filings, financial statements, quotes and news. It is a research and education tool, not investment advice, a broker-dealer or a registered investment adviser.
 
-QuantTrade AI is a professional-grade trading research platform built for active traders, quant developers, and portfolio managers. It combines real-time financial data, AI-powered analysis, global geopolitical event monitoring, and strategy backtesting into a single terminal-style interface.
+Last updated: 2026-11-28
 
-## Core Platform Features
+Prices may be delayed and come from third-party providers. Statistical and machine-learning forecasts are experimental and research-grade; QuantTrade AI does not claim they have an edge over a random walk. Backtests are simulations and past results do not predict future returns. A longer, self-contained version of this file (methodology, glossary and FAQ) is at https://www.quanttrade.us/llms-full.txt.
 
-- **AI Trading Copilot**: Multi-turn conversational AI for stock research, powered by Claude and GPT-4. Answers questions about earnings, filings, technicals, and macro conditions with cited sources.
-- **Symbol Research**: Deep-dive analysis for any US-listed stock — real-time quotes, OHLCV charts, technical indicators (SMA, EMA, RSI, MACD, Bollinger Bands), SEC filings with RAG-powered search, and AI-generated explanations.
-- **Strategy Backtester**: Rule-based backtesting engine with Monte Carlo simulations. Supports crossover, RSI, MACD, and custom multi-condition strategies across configurable time windows.
-- **Global Monitor**: Geopolitical intelligence dashboard with an interactive 3D globe. Tracks 400+ data sources including GDELT, ACLED, OpenSky, NASA FIRMS, USGS, and Cloudflare Radar. Shows which stocks are impacted by global events in real time.
-- **Markets Dashboard**: S&P 500 sector heatmap, real-time top gainers/losers, market indices, and sector performance powered by Finnhub and Alpha Vantage.
-- **Ideas Lab**: AI-generated investment theses with confidence scores and sector tagging. Scans 80+ stocks across 6 sectors with RSI, momentum, and analyst target scoring.
-- **Watchlist**: Personalized portfolio tracker with AI commentary and risk analysis.
-- **QuantTrade Life (CoinRealm)**: Financial literacy RPG game where players learn investing through medieval-themed quests, NPC dialogue with voice acting, and real financial decision-making scenarios across 5 life stages.
+## Research
 
-## Data Sources
+- [Stock pages](https://www.quanttrade.us/stocks): Index of server-rendered pages per ticker (/stocks/{SYMBOL}, e.g. /stocks/NVDA) with price, valuation, technicals, analyst targets, earnings and dividend dates, SEC Form 4 insider activity and 13F owners.
+- [Research workspace](https://www.quanttrade.us/research): Interactive charts and indicators, SEC 10-K/10-Q/8-K filings, earnings history, short interest, insider and institutional ownership, option chain, news and AI notes for one symbol.
+- [Stock screener](https://www.quanttrade.us/screener): Filter US stocks by market cap, sector, P/E, P/S, dividend yield, revenue growth, margin, ROE, debt/equity, RSI and 50/200-day moving averages, or start from value, growth, dividend, quality, oversold or momentum presets.
+- [Compare stocks](https://www.quanttrade.us/compare): Two to four stocks side by side on performance, valuation, margins, growth, ROE, debt, dividend yield, RSI and analyst targets.
+- [Earnings calendar](https://www.quanttrade.us/earnings): Report dates with before-open or after-close timing, EPS and revenue estimates versus actuals, and surprise percentages.
+- [Ex-dividend calendar](https://www.quanttrade.us/dividends): Ex-dividend and pay dates, amount, yield and frequency, plus a 12-month dividend income projection.
+- [Outlook](https://www.quanttrade.us/outlook): Options-implied move to each expiry, the market-implied odds of finishing above a price, earnings moves versus history and a catalyst calendar.
+- [Markets today](https://www.quanttrade.us/markets): Major indices, sector heatmap, market breadth, Treasury yield curve with 10Y-2Y and 10Y-3M spreads, and global exchanges.
+- [Market movers](https://www.quanttrade.us/markets/movers): Top US stock gainers, losers and most active tickers.
 
-- Market data: Finnhub (real-time), Alpha Vantage (historical), Financial Modeling Prep
-- News: NewsAPI, Guardian Open Platform, GDELT
-- Geopolitical: ACLED (armed conflict), NASA FIRMS (fires), USGS (earthquakes), OpenSky (aviation), AIS Stream (maritime)
-- Economic: FRED (Federal Reserve), EIA (energy)
-- Prediction markets: Polymarket
-- Filings: SEC EDGAR (via sec-api.io)
+## Tools
 
-## Pricing
+- [Strategy backtester](https://www.quanttrade.us/backtest): Rule-based backtests on split- and dividend-adjusted daily prices with next-bar-open fills, commission and slippage (defaults 1 and 5 basis points), in/out-of-sample splits, walk-forward folds, deflated Sharpe ratio and block-bootstrap Monte Carlo.
+- [Classic backtester](https://www.quanttrade.us/backtest/classic): Compare eight named strategies side by side and scan a list of symbols.
+- [AI copilot](https://www.quanttrade.us/copilot): Ask about a US stock; answers cite dated sources. Tools cover quotes, fundamentals and SEC financial history, DCF, reverse DCF, WACC and scenario valuation, SEC filing search, risk metrics (beta, Sharpe, Sortino, drawdown, VaR), earnings event studies, insider and 13F data, short interest, the Treasury yield curve and Fama-French factor regressions.
+- [Ideas Lab](https://www.quanttrade.us/ideas-lab): AI-generated idea screens by sector with a confidence score; educational, not recommendations.
+- [Global monitor](https://www.quanttrade.us/monitor): Map of conflicts (ACLED), shipping (AIS), flights (ADS-B), cyber threats, sanctions and natural disasters next to the markets they may affect.
 
-- **Free tier**: Markets dashboard, basic symbol research, 3 AI chat queries/day
-- **QuantTrade Pro** ($29.99/month, or $299/year with a 10-day free trial): Unlimited AI copilot, full backtester, Global Monitor, SEC filing deep-dives, priority data refresh
+## Community
 
-## About
+- [Community](https://www.quanttrade.us/community): User posts on stocks, strategies and markets. Posts are opinions, not advice.
+- [Community bots](https://www.quanttrade.us/community/bots): Six automated, clearly labelled accounts (market weather, sentiment pulse, movers and breakouts, earnings watch, real estate and rates, sector rotation) that post from fixed rule-based templates, each with its method and data sources.
 
-QuantTrade AI was built by Yash Joshi, a software engineer and quantitative trading enthusiast. The platform is designed to give independent traders access to in-depth research tools at a retail price.
+## Methodology and data
 
-Website: https://www.quanttrade.us
-GitHub: https://github.com/YashJoshi2109
-Twitter: https://twitter.com/quanttradeai
+- [Methodology](https://www.quanttrade.us/methodology): How quotes, fundamentals, DCF and WACC, backtests, forecast ranges, news impact scores, community bots and point-in-time public datasets are produced, with their limits.
+- [Glossary](https://www.quanttrade.us/glossary): Definitions with formulas and worked examples for P/E, EPS, RSI, MACD, Sharpe, WACC, DCF, Form 4, 13F, walk-forward analysis and other terms used in the app.
+- [About and data sources](https://www.quanttrade.us/about): Who builds QuantTrade AI and which providers feed it.
+- [System status](https://www.quanttrade.us/status): Live status of the API, data providers, AI copilot, news and forecasts.
 
-## Key Pages
+Data sources, with honest timeliness:
 
-- [AI Copilot](/copilot): Multi-model AI financial analyst with RAG pipeline
-- [Research](/research): Deep stock analysis with technical indicators
-- [Backtesting](/backtest): 8 strategies with Monte Carlo validation
-- [Global Monitor](/monitor): Geopolitical intelligence dashboard
-- [Ideas Lab](/ideas-lab): AI-generated trade ideas with confidence scoring
-- [Markets](/markets): Real-time market data and sector heatmaps
-- [Pricing](/pricing): Free tier and Pro subscription details
+- Quotes: Public.com, Yahoo Finance and Alpaca, with Twelve Data, Finnhub and Financial Modeling Prep as fallbacks. Alpaca live prices are IEX-exchange trades; its consolidated (SIP) bars are delayed at least 15 minutes. Treat all prices as possibly delayed. The headline price is always the regular session; pre-market, after-hours and overnight prices are shown separately and labelled.
+- Fundamentals: SEC XBRL company facts (10-K and 10-Q), trailing twelve months from the latest four quarters, with plausibility checks that hide impossible values.
+- Public datasets, stored point-in-time by when each record became available: SEC financial statement data sets (EDGAR acceptance time), SEC Form 4 insider trades (due within two business days), SEC 13F holdings (filed up to 45 days after quarter end), FINRA short interest (twice monthly), U.S. Treasury yield curve, FRED and BLS series (CPI, unemployment), and Fama-French factors from the Kenneth R. French Data Library.
+- News: Finnhub, Google News and Yahoo Finance feeds, press-release wires, SEC 8-K filings and the Benzinga stream, classified into 15 categories, with FinBERT sentiment and a 0-100 impact score.
 
-## Technical Architecture
+## Plans
 
-- Frontend: Next.js 15 (App Router), React 19, Tailwind CSS, TradingView Lightweight Charts, Three.js
-- Backend: FastAPI (Python), SQLAlchemy, PostgreSQL (AWS RDS, pgvector), Celery, Redis (AWS ElastiCache)
-- AI: Anthropic Claude, OpenAI GPT-4, RAG with vector embeddings, Groq for low-latency inference
-- Deployment: Docker on AWS EC2 behind nginx + Cloudflare; AWS RDS PostgreSQL
+- [Pricing](https://www.quanttrade.us/pricing): Free plan (markets dashboard and major indices, basic symbol research, 3 Copilot messages per day, watchlist of 5 symbols, CoinRealm starter chapters). Pro is $29.99/month or $299/year with a 10-day free trial on the yearly plan: unlimited AI copilot, full strategy backtester with Monte Carlo, global monitor, SEC filing deep-dives, advanced watchlist and alerts, full CoinRealm and priority support.
 
-## Important Disclaimer
+## Policies
 
-Trading and investing involve substantial risk of loss. QuantTrade AI provides tools for research and analysis only — not financial advice. Past performance of any backtested strategy does not guarantee future results. Always consult a licensed financial advisor before making investment decisions.
+- [Legal and financial disclaimer](https://www.quanttrade.us/legal): Educational research only; not investment, tax or legal advice.
+- [Terms of service](https://www.quanttrade.us/terms)
+- [Privacy policy](https://www.quanttrade.us/privacy)
+- [Help center](https://www.quanttrade.us/help)
+
+## Optional
+
+- [Full text for AI answer engines](https://www.quanttrade.us/llms-full.txt): Methodology summary, glossary definitions and FAQ in one file.
+- [Sitemap](https://www.quanttrade.us/sitemap.xml)
+- [Founder on GitHub](https://github.com/YashJoshi2109)

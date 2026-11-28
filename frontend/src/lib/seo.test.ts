@@ -165,7 +165,7 @@ describe('sitemap', () => {
   it('every listed static route has route metadata', () => {
     for (const e of entries) {
       const p = new URL(e.url).pathname
-      if (p.startsWith('/community/bots/')) continue
+      if (p.startsWith('/community/bots/') || p.startsWith('/glossary/')) continue
       expect(Object.keys(ROUTE_SEO)).toContain(p)
     }
   })
