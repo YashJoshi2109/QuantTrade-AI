@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'rea
 import AppLayout from '@/components/AppLayout'
 import MobileLayout from '@/components/layout/MobileLayout'
 import MobileCommunity from '@/components/layout/MobileCommunity'
+import ImageFilePreview from '@/components/community/ImageFilePreview'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Flame,
@@ -158,7 +159,6 @@ function CommunityPageInner() {
   const [bodyTab, setBodyTab] = useState<'write' | 'preview'>('write')
   const [communitySearch, setCommunitySearch] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   // Open create modal pre-filled when navigating from crosspost/share
   useEffect(() => {
@@ -422,7 +422,6 @@ function CommunityPageInner() {
         setBodyTab('write')
         setCommunitySearch('')
         setImageFile(null)
-        setImagePreview(null)
       }, 800)
     } catch {
       toastError('Failed to create post. Please try again.')
@@ -867,18 +866,16 @@ function CommunityPageInner() {
                               return
                             }
                             setImageFile(f)
-                            setImagePreview(URL.createObjectURL(f))
                           }
                         }}
                       />
                     </label>
-                    {imagePreview && imagePreview.startsWith('blob:') && (
+                    {imageFile && (
                       <div className="relative">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- blob URL from createObjectURL is safe */}
-                        <img src={imagePreview} alt="Preview" className="h-12 w-12 object-cover rounded border border-line-subtle" />
+                        <ImageFilePreview file={imageFile} size={48} className="rounded border border-line-subtle" />
                         <button
                           type="button"
-                          onClick={() => { setImageFile(null); setImagePreview(null) }}
+                          onClick={() => setImageFile(null)}
                           className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] flex items-center justify-center"
                         >
                           &times;

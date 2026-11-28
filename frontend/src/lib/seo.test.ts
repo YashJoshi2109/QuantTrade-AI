@@ -148,7 +148,7 @@ describe('sitemap', () => {
   it('lists only www URLs with real dates and no priority/changefreq', () => {
     const today = new Date().toISOString().slice(0, 10)
     for (const e of entries) {
-      expect(e.url.startsWith('https://www.quanttrade.us')).toBe(true)
+      expect(new URL(e.url).host).toBe('www.quanttrade.us')
       expect(String(e.lastModified)).toMatch(/^\d{4}-\d{2}-\d{2}$/)
       expect(String(e.lastModified) <= today).toBe(true)
       expect(e.priority).toBeUndefined()

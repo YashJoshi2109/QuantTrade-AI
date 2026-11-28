@@ -37,8 +37,9 @@ describe('JSON-LD', () => {
   it('uses the www host everywhere', () => {
     const s = JSON.stringify([organizationSchema, websiteSchema, webAppSchema, breadcrumbSchema([{ name: 'A', path: '/a' }])])
     for (const url of s.match(/https:\/\/[^"]+/g) ?? []) {
-      if (url.startsWith('https://schema.org') || url.startsWith('https://github.com')) continue
-      expect(url.startsWith('https://www.quanttrade.us')).toBe(true)
+      const host = new URL(url).host
+      if (host === 'schema.org' || host === 'github.com') continue
+      expect(host).toBe('www.quanttrade.us')
     }
   })
 
